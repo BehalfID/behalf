@@ -3,6 +3,8 @@ node_modules
 out
 .env
 .env*.local
+.env.*
 *.tsbuildinfo
 vercel.json
 npm-debug.log*
+.gitignore
