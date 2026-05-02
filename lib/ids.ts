@@ -1,6 +1,6 @@
 import crypto from "crypto";
 
-export function createPublicId(prefix: "agent" | "perm" | "log") {
+export function createPublicId(prefix: "acct" | "agent" | "perm" | "log" | "req") {
   return `${prefix}_${crypto.randomBytes(12).toString("base64url")}`;
 }
 

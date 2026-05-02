@@ -1,20 +1,35 @@
 # BehalfID Demo
 
-This smoke flow assumes the app is running locally and `jq` is installed.
+This demo assumes the app is running locally, connected to MongoDB, and `jq` is installed.
 
 ```bash
 export BASE_URL=http://localhost:3000
 ```
 
-You can run the complete scripted smoke test instead:
+## Scripted Smoke Test
 
 ```bash
 BASE_URL=http://localhost:3000 scripts/smoke-test.sh
 ```
 
-The app must be running and connected to MongoDB through `MONGODB_URI`. The script requires `jq`.
+The script creates an agent, creates a permission, verifies allowed and denied decisions, revokes the permission, rotates the key, confirms the old key fails, confirms the new key works, and reads logs. It redacts API keys before printing responses.
 
-## 1. Create Agent
+## Console Demo
+
+1. Set `BEHALFID_ADMIN_PASSWORD` in `.env.local`.
+2. Run `npm run dev`.
+3. Open `http://localhost:3000/console`.
+4. Login with the admin password.
+5. Create an agent and store the one-time API key.
+6. Open the agent detail page.
+7. Create a purchase permission with max amount `800`, allowed vendor `coachella.com`, and tomorrow's expiration.
+8. Rotate the API key and store the new one.
+9. Disable the agent, run a verify request, then enable it again.
+10. Review `/console/logs`.
+
+## Curl Demo
+
+### 1. Create Agent
 
 ```bash
 CREATE_RESPONSE=$(
@@ -28,7 +43,7 @@ export AGENT_ID=$(echo "$CREATE_RESPONSE" | jq -r '.agentId')
 export API_KEY=$(echo "$CREATE_RESPONSE" | jq -r '.apiKey')
 ```
 
-## 2. Create Permission
+### 2. Create Permission
 
 ```bash
 PERMISSION_RESPONSE=$(
@@ -38,10 +53,11 @@ PERMISSION_RESPONSE=$(
     -d "{
       \"agentId\": \"$AGENT_ID\",
       \"action\": \"purchase\",
+      \"description\": \"Festival purchase approval\",
       \"constraints\": {
         \"maxAmount\": 800,
         \"allowedVendors\": [\"coachella.com\"],
-        \"expiresAt\": \"2027-05-01T23:59:59Z\"
+        \"expiresAt\": \"2099-05-01T23:59:59Z\"
       }
     }"
 )
@@ -50,7 +66,7 @@ echo "$PERMISSION_RESPONSE" | jq
 export PERMISSION_ID=$(echo "$PERMISSION_RESPONSE" | jq -r '.permissionId')
 ```
 
-## 3. Verify Allowed Purchase
+### 3. Verify Allowed Purchase
 
 ```bash
 curl -s -X POST "$BASE_URL/api/verify" \
@@ -64,17 +80,7 @@ curl -s -X POST "$BASE_URL/api/verify" \
   }" | jq
 ```
 
-Expected:
-
-```json
-{
-  "allowed": true,
-  "reason": "Action allowed by active permission.",
-  "risk": "low"
-}
-```
-
-## 4. Verify Denied Purchase Because Amount Is Too High
+### 4. Verify Denied Amount
 
 ```bash
 curl -s -X POST "$BASE_URL/api/verify" \
@@ -88,7 +94,7 @@ curl -s -X POST "$BASE_URL/api/verify" \
   }" | jq
 ```
 
-## 5. Verify Denied Purchase Because Vendor Is Not Allowed
+### 5. Verify Denied Vendor
 
 ```bash
 curl -s -X POST "$BASE_URL/api/verify" \
@@ -102,14 +108,14 @@ curl -s -X POST "$BASE_URL/api/verify" \
   }" | jq
 ```
 
-## 6. Revoke Permission
+### 6. Revoke Permission
 
 ```bash
 curl -s -X POST "$BASE_URL/api/permissions/$PERMISSION_ID/revoke" \
   -H "Authorization: Bearer $API_KEY" | jq
 ```
 
-## 7. Verify Denied Purchase After Revocation
+### 7. Verify Denied After Revocation
 
 ```bash
 curl -s -X POST "$BASE_URL/api/verify" \
@@ -123,16 +129,7 @@ curl -s -X POST "$BASE_URL/api/verify" \
   }" | jq
 ```
 
-## 8. View Logs
-
-```bash
-curl -s "$BASE_URL/api/logs/$AGENT_ID" \
-  -H "Authorization: Bearer $API_KEY" | jq
-```
-
-Log entries include `permissionId` when a permission was evaluated, or `null` when no permission matched.
-
-## 9. Rotate API Key
+### 8. Rotate API Key
 
 ```bash
 ROTATE_RESPONSE=$(
@@ -144,14 +141,14 @@ echo "$ROTATE_RESPONSE" | jq 'del(.apiKey)'
 export NEW_API_KEY=$(echo "$ROTATE_RESPONSE" | jq -r '.apiKey')
 ```
 
-## 10. Confirm Old API Key Fails
+### 9. Confirm Old API Key Fails
 
 ```bash
 curl -s "$BASE_URL/api/logs/$AGENT_ID" \
   -H "Authorization: Bearer $API_KEY" | jq
 ```
 
-## 11. Confirm New API Key Works
+### 10. Confirm New API Key Works
 
 ```bash
 curl -s "$BASE_URL/api/logs/$AGENT_ID" \

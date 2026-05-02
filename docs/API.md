@@ -7,15 +7,13 @@ http://localhost:3000
 https://behalfid.vercel.app
 ```
 
-Protected endpoints require:
+Protected public endpoints require:
 
 ```txt
 Authorization: Bearer bhf_sk_xxx
 ```
 
-Protected endpoints are rate limited. The MVP limiter allows 60 requests per minute per source IP before authentication and 60 requests per minute per authenticated API key hash after authentication. It is in-memory only: Vercel/serverless instances do not share counters, counters reset on cold starts/redeploys, and production should replace this with Redis or Upstash.
-
-Errors use a consistent JSON shape:
+Errors use:
 
 ```json
 {
@@ -23,9 +21,11 @@ Errors use a consistent JSON shape:
 }
 ```
 
+Protected public endpoints are rate limited by IP before authentication and by API key hash after authentication. This limiter is in-memory only and should be replaced with Redis or Upstash in production.
+
 ## POST /api/agents
 
-Creates an agent and returns its API key one time.
+Creates an agent and returns its API key once.
 
 Request:
 
@@ -46,7 +46,7 @@ Response:
 
 ## POST /api/permissions
 
-Creates an active permission rule for an agent. Requires the same agent's API key.
+Creates an active permission rule for an agent. Requires that agent's API key.
 
 Request:
 
@@ -54,10 +54,11 @@ Request:
 {
   "agentId": "agent_xxx",
   "action": "purchase",
+  "description": "Festival purchase approval",
   "constraints": {
     "maxAmount": 800,
     "allowedVendors": ["coachella.com"],
-    "expiresAt": "2026-05-01T23:59:59Z"
+    "expiresAt": "2099-05-01T23:59:59Z"
   }
 }
 ```
@@ -71,16 +72,9 @@ Response:
 }
 ```
 
-Validation:
-
-- `agentId` and `action` are required.
-- `maxAmount` must be a non-negative number.
-- `allowedVendors` must be an array of non-empty strings.
-- `expiresAt` must be a valid future ISO date.
-
 ## POST /api/verify
 
-Checks whether an agent may perform an action. Requires the same agent's API key. Every verification decision is logged.
+Checks whether an agent may perform an action. Requires that agent's API key. Every authenticated verification decision is logged.
 
 Request:
 
@@ -97,6 +91,7 @@ Allowed response:
 
 ```json
 {
+  "requestId": "req_xxx",
   "allowed": true,
   "reason": "Action allowed by active permission.",
   "risk": "low"
@@ -107,6 +102,7 @@ Denied response:
 
 ```json
 {
+  "requestId": "req_xxx",
   "allowed": false,
   "reason": "Amount exceeds maxAmount constraint.",
   "risk": "high"
@@ -115,21 +111,24 @@ Denied response:
 
 Denial reasons include:
 
+- `Agent is disabled.`
 - `No active permission exists for this action.`
 - `Permission has been revoked.`
 - `Permission has expired.`
+- `amount is required for permissions with a maxAmount constraint.`
 - `Amount exceeds maxAmount constraint.`
 - `Vendor is not included in allowedVendors constraint.`
 
 ## GET /api/logs/[agentId]
 
-Returns the 50 most recent verification logs for an agent. Requires the same agent's API key.
+Returns the 50 most recent verification logs for an agent. Requires that agent's API key.
 
 Response:
 
 ```json
 [
   {
+    "requestId": "req_xxx",
     "agentId": "agent_xxx",
     "permissionId": "perm_xxx",
     "action": "purchase",
@@ -143,7 +142,7 @@ Response:
 ]
 ```
 
-If no permission matched a verification request, `permissionId` is `null`.
+If no permission matched, `permissionId` is `null`.
 
 ## POST /api/agents/[agentId]/rotate-key
 
@@ -170,27 +169,21 @@ Response:
 }
 ```
 
-Revocation is idempotent.
+## Console API
 
-## Security Review
+The console uses cookie auth, not agent bearer keys:
 
-Implemented:
+- `POST /api/console/login`
+- `POST /api/console/logout`
+- `GET /api/console/summary`
+- `GET|POST /api/console/agents`
+- `GET /api/console/agents/[agentId]`
+- `POST /api/console/agents/[agentId]/permissions`
+- `POST /api/console/agents/[agentId]/permissions/[permissionId]/revoke`
+- `POST /api/console/agents/[agentId]/rotate-key`
+- `POST /api/console/agents/[agentId]/disable`
+- `POST /api/console/agents/[agentId]/enable`
+- `GET /api/console/logs`
+- `GET /api/console/settings`
 
-- Plaintext API keys are never stored.
-- API keys are only returned at agent creation.
-- Protected endpoints require bearer API keys.
-- API key hashes are compared with `crypto.timingSafeEqual`.
-- Agent ownership is enforced before creating permissions, verifying actions, reading logs, or revoking permissions.
-- Request fields are whitelisted and nested constraints are validated.
-- Verification logs do not store API keys.
-- Verification logs are written for authenticated verification decisions, including denied decisions. Failed authentication attempts are not logged in verification logs.
-- API key rotation stores only the hash of the new key.
-- Rate limiting is applied to protected routes.
-
-Known limitations:
-
-- Rate limiting is in-memory only and not shared across serverless instances.
-- No per-user account model or organization model.
-- No API key naming or multiple active keys.
-- Permission matching currently uses the most recent matching action permission.
-- MongoDB credentials should be least-privilege in production.
+Console API routes are intended for the built-in prototype console, not third-party integrations.
