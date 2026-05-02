@@ -56,12 +56,43 @@ The console uses an HTTP-only signed cookie. The admin password is verified serv
 
 Public API docs are in [docs/API.md](docs/API.md). Demo commands are in [docs/DEMO.md](docs/DEMO.md).
 
+## JavaScript SDK
+
+```bash
+npm install @behalfid/sdk
+```
+
+### Example
+
+```js
+import { BehalfID } from "@behalfid/sdk";
+
+const behalf = new BehalfID({
+  apiKey: process.env.BEHALFID_API_KEY,
+  baseUrl: "https://behalfid.vercel.app"
+});
+
+const result = await behalf.verify({
+  agentId: "agent_xxx",
+  action: "purchase",
+  amount: 742,
+  vendor: "coachella.com"
+});
+
+if (!result.allowed) {
+  console.log(result.reason);
+}
+```
+
+Local SDK source lives in `packages/sdk`. A runnable Node example lives in `examples/node-demo`.
+
 ## Scripts
 
 ```bash
 npm run dev
 npm run lint
 npm run build
+npm run build:sdk
 bash -n scripts/smoke-test.sh
 BASE_URL=http://localhost:3000 scripts/smoke-test.sh
 BEHALFID_SETUP_TOKEN=replace-this-setup-token BASE_URL=http://localhost:3000 scripts/smoke-test.sh

@@ -229,3 +229,37 @@ The console uses cookie auth, not agent bearer keys:
 - `GET /api/console/settings`
 
 Console API routes are intended for the built-in prototype console, not third-party integrations.
+
+## JavaScript SDK
+
+The Node.js SDK wraps the public API with typed methods:
+
+```bash
+npm install @behalfid/sdk
+```
+
+```js
+import { BehalfID } from "@behalfid/sdk";
+
+const behalf = new BehalfID({
+  apiKey: process.env.BEHALFID_API_KEY,
+  baseUrl: "https://behalfid.vercel.app"
+});
+
+const result = await behalf.verify({
+  agentId: "agent_xxx",
+  action: "purchase",
+  amount: 742,
+  vendor: "coachella.com"
+});
+```
+
+Available methods:
+
+- `verify(input)`
+- `createAgent(name)`
+- `createPermission(input)`
+- `rotateKey(agentId)`
+- `getLogs(agentId)`
+
+When public agent creation is disabled, use a server-side `BEHALFID_SETUP_TOKEN` as the SDK `apiKey` only for provisioning with `createAgent`.
