@@ -4,6 +4,7 @@ const VerificationLogSchema = new Schema(
   {
     logId: { type: String, required: true, unique: true, index: true },
     agentId: { type: String, required: true, index: true },
+    permissionId: { type: String, default: null, index: true },
     action: { type: String, required: true, trim: true, maxlength: 80 },
     amount: { type: Number },
     vendor: { type: String, trim: true, maxlength: 200 },

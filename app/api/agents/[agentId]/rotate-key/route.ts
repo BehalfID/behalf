@@ -1,16 +1,17 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { authenticateAgent } from "@/lib/auth";
+import { authenticateAgent, hashApiKey } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/db";
+import { createApiKey } from "@/lib/ids";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { jsonError } from "@/lib/responses";
-import VerificationLog from "@/models/VerificationLog";
+import Agent from "@/models/Agent";
 
 type RouteContext = {
   params: Promise<{ agentId: string }>;
 };
 
-export async function GET(request: NextRequest, context: RouteContext) {
+export async function POST(request: NextRequest, context: RouteContext) {
   const { agentId } = await context.params;
   if (!agentId) {
     return jsonError("agentId is required.");
@@ -33,11 +34,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return rateLimitError();
   }
 
-  const logs = await VerificationLog.find({ agentId })
-    .sort({ createdAt: -1 })
-    .limit(50)
-    .select("-_id agentId permissionId action amount vendor allowed reason risk createdAt")
-    .lean();
+  const apiKey = createApiKey();
+  const result = await Agent.updateOne(
+    { agentId, apiKeyHash: auth.agent.apiKeyHash },
+    { $set: { apiKeyHash: hashApiKey(apiKey) } }
+  );
+  if (result.matchedCount !== 1) {
+    return jsonError("API key has already been rotated.", 409);
+  }
 
-  return NextResponse.json(logs);
+  return NextResponse.json({ agentId, apiKey });
 }

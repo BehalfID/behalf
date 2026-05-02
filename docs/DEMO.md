@@ -6,6 +6,14 @@ This smoke flow assumes the app is running locally and `jq` is installed.
 export BASE_URL=http://localhost:3000
 ```
 
+You can run the complete scripted smoke test instead:
+
+```bash
+BASE_URL=http://localhost:3000 scripts/smoke-test.sh
+```
+
+The app must be running and connected to MongoDB through `MONGODB_URI`. The script requires `jq`.
+
 ## 1. Create Agent
 
 ```bash
@@ -15,7 +23,7 @@ CREATE_RESPONSE=$(
     -d '{"name":"Jasper Shopping Agent"}'
 )
 
-echo "$CREATE_RESPONSE" | jq
+echo "$CREATE_RESPONSE" | jq 'del(.apiKey)'
 export AGENT_ID=$(echo "$CREATE_RESPONSE" | jq -r '.agentId')
 export API_KEY=$(echo "$CREATE_RESPONSE" | jq -r '.apiKey')
 ```
@@ -120,4 +128,32 @@ curl -s -X POST "$BASE_URL/api/verify" \
 ```bash
 curl -s "$BASE_URL/api/logs/$AGENT_ID" \
   -H "Authorization: Bearer $API_KEY" | jq
+```
+
+Log entries include `permissionId` when a permission was evaluated, or `null` when no permission matched.
+
+## 9. Rotate API Key
+
+```bash
+ROTATE_RESPONSE=$(
+  curl -s -X POST "$BASE_URL/api/agents/$AGENT_ID/rotate-key" \
+    -H "Authorization: Bearer $API_KEY"
+)
+
+echo "$ROTATE_RESPONSE" | jq 'del(.apiKey)'
+export NEW_API_KEY=$(echo "$ROTATE_RESPONSE" | jq -r '.apiKey')
+```
+
+## 10. Confirm Old API Key Fails
+
+```bash
+curl -s "$BASE_URL/api/logs/$AGENT_ID" \
+  -H "Authorization: Bearer $API_KEY" | jq
+```
+
+## 11. Confirm New API Key Works
+
+```bash
+curl -s "$BASE_URL/api/logs/$AGENT_ID" \
+  -H "Authorization: Bearer $NEW_API_KEY" | jq
 ```

@@ -92,6 +92,7 @@ export async function verifyAction(input: VerifyInput) {
   await VerificationLog.create({
     logId: createPublicId("log"),
     agentId: input.agentId,
+    permissionId: permission?.permissionId ?? null,
     action: input.action,
     amount: input.amount,
     vendor: input.vendor,

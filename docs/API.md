@@ -13,6 +13,8 @@ Protected endpoints require:
 Authorization: Bearer bhf_sk_xxx
 ```
 
+Protected endpoints are rate limited. The MVP limiter allows 60 requests per minute per source IP before authentication and 60 requests per minute per authenticated API key hash after authentication. It is in-memory only: Vercel/serverless instances do not share counters, counters reset on cold starts/redeploys, and production should replace this with Redis or Upstash.
+
 Errors use a consistent JSON shape:
 
 ```json
@@ -129,6 +131,7 @@ Response:
 [
   {
     "agentId": "agent_xxx",
+    "permissionId": "perm_xxx",
     "action": "purchase",
     "amount": 742,
     "vendor": "coachella.com",
@@ -138,6 +141,21 @@ Response:
     "createdAt": "2026-05-01T23:59:59.000Z"
   }
 ]
+```
+
+If no permission matched a verification request, `permissionId` is `null`.
+
+## POST /api/agents/[agentId]/rotate-key
+
+Rotates an agent API key. Requires the current API key for the same agent. The old key stops working immediately and the new key is returned once.
+
+Response:
+
+```json
+{
+  "agentId": "agent_xxx",
+  "apiKey": "bhf_sk_xxx"
+}
 ```
 
 ## POST /api/permissions/[permissionId]/revoke
@@ -165,11 +183,14 @@ Implemented:
 - Agent ownership is enforced before creating permissions, verifying actions, reading logs, or revoking permissions.
 - Request fields are whitelisted and nested constraints are validated.
 - Verification logs do not store API keys.
+- Verification logs are written for authenticated verification decisions, including denied decisions. Failed authentication attempts are not logged in verification logs.
+- API key rotation stores only the hash of the new key.
+- Rate limiting is applied to protected routes.
 
 Known limitations:
 
-- No rate limiting yet.
+- Rate limiting is in-memory only and not shared across serverless instances.
 - No per-user account model or organization model.
-- API key rotation is not implemented.
+- No API key naming or multiple active keys.
 - Permission matching currently uses the most recent matching action permission.
 - MongoDB credentials should be least-privilege in production.
