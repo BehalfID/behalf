@@ -55,7 +55,14 @@ export async function POST(request: NextRequest) {
     return rateLimitError();
   }
 
-  const decision = await verifyAction({ agentId, action, amount, vendor });
+  const decision = await verifyAction({
+    agentId,
+    accountId: auth.agent.accountId ?? undefined,
+    agentStatus: auth.agent.status,
+    action,
+    amount,
+    vendor
+  });
 
   return NextResponse.json(decision);
 }

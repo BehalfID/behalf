@@ -1,8 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { authenticateAgent } from "@/lib/auth";
-import { connectToDatabase } from "@/lib/db";
+import { requireConsoleApi } from "@/lib/adminAuth";
+import { getConsoleAccountId, getConsoleAgent } from "@/lib/consoleData";
 import { createPublicId } from "@/lib/ids";
-import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { jsonError } from "@/lib/responses";
 import {
   isRecord,
@@ -13,19 +12,23 @@ import {
 } from "@/lib/validation";
 import Permission from "@/models/Permission";
 
-export async function POST(request: NextRequest) {
-  const ipLimit = checkRateLimit(request);
-  if (ipLimit.limited) {
-    return rateLimitError();
+type RouteContext = {
+  params: Promise<{ agentId: string }>;
+};
+
+export async function POST(request: NextRequest, context: RouteContext) {
+  const authError = requireConsoleApi(request);
+  if (authError) {
+    return authError;
   }
 
+  const { agentId } = await context.params;
   const body: unknown = await request.json().catch(() => null);
   if (!isRecord(body)) {
     return jsonError("Request body must be a JSON object.");
   }
 
   const unknownError = rejectUnknownFields(body, [
-    "agentId",
     "action",
     "description",
     "constraints"
@@ -34,33 +37,15 @@ export async function POST(request: NextRequest) {
     return jsonError(unknownError);
   }
 
-  const agentId = readString(body.agentId);
   const action = readString(body.action);
   const description =
     body.description === undefined ? undefined : readString(body.description);
-
-  if (!agentId) {
-    return jsonError("agentId is required.");
-  }
-
   if (!action) {
     return jsonError("action is required.");
   }
 
   if (body.description !== undefined && !description) {
     return jsonError("description must be a non-empty string.");
-  }
-
-  await connectToDatabase();
-
-  const auth = await authenticateAgent(request, agentId);
-  if (auth.error || !auth.agent) {
-    return jsonError(auth.error, auth.error === "Unknown agent." ? 404 : 401);
-  }
-
-  const limit = checkRateLimit(request, auth.agent.apiKeyHash);
-  if (limit.limited) {
-    return rateLimitError();
   }
 
   const constraints = body.constraints === undefined ? {} : body.constraints;
@@ -105,11 +90,15 @@ export async function POST(request: NextRequest) {
     return jsonError("expiresAt must be in the future.");
   }
 
-  const permissionId = createPublicId("perm");
+  const accountId = await getConsoleAccountId();
+  const agent = await getConsoleAgent(agentId, accountId);
+  if (!agent) {
+    return jsonError("Agent not found.", 404);
+  }
 
-  await Permission.create({
-    permissionId,
-    accountId: auth.agent.accountId,
+  const permission = await Permission.create({
+    permissionId: createPublicId("perm"),
+    accountId,
     agentId,
     action,
     description,
@@ -121,5 +110,11 @@ export async function POST(request: NextRequest) {
     status: "active"
   });
 
-  return NextResponse.json({ permissionId, status: "active" }, { status: 201 });
+  return NextResponse.json(
+    {
+      permissionId: permission.permissionId,
+      status: permission.status
+    },
+    { status: 201 }
+  );
 }

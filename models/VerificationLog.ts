@@ -3,6 +3,8 @@ import mongoose, { Schema, type InferSchemaType, type Model } from "mongoose";
 const VerificationLogSchema = new Schema(
   {
     logId: { type: String, required: true, unique: true, index: true },
+    requestId: { type: String, required: true, unique: true, index: true },
+    accountId: { type: String, index: true },
     agentId: { type: String, required: true, index: true },
     permissionId: { type: String, default: null, index: true },
     action: { type: String, required: true, trim: true, maxlength: 80 },
@@ -10,12 +12,13 @@ const VerificationLogSchema = new Schema(
     vendor: { type: String, trim: true, maxlength: 200 },
     allowed: { type: Boolean, required: true },
     reason: { type: String, required: true },
-    risk: { type: String, enum: ["low", "medium", "high"], required: true }
+    risk: { type: String, enum: ["low", "medium", "high"], required: true },
+    metadata: { type: Schema.Types.Mixed, default: undefined }
   },
   { timestamps: true }
 );
 
-VerificationLogSchema.index({ agentId: 1, createdAt: -1 });
+VerificationLogSchema.index({ accountId: 1, agentId: 1, createdAt: -1 });
 
 export type VerificationLogDocument = InferSchemaType<typeof VerificationLogSchema> & {
   _id: mongoose.Types.ObjectId;

@@ -114,6 +114,7 @@ ALLOWED_RESPONSE=$(
 )
 print_json_response "$ALLOWED_RESPONSE" "verify allowed purchase"
 expect_json_value "$ALLOWED_RESPONSE" ".allowed" "true"
+require_json_field "$ALLOWED_RESPONSE" ".requestId" "allowed requestId" >/dev/null
 
 step "4. Verify denied amount"
 DENIED_AMOUNT_RESPONSE=$(
@@ -126,6 +127,7 @@ DENIED_AMOUNT_RESPONSE=$(
 )
 print_json_response "$DENIED_AMOUNT_RESPONSE" "verify denied amount"
 expect_json_value "$DENIED_AMOUNT_RESPONSE" ".allowed" "false"
+require_json_field "$DENIED_AMOUNT_RESPONSE" ".requestId" "denied amount requestId" >/dev/null
 
 step "5. Verify denied vendor"
 DENIED_VENDOR_RESPONSE=$(
@@ -138,6 +140,7 @@ DENIED_VENDOR_RESPONSE=$(
 )
 print_json_response "$DENIED_VENDOR_RESPONSE" "verify denied vendor"
 expect_json_value "$DENIED_VENDOR_RESPONSE" ".allowed" "false"
+require_json_field "$DENIED_VENDOR_RESPONSE" ".requestId" "denied vendor requestId" >/dev/null
 
 step "6. Revoke permission"
 REVOKE_RESPONSE=$(
@@ -158,6 +161,7 @@ DENIED_REVOKE_RESPONSE=$(
 )
 print_json_response "$DENIED_REVOKE_RESPONSE" "verify denied after revoke"
 expect_json_value "$DENIED_REVOKE_RESPONSE" ".allowed" "false"
+require_json_field "$DENIED_REVOKE_RESPONSE" ".requestId" "denied revoke requestId" >/dev/null
 
 step "8. Rotate API key"
 ROTATE_RESPONSE=$(
@@ -189,5 +193,6 @@ LOGS_RESPONSE=$(
     -H "Authorization: Bearer $NEW_API_KEY"
 )
 print_json_response "$LOGS_RESPONSE" "view logs"
+expect_json_value "$LOGS_RESPONSE" "type" "array"
 
 printf "\nSmoke test passed for %s\n" "$BASE_URL"

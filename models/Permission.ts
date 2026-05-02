@@ -3,8 +3,10 @@ import mongoose, { Schema, type InferSchemaType, type Model } from "mongoose";
 const PermissionSchema = new Schema(
   {
     permissionId: { type: String, required: true, unique: true, index: true },
+    accountId: { type: String, index: true },
     agentId: { type: String, required: true, index: true },
     action: { type: String, required: true, trim: true, maxlength: 80, index: true },
+    description: { type: String, trim: true, maxlength: 240 },
     constraints: {
       maxAmount: { type: Number, min: 0 },
       allowedVendors: [{ type: String, trim: true, maxlength: 200 }],
@@ -15,12 +17,13 @@ const PermissionSchema = new Schema(
       enum: ["active", "revoked"],
       default: "active",
       index: true
-    }
+    },
+    lastUsedAt: { type: Date }
   },
   { timestamps: true }
 );
 
-PermissionSchema.index({ agentId: 1, action: 1, status: 1 });
+PermissionSchema.index({ accountId: 1, agentId: 1, action: 1, status: 1 });
 
 export type PermissionDocument = InferSchemaType<typeof PermissionSchema> & {
   _id: mongoose.Types.ObjectId;

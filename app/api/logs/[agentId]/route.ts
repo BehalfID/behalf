@@ -36,7 +36,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const logs = await VerificationLog.find({ agentId })
     .sort({ createdAt: -1 })
     .limit(50)
-    .select("-_id agentId permissionId action amount vendor allowed reason risk createdAt")
+    .select(
+      "-_id requestId agentId permissionId action amount vendor allowed reason risk createdAt"
+    )
     .lean();
 
   return NextResponse.json(logs);
