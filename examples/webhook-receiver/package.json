@@ -1,0 +1,15 @@
+{
+  "name": "behalfid-webhook-receiver",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@behalfid/sdk": "file:../../packages/sdk"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

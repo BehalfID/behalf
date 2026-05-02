@@ -227,8 +227,16 @@ The console uses cookie auth, not agent bearer keys:
 - `POST /api/console/agents/[agentId]/enable`
 - `GET /api/console/logs`
 - `GET /api/console/settings`
+- `GET|POST /api/console/webhooks`
+- `GET /api/console/webhooks/[webhookId]`
+- `POST /api/console/webhooks/[webhookId]/disable`
+- `POST /api/console/webhooks/[webhookId]/enable`
+- `POST /api/console/webhooks/[webhookId]/rotate-secret`
+- `GET /api/console/webhooks/[webhookId]/deliveries`
 
 Console API routes are intended for the built-in prototype console, not third-party integrations.
+
+See [WEBHOOKS.md](WEBHOOKS.md) for event payloads and signature verification.
 
 ## JavaScript SDK
 
@@ -261,5 +269,6 @@ Available methods:
 - `createPermission(input)`
 - `rotateKey(agentId)`
 - `getLogs(agentId)`
+- `verifyWebhookSignature(input)`
 
 When public agent creation is disabled, use a server-side `BEHALFID_SETUP_TOKEN` as the SDK `apiKey` only for provisioning with `createAgent`.

@@ -5,6 +5,7 @@ import { getConsoleAccountId, serializeAgent } from "@/lib/consoleData";
 import { createApiKey, createPublicId } from "@/lib/ids";
 import { jsonError } from "@/lib/responses";
 import { isRecord, readString, rejectUnknownFields } from "@/lib/validation";
+import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
 import Agent from "@/models/Agent";
 
 export async function GET(request: NextRequest) {
@@ -53,6 +54,13 @@ export async function POST(request: NextRequest) {
     apiKeyHash: hashApiKey(apiKey),
     status: "active"
   });
+
+  emitWebhookEvent(
+    createWebhookEvent(accountId, "agent.created", {
+      agentId,
+      name
+    })
+  );
 
   return NextResponse.json(
     {

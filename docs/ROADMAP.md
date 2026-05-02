@@ -4,6 +4,8 @@
 
 - Persistent rate-limit analytics and alerting on top of Upstash Redis.
 - Admin action audit logs, including setup-token use.
+- Webhook retry policy, exponential backoff, and dead-letter queue.
+- Webhook replay from delivery logs.
 - Public creation controls per environment.
 - Real developer accounts and organizations.
 - Named API keys with creation history and last-used metadata.

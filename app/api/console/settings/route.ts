@@ -49,7 +49,8 @@ export async function GET(request: NextRequest) {
       "Console uses one admin password for prototype deployments.",
       "Rate limits should use Redis or Upstash in production.",
       "Public API keys are shown only at creation or rotation.",
-      "No user accounts, organizations, OAuth, payments, or webhooks yet."
+      "Webhook delivery is one attempt only and should move to a durable queue.",
+      "No user accounts, organizations, OAuth, or payments yet."
     ]
   });
 }

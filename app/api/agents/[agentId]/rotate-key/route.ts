@@ -5,6 +5,7 @@ import { connectToDatabase } from "@/lib/db";
 import { createApiKey } from "@/lib/ids";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { jsonError } from "@/lib/responses";
+import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
 import Agent from "@/models/Agent";
 
 type RouteContext = {
@@ -42,6 +43,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (result.matchedCount !== 1) {
     return jsonError("API key has already been rotated.", 409);
   }
+
+  emitWebhookEvent(
+    createWebhookEvent(auth.agent.accountId, "agent.key_rotated", {
+      agentId
+    })
+  );
 
   return NextResponse.json({ agentId, apiKey });
 }

@@ -5,6 +5,7 @@ import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { jsonError } from "@/lib/responses";
 import { isRecord, parseOptionalAmount, readString, rejectUnknownFields } from "@/lib/validation";
 import { verifyAction } from "@/lib/verify";
+import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
 
 export async function POST(request: NextRequest) {
   const ipLimit = await checkRateLimit(request);
@@ -78,5 +79,25 @@ export async function POST(request: NextRequest) {
     metadata: body.metadata
   });
 
-  return NextResponse.json(decision);
+  emitWebhookEvent(
+    createWebhookEvent(
+      auth.agent.accountId,
+      decision.allowed ? "verification.allowed" : "verification.denied",
+      {
+        requestId: decision.requestId,
+        agentId,
+        action,
+        allowed: decision.allowed,
+        risk: decision.risk,
+        permissionId: decision.permissionId
+      }
+    )
+  );
+
+  return NextResponse.json({
+    requestId: decision.requestId,
+    allowed: decision.allowed,
+    reason: decision.reason,
+    risk: decision.risk
+  });
 }

@@ -60,6 +60,30 @@ Expected output:
 
 The demo does not print API keys.
 
+## Webhook Receiver Demo
+
+Build the SDK and run the receiver:
+
+```bash
+npm --prefix packages/sdk run build
+npm --prefix examples/webhook-receiver install
+BEHALFID_WEBHOOK_SECRET=whsec_xxx npm --prefix examples/webhook-receiver start
+```
+
+Create a webhook in `/console/webhooks` using the displayed one-time secret and URL:
+
+```txt
+http://localhost:4000
+```
+
+Trigger a verification event. Expected receiver output:
+
+```txt
+Received verification.allowed (evt_xxx)
+```
+
+The receiver verifies the raw request body and does not log secrets.
+
 ## Curl Demo
 
 ### 1. Create Agent

@@ -388,7 +388,8 @@ a {
 }
 
 .console-status--active,
-.console-status--allowed {
+.console-status--allowed,
+.console-status--success {
   color: #9cf6d2;
   background: rgba(114, 240, 193, 0.1);
   border-color: rgba(114, 240, 193, 0.25);
@@ -397,7 +398,8 @@ a {
 .console-status--disabled,
 .console-status--revoked,
 .console-status--denied,
-.console-status--error {
+.console-status--error,
+.console-status--failed {
   color: #ffb4ae;
   background: rgba(255, 92, 92, 0.1);
   border-color: rgba(255, 92, 92, 0.24);
@@ -416,6 +418,21 @@ a {
   display: grid;
   gap: 16px;
   padding: 18px;
+}
+
+.console-fieldset {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.console-fieldset legend {
+  margin-bottom: 2px;
+  color: #aeb5c0;
+  font-size: 0.86rem;
+  font-weight: 650;
 }
 
 .console-panel label,

@@ -39,7 +39,23 @@ if (result.allowed) {
 - `createPermission(input)`
 - `rotateKey(agentId)`
 - `getLogs(agentId)`
+- `verifyWebhookSignature(input)`
 
 `createAgent` uses the configured `apiKey` as a bearer token. When public agent creation is disabled, pass a server-side `BEHALFID_SETUP_TOKEN` as the SDK `apiKey` for provisioning.
 
 Do not log API keys. Created and rotated API keys are returned once by the BehalfID API.
+
+## Verify Webhooks
+
+```js
+import { verifyWebhookSignature } from "@behalfid/sdk";
+
+const valid = await verifyWebhookSignature({
+  secret: process.env.BEHALFID_WEBHOOK_SECRET,
+  payload: rawBody,
+  timestamp: req.headers["behalfid-timestamp"],
+  signature: req.headers["behalfid-signature"]
+});
+```
+
+Use the raw request body exactly as received. Do not log webhook secrets.

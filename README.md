@@ -86,6 +86,16 @@ if (!result.allowed) {
 
 Local SDK source lives in `packages/sdk`. A runnable Node example lives in `examples/node-demo`.
 
+## Webhooks
+
+BehalfID can send signed events for verification decisions, agent changes, and permission changes.
+
+- Manage endpoints in `/console/webhooks`.
+- Verify signatures with `verifyWebhookSignature` from `@behalfid/sdk`.
+- Run the example receiver in `examples/webhook-receiver`.
+
+See [docs/WEBHOOKS.md](docs/WEBHOOKS.md).
+
 ## Scripts
 
 ```bash

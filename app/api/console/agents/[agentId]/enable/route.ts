@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireConsoleApi } from "@/lib/adminAuth";
 import { getConsoleAccountId } from "@/lib/consoleData";
 import { jsonError } from "@/lib/responses";
+import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
 import Agent from "@/models/Agent";
 
 type RouteContext = {
@@ -20,6 +21,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (result.matchedCount !== 1) {
     return jsonError("Agent not found.", 404);
   }
+
+  emitWebhookEvent(createWebhookEvent(accountId, "agent.enabled", { agentId }));
 
   return NextResponse.json({ enabled: true });
 }
