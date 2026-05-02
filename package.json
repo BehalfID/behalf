@@ -3,7 +3,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "build:sdk": "npm --prefix packages/sdk run build"
   },
   "dependencies": {
     "mongoose": "^9.6.1",
