@@ -12,7 +12,13 @@ export BASE_URL=http://localhost:3000
 BASE_URL=http://localhost:3000 scripts/smoke-test.sh
 ```
 
-The script creates an agent, creates a permission, verifies allowed and denied decisions, revokes the permission, rotates the key, confirms the old key fails, confirms the new key works, and reads logs. It redacts API keys before printing responses.
+If public agent creation is disabled, pass the setup token:
+
+```bash
+BEHALFID_SETUP_TOKEN=replace-this-setup-token BASE_URL=http://localhost:3000 scripts/smoke-test.sh
+```
+
+The script checks `/api/health`, checks `/api/health/db` when a setup token is provided, creates an agent, creates a permission, verifies allowed and denied decisions, revokes the permission, rotates the key, confirms the old key fails, confirms the new key works, and reads logs. It redacts API keys before printing responses.
 
 ## Console Demo
 
@@ -35,6 +41,7 @@ The script creates an agent, creates a permission, verifies allowed and denied d
 CREATE_RESPONSE=$(
   curl -s -X POST "$BASE_URL/api/agents" \
     -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $BEHALFID_SETUP_TOKEN" \
     -d '{"name":"Jasper Shopping Agent"}'
 )
 

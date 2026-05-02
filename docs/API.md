@@ -21,11 +21,17 @@ Errors use:
 }
 ```
 
-Protected public endpoints are rate limited by IP before authentication and by API key hash after authentication. This limiter is in-memory only and should be replaced with Redis or Upstash in production.
+Protected public endpoints are rate limited by IP before authentication and by API key hash after authentication. Rate limiting uses Upstash Redis when `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are configured; otherwise it falls back to in-memory mode.
 
 ## POST /api/agents
 
 Creates an agent and returns its API key once.
+
+By default, anonymous public agent creation is disabled. To allow anonymous prototype creation, set `BEHALFID_PUBLIC_AGENT_CREATION=true`. Otherwise this endpoint requires either a console session cookie or:
+
+```txt
+Authorization: Bearer <BEHALFID_SETUP_TOKEN>
+```
 
 Request:
 
@@ -83,9 +89,14 @@ Request:
   "agentId": "agent_xxx",
   "action": "purchase",
   "amount": 742,
-  "vendor": "coachella.com"
+  "vendor": "coachella.com",
+  "metadata": {
+    "cartId": "optional-client-reference"
+  }
 }
 ```
+
+Optional `metadata` must be an object under 2KB. It is only persisted when `BEHALFID_LOG_METADATA` is not `false`. Required log fields, including `action`, `amount`, and `vendor`, are always stored and may still be sensitive.
 
 Allowed response:
 
@@ -143,6 +154,37 @@ Response:
 ```
 
 If no permission matched, `permissionId` is `null`.
+
+## GET /api/health
+
+Public liveness check. It does not reveal secrets.
+
+Response:
+
+```json
+{
+  "status": "ok",
+  "timestamp": "2026-05-02T00:00:00.000Z",
+  "environment": "production"
+}
+```
+
+## GET /api/health/db
+
+Protected database health check. Requires console auth or:
+
+```txt
+Authorization: Bearer <BEHALFID_SETUP_TOKEN>
+```
+
+Response:
+
+```json
+{
+  "status": "ok",
+  "database": "connected"
+}
+```
 
 ## POST /api/agents/[agentId]/rotate-key
 

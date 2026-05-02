@@ -14,7 +14,7 @@ import {
 import Permission from "@/models/Permission";
 
 export async function POST(request: NextRequest) {
-  const ipLimit = checkRateLimit(request);
+  const ipLimit = await checkRateLimit(request);
   if (ipLimit.limited) {
     return rateLimitError();
   }
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     return jsonError(auth.error, auth.error === "Unknown agent." ? 404 : 401);
   }
 
-  const limit = checkRateLimit(request, auth.agent.apiKeyHash);
+  const limit = await checkRateLimit(request, auth.agent.apiKeyHash);
   if (limit.limited) {
     return rateLimitError();
   }

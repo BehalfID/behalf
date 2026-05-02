@@ -10,6 +10,7 @@ type VerifyInput = {
   action: string;
   amount?: number;
   vendor?: string;
+  metadata?: Record<string, unknown>;
 };
 
 type VerificationDecision = {
@@ -114,6 +115,9 @@ export async function verifyAction(input: VerifyInput) {
     );
   }
 
+  const logMetadata =
+    process.env.BEHALFID_LOG_METADATA === "false" ? undefined : input.metadata;
+
   await VerificationLog.create({
     logId: createPublicId("log"),
     requestId,
@@ -125,7 +129,8 @@ export async function verifyAction(input: VerifyInput) {
     vendor: input.vendor,
     allowed: decision.allowed,
     reason: decision.reason,
-    risk: decision.risk
+    risk: decision.risk,
+    metadata: logMetadata
   });
 
   return { requestId, ...decision };

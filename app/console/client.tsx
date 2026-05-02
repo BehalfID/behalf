@@ -58,8 +58,14 @@ type AgentsResponse = { agents: Agent[] };
 type LogsResponse = { logs: VerificationLog[] };
 type Settings = {
   appUrl: string;
+  environment: string;
+  mongoConfigured: boolean;
   mongoStatus: string;
-  rateLimiting: string;
+  publicAgentCreation: string;
+  setupTokenConfigured: boolean;
+  rateLimitMode: string;
+  metadataLogging: string;
+  securityWarnings: string[];
   limitations: string[];
 };
 
@@ -535,9 +541,22 @@ function SettingsView() {
           <section className="console-settings">
             <dl className="console-definition">
               <div><dt>App URL</dt><dd>{data.appUrl}</dd></div>
-              <div><dt>MongoDB</dt><dd>{data.mongoStatus}</dd></div>
-              <div><dt>Rate limiting</dt><dd>{data.rateLimiting}</dd></div>
+              <div><dt>Environment</dt><dd>{data.environment}</dd></div>
+              <div><dt>MongoDB configured</dt><dd>{data.mongoConfigured ? "yes" : "no"}</dd></div>
+              <div><dt>DB health</dt><dd>{data.mongoStatus}</dd></div>
+              <div><dt>Public creation</dt><dd>{data.publicAgentCreation}</dd></div>
+              <div><dt>Setup token</dt><dd>{data.setupTokenConfigured ? "configured" : "not configured"}</dd></div>
+              <div><dt>Rate limit mode</dt><dd>{data.rateLimitMode}</dd></div>
+              <div><dt>Metadata logging</dt><dd>{data.metadataLogging}</dd></div>
             </dl>
+            {data.securityWarnings.length ? (
+              <>
+                <SectionTitle title="Security warnings" />
+                <ul className="console-bullets">
+                  {data.securityWarnings.map((item) => <li key={item}>{item}</li>)}
+                </ul>
+              </>
+            ) : null}
             <SectionTitle title="Known limitations" />
             <ul className="console-bullets">
               {data.limitations.map((item) => <li key={item}>{item}</li>)}

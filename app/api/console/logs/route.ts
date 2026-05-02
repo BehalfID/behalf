@@ -4,7 +4,7 @@ import { getConsoleAccountId } from "@/lib/consoleData";
 import VerificationLog from "@/models/VerificationLog";
 
 export async function GET(request: NextRequest) {
-  const authError = requireConsoleApi(request);
+  const authError = await requireConsoleApi(request);
   if (authError) {
     return authError;
   }
