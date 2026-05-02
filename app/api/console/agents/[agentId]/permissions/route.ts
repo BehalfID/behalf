@@ -10,6 +10,7 @@ import {
   readString,
   rejectUnknownFields
 } from "@/lib/validation";
+import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
 import Permission from "@/models/Permission";
 
 type RouteContext = {
@@ -109,6 +110,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
     },
     status: "active"
   });
+
+  emitWebhookEvent(
+    createWebhookEvent(accountId, "permission.created", {
+      permissionId: permission.permissionId,
+      agentId,
+      action
+    })
+  );
 
   return NextResponse.json(
     {

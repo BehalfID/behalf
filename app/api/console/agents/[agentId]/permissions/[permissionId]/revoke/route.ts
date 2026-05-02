@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireConsoleApi } from "@/lib/adminAuth";
 import { getConsoleAccountId } from "@/lib/consoleData";
 import { jsonError } from "@/lib/responses";
+import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
 import Permission from "@/models/Permission";
 
 type RouteContext = {
@@ -25,6 +26,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
     permission.status = "revoked";
     await permission.save();
   }
+
+  emitWebhookEvent(
+    createWebhookEvent(accountId, "permission.revoked", {
+      permissionId,
+      agentId,
+      action: permission.action
+    })
+  );
 
   return NextResponse.json({ revoked: true });
 }

@@ -1,4 +1,5 @@
 export { BehalfID } from "./client.js";
+export { verifyWebhookSignature } from "./webhooks.js";
 export type {
   BehalfIDConfig,
   CreateAgentResult,
@@ -9,5 +10,6 @@ export type {
   RotateKeyResult,
   VerificationLog,
   VerifyInput,
-  VerifyResult
+  VerifyResult,
+  VerifyWebhookSignatureInput
 } from "./types.js";

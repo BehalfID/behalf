@@ -4,6 +4,7 @@ import { authenticateApiKey } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/db";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { jsonError } from "@/lib/responses";
+import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
 import Permission from "@/models/Permission";
 
 type RouteContext = {
@@ -45,6 +46,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
     permission.status = "revoked";
     await permission.save();
   }
+
+  emitWebhookEvent(
+    createWebhookEvent(auth.agent.accountId, "permission.revoked", {
+      permissionId,
+      agentId: auth.agent.agentId,
+      action: permission.action
+    })
+  );
 
   return NextResponse.json({ revoked: true });
 }

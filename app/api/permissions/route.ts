@@ -11,6 +11,7 @@ import {
   readString,
   rejectUnknownFields
 } from "@/lib/validation";
+import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
 import Permission from "@/models/Permission";
 
 export async function POST(request: NextRequest) {
@@ -120,6 +121,14 @@ export async function POST(request: NextRequest) {
     },
     status: "active"
   });
+
+  emitWebhookEvent(
+    createWebhookEvent(auth.agent.accountId, "permission.created", {
+      permissionId,
+      agentId,
+      action
+    })
+  );
 
   return NextResponse.json({ permissionId, status: "active" }, { status: 201 });
 }

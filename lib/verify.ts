@@ -133,5 +133,5 @@ export async function verifyAction(input: VerifyInput) {
     metadata: logMetadata
   });
 
-  return { requestId, ...decision };
+  return { requestId, permissionId: permission?.permissionId ?? null, ...decision };
 }

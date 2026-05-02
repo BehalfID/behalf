@@ -69,11 +69,44 @@ type Settings = {
   limitations: string[];
 };
 
+type Webhook = {
+  webhookId: string;
+  url: string;
+  secretPreview: string;
+  events: string[];
+  status: "active" | "disabled";
+  lastTriggeredAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+type WebhookDelivery = {
+  deliveryId: string;
+  eventId: string;
+  eventType: string;
+  status: "success" | "failed";
+  httpStatus?: number;
+  error?: string;
+  attempt: number;
+  createdAt?: string;
+};
+
+type WebhooksResponse = {
+  webhooks: Webhook[];
+  eventTypes: string[];
+};
+
+type WebhookDetail = {
+  webhook: Webhook;
+  deliveries: WebhookDelivery[];
+};
+
 type ApiError = Error & { status?: number };
 
 const navItems = [
   { href: "/console", label: "Dashboard" },
   { href: "/console/agents", label: "Agents" },
+  { href: "/console/webhooks", label: "Webhooks" },
   { href: "/console/logs", label: "Logs" },
   { href: "/console/settings", label: "Settings" }
 ];
@@ -178,13 +211,22 @@ export function LoginPage() {
   );
 }
 
-export function ConsolePage({ view }: { view: "dashboard" | "agents" | "logs" | "settings" }) {
+export function ConsolePage({ view }: { view: "dashboard" | "agents" | "webhooks" | "logs" | "settings" }) {
   return (
     <ConsoleFrame>
       {view === "dashboard" ? <DashboardView /> : null}
       {view === "agents" ? <AgentsView /> : null}
+      {view === "webhooks" ? <WebhooksView /> : null}
       {view === "logs" ? <LogsView /> : null}
       {view === "settings" ? <SettingsView /> : null}
+    </ConsoleFrame>
+  );
+}
+
+export function WebhookDetailPage({ webhookId }: { webhookId: string }) {
+  return (
+    <ConsoleFrame>
+      <WebhookDetailView webhookId={webhookId} />
     </ConsoleFrame>
   );
 }
@@ -530,6 +572,131 @@ function LogsView() {
   );
 }
 
+function WebhooksView() {
+  const webhooks = useApiResource<WebhooksResponse>("/api/console/webhooks");
+  const [url, setUrl] = useState("");
+  const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
+  const [oneTimeSecret, setOneTimeSecret] = useState("");
+
+  const createWebhook = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const result = await apiFetch<{ webhook: Webhook; secret: string }>("/api/console/webhooks", {
+      method: "POST",
+      body: JSON.stringify({ url, events: selectedEvents })
+    });
+    setOneTimeSecret(result.secret);
+    setUrl("");
+    setSelectedEvents([]);
+    await webhooks.reload();
+  };
+
+  return (
+    <ResourceState resource={webhooks}>
+      {(data) => (
+        <>
+          <Header title="Webhooks" />
+          <section className="console-split">
+            <div>
+              <SectionTitle title="Endpoints" />
+              <WebhookList webhooks={data.webhooks} />
+            </div>
+            <form className="console-panel" onSubmit={createWebhook}>
+              <SectionTitle title="Create endpoint" />
+              <label>
+                <span>URL</span>
+                <input onChange={(event) => setUrl(event.target.value)} placeholder="https://example.com/webhooks/behalfid" required type="url" value={url} />
+              </label>
+              <fieldset className="console-fieldset">
+                <legend>Events</legend>
+                {data.eventTypes.map((eventType) => (
+                  <label className="console-check" key={eventType}>
+                    <input
+                      checked={selectedEvents.includes(eventType)}
+                      onChange={(event) => {
+                        setSelectedEvents((current) =>
+                          event.target.checked
+                            ? [...current, eventType]
+                            : current.filter((item) => item !== eventType)
+                        );
+                      }}
+                      type="checkbox"
+                    />
+                    <span>{eventType}</span>
+                  </label>
+                ))}
+              </fieldset>
+              <button className="console-primary-button" type="submit">Create webhook</button>
+              {oneTimeSecret ? <SecretBox label="Signing secret" value={oneTimeSecret} /> : null}
+            </form>
+          </section>
+        </>
+      )}
+    </ResourceState>
+  );
+}
+
+function WebhookDetailView({ webhookId }: { webhookId: string }) {
+  const detail = useApiResource<WebhookDetail>(`/api/console/webhooks/${webhookId}`);
+  const [oneTimeSecret, setOneTimeSecret] = useState("");
+
+  const setStatus = async (status: "enable" | "disable") => {
+    await apiFetch(`/api/console/webhooks/${webhookId}/${status}`, { method: "POST" });
+    await detail.reload();
+  };
+
+  const rotateSecret = async () => {
+    const result = await apiFetch<{ webhookId: string; secret: string }>(
+      `/api/console/webhooks/${webhookId}/rotate-secret`,
+      { method: "POST" }
+    );
+    setOneTimeSecret(result.secret);
+    await detail.reload();
+  };
+
+  return (
+    <ResourceState resource={detail}>
+      {(data) => (
+        <>
+          <Header
+            title="Webhook"
+            action={
+              <div className="console-actions">
+                <button className="console-ghost-button" onClick={rotateSecret} type="button">Rotate secret</button>
+                {data.webhook.status === "disabled" ? (
+                  <button className="console-primary-button" onClick={() => setStatus("enable")} type="button">Enable</button>
+                ) : (
+                  <button className="console-danger-button" onClick={() => setStatus("disable")} type="button">Disable</button>
+                )}
+              </div>
+            }
+          />
+          <section className="console-detail">
+            <div className="console-panel">
+              <SectionTitle title="Endpoint" />
+              <dl className="console-definition">
+                <div><dt>Webhook ID</dt><dd>{data.webhook.webhookId}</dd></div>
+                <div><dt>URL</dt><dd>{data.webhook.url}</dd></div>
+                <div><dt>Status</dt><dd><span className={statusClass(data.webhook.status)}>{data.webhook.status}</span></dd></div>
+                <div><dt>Secret</dt><dd>{data.webhook.secretPreview}</dd></div>
+                <div><dt>Last triggered</dt><dd>{formatDate(data.webhook.lastTriggeredAt)}</dd></div>
+              </dl>
+              {oneTimeSecret ? <SecretBox label="Rotated signing secret" value={oneTimeSecret} /> : null}
+            </div>
+            <div className="console-panel">
+              <SectionTitle title="Subscribed events" />
+              <ul className="console-bullets">
+                {data.webhook.events.map((eventType) => <li key={eventType}>{eventType}</li>)}
+              </ul>
+            </div>
+          </section>
+          <SectionTitle title="Recent deliveries" />
+          <DeliveryList deliveries={data.deliveries} />
+        </>
+      )}
+    </ResourceState>
+  );
+}
+
 function SettingsView() {
   const settings = useApiResource<Settings>("/api/console/settings");
 
@@ -606,6 +773,42 @@ function AgentTable({ agents }: { agents: Agent[] }) {
           <span className={statusClass(agent.status)}>{agent.status}</span>
           <span>{formatDate(agent.updatedAt)}</span>
         </Link>
+      ))}
+    </div>
+  );
+}
+
+function WebhookList({ webhooks }: { webhooks: Webhook[] }) {
+  if (!webhooks.length) return <div className="console-empty">No webhooks configured.</div>;
+  return (
+    <div className="console-table">
+      {webhooks.map((webhook) => (
+        <Link className="console-row" href={`/console/webhooks/${webhook.webhookId}`} key={webhook.webhookId}>
+          <span>
+            <strong>{webhook.url}</strong>
+            <small>{webhook.events.join(", ")}</small>
+          </span>
+          <span className={statusClass(webhook.status)}>{webhook.status}</span>
+          <span>{formatDate(webhook.lastTriggeredAt)}</span>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+function DeliveryList({ deliveries }: { deliveries: WebhookDelivery[] }) {
+  if (!deliveries.length) return <div className="console-empty">No delivery attempts yet.</div>;
+  return (
+    <div className="console-list">
+      {deliveries.map((delivery) => (
+        <div className="console-list__item" key={delivery.deliveryId}>
+          <span>
+            <strong>{delivery.eventType}</strong>
+            <small>{delivery.eventId}{delivery.error ? ` / ${delivery.error}` : ""}</small>
+          </span>
+          <span className={statusClass(delivery.status)}>{delivery.status}</span>
+          <span>{delivery.httpStatus ?? "no status"}</span>
+        </div>
       ))}
     </div>
   );

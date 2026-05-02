@@ -4,6 +4,7 @@ import { requireConsoleApi } from "@/lib/adminAuth";
 import { getConsoleAccountId } from "@/lib/consoleData";
 import { createApiKey } from "@/lib/ids";
 import { jsonError } from "@/lib/responses";
+import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
 import Agent from "@/models/Agent";
 
 type RouteContext = {
@@ -31,6 +32,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (result.matchedCount !== 1) {
     return jsonError("Agent not found.", 404);
   }
+
+  emitWebhookEvent(createWebhookEvent(accountId, "agent.key_rotated", { agentId }));
 
   return NextResponse.json({ agentId, apiKey });
 }

@@ -51,3 +51,4 @@ export type VerificationLog = {
     risk: RiskLevel;
     createdAt: string;
 };
+export type { VerifyWebhookSignatureInput } from "./webhooks.js";

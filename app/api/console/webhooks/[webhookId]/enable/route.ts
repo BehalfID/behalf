@@ -2,11 +2,10 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireConsoleApi } from "@/lib/adminAuth";
 import { getConsoleAccountId } from "@/lib/consoleData";
 import { jsonError } from "@/lib/responses";
-import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
-import Agent from "@/models/Agent";
+import WebhookEndpoint from "@/models/WebhookEndpoint";
 
 type RouteContext = {
-  params: Promise<{ agentId: string }>;
+  params: Promise<{ webhookId: string }>;
 };
 
 export async function POST(request: NextRequest, context: RouteContext) {
@@ -15,14 +14,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return authError;
   }
 
-  const { agentId } = await context.params;
+  const { webhookId } = await context.params;
   const accountId = await getConsoleAccountId();
-  const result = await Agent.updateOne({ accountId, agentId }, { $set: { status: "disabled" } });
+  const result = await WebhookEndpoint.updateOne(
+    { accountId, webhookId },
+    { $set: { status: "active" } }
+  );
+
   if (result.matchedCount !== 1) {
-    return jsonError("Agent not found.", 404);
+    return jsonError("Webhook not found.", 404);
   }
 
-  emitWebhookEvent(createWebhookEvent(accountId, "agent.disabled", { agentId }));
-
-  return NextResponse.json({ disabled: true });
+  return NextResponse.json({ enabled: true });
 }
