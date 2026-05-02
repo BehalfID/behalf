@@ -1,10 +1,15 @@
 import mongoose from "mongoose";
 import { NextResponse, type NextRequest } from "next/server";
-import { requireConsoleApi } from "@/lib/adminAuth";
+import {
+  isPublicAgentCreationEnabled,
+  isSetupTokenConfigured,
+  requireConsoleApi
+} from "@/lib/adminAuth";
 import { connectToDatabase } from "@/lib/db";
+import { getRateLimitMode } from "@/lib/rateLimit";
 
 export async function GET(request: NextRequest) {
-  const authError = requireConsoleApi(request);
+  const authError = await requireConsoleApi(request);
   if (authError) {
     return authError;
   }
@@ -22,11 +27,27 @@ export async function GET(request: NextRequest) {
       process.env.NEXT_PUBLIC_APP_URL ||
       request.nextUrl.origin ||
       "http://localhost:3000",
+    environment: process.env.NODE_ENV ?? "development",
+    mongoConfigured: Boolean(process.env.MONGODB_URI),
     mongoStatus,
-    rateLimiting: "in-memory prototype",
+    publicAgentCreation: isPublicAgentCreationEnabled() ? "enabled" : "disabled",
+    setupTokenConfigured: isSetupTokenConfigured(),
+    rateLimitMode: getRateLimitMode(),
+    metadataLogging: process.env.BEHALFID_LOG_METADATA === "false" ? "disabled" : "enabled",
+    securityWarnings: [
+      ...(getRateLimitMode() === "memory"
+        ? ["Rate limits are process-local. Use Upstash Redis for public deployments."]
+        : []),
+      ...(!isSetupTokenConfigured() && !isPublicAgentCreationEnabled()
+        ? ["Public agent creation is disabled and no setup token is configured."]
+        : []),
+      ...(process.env.BEHALFID_LOG_METADATA === "false"
+        ? []
+        : ["Optional verification metadata is persisted when clients provide it."])
+    ],
     limitations: [
       "Console uses one admin password for prototype deployments.",
-      "Rate limits are process-local and should move to Redis or Upstash.",
+      "Rate limits should use Redis or Upstash in production.",
       "Public API keys are shown only at creation or rotation.",
       "No user accounts, organizations, OAuth, payments, or webhooks yet."
     ]

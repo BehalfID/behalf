@@ -7,7 +7,7 @@ import { isRecord, parseOptionalAmount, readString, rejectUnknownFields } from "
 import { verifyAction } from "@/lib/verify";
 
 export async function POST(request: NextRequest) {
-  const ipLimit = checkRateLimit(request);
+  const ipLimit = await checkRateLimit(request);
   if (ipLimit.limited) {
     return rateLimitError();
   }
@@ -17,7 +17,13 @@ export async function POST(request: NextRequest) {
     return jsonError("Request body must be a JSON object.");
   }
 
-  const unknownError = rejectUnknownFields(body, ["agentId", "action", "amount", "vendor"]);
+  const unknownError = rejectUnknownFields(body, [
+    "agentId",
+    "action",
+    "amount",
+    "vendor",
+    "metadata"
+  ]);
   if (unknownError) {
     return jsonError(unknownError);
   }
@@ -43,6 +49,13 @@ export async function POST(request: NextRequest) {
     return jsonError(amountError);
   }
 
+  if (
+    body.metadata !== undefined &&
+    (!isRecord(body.metadata) || JSON.stringify(body.metadata).length > 2048)
+  ) {
+    return jsonError("metadata must be an object under 2KB.");
+  }
+
   await connectToDatabase();
 
   const auth = await authenticateAgent(request, agentId);
@@ -50,7 +63,7 @@ export async function POST(request: NextRequest) {
     return jsonError(auth.error, auth.error === "Unknown agent." ? 404 : 401);
   }
 
-  const limit = checkRateLimit(request, auth.agent.apiKeyHash);
+  const limit = await checkRateLimit(request, auth.agent.apiKeyHash);
   if (limit.limited) {
     return rateLimitError();
   }
@@ -61,7 +74,8 @@ export async function POST(request: NextRequest) {
     agentStatus: auth.agent.status,
     action,
     amount,
-    vendor
+    vendor,
+    metadata: body.metadata
   });
 
   return NextResponse.json(decision);

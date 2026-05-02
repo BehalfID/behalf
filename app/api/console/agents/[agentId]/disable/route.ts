@@ -9,7 +9,7 @@ type RouteContext = {
 };
 
 export async function POST(request: NextRequest, context: RouteContext) {
-  const authError = requireConsoleApi(request);
+  const authError = await requireConsoleApi(request);
   if (authError) {
     return authError;
   }

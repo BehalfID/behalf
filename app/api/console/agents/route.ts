@@ -8,7 +8,7 @@ import { isRecord, readString, rejectUnknownFields } from "@/lib/validation";
 import Agent from "@/models/Agent";
 
 export async function GET(request: NextRequest) {
-  const authError = requireConsoleApi(request);
+  const authError = await requireConsoleApi(request);
   if (authError) {
     return authError;
   }
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const authError = requireConsoleApi(request);
+  const authError = await requireConsoleApi(request);
   if (authError) {
     return authError;
   }

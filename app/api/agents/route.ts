@@ -1,5 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { hashApiKey } from "@/lib/auth";
+import {
+  isPublicAgentCreationEnabled,
+  requireSetupTokenOrConsoleSession
+} from "@/lib/adminAuth";
 import { getDefaultAccountId } from "@/lib/account";
 import { connectToDatabase } from "@/lib/db";
 import { createApiKey, createPublicId } from "@/lib/ids";
@@ -9,9 +13,16 @@ import { isRecord, readString, rejectUnknownFields } from "@/lib/validation";
 import Agent from "@/models/Agent";
 
 export async function POST(request: NextRequest) {
-  const ipLimit = checkRateLimit(request);
+  const ipLimit = await checkRateLimit(request);
   if (ipLimit.limited) {
     return rateLimitError();
+  }
+
+  if (!isPublicAgentCreationEnabled()) {
+    const authError = requireSetupTokenOrConsoleSession(request);
+    if (authError) {
+      return authError;
+    }
   }
 
   await connectToDatabase();

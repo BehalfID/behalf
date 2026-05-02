@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import {
   createConsoleSessionValue,
+  requireConsoleMutationOrigin,
   setConsoleSessionCookie,
   verifyAdminPassword
 } from "@/lib/adminAuth";
@@ -9,7 +10,12 @@ import { jsonError } from "@/lib/responses";
 import { isRecord, readString, rejectUnknownFields } from "@/lib/validation";
 
 export async function POST(request: NextRequest) {
-  const limit = checkRateLimit(request);
+  const originError = requireConsoleMutationOrigin(request);
+  if (originError) {
+    return originError;
+  }
+
+  const limit = await checkRateLimit(request);
   if (limit.limited) {
     return rateLimitError();
   }

@@ -16,7 +16,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return jsonError("permissionId is required.");
   }
 
-  const ipLimit = checkRateLimit(request);
+  const ipLimit = await checkRateLimit(request);
   if (ipLimit.limited) {
     return rateLimitError();
   }
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return jsonError(auth.error, 401);
   }
 
-  const limit = checkRateLimit(request, auth.agent.apiKeyHash);
+  const limit = await checkRateLimit(request, auth.agent.apiKeyHash);
   if (limit.limited) {
     return rateLimitError();
   }

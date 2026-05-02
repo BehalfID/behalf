@@ -27,6 +27,9 @@ Set these values in `.env.local`:
 ```env
 MONGODB_URI=mongodb://127.0.0.1:27017/behalfid
 BEHALFID_ADMIN_PASSWORD=replace-this-password
+BEHALFID_PUBLIC_AGENT_CREATION=false
+BEHALFID_SETUP_TOKEN=replace-this-setup-token
+BEHALFID_LOG_METADATA=true
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
@@ -61,17 +64,40 @@ npm run lint
 npm run build
 bash -n scripts/smoke-test.sh
 BASE_URL=http://localhost:3000 scripts/smoke-test.sh
+BEHALFID_SETUP_TOKEN=replace-this-setup-token BASE_URL=http://localhost:3000 scripts/smoke-test.sh
 ```
 
-The smoke test requires `jq`, a running app, and a valid MongoDB connection.
+The smoke test requires `jq`, a running app, and a valid MongoDB connection. If `BEHALFID_PUBLIC_AGENT_CREATION=false`, pass `BEHALFID_SETUP_TOKEN` to the smoke script.
+
+## Controlled Agent Creation
+
+`POST /api/agents` is closed to anonymous public requests by default. For local prototype mode, set:
+
+```env
+BEHALFID_PUBLIC_AGENT_CREATION=true
+```
+
+For safer public deployments, keep it false and create agents through the console or with:
+
+```txt
+Authorization: Bearer <BEHALFID_SETUP_TOKEN>
+```
+
+Never expose `BEHALFID_SETUP_TOKEN` to frontend JavaScript.
+
+## Health Checks
+
+- `GET /api/health` is public and returns app status, timestamp, and environment.
+- `GET /api/health/db` requires console auth or `BEHALFID_SETUP_TOKEN` and returns safe database status.
 
 ## Deploy To Vercel
 
 1. Push the repo to GitHub.
 2. Import the project in Vercel.
-3. Add `MONGODB_URI`, `BEHALFID_ADMIN_PASSWORD`, and optionally `NEXT_PUBLIC_APP_URL`.
-4. Ensure MongoDB Atlas allows Vercel egress connections.
-5. Deploy.
+3. Add `MONGODB_URI`, `BEHALFID_ADMIN_PASSWORD`, `BEHALFID_PUBLIC_AGENT_CREATION=false`, `BEHALFID_SETUP_TOKEN`, `BEHALFID_LOG_METADATA`, and optionally `NEXT_PUBLIC_APP_URL`.
+4. Add `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` for shared production rate limiting.
+5. Ensure MongoDB Atlas allows Vercel egress connections.
+6. Deploy.
 
 Production URL target:
 
@@ -87,6 +113,7 @@ https://behalfid.vercel.app
 - Agent API keys can access only their own agent, permissions, and logs.
 - Console routes require the signed admin cookie.
 - Request bodies are field-whitelisted.
-- Rate limiting is in-memory for the prototype. Production should use Redis, Upstash, or provider-native rate limiting because Vercel/serverless instances do not share memory.
+- Rate limiting uses Upstash Redis when `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are configured. Otherwise it falls back to in-memory mode.
+- Optional verification `metadata` is only stored when `BEHALFID_LOG_METADATA` is not `false`; action, vendor, and amount are always stored and may still be sensitive.
 
 See [docs/SECURITY.md](docs/SECURITY.md) for the full security review and limitations.

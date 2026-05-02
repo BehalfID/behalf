@@ -2,10 +2,11 @@
 
 ## Near Term
 
-- Redis or Upstash-backed rate limiting.
+- Persistent rate-limit analytics and alerting on top of Upstash Redis.
+- Admin action audit logs, including setup-token use.
+- Public creation controls per environment.
 - Real developer accounts and organizations.
 - Named API keys with creation history and last-used metadata.
-- Admin action audit logs.
 - Log retention and export controls.
 - Route-level automated tests for allow/deny and disabled-agent flows.
 

@@ -78,13 +78,43 @@ require_json_field() {
   printf "%s" "$value"
 }
 
+step "0. Check public health"
+HEALTH_RESPONSE=$(curl -s -X GET "$BASE_URL/api/health")
+print_json_response "$HEALTH_RESPONSE" "health"
+expect_json_value "$HEALTH_RESPONSE" ".status" "ok"
+
+if [[ -n "${BEHALFID_SETUP_TOKEN:-}" ]]; then
+  step "0b. Check protected database health"
+  DB_HEALTH_RESPONSE=$(
+    curl -s -X GET "$BASE_URL/api/health/db" \
+      -H "Authorization: Bearer $BEHALFID_SETUP_TOKEN"
+  )
+  print_json_response "$DB_HEALTH_RESPONSE" "database health"
+  expect_json_value "$DB_HEALTH_RESPONSE" ".status" "ok"
+fi
+
 step "1. Create agent"
-CREATE_RESPONSE=$(
-  curl -s -X POST "$BASE_URL/api/agents" \
-    -H "Content-Type: application/json" \
-    -d '{"name":"Jasper Shopping Agent"}'
-)
+if [[ -n "${BEHALFID_SETUP_TOKEN:-}" ]]; then
+  CREATE_RESPONSE=$(
+    curl -s -X POST "$BASE_URL/api/agents" \
+      -H "Content-Type: application/json" \
+      -H "Authorization: Bearer $BEHALFID_SETUP_TOKEN" \
+      -d '{"name":"Jasper Shopping Agent"}'
+  )
+else
+  CREATE_RESPONSE=$(
+    curl -s -X POST "$BASE_URL/api/agents" \
+      -H "Content-Type: application/json" \
+      -d '{"name":"Jasper Shopping Agent"}'
+  )
+fi
 print_json_response "$CREATE_RESPONSE" "create agent"
+if [[ "$(echo "$CREATE_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  if [[ "$(echo "$CREATE_RESPONSE" | jq -r '.error')" == "Agent creation is disabled for public requests." || "$(echo "$CREATE_RESPONSE" | jq -r '.error')" == "Invalid request origin." ]]; then
+    echo "Agent creation is disabled. Re-run with BEHALFID_SETUP_TOKEN=... or set BEHALFID_PUBLIC_AGENT_CREATION=true for local prototype mode." >&2
+  fi
+  exit 1
+fi
 AGENT_ID=$(require_json_field "$CREATE_RESPONSE" ".agentId" "agentId")
 API_KEY=$(require_json_field "$CREATE_RESPONSE" ".apiKey" "apiKey")
 
