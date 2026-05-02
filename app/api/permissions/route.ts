@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { authenticateAgent } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/db";
 import { createPublicId } from "@/lib/ids";
+import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { jsonError } from "@/lib/responses";
 import {
   isRecord,
@@ -13,7 +14,10 @@ import {
 import Permission from "@/models/Permission";
 
 export async function POST(request: NextRequest) {
-  await connectToDatabase();
+  const ipLimit = checkRateLimit(request);
+  if (ipLimit.limited) {
+    return rateLimitError();
+  }
 
   const body: unknown = await request.json().catch(() => null);
   if (!isRecord(body)) {
@@ -36,9 +40,16 @@ export async function POST(request: NextRequest) {
     return jsonError("action is required.");
   }
 
+  await connectToDatabase();
+
   const auth = await authenticateAgent(request, agentId);
-  if (auth.error) {
+  if (auth.error || !auth.agent) {
     return jsonError(auth.error, auth.error === "Unknown agent." ? 404 : 401);
+  }
+
+  const limit = checkRateLimit(request, auth.agent.apiKeyHash);
+  if (limit.limited) {
+    return rateLimitError();
   }
 
   const constraints = body.constraints === undefined ? {} : body.constraints;

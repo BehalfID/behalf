@@ -22,6 +22,12 @@ npm run dev
 
 Set `MONGODB_URI` in `.env.local` before starting the app.
 
+For local MongoDB, use MongoDB Atlas or a local server:
+
+```env
+MONGODB_URI=mongodb://127.0.0.1:27017/behalfid
+```
+
 Local base URL:
 
 ```txt
@@ -40,7 +46,10 @@ MONGODB_URI=mongodb+srv://USER:PASSWORD@CLUSTER.mongodb.net/behalfid
 npm run dev
 npm run build
 npm run lint
+BASE_URL=http://localhost:3000 scripts/smoke-test.sh
 ```
+
+The smoke test requires `jq` and a running app connected to MongoDB.
 
 ## API
 
@@ -55,7 +64,8 @@ See [docs/DEMO.md](docs/DEMO.md) for curl smoke tests.
 1. Push this repository to GitHub.
 2. Import the project in Vercel.
 3. Add `MONGODB_URI` in Vercel Project Settings.
-4. Deploy.
+4. Ensure MongoDB Atlas allows Vercel egress connections.
+5. Deploy.
 
 The app is intended to run at:
 
@@ -70,5 +80,6 @@ https://behalfid.vercel.app
 - Protected routes require `Authorization: Bearer bhf_sk_xxx`.
 - Agent API keys can only access their own agent, permissions, and logs.
 - Request bodies are field-whitelisted to avoid mass assignment.
+- Protected routes have a simple in-memory rate limit. Production should replace this with Redis or Upstash because Vercel/serverless instances do not share memory and counters reset on cold starts/redeploys.
 
 Known MVP limitations are documented in [docs/API.md](docs/API.md).

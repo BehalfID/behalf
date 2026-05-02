@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { authenticateApiKey } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/db";
+import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { jsonError } from "@/lib/responses";
 import Permission from "@/models/Permission";
 
@@ -10,16 +11,26 @@ type RouteContext = {
 };
 
 export async function POST(request: NextRequest, context: RouteContext) {
-  await connectToDatabase();
-
   const { permissionId } = await context.params;
   if (!permissionId) {
     return jsonError("permissionId is required.");
   }
 
+  const ipLimit = checkRateLimit(request);
+  if (ipLimit.limited) {
+    return rateLimitError();
+  }
+
+  await connectToDatabase();
+
   const auth = await authenticateApiKey(request);
   if (auth.error || !auth.agent) {
     return jsonError(auth.error, 401);
+  }
+
+  const limit = checkRateLimit(request, auth.agent.apiKeyHash);
+  if (limit.limited) {
+    return rateLimitError();
   }
 
   const permission = await Permission.findOne({
