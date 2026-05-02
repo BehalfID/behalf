@@ -1,0 +1,127 @@
+:root {
+  color-scheme: dark;
+  --bg: #090a0d;
+  --panel: #14161b;
+  --text: #f5f7fb;
+  --muted: #a7adb8;
+  --line: #2a2e37;
+  --accent: #72f0c1;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background:
+    radial-gradient(circle at 70% 10%, rgba(114, 240, 193, 0.11), transparent 28rem),
+    linear-gradient(135deg, #07080b 0%, #14171d 48%, #0d0f13 100%);
+  color: var(--text);
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+a {
+  color: inherit;
+}
+
+.home {
+  min-height: 100svh;
+  display: grid;
+  align-items: center;
+  padding: 56px 24px;
+}
+
+.home__inner {
+  width: min(1040px, 100%);
+  margin: 0 auto;
+}
+
+.home__eyebrow {
+  margin: 0 0 18px;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.home h1 {
+  margin: 0;
+  font-size: clamp(3rem, 8vw, 7rem);
+  line-height: 0.92;
+  letter-spacing: 0;
+}
+
+.home__subtitle {
+  max-width: 720px;
+  margin: 24px 0 0;
+  color: #d9dde5;
+  font-size: clamp(1.35rem, 2.5vw, 2.25rem);
+  line-height: 1.18;
+}
+
+.home__body {
+  max-width: 640px;
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.flow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: 58px;
+  border: 1px solid var(--line);
+  background: var(--line);
+}
+
+.flow__step {
+  min-height: 132px;
+  padding: 22px;
+  background: rgba(20, 22, 27, 0.78);
+}
+
+.flow__number {
+  display: block;
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.flow__label {
+  display: block;
+  margin-top: 38px;
+  color: var(--text);
+  font-size: 1.04rem;
+  font-weight: 650;
+}
+
+@media (max-width: 760px) {
+  .home {
+    align-items: start;
+    padding-top: 48px;
+  }
+
+  .flow {
+    grid-template-columns: 1fr;
+    margin-top: 42px;
+  }
+
+  .flow__step {
+    min-height: 96px;
+  }
+
+  .flow__label {
+    margin-top: 22px;
+  }
+}
