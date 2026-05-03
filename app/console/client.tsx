@@ -10,6 +10,12 @@ type Agent = {
   agentId: string;
   name: string;
   status: "active" | "disabled";
+  agentType: "native" | "connected";
+  provider: string;
+  connectionStatus: "manual" | "connected" | "disconnected";
+  externalAgentId?: string | null;
+  externalAgentLabel?: string | null;
+  description?: string | null;
   lastUsedAt?: string | null;
   keyRotatedAt?: string | null;
   createdAt?: string;
@@ -130,6 +136,18 @@ type WebhookDetail = {
 };
 
 type ApiError = Error & { status?: number };
+
+const consoleProviderOptions = [
+  ["custom", "Custom"],
+  ["ollie", "Ollie"],
+  ["chatgpt", "ChatGPT"],
+  ["claude", "Claude"],
+  ["zapier", "Zapier"],
+  ["make", "Make"],
+  ["langchain", "LangChain"],
+  ["openai", "OpenAI"],
+  ["other", "Other"]
+];
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -396,6 +414,8 @@ function DashboardView() {
 function AgentsView() {
   const agents = useApiResource<AgentsResponse>("/api/console/agents");
   const [name, setName] = useState("");
+  const [agentType, setAgentType] = useState<Agent["agentType"]>("native");
+  const [provider, setProvider] = useState("custom");
   const [oneTimeKey, setOneTimeKey] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -405,10 +425,12 @@ function AgentsView() {
     try {
       const result = await apiFetch<{ agent: Agent; apiKey: string }>("/api/console/agents", {
         method: "POST",
-        body: JSON.stringify({ name })
+        body: JSON.stringify({ name, agentType, provider })
       });
       setOneTimeKey(result.apiKey);
       setName("");
+      setAgentType("native");
+      setProvider("custom");
       await agents.reload();
     } finally {
       setSubmitting(false);
@@ -426,13 +448,26 @@ function AgentsView() {
               <AgentTable agents={data.agents} />
             </div>
             <form className="console-panel" onSubmit={createAgent}>
-              <SectionTitle title="Create agent" />
+              <SectionTitle title="Add agent" />
               <label>
                 <span>Name</span>
                 <input onChange={(event) => setName(event.target.value)} required value={name} />
               </label>
+              <label>
+                <span>Type</span>
+                <select onChange={(event) => setAgentType(event.target.value as Agent["agentType"])} value={agentType}>
+                  <option value="native">Native</option>
+                  <option value="connected">Connected</option>
+                </select>
+              </label>
+              <label>
+                <span>Provider</span>
+                <select onChange={(event) => setProvider(event.target.value)} value={provider}>
+                  {consoleProviderOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select>
+              </label>
               <Button variant="primary" disabled={submitting} type="submit">
-                {submitting ? "Creating" : "Create agent"}
+                {submitting ? "Adding" : "Add agent"}
               </Button>
               {oneTimeKey ? <SecretBox label="New API key" value={oneTimeKey} /> : null}
             </form>
@@ -524,6 +559,12 @@ function AgentDetailView({ agentId }: { agentId: string }) {
               <SectionTitle title="Agent" />
               <dl className="console-definition">
                 <div><dt>Agent ID</dt><dd>{data.agent.agentId}</dd></div>
+                <div><dt>Type</dt><dd><span className={statusClass(data.agent.agentType)}>{data.agent.agentType}</span></dd></div>
+                <div><dt>Provider</dt><dd>{data.agent.provider}</dd></div>
+                <div><dt>Connection</dt><dd>{data.agent.connectionStatus}</dd></div>
+                <div><dt>External label</dt><dd>{data.agent.externalAgentLabel || "Not set"}</dd></div>
+                <div><dt>External ID</dt><dd>{data.agent.externalAgentId || "Not set"}</dd></div>
+                <div><dt>Description</dt><dd>{data.agent.description || "Not set"}</dd></div>
                 <div><dt>Status</dt><dd><span className={statusClass(data.agent.status)}>{data.agent.status}</span></dd></div>
                 <div><dt>Created</dt><dd>{formatDate(data.agent.createdAt)}</dd></div>
                 <div><dt>Updated</dt><dd>{formatDate(data.agent.updatedAt)}</dd></div>
@@ -862,7 +903,7 @@ function AgentTable({ agents }: { agents: Agent[] }) {
         <Link className="console-row" href={`/console/agents/${agent.agentId}`} key={agent.agentId}>
           <span>
             <strong>{agent.name}</strong>
-            <small>{agent.agentId}</small>
+            <small>{agent.agentId} / {agent.agentType} / {agent.provider} / {agent.connectionStatus}</small>
           </span>
           <span className={statusClass(agent.status)}>{agent.status}</span>
           <span>{formatDate(agent.updatedAt)}</span>

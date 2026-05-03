@@ -27,7 +27,7 @@ Developer portal routes under `/api/dashboard/*` use HTTP-only developer session
 
 ## POST /api/agents
 
-Creates an agent and returns its API key once.
+Adds a native or connected agent and returns its API key once. The original `{ "name": "..." }` request remains supported.
 
 By default, anonymous public agent creation is disabled. To allow anonymous prototype creation, set `BEHALFID_PUBLIC_AGENT_CREATION=true`. Otherwise this endpoint requires either a console session cookie or:
 
@@ -43,12 +43,29 @@ Request:
 }
 ```
 
+Optional connected-agent metadata:
+
+```json
+{
+  "name": "Ollie",
+  "agentType": "connected",
+  "provider": "ollie",
+  "externalAgentId": "optional",
+  "externalAgentLabel": "Jasper's Ollie assistant",
+  "description": "Family/personal assistant used for daily planning"
+}
+```
+
+Supported `agentType` values are `native` and `connected`. Supported providers are `custom`, `ollie`, `chatgpt`, `claude`, `zapier`, `make`, `langchain`, `openai`, and `other`. Provider metadata is descriptive only and is not used as authentication.
+
 Response:
 
 ```json
 {
   "agentId": "agent_xxx",
-  "apiKey": "bhf_sk_xxx"
+  "apiKey": "bhf_sk_xxx",
+  "agentType": "connected",
+  "provider": "ollie"
 }
 ```
 

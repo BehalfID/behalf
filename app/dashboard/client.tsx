@@ -5,11 +5,38 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { DashboardShellLayout } from "@/components/layout/DashboardShell";
 import { Badge, Button, ButtonLink, Card, EmptyState, PageHeader, StatCard } from "@/components/ui";
 
-type Agent = { agentId: string; name: string; status: string; createdAt?: string; updatedAt?: string };
+type Agent = {
+  agentId: string;
+  name: string;
+  status: string;
+  agentType: "native" | "connected";
+  provider: AgentProvider;
+  connectionStatus: "manual" | "connected" | "disconnected";
+  externalAgentId?: string | null;
+  externalAgentLabel?: string | null;
+  description?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  lastUsedAt?: string | null;
+  keyRotatedAt?: string | null;
+};
 type Permission = { permissionId: string; action: string; status: string; constraints?: { maxAmount?: number; allowedVendors?: string[]; expiresAt?: string } };
 type Log = { requestId: string; agentId: string; action: string; allowed: boolean; reason: string; risk: string; createdAt?: string };
 type Webhook = { webhookId: string; url: string; events: string[]; status: string; secretPreview: string; lastTriggeredAt?: string | null };
 type Delivery = { deliveryId: string; eventType: string; eventId: string; status: string; error?: string; attempt: number; maxAttempts?: number; createdAt?: string };
+type AgentProvider = "custom" | "ollie" | "chatgpt" | "claude" | "zapier" | "make" | "langchain" | "openai" | "other";
+
+const providerOptions: Array<{ value: AgentProvider; label: string }> = [
+  { value: "ollie", label: "Ollie" },
+  { value: "chatgpt", label: "ChatGPT" },
+  { value: "claude", label: "Claude" },
+  { value: "zapier", label: "Zapier" },
+  { value: "make", label: "Make" },
+  { value: "langchain", label: "LangChain" },
+  { value: "openai", label: "OpenAI" },
+  { value: "custom", label: "Custom" },
+  { value: "other", label: "Other" }
+];
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -87,7 +114,7 @@ function HomeView() {
       </div>
       <Card className="dashboard-panel">
         <h2>Quickstart</h2>
-        <ol><li>Create an agent</li><li>Create a permission</li><li>Install <code>@behalfid/sdk</code></li><li>Verify before the agent acts</li></ol>
+        <ol><li>Add a native or connected agent</li><li>Create a permission passport</li><li>Install <code>@behalfid/sdk</code></li><li>Verify before the agent acts</li></ol>
       </Card>
     </>
   );
@@ -95,27 +122,90 @@ function HomeView() {
 
 function AgentsView() {
   const resource = useResource<{ agents: Agent[] }>("/api/dashboard/agents");
-  const [name, setName] = useState("");
+  const [native, setNative] = useState({ name: "", description: "" });
+  const [connected, setConnected] = useState({
+    name: "Ollie",
+    provider: "ollie" as AgentProvider,
+    externalAgentLabel: "",
+    description: "Personal assistant used for planning"
+  });
   const [apiKey, setApiKey] = useState("");
-  const create = async (event: FormEvent) => {
+  const createNative = async (event: FormEvent) => {
     event.preventDefault();
-    const result = await api<{ agent: Agent; apiKey: string }>("/api/dashboard/agents", { method: "POST", body: JSON.stringify({ name }) });
+    const result = await api<{ agent: Agent; apiKey: string }>("/api/dashboard/agents", {
+      method: "POST",
+      body: JSON.stringify({
+        name: native.name,
+        agentType: "native",
+        provider: "custom",
+        description: native.description || undefined
+      })
+    });
     setApiKey(result.apiKey);
-    setName("");
+    setNative({ name: "", description: "" });
+    await resource.reload();
+  };
+  const createConnected = async (event: FormEvent) => {
+    event.preventDefault();
+    const result = await api<{ agent: Agent; apiKey: string }>("/api/dashboard/agents", {
+      method: "POST",
+      body: JSON.stringify({
+        name: connected.name,
+        agentType: "connected",
+        provider: connected.provider,
+        externalAgentLabel: connected.externalAgentLabel || undefined,
+        description: connected.description || undefined
+      })
+    });
+    setApiKey(result.apiKey);
+    setConnected({ name: "", provider: "ollie", externalAgentLabel: "", description: "" });
     await resource.reload();
   };
   return (
     <>
       <Header title="Agents" />
-      <form className="dashboard-panel inline-form" onSubmit={create}>
+      <div className="agent-create-grid">
+      <form className="dashboard-panel agent-create-card" onSubmit={createNative}>
+        <span className="console-status">Native</span>
+        <h2>Native agent</h2>
+        <p>Create a BehalfID-native agent for custom API or SDK integrations.</p>
         <label>
           <span>Agent name</span>
-          <input onChange={(event) => setName(event.target.value)} placeholder="Jasper Shopping Agent" required value={name} />
+          <input onChange={(event) => setNative({ ...native, name: event.target.value })} placeholder="Jasper Shopping Agent" required value={native.name} />
         </label>
-        <Button variant="primary" type="submit">Create agent</Button>
+        <label>
+          <span>Description</span>
+          <textarea onChange={(event) => setNative({ ...native, description: event.target.value })} placeholder="Custom checkout agent for ticket purchasing" rows={3} value={native.description} />
+        </label>
+        <Button variant="primary" type="submit">Add native agent</Button>
       </form>
+      <form className="dashboard-panel agent-create-card" onSubmit={createConnected}>
+        <span className="console-status console-status--active">Connected</span>
+        <h2>Connected agent</h2>
+        <p>Represent an AI agent you already use, then manage its permission passport in BehalfID.</p>
+        <label>
+          <span>Agent name</span>
+          <input onChange={(event) => setConnected({ ...connected, name: event.target.value })} placeholder="Ollie" required value={connected.name} />
+        </label>
+        <label>
+          <span>Provider</span>
+          <select onChange={(event) => setConnected({ ...connected, provider: event.target.value as AgentProvider })} value={connected.provider}>
+            {providerOptions.map((provider) => <option key={provider.value} value={provider.value}>{provider.label}</option>)}
+          </select>
+        </label>
+        <label>
+          <span>External agent ID / handle / label</span>
+          <input onChange={(event) => setConnected({ ...connected, externalAgentLabel: event.target.value })} placeholder="Jasper's Ollie assistant" value={connected.externalAgentLabel} />
+        </label>
+        <label>
+          <span>Description</span>
+          <textarea onChange={(event) => setConnected({ ...connected, description: event.target.value })} rows={3} value={connected.description} />
+        </label>
+        <Button variant="primary" type="submit">Connect agent</Button>
+      </form>
+      </div>
       {apiKey ? <Secret value={apiKey} label="Agent API key" /> : null}
-      <Rows items={resource.data?.agents ?? []} href={(agent) => `/dashboard/agents/${agent.agentId}`} title={(agent) => agent.name} meta={(agent) => `${agent.agentId} / ${agent.status}`} />
+      <Rows items={resource.data?.agents ?? []} href={(agent) => `/dashboard/agents/${agent.agentId}`} title={(agent) => agent.name} meta={(agent) => `${agent.agentType} / ${agent.provider} / ${agent.status}`} />
     </>
   );
 }
@@ -124,6 +214,7 @@ function AgentView({ agentId }: { agentId: string }) {
   const detail = useResource<{ agent: Agent; permissions: Permission[]; logs: Log[] }>(`/api/dashboard/agents/${agentId}`);
   const [secret, setSecret] = useState("");
   const [form, setForm] = useState({ action: "purchase", maxAmount: "800", vendors: "coachella.com", expiresAt: "" });
+  const [profile, setProfile] = useState<Partial<Pick<Agent, "name" | "provider" | "externalAgentId" | "externalAgentLabel" | "description" | "connectionStatus">>>({});
   const createPermission = async (event: FormEvent) => {
     event.preventDefault();
     await api(`/api/dashboard/agents/${agentId}/permissions`, { method: "POST", body: JSON.stringify({ action: form.action, constraints: { maxAmount: Number(form.maxAmount), allowedVendors: form.vendors.split(",").map((v) => v.trim()).filter(Boolean), expiresAt: form.expiresAt || undefined } }) });
@@ -132,11 +223,56 @@ function AgentView({ agentId }: { agentId: string }) {
   const rotate = async () => setSecret((await api<{ apiKey: string }>(`/api/dashboard/agents/${agentId}/rotate-key`, { method: "POST" })).apiKey);
   const setStatus = async (status: "enable" | "disable") => { await api(`/api/dashboard/agents/${agentId}/${status}`, { method: "POST" }); await detail.reload(); };
   const revoke = async (permissionId: string) => { await api(`/api/dashboard/agents/${agentId}/permissions/${permissionId}/revoke`, { method: "POST" }); await detail.reload(); };
+  const updateProfile = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!detail.data?.agent) return;
+    const current = detail.data.agent;
+    await api(`/api/dashboard/agents/${agentId}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        name: profile.name ?? current.name,
+        provider: profile.provider ?? current.provider,
+        externalAgentId: profile.externalAgentId ?? current.externalAgentId ?? undefined,
+        externalAgentLabel: profile.externalAgentLabel ?? current.externalAgentLabel ?? undefined,
+        description: profile.description ?? current.description ?? undefined,
+        connectionStatus: profile.connectionStatus ?? current.connectionStatus
+      })
+    });
+    setProfile({});
+    await detail.reload();
+  };
+  const agent = detail.data?.agent;
   return (
     <>
-      <Header title={detail.data?.agent.name ?? "Agent"} action={<Button onClick={rotate}>Rotate key</Button>} />
+      <Header title={agent?.name ?? "Agent"} action={<Button onClick={rotate}>Rotate key</Button>} />
       {secret ? <Secret value={secret} label="Rotated API key" /> : null}
       <div className="dashboard-actions"><Button onClick={() => setStatus("disable")}>Disable</Button><Button onClick={() => setStatus("enable")}>Enable</Button></div>
+      {agent ? (
+        <Card className="dashboard-panel agent-passport">
+          <div className="agent-passport__header">
+            <span className="console-status console-status--active">{agent.agentType === "connected" ? "Connected" : "Native"}</span>
+            <span className="console-status">{agent.provider}</span>
+            <span className="console-status">{agent.connectionStatus}</span>
+          </div>
+          <p>{agent.agentType === "native" ? "Use this API key directly from your custom integration." : "Use this BehalfID credential to represent this external agent when your app verifies actions."}</p>
+          {agent.agentType === "connected" ? <p>Connected agents are manually represented today. Provider-native integrations are planned.</p> : null}
+          <dl className="console-definition">
+            <div><dt>Agent ID</dt><dd>{agent.agentId}</dd></div>
+            <div><dt>External label</dt><dd>{agent.externalAgentLabel || "Not set"}</dd></div>
+            <div><dt>External ID</dt><dd>{agent.externalAgentId || "Not set"}</dd></div>
+            <div><dt>Description</dt><dd>{agent.description || "Not set"}</dd></div>
+          </dl>
+        </Card>
+      ) : null}
+      <form className="dashboard-panel form-grid agent-edit-form" onSubmit={updateProfile}>
+        <label><span>Name</span><input value={profile.name ?? agent?.name ?? ""} onChange={(e) => setProfile({ ...profile, name: e.target.value })} /></label>
+        <label><span>Provider</span><select value={profile.provider ?? agent?.provider ?? "custom"} onChange={(e) => setProfile({ ...profile, provider: e.target.value as AgentProvider })}>{providerOptions.map((provider) => <option key={provider.value} value={provider.value}>{provider.label}</option>)}</select></label>
+        <label><span>Connection status</span><select value={profile.connectionStatus ?? agent?.connectionStatus ?? "manual"} onChange={(e) => setProfile({ ...profile, connectionStatus: e.target.value as Agent["connectionStatus"] })}><option value="manual">Manual</option><option value="connected">Connected</option><option value="disconnected">Disconnected</option></select></label>
+        <label><span>External label</span><input value={profile.externalAgentLabel ?? agent?.externalAgentLabel ?? ""} onChange={(e) => setProfile({ ...profile, externalAgentLabel: e.target.value })} /></label>
+        <label><span>External ID</span><input value={profile.externalAgentId ?? agent?.externalAgentId ?? ""} onChange={(e) => setProfile({ ...profile, externalAgentId: e.target.value })} /></label>
+        <label><span>Description</span><input value={profile.description ?? agent?.description ?? ""} onChange={(e) => setProfile({ ...profile, description: e.target.value })} /></label>
+        <Button variant="primary" type="submit">Save profile</Button>
+      </form>
       <form className="dashboard-panel form-grid" onSubmit={createPermission}>
         <label>
           <span>Action</span>

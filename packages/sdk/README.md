@@ -35,13 +35,27 @@ if (result.allowed) {
 ## Methods
 
 - `verify(input)`
-- `createAgent(name)`
+- `createAgent(nameOrInput)`
 - `createPermission(input)`
 - `rotateKey(agentId)`
 - `getLogs(agentId)`
 - `verifyWebhookSignature(input)`
 
 `createAgent` uses the configured `apiKey` as a bearer token. When public agent creation is disabled, pass a server-side `BEHALFID_SETUP_TOKEN` as the SDK `apiKey` for provisioning.
+
+For connected agents, pass metadata instead of just a name:
+
+```js
+const agent = await behalf.createAgent({
+  name: "Ollie",
+  agentType: "connected",
+  provider: "ollie",
+  externalAgentLabel: "Jasper's Ollie assistant",
+  description: "Personal assistant used for planning"
+});
+```
+
+Connected-agent metadata is descriptive only. It does not authenticate with the external provider.
 
 Do not log API keys. Created and rotated API keys are returned once by the BehalfID API.
 

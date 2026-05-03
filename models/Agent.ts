@@ -6,6 +6,27 @@ const AgentSchema = new Schema(
     accountId: { type: String, index: true },
     developerUserId: { type: String, index: true },
     name: { type: String, required: true, trim: true, maxlength: 120 },
+    agentType: {
+      type: String,
+      enum: ["native", "connected"],
+      default: "native",
+      index: true
+    },
+    provider: {
+      type: String,
+      enum: ["custom", "ollie", "chatgpt", "claude", "zapier", "make", "langchain", "openai", "other"],
+      default: "custom",
+      index: true
+    },
+    externalAgentId: { type: String, trim: true, maxlength: 180 },
+    externalAgentLabel: { type: String, trim: true, maxlength: 180 },
+    connectionStatus: {
+      type: String,
+      enum: ["manual", "connected", "disconnected"],
+      default: "manual",
+      index: true
+    },
+    description: { type: String, trim: true, maxlength: 800 },
     apiKeyHash: { type: String, required: true, select: false },
     lastUsedAt: { type: Date },
     keyRotatedAt: { type: Date },

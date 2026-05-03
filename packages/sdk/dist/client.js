@@ -15,13 +15,14 @@ export class BehalfID {
             body: input
         });
     }
-    createAgent(name) {
-        if (!name || typeof name !== "string") {
+    createAgent(input) {
+        const body = typeof input === "string" ? { name: input } : input;
+        if (!body?.name || typeof body.name !== "string") {
             throw new Error("BehalfID: agent name is required.");
         }
         return this.request("/api/agents", {
             method: "POST",
-            body: { name }
+            body
         });
     }
     createPermission(input) {

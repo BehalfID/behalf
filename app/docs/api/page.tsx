@@ -1,7 +1,7 @@
 import { CodeBlock, DocsShell } from "../content";
 
 const endpoints = [
-  ["POST", "/api/agents", "Create an agent and return the API key once."],
+  ["POST", "/api/agents", "Add a native or connected agent and return the API key once."],
   ["POST", "/api/permissions", "Create a permission for the authenticated agent."],
   ["POST", "/api/verify", "Evaluate whether an agent can perform an action."],
   ["GET", "/api/logs/[agentId]", "Read recent verification logs for the authenticated agent."],
@@ -25,6 +25,19 @@ export default function ApiDocsPage() {
           </div>
         ))}
       </div>
+      <h2>Agent metadata</h2>
+      <p>
+        <code>POST /api/agents</code> remains compatible with <code>{`{ "name": "Jasper Shopping Agent" }`}</code>.
+        It also accepts optional connected-agent metadata.
+      </p>
+      <CodeBlock label="connected-agent.json">{`{
+  "name": "Ollie",
+  "agentType": "connected",
+  "provider": "ollie",
+  "externalAgentId": "optional",
+  "externalAgentLabel": "Jasper's Ollie assistant",
+  "description": "Family/personal assistant used for daily planning"
+}`}</CodeBlock>
       <CodeBlock label="curl">{`curl -X POST "$BASE_URL/api/verify" \\
   -H "Authorization: Bearer $BEHALFID_API_KEY" \\
   -H "Content-Type: application/json" \\

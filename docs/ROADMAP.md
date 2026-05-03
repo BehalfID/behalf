@@ -9,6 +9,7 @@
 - Public creation controls per environment.
 - Developer account hardening and organization support.
 - Named API keys with creation history and last-used metadata.
+- Provider-native connected-agent integrations for Ollie, ChatGPT agents, Claude agents, Zapier, Make, and common custom-agent stacks.
 - Log retention and export controls.
 - Route-level automated tests for allow/deny and disabled-agent flows.
 
@@ -31,4 +32,5 @@
 - OAuth/OIDC integrations.
 - Agent passport signing and verification.
 - Integration templates for common agent frameworks.
+- Connected-agent import and reconciliation flows.
 - Policy templates for purchase, booking, messaging, and data-access actions.
