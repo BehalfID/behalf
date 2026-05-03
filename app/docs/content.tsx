@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { DocsLayout } from "@/components/layout/DocsLayout";
+import { CodeBlock as SharedCodeBlock } from "@/components/ui";
 
 export const docsNav = [
   { href: "/docs", label: "Overview" },
@@ -9,27 +11,47 @@ export const docsNav = [
   { href: "/docs/concepts", label: "Concepts" }
 ];
 
-export function DocsShell({ title, children }: { title: string; children: React.ReactNode }) {
+export function DocsShell({
+  title,
+  description,
+  children,
+  previous,
+  next
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+  previous?: { href: string; label: string };
+  next?: { href: string; label: string };
+}) {
   return (
-    <main className="docs-page">
-      <aside className="docs-sidebar">
-        <Link className="site-logo" href="/">
-          <span className="site-logo__mark">B</span>
-          <span>BehalfID</span>
-        </Link>
-        <nav>
-          {docsNav.map((item) => <Link href={item.href} key={item.href}>{item.label}</Link>)}
-        </nav>
-      </aside>
-      <article className="docs-article">
+    <DocsLayout>
+      <div className="docs-article__inner">
         <p className="section-kicker">Documentation</p>
         <h1>{title}</h1>
+        {description ? <p className="docs-lede">{description}</p> : null}
         {children}
-      </article>
-    </main>
+        {previous || next ? (
+          <nav className="docs-pager" aria-label="Documentation pagination">
+            {previous ? (
+              <Link className="docs-next" href={previous.href}>
+                <span>Previous</span>
+                <strong>{previous.label}</strong>
+              </Link>
+            ) : <span />}
+            {next ? (
+              <Link className="docs-next" href={next.href}>
+                <span>Next</span>
+                <strong>{next.label}</strong>
+              </Link>
+            ) : null}
+          </nav>
+        ) : null}
+      </div>
+    </DocsLayout>
   );
 }
 
 export function CodeBlock({ children }: { children: string }) {
-  return <pre className="docs-code">{children}</pre>;
+  return <SharedCodeBlock className="docs-code">{children}</SharedCodeBlock>;
 }
