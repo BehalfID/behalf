@@ -82,10 +82,9 @@ export default function Home() {
 
       <section className="marketing-section connected-agents-section">
         <p className="section-kicker">Connected agents</p>
-        <h2>Connect your existing agents.</h2>
+        <h2>Works with agents you already use.</h2>
         <p className="section-lede">
-          BehalfID can manually represent the agents people and teams already use today.
-          Provider-native integrations are not required for the permission passport model.
+          Start in manual test mode, then move to API enforcement when your app or provider integrates BehalfID.
         </p>
         <div className="connected-agent-grid">
           {connectedAgents.map(([title, body]) => (
@@ -95,6 +94,9 @@ export default function Home() {
             </div>
           ))}
         </div>
+        <p className="section-note">
+          BehalfID does not control third-party agents directly unless they or your app integrate the verification API.
+        </p>
       </section>
 
       <section className="marketing-section">
@@ -115,14 +117,14 @@ export default function Home() {
 
       <section className="native-connected">
         <div>
-          <p className="section-kicker">Native</p>
-          <h2>Native agents are created for your app.</h2>
-          <p>Use native agents when you are building a custom SDK, API, LangChain, OpenAI, or internal integration and want BehalfID-issued credentials from the start.</p>
+          <p className="section-kicker">Developer integration mode</p>
+          <h2>Enforce permissions in your app.</h2>
+          <p>Use this when your app or custom agent can call BehalfID before actions happen. This is the mode that automatically enforces the permission decision.</p>
         </div>
         <div>
-          <p className="section-kicker">Connected</p>
-          <h2>Connected agents represent tools already in use.</h2>
-          <p>Use connected agents for Ollie, ChatGPT, Claude, Zapier, Make, or other external agents. They are manually represented today, with provider-native integrations planned.</p>
+          <p className="section-kicker">Manual test mode</p>
+          <h2>Try the model with existing agents.</h2>
+          <p>Use this for Ollie, ChatGPT, Claude, Zapier, Make, or other external agents. It creates a passport and manual test link, but does not control the provider directly.</p>
         </div>
       </section>
 

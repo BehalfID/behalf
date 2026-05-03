@@ -18,6 +18,8 @@ export function serializeAgent(agent: {
   externalAgentLabel?: string | null;
   connectionStatus?: string | null;
   description?: string | null;
+  publicPassportTokenPreview?: string | null;
+  publicPassportEnabled?: boolean | null;
   lastUsedAt?: Date | null;
   keyRotatedAt?: Date | null;
   createdAt?: Date | null;
@@ -29,6 +31,8 @@ export function serializeAgent(agent: {
     name: agent.name,
     status: agent.status ?? "active",
     ...metadata,
+    publicPassportTokenPreview: agent.publicPassportTokenPreview ?? null,
+    publicPassportEnabled: agent.publicPassportEnabled ?? false,
     lastUsedAt: agent.lastUsedAt ?? null,
     keyRotatedAt: agent.keyRotatedAt ?? null,
     createdAt: agent.createdAt,

@@ -94,15 +94,17 @@ function evaluatePermission(permission: PermissionDocument | null, input: Verify
   } satisfies Omit<VerificationDecision, "requestId">;
 }
 
+async function findNewestMatchingPermission(input: VerifyInput) {
+  if (input.agentStatus === "disabled") return null;
+  return ((await Permission.findOne({
+    agentId: input.agentId,
+    action: input.action
+  }).sort({ createdAt: -1 })) ?? null);
+}
+
 export async function verifyAction(input: VerifyInput) {
   const requestId = createPublicId("req");
-  const permission =
-    input.agentStatus === "disabled"
-      ? null
-      : ((await Permission.findOne({
-          agentId: input.agentId,
-          action: input.action
-        }).sort({ createdAt: -1 })) ?? null);
+  const permission = await findNewestMatchingPermission(input);
 
   const decision = evaluatePermission(permission, input);
   const now = new Date();
@@ -134,6 +136,14 @@ export async function verifyAction(input: VerifyInput) {
     risk: decision.risk,
     metadata: logMetadata
   });
+
+  return { requestId, permissionId: permission?.permissionId ?? null, ...decision };
+}
+
+export async function previewVerification(input: VerifyInput) {
+  const requestId = createPublicId("req");
+  const permission = await findNewestMatchingPermission(input);
+  const decision = evaluatePermission(permission, input);
 
   return { requestId, permissionId: permission?.permissionId ?? null, ...decision };
 }

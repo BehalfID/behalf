@@ -13,3 +13,7 @@ export function createWebhookSecret() {
 export function createApiKey() {
   return `bhf_sk_${crypto.randomBytes(32).toString("base64url")}`;
 }
+
+export function createPassportToken() {
+  return `bhf_pass_${crypto.randomBytes(32).toString("base64url")}`;
+}

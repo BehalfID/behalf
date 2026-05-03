@@ -6,7 +6,7 @@ export function hashApiKey(apiKey: string) {
   return crypto.createHash("sha256").update(apiKey).digest("hex");
 }
 
-function timingSafeEqualString(a: string, b: string) {
+export function timingSafeEqualString(a: string, b: string) {
   const aBuffer = Buffer.from(a);
   const bBuffer = Buffer.from(b);
 
