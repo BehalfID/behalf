@@ -17,6 +17,14 @@ const behalf = new BehalfID({
   apiKey: process.env.BEHALFID_API_KEY!,
   baseUrl: "https://behalfid.vercel.app"
 });`}</CodeBlock>
+      <h2>Add a connected agent</h2>
+      <CodeBlock label="connected-agent.ts">{`const agent = await behalf.createAgent({
+  name: "Ollie",
+  agentType: "connected",
+  provider: "ollie",
+  externalAgentLabel: "Jasper's Ollie assistant",
+  description: "Personal assistant used for planning"
+});`}</CodeBlock>
       <h2>Verify an action</h2>
       <CodeBlock label="verify.ts">{`const result = await behalf.verify({
   agentId,

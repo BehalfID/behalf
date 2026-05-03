@@ -1,4 +1,5 @@
 import { connectToDatabase } from "@/lib/db";
+import { normalizeAgentMetadata } from "@/lib/agents";
 import Agent from "@/models/Agent";
 import Permission from "@/models/Permission";
 import VerificationLog from "@/models/VerificationLog";
@@ -17,15 +18,23 @@ export async function serializeAgent(agent: {
   agentId: string;
   name: string;
   status?: string | null;
+  agentType?: string | null;
+  provider?: string | null;
+  externalAgentId?: string | null;
+  externalAgentLabel?: string | null;
+  connectionStatus?: string | null;
+  description?: string | null;
   lastUsedAt?: Date | null;
   keyRotatedAt?: Date | null;
   createdAt?: Date | null;
   updatedAt?: Date | null;
 }) {
+  const metadata = normalizeAgentMetadata(agent);
   return {
     agentId: agent.agentId,
     name: agent.name,
     status: agent.status ?? "active",
+    ...metadata,
     lastUsedAt: agent.lastUsedAt ?? null,
     keyRotatedAt: agent.keyRotatedAt ?? null,
     createdAt: agent.createdAt,

@@ -19,6 +19,19 @@ export type VerifyResult = {
 export type CreateAgentResult = {
     agentId: string;
     apiKey: string;
+    agentType?: AgentType;
+    provider?: AgentProvider;
+};
+export type AgentType = "native" | "connected";
+export type AgentProvider = "custom" | "ollie" | "chatgpt" | "claude" | "zapier" | "make" | "langchain" | "openai" | "other";
+export type CreateAgentInput = {
+    name: string;
+    agentType?: AgentType;
+    provider?: AgentProvider;
+    externalAgentId?: string;
+    externalAgentLabel?: string;
+    description?: string;
+    connectionStatus?: "manual" | "connected" | "disconnected";
 };
 export type PermissionConstraints = {
     maxAmount?: number;

@@ -261,8 +261,10 @@ pre {
 .inline-form input,
 .form-grid input,
 .dashboard-panel input,
+.dashboard-panel select,
 .dashboard-panel textarea,
 .console-panel input,
+.console-panel select,
 .console-panel textarea,
 .console-settings input,
 .console-login__panel input,
@@ -284,8 +286,10 @@ pre {
 .inline-form input:hover,
 .form-grid input:hover,
 .dashboard-panel input:hover,
+.dashboard-panel select:hover,
 .dashboard-panel textarea:hover,
 .console-panel input:hover,
+.console-panel select:hover,
 .console-panel textarea:hover,
 .console-toolbar input:hover,
 .console-toolbar select:hover,
@@ -606,13 +610,15 @@ textarea.ui-input,
 .marketing-section,
 .use-case,
 .developer-section,
+.native-connected,
 .final-cta {
   padding: 64px 0;
 }
 
 .marketing-section,
 .use-case,
-.developer-section {
+.developer-section,
+.native-connected {
   border-top: 1px solid var(--border);
 }
 
@@ -623,6 +629,7 @@ textarea.ui-input,
 .marketing-section h2,
 .use-case h2,
 .developer-section h2,
+.native-connected h2,
 .final-cta h2 {
   margin: 0;
   color: var(--text);
@@ -643,8 +650,14 @@ textarea.ui-input,
   margin-top: 24px;
 }
 
+.section-lede {
+  max-width: 760px;
+  margin: 18px 0 0;
+}
+
 .flow-grid,
 .feature-grid,
+.connected-agent-grid,
 .metric-grid,
 .console-metrics {
   display: grid;
@@ -659,6 +672,7 @@ textarea.ui-input,
 
 .flow-grid div,
 .feature-grid div,
+.connected-agent-grid div,
 .metric,
 .ui-stat {
   min-height: 116px;
@@ -666,7 +680,8 @@ textarea.ui-input,
 }
 
 .flow-grid div,
-.feature-grid div {
+.feature-grid div,
+.connected-agent-grid div {
   display: grid;
   align-content: start;
 }
@@ -686,6 +701,7 @@ textarea.ui-input,
 
 .flow-grid strong,
 .feature-grid strong,
+.connected-agent-grid strong,
 .metric strong,
 .ui-stat strong,
 .console-metric strong {
@@ -695,7 +711,8 @@ textarea.ui-input,
 }
 
 .flow-grid p,
-.feature-grid p {
+.feature-grid p,
+.connected-agent-grid p {
   margin: 14px 0 0;
   color: var(--muted);
   line-height: 1.55;
@@ -709,7 +726,8 @@ textarea.ui-input,
 }
 
 .use-case,
-.developer-section {
+.developer-section,
+.native-connected {
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(420px, 1fr);
   gap: 36px;
@@ -718,6 +736,22 @@ textarea.ui-input,
 
 .feature-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.connected-agent-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-top: 28px;
+}
+
+.native-connected {
+  align-items: stretch;
+}
+
+.native-connected > div {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 24px;
+  background: rgba(20, 26, 32, 0.68);
 }
 
 .constraint-list {
@@ -1129,6 +1163,32 @@ textarea.ui-input,
   margin-bottom: 18px;
 }
 
+.agent-create-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.agent-create-card {
+  align-content: start;
+}
+
+.agent-create-card h2 {
+  margin: 0;
+  color: var(--text);
+}
+
+.agent-passport__header {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.agent-edit-form {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+}
+
 .inline-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -1375,6 +1435,7 @@ textarea.ui-input,
   .hero,
   .use-case,
   .developer-section,
+  .native-connected,
   .problem-grid,
   .auth-shell,
   .console-grid,
@@ -1385,6 +1446,7 @@ textarea.ui-input,
 
   .flow-grid,
   .feature-grid,
+  .connected-agent-grid,
   .metric-grid,
   .console-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1392,6 +1454,11 @@ textarea.ui-input,
 
   .form-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .agent-create-grid,
+  .agent-edit-form {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1476,6 +1543,7 @@ textarea.ui-input,
 
   .flow-grid,
   .feature-grid,
+  .connected-agent-grid,
   .metric-grid,
   .console-metrics,
   .form-grid,

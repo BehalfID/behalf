@@ -1,5 +1,6 @@
 import type {
   BehalfIDConfig,
+  CreateAgentInput,
   CreateAgentResult,
   CreatePermissionInput,
   CreatePermissionResult,
@@ -36,14 +37,15 @@ export class BehalfID {
     });
   }
 
-  createAgent(name: string): Promise<CreateAgentResult> {
-    if (!name || typeof name !== "string") {
+  createAgent(input: string | CreateAgentInput): Promise<CreateAgentResult> {
+    const body = typeof input === "string" ? { name: input } : input;
+    if (!body?.name || typeof body.name !== "string") {
       throw new Error("BehalfID: agent name is required.");
     }
 
     return this.request<CreateAgentResult>("/api/agents", {
       method: "POST",
-      body: { name }
+      body
     });
   }
 

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { parseAgentMetadata } from "@/lib/agents";
 import { createDeveloperAgent, serializeAgent } from "@/lib/dashboardData";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import { jsonError } from "@/lib/responses";
@@ -12,7 +13,7 @@ export async function GET(request: NextRequest) {
 
   const agents = await Agent.find({ developerUserId: auth.user.userId })
     .sort({ createdAt: -1 })
-    .select("-_id agentId name status lastUsedAt keyRotatedAt createdAt updatedAt")
+    .select("-_id agentId name status agentType provider externalAgentId externalAgentLabel connectionStatus description lastUsedAt keyRotatedAt createdAt updatedAt")
     .lean();
 
   return NextResponse.json({ agents: agents.map(serializeAgent) });
@@ -24,15 +25,31 @@ export async function POST(request: NextRequest) {
 
   const body: unknown = await request.json().catch(() => null);
   if (!isRecord(body)) return jsonError("Request body must be a JSON object.");
-  const unknownError = rejectUnknownFields(body, ["name"]);
+  const unknownError = rejectUnknownFields(body, [
+    "name",
+    "agentType",
+    "provider",
+    "externalAgentId",
+    "externalAgentLabel",
+    "connectionStatus",
+    "description"
+  ]);
   if (unknownError) return jsonError(unknownError);
 
   const name = readString(body.name);
   if (!name) return jsonError("name is required.");
 
-  const result = await createDeveloperAgent(auth.user.userId, name);
+  const { metadata, error: metadataError } = parseAgentMetadata(body);
+  if (metadataError || !metadata) return jsonError(metadataError ?? "Invalid agent metadata.");
+
+  const result = await createDeveloperAgent(auth.user.userId, { name, ...metadata });
   await emitWebhookEvent(
-    createWebhookEvent(null, "agent.created", { agentId: result.agent.agentId, name }, auth.user.userId)
+    createWebhookEvent(null, "agent.created", {
+      agentId: result.agent.agentId,
+      name,
+      agentType: metadata.agentType,
+      provider: metadata.provider
+    }, auth.user.userId)
   );
   return NextResponse.json(result, { status: 201 });
 }

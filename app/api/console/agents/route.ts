@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { hashApiKey } from "@/lib/auth";
 import { requireConsoleApi } from "@/lib/adminAuth";
+import { parseAgentMetadata } from "@/lib/agents";
 import { getConsoleAccountId, serializeAgent } from "@/lib/consoleData";
 import { createApiKey, createPublicId } from "@/lib/ids";
 import { jsonError } from "@/lib/responses";
@@ -17,10 +18,10 @@ export async function GET(request: NextRequest) {
   const accountId = await getConsoleAccountId();
   const agents = await Agent.find({ accountId })
     .sort({ createdAt: -1 })
-    .select("-_id agentId name status lastUsedAt keyRotatedAt createdAt updatedAt")
+    .select("-_id agentId name status agentType provider externalAgentId externalAgentLabel connectionStatus description lastUsedAt keyRotatedAt createdAt updatedAt")
     .lean();
 
-  return NextResponse.json({ agents });
+  return NextResponse.json({ agents: await Promise.all(agents.map((agent) => serializeAgent(agent))) });
 }
 
 export async function POST(request: NextRequest) {
@@ -34,7 +35,15 @@ export async function POST(request: NextRequest) {
     return jsonError("Request body must be a JSON object.");
   }
 
-  const unknownError = rejectUnknownFields(body, ["name"]);
+  const unknownError = rejectUnknownFields(body, [
+    "name",
+    "agentType",
+    "provider",
+    "externalAgentId",
+    "externalAgentLabel",
+    "connectionStatus",
+    "description"
+  ]);
   if (unknownError) {
     return jsonError(unknownError);
   }
@@ -44,6 +53,11 @@ export async function POST(request: NextRequest) {
     return jsonError("name is required.");
   }
 
+  const { metadata, error: metadataError } = parseAgentMetadata(body);
+  if (metadataError || !metadata) {
+    return jsonError(metadataError ?? "Invalid agent metadata.");
+  }
+
   const accountId = await getConsoleAccountId();
   const agentId = createPublicId("agent");
   const apiKey = createApiKey();
@@ -51,6 +65,7 @@ export async function POST(request: NextRequest) {
     accountId,
     agentId,
     name,
+    ...metadata,
     apiKeyHash: hashApiKey(apiKey),
     status: "active"
   });
@@ -58,7 +73,9 @@ export async function POST(request: NextRequest) {
   await emitWebhookEvent(
     createWebhookEvent(accountId, "agent.created", {
       agentId,
-      name
+      name,
+      agentType: metadata.agentType,
+      provider: metadata.provider
     })
   );
 

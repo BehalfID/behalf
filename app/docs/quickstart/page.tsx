@@ -4,17 +4,25 @@ export default function QuickstartPage() {
   return (
     <DocsShell
       title="Quickstart"
-      description="Verify a constrained ticket purchase with the dashboard, an agent API key, and the JavaScript SDK."
+      description="Add a native or connected agent, define a permission passport, and verify a constrained ticket purchase."
       previous={{ href: "/docs", label: "Overview" }}
       next={{ href: "/docs/api", label: "API reference" }}
     >
+      <h2>Path A: create a native agent</h2>
       <ol className="docs-steps">
         <li><strong>Create account.</strong> Sign up at <code>/signup</code> and open the developer dashboard.</li>
-        <li><strong>Create agent.</strong> Go to <code>/dashboard/agents</code>, create an agent, and store the one-time API key.</li>
+        <li><strong>Add native agent.</strong> Go to <code>/dashboard/agents</code>, choose Native agent, and store the one-time API key.</li>
         <li><strong>Create permission.</strong> Add action <code>purchase</code>, vendor <code>coachella.com</code>, and max amount <code>800</code>.</li>
         <li><strong>Install SDK.</strong> Add the published Node SDK to your app.</li>
         <li><strong>Verify action.</strong> Call <code>verify()</code> before the agent acts.</li>
         <li><strong>View logs.</strong> Confirm the decision in <code>/dashboard/logs</code>.</li>
+      </ol>
+      <h2>Path B: connect an existing agent</h2>
+      <ol className="docs-steps">
+        <li><strong>Choose Connected agent.</strong> Use a name like <code>Ollie</code> and provider <code>ollie</code>.</li>
+        <li><strong>Add context.</strong> Set description to <code>Personal assistant used for planning</code>.</li>
+        <li><strong>Define the passport.</strong> Add the same permission constraints the external agent must respect.</li>
+        <li><strong>Verify through your app.</strong> Your app uses the BehalfID credential to represent that external agent when calling <code>verify()</code>.</li>
       </ol>
       <CodeBlock label="terminal">{`npm install @behalfid/sdk`}</CodeBlock>
       <CodeBlock label="verify.ts">{`import { BehalfID } from "@behalfid/sdk";

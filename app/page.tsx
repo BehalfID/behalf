@@ -1,7 +1,7 @@
 import { PublicNav } from "@/components/layout/PublicNav";
 import { ButtonLink, CodeBlock } from "@/components/ui";
 
-const badges = ["API-first", "SDK on npm", "Signed webhooks", "Agent permissions"];
+const badges = ["Connected agents", "SDK on npm", "Signed webhooks", "Permission passports"];
 
 const features = [
   "Scoped permissions",
@@ -16,8 +16,8 @@ const features = [
 
 const flowSteps = [
   {
-    title: "Create agent",
-    body: "Give every autonomous agent a durable identity and one-time API key."
+    title: "Add agent",
+    body: "Create a native agent or connect an external agent your users already rely on."
   },
   {
     title: "Define permissions",
@@ -33,6 +33,14 @@ const flowSteps = [
   }
 ];
 
+const connectedAgents = [
+  ["Ollie", "Represent a personal assistant and scope purchase or planning actions."],
+  ["ChatGPT agent", "Attach a permission passport to a ChatGPT-powered workflow."],
+  ["Claude agent", "Verify sensitive data access before a Claude agent proceeds."],
+  ["Zapier / Make", "Wrap automations in action-level constraints and audit trails."],
+  ["Custom agents", "Use native BehalfID agents for LangChain, OpenAI, or internal systems."]
+];
+
 export default function Home() {
   return (
     <main className="marketing">
@@ -41,10 +49,10 @@ export default function Home() {
       <section className="hero">
         <div className="hero__content">
           <p className="section-kicker">Agent permission infrastructure</p>
-          <h1>Identity and permissions for AI agents.</h1>
+          <h1>Permission passports for AI agents.</h1>
           <p>
-            BehalfID lets developers verify whether an AI agent is allowed to act
-            before the action happens.
+            Connect the agents you already use, define what they’re allowed to do,
+            and verify actions before they happen.
           </p>
           <div className="hero__badges" aria-label="Product capabilities">
             {badges.map((badge) => <span key={badge}>{badge}</span>)}
@@ -59,7 +67,8 @@ export default function Home() {
             <span>POST /api/verify</span>
             <strong>200 OK</strong>
           </div>
-          <div className="signal-line"><span>agent</span><strong>agent_tickets</strong></div>
+          <div className="signal-line"><span>connected agent</span><strong>Ollie</strong></div>
+          <div className="signal-line"><span>provider</span><strong>ollie</strong></div>
           <div className="signal-line"><span>action</span><strong>purchase</strong></div>
           <div className="signal-line"><span>vendor</span><strong>coachella.com</strong></div>
           <div className="signal-line"><span>amount</span><strong>$742 / $800</strong></div>
@@ -68,6 +77,23 @@ export default function Home() {
             <span>Webhook queued</span>
             <strong>verification.allowed</strong>
           </div>
+        </div>
+      </section>
+
+      <section className="marketing-section connected-agents-section">
+        <p className="section-kicker">Connected agents</p>
+        <h2>Connect your existing agents.</h2>
+        <p className="section-lede">
+          BehalfID can manually represent the agents people and teams already use today.
+          Provider-native integrations are not required for the permission passport model.
+        </p>
+        <div className="connected-agent-grid">
+          {connectedAgents.map(([title, body]) => (
+            <div key={title}>
+              <strong>{title}</strong>
+              <p>{body}</p>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -84,6 +110,19 @@ export default function Home() {
             to broad access. Neither models per-action delegation with constraints like amount,
             vendor, expiration, and revocation.
           </p>
+        </div>
+      </section>
+
+      <section className="native-connected">
+        <div>
+          <p className="section-kicker">Native</p>
+          <h2>Native agents are created for your app.</h2>
+          <p>Use native agents when you are building a custom SDK, API, LangChain, OpenAI, or internal integration and want BehalfID-issued credentials from the start.</p>
+        </div>
+        <div>
+          <p className="section-kicker">Connected</p>
+          <h2>Connected agents represent tools already in use.</h2>
+          <p>Use connected agents for Ollie, ChatGPT, Claude, Zapier, Make, or other external agents. They are manually represented today, with provider-native integrations planned.</p>
         </div>
       </section>
 

@@ -1,4 +1,5 @@
 import { hashApiKey } from "@/lib/auth";
+import { normalizeAgentMetadata, type AgentProvider, type AgentType, type ConnectionStatus } from "@/lib/agents";
 import { createApiKey, createPublicId } from "@/lib/ids";
 import Agent from "@/models/Agent";
 import Permission from "@/models/Permission";
@@ -11,15 +12,23 @@ export function serializeAgent(agent: {
   agentId: string;
   name: string;
   status?: string | null;
+  agentType?: string | null;
+  provider?: string | null;
+  externalAgentId?: string | null;
+  externalAgentLabel?: string | null;
+  connectionStatus?: string | null;
+  description?: string | null;
   lastUsedAt?: Date | null;
   keyRotatedAt?: Date | null;
   createdAt?: Date | null;
   updatedAt?: Date | null;
 }) {
+  const metadata = normalizeAgentMetadata(agent);
   return {
     agentId: agent.agentId,
     name: agent.name,
     status: agent.status ?? "active",
+    ...metadata,
     lastUsedAt: agent.lastUsedAt ?? null,
     keyRotatedAt: agent.keyRotatedAt ?? null,
     createdAt: agent.createdAt,
@@ -27,12 +36,29 @@ export function serializeAgent(agent: {
   };
 }
 
-export async function createDeveloperAgent(userId: string, name: string) {
+export async function createDeveloperAgent(
+  userId: string,
+  input: {
+    name: string;
+    agentType?: AgentType;
+    provider?: AgentProvider;
+    externalAgentId?: string;
+    externalAgentLabel?: string;
+    connectionStatus?: ConnectionStatus;
+    description?: string;
+  }
+) {
   const apiKey = createApiKey();
   const agent = await Agent.create({
     agentId: createPublicId("agent"),
     developerUserId: userId,
-    name,
+    name: input.name,
+    agentType: input.agentType ?? "native",
+    provider: input.provider ?? "custom",
+    externalAgentId: input.externalAgentId,
+    externalAgentLabel: input.externalAgentLabel,
+    connectionStatus: input.connectionStatus ?? "manual",
+    description: input.description,
     apiKeyHash: hashApiKey(apiKey),
     status: "active"
   });

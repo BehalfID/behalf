@@ -5,6 +5,7 @@ import {
   requireSetupTokenOrConsoleSession
 } from "@/lib/adminAuth";
 import { getDefaultAccountId } from "@/lib/account";
+import { parseAgentMetadata } from "@/lib/agents";
 import { connectToDatabase } from "@/lib/db";
 import { createApiKey, createPublicId } from "@/lib/ids";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
@@ -33,7 +34,15 @@ export async function POST(request: NextRequest) {
     return jsonError("Request body must be a JSON object.");
   }
 
-  const unknownError = rejectUnknownFields(body, ["name"]);
+  const unknownError = rejectUnknownFields(body, [
+    "name",
+    "agentType",
+    "provider",
+    "externalAgentId",
+    "externalAgentLabel",
+    "connectionStatus",
+    "description"
+  ]);
   if (unknownError) {
     return jsonError(unknownError);
   }
@@ -41,6 +50,11 @@ export async function POST(request: NextRequest) {
   const name = readString(body.name);
   if (!name) {
     return jsonError("name is required.");
+  }
+
+  const { metadata, error: metadataError } = parseAgentMetadata(body);
+  if (metadataError || !metadata) {
+    return jsonError(metadataError ?? "Invalid agent metadata.");
   }
 
   const apiKey = createApiKey();
@@ -51,6 +65,7 @@ export async function POST(request: NextRequest) {
     agentId,
     accountId,
     name,
+    ...metadata,
     apiKeyHash: hashApiKey(apiKey),
     status: "active"
   });
@@ -58,9 +73,14 @@ export async function POST(request: NextRequest) {
   await emitWebhookEvent(
     createWebhookEvent(accountId, "agent.created", {
       agentId,
-      name
+      name,
+      agentType: metadata.agentType,
+      provider: metadata.provider
     })
   );
 
-  return NextResponse.json({ agentId, apiKey }, { status: 201 });
+  return NextResponse.json(
+    { agentId, apiKey, agentType: metadata.agentType, provider: metadata.provider },
+    { status: 201 }
+  );
 }
