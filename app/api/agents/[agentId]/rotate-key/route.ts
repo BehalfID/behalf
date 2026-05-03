@@ -45,9 +45,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   await emitWebhookEvent(
-    createWebhookEvent(auth.agent.accountId, "agent.key_rotated", {
-      agentId
-    })
+    createWebhookEvent(
+      auth.agent.accountId,
+      "agent.key_rotated",
+      { agentId },
+      auth.agent.developerUserId
+    )
   );
 
   return NextResponse.json({ agentId, apiKey });

@@ -4,6 +4,7 @@ const WebhookEndpointSchema = new Schema(
   {
     webhookId: { type: String, required: true, unique: true, index: true },
     accountId: { type: String, required: true, index: true },
+    developerUserId: { type: String, index: true },
     url: { type: String, required: true, trim: true, maxlength: 2000 },
     secretHash: { type: String, required: true, select: false },
     secretPreview: { type: String, required: true },
@@ -20,6 +21,7 @@ const WebhookEndpointSchema = new Schema(
 );
 
 WebhookEndpointSchema.index({ accountId: 1, status: 1 });
+WebhookEndpointSchema.index({ developerUserId: 1, status: 1 });
 
 export type WebhookEndpointDocument = InferSchemaType<typeof WebhookEndpointSchema> & {
   _id: mongoose.Types.ObjectId;

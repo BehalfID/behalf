@@ -4,6 +4,7 @@ const PermissionSchema = new Schema(
   {
     permissionId: { type: String, required: true, unique: true, index: true },
     accountId: { type: String, index: true },
+    developerUserId: { type: String, index: true },
     agentId: { type: String, required: true, index: true },
     action: { type: String, required: true, trim: true, maxlength: 80, index: true },
     description: { type: String, trim: true, maxlength: 240 },
@@ -24,6 +25,7 @@ const PermissionSchema = new Schema(
 );
 
 PermissionSchema.index({ accountId: 1, agentId: 1, action: 1, status: 1 });
+PermissionSchema.index({ developerUserId: 1, agentId: 1, action: 1, status: 1 });
 
 export type PermissionDocument = InferSchemaType<typeof PermissionSchema> & {
   _id: mongoose.Types.ObjectId;

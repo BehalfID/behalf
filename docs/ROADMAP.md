@@ -7,7 +7,7 @@
 - Webhook dead-letter alerts and replay audit logs.
 - Bulk replay controls for selected failed webhook events.
 - Public creation controls per environment.
-- Real developer accounts and organizations.
+- Developer account hardening and organization support.
 - Named API keys with creation history and last-used metadata.
 - Log retention and export controls.
 - Route-level automated tests for allow/deny and disabled-agent flows.

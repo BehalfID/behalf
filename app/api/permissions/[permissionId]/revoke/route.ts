@@ -48,11 +48,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   await emitWebhookEvent(
-    createWebhookEvent(auth.agent.accountId, "permission.revoked", {
-      permissionId,
-      agentId: auth.agent.agentId,
-      action: permission.action
-    })
+    createWebhookEvent(
+      auth.agent.accountId,
+      "permission.revoked",
+      {
+        permissionId,
+        agentId: auth.agent.agentId,
+        action: permission.action
+      },
+      auth.agent.developerUserId
+    )
   );
 
   return NextResponse.json({ revoked: true });

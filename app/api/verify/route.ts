@@ -72,6 +72,7 @@ export async function POST(request: NextRequest) {
   const decision = await verifyAction({
     agentId,
     accountId: auth.agent.accountId ?? undefined,
+    developerUserId: auth.agent.developerUserId ?? undefined,
     agentStatus: auth.agent.status,
     action,
     amount,
@@ -90,7 +91,8 @@ export async function POST(request: NextRequest) {
         allowed: decision.allowed,
         risk: decision.risk,
         permissionId: decision.permissionId
-      }
+      },
+      auth.agent.developerUserId
     )
   );
 

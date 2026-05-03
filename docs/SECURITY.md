@@ -12,6 +12,10 @@ BehalfID is currently a prototype. It is suitable for local demos and constraine
 - Console login checks `BEHALFID_ADMIN_PASSWORD` server-side and sets an HTTP-only signed cookie.
 - Console pages and `/api/console/*` routes require the console session cookie.
 - Console mutation routes reject missing or mismatched `Origin` headers for configured localhost/Vercel origins.
+- Developer portal accounts store scrypt password hashes, not plaintext passwords.
+- Developer portal sessions are DB-backed, stored as token hashes, expire automatically, and use HTTP-only cookies.
+- `/dashboard/*` and `/api/dashboard/*` require a developer session and scope resources by `developerUserId`.
+- Dashboard mutation routes reject missing or mismatched `Origin` headers.
 - Anonymous `POST /api/agents` is disabled unless `BEHALFID_PUBLIC_AGENT_CREATION=true`.
 - Setup-token protected routes compare `BEHALFID_SETUP_TOKEN` server-side and never expose it to client JavaScript.
 - `/api/health/db` requires console auth or the setup token.
@@ -32,7 +36,7 @@ BehalfID is currently a prototype. It is suitable for local demos and constraine
 - Disabled agents are denied on `/api/verify`, but can still rotate keys and manage permissions while authenticated; this is intentional for recovery/prototype administration.
 - Rate limiting is process-local unless Upstash Redis is configured. Vercel/serverless memory counters are not shared and reset on cold start or redeploy.
 - Failed authentication attempts are not stored in verification logs.
-- The console uses one admin password instead of user accounts or organizations.
+- The admin console still uses one admin password; the developer portal has individual accounts but no organizations yet.
 - There is no CSRF token system beyond SameSite cookies and Origin checks.
 - Audit logs always contain action, vendor, and amount when provided, and those fields may still be sensitive. Optional `metadata` is only persisted when `BEHALFID_LOG_METADATA` is not `false`.
 - Webhook delivery is at least once, not exactly once. Receivers should deduplicate by event ID.

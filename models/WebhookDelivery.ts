@@ -4,6 +4,7 @@ const WebhookDeliverySchema = new Schema(
   {
     deliveryId: { type: String, required: true, unique: true, index: true },
     accountId: { type: String, required: true, index: true },
+    developerUserId: { type: String, index: true },
     webhookId: { type: String, required: true, index: true },
     eventId: { type: String, required: true, index: true },
     eventType: { type: String, required: true, index: true },
@@ -18,6 +19,7 @@ const WebhookDeliverySchema = new Schema(
 );
 
 WebhookDeliverySchema.index({ accountId: 1, webhookId: 1, createdAt: -1 });
+WebhookDeliverySchema.index({ developerUserId: 1, webhookId: 1, createdAt: -1 });
 
 export type WebhookDeliveryDocument = InferSchemaType<typeof WebhookDeliverySchema> & {
   _id: mongoose.Types.ObjectId;

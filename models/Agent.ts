@@ -4,6 +4,7 @@ const AgentSchema = new Schema(
   {
     agentId: { type: String, required: true, unique: true, index: true },
     accountId: { type: String, index: true },
+    developerUserId: { type: String, index: true },
     name: { type: String, required: true, trim: true, maxlength: 120 },
     apiKeyHash: { type: String, required: true, select: false },
     lastUsedAt: { type: Date },
