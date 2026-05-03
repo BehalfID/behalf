@@ -7,4 +7,4 @@ out
 *.tsbuildinfo
 vercel.json
 npm-debug.log*
-.gitignore
+/scripts/diagnose-prod-db.sh
