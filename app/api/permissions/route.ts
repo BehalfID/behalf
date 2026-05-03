@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
     status: "active"
   });
 
-  emitWebhookEvent(
+  await emitWebhookEvent(
     createWebhookEvent(auth.agent.accountId, "permission.created", {
       permissionId,
       agentId,

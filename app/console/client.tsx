@@ -88,12 +88,38 @@ type WebhookDelivery = {
   httpStatus?: number;
   error?: string;
   attempt: number;
+  nextRetryAt?: string | null;
+  maxAttempts?: number;
   createdAt?: string;
+};
+
+type WebhookEventRecord = {
+  eventId: string;
+  type: string;
+  status: "pending" | "processing" | "completed" | "failed";
+  attempts: number;
+  nextAttemptAt?: string | null;
+  deadLetter: boolean;
+  lastError?: string | null;
+  completedAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 type WebhooksResponse = {
   webhooks: Webhook[];
   eventTypes: string[];
+};
+
+type WebhookEventsResponse = {
+  events: WebhookEventRecord[];
+};
+
+type WebhookEventDetail = {
+  event: WebhookEventRecord & {
+    payload: Record<string, unknown>;
+  };
+  deliveries: WebhookDelivery[];
 };
 
 type WebhookDetail = {
@@ -107,6 +133,7 @@ const navItems = [
   { href: "/console", label: "Dashboard" },
   { href: "/console/agents", label: "Agents" },
   { href: "/console/webhooks", label: "Webhooks" },
+  { href: "/console/webhook-events", label: "Events" },
   { href: "/console/logs", label: "Logs" },
   { href: "/console/settings", label: "Settings" }
 ];
@@ -211,12 +238,13 @@ export function LoginPage() {
   );
 }
 
-export function ConsolePage({ view }: { view: "dashboard" | "agents" | "webhooks" | "logs" | "settings" }) {
+export function ConsolePage({ view }: { view: "dashboard" | "agents" | "webhooks" | "webhook-events" | "logs" | "settings" }) {
   return (
     <ConsoleFrame>
       {view === "dashboard" ? <DashboardView /> : null}
       {view === "agents" ? <AgentsView /> : null}
       {view === "webhooks" ? <WebhooksView /> : null}
+      {view === "webhook-events" ? <WebhookEventsView /> : null}
       {view === "logs" ? <LogsView /> : null}
       {view === "settings" ? <SettingsView /> : null}
     </ConsoleFrame>
@@ -227,6 +255,14 @@ export function WebhookDetailPage({ webhookId }: { webhookId: string }) {
   return (
     <ConsoleFrame>
       <WebhookDetailView webhookId={webhookId} />
+    </ConsoleFrame>
+  );
+}
+
+export function WebhookEventDetailPage({ eventId }: { eventId: string }) {
+  return (
+    <ConsoleFrame>
+      <WebhookEventDetailView eventId={eventId} />
     </ConsoleFrame>
   );
 }
@@ -697,6 +733,97 @@ function WebhookDetailView({ webhookId }: { webhookId: string }) {
   );
 }
 
+function WebhookEventsView() {
+  const [status, setStatus] = useState("");
+  const [eventType, setEventType] = useState("");
+  const [deadLetter, setDeadLetter] = useState(false);
+  const query = useMemo(() => {
+    const params = new URLSearchParams();
+    if (status) params.set("status", status);
+    if (eventType) params.set("type", eventType);
+    if (deadLetter) params.set("deadLetter", "true");
+    return params.toString();
+  }, [deadLetter, eventType, status]);
+  const events = useApiResource<WebhookEventsResponse>(
+    `/api/console/webhook-events${query ? `?${query}` : ""}`
+  );
+
+  return (
+    <ResourceState resource={events}>
+      {(data) => (
+        <>
+          <Header
+            title="Webhook events"
+            action={<button className="console-ghost-button" onClick={events.reload} type="button">Refresh</button>}
+          />
+          <div className="console-filters">
+            <select aria-label="Webhook event status" onChange={(event) => setStatus(event.target.value)} value={status}>
+              <option value="">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="processing">Processing</option>
+              <option value="completed">Completed</option>
+              <option value="failed">Failed</option>
+            </select>
+            <input aria-label="Filter by event type" onChange={(event) => setEventType(event.target.value)} placeholder="verification.denied" value={eventType} />
+            <label className="console-check">
+              <input checked={deadLetter} onChange={(event) => setDeadLetter(event.target.checked)} type="checkbox" />
+              <span>Dead letter only</span>
+            </label>
+          </div>
+          <WebhookEventList events={data.events} />
+        </>
+      )}
+    </ResourceState>
+  );
+}
+
+function WebhookEventDetailView({ eventId }: { eventId: string }) {
+  const detail = useApiResource<WebhookEventDetail>(`/api/console/webhook-events/${eventId}`);
+
+  const replay = async () => {
+    await apiFetch(`/api/console/webhook-events/${eventId}/replay`, { method: "POST" });
+    await detail.reload();
+  };
+
+  return (
+    <ResourceState resource={detail}>
+      {(data) => (
+        <>
+          <Header
+            title="Webhook event"
+            action={
+              data.event.deadLetter ? (
+                <button className="console-primary-button" onClick={replay} type="button">Replay</button>
+              ) : null
+            }
+          />
+          <section className="console-detail">
+            <div className="console-panel">
+              <SectionTitle title="Event" />
+              <dl className="console-definition">
+                <div><dt>Event ID</dt><dd>{data.event.eventId}</dd></div>
+                <div><dt>Type</dt><dd>{data.event.type}</dd></div>
+                <div><dt>Status</dt><dd><span className={statusClass(data.event.status)}>{data.event.status}</span></dd></div>
+                <div><dt>Dead letter</dt><dd>{data.event.deadLetter ? "yes" : "no"}</dd></div>
+                <div><dt>Attempts</dt><dd>{data.event.attempts}</dd></div>
+                <div><dt>Next attempt</dt><dd>{formatDate(data.event.nextAttemptAt)}</dd></div>
+                <div><dt>Completed</dt><dd>{formatDate(data.event.completedAt)}</dd></div>
+                <div><dt>Last error</dt><dd>{data.event.lastError || "None"}</dd></div>
+              </dl>
+            </div>
+            <div className="console-panel">
+              <SectionTitle title="Payload" />
+              <pre className="console-code">{JSON.stringify(data.event.payload, null, 2)}</pre>
+            </div>
+          </section>
+          <SectionTitle title="Delivery attempts" />
+          <DeliveryList deliveries={data.deliveries} />
+        </>
+      )}
+    </ResourceState>
+  );
+}
+
 function SettingsView() {
   const settings = useApiResource<Settings>("/api/console/settings");
 
@@ -805,10 +932,30 @@ function DeliveryList({ deliveries }: { deliveries: WebhookDelivery[] }) {
           <span>
             <strong>{delivery.eventType}</strong>
             <small>{delivery.eventId}{delivery.error ? ` / ${delivery.error}` : ""}</small>
+            <small>Attempt {delivery.attempt}{delivery.maxAttempts ? ` of ${delivery.maxAttempts}` : ""}{delivery.nextRetryAt ? ` / retry ${formatDate(delivery.nextRetryAt)}` : ""}</small>
           </span>
           <span className={statusClass(delivery.status)}>{delivery.status}</span>
           <span>{delivery.httpStatus ?? "no status"}</span>
         </div>
+      ))}
+    </div>
+  );
+}
+
+function WebhookEventList({ events }: { events: WebhookEventRecord[] }) {
+  if (!events.length) return <div className="console-empty">No webhook events queued yet.</div>;
+  return (
+    <div className="console-table">
+      {events.map((event) => (
+        <Link className="console-row" href={`/console/webhook-events/${event.eventId}`} key={event.eventId}>
+          <span>
+            <strong>{event.type}</strong>
+            <small>{event.eventId}{event.lastError ? ` / ${event.lastError}` : ""}</small>
+          </span>
+          <span className={statusClass(event.status)}>{event.status}</span>
+          <span>{event.deadLetter ? "Dead letter" : `Attempts ${event.attempts}`}</span>
+          <span>{event.nextAttemptAt ? formatDate(event.nextAttemptAt) : "no retry scheduled"}</span>
+        </Link>
       ))}
     </div>
   );

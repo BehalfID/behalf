@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     metadata: body.metadata
   });
 
-  emitWebhookEvent(
+  await emitWebhookEvent(
     createWebhookEvent(
       auth.agent.accountId,
       decision.allowed ? "verification.allowed" : "verification.denied",

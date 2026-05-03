@@ -20,9 +20,11 @@ BehalfID is currently a prototype. It is suitable for local demos and constraine
 - Verification logs do not store API keys.
 - API keys are redacted in demo output.
 - Webhook signing secrets are shown once, stored as a derived hash, and only a preview is displayed after creation.
-- Webhook events are signed with HMAC-SHA256 over `timestamp.rawBody`.
+- Webhook events are signed with HMAC-SHA256 over `timestamp.rawBody` using the stored SHA-256 derived signing key for the one-time `whsec_` secret.
 - Webhook payloads do not include API keys, setup tokens, webhook secrets, or rotated API keys.
 - Webhook URL validation requires `https://` in production and rejects obvious localhost/private IP destinations.
+- Webhook events are persisted to an outbox before delivery and retried with a capped five-attempt backoff schedule.
+- Webhook replay is console-authenticated, Origin-checked, account-scoped, and limited to failed dead-letter events.
 
 ## Known Prototype Limitations
 
@@ -33,8 +35,10 @@ BehalfID is currently a prototype. It is suitable for local demos and constraine
 - The console uses one admin password instead of user accounts or organizations.
 - There is no CSRF token system beyond SameSite cookies and Origin checks.
 - Audit logs always contain action, vendor, and amount when provided, and those fields may still be sensitive. Optional `metadata` is only persisted when `BEHALFID_LOG_METADATA` is not `false`.
-- Webhooks currently make one delivery attempt and do not retry failed deliveries.
-- Webhook delivery is asynchronous best effort in this MVP and should move to a durable queue before high-volume production use.
+- Webhook delivery is at least once, not exactly once. Receivers should deduplicate by event ID.
+- The webhook worker is an API route intended for Vercel cron or an external scheduler, not a dedicated queue service.
+- Webhook event details expose the event payload to console admins for debugging. Event payload serializers must continue excluding API keys, setup tokens, webhook secrets, and rotated keys.
+- API actions and webhook outbox writes are not wrapped in MongoDB transactions yet.
 - API key hashes are deterministic. A future version should use an HMAC pepper or key identifier plus HMAC hash.
 
 ## Production Recommendations
@@ -44,6 +48,6 @@ BehalfID is currently a prototype. It is suitable for local demos and constraine
 - Add real developer accounts, organizations, and role-based access.
 - Add account-scoped audit logging for failed auth and admin actions.
 - Add log retention controls and export.
-- Add durable webhook queues, retry policy, and dead-letter handling.
+- Add stronger webhook queue observability, alerting, and replay audit logs.
 - Use a stronger key storage design with a secret pepper.
 - Consider disabling public `POST /api/agents` in production and requiring console or provisioning auth.

@@ -27,7 +27,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     await permission.save();
   }
 
-  emitWebhookEvent(
+  await emitWebhookEvent(
     createWebhookEvent(accountId, "permission.revoked", {
       permissionId,
       agentId,

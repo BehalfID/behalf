@@ -1,8 +1,6 @@
 import crypto from "crypto";
-import { connectToDatabase } from "@/lib/db";
 import { createPublicId, createWebhookSecret } from "@/lib/ids";
-import WebhookDelivery from "@/models/WebhookDelivery";
-import WebhookEndpoint from "@/models/WebhookEndpoint";
+import WebhookEventModel from "@/models/WebhookEvent";
 
 export const WEBHOOK_EVENT_TYPES = [
   "verification.allowed",
@@ -24,6 +22,9 @@ export type WebhookEvent = {
   accountId: string;
   data: Record<string, unknown>;
 };
+
+export const WEBHOOK_MAX_ATTEMPTS = 5;
+export const WEBHOOK_BACKOFF_MS = [0, 5_000, 30_000, 120_000, 600_000] as const;
 
 export function hashWebhookSecret(secret: string) {
   return crypto.createHash("sha256").update(secret).digest("hex");
@@ -116,87 +117,30 @@ export function createWebhookEvent(
   } satisfies WebhookEvent;
 }
 
-export function emitWebhookEvent(event: WebhookEvent | null) {
+export async function emitWebhookEvent(event: WebhookEvent | null) {
   if (!event) {
     return;
   }
 
-  setTimeout(() => {
-    void deliverWebhookEvent(event).catch(() => {
-      // Delivery is best effort for the MVP and must never become an unhandled rejection.
-    });
-  }, 0);
+  await enqueueWebhookEvent(event);
 }
 
-export async function deliverWebhookEvent(event: WebhookEvent) {
-  await connectToDatabase();
-  const endpoints = await WebhookEndpoint.find({
+export async function enqueueWebhookEvent(event: WebhookEvent) {
+  await WebhookEventModel.create({
+    eventId: event.eventId,
     accountId: event.accountId,
-    status: "active",
-    events: event.type
-  }).select("+secretHash");
-
-  await Promise.all(endpoints.map((endpoint) => deliverToEndpoint(event, endpoint)));
+    type: event.type,
+    payload: event,
+    status: "pending",
+    attempts: 0,
+    nextAttemptAt: new Date(),
+    deadLetter: false,
+    lastError: null,
+    completedAt: null
+  });
 }
 
-async function deliverToEndpoint(
-  event: WebhookEvent,
-  endpoint: {
-    webhookId: string;
-    accountId: string;
-    url: string;
-    secretHash: string;
-  }
-) {
-  const rawBody = JSON.stringify(event);
-  const timestamp = Math.floor(Date.now() / 1000).toString();
-  const signature = signWebhookPayload(endpoint.secretHash, timestamp, rawBody);
-  let status: "success" | "failed" = "failed";
-  let httpStatus: number | undefined;
-  let error: string | undefined;
-
-  try {
-    const response = await fetch(endpoint.url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "BehalfID-Event-ID": event.eventId,
-        "BehalfID-Timestamp": timestamp,
-        "BehalfID-Signature": `v1=${signature}`
-      },
-      body: rawBody,
-      signal: AbortSignal.timeout(5000)
-    });
-
-    httpStatus = response.status;
-    status = response.ok ? "success" : "failed";
-    if (!response.ok) {
-      error = `HTTP ${response.status}`;
-    }
-  } catch (deliveryError) {
-    error = deliveryError instanceof Error ? deliveryError.message.slice(0, 500) : "Delivery failed.";
-  }
-
-  await Promise.all([
-    WebhookDelivery.create({
-      deliveryId: createPublicId("dlv"),
-      accountId: event.accountId,
-      webhookId: endpoint.webhookId,
-      eventId: event.eventId,
-      eventType: event.type,
-      status,
-      httpStatus,
-      error,
-      attempt: 1
-    }),
-    WebhookEndpoint.updateOne(
-      { webhookId: endpoint.webhookId },
-      { $set: { lastTriggeredAt: new Date() } }
-    )
-  ]);
-}
-
-function signWebhookPayload(secretHash: string, timestamp: string, rawBody: string) {
+export function signWebhookPayload(secretHash: string, timestamp: string, rawBody: string) {
   return crypto.createHmac("sha256", secretHash).update(`${timestamp}.${rawBody}`).digest("hex");
 }
 

@@ -44,7 +44,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return jsonError("API key has already been rotated.", 409);
   }
 
-  emitWebhookEvent(
+  await emitWebhookEvent(
     createWebhookEvent(auth.agent.accountId, "agent.key_rotated", {
       agentId
     })

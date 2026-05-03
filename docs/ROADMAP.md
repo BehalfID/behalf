@@ -4,8 +4,8 @@
 
 - Persistent rate-limit analytics and alerting on top of Upstash Redis.
 - Admin action audit logs, including setup-token use.
-- Webhook retry policy, exponential backoff, and dead-letter queue.
-- Webhook replay from delivery logs.
+- Webhook dead-letter alerts and replay audit logs.
+- Bulk replay controls for selected failed webhook events.
 - Public creation controls per environment.
 - Real developer accounts and organizations.
 - Named API keys with creation history and last-used metadata.
@@ -14,9 +14,9 @@
 
 ## Developer Experience
 
-- TypeScript SDK.
+- Browser-safe SDK variant after a separate threat model.
 - CLI for agent creation, permission creation, and verification.
-- Webhooks for high-risk denials and key rotation.
+- Integration guides for common Node frameworks.
 - More detailed dashboard filters.
 
 ## Platform

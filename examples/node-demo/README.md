@@ -7,8 +7,6 @@ Minimal Node.js demo for `@behalfid/sdk`.
 From the repo root:
 
 ```bash
-npm --prefix packages/sdk install
-npm --prefix packages/sdk run build
 npm --prefix examples/node-demo install
 BEHALFID_BASE_URL=http://localhost:3000 BEHALFID_SETUP_TOKEN=replace-this-setup-token npm --prefix examples/node-demo start
 ```

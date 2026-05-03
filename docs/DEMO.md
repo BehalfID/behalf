@@ -35,11 +35,9 @@ The script checks `/api/health`, checks `/api/health/db` when a setup token is p
 
 ## SDK Demo
 
-Build the local SDK package and run the Node demo:
+Install the published SDK package and run the Node demo:
 
 ```bash
-npm --prefix packages/sdk install
-npm --prefix packages/sdk run build
 npm --prefix examples/node-demo install
 BEHALFID_BASE_URL=http://localhost:3000 BEHALFID_SETUP_TOKEN=replace-this-setup-token npm --prefix examples/node-demo start
 ```
@@ -62,10 +60,9 @@ The demo does not print API keys.
 
 ## Webhook Receiver Demo
 
-Build the SDK and run the receiver:
+Install the published SDK package and run the receiver:
 
 ```bash
-npm --prefix packages/sdk run build
 npm --prefix examples/webhook-receiver install
 BEHALFID_WEBHOOK_SECRET=whsec_xxx npm --prefix examples/webhook-receiver start
 ```
@@ -76,13 +73,29 @@ Create a webhook in `/console/webhooks` using the displayed one-time secret and 
 http://localhost:4000
 ```
 
-Trigger a verification event. Expected receiver output:
+Trigger a verification event, then process queued webhook events:
+
+```bash
+curl -s http://localhost:3000/api/webhooks/process \
+  -H "Authorization: Bearer $BEHALFID_SETUP_TOKEN" | jq
+```
+
+Expected receiver output:
 
 ```txt
 Received verification.allowed (evt_xxx)
 ```
 
-The receiver verifies the raw request body and does not log secrets.
+The receiver verifies the raw request body with `@behalfid/sdk`, does not log secrets, and should deduplicate events by `eventId` because delivery is at least once.
+
+To test dead-letter and replay behavior:
+
+1. Stop the receiver.
+2. Trigger a verification event.
+3. Process webhook events until the event reaches `failed` with `deadLetter=true`.
+4. Restart the receiver.
+5. Open `/console/webhook-events`, select the failed event, and click replay.
+6. Process webhook events again and confirm the receiver prints the event.
 
 ## Curl Demo
 
