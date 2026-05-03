@@ -52,6 +52,6 @@ export function DocsShell({
   );
 }
 
-export function CodeBlock({ children }: { children: string }) {
-  return <SharedCodeBlock className="docs-code">{children}</SharedCodeBlock>;
+export function CodeBlock({ children, label }: { children: string; label?: string }) {
+  return <SharedCodeBlock className="docs-code" label={label}>{children}</SharedCodeBlock>;
 }

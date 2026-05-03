@@ -25,7 +25,7 @@ export default function ApiDocsPage() {
           </div>
         ))}
       </div>
-      <CodeBlock>{`curl -X POST "$BASE_URL/api/verify" \\
+      <CodeBlock label="curl">{`curl -X POST "$BASE_URL/api/verify" \\
   -H "Authorization: Bearer $BEHALFID_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{"agentId":"agent_xxx","action":"purchase","amount":742,"vendor":"coachella.com"}'`}</CodeBlock>

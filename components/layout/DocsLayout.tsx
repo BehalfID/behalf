@@ -20,6 +20,7 @@ export function DocsLayout({ children }: { children: React.ReactNode }) {
     <main className="docs-page">
       <aside className="docs-sidebar">
         <Logo />
+        <p className="sidebar-label">Developer docs</p>
         <nav aria-label="Documentation">
           {docsNav.map((item) => (
             <Link aria-current={pathname === item.href ? "page" : undefined} href={item.href} key={item.href}>

@@ -21,7 +21,7 @@ export default function WebhookDocsPage() {
       <h2>Retries, DLQ, and replay</h2>
       <p>Webhook events are queued before delivery. Failed deliveries retry with bounded exponential backoff, then move to a dead-letter state where they can be inspected and replayed from the dashboard.</p>
       <p>Delivery is at least once. Receivers should deduplicate by event ID and make side effects idempotent.</p>
-      <CodeBlock>{`import { verifyWebhookSignature } from "@behalfid/sdk";
+      <CodeBlock label="receiver.ts">{`import { verifyWebhookSignature } from "@behalfid/sdk";
 
 const valid = await verifyWebhookSignature({
   secret: process.env.BEHALFID_WEBHOOK_SECRET!,

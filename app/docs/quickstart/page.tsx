@@ -16,8 +16,8 @@ export default function QuickstartPage() {
         <li><strong>Verify action.</strong> Call <code>verify()</code> before the agent acts.</li>
         <li><strong>View logs.</strong> Confirm the decision in <code>/dashboard/logs</code>.</li>
       </ol>
-      <CodeBlock>{`npm install @behalfid/sdk`}</CodeBlock>
-      <CodeBlock>{`import { BehalfID } from "@behalfid/sdk";
+      <CodeBlock label="terminal">{`npm install @behalfid/sdk`}</CodeBlock>
+      <CodeBlock label="verify.ts">{`import { BehalfID } from "@behalfid/sdk";
 
 const behalf = new BehalfID({
   apiKey: process.env.BEHALFID_API_KEY!,
@@ -30,7 +30,7 @@ const result = await behalf.verify({
   amount: 742,
   vendor: "coachella.com"
 });`}</CodeBlock>
-      <CodeBlock>{`{
+      <CodeBlock label="response">{`{
   "requestId": "req_xxx",
   "allowed": true,
   "reason": "Action allowed by active permission.",
