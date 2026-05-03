@@ -172,6 +172,38 @@ Response:
 ]
 ```
 
+## GET /api/passport/[agentId]
+
+Returns public-safe metadata for a manual passport link. The token is separate from the agent API key. Generated passport links keep the token in the URL fragment; API calls should send it as `Authorization: Bearer bhf_pass_...`.
+
+Response:
+
+```json
+{
+  "agent": {
+    "agentId": "agent_xxx",
+    "name": "Ollie",
+    "agentType": "connected",
+    "provider": "ollie",
+    "description": "Personal assistant used for planning"
+  }
+}
+```
+
+## POST /api/passport/[agentId]
+
+Runs a manual allow/deny preview for a tokenized passport link. It does not create logs, mutate permissions, rotate keys, or expose secrets.
+
+Request:
+
+```json
+{
+  "action": "purchase",
+  "vendor": "coachella.com",
+  "amount": 742
+}
+```
+
 If no permission matched, `permissionId` is `null`.
 
 ## GET /api/health

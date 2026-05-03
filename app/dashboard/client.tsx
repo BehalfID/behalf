@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { DashboardShellLayout } from "@/components/layout/DashboardShell";
-import { Badge, Button, ButtonLink, Card, EmptyState, PageHeader, StatCard } from "@/components/ui";
+import { Badge, Button, ButtonLink, Card, CodeBlock, EmptyState, PageHeader, StatCard } from "@/components/ui";
 
 type Agent = {
   agentId: string;
@@ -19,12 +19,16 @@ type Agent = {
   updatedAt?: string;
   lastUsedAt?: string | null;
   keyRotatedAt?: string | null;
+  publicPassportTokenPreview?: string | null;
+  publicPassportEnabled?: boolean;
 };
 type Permission = { permissionId: string; action: string; status: string; constraints?: { maxAmount?: number; allowedVendors?: string[]; expiresAt?: string } };
 type Log = { requestId: string; agentId: string; action: string; allowed: boolean; reason: string; risk: string; createdAt?: string };
 type Webhook = { webhookId: string; url: string; events: string[]; status: string; secretPreview: string; lastTriggeredAt?: string | null };
 type Delivery = { deliveryId: string; eventType: string; eventId: string; status: string; error?: string; attempt: number; maxAttempts?: number; createdAt?: string };
 type AgentProvider = "custom" | "ollie" | "chatgpt" | "claude" | "zapier" | "make" | "langchain" | "openai" | "other";
+type OnboardingMode = "existing" | "custom";
+type VerifyResult = { requestId: string; allowed: boolean; reason: string; risk: string };
 
 const providerOptions: Array<{ value: AgentProvider; label: string }> = [
   { value: "ollie", label: "Ollie" },
@@ -85,10 +89,11 @@ function date(value?: string | null) {
   return value ? new Intl.DateTimeFormat("en", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value)) : "Never";
 }
 
-export function DashboardShell({ view, id }: { view: "home" | "agents" | "agent" | "webhooks" | "webhook" | "logs" | "docs" | "settings"; id?: string }) {
+export function DashboardShell({ view, id }: { view: "home" | "onboarding" | "agents" | "agent" | "webhooks" | "webhook" | "logs" | "docs" | "settings"; id?: string }) {
   return (
     <DashboardShellLayout>
         {view === "home" ? <HomeView /> : null}
+        {view === "onboarding" ? <OnboardingView /> : null}
         {view === "agents" ? <AgentsView /> : null}
         {view === "agent" && id ? <AgentView agentId={id} /> : null}
         {view === "webhooks" ? <WebhooksView /> : null}
@@ -102,10 +107,19 @@ export function DashboardShell({ view, id }: { view: "home" | "agents" | "agent"
 
 function HomeView() {
   const summary = useResource<{ totalAgents: number; activePermissions: number; logsToday: number; pendingEvents: number; failedEvents: number }>("/api/dashboard/summary");
+  const hasAgents = (summary.data?.totalAgents ?? 0) > 0;
   return (
     <>
-      <Header title="Dashboard" />
+      <Header title="Dashboard" action={<ButtonLink variant="primary" href="/dashboard/onboarding">Add agent</ButtonLink>} />
       {summary.error ? <p className="form-error">{summary.error}</p> : null}
+      {!hasAgents ? (
+        <Card className="dashboard-panel onboarding-callout">
+          <p className="section-kicker">Start here</p>
+          <h2>Connect an agent, create permissions, then test an action.</h2>
+          <p>Manual mode helps you test the permission model. Developer integration is required for automatic enforcement.</p>
+          <ButtonLink variant="primary" href="/dashboard/onboarding">Start onboarding</ButtonLink>
+        </Card>
+      ) : null}
       <div className="metric-grid">
         <Metric label="Agents" value={summary.data?.totalAgents ?? 0} />
         <Metric label="Active permissions" value={summary.data?.activePermissions ?? 0} />
@@ -122,90 +136,210 @@ function HomeView() {
 
 function AgentsView() {
   const resource = useResource<{ agents: Agent[] }>("/api/dashboard/agents");
-  const [native, setNative] = useState({ name: "", description: "" });
-  const [connected, setConnected] = useState({
+  const agents = resource.data?.agents ?? [];
+  return (
+    <>
+      <Header title="Agents" action={<ButtonLink variant="primary" href="/dashboard/onboarding">Add agent</ButtonLink>} />
+      {!agents.length ? (
+        <Card className="dashboard-panel onboarding-callout">
+          <h2>Add an agent to create its permission passport.</h2>
+          <p>Start with an existing assistant in manual test mode, or create a native agent for API enforcement.</p>
+          <ButtonLink variant="primary" href="/dashboard/onboarding">Start onboarding</ButtonLink>
+        </Card>
+      ) : null}
+      <Rows items={agents} href={(agent) => `/dashboard/agents/${agent.agentId}`} title={(agent) => agent.name} meta={(agent) => `${agent.agentType} / ${agent.provider} / ${agent.status}`} />
+    </>
+  );
+}
+
+function OnboardingView() {
+  const [step, setStep] = useState(1);
+  const [mode, setMode] = useState<OnboardingMode | null>(null);
+  const [apiKey, setApiKey] = useState("");
+  const [passportUrl, setPassportUrl] = useState("");
+  const [agent, setAgent] = useState<Agent | null>(null);
+  const [permissionId, setPermissionId] = useState("");
+  const [decision, setDecision] = useState<VerifyResult | null>(null);
+  const [agentForm, setAgentForm] = useState({
     name: "Ollie",
     provider: "ollie" as AgentProvider,
     externalAgentLabel: "",
     description: "Personal assistant used for planning"
   });
-  const [apiKey, setApiKey] = useState("");
-  const createNative = async (event: FormEvent) => {
+  const [permissionForm, setPermissionForm] = useState({
+    actionChoice: "purchase",
+    customAction: "",
+    vendor: "coachella.com",
+    maxAmount: "800",
+    expiration: "2"
+  });
+  const [testForm, setTestForm] = useState({ action: "purchase", vendor: "coachella.com", amount: "742" });
+
+  const selectedAction = permissionForm.actionChoice === "custom" ? permissionForm.customAction : permissionForm.actionChoice;
+
+  const createAgent = async (event: FormEvent) => {
     event.preventDefault();
     const result = await api<{ agent: Agent; apiKey: string }>("/api/dashboard/agents", {
       method: "POST",
-      body: JSON.stringify({
-        name: native.name,
+      body: JSON.stringify(mode === "existing" ? {
+        name: agentForm.name,
+        agentType: "connected",
+        provider: agentForm.provider,
+        externalAgentLabel: agentForm.externalAgentLabel || undefined,
+        description: agentForm.description || undefined
+      } : {
+        name: agentForm.name || "Custom agent",
         agentType: "native",
         provider: "custom",
-        description: native.description || undefined
+        description: agentForm.description || undefined
       })
     });
+    setAgent(result.agent);
     setApiKey(result.apiKey);
-    setNative({ name: "", description: "" });
-    await resource.reload();
+    const passport = await api<{ passportUrl: string }>(`/api/dashboard/agents/${result.agent.agentId}/passport`, { method: "POST" });
+    setPassportUrl(passport.passportUrl);
+    setStep(3);
   };
-  const createConnected = async (event: FormEvent) => {
+
+  const createPermission = async (event: FormEvent) => {
     event.preventDefault();
-    const result = await api<{ agent: Agent; apiKey: string }>("/api/dashboard/agents", {
+    if (!agent) return;
+    const result = await api<{ permissionId: string }>(`/api/dashboard/agents/${agent.agentId}/permissions`, {
       method: "POST",
       body: JSON.stringify({
-        name: connected.name,
-        agentType: "connected",
-        provider: connected.provider,
-        externalAgentLabel: connected.externalAgentLabel || undefined,
-        description: connected.description || undefined
+        action: selectedAction,
+        constraints: {
+          maxAmount: permissionForm.maxAmount ? Number(permissionForm.maxAmount) : undefined,
+          allowedVendors: permissionForm.vendor ? [permissionForm.vendor] : undefined,
+          expiresAt: new Date(Date.now() + Number(permissionForm.expiration || "2") * 60 * 60 * 1000).toISOString()
+        }
       })
     });
-    setApiKey(result.apiKey);
-    setConnected({ name: "", provider: "ollie", externalAgentLabel: "", description: "" });
-    await resource.reload();
+    setPermissionId(result.permissionId);
+    setTestForm({ action: selectedAction, vendor: permissionForm.vendor, amount: permissionForm.maxAmount ? String(Math.min(Number(permissionForm.maxAmount), 742)) : "" });
+    setStep(4);
   };
+
+  const testAction = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!agent) return;
+    setDecision(await api<VerifyResult>("/api/verify", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        agentId: agent.agentId,
+        action: testForm.action,
+        vendor: testForm.vendor || undefined,
+        amount: testForm.amount ? Number(testForm.amount) : undefined
+      })
+    }));
+    setStep(5);
+  };
+
+  const instructions = `You are connected to my BehalfID permission passport.
+
+Before taking actions involving purchases, scheduling, sending messages, or external services, ask me to verify the action through BehalfID.
+
+Permission passport:
+${passportUrl || "[passport link]"}
+
+If BehalfID denies the action, do not proceed.`;
+
   return (
     <>
-      <Header title="Agents" />
-      <div className="agent-create-grid">
-      <form className="dashboard-panel agent-create-card" onSubmit={createNative}>
-        <span className="console-status">Native</span>
-        <h2>Native agent</h2>
-        <p>Create a BehalfID-native agent for custom API or SDK integrations.</p>
-        <label>
-          <span>Agent name</span>
-          <input onChange={(event) => setNative({ ...native, name: event.target.value })} placeholder="Jasper Shopping Agent" required value={native.name} />
-        </label>
-        <label>
-          <span>Description</span>
-          <textarea onChange={(event) => setNative({ ...native, description: event.target.value })} placeholder="Custom checkout agent for ticket purchasing" rows={3} value={native.description} />
-        </label>
-        <Button variant="primary" type="submit">Add native agent</Button>
-      </form>
-      <form className="dashboard-panel agent-create-card" onSubmit={createConnected}>
-        <span className="console-status console-status--active">Connected</span>
-        <h2>Connected agent</h2>
-        <p>Represent an AI agent you already use, then manage its permission passport in BehalfID.</p>
-        <label>
-          <span>Agent name</span>
-          <input onChange={(event) => setConnected({ ...connected, name: event.target.value })} placeholder="Ollie" required value={connected.name} />
-        </label>
-        <label>
-          <span>Provider</span>
-          <select onChange={(event) => setConnected({ ...connected, provider: event.target.value as AgentProvider })} value={connected.provider}>
-            {providerOptions.map((provider) => <option key={provider.value} value={provider.value}>{provider.label}</option>)}
-          </select>
-        </label>
-        <label>
-          <span>External agent ID / handle / label</span>
-          <input onChange={(event) => setConnected({ ...connected, externalAgentLabel: event.target.value })} placeholder="Jasper's Ollie assistant" value={connected.externalAgentLabel} />
-        </label>
-        <label>
-          <span>Description</span>
-          <textarea onChange={(event) => setConnected({ ...connected, description: event.target.value })} rows={3} value={connected.description} />
-        </label>
-        <Button variant="primary" type="submit">Connect agent</Button>
-      </form>
+      <Header title="Add agent" />
+      <Card className="dashboard-panel onboarding-callout">
+        <p className="section-kicker">Connect an agent / create permissions / test an action / choose how to use it</p>
+        <h2>Manual mode helps you test the permission model. Developer integration is required for automatic enforcement.</h2>
+      </Card>
+      <div className="onboarding-steps">
+        {[1, 2, 3, 4, 5].map((item) => <span className={item === step ? "console-status console-status--active" : "console-status"} key={item}>Step {item}</span>)}
       </div>
-      {apiKey ? <Secret value={apiKey} label="Agent API key" /> : null}
-      <Rows items={resource.data?.agents ?? []} href={(agent) => `/dashboard/agents/${agent.agentId}`} title={(agent) => agent.name} meta={(agent) => `${agent.agentType} / ${agent.provider} / ${agent.status}`} />
+      {step === 1 ? (
+        <section className="agent-create-grid">
+          <button className="dashboard-panel onboarding-choice" onClick={() => { setMode("existing"); setAgentForm({ name: "Ollie", provider: "ollie", externalAgentLabel: "", description: "Personal assistant used for planning" }); setStep(2); }} type="button">
+            <span className="console-status console-status--active">Manual test mode</span>
+            <h2>I use an existing agent</h2>
+            <p>Create a permission passport for Ollie, ChatGPT, Claude, Zapier, Make, or another assistant you already use.</p>
+            <small>Works today in manual test mode. Provider-native integrations can be added later.</small>
+          </button>
+          <button className="dashboard-panel onboarding-choice" onClick={() => { setMode("custom"); setAgentForm({ name: "Jasper Shopping Agent", provider: "custom", externalAgentLabel: "", description: "Custom checkout agent for ticket purchasing" }); setStep(2); }} type="button">
+            <span className="console-status">Developer integration mode</span>
+            <h2>I’m building my own agent</h2>
+            <p>Create a BehalfID-native agent for API or SDK integration.</p>
+            <small>Best for apps that can call BehalfID before actions happen.</small>
+          </button>
+        </section>
+      ) : null}
+      {step === 2 ? (
+        <form className="dashboard-panel onboarding-form" onSubmit={createAgent}>
+          <h2>{mode === "existing" ? "Existing agent setup" : "Custom agent setup"}</h2>
+          <p>{mode === "existing" ? "This creates a manual permission passport for an agent you already use." : "This creates a native BehalfID agent with an API key for SDK/API enforcement."}</p>
+          <label><span>Agent name</span><input value={agentForm.name} onChange={(event) => setAgentForm({ ...agentForm, name: event.target.value })} required /></label>
+          {mode === "existing" ? (
+            <>
+              <label><span>Provider</span><select value={agentForm.provider} onChange={(event) => setAgentForm({ ...agentForm, provider: event.target.value as AgentProvider })}>{providerOptions.map((provider) => <option key={provider.value} value={provider.value}>{provider.label}</option>)}</select></label>
+              <label><span>External label / handle / ID</span><input value={agentForm.externalAgentLabel} onChange={(event) => setAgentForm({ ...agentForm, externalAgentLabel: event.target.value })} /></label>
+            </>
+          ) : null}
+          <label><span>Description</span><textarea rows={3} value={agentForm.description} onChange={(event) => setAgentForm({ ...agentForm, description: event.target.value })} /></label>
+          <Button variant="primary" type="submit">Create passport</Button>
+        </form>
+      ) : null}
+      {step === 3 ? (
+        <form className="dashboard-panel onboarding-form" onSubmit={createPermission}>
+          <h2>Create first permission</h2>
+          <label><span>Action</span><select value={permissionForm.actionChoice} onChange={(event) => setPermissionForm({ ...permissionForm, actionChoice: event.target.value })}><option value="purchase">purchase</option><option value="schedule">schedule</option><option value="send_message">send_message</option><option value="access_data">access_data</option><option value="custom">custom</option></select></label>
+          {permissionForm.actionChoice === "custom" ? <label><span>Custom action</span><input value={permissionForm.customAction} onChange={(event) => setPermissionForm({ ...permissionForm, customAction: event.target.value })} required /></label> : null}
+          <label><span>Vendor / service / workflow</span><input value={permissionForm.vendor} onChange={(event) => setPermissionForm({ ...permissionForm, vendor: event.target.value })} /></label>
+          <label><span>Max amount</span><input min="0" type="number" value={permissionForm.maxAmount} onChange={(event) => setPermissionForm({ ...permissionForm, maxAmount: event.target.value })} /></label>
+          <label><span>Expiration</span><select value={permissionForm.expiration} onChange={(event) => setPermissionForm({ ...permissionForm, expiration: event.target.value })}><option value="1">1 hour</option><option value="2">2 hours</option><option value="24">24 hours</option><option value="168">7 days</option></select></label>
+          <Button variant="primary" type="submit">Create permission</Button>
+        </form>
+      ) : null}
+      {step === 4 ? (
+        <form className="dashboard-panel onboarding-form" onSubmit={testAction}>
+          <h2>Test an action</h2>
+          <p>Permission created: <code>{permissionId}</code></p>
+          <label><span>Action</span><input value={testForm.action} onChange={(event) => setTestForm({ ...testForm, action: event.target.value })} /></label>
+          <label><span>Vendor</span><input value={testForm.vendor} onChange={(event) => setTestForm({ ...testForm, vendor: event.target.value })} /></label>
+          <label><span>Amount</span><input min="0" type="number" value={testForm.amount} onChange={(event) => setTestForm({ ...testForm, amount: event.target.value })} /></label>
+          <Button variant="primary" type="submit">Test verification</Button>
+        </form>
+      ) : null}
+      {step === 5 && agent ? (
+        <section className="onboarding-result-grid">
+          <Card className="dashboard-panel">
+            <h2>{decision?.allowed ? "Allowed" : "Denied"}</h2>
+            <p>{decision?.reason}</p>
+            <div className="agent-passport__header"><ButtonLink href={`/dashboard/agents/${agent.agentId}`}>Open agent</ButtonLink>{passportUrl ? <ButtonLink href={passportUrl}>Open passport</ButtonLink> : null}</div>
+          </Card>
+          <Card className="dashboard-panel">
+            <h2>Manual test mode</h2>
+            <p>This does not automatically control the external agent. It is a manual test workflow until the provider or your app integrates BehalfID.</p>
+            <CodeBlock label="copy into your agent">{instructions}</CodeBlock>
+          </Card>
+          <Card className="dashboard-panel">
+            <h2>Developer integration</h2>
+            <p>The API key was shown once during setup. Store it as <code>BEHALFID_API_KEY</code> and call verify before actions happen.</p>
+            <CodeBlock label="verify.ts">{`import { BehalfID } from "@behalfid/sdk";
+
+const behalf = new BehalfID({
+  apiKey: process.env.BEHALFID_API_KEY!,
+  baseUrl: "https://behalfid.vercel.app"
+});
+
+const result = await behalf.verify({
+  agentId: "${agent.agentId}",
+  action: "purchase",
+  amount: 742,
+  vendor: "coachella.com"
+});`}</CodeBlock>
+            <div className="agent-passport__header"><ButtonLink href="/docs/quickstart">Quickstart</ButtonLink><ButtonLink href="/docs/sdk">SDK docs</ButtonLink></div>
+          </Card>
+        </section>
+      ) : null}
+      {apiKey && step < 5 ? <Secret value={apiKey} label="Agent API key" /> : null}
     </>
   );
 }
@@ -213,6 +347,7 @@ function AgentsView() {
 function AgentView({ agentId }: { agentId: string }) {
   const detail = useResource<{ agent: Agent; permissions: Permission[]; logs: Log[] }>(`/api/dashboard/agents/${agentId}`);
   const [secret, setSecret] = useState("");
+  const [passportUrl, setPassportUrl] = useState("");
   const [form, setForm] = useState({ action: "purchase", maxAmount: "800", vendors: "coachella.com", expiresAt: "" });
   const [profile, setProfile] = useState<Partial<Pick<Agent, "name" | "provider" | "externalAgentId" | "externalAgentLabel" | "description" | "connectionStatus">>>({});
   const createPermission = async (event: FormEvent) => {
@@ -221,6 +356,11 @@ function AgentView({ agentId }: { agentId: string }) {
     await detail.reload();
   };
   const rotate = async () => setSecret((await api<{ apiKey: string }>(`/api/dashboard/agents/${agentId}/rotate-key`, { method: "POST" })).apiKey);
+  const regeneratePassport = async () => {
+    const result = await api<{ passportUrl: string }>(`/api/dashboard/agents/${agentId}/passport`, { method: "POST" });
+    setPassportUrl(result.passportUrl);
+    await detail.reload();
+  };
   const setStatus = async (status: "enable" | "disable") => { await api(`/api/dashboard/agents/${agentId}/${status}`, { method: "POST" }); await detail.reload(); };
   const revoke = async (permissionId: string) => { await api(`/api/dashboard/agents/${agentId}/permissions/${permissionId}/revoke`, { method: "POST" }); await detail.reload(); };
   const updateProfile = async (event: FormEvent) => {
@@ -273,6 +413,34 @@ function AgentView({ agentId }: { agentId: string }) {
         <label><span>Description</span><input value={profile.description ?? agent?.description ?? ""} onChange={(e) => setProfile({ ...profile, description: e.target.value })} /></label>
         <Button variant="primary" type="submit">Save profile</Button>
       </form>
+      {agent ? (
+        <section className={agent.agentType === "connected" ? "onboarding-result-grid" : "onboarding-result-grid onboarding-result-grid--native"}>
+          <Card className="dashboard-panel">
+            <h2>{agent.agentType === "connected" ? "Manual test mode" : "Developer integration"}</h2>
+            <p>{agent.agentType === "connected" ? "Create a public-safe passport link and copy instructions into the external agent. Automatic enforcement requires provider or app integration." : "Use this API key directly from your custom integration and call verify before actions happen."}</p>
+            <Button onClick={regeneratePassport} type="button">{agent.publicPassportEnabled ? "Regenerate passport link" : "Create passport link"}</Button>
+            {passportUrl ? <Secret value={passportUrl} label="Passport link" /> : null}
+            {agent.publicPassportTokenPreview ? <p>Current passport token: <code>{agent.publicPassportTokenPreview}</code></p> : null}
+          </Card>
+          <Card className="dashboard-panel">
+            <h2>{agent.agentType === "connected" ? "Developer integration" : "Manual testing"}</h2>
+            <p>{agent.agentType === "connected" ? "When your app or provider can call BehalfID, use the SDK/API for automatic enforcement." : "Native agents can also use a passport link for manual allow/deny testing."}</p>
+            <CodeBlock label="verify.ts">{`import { BehalfID } from "@behalfid/sdk";
+
+const behalf = new BehalfID({
+  apiKey: process.env.BEHALFID_API_KEY!,
+  baseUrl: "https://behalfid.vercel.app"
+});
+
+const result = await behalf.verify({
+  agentId: "${agent.agentId}",
+  action: "purchase",
+  amount: 742,
+  vendor: "coachella.com"
+});`}</CodeBlock>
+          </Card>
+        </section>
+      ) : null}
       <form className="dashboard-panel form-grid" onSubmit={createPermission}>
         <label>
           <span>Action</span>

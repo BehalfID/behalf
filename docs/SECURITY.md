@@ -30,6 +30,7 @@ BehalfID is currently a prototype. It is suitable for local demos and constraine
 - Webhook events are persisted to an outbox before delivery and retried with a capped five-attempt backoff schedule.
 - Webhook replay is console-authenticated, Origin-checked, account-scoped, and limited to failed dead-letter events.
 - Connected-agent provider metadata is descriptive only. BehalfID does not collect provider credentials, and `externalAgentId` is never treated as authentication.
+- Public passport links use a separate `bhf_pass_` token scoped to one agent. The token can only run manual verification previews and cannot create permissions, rotate keys, view logs, or expose API keys.
 
 ## Known Prototype Limitations
 
@@ -45,6 +46,7 @@ BehalfID is currently a prototype. It is suitable for local demos and constraine
 - Webhook event details expose the event payload to console admins for debugging. Event payload serializers must continue excluding API keys, setup tokens, webhook secrets, and rotated keys.
 - API actions and webhook outbox writes are not wrapped in MongoDB transactions yet.
 - Connected agents are manually represented today; provider-native connection state is not verified with external provider APIs.
+- Manual passport testing does not automatically control third-party agents. The provider or your app must integrate the BehalfID verification API for automatic enforcement.
 - API key hashes are deterministic. A future version should use an HMAC pepper or key identifier plus HMAC hash.
 
 ## Production Recommendations

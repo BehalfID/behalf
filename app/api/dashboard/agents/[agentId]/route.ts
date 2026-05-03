@@ -61,7 +61,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   const agent = await Agent.findOneAndUpdate(
     { developerUserId: auth.user.userId, agentId },
     { $set: update },
-    { new: true }
+    { returnDocument: "after" }
   );
 
   if (!agent) return jsonError("Agent not found.", 404);

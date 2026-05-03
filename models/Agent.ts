@@ -27,6 +27,9 @@ const AgentSchema = new Schema(
       index: true
     },
     description: { type: String, trim: true, maxlength: 800 },
+    publicPassportTokenHash: { type: String, select: false },
+    publicPassportTokenPreview: { type: String },
+    publicPassportEnabled: { type: Boolean, default: false, index: true },
     apiKeyHash: { type: String, required: true, select: false },
     lastUsedAt: { type: Date },
     keyRotatedAt: { type: Date },

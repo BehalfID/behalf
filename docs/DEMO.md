@@ -37,13 +37,15 @@ The script checks `/api/health`, checks `/api/health/db` when a setup token is p
 
 1. Open `http://localhost:3000/signup`.
 2. Create a developer account with an email and a password of at least 10 characters.
-3. Open `/dashboard/agents`.
-4. Add a native or connected agent and store the one-time API key.
-5. Open the agent detail page and create a purchase permission.
-6. Use the SDK or curl demo with that API key.
-7. Review `/dashboard/logs` and configure webhooks in `/dashboard/webhooks`.
+3. Open `/dashboard/onboarding`.
+4. Choose an existing agent such as Ollie for manual test mode, or choose a custom agent for developer integration mode.
+5. Create the first purchase permission.
+6. Test an action in the onboarding flow.
+7. For manual mode, open the passport link and copy the generated instructions into the external agent.
+8. For developer integration mode, use the SDK or curl demo with the one-time API key.
+9. Review `/dashboard/logs` and configure webhooks in `/dashboard/webhooks`.
 
-The dashboard is separate from `/console`; dashboard users only see resources attached to their own developer account. Use Native agent for custom SDK/API integrations, or Connected agent to manually represent an external assistant such as Ollie, ChatGPT, Claude, Zapier, Make, or another provider.
+The dashboard is separate from `/console`; dashboard users only see resources attached to their own developer account. Manual mode helps you test the permission model. Developer integration is required for automatic enforcement.
 
 ## SDK Demo
 
