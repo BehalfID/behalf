@@ -1,0 +1,23 @@
+import mongoose, { Schema, type InferSchemaType, type Model } from "mongoose";
+
+const DeveloperSessionSchema = new Schema(
+  {
+    sessionId: { type: String, required: true, unique: true, index: true },
+    userId: { type: String, required: true, index: true },
+    tokenHash: { type: String, required: true, unique: true, index: true },
+    expiresAt: { type: Date, required: true }
+  },
+  { timestamps: { createdAt: true, updatedAt: false } }
+);
+
+DeveloperSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
+export type DeveloperSessionDocument = InferSchemaType<typeof DeveloperSessionSchema> & {
+  _id: mongoose.Types.ObjectId;
+};
+
+const DeveloperSession =
+  (mongoose.models.DeveloperSession as Model<DeveloperSessionDocument> | undefined) ??
+  mongoose.model<DeveloperSessionDocument>("DeveloperSession", DeveloperSessionSchema);
+
+export default DeveloperSession;

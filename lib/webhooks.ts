@@ -20,6 +20,7 @@ export type WebhookEvent = {
   type: WebhookEventType;
   createdAt: string;
   accountId: string;
+  developerUserId?: string;
   data: Record<string, unknown>;
 };
 
@@ -102,9 +103,15 @@ export function validateWebhookUrl(value: unknown) {
 export function createWebhookEvent(
   accountId: string | null | undefined,
   type: WebhookEventType,
-  data: Record<string, unknown>
+  data: Record<string, unknown>,
+  developerUserId?: string | null
 ) {
-  if (!accountId) {
+  if (!accountId && !developerUserId) {
+    return null;
+  }
+
+  const eventAccountId = accountId ?? developerUserId;
+  if (!eventAccountId) {
     return null;
   }
 
@@ -112,7 +119,8 @@ export function createWebhookEvent(
     eventId: createPublicId("evt"),
     type,
     createdAt: new Date().toISOString(),
-    accountId,
+    accountId: eventAccountId,
+    developerUserId: developerUserId ?? undefined,
     data
   } satisfies WebhookEvent;
 }
@@ -129,6 +137,7 @@ export async function enqueueWebhookEvent(event: WebhookEvent) {
   await WebhookEventModel.create({
     eventId: event.eventId,
     accountId: event.accountId,
+    developerUserId: event.developerUserId,
     type: event.type,
     payload: event,
     status: "pending",

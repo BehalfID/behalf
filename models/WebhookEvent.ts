@@ -4,6 +4,7 @@ const WebhookEventSchema = new Schema(
   {
     eventId: { type: String, required: true, unique: true, index: true },
     accountId: { type: String, required: true, index: true },
+    developerUserId: { type: String, index: true },
     type: { type: String, required: true, index: true },
     payload: { type: Schema.Types.Mixed, required: true },
     status: {
@@ -24,6 +25,7 @@ const WebhookEventSchema = new Schema(
 
 WebhookEventSchema.index({ status: 1, nextAttemptAt: 1, createdAt: 1 });
 WebhookEventSchema.index({ accountId: 1, deadLetter: 1, createdAt: -1 });
+WebhookEventSchema.index({ developerUserId: 1, deadLetter: 1, createdAt: -1 });
 
 export type WebhookEventDocument = InferSchemaType<typeof WebhookEventSchema> & {
   _id: mongoose.Types.ObjectId;

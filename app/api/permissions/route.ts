@@ -111,6 +111,7 @@ export async function POST(request: NextRequest) {
   await Permission.create({
     permissionId,
     accountId: auth.agent.accountId,
+    developerUserId: auth.agent.developerUserId,
     agentId,
     action,
     description,
@@ -127,7 +128,7 @@ export async function POST(request: NextRequest) {
       permissionId,
       agentId,
       action
-    })
+    }, auth.agent.developerUserId)
   );
 
   return NextResponse.json({ permissionId, status: "active" }, { status: 201 });

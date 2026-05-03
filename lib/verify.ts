@@ -6,6 +6,7 @@ import VerificationLog from "@/models/VerificationLog";
 type VerifyInput = {
   agentId: string;
   accountId?: string;
+  developerUserId?: string;
   agentStatus?: string | null;
   action: string;
   amount?: number;
@@ -122,6 +123,7 @@ export async function verifyAction(input: VerifyInput) {
     logId: createPublicId("log"),
     requestId,
     accountId: input.accountId,
+    developerUserId: input.developerUserId,
     agentId: input.agentId,
     permissionId: permission?.permissionId ?? null,
     action: input.action,

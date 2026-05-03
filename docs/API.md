@@ -23,6 +23,8 @@ Errors use:
 
 Protected public endpoints are rate limited by IP before authentication and by API key hash after authentication. Rate limiting uses Upstash Redis when `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are configured; otherwise it falls back to in-memory mode.
 
+Developer portal routes under `/api/dashboard/*` use HTTP-only developer session cookies. Public documentation pages are available under `/docs`.
+
 ## POST /api/agents
 
 Creates an agent and returns its API key once.
@@ -258,6 +260,30 @@ The console uses cookie auth, not agent bearer keys:
 - `GET /api/console/webhooks/[webhookId]/deliveries`
 
 Console API routes are intended for the built-in prototype console, not third-party integrations.
+
+## Dashboard API
+
+The developer dashboard uses these session-protected routes:
+
+- `POST /api/auth/signup`
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `GET /api/auth/me`
+- `GET /api/dashboard/summary`
+- `GET|POST /api/dashboard/agents`
+- `GET /api/dashboard/agents/[agentId]`
+- `POST /api/dashboard/agents/[agentId]/permissions`
+- `POST /api/dashboard/agents/[agentId]/permissions/[permissionId]/revoke`
+- `POST /api/dashboard/agents/[agentId]/rotate-key`
+- `POST /api/dashboard/agents/[agentId]/disable`
+- `POST /api/dashboard/agents/[agentId]/enable`
+- `GET|POST /api/dashboard/webhooks`
+- `GET /api/dashboard/webhooks/[webhookId]`
+- `POST /api/dashboard/webhooks/[webhookId]/disable`
+- `POST /api/dashboard/webhooks/[webhookId]/enable`
+- `POST /api/dashboard/webhooks/[webhookId]/rotate-secret`
+- `GET /api/dashboard/logs`
+- `GET /api/dashboard/settings`
 
 See [WEBHOOKS.md](WEBHOOKS.md) for event payloads and signature verification.
 

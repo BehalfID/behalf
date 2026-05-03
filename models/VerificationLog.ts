@@ -5,6 +5,7 @@ const VerificationLogSchema = new Schema(
     logId: { type: String, required: true, unique: true, index: true },
     requestId: { type: String, required: true, unique: true, index: true },
     accountId: { type: String, index: true },
+    developerUserId: { type: String, index: true },
     agentId: { type: String, required: true, index: true },
     permissionId: { type: String, default: null, index: true },
     action: { type: String, required: true, trim: true, maxlength: 80 },
@@ -19,6 +20,7 @@ const VerificationLogSchema = new Schema(
 );
 
 VerificationLogSchema.index({ accountId: 1, agentId: 1, createdAt: -1 });
+VerificationLogSchema.index({ developerUserId: 1, agentId: 1, createdAt: -1 });
 
 export type VerificationLogDocument = InferSchemaType<typeof VerificationLogSchema> & {
   _id: mongoose.Types.ObjectId;

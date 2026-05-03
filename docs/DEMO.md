@@ -33,6 +33,18 @@ The script checks `/api/health`, checks `/api/health/db` when a setup token is p
 9. Disable the agent, run a verify request, then enable it again.
 10. Review `/console/logs`.
 
+## Developer Portal Demo
+
+1. Open `http://localhost:3000/signup`.
+2. Create a developer account with an email and a password of at least 10 characters.
+3. Open `/dashboard/agents`.
+4. Create an agent and store the one-time API key.
+5. Open the agent detail page and create a purchase permission.
+6. Use the SDK or curl demo with that API key.
+7. Review `/dashboard/logs` and configure webhooks in `/dashboard/webhooks`.
+
+The dashboard is separate from `/console`; dashboard users only see resources attached to their own developer account.
+
 ## SDK Demo
 
 Install the published SDK package and run the Node demo:

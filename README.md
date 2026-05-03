@@ -2,7 +2,7 @@
 
 BehalfID is identity and permissions for AI agents. It is a developer-first system for verifying whether an AI agent is authorized to act on behalf of a user.
 
-This prototype includes the public permission API plus a password-protected developer console at `/console`.
+This prototype includes the public permission API, a public docs site, a developer portal at `/dashboard`, and the existing password-protected admin console at `/console`.
 
 ## What It Does
 
@@ -13,6 +13,8 @@ This prototype includes the public permission API plus a password-protected deve
 - Log each authenticated verification decision with a stable `requestId`.
 - Rotate agent API keys.
 - Manage agents, permissions, logs, key rotation, and disable/enable state in `/console`.
+- Sign up for a developer portal account and manage owned resources in `/dashboard`.
+- Read public integration pages at `/docs`.
 
 ## Local Setup
 
@@ -36,8 +38,11 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 Then open:
 
 ```txt
-http://localhost:3000/console
+http://localhost:3000/signup
+http://localhost:3000/docs
 ```
+
+The developer portal uses MongoDB-backed email/password accounts and HTTP-only session cookies.
 
 ## MongoDB
 
@@ -52,9 +57,19 @@ Use MongoDB Atlas or a local MongoDB server. For Atlas, create a database user w
 
 The console uses an HTTP-only signed cookie. The admin password is verified server-side and is not exposed to frontend JavaScript.
 
+## Developer Portal
+
+1. Visit `/signup`.
+2. Create a developer account.
+3. Open `/dashboard/agents`.
+4. Create an agent and store the one-time API key.
+5. Create permissions, verify actions with the SDK, inspect logs, and configure webhooks.
+
+The dashboard is separate from `/console`; dashboard users only see resources with their own `developerUserId`.
+
 ## API Usage
 
-Public API docs are in [docs/API.md](docs/API.md). Demo commands are in [docs/DEMO.md](docs/DEMO.md).
+Public API docs are available at `/docs` and in [docs/API.md](docs/API.md). Demo commands are in [docs/DEMO.md](docs/DEMO.md).
 
 ## JavaScript SDK
 
@@ -90,7 +105,7 @@ Local SDK source lives in `packages/sdk`. A runnable Node example lives in `exam
 
 BehalfID can send signed events for verification decisions, agent changes, and permission changes.
 
-- Manage endpoints in `/console/webhooks`.
+- Manage endpoints in `/dashboard/webhooks` or `/console/webhooks`.
 - Verify signatures with `verifyWebhookSignature` from `@behalfid/sdk`.
 - Process queued deliveries with setup-token protected `/api/webhooks/process`, usually from Vercel cron.
 - Run the example receiver in `examples/webhook-receiver`.

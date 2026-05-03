@@ -113,7 +113,9 @@ async function processClaimedEvent(event: WebhookEventDocument) {
   const payload = event.payload as WebhookEvent;
   const attempt = event.attempts;
   const endpoints = await WebhookEndpoint.find({
-    accountId: event.accountId,
+    ...(event.developerUserId
+      ? { developerUserId: event.developerUserId }
+      : { accountId: event.accountId }),
     status: "active",
     events: event.type
   }).select("+secretHash");
@@ -144,6 +146,7 @@ async function processClaimedEvent(event: WebhookEventDocument) {
     results.map((result) => ({
       deliveryId: createPublicId("dlv"),
       accountId: event.accountId,
+      developerUserId: event.developerUserId,
       webhookId: result.webhookId,
       eventId: event.eventId,
       eventType: event.type,
@@ -157,7 +160,12 @@ async function processClaimedEvent(event: WebhookEventDocument) {
   );
 
   await WebhookEndpoint.updateMany(
-    { accountId: event.accountId, webhookId: { $in: results.map((result) => result.webhookId) } },
+    {
+      ...(event.developerUserId
+        ? { developerUserId: event.developerUserId }
+        : { accountId: event.accountId }),
+      webhookId: { $in: results.map((result) => result.webhookId) }
+    },
     { $set: { lastTriggeredAt: new Date() } }
   );
 
