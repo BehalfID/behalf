@@ -109,7 +109,7 @@ export default function Home() {
             <div><dt>expiresAt</dt><dd>2 hours</dd></div>
           </dl>
         </div>
-        <CodeBlock>{`{
+        <CodeBlock label="verify response">{`{
   "requestId": "req_xxx",
   "allowed": true,
   "reason": "Action allowed by active permission.",
@@ -121,9 +121,9 @@ export default function Home() {
         <div>
           <p className="section-kicker">SDK</p>
           <h2>One call before the agent acts.</h2>
-          <CodeBlock>{`npm install @behalfid/sdk`}</CodeBlock>
+          <CodeBlock label="install">{`npm install @behalfid/sdk`}</CodeBlock>
         </div>
-        <CodeBlock>{`import { BehalfID } from "@behalfid/sdk";
+        <CodeBlock label="verify.ts">{`import { BehalfID } from "@behalfid/sdk";
 
 const behalf = new BehalfID({
   apiKey: process.env.BEHALFID_API_KEY!,

@@ -17,9 +17,13 @@ export function Logo({
       </span>
       <span className="site-logo__wordmark">
         {variant === "full" ? (
-          <Image alt="BehalfID" height={24} priority src="/behalf_full.png" width={72} />
+          <strong className="site-logo__text">
+            Behalf<span>ID</span>
+          </strong>
         ) : (
-          <strong>BehalfID</strong>
+          <strong className="site-logo__text">
+            Behalf<span>ID</span>
+          </strong>
         )}
         {subtitle ? <small>{subtitle}</small> : null}
       </span>
