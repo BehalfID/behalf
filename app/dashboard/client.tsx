@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { DashboardShellLayout } from "@/components/layout/DashboardShell";
+import { Badge, Button, ButtonLink, Card, EmptyState, PageHeader, StatCard } from "@/components/ui";
 
 type Agent = { agentId: string; name: string; status: string; createdAt?: string; updatedAt?: string };
 type Permission = { permissionId: string; action: string; status: string; constraints?: { maxAmount?: number; allowedVendors?: string[]; expiresAt?: string } };
@@ -58,20 +60,7 @@ function date(value?: string | null) {
 
 export function DashboardShell({ view, id }: { view: "home" | "agents" | "agent" | "webhooks" | "webhook" | "logs" | "docs" | "settings"; id?: string }) {
   return (
-    <main className="dashboard-shell">
-      <aside className="dashboard-sidebar">
-        <Link className="site-logo" href="/"><span className="site-logo__mark">B</span><span>BehalfID</span></Link>
-        <nav>
-          <Link href="/dashboard">Overview</Link>
-          <Link href="/dashboard/agents">Agents</Link>
-          <Link href="/dashboard/webhooks">Webhooks</Link>
-          <Link href="/dashboard/logs">Logs</Link>
-          <Link href="/dashboard/docs">Docs</Link>
-          <Link href="/dashboard/settings">Settings</Link>
-        </nav>
-        <a className="secondary-button" href="/logout">Log out</a>
-      </aside>
-      <section className="dashboard-main">
+    <DashboardShellLayout>
         {view === "home" ? <HomeView /> : null}
         {view === "agents" ? <AgentsView /> : null}
         {view === "agent" && id ? <AgentView agentId={id} /> : null}
@@ -80,8 +69,7 @@ export function DashboardShell({ view, id }: { view: "home" | "agents" | "agent"
         {view === "logs" ? <LogsView /> : null}
         {view === "docs" ? <DashboardDocs /> : null}
         {view === "settings" ? <SettingsView /> : null}
-      </section>
-    </main>
+    </DashboardShellLayout>
   );
 }
 
@@ -97,10 +85,10 @@ function HomeView() {
         <Metric label="Logs today" value={summary.data?.logsToday ?? 0} />
         <Metric label="Webhook issues" value={summary.data?.failedEvents ?? 0} />
       </div>
-      <div className="dashboard-panel">
+      <Card className="dashboard-panel">
         <h2>Quickstart</h2>
-        <ol><li>Create an agent</li><li>Create a permission</li><li>Install `@behalfid/sdk`</li><li>Verify before the agent acts</li></ol>
-      </div>
+        <ol><li>Create an agent</li><li>Create a permission</li><li>Install <code>@behalfid/sdk</code></li><li>Verify before the agent acts</li></ol>
+      </Card>
     </>
   );
 }
@@ -120,8 +108,11 @@ function AgentsView() {
     <>
       <Header title="Agents" />
       <form className="dashboard-panel inline-form" onSubmit={create}>
-        <input onChange={(event) => setName(event.target.value)} placeholder="Jasper Shopping Agent" required value={name} />
-        <button className="primary-button" type="submit">Create agent</button>
+        <label>
+          <span>Agent name</span>
+          <input onChange={(event) => setName(event.target.value)} placeholder="Jasper Shopping Agent" required value={name} />
+        </label>
+        <Button variant="primary" type="submit">Create agent</Button>
       </form>
       {apiKey ? <Secret value={apiKey} label="Agent API key" /> : null}
       <Rows items={resource.data?.agents ?? []} href={(agent) => `/dashboard/agents/${agent.agentId}`} title={(agent) => agent.name} meta={(agent) => `${agent.agentId} / ${agent.status}`} />
@@ -143,18 +134,30 @@ function AgentView({ agentId }: { agentId: string }) {
   const revoke = async (permissionId: string) => { await api(`/api/dashboard/agents/${agentId}/permissions/${permissionId}/revoke`, { method: "POST" }); await detail.reload(); };
   return (
     <>
-      <Header title={detail.data?.agent.name ?? "Agent"} action={<button className="secondary-button" onClick={rotate}>Rotate key</button>} />
+      <Header title={detail.data?.agent.name ?? "Agent"} action={<Button onClick={rotate}>Rotate key</Button>} />
       {secret ? <Secret value={secret} label="Rotated API key" /> : null}
-      <div className="dashboard-actions"><button onClick={() => setStatus("disable")}>Disable</button><button onClick={() => setStatus("enable")}>Enable</button></div>
+      <div className="dashboard-actions"><Button onClick={() => setStatus("disable")}>Disable</Button><Button onClick={() => setStatus("enable")}>Enable</Button></div>
       <form className="dashboard-panel form-grid" onSubmit={createPermission}>
-        <input value={form.action} onChange={(e) => setForm({ ...form, action: e.target.value })} />
-        <input value={form.maxAmount} onChange={(e) => setForm({ ...form, maxAmount: e.target.value })} />
-        <input value={form.vendors} onChange={(e) => setForm({ ...form, vendors: e.target.value })} />
-        <input type="datetime-local" value={form.expiresAt} onChange={(e) => setForm({ ...form, expiresAt: e.target.value })} />
-        <button className="primary-button" type="submit">Create permission</button>
+        <label>
+          <span>Action</span>
+          <input value={form.action} onChange={(e) => setForm({ ...form, action: e.target.value })} />
+        </label>
+        <label>
+          <span>Max amount</span>
+          <input value={form.maxAmount} onChange={(e) => setForm({ ...form, maxAmount: e.target.value })} />
+        </label>
+        <label>
+          <span>Allowed vendors</span>
+          <input value={form.vendors} onChange={(e) => setForm({ ...form, vendors: e.target.value })} />
+        </label>
+        <label>
+          <span>Expires at</span>
+          <input type="datetime-local" value={form.expiresAt} onChange={(e) => setForm({ ...form, expiresAt: e.target.value })} />
+        </label>
+        <Button variant="primary" type="submit">Create permission</Button>
       </form>
       <h2>Permissions</h2>
-      <div className="dashboard-list">{(detail.data?.permissions ?? []).map((p) => <div key={p.permissionId}><span><strong>{p.action}</strong><small>{p.permissionId} / {p.status}</small></span>{p.status === "active" ? <button onClick={() => revoke(p.permissionId)}>Revoke</button> : null}</div>)}</div>
+      <div className="dashboard-list">{(detail.data?.permissions ?? []).map((p) => <div key={p.permissionId}><span><strong>{p.action}</strong><small>{p.permissionId} / {p.status}</small></span><Badge>{p.status}</Badge>{p.status === "active" ? <Button onClick={() => revoke(p.permissionId)}>Revoke</Button> : null}</div>)}</div>
       <h2>Recent logs</h2>
       <LogList logs={detail.data?.logs ?? []} />
     </>
@@ -176,7 +179,13 @@ function WebhooksView() {
   return (
     <>
       <Header title="Webhooks" />
-      <form className="dashboard-panel inline-form" onSubmit={create}><input onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com/webhooks/behalfid" required value={url} /><button className="primary-button">Create webhook</button></form>
+      <form className="dashboard-panel inline-form" onSubmit={create}>
+        <label>
+          <span>Endpoint URL</span>
+          <input onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com/webhooks/behalfid" required value={url} />
+        </label>
+        <Button variant="primary">Create webhook</Button>
+      </form>
       {secret ? <Secret value={secret} label="Signing secret" /> : null}
       <Rows items={resource.data?.webhooks ?? []} href={(w) => `/dashboard/webhooks/${w.webhookId}`} title={(w) => w.url} meta={(w) => `${w.status} / ${w.events.join(", ")}`} />
     </>
@@ -190,11 +199,11 @@ function WebhookView({ webhookId }: { webhookId: string }) {
   const setStatus = async (status: "enable" | "disable") => { await api(`/api/dashboard/webhooks/${webhookId}/${status}`, { method: "POST" }); await detail.reload(); };
   return (
     <>
-      <Header title="Webhook" action={<button className="secondary-button" onClick={rotate}>Rotate secret</button>} />
+      <Header title="Webhook" action={<Button onClick={rotate}>Rotate secret</Button>} />
       {secret ? <Secret value={secret} label="Rotated signing secret" /> : null}
-      <div className="dashboard-actions"><button onClick={() => setStatus("disable")}>Disable</button><button onClick={() => setStatus("enable")}>Enable</button></div>
-      <div className="dashboard-panel"><strong>{detail.data?.webhook.url}</strong><p>{detail.data?.webhook.secretPreview}</p></div>
-      <div className="dashboard-list">{(detail.data?.deliveries ?? []).map((d) => <div key={d.deliveryId}><span><strong>{d.eventType}</strong><small>{d.eventId} / attempt {d.attempt}{d.error ? ` / ${d.error}` : ""}</small></span><span>{d.status}</span></div>)}</div>
+      <div className="dashboard-actions"><Button onClick={() => setStatus("disable")}>Disable</Button><Button onClick={() => setStatus("enable")}>Enable</Button></div>
+      <Card className="dashboard-panel"><strong>{detail.data?.webhook.url}</strong><p>{detail.data?.webhook.secretPreview}</p></Card>
+      <div className="dashboard-list">{(detail.data?.deliveries ?? []).map((d) => <div key={d.deliveryId}><span><strong>{d.eventType}</strong><small>{d.eventId} / attempt {d.attempt}{d.error ? ` / ${d.error}` : ""}</small></span><Badge>{d.status}</Badge></div>)}</div>
     </>
   );
 }
@@ -206,29 +215,29 @@ function LogsView() {
 
 function SettingsView() {
   const settings = useResource<{ email: string; appUrl: string; apiUsage: string; dangerZone: string }>("/api/dashboard/settings");
-  return <><Header title="Settings" /><div className="dashboard-panel"><p>{settings.data?.email}</p><p>{settings.data?.appUrl}</p><p>{settings.data?.apiUsage}</p><p>{settings.data?.dangerZone}</p></div></>;
+  return <><Header title="Settings" /><Card className="dashboard-panel"><p>{settings.data?.email}</p><p>{settings.data?.appUrl}</p><p>{settings.data?.apiUsage}</p><p>{settings.data?.dangerZone}</p></Card></>;
 }
 
 function DashboardDocs() {
-  return <><Header title="Integration docs" /><div className="dashboard-panel"><Link href="/docs/quickstart">Quickstart</Link><Link href="/docs/sdk">SDK</Link><Link href="/docs/webhooks">Webhooks</Link></div></>;
+  return <><Header title="Integration docs" /><Card className="dashboard-panel dashboard-doc-links"><ButtonLink href="/docs/quickstart">Quickstart</ButtonLink><ButtonLink href="/docs/sdk">SDK</ButtonLink><ButtonLink href="/docs/webhooks">Webhooks</ButtonLink></Card></>;
 }
 
 function Header({ title, action }: { title: string; action?: React.ReactNode }) {
-  return <header className="dashboard-header"><div><p className="section-kicker">Developer portal</p><h1>{title}</h1></div>{action}</header>;
+  return <PageHeader eyebrow="Developer portal" title={title} action={action} className="dashboard-header" />;
 }
 
 function Metric({ label, value }: { label: string; value: number }) {
-  return <div className="metric"><span>{label}</span><strong>{value}</strong></div>;
+  return <StatCard label={label} value={value} />;
 }
 
 function Rows<T>({ items, href, title, meta }: { items: T[]; href: (item: T) => string; title: (item: T) => string; meta: (item: T) => string }) {
-  if (!items.length) return <div className="dashboard-empty">Nothing here yet.</div>;
+  if (!items.length) return <EmptyState className="dashboard-empty">Nothing here yet.</EmptyState>;
   return <div className="dashboard-list">{items.map((item) => <Link href={href(item)} key={href(item)}><span><strong>{title(item)}</strong><small>{meta(item)}</small></span></Link>)}</div>;
 }
 
 function LogList({ logs }: { logs: Log[] }) {
-  if (!logs.length) return <div className="dashboard-empty">No logs yet.</div>;
-  return <div className="dashboard-list">{logs.map((log) => <div key={log.requestId}><span><strong>{log.action}</strong><small>{log.agentId} / {log.reason}</small></span><span>{log.allowed ? "allowed" : "denied"}</span><span>{date(log.createdAt)}</span></div>)}</div>;
+  if (!logs.length) return <EmptyState className="dashboard-empty">No logs yet.</EmptyState>;
+  return <div className="dashboard-list">{logs.map((log) => <div key={log.requestId}><span><strong>{log.action}</strong><small>{log.agentId} / {log.reason}</small></span><Badge>{log.allowed ? "allowed" : "denied"}</Badge><span>{date(log.createdAt)}</span></div>)}</div>;
 }
 
 function Secret({ label, value }: { label: string; value: string }) {

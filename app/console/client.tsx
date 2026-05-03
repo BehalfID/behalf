@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { ConsoleShellLayout } from "@/components/layout/ConsoleShell";
+import { Button, ButtonLink, CodeBlock, EmptyState, Logo, PageHeader, StatCard } from "@/components/ui";
 
 type Agent = {
   agentId: string;
@@ -128,15 +130,6 @@ type WebhookDetail = {
 };
 
 type ApiError = Error & { status?: number };
-
-const navItems = [
-  { href: "/console", label: "Dashboard" },
-  { href: "/console/agents", label: "Agents" },
-  { href: "/console/webhooks", label: "Webhooks" },
-  { href: "/console/webhook-events", label: "Events" },
-  { href: "/console/logs", label: "Logs" },
-  { href: "/console/settings", label: "Settings" }
-];
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -276,7 +269,6 @@ export function AgentDetailPage({ agentId }: { agentId: string }) {
 }
 
 function ConsoleFrame({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
   const router = useRouter();
 
   const logout = async () => {
@@ -285,33 +277,7 @@ function ConsoleFrame({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <main className="console-shell">
-      <aside className="console-sidebar">
-        <Link className="console-brand" href="/console" aria-label="BehalfID console">
-          <span className="console-brand__mark">B</span>
-          <span>
-            <strong>BehalfID</strong>
-            <small>Developer console</small>
-          </span>
-        </Link>
-        <nav className="console-nav" aria-label="Console">
-          {navItems.map((item) => (
-            <Link
-              aria-current={pathname === item.href ? "page" : undefined}
-              className="console-nav__item"
-              href={item.href}
-              key={item.href}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-        <button className="console-ghost-button" onClick={logout} type="button">
-          Logout
-        </button>
-      </aside>
-      <section className="console-workspace">{children}</section>
-    </main>
+    <ConsoleShellLayout onLogout={logout}>{children}</ConsoleShellLayout>
   );
 }
 
@@ -339,11 +305,25 @@ function LoginPanel({ onSuccess }: { onSuccess: () => void }) {
   };
 
   return (
-    <div className="console-login">
+    <div className="console-login auth-shell auth-shell--console">
+      <div className="auth-context">
+        <Logo />
+        <div>
+          <p className="section-kicker">Internal console</p>
+          <h2>Prototype administration for BehalfID.</h2>
+          <p>Use this area for internal setup, health checks, webhook operations, and prototype-wide resource inspection.</p>
+        </div>
+        <ul>
+          <li>Admin-only access</li>
+          <li>Environment health</li>
+          <li>Webhook event replay</li>
+          <li>Operational audit views</li>
+        </ul>
+      </div>
       <form className="console-login__panel" onSubmit={submit}>
         <p className="console-kicker">Console access</p>
         <h1>BehalfID</h1>
-        <p className="console-muted">Identity and permissions for AI agents.</p>
+        <p className="console-muted">Internal access for prototype administration.</p>
         <label>
           <span>Admin password</span>
           <input
@@ -355,9 +335,9 @@ function LoginPanel({ onSuccess }: { onSuccess: () => void }) {
           />
         </label>
         {error ? <p className="console-error">{error}</p> : null}
-        <button className="console-primary-button" disabled={submitting} type="submit">
+        <Button variant="primary" disabled={submitting} type="submit">
           {submitting ? "Signing in" : "Sign in"}
-        </button>
+        </Button>
       </form>
     </div>
   );
@@ -370,12 +350,12 @@ function ResourceState<T>({
   resource: ReturnType<typeof useApiResource<T>>;
   children: (data: T) => React.ReactNode;
 }) {
-  if (resource.loading) return <div className="console-empty">Loading</div>;
+  if (resource.loading) return <EmptyState className="console-empty">Loading</EmptyState>;
   if (resource.error?.status === 401) {
-    return <div className="console-empty">Session expired. Sign in again.</div>;
+    return <EmptyState className="console-empty">Session expired. Sign in again.</EmptyState>;
   }
-  if (resource.error) return <div className="console-empty">{resource.error.message}</div>;
-  if (!resource.data) return <div className="console-empty">No data available.</div>;
+  if (resource.error) return <EmptyState className="console-empty">{resource.error.message}</EmptyState>;
+  if (!resource.data) return <EmptyState className="console-empty">No data available.</EmptyState>;
   return children(resource.data);
 }
 
@@ -389,15 +369,15 @@ function DashboardView() {
           <Header
             title="Dashboard"
             action={
-              <Link className="console-primary-button" href="/console/agents">
+              <ButtonLink variant="primary" href="/console/agents">
                 Manage agents
-              </Link>
+              </ButtonLink>
             }
           />
           <section className="console-metrics">
-            <Metric label="Total agents" value={data.totalAgents} />
-            <Metric label="Active permissions" value={data.activePermissions} />
-            <Metric label="Logs today" value={data.logsToday} />
+            <StatCard label="Total agents" value={data.totalAgents} />
+            <StatCard label="Active permissions" value={data.activePermissions} />
+            <StatCard label="Logs today" value={data.logsToday} />
             <Metric
               label="Last result"
               value={data.lastVerification ? (data.lastVerification.allowed ? "Allowed" : "Denied") : "None"}
@@ -405,7 +385,7 @@ function DashboardView() {
           </section>
           <section>
             <SectionTitle title="Last verification" />
-            {data.lastVerification ? <LogList logs={[data.lastVerification]} /> : <div className="console-empty">No verification logs yet.</div>}
+            {data.lastVerification ? <LogList logs={[data.lastVerification]} /> : <EmptyState className="console-empty">No verification logs yet.</EmptyState>}
           </section>
         </>
       )}
@@ -451,9 +431,9 @@ function AgentsView() {
                 <span>Name</span>
                 <input onChange={(event) => setName(event.target.value)} required value={name} />
               </label>
-              <button className="console-primary-button" disabled={submitting} type="submit">
+              <Button variant="primary" disabled={submitting} type="submit">
                 {submitting ? "Creating" : "Create agent"}
-              </button>
+              </Button>
               {oneTimeKey ? <SecretBox label="New API key" value={oneTimeKey} /> : null}
             </form>
           </section>
@@ -524,17 +504,17 @@ function AgentDetailView({ agentId }: { agentId: string }) {
             title={data.agent.name}
             action={
               <div className="console-actions">
-                <button className="console-ghost-button" onClick={rotateKey} type="button">
+                <Button onClick={rotateKey} type="button">
                   Rotate key
-                </button>
+                </Button>
                 {data.agent.status === "disabled" ? (
-                  <button className="console-primary-button" onClick={() => setStatus("enable")} type="button">
+                  <Button variant="primary" onClick={() => setStatus("enable")} type="button">
                     Enable
-                  </button>
+                  </Button>
                 ) : (
-                  <button className="console-danger-button" onClick={() => setStatus("disable")} type="button">
+                  <Button variant="danger" onClick={() => setStatus("disable")} type="button">
                     Disable
-                  </button>
+                  </Button>
                 )}
               </div>
             }
@@ -559,7 +539,7 @@ function AgentDetailView({ agentId }: { agentId: string }) {
               <label><span>Allowed vendors</span><input onChange={(event) => setForm({ ...form, allowedVendors: event.target.value })} value={form.allowedVendors} /></label>
               <label><span>Expires at</span><input onChange={(event) => setForm({ ...form, expiresAt: event.target.value })} type="datetime-local" value={form.expiresAt} /></label>
               <label><span>Description</span><textarea onChange={(event) => setForm({ ...form, description: event.target.value })} rows={3} value={form.description} /></label>
-              <button className="console-primary-button" type="submit">Create permission</button>
+              <Button variant="primary" type="submit">Create permission</Button>
             </form>
           </section>
           <section className="console-grid">
@@ -599,7 +579,7 @@ function LogsView() {
           <option value="true">Allowed</option>
           <option value="false">Denied</option>
         </select>
-        <button className="console-ghost-button" onClick={logs.reload} type="button">Refresh</button>
+        <Button onClick={logs.reload} type="button">Refresh</Button>
       </div>
       <ResourceState resource={logs}>
         {(data) => <LogList logs={data.logs} />}
@@ -661,7 +641,7 @@ function WebhooksView() {
                   </label>
                 ))}
               </fieldset>
-              <button className="console-primary-button" type="submit">Create webhook</button>
+              <Button variant="primary" type="submit">Create webhook</Button>
               {oneTimeSecret ? <SecretBox label="Signing secret" value={oneTimeSecret} /> : null}
             </form>
           </section>
@@ -697,11 +677,11 @@ function WebhookDetailView({ webhookId }: { webhookId: string }) {
             title="Webhook"
             action={
               <div className="console-actions">
-                <button className="console-ghost-button" onClick={rotateSecret} type="button">Rotate secret</button>
+                <Button onClick={rotateSecret} type="button">Rotate secret</Button>
                 {data.webhook.status === "disabled" ? (
-                  <button className="console-primary-button" onClick={() => setStatus("enable")} type="button">Enable</button>
+                  <Button variant="primary" onClick={() => setStatus("enable")} type="button">Enable</Button>
                 ) : (
-                  <button className="console-danger-button" onClick={() => setStatus("disable")} type="button">Disable</button>
+                  <Button variant="danger" onClick={() => setStatus("disable")} type="button">Disable</Button>
                 )}
               </div>
             }
@@ -754,7 +734,7 @@ function WebhookEventsView() {
         <>
           <Header
             title="Webhook events"
-            action={<button className="console-ghost-button" onClick={events.reload} type="button">Refresh</button>}
+            action={<Button onClick={events.reload} type="button">Refresh</Button>}
           />
           <div className="console-filters">
             <select aria-label="Webhook event status" onChange={(event) => setStatus(event.target.value)} value={status}>
@@ -793,7 +773,7 @@ function WebhookEventDetailView({ eventId }: { eventId: string }) {
             title="Webhook event"
             action={
               data.event.deadLetter ? (
-                <button className="console-primary-button" onClick={replay} type="button">Replay</button>
+                <Button variant="primary" onClick={replay} type="button">Replay</Button>
               ) : null
             }
           />
@@ -813,7 +793,7 @@ function WebhookEventDetailView({ eventId }: { eventId: string }) {
             </div>
             <div className="console-panel">
               <SectionTitle title="Payload" />
-              <pre className="console-code">{JSON.stringify(data.event.payload, null, 2)}</pre>
+              <CodeBlock className="console-code">{JSON.stringify(data.event.payload, null, 2)}</CodeBlock>
             </div>
           </section>
           <SectionTitle title="Delivery attempts" />
@@ -863,15 +843,7 @@ function SettingsView() {
 }
 
 function Header({ title, action }: { title: string; action?: React.ReactNode }) {
-  return (
-    <header className="console-header">
-      <div>
-        <p className="console-kicker">Console</p>
-        <h1>{title}</h1>
-      </div>
-      {action}
-    </header>
-  );
+  return <PageHeader eyebrow="Console" title={title} action={action} className="console-header" />;
 }
 
 function SectionTitle({ title }: { title: string }) {
@@ -879,16 +851,11 @@ function SectionTitle({ title }: { title: string }) {
 }
 
 function Metric({ label, value }: { label: string; value: number | string }) {
-  return (
-    <div className="console-metric">
-      <span>{label}</span>
-      <strong>{typeof value === "number" ? value.toLocaleString() : value}</strong>
-    </div>
-  );
+  return <StatCard label={label} value={value} />;
 }
 
 function AgentTable({ agents }: { agents: Agent[] }) {
-  if (!agents.length) return <div className="console-empty">No agents found.</div>;
+  if (!agents.length) return <EmptyState className="console-empty">No agents found.</EmptyState>;
   return (
     <div className="console-table">
       {agents.map((agent) => (
@@ -906,7 +873,7 @@ function AgentTable({ agents }: { agents: Agent[] }) {
 }
 
 function WebhookList({ webhooks }: { webhooks: Webhook[] }) {
-  if (!webhooks.length) return <div className="console-empty">No webhooks configured.</div>;
+  if (!webhooks.length) return <EmptyState className="console-empty">No webhooks configured.</EmptyState>;
   return (
     <div className="console-table">
       {webhooks.map((webhook) => (
@@ -924,7 +891,7 @@ function WebhookList({ webhooks }: { webhooks: Webhook[] }) {
 }
 
 function DeliveryList({ deliveries }: { deliveries: WebhookDelivery[] }) {
-  if (!deliveries.length) return <div className="console-empty">No delivery attempts yet.</div>;
+  if (!deliveries.length) return <EmptyState className="console-empty">No delivery attempts yet.</EmptyState>;
   return (
     <div className="console-list">
       {deliveries.map((delivery) => (
@@ -943,7 +910,7 @@ function DeliveryList({ deliveries }: { deliveries: WebhookDelivery[] }) {
 }
 
 function WebhookEventList({ events }: { events: WebhookEventRecord[] }) {
-  if (!events.length) return <div className="console-empty">No webhook events queued yet.</div>;
+  if (!events.length) return <EmptyState className="console-empty">No webhook events queued yet.</EmptyState>;
   return (
     <div className="console-table">
       {events.map((event) => (
@@ -962,7 +929,7 @@ function WebhookEventList({ events }: { events: WebhookEventRecord[] }) {
 }
 
 function PermissionList({ items, onRevoke }: { items: Permission[]; onRevoke: (id: string) => void }) {
-  if (!items.length) return <div className="console-empty">No permissions created.</div>;
+  if (!items.length) return <EmptyState className="console-empty">No permissions created.</EmptyState>;
   return (
     <div className="console-list">
       {items.map((item) => (
@@ -973,9 +940,9 @@ function PermissionList({ items, onRevoke }: { items: Permission[]; onRevoke: (i
           </span>
           <span className={statusClass(item.status)}>{item.status}</span>
           {item.status === "active" ? (
-            <button className="console-danger-button" onClick={() => onRevoke(item.permissionId)} type="button">
+            <Button variant="danger" onClick={() => onRevoke(item.permissionId)} type="button">
               Revoke
-            </button>
+            </Button>
           ) : null}
         </div>
       ))}
@@ -984,7 +951,7 @@ function PermissionList({ items, onRevoke }: { items: Permission[]; onRevoke: (i
 }
 
 function LogList({ logs, compact = false }: { logs: VerificationLog[]; compact?: boolean }) {
-  if (!logs.length) return <div className="console-empty">No logs found.</div>;
+  if (!logs.length) return <EmptyState className="console-empty">No logs found.</EmptyState>;
   return (
     <div className={compact ? "console-list console-list--compact" : "console-list"}>
       {logs.map((log) => (
@@ -1017,9 +984,9 @@ function SecretBox({ label, value }: { label: string; value: string }) {
       <strong>{label}</strong>
       <p>This key is shown once. Store it now; the old key stops working after rotation.</p>
       <code>{value}</code>
-      <button className="console-ghost-button" onClick={copy} type="button">
+      <Button onClick={copy} type="button">
         {copied ? "Copied" : "Copy key"}
-      </button>
+      </Button>
     </div>
   );
 }
