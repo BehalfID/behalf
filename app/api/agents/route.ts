@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     status: "active"
   });
 
-  emitWebhookEvent(
+  await emitWebhookEvent(
     createWebhookEvent(accountId, "agent.created", {
       agentId,
       name

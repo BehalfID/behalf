@@ -58,4 +58,4 @@ const valid = await verifyWebhookSignature({
 });
 ```
 
-Use the raw request body exactly as received. Do not log webhook secrets.
+Use the raw request body exactly as received. The helper derives the same signing key BehalfID uses from the one-time `whsec_` secret. BehalfID webhook delivery is at least once, so receivers should deduplicate by event ID. Do not log webhook secrets.

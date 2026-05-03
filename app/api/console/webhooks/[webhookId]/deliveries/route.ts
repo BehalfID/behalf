@@ -18,7 +18,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const deliveries = await WebhookDelivery.find({ accountId, webhookId })
     .sort({ createdAt: -1 })
     .limit(50)
-    .select("-_id deliveryId eventId eventType status httpStatus error attempt createdAt")
+    .select("-_id deliveryId eventId eventType status httpStatus error attempt nextRetryAt maxAttempts createdAt")
     .lean();
 
   return NextResponse.json({ deliveries });

@@ -92,7 +92,10 @@ BehalfID can send signed events for verification decisions, agent changes, and p
 
 - Manage endpoints in `/console/webhooks`.
 - Verify signatures with `verifyWebhookSignature` from `@behalfid/sdk`.
+- Process queued deliveries with setup-token protected `/api/webhooks/process`, usually from Vercel cron.
 - Run the example receiver in `examples/webhook-receiver`.
+
+Webhook delivery uses an outbox with at-least-once retries. Receivers should deduplicate by event ID.
 
 See [docs/WEBHOOKS.md](docs/WEBHOOKS.md).
 

@@ -186,6 +186,26 @@ Response:
 }
 ```
 
+## GET /api/webhooks/process
+
+Processes due webhook outbox events. This endpoint is safe to call repeatedly and is intended for Vercel cron or an external scheduler. Requires console auth or:
+
+```txt
+Authorization: Bearer <BEHALFID_SETUP_TOKEN>
+```
+
+Response:
+
+```json
+{
+  "status": "ok",
+  "processed": 1,
+  "completed": 1,
+  "retried": 0,
+  "failed": 0
+}
+```
+
 ## POST /api/agents/[agentId]/rotate-key
 
 Rotates an agent API key. Requires the current API key for the same agent. The old key stops working immediately and the new key is returned once.
@@ -227,6 +247,9 @@ The console uses cookie auth, not agent bearer keys:
 - `POST /api/console/agents/[agentId]/enable`
 - `GET /api/console/logs`
 - `GET /api/console/settings`
+- `GET /api/console/webhook-events`
+- `GET /api/console/webhook-events/[eventId]`
+- `POST /api/console/webhook-events/[eventId]/replay`
 - `GET|POST /api/console/webhooks`
 - `GET /api/console/webhooks/[webhookId]`
 - `POST /api/console/webhooks/[webhookId]/disable`

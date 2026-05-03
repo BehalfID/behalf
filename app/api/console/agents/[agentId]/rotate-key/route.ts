@@ -33,7 +33,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return jsonError("Agent not found.", 404);
   }
 
-  emitWebhookEvent(createWebhookEvent(accountId, "agent.key_rotated", { agentId }));
+  await emitWebhookEvent(createWebhookEvent(accountId, "agent.key_rotated", { agentId }));
 
   return NextResponse.json({ agentId, apiKey });
 }

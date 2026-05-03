@@ -10,7 +10,9 @@ const WebhookDeliverySchema = new Schema(
     status: { type: String, enum: ["success", "failed"], required: true },
     httpStatus: { type: Number },
     error: { type: String, maxlength: 500 },
-    attempt: { type: Number, required: true, default: 1 }
+    attempt: { type: Number, required: true, default: 1 },
+    nextRetryAt: { type: Date },
+    maxAttempts: { type: Number, required: true, default: 5 }
   },
   { timestamps: { createdAt: true, updatedAt: false } }
 );

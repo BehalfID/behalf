@@ -389,6 +389,7 @@ a {
 
 .console-status--active,
 .console-status--allowed,
+.console-status--completed,
 .console-status--success {
   color: #9cf6d2;
   background: rgba(114, 240, 193, 0.1);
@@ -406,6 +407,7 @@ a {
 }
 
 .console-status--pending,
+.console-status--processing,
 .console-status--expired {
   color: #ffe0a3;
   background: rgba(255, 194, 102, 0.1);
@@ -418,6 +420,21 @@ a {
   display: grid;
   gap: 16px;
   padding: 18px;
+}
+
+.console-code {
+  max-height: 420px;
+  overflow: auto;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+  color: #d8dde8;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .console-fieldset {
