@@ -47,6 +47,53 @@ The script checks `/api/health`, checks `/api/health/db` when a setup token is p
 
 The dashboard is separate from `/console`; dashboard users only see resources attached to their own developer account. Manual mode helps you test the permission model. Developer integration is required for automatic enforcement.
 
+## Reference Enforcement Demo
+
+`examples/enforcement-demo` demonstrates the core enforcement pattern using a pre-configured agent and permission. Denied actions fail closed.
+
+### Setup
+
+1. Create an agent in `/dashboard/onboarding` and store the one-time API key.
+2. Create an `access_data` permission on `gmail.com` with allowed actions such as `read labels, summarize messages` and blocked actions such as `send email, make purchases`.
+3. Do **not** create `send_email` or `purchase` permissions — the demo tests that those are denied.
+
+### Run
+
+```bash
+npm --prefix examples/enforcement-demo install
+BEHALFID_API_KEY=bhf_sk_... BEHALFID_AGENT_ID=agent_... npm --prefix examples/enforcement-demo start
+```
+
+For a local instance:
+
+```bash
+BEHALFID_API_KEY=bhf_sk_... BEHALFID_AGENT_ID=agent_... BEHALFID_BASE_URL=http://localhost:3000 npm --prefix examples/enforcement-demo start
+```
+
+Expected output:
+
+```txt
+BehalfID enforcement demo
+Agent:    agent_xxx
+Instance: https://behalfid.vercel.app
+
+1. access_data on gmail.com
+   ✓ Allowed — proceeding: reading email labels...
+
+2. send_email on gmail.com
+   ✗ Blocked — Action blocked by BehalfID: No active permission exists for this action.
+   The agent did not send the email.
+
+3. purchase on coachella.com ($742)
+   ✗ Blocked — Action blocked by BehalfID: No active permission exists for this action.
+   The agent did not complete the purchase.
+
+Demo complete.
+Denied actions failed closed — the agent never reached those lines.
+```
+
+The `enforceAction` helper throws on any denial. Any code after the throw in that block does not run — the agent stops before acting. This is fail closed: on denial, the safe default is to not proceed.
+
 ## SDK Demo
 
 Install the published SDK package and run the Node demo:

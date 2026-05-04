@@ -56,10 +56,24 @@ export type PermissionConstraints = {
   expiresAt?: string;
 };
 
+export type PermissionTemplate =
+  | "access_data"
+  | "create_content"
+  | "schedule"
+  | "purchase"
+  | "custom";
+
 export type CreatePermissionInput = {
   agentId: string;
   action: string;
   description?: string;
+  resource?: string;
+  scope?: string;
+  allowedActions?: string[];
+  blockedActions?: string[];
+  requiresApproval?: boolean;
+  notes?: string;
+  template?: PermissionTemplate;
   constraints?: PermissionConstraints;
 };
 

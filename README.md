@@ -102,6 +102,28 @@ if (!result.allowed) {
 
 Local SDK source lives in `packages/sdk`. A runnable Node example lives in `examples/node-demo`.
 
+### Reference enforcement demo
+
+`examples/enforcement-demo` demonstrates the core enforcement pattern end-to-end using a pre-configured agent and permission:
+
+```js
+async function enforceAction(input) {
+  const result = await behalf.verify({ agentId, ...input });
+  if (!result.allowed) {
+    throw new Error(`Action blocked by BehalfID: ${result.reason}`);
+  }
+  return result;
+}
+
+await enforceAction({ action: "access_data", vendor: "gmail.com" });
+// Only proceeds if allowed.
+
+await enforceAction({ action: "send_email", vendor: "gmail.com" });
+// Throws — the agent never reaches the next line.
+```
+
+Denied actions fail closed. See `examples/enforcement-demo/README.md` for setup and expected output.
+
 ## Webhooks
 
 BehalfID can send signed events for verification decisions, agent changes, and permission changes.
