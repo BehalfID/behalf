@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { DocsShell } from "../content";
 
 export default function ConceptsPage() {
@@ -51,6 +52,13 @@ export default function ConceptsPage() {
         </ul>
         <p>
           BehalfID does not use this value as authentication. It is metadata only.
+        </p>
+      </section>
+      <section className="docs-anchor-section">
+        <h2>Security model</h2>
+        <p>
+          For a full explanation of how BehalfID handles secrets, enforcement, audit logs, and
+          current limitations, see the <Link href="/security">Security and trust</Link> page.
         </p>
       </section>
     </DocsShell>

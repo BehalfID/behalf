@@ -6,7 +6,8 @@ const cards = [
   { href: "/docs/api", title: "API Reference", body: "Use public REST endpoints for connected agents, permissions, verification, logs, and key rotation." },
   { href: "/docs/sdk", title: "SDK", body: "Install the JavaScript SDK from npm and call BehalfID from Node 18+." },
   { href: "/docs/webhooks", title: "Webhooks", body: "Receive signed events through an outbox-backed delivery system." },
-  { href: "/docs/concepts", title: "Concepts", body: "Understand native agents, connected agents, permission passports, providers, and audit logs." }
+  { href: "/docs/concepts", title: "Concepts", body: "Understand native agents, connected agents, permission passports, providers, and audit logs." },
+  { href: "/security", title: "Security", body: "How BehalfID handles secrets, tokens, fail-closed enforcement, audit logs, and current limitations." }
 ];
 
 export default function DocsPage() {

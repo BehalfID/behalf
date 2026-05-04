@@ -198,4 +198,4 @@ https://behalfid.vercel.app
 - Rate limiting uses Upstash Redis when `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are configured. Otherwise it falls back to in-memory mode.
 - Optional verification `metadata` is only stored when `BEHALFID_LOG_METADATA` is not `false`; action, vendor/resource, and amount are always stored and may still be sensitive.
 
-See [docs/SECURITY.md](docs/SECURITY.md) for the full security review and limitations.
+See [docs/SECURITY.md](docs/SECURITY.md) for the full security review and limitations, and `/security` for the public-facing security and trust page.

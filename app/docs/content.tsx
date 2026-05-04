@@ -8,7 +8,8 @@ export const docsNav = [
   { href: "/docs/api", label: "API" },
   { href: "/docs/sdk", label: "SDK" },
   { href: "/docs/webhooks", label: "Webhooks" },
-  { href: "/docs/concepts", label: "Concepts" }
+  { href: "/docs/concepts", label: "Concepts" },
+  { href: "/security", label: "Security" }
 ];
 
 export function DocsShell({
