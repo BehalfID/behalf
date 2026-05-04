@@ -8,3 +8,4 @@ out
 vercel.json
 npm-debug.log*
 /scripts/diagnose-prod-db.sh
+.claude/

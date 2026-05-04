@@ -17,32 +17,61 @@ export default function QuickstartPage() {
         <li><strong>Copy instructions.</strong> Paste the generated instructions into Ollie, ChatGPT, Claude, or another assistant. The instructions direct the agent to open the passport link, read the Allowed scopes section, and ask you to verify before acting.</li>
         <li><strong>Understand the limitation.</strong> Manual mode does not control the provider directly; automatic enforcement requires API integration.</li>
       </ol>
-      <h2>Path B: enforce in your app</h2>
+      <h2>Path B: enforce in your app (fail closed)</h2>
       <ol className="docs-steps">
-        <li><strong>Create native agent.</strong> Choose <code>I’m building my own agent</code> and store the one-time API key.</li>
-        <li><strong>Create permission.</strong> Define the action, resource, scope, and constraints your app can enforce.</li>
+        <li><strong>Create native agent.</strong> Choose <code>I&apos;m building my own agent</code> and store the one-time API key.</li>
+        <li><strong>Create permission.</strong> Choose a scope template or define a custom action with allowed actions, blocked actions, and constraints.</li>
         <li><strong>Install SDK.</strong> Add the published Node SDK to your app.</li>
-        <li><strong>Call verify before action.</strong> If BehalfID denies the action, your app should not proceed.</li>
+        <li><strong>Call verify before action.</strong> Use <code>enforceAction</code> to fail closed — denied actions throw before reaching the code that would execute the action.</li>
       </ol>
       <CodeBlock label="terminal">{`npm install @behalfid/sdk`}</CodeBlock>
-      <CodeBlock label="verify.ts">{`import { BehalfID } from "@behalfid/sdk";
+      <CodeBlock label="enforce.ts">{`import { BehalfID } from "@behalfid/sdk";
 
 const behalf = new BehalfID({
   apiKey: process.env.BEHALFID_API_KEY!,
   baseUrl: "https://behalfid.vercel.app"
 });
 
-const result = await behalf.verify({
-  agentId: "agent_xxx",
-  action: "access_data",
-  vendor: "gmail.com"
-});`}</CodeBlock>
-      <CodeBlock label="response">{`{
+async function enforceAction(input) {
+  const result = await behalf.verify({ agentId: "agent_xxx", ...input });
+  if (!result.allowed) {
+    throw new Error(\`Action blocked by BehalfID: \${result.reason}\`);
+  }
+  return result;
+}
+
+// browse_web is allowed — continues.
+await enforceAction({ action: "browse_web", vendor: "web" });
+
+// purchase is denied — throws. Next line never runs.
+await enforceAction({ action: "purchase", vendor: "coachella.com", amount: 742 });
+console.log("Booking ticket..."); // ← never reached`}</CodeBlock>
+      <CodeBlock label="denied response">{`{
   "requestId": "req_xxx",
-  "allowed": true,
-  "reason": "Action allowed by active permission.",
-  "risk": "low"
+  "allowed": false,
+  "reason": "No active permission exists for this action.",
+  "risk": "high"
 }`}</CodeBlock>
+      <h2>Scope templates</h2>
+      <p>The dashboard and SDK ship with scope templates for common categories. Each template prefills the action, resource, allowed actions, and blocked actions — edit before saving.</p>
+      <CodeBlock label="scope examples">{`// Data access
+{ action: "access_data", vendor: "gmail.com",
+  allowedActions: ["read labels", "summarize messages"],
+  blockedActions: ["send email", "delete messages"] }
+
+// Browse web
+{ action: "browse_web", vendor: "web",
+  allowedActions: ["search web", "read public pages"],
+  blockedActions: ["submit forms", "make purchases"] }
+
+// Purchase with constraints
+{ action: "purchase", vendor: "coachella.com",
+  constraints: { maxAmount: 800, allowedVendors: ["coachella.com"] } }
+
+// Schedule
+{ action: "schedule", vendor: "calendar.google.com",
+  allowedActions: ["create events", "send invites"],
+  blockedActions: ["delete events", "create recurring events"] }`}</CodeBlock>
     </DocsShell>
   );
 }

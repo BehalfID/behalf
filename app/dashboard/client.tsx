@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { DashboardShellLayout } from "@/components/layout/DashboardShell";
 import { Badge, Button, ButtonLink, Card, CodeBlock, EmptyState, PageHeader, StatCard } from "@/components/ui";
+import { SCOPE_TEMPLATES } from "@/lib/scopeTemplates";
 
 type Agent = {
   agentId: string;
@@ -184,6 +185,7 @@ function OnboardingView() {
   const [permissionId, setPermissionId] = useState("");
   const [decision, setDecision] = useState<VerifyResult | null>(null);
   const [onboardingError, setOnboardingError] = useState("");
+  const [onboardingScopeId, setOnboardingScopeId] = useState("");
   const [agentForm, setAgentForm] = useState({
     name: "",
     provider: "" as ProviderSelection,
@@ -240,6 +242,27 @@ function OnboardingView() {
       allowedActions: "",
       blockedActions: "",
       requiresApproval: "yes",
+      maxAmount: "",
+      expiration: "",
+      notes: ""
+    });
+  };
+
+  const applyOnboardingScopeTemplate = (scopeId: string) => {
+    setOnboardingScopeId(scopeId);
+    if (!scopeId) { resetPermissionForm(); return; }
+    const scope = SCOPE_TEMPLATES.find((t) => t.id === scopeId);
+    if (!scope || scope.id === "custom") { resetPermissionForm(); return; }
+    const template = actionToPermTemplate(scope.defaultAction);
+    setPermissionForm({
+      template,
+      actionChoice: scope.defaultAction,
+      customAction: "",
+      resource: scope.exampleResource,
+      scope: "",
+      allowedActions: scope.defaultAllowedActions.join(", "),
+      blockedActions: scope.defaultBlockedActions.join(", "),
+      requiresApproval: scope.requiresApprovalDefault ? "yes" : "no",
       maxAmount: "",
       expiration: "",
       notes: ""
@@ -421,6 +444,14 @@ ${passportUrl || "[passport link]"}`;
           <h2>Create first permission</h2>
           <p>Choose a permission template or define a custom action. Define what an agent can do, what it can access, and what limits apply.</p>
           <Button onClick={useExampleValues} type="button">Use example values</Button>
+          <label>
+            <span>Scope template</span>
+            <select value={onboardingScopeId} onChange={(e) => applyOnboardingScopeTemplate(e.target.value)}>
+              <option value="">Select a scope template (optional)</option>
+              {SCOPE_TEMPLATES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+            </select>
+            <small className="field-help">Scopes are reusable permission patterns. You can edit the allowed and blocked actions before saving.</small>
+          </label>
           <div className="permission-template-grid">
             {permissionTemplates.map((template) => (
               <button
@@ -543,6 +574,7 @@ function AgentView({ agentId }: { agentId: string }) {
     expiresAt: "",
     scope: ""
   });
+  const [agentViewScopeId, setAgentViewScopeId] = useState("");
   const [profile, setProfile] = useState<Partial<Pick<Agent, "name" | "provider" | "externalAgentId" | "externalAgentLabel" | "description" | "connectionStatus">>>({});
   const createPermission = async (event: FormEvent) => {
     event.preventDefault();
@@ -643,6 +675,32 @@ function AgentView({ agentId }: { agentId: string }) {
         </section>
       ) : null}
       <form className="dashboard-panel form-grid" onSubmit={createPermission}>
+        <label>
+          <span>Scope template</span>
+          <select value={agentViewScopeId} onChange={(e) => {
+            const scopeId = e.target.value;
+            setAgentViewScopeId(scopeId);
+            if (!scopeId) return;
+            const scope = SCOPE_TEMPLATES.find((t) => t.id === scopeId);
+            if (!scope || scope.id === "custom") return;
+            const template = actionToPermTemplate(scope.defaultAction);
+            setForm({
+              template,
+              action: scope.defaultAction,
+              resource: scope.exampleResource,
+              allowedActions: scope.defaultAllowedActions.join(", "),
+              blockedActions: scope.defaultBlockedActions.join(", "),
+              requiresApproval: scope.requiresApprovalDefault,
+              maxAmount: "",
+              expiresAt: "",
+              scope: ""
+            });
+          }}>
+            <option value="">Select a scope template (optional)</option>
+            {SCOPE_TEMPLATES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+          </select>
+          <small className="field-help">Scopes are reusable permission patterns. You can edit the fields below before saving.</small>
+        </label>
         <label>
           <span>Template</span>
           <select value={form.template} onChange={(e) => {
@@ -781,6 +839,14 @@ function LogList({ logs }: { logs: Log[] }) {
 
 function Secret({ label, value }: { label: string; value: string }) {
   return <div className="secret-panel"><strong>{label}</strong><p>Shown once. Store it now.</p><code>{value}</code></div>;
+}
+
+function actionToPermTemplate(action: string): PermissionTemplate {
+  if (action === "schedule") return "schedule";
+  if (action === "purchase") return "purchase";
+  if (["create_content", "send_email", "send_message"].includes(action)) return "create_content";
+  if (!action) return "custom";
+  return "access_data";
 }
 
 function buildVerifySnippet(agentId: string, permissions: Permission[] | undefined): string {

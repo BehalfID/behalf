@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(bash -n /Users/jasperdragoo09/behalf/scripts/smoke-test.sh)"
+      "Bash(bash -n /Users/jasperdragoo09/behalf/scripts/smoke-test.sh)",
+      "Bash(node --input-type=module --check)"
     ]
   }
 }

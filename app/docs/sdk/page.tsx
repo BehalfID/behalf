@@ -40,6 +40,26 @@ const behalf = new BehalfID({
         Use <code>allowedActions</code> and <code>blockedActions</code> to make the permission
         explicit so external agents can read them from the passport page.
       </p>
+      <h2>Fail-closed enforcement</h2>
+      <p>
+        Use <code>enforceAction</code> to gate every external action. On denial, this throws —
+        the agent never reaches the code that would have executed the action.
+        This is fail closed: on denial, the safe default is to stop.
+      </p>
+      <CodeBlock label="enforce.ts">{`async function enforceAction(input) {
+  const result = await behalf.verify({ agentId, ...input });
+  if (!result.allowed) {
+    throw new Error(\`Action blocked by BehalfID: \${result.reason}\`);
+  }
+  return result;
+}
+
+// Allowed — proceeds.
+await enforceAction({ action: "browse_web", vendor: "web" });
+
+// Denied — throws. The next line never runs.
+await enforceAction({ action: "purchase", vendor: "coachella.com", amount: 742 });
+console.log("Booking ticket..."); // ← never reached`}</CodeBlock>
       <h2>Verify an action</h2>
       <CodeBlock label="verify.ts">{`const result = await behalf.verify({
   agentId,
