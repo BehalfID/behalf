@@ -797,6 +797,148 @@ textarea.ui-input,
   color: #ef4444;
 }
 
+/* Security page */
+.security-page {
+  width: min(860px, calc(100% - 48px));
+  margin-inline: auto;
+  padding-bottom: 96px;
+}
+
+.security-hero {
+  padding: 72px 0 56px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+
+.security-hero h1 {
+  margin: 8px 0 0;
+  font-size: clamp(2.4rem, 5vw, 4rem);
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.security-lede {
+  max-width: 700px;
+  margin: 18px 0 0;
+  font-size: 1.05rem;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.security-section {
+  padding: 48px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.security-section--last {
+  border-bottom: none;
+}
+
+.security-section__label {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.security-section__label span {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
+}
+
+.security-section__label h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: var(--text);
+}
+
+.security-section__body {
+  max-width: 720px;
+}
+
+.security-section__body > p {
+  margin: 0 0 16px;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.security-section__body .ui-code-shell {
+  margin: 20px 0;
+}
+
+.security-list {
+  margin: 12px 0 20px;
+  padding-left: 20px;
+  color: var(--muted);
+  line-height: 1.8;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.security-list li {
+  padding-left: 4px;
+}
+
+.security-list code {
+  color: var(--text);
+}
+
+.security-list--safe li::marker {
+  color: #86efac;
+}
+
+.security-note {
+  margin-top: 20px;
+  padding: 14px 18px;
+  border: 1px solid rgba(99, 102, 241, 0.22);
+  border-radius: 10px;
+  background: rgba(99, 102, 241, 0.07);
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.security-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.security-grid--2col {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.security-card {
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(20, 26, 32, 0.62);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.security-card strong {
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.security-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.security-card code {
+  color: var(--text);
+}
+
 /* What BehalfID stops grid */
 .stops-grid {
   display: grid;

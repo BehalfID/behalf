@@ -1,5 +1,7 @@
 # Security Notes
 
+The public security and trust page at `/security` covers the enforcement model, secrets handling, passport safety, audit logs, webhooks, and current limitations in a user-facing format.
+
 BehalfID is currently a prototype. It is suitable for local demos and constrained deployments, not open public multi-tenant use.
 
 ## Implemented Controls

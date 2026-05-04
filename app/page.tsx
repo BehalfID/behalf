@@ -250,6 +250,10 @@ const result = await behalf.verify({
           <ButtonLink href="/signup">Create account</ButtonLink>
           <ButtonLink href="/docs/quickstart">Read integration guide</ButtonLink>
         </div>
+        <p className="section-note" style={{ marginTop: "24px" }}>
+          Concerned about how secrets and tokens are handled?{" "}
+          <a href="/security">Read the security and trust page.</a>
+        </p>
       </section>
     </main>
   );
