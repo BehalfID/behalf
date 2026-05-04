@@ -1131,6 +1131,20 @@ textarea.ui-input,
   line-height: 1.65;
 }
 
+.docs-anchor-section {
+  scroll-margin-top: 28px;
+  margin-top: 34px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  background: var(--surface);
+}
+
+.docs-anchor-section p {
+  color: var(--muted);
+  line-height: 1.7;
+}
+
 .docs-pager {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1236,6 +1250,23 @@ textarea.ui-input,
 .passport-warning {
   color: var(--muted);
   line-height: 1.6;
+}
+
+.field-help {
+  display: block;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 520;
+  line-height: 1.55;
+}
+
+.field-help a {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.field-help a:hover {
+  color: var(--accent);
 }
 
 .onboarding-form {
