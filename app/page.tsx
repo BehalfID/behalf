@@ -1,15 +1,15 @@
 import { PublicNav } from "@/components/layout/PublicNav";
 import { ButtonLink, CodeBlock } from "@/components/ui";
 
-const badges = ["Connected agents", "SDK on npm", "Signed webhooks", "Permission passports"];
+const badges = ["Fail-closed enforcement", "SDK on npm", "Permission passports", "Signed webhooks"];
 
 const features = [
+  "Fail-closed enforcement",
   "Scoped permissions",
   "Audit logs",
   "Signed webhooks",
   "Durable outbox",
   "Dead-letter queue",
-  "Replay",
   "JavaScript SDK",
   "Developer dashboard"
 ];
@@ -24,8 +24,8 @@ const flowSteps = [
     body: "Define what an agent can do, what it can access, and what limits apply."
   },
   {
-    title: "Verify action",
-    body: "Call BehalfID before the agent spends money, calls APIs, or accesses data."
+    title: "Verify before acting",
+    body: "Call BehalfID before the agent spends money, calls APIs, or accesses data. Denied actions throw — the agent stops."
   },
   {
     title: "Audit + webhook event",
@@ -41,12 +41,22 @@ const connectedAgents = [
   ["Custom agents", "Use native BehalfID agents for LangChain, OpenAI, or internal systems."]
 ];
 
-const permissionExamples = [
-  ["Data access", "Read Gmail labels or CRM records without sending email or editing data."],
-  ["Messaging", "Draft Slack or email messages while requiring approval before sending."],
-  ["Scheduling", "Suggest times or create draft calendar events before booking."],
-  ["Transactions", "Purchase only under limits from approved merchants."],
-  ["Admin workflows", "Create invoices or tickets while blocking refunds and destructive actions."]
+const whatBehalfIDStops = [
+  ["Out-of-scope purchases", "An agent allowed to browse cannot spend money. The purchase call throws before the transaction runs."],
+  ["Unauthorized data access", "Read-only permissions block write, delete, and export actions before they reach your APIs."],
+  ["Unapproved messages", "Require approval before an agent sends email or posts to Slack."],
+  ["Expired actions", "Permissions expire. An agent that was allowed this morning can be denied this afternoon."],
+  ["Revoked agents", "Disable an agent instantly. All subsequent verify calls return denied."],
+  ["Actions with no permission", "If no active permission covers the action, the agent stops. No permission means no access."]
+];
+
+const scopeCategories = [
+  ["Data access", "Read email, browse web, query CRM records."],
+  ["Communication", "Send email, post to Slack, draft messages."],
+  ["Scheduling", "Suggest times, create calendar events, book meetings."],
+  ["Commerce", "Purchase under amount limits, create invoices, issue refunds."],
+  ["Content", "Write documents, generate summaries, edit records."],
+  ["Admin", "Update CRM contacts, manage tickets, automate workflows."]
 ];
 
 export default function Home() {
@@ -59,15 +69,15 @@ export default function Home() {
           <p className="section-kicker">Agent permission infrastructure</p>
           <h1>Permission passports for AI agents.</h1>
           <p>
-            Connect the agents you already use, define what they’re allowed to do,
-            and verify actions before they happen.
+            Agents call BehalfID before acting. If an action exceeds scope,
+            it fails closed — the agent stops before it can proceed.
           </p>
           <div className="hero__badges" aria-label="Product capabilities">
             {badges.map((badge) => <span key={badge}>{badge}</span>)}
           </div>
           <div className="hero__actions">
-            <ButtonLink variant="primary" href="/signup">Start building</ButtonLink>
-            <ButtonLink href="/docs">View docs</ButtonLink>
+            <ButtonLink variant="primary" href="/sandbox">Try the sandbox</ButtonLink>
+            <ButtonLink href="/signup">Start building</ButtonLink>
           </div>
         </div>
         <div className="hero__visual" aria-hidden="true">
@@ -76,14 +86,14 @@ export default function Home() {
             <strong>200 OK</strong>
           </div>
           <div className="signal-line"><span>connected agent</span><strong>Ollie</strong></div>
-          <div className="signal-line"><span>provider</span><strong>ollie</strong></div>
-          <div className="signal-line"><span>action</span><strong>access_data</strong></div>
-          <div className="signal-line"><span>resource</span><strong>gmail.com</strong></div>
-          <div className="signal-line"><span>scope</span><strong>read labels only</strong></div>
-          <div className="signal-line signal-line--result"><span>decision</span><strong>allowed</strong></div>
+          <div className="signal-line"><span>action</span><strong>purchase</strong></div>
+          <div className="signal-line"><span>vendor</span><strong>coachella.com</strong></div>
+          <div className="signal-line"><span>amount</span><strong>$742</strong></div>
+          <div className="signal-line"><span>active permission</span><strong>browse_web only</strong></div>
+          <div className="signal-line signal-line--denied"><span>decision</span><strong>denied</strong></div>
           <div className="hero__event">
             <span>Webhook queued</span>
-            <strong>verification.allowed</strong>
+            <strong>verification.denied</strong>
           </div>
         </div>
       </section>
@@ -124,20 +134,41 @@ export default function Home() {
       </section>
 
       <section className="marketing-section">
-        <p className="section-kicker">Permissions beyond purchases</p>
-        <h2>General rules for agent actions.</h2>
+        <p className="section-kicker">Fail-closed enforcement</p>
+        <h2>What BehalfID stops.</h2>
         <p className="section-lede">
-          A permission says an agent can do an action on a resource under constraints.
-          Transactions are one template, not the whole product.
+          Denied actions fail closed — the agent throws before reaching the code that would have
+          executed the action. On denial, the safe default is to stop rather than proceed.
         </p>
-        <div className="connected-agent-grid">
-          {permissionExamples.map(([title, body]) => (
+        <div className="stops-grid">
+          {whatBehalfIDStops.map(([title, body]) => (
             <div key={title}>
               <strong>{title}</strong>
               <p>{body}</p>
             </div>
           ))}
         </div>
+      </section>
+
+      <section className="marketing-section">
+        <p className="section-kicker">Not just transactions</p>
+        <h2>A scope for every action category.</h2>
+        <p className="section-lede">
+          BehalfID ships with scope templates for common categories. A permission says an agent
+          can do an action on a resource under constraints — you define what that means for your agent.
+        </p>
+        <div className="connected-agent-grid">
+          {scopeCategories.map(([title, body]) => (
+            <div key={title}>
+              <strong>{title}</strong>
+              <p>{body}</p>
+            </div>
+          ))}
+        </div>
+        <p className="section-note">
+          Transactions are one template, not the whole product. The same enforcement pattern applies
+          to data access, messaging, scheduling, content creation, and admin workflows.
+        </p>
       </section>
 
       <section className="native-connected">
@@ -215,7 +246,8 @@ const result = await behalf.verify({
       <section className="final-cta">
         <h2>Start verifying agent actions.</h2>
         <div className="hero__actions">
-          <ButtonLink variant="primary" href="/signup">Create account</ButtonLink>
+          <ButtonLink variant="primary" href="/sandbox">Try the sandbox</ButtonLink>
+          <ButtonLink href="/signup">Create account</ButtonLink>
           <ButtonLink href="/docs/quickstart">Read integration guide</ButtonLink>
         </div>
       </section>
@@ -225,12 +257,12 @@ const result = await behalf.verify({
 
 function featureCopy(feature: string) {
   const copy: Record<string, string> = {
-    "Scoped permissions": "Action rules with resources, scopes, expiration, approval notes, and transaction limits.",
+    "Fail-closed enforcement": "Denied actions throw before reaching the code that would execute them. On denial, the agent stops.",
+    "Scoped permissions": "Action rules with resources, allowed actions, blocked actions, expiration, and amount limits.",
     "Audit logs": "Every verification decision is recorded with reason, risk, and request ID.",
     "Signed webhooks": "External systems receive HMAC-signed verification and lifecycle events.",
     "Durable outbox": "Webhook events are queued before delivery so failures are visible.",
     "Dead-letter queue": "Failed events move to a dead-letter state after bounded retries.",
-    Replay: "Developers can replay dead-lettered events after fixing receivers.",
     "JavaScript SDK": "Install from npm and verify actions with one TypeScript-friendly client.",
     "Developer dashboard": "Manage agents, permissions, webhooks, logs, and delivery status."
   };

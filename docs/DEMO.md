@@ -54,8 +54,8 @@ The dashboard is separate from `/console`; dashboard users only see resources at
 ### Setup
 
 1. Create an agent in `/dashboard/onboarding` and store the one-time API key.
-2. Create an `access_data` permission on `gmail.com` with allowed actions such as `read labels, summarize messages` and blocked actions such as `send email, make purchases`.
-3. Do **not** create `send_email` or `purchase` permissions — the demo tests that those are denied.
+2. Create a `browse_web` permission on `web` using the Browse web scope template — allowed actions: `search web, read public pages`; blocked actions: `submit forms, make purchases`.
+3. Do **not** create `purchase` or `send_message` permissions — the demo tests that those are denied.
 
 ### Run
 
@@ -77,22 +77,26 @@ BehalfID enforcement demo
 Agent:    agent_xxx
 Instance: https://behalfid.vercel.app
 
-1. access_data on gmail.com
-   ✓ Allowed — proceeding: reading email labels...
+1. browse_web on web
+   ✓ Allowed — proceeding: searching for flights to Tokyo...
 
-2. send_email on gmail.com
-   ✗ Blocked — Action blocked by BehalfID: No active permission exists for this action.
-   The agent did not send the email.
-
-3. purchase on coachella.com ($742)
+2. purchase on coachella.com ($742)
    ✗ Blocked — Action blocked by BehalfID: No active permission exists for this action.
    The agent did not complete the purchase.
+
+3. send_message on slack.com
+   ✗ Blocked — Action blocked by BehalfID: No active permission exists for this action.
+   The agent did not send the message.
 
 Demo complete.
 Denied actions failed closed — the agent never reached those lines.
 ```
 
 The `enforceAction` helper throws on any denial. Any code after the throw in that block does not run — the agent stops before acting. This is fail closed: on denial, the safe default is to not proceed.
+
+## Sandbox
+
+`/sandbox` demonstrates the same enforcement pattern in the browser without real agents or API keys. Three action buttons show how BehalfID allows `browse_web` and denies `purchase` and `send_message` for a demo policy. Denied actions fail closed — the agent stops before reaching the code that would execute them.
 
 ## SDK Demo
 

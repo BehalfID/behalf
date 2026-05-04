@@ -14,9 +14,9 @@ Three scenarios are tested:
 
 | # | Action | Vendor | Expected |
 |---|--------|--------|----------|
-| 1 | `access_data` | `gmail.com` | Allowed (if permission exists) |
-| 2 | `send_email` | `gmail.com` | Denied — no permission covers this action |
-| 3 | `purchase` | `coachella.com` | Denied — no purchase permission |
+| 1 | `browse_web` | `web` | Allowed (if permission exists) |
+| 2 | `purchase` | `coachella.com` | Denied — no purchase permission |
+| 3 | `send_message` | `slack.com` | Denied — no send_message permission |
 
 ## What "fail closed" means
 
@@ -30,23 +30,23 @@ enforcement pattern is always fail closed.
 
 ## Expected output
 
-With only an `access_data` permission on `gmail.com` active:
+With only a `browse_web` permission on `web` active:
 
 ```
 BehalfID enforcement demo
 Agent:    agent_xxx
 Instance: https://behalfid.vercel.app
 
-1. access_data on gmail.com
-   ✓ Allowed — proceeding: reading email labels...
+1. browse_web on web
+   ✓ Allowed — proceeding: searching for flights to Tokyo...
 
-2. send_email on gmail.com
-   ✗ Blocked — Action blocked by BehalfID: No active permission exists for this action.
-   The agent did not send the email.
-
-3. purchase on coachella.com ($742)
+2. purchase on coachella.com ($742)
    ✗ Blocked — Action blocked by BehalfID: No active permission exists for this action.
    The agent did not complete the purchase.
+
+3. send_message on slack.com
+   ✗ Blocked — Action blocked by BehalfID: No active permission exists for this action.
+   The agent did not send the message.
 
 Demo complete.
 Denied actions failed closed — the agent never reached those lines.
@@ -60,19 +60,19 @@ Denied actions failed closed — the agent never reached those lines.
 2. Open `/dashboard/onboarding` and create an agent.
 3. Store the one-time API key — it is shown once.
 
-### 2. Create the access_data permission
+### 2. Create the browse_web permission
 
-In `/dashboard/agents/[agentId]`, create a permission:
+In `/dashboard/agents/[agentId]`, create a permission using the **Browse web** scope template:
 
-- Template: `access_data`
-- Action: `access_data`
-- Resource / service: `gmail.com`
-- Allowed actions: `read labels, summarize messages, provide pricing metrics`
-- Blocked actions: `send email, delete messages, schedule events, make purchases`
-- Requires approval: `Yes`
+- Scope template: `Browse web`
+- Action: `browse_web`
+- Resource / service: `web`
+- Allowed actions: `search web, read public pages, extract structured data`
+- Blocked actions: `submit forms, make purchases, login to accounts`
+- Requires approval: `No`
 
 This is the only permission the demo expects to be allowed. Do **not** create a
-`send_email` or `purchase` permission — the demo tests that those are denied.
+`purchase` or `send_message` permission — the demo tests that those are denied.
 
 ### 3. Configure environment
 

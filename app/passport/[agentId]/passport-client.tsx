@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { CodeBlock, Logo } from "@/components/ui";
+import { SCOPE_TEMPLATES, SCOPE_CATEGORY_LABELS } from "@/lib/scopeTemplates";
 
 type PassportAgent = {
   agentId: string;
@@ -190,41 +191,47 @@ ${passportHref}`;
         {passport ? (
           <section className="passport-section">
             <h2>Allowed scopes</h2>
+            <p>This passport lists the active scopes for this agent. Each scope defines what this agent may and may not do.</p>
             {permissions.length === 0 ? (
               <p className="passport-warning">No active permissions on this passport.</p>
             ) : (
               <div className="passport-scopes">
-                {permissions.map((p, i) => (
-                  <div className="passport-scope-card dashboard-panel" key={i}>
-                    <div className="agent-passport__header">
-                      <span className="console-status console-status--active">{p.action}</span>
-                      {p.resource ? <span className="console-status">{p.resource}</span> : null}
-                      {p.template && p.template !== p.action ? <span className="console-status">{p.template}</span> : null}
+                {permissions.map((p, i) => {
+                  const scopeTemplate = SCOPE_TEMPLATES.find((t) => t.id === p.template || (t.defaultAction === p.action && t.id !== "custom"));
+                  const scopeLabel = scopeTemplate?.label ?? p.action;
+                  const categoryLabel = scopeTemplate ? SCOPE_CATEGORY_LABELS[scopeTemplate.category] : null;
+                  return (
+                    <div className="passport-scope-card dashboard-panel" key={i}>
+                      <div className="agent-passport__header">
+                        <span className="console-status console-status--active">{scopeLabel}</span>
+                        {categoryLabel ? <span className="console-status">{categoryLabel}</span> : null}
+                        {p.resource ? <span className="console-status">{p.resource}</span> : null}
+                      </div>
+                      {p.scope ? <p>{p.scope}</p> : null}
+                      {p.description ? <p>{p.description}</p> : null}
+                      <dl className="passport-scope-meta">
+                        {p.allowedActions?.length ? (
+                          <div><dt>Allowed</dt><dd>{p.allowedActions.join(", ")}</dd></div>
+                        ) : null}
+                        {p.maxAmount !== null ? (
+                          <div><dt>Max amount</dt><dd>${p.maxAmount}</dd></div>
+                        ) : null}
+                        {p.blockedActions?.length ? (
+                          <div><dt>Blocked</dt><dd>{p.blockedActions.join(", ")}</dd></div>
+                        ) : null}
+                        {p.requiresApproval ? (
+                          <div><dt>Requires approval</dt><dd>Yes</dd></div>
+                        ) : null}
+                        {p.expiresAt ? (
+                          <div><dt>Expires</dt><dd>{new Date(p.expiresAt).toLocaleString()}</dd></div>
+                        ) : null}
+                        {p.notes ? (
+                          <div><dt>Notes</dt><dd>{p.notes}</dd></div>
+                        ) : null}
+                      </dl>
                     </div>
-                    {p.scope ? <p>{p.scope}</p> : null}
-                    {p.description ? <p>{p.description}</p> : null}
-                    <dl className="passport-scope-meta">
-                      {p.allowedActions?.length ? (
-                        <div><dt>Allowed</dt><dd>{p.allowedActions.join(", ")}</dd></div>
-                      ) : null}
-                      {p.maxAmount !== null ? (
-                        <div><dt>Max amount</dt><dd>${p.maxAmount}</dd></div>
-                      ) : null}
-                      {p.blockedActions?.length ? (
-                        <div><dt>Blocked</dt><dd>{p.blockedActions.join(", ")}</dd></div>
-                      ) : null}
-                      {p.requiresApproval ? (
-                        <div><dt>Requires approval</dt><dd>Yes</dd></div>
-                      ) : null}
-                      {p.expiresAt ? (
-                        <div><dt>Expires</dt><dd>{new Date(p.expiresAt).toLocaleString()}</dd></div>
-                      ) : null}
-                      {p.notes ? (
-                        <div><dt>Notes</dt><dd>{p.notes}</dd></div>
-                      ) : null}
-                    </dl>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>

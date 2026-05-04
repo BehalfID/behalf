@@ -36,37 +36,23 @@ async function main() {
   console.log(`Instance: ${baseUrl}`);
   console.log("");
 
-  // --- 1. access_data on gmail.com ---
-  // Expected: allowed (requires an active access_data permission on gmail.com)
-  console.log("1. access_data on gmail.com");
+  // --- 1. browse_web ---
+  // Expected: allowed (requires an active browse_web permission on web)
+  console.log("1. browse_web on web");
   try {
-    await enforceAction({ action: "access_data", vendor: "gmail.com" });
+    await enforceAction({ action: "browse_web", vendor: "web" });
     // This line only runs if BehalfID allows the action.
-    console.log("   ✓ Allowed — proceeding: reading email labels...");
+    console.log("   ✓ Allowed — proceeding: searching for flights to Tokyo...");
   } catch (err) {
     console.log(`   ✗ Blocked — ${err.message}`);
-    console.log("   The agent did not read email.");
+    console.log("   The agent did not browse.");
   }
 
   console.log("");
 
-  // --- 2. send_email on gmail.com ---
-  // Expected: denied — no permission covers send_email
-  console.log("2. send_email on gmail.com");
-  try {
-    await enforceAction({ action: "send_email", vendor: "gmail.com" });
-    // BehalfID denied the action, so this line never runs.
-    console.log("   Sending email... (this line never runs when denied)");
-  } catch (err) {
-    console.log(`   ✗ Blocked — ${err.message}`);
-    console.log("   The agent did not send the email.");
-  }
-
-  console.log("");
-
-  // --- 3. purchase on coachella.com ---
-  // Expected: denied — no purchase permission exists (unless you added one)
-  console.log("3. purchase on coachella.com ($742)");
+  // --- 2. purchase on coachella.com ---
+  // Expected: denied — no purchase permission exists
+  console.log("2. purchase on coachella.com ($742)");
   try {
     await enforceAction({ action: "purchase", vendor: "coachella.com", amount: 742 });
     // BehalfID denied the action, so this line never runs.
@@ -74,6 +60,20 @@ async function main() {
   } catch (err) {
     console.log(`   ✗ Blocked — ${err.message}`);
     console.log("   The agent did not complete the purchase.");
+  }
+
+  console.log("");
+
+  // --- 3. send_message on slack.com ---
+  // Expected: denied — no send_message permission exists
+  console.log("3. send_message on slack.com");
+  try {
+    await enforceAction({ action: "send_message", vendor: "slack.com" });
+    // BehalfID denied the action, so this line never runs.
+    console.log("   Sending message... (this line never runs when denied)");
+  } catch (err) {
+    console.log(`   ✗ Blocked — ${err.message}`);
+    console.log("   The agent did not send the message.");
   }
 
   console.log("");
