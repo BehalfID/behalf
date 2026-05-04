@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
     "description",
     "resource",
     "scope",
+    "allowedActions",
     "blockedActions",
     "requiresApproval",
     "notes",

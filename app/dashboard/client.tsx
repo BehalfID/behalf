@@ -30,6 +30,7 @@ type Permission = {
   description?: string;
   resource?: string;
   scope?: string;
+  allowedActions?: string[];
   blockedActions?: string[];
   requiresApproval?: boolean;
   notes?: string;
@@ -195,6 +196,7 @@ function OnboardingView() {
     customAction: "",
     resource: "",
     scope: "",
+    allowedActions: "",
     blockedActions: "",
     requiresApproval: "yes",
     maxAmount: "",
@@ -219,7 +221,8 @@ function OnboardingView() {
       customAction: "",
       resource: "coachella.com",
       scope: "",
-      blockedActions: "",
+      allowedActions: "purchase tickets",
+      blockedActions: "purchase from other vendors, exceed amount limit",
       requiresApproval: "yes",
       maxAmount: "800",
       expiration: "2",
@@ -234,6 +237,7 @@ function OnboardingView() {
       customAction: "",
       resource: "",
       scope: "",
+      allowedActions: "",
       blockedActions: "",
       requiresApproval: "yes",
       maxAmount: "",
@@ -257,6 +261,7 @@ function OnboardingView() {
       customAction: "",
       resource: "",
       scope: "",
+      allowedActions: "",
       blockedActions: "",
       requiresApproval: "yes",
       maxAmount: "",
@@ -313,10 +318,13 @@ function OnboardingView() {
         action: selectedAction,
         resource: permissionForm.resource || undefined,
         scope: permissionForm.scope || undefined,
+        allowedActions: permissionForm.allowedActions
+          ? permissionForm.allowedActions.split(",").map((item) => item.trim()).filter(Boolean)
+          : undefined,
         blockedActions: permissionForm.blockedActions
           ? permissionForm.blockedActions.split(",").map((item) => item.trim()).filter(Boolean)
           : undefined,
-        requiresApproval: permissionForm.template === "create_content" ? permissionForm.requiresApproval === "yes" : undefined,
+        requiresApproval: permissionForm.requiresApproval === "yes" ? true : permissionForm.requiresApproval === "no" ? false : undefined,
         notes: permissionForm.notes || undefined,
         template: permissionForm.template || undefined,
         constraints: {
@@ -429,21 +437,24 @@ ${passportUrl || "[passport link]"}`;
           {permissionForm.template === "access_data" ? (
             <>
               <label><span>Service / resource</span><input placeholder="gmail.com, notion, google-drive, crm" value={permissionForm.resource} onChange={(event) => setPermissionForm({ ...permissionForm, resource: event.target.value })} /></label>
-              <label><span>Allowed scope</span><input placeholder="read labels only, summarize docs, view tickets" value={permissionForm.scope} onChange={(event) => setPermissionForm({ ...permissionForm, scope: event.target.value })} /></label>
-              <label><span>Blocked actions</span><input placeholder="send email, delete files, edit records" value={permissionForm.blockedActions} onChange={(event) => setPermissionForm({ ...permissionForm, blockedActions: event.target.value })} /></label>
+              <label><span>Allowed actions</span><input placeholder="read labels, summarize docs, view tickets, provide pricing metrics" value={permissionForm.allowedActions} onChange={(event) => setPermissionForm({ ...permissionForm, allowedActions: event.target.value })} /><small className="field-help">Comma-separated list of what this agent may do.</small></label>
+              <label><span>Blocked actions</span><input placeholder="send email, delete files, make purchases, place orders" value={permissionForm.blockedActions} onChange={(event) => setPermissionForm({ ...permissionForm, blockedActions: event.target.value })} /><small className="field-help">Comma-separated list of what this agent must never do.</small></label>
+              <label><span>Requires approval?</span><select value={permissionForm.requiresApproval} onChange={(event) => setPermissionForm({ ...permissionForm, requiresApproval: event.target.value })}><option value="yes">Yes</option><option value="no">No</option></select></label>
             </>
           ) : null}
           {permissionForm.template === "create_content" ? (
             <>
               <label><span>Service / channel</span><input placeholder="gmail.com, slack, hubspot" value={permissionForm.resource} onChange={(event) => setPermissionForm({ ...permissionForm, resource: event.target.value })} /></label>
-              <label><span>Allowed action</span><input placeholder="draft replies, create notes, write ticket summaries" value={permissionForm.scope} onChange={(event) => setPermissionForm({ ...permissionForm, scope: event.target.value })} /></label>
+              <label><span>Allowed actions</span><input placeholder="draft replies, create notes, write ticket summaries" value={permissionForm.allowedActions} onChange={(event) => setPermissionForm({ ...permissionForm, allowedActions: event.target.value })} /><small className="field-help">Comma-separated list of what this agent may create or send.</small></label>
+              <label><span>Blocked actions</span><input placeholder="send without review, delete messages, modify contacts" value={permissionForm.blockedActions} onChange={(event) => setPermissionForm({ ...permissionForm, blockedActions: event.target.value })} /></label>
               <label><span>Requires approval?</span><select value={permissionForm.requiresApproval} onChange={(event) => setPermissionForm({ ...permissionForm, requiresApproval: event.target.value })}><option value="yes">Yes</option><option value="no">No</option></select></label>
             </>
           ) : null}
           {permissionForm.template === "schedule" ? (
             <>
               <label><span>Calendar / workflow</span><input placeholder="google-calendar, family schedule, sales calendar" value={permissionForm.resource} onChange={(event) => setPermissionForm({ ...permissionForm, resource: event.target.value })} /></label>
-              <label><span>Allowed action</span><input placeholder="suggest times, create draft event, book meeting" value={permissionForm.scope} onChange={(event) => setPermissionForm({ ...permissionForm, scope: event.target.value })} /></label>
+              <label><span>Allowed actions</span><input placeholder="suggest times, create draft event, book meeting" value={permissionForm.allowedActions} onChange={(event) => setPermissionForm({ ...permissionForm, allowedActions: event.target.value })} /><small className="field-help">Comma-separated list of what this agent may schedule.</small></label>
+              <label><span>Blocked actions</span><input placeholder="delete events, invite external contacts, modify recurring events" value={permissionForm.blockedActions} onChange={(event) => setPermissionForm({ ...permissionForm, blockedActions: event.target.value })} /></label>
               <label><span>Time limit / expiration</span><select value={permissionForm.expiration} onChange={(event) => setPermissionForm({ ...permissionForm, expiration: event.target.value })}><option value="">No expiration</option><option value="1">1 hour</option><option value="2">2 hours</option><option value="24">24 hours</option><option value="168">7 days</option></select></label>
             </>
           ) : null}
@@ -457,8 +468,11 @@ ${passportUrl || "[passport link]"}`;
           {permissionForm.template === "custom" ? (
             <>
               <label><span>Action</span><input placeholder="analyze_statement, create_invoice, update_ticket" value={permissionForm.customAction} onChange={(event) => setPermissionForm({ ...permissionForm, customAction: event.target.value })} /></label>
-              <label><span>Resource / scope</span><input placeholder="quickbooks invoices, zendesk tickets, student progress" value={permissionForm.resource} onChange={(event) => setPermissionForm({ ...permissionForm, resource: event.target.value })} /></label>
-              <label><span>Constraints</span><input placeholder="read-only, require approval, max 10 records" value={permissionForm.notes} onChange={(event) => setPermissionForm({ ...permissionForm, notes: event.target.value })} /></label>
+              <label><span>Resource / service</span><input placeholder="quickbooks invoices, zendesk tickets, student progress" value={permissionForm.resource} onChange={(event) => setPermissionForm({ ...permissionForm, resource: event.target.value })} /></label>
+              <label><span>Allowed actions</span><input placeholder="read records, summarize, generate report" value={permissionForm.allowedActions} onChange={(event) => setPermissionForm({ ...permissionForm, allowedActions: event.target.value })} /><small className="field-help">Comma-separated list of what this agent may do.</small></label>
+              <label><span>Blocked actions</span><input placeholder="edit records, delete, export raw data" value={permissionForm.blockedActions} onChange={(event) => setPermissionForm({ ...permissionForm, blockedActions: event.target.value })} /></label>
+              <label><span>Requires approval?</span><select value={permissionForm.requiresApproval} onChange={(event) => setPermissionForm({ ...permissionForm, requiresApproval: event.target.value })}><option value="yes">Yes</option><option value="no">No</option></select></label>
+              <label><span>Notes</span><input placeholder="read-only, max 10 records, internal use only" value={permissionForm.notes} onChange={(event) => setPermissionForm({ ...permissionForm, notes: event.target.value })} /></label>
             </>
           ) : null}
           <p className="field-help">Advanced resource/scope constraints are currently descriptive unless enforced by the integration. BehalfID enforces action, expiration, and simple resource/amount constraints.</p>
@@ -518,16 +532,31 @@ function AgentView({ agentId }: { agentId: string }) {
   const detail = useResource<{ agent: Agent; permissions: Permission[]; logs: Log[] }>(`/api/dashboard/agents/${agentId}`);
   const [secret, setSecret] = useState("");
   const [passportUrl, setPassportUrl] = useState("");
-  const [form, setForm] = useState({ action: "", maxAmount: "", resource: "", expiresAt: "", scope: "" });
+  const [form, setForm] = useState({
+    template: "" as PermissionTemplate | "",
+    action: "",
+    resource: "",
+    allowedActions: "",
+    blockedActions: "",
+    requiresApproval: false,
+    maxAmount: "",
+    expiresAt: "",
+    scope: ""
+  });
   const [profile, setProfile] = useState<Partial<Pick<Agent, "name" | "provider" | "externalAgentId" | "externalAgentLabel" | "description" | "connectionStatus">>>({});
   const createPermission = async (event: FormEvent) => {
     event.preventDefault();
+    const resolvedAction = form.action || form.template || "";
     await api(`/api/dashboard/agents/${agentId}/permissions`, {
       method: "POST",
       body: JSON.stringify({
-        action: form.action,
+        action: resolvedAction,
         resource: form.resource || undefined,
         scope: form.scope || undefined,
+        allowedActions: form.allowedActions ? form.allowedActions.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+        blockedActions: form.blockedActions ? form.blockedActions.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+        requiresApproval: form.requiresApproval || undefined,
+        template: form.template || undefined,
         constraints: {
           maxAmount: form.maxAmount ? Number(form.maxAmount) : undefined,
           allowedVendors: form.resource ? [form.resource] : undefined,
@@ -577,6 +606,7 @@ function AgentView({ agentId }: { agentId: string }) {
             <span className="console-status">{agent.connectionStatus}</span>
           </div>
           <p>{agent.agentType === "native" ? "Use this API key directly from your custom integration." : "Use this BehalfID credential to represent this external agent when your app verifies actions."}</p>
+          {agent.agentType === "connected" ? <p>The agent description explains the agent&apos;s purpose. Permissions define what it is actually allowed to do.</p> : null}
           {agent.agentType === "connected" ? <p>Connected agents are manually represented today. Provider-native integrations are planned.</p> : null}
           <dl className="console-definition">
             <div><dt>Agent ID</dt><dd>{agent.agentId}</dd></div>
@@ -608,38 +638,57 @@ function AgentView({ agentId }: { agentId: string }) {
           <Card className="dashboard-panel">
             <h2>{agent.agentType === "connected" ? "Developer integration" : "Manual testing"}</h2>
             <p>{agent.agentType === "connected" ? "When your app or provider can call BehalfID, use the SDK/API for automatic enforcement." : "Native agents can also use a passport link for manual allow/deny testing."}</p>
-            <CodeBlock label="verify.ts">{`import { BehalfID } from "@behalfid/sdk";
-
-const behalf = new BehalfID({
-  apiKey: process.env.BEHALFID_API_KEY!,
-  baseUrl: "https://behalfid.vercel.app"
-});
-
-const result = await behalf.verify({
-  agentId: "${agent.agentId}",
-  action: "access_data",
-  vendor: "gmail.com"
-});`}</CodeBlock>
+            <CodeBlock label="verify.ts">{buildVerifySnippet(agent.agentId, detail.data?.permissions)}</CodeBlock>
           </Card>
         </section>
       ) : null}
       <form className="dashboard-panel form-grid" onSubmit={createPermission}>
         <label>
-          <span>Action</span>
-          <input placeholder="access_data, schedule, purchase" required value={form.action} onChange={(e) => setForm({ ...form, action: e.target.value })} />
+          <span>Template</span>
+          <select value={form.template} onChange={(e) => {
+            const t = e.target.value as PermissionTemplate | "";
+            const presets: Partial<Record<PermissionTemplate, string>> = {
+              access_data: "access_data", create_content: "create_content", schedule: "schedule", purchase: "purchase"
+            };
+            setForm({ ...form, template: t, action: presets[t as PermissionTemplate] ?? form.action });
+          }}>
+            <option value="">No template</option>
+            {permissionTemplates.map((t) => <option key={t.value} value={t.value}>{t.title}</option>)}
+          </select>
         </label>
         <label>
-          <span>Max amount</span>
-          <input placeholder="Optional, e.g. 800" value={form.maxAmount} onChange={(e) => setForm({ ...form, maxAmount: e.target.value })} />
+          <span>Action</span>
+          <input placeholder="access_data, schedule, purchase" required value={form.action} onChange={(e) => setForm({ ...form, action: e.target.value })} />
         </label>
         <label>
           <span>Resource / service</span>
           <input placeholder="gmail.com, google-calendar, coachella.com" value={form.resource} onChange={(e) => setForm({ ...form, resource: e.target.value })} />
         </label>
         <label>
-          <span>Scope / constraints</span>
-          <input placeholder="read labels only, require approval, max 10 records" value={form.scope} onChange={(e) => setForm({ ...form, scope: e.target.value })} />
+          <span>Allowed actions</span>
+          <input placeholder="read labels, summarize docs, suggest times" value={form.allowedActions} onChange={(e) => setForm({ ...form, allowedActions: e.target.value })} />
+          <small className="field-help">Comma-separated — what this permission explicitly allows.</small>
         </label>
+        <label>
+          <span>Blocked actions</span>
+          <input placeholder="send email, delete files, make purchases" value={form.blockedActions} onChange={(e) => setForm({ ...form, blockedActions: e.target.value })} />
+          <small className="field-help">Comma-separated — what this agent must never do.</small>
+        </label>
+        {form.template !== "purchase" ? (
+          <label>
+            <span>Requires approval</span>
+            <select value={form.requiresApproval ? "yes" : "no"} onChange={(e) => setForm({ ...form, requiresApproval: e.target.value === "yes" })}>
+              <option value="no">No</option>
+              <option value="yes">Yes</option>
+            </select>
+          </label>
+        ) : null}
+        {form.template === "purchase" ? (
+          <label>
+            <span>Max amount</span>
+            <input min="0" placeholder="Optional, e.g. 800" type="number" value={form.maxAmount} onChange={(e) => setForm({ ...form, maxAmount: e.target.value })} />
+          </label>
+        ) : null}
         <label>
           <span>Expires at</span>
           <input type="datetime-local" value={form.expiresAt} onChange={(e) => setForm({ ...form, expiresAt: e.target.value })} />
@@ -734,14 +783,34 @@ function Secret({ label, value }: { label: string; value: string }) {
   return <div className="secret-panel"><strong>{label}</strong><p>Shown once. Store it now.</p><code>{value}</code></div>;
 }
 
+function buildVerifySnippet(agentId: string, permissions: Permission[] | undefined): string {
+  const active = permissions?.find((p) => p.status === "active");
+  const action = active?.action ?? "access_data";
+  const vendor = active?.resource ?? active?.constraints?.allowedVendors?.[0] ?? "gmail.com";
+  const scope = active?.allowedActions?.[0] ?? active?.scope ?? null;
+  const metaBlock = scope ? `,\n  metadata: {\n    scope: "${scope}"\n  }` : "";
+  return `import { BehalfID } from "@behalfid/sdk";
+
+const behalf = new BehalfID({
+  apiKey: process.env.BEHALFID_API_KEY!,
+  baseUrl: "https://behalfid.vercel.app"
+});
+
+const result = await behalf.verify({
+  agentId: "${agentId}",
+  action: "${action}",
+  vendor: "${vendor}"${metaBlock}
+});`;
+}
+
 function dashboardPermissionSummary(permission: Permission) {
   const constraints = permission.constraints ?? {};
   const parts = [
     permission.resource ? `on ${permission.resource}` : null,
-    permission.scope ?? null,
+    permission.allowedActions?.length ? `allows: ${permission.allowedActions.join(", ")}` : (permission.scope ?? null),
     typeof constraints.maxAmount === "number" ? `max $${constraints.maxAmount}` : null,
     permission.requiresApproval ? "requires approval" : null,
-    permission.blockedActions?.length ? `blocks ${permission.blockedActions.join(", ")}` : null,
+    permission.blockedActions?.length ? `blocks: ${permission.blockedActions.join(", ")}` : null,
     constraints.expiresAt ? `expires ${date(constraints.expiresAt)}` : null,
     permission.status
   ].filter(Boolean);

@@ -25,15 +25,34 @@ const behalf = new BehalfID({
   externalAgentLabel: "Jasper's Ollie assistant",
   description: "Personal assistant used for planning"
 });`}</CodeBlock>
+      <h2>Create a permission with structured scopes</h2>
+      <CodeBlock label="permission.ts">{`await behalf.createPermission({
+  agentId,
+  action: "access_data",
+  resource: "gmail.com",
+  allowedActions: ["read labels", "summarize messages", "provide pricing metrics"],
+  blockedActions: ["send email", "delete messages", "schedule events", "make purchases"],
+  requiresApproval: true,
+  template: "access_data"
+});`}</CodeBlock>
+      <p>
+        Agent descriptions are informational. Permissions are the source of truth.
+        Use <code>allowedActions</code> and <code>blockedActions</code> to make the permission
+        explicit so external agents can read them from the passport page.
+      </p>
       <h2>Verify an action</h2>
       <CodeBlock label="verify.ts">{`const result = await behalf.verify({
   agentId,
   action: "access_data",
-  vendor: "gmail.com"
+  vendor: "gmail.com",
+  metadata: {
+    scope: "read labels"
+  }
 });`}</CodeBlock>
       <p>
         In the current API, <code>vendor</code> can represent the resource or service
         being accessed. Pass <code>amount</code> only for transaction-like actions.
+        Pass <code>metadata.scope</code> to hint which allowed action is being requested.
       </p>
       <h2>Logs and key rotation</h2>
       <CodeBlock label="keys-and-logs.ts">{`const logs = await behalf.getLogs(agentId);

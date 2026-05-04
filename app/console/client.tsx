@@ -28,6 +28,7 @@ type Permission = {
   description?: string;
   resource?: string | null;
   scope?: string | null;
+  allowedActions?: string[];
   blockedActions?: string[];
   requiresApproval?: boolean;
   notes?: string | null;
@@ -492,6 +493,8 @@ function AgentDetailView({ agentId }: { agentId: string }) {
     maxAmount: "",
     resource: "",
     scope: "",
+    allowedActions: "",
+    blockedActions: "",
     expiresAt: tomorrowIsoLocal(),
     description: ""
   });
@@ -521,6 +524,8 @@ function AgentDetailView({ agentId }: { agentId: string }) {
         description: form.description || undefined,
         resource: form.resource || undefined,
         scope: form.scope || undefined,
+        allowedActions: form.allowedActions ? form.allowedActions.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+        blockedActions: form.blockedActions ? form.blockedActions.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
         constraints: {
           maxAmount: form.maxAmount ? Number(form.maxAmount) : undefined,
           allowedVendors: form.resource
@@ -588,6 +593,8 @@ function AgentDetailView({ agentId }: { agentId: string }) {
               <label><span>Action</span><input onChange={(event) => setForm({ ...form, action: event.target.value })} placeholder="access_data, schedule, purchase" required value={form.action} /></label>
               <label><span>Resource / service</span><input onChange={(event) => setForm({ ...form, resource: event.target.value })} placeholder="gmail.com, google-calendar, coachella.com" value={form.resource} /></label>
               <label><span>Scope / constraints</span><input onChange={(event) => setForm({ ...form, scope: event.target.value })} placeholder="read labels only, require approval, max 10 records" value={form.scope} /></label>
+              <label><span>Allowed actions</span><input onChange={(event) => setForm({ ...form, allowedActions: event.target.value })} placeholder="read labels, summarize docs, suggest times" value={form.allowedActions} /><small className="field-help">Comma-separated list of what this permission explicitly allows.</small></label>
+              <label><span>Blocked actions</span><input onChange={(event) => setForm({ ...form, blockedActions: event.target.value })} placeholder="send email, delete files, make purchases" value={form.blockedActions} /><small className="field-help">Comma-separated list of what this agent must never do.</small></label>
               <label><span>Max amount</span><input min="0" onChange={(event) => setForm({ ...form, maxAmount: event.target.value })} placeholder="Optional, e.g. 800" type="number" value={form.maxAmount} /></label>
               <label><span>Expires at</span><input onChange={(event) => setForm({ ...form, expiresAt: event.target.value })} type="datetime-local" value={form.expiresAt} /></label>
               <label><span>Description</span><textarea onChange={(event) => setForm({ ...form, description: event.target.value })} rows={3} value={form.description} /></label>
@@ -1047,10 +1054,10 @@ function permissionSummary(permission: Permission) {
   const constraints = permission.constraints ?? {};
   const parts = [
     permission.resource ? `on ${permission.resource}` : null,
-    permission.scope ?? null,
+    permission.allowedActions?.length ? `allows: ${permission.allowedActions.join(", ")}` : (permission.scope ?? null),
     typeof constraints.maxAmount === "number" ? `max $${constraints.maxAmount}` : null,
     permission.requiresApproval ? "requires approval" : null,
-    permission.blockedActions?.length ? `blocks ${permission.blockedActions.join(", ")}` : null,
+    permission.blockedActions?.length ? `blocks: ${permission.blockedActions.join(", ")}` : null,
     !permission.resource && constraints.allowedVendors?.length ? constraints.allowedVendors.join(", ") : null,
     constraints.expiresAt ? `expires ${formatDate(constraints.expiresAt)}` : null
   ].filter(Boolean);

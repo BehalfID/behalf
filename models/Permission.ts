@@ -10,6 +10,7 @@ const PermissionSchema = new Schema(
     description: { type: String, trim: true, maxlength: 240 },
     resource: { type: String, trim: true, maxlength: 240 },
     scope: { type: String, trim: true, maxlength: 500 },
+    allowedActions: [{ type: String, trim: true, maxlength: 160 }],
     blockedActions: [{ type: String, trim: true, maxlength: 160 }],
     requiresApproval: { type: Boolean },
     notes: { type: String, trim: true, maxlength: 800 },

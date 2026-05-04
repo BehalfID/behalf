@@ -18,6 +18,7 @@ type PassportPermission = {
   resource: string | null;
   scope: string | null;
   description: string | null;
+  allowedActions: string[] | null;
   blockedActions: string[] | null;
   requiresApproval: boolean | null;
   notes: string | null;
@@ -145,6 +146,7 @@ ${passportHref}`;
             ...(p.resource ? { resource: p.resource } : {}),
             ...(p.scope ? { scope: p.scope } : {}),
             ...(p.description ? { description: p.description } : {}),
+            ...(p.allowedActions?.length ? { allowedActions: p.allowedActions } : {}),
             ...(p.blockedActions?.length ? { blockedActions: p.blockedActions } : {}),
             ...(p.requiresApproval !== null ? { requiresApproval: p.requiresApproval } : {}),
             ...(p.maxAmount !== null ? { maxAmount: p.maxAmount } : {}),
@@ -202,6 +204,9 @@ ${passportHref}`;
                     {p.scope ? <p>{p.scope}</p> : null}
                     {p.description ? <p>{p.description}</p> : null}
                     <dl className="passport-scope-meta">
+                      {p.allowedActions?.length ? (
+                        <div><dt>Allowed</dt><dd>{p.allowedActions.join(", ")}</dd></div>
+                      ) : null}
                       {p.maxAmount !== null ? (
                         <div><dt>Max amount</dt><dd>${p.maxAmount}</dd></div>
                       ) : null}
