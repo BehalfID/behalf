@@ -73,20 +73,41 @@ Response:
 
 Creates an active permission rule for an agent. Requires that agent's API key.
 
+A permission is an action plus constraints: the agent can do `[action]` on
+`[resource/scope]` under `[constraints]`. Purchase-style permissions are one
+template; BehalfID also supports data access, messaging, scheduling, admin
+workflow, and custom action patterns.
+
 Request:
 
 ```json
 {
   "agentId": "agent_xxx",
-  "action": "purchase",
-  "description": "Festival purchase approval",
+  "action": "access_data",
+  "description": "Read-only Gmail label access",
+  "resource": "gmail.com",
+  "scope": "read labels only",
+  "blockedActions": ["send email", "delete messages"],
+  "template": "access_data",
   "constraints": {
-    "maxAmount": 800,
-    "allowedVendors": ["coachella.com"],
+    "allowedVendors": ["gmail.com"],
     "expiresAt": "2099-05-01T23:59:59Z"
   }
 }
 ```
+
+Optional permission metadata:
+
+- `resource`: service, dataset, workflow, or merchant, such as `gmail.com` or `google-calendar`
+- `scope`: plain-English allowed scope, such as `read labels only`
+- `blockedActions`: plain-English blocked actions
+- `requiresApproval`: boolean used by integrations that require human approval
+- `notes`: internal notes
+- `template`: `access_data`, `create_content`, `schedule`, `purchase`, or `custom`
+
+The existing `constraints.allowedVendors` field is also used as a simple
+resource/service allow-list for non-purchase permissions to preserve API
+compatibility.
 
 Response:
 
@@ -106,16 +127,20 @@ Request:
 ```json
 {
   "agentId": "agent_xxx",
-  "action": "purchase",
-  "amount": 742,
-  "vendor": "coachella.com",
+  "action": "access_data",
+  "vendor": "gmail.com",
   "metadata": {
-    "cartId": "optional-client-reference"
+    "context": "summarize inbox labels"
   }
 }
 ```
 
-Optional `metadata` must be an object under 2KB. It is only persisted when `BEHALFID_LOG_METADATA` is not `false`. Required log fields, including `action`, `amount`, and `vendor`, are always stored and may still be sensitive.
+For compatibility, the verification field may still be named `vendor`; for
+non-transaction actions, treat it as the resource or service being accessed.
+`/api/verify` also accepts `resource` as a clearer alias. `amount` is optional
+and only relevant when a permission has a `maxAmount` constraint.
+
+Optional `metadata` must be an object under 2KB. It is only persisted when `BEHALFID_LOG_METADATA` is not `false`. Required log fields, including `action`, `amount`, and `vendor`/resource, are always stored and may still be sensitive.
 
 Allowed response:
 
@@ -161,9 +186,8 @@ Response:
     "requestId": "req_xxx",
     "agentId": "agent_xxx",
     "permissionId": "perm_xxx",
-    "action": "purchase",
-    "amount": 742,
-    "vendor": "coachella.com",
+    "action": "access_data",
+    "vendor": "gmail.com",
     "allowed": true,
     "reason": "Action allowed by active permission.",
     "risk": "low",
@@ -174,19 +198,45 @@ Response:
 
 ## GET /api/passport/[agentId]
 
-Returns public-safe metadata for a manual passport link. The token is separate from the agent API key. Generated passport links keep the token in the URL fragment; API calls should send it as `Authorization: Bearer bhf_pass_...`.
+Returns the public-safe passport for a manual passport link, including agent metadata and active permission scopes. The token is separate from the agent API key. Generated passport links keep the token in the URL fragment; API calls should send it as `Authorization: Bearer bhf_pass_...`.
+
+Passport links intentionally expose the agent's allowed permission scopes so external agents can read what they are permitted to do. They never expose API keys, webhook secrets, developer identity, account IDs, internal DB IDs, or audit logs. Revoked and expired permissions are excluded.
+
+A passport token is not an API key. It only allows viewing the scoped passport and running manual preview checks for one agent.
 
 Response:
 
 ```json
 {
+  "passportVersion": "2026-05-03",
+  "mode": "manual",
   "agent": {
     "agentId": "agent_xxx",
     "name": "Ollie",
     "agentType": "connected",
     "provider": "ollie",
+    "connectionStatus": "manual",
     "description": "Personal assistant used for planning"
-  }
+  },
+  "permissions": [
+    {
+      "action": "access_data",
+      "resource": "gmail.com",
+      "scope": "read labels only",
+      "description": null,
+      "blockedActions": ["send email", "delete messages"],
+      "requiresApproval": null,
+      "notes": null,
+      "template": "access_data",
+      "maxAmount": null,
+      "expiresAt": null,
+      "status": "active"
+    }
+  ],
+  "limitations": [
+    "Manual mode does not directly control third-party agents.",
+    "Automatic enforcement requires API or SDK integration."
+  ]
 }
 ```
 
@@ -198,9 +248,9 @@ Request:
 
 ```json
 {
-  "action": "purchase",
-  "vendor": "coachella.com",
-  "amount": 742
+  "action": "access_data",
+  "resource": "gmail.com",
+  "context": "summarize inbox labels"
 }
 ```
 
@@ -354,9 +404,8 @@ const behalf = new BehalfID({
 
 const result = await behalf.verify({
   agentId: "agent_xxx",
-  action: "purchase",
-  amount: 742,
-  vendor: "coachella.com"
+  action: "access_data",
+  vendor: "gmail.com"
 });
 ```
 

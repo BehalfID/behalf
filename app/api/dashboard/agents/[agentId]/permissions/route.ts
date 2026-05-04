@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import { createPublicId } from "@/lib/ids";
+import { parsePermissionMetadata } from "@/lib/permissions";
 import { jsonError } from "@/lib/responses";
 import { isRecord, parseOptionalAmount, parseOptionalDate, readString, rejectUnknownFields } from "@/lib/validation";
 import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
@@ -21,13 +22,25 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const body: unknown = await request.json().catch(() => null);
   if (!isRecord(body)) return jsonError("Request body must be a JSON object.");
-  const unknownError = rejectUnknownFields(body, ["action", "description", "constraints"]);
+  const unknownError = rejectUnknownFields(body, [
+    "action",
+    "description",
+    "resource",
+    "scope",
+    "blockedActions",
+    "requiresApproval",
+    "notes",
+    "template",
+    "constraints"
+  ]);
   if (unknownError) return jsonError(unknownError);
 
   const action = readString(body.action);
   const description = body.description === undefined ? undefined : readString(body.description);
   if (!action) return jsonError("action is required.");
   if (body.description !== undefined && !description) return jsonError("description must be a non-empty string.");
+  const { metadata, error: metadataError } = parsePermissionMetadata(body);
+  if (metadataError || !metadata) return jsonError(metadataError ?? "Invalid permission metadata.");
 
   const constraints = body.constraints === undefined ? {} : body.constraints;
   if (!isRecord(constraints)) return jsonError("constraints must be an object.");
@@ -56,6 +69,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     agentId,
     action,
     description,
+    ...metadata,
     constraints: { maxAmount, allowedVendors, expiresAt },
     status: "active"
   });

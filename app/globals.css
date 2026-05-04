@@ -1273,6 +1273,36 @@ textarea.ui-input,
   max-width: 760px;
 }
 
+.permission-template-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.permission-template {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  color: var(--text);
+  text-align: left;
+  background: rgba(11, 15, 20, 0.42);
+  cursor: pointer;
+}
+
+.permission-template:hover,
+.permission-template--active {
+  border-color: rgba(99, 102, 241, 0.52);
+  background: rgba(99, 102, 241, 0.12);
+}
+
+.permission-template span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
 .onboarding-result-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1342,6 +1372,67 @@ textarea.ui-input,
   border-radius: 10px;
   padding: 14px;
   background: rgba(99, 102, 241, 0.1);
+}
+
+.passport-section {
+  margin-top: 52px;
+}
+
+.passport-section > h2 {
+  font-size: 1.35rem;
+  font-weight: 680;
+  margin: 0 0 18px;
+  color: var(--text);
+}
+
+.passport-section > p {
+  color: var(--muted);
+  line-height: 1.7;
+  margin: 0 0 14px;
+}
+
+.passport-scopes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.passport-scope-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.passport-scope-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+  font-size: 0.9rem;
+}
+
+.passport-scope-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 0;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+
+.passport-scope-meta div {
+  display: flex;
+  gap: 8px;
+  font-size: 0.82rem;
+}
+
+.passport-scope-meta dt {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.passport-scope-meta dd {
+  margin: 0;
+  color: var(--text);
 }
 
 .inline-form {
@@ -1613,6 +1704,7 @@ textarea.ui-input,
 
   .agent-create-grid,
   .agent-edit-form,
+  .permission-template-grid,
   .onboarding-result-grid,
   .onboarding-result-grid--native,
   .passport-grid {

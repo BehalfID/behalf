@@ -8,6 +8,16 @@ const PermissionSchema = new Schema(
     agentId: { type: String, required: true, index: true },
     action: { type: String, required: true, trim: true, maxlength: 80, index: true },
     description: { type: String, trim: true, maxlength: 240 },
+    resource: { type: String, trim: true, maxlength: 240 },
+    scope: { type: String, trim: true, maxlength: 500 },
+    blockedActions: [{ type: String, trim: true, maxlength: 160 }],
+    requiresApproval: { type: Boolean },
+    notes: { type: String, trim: true, maxlength: 800 },
+    template: {
+      type: String,
+      enum: ["access_data", "create_content", "schedule", "purchase", "custom"],
+      index: true
+    },
     constraints: {
       maxAmount: { type: Number, min: 0 },
       allowedVendors: [{ type: String, trim: true, maxlength: 200 }],

@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
     "action",
     "amount",
     "vendor",
+    "resource",
     "metadata"
   ]);
   if (unknownError) {
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
 
   const agentId = readString(body.agentId);
   const action = readString(body.action);
-  const vendor = body.vendor === undefined ? undefined : readString(body.vendor);
+  const vendor = body.vendor === undefined ? readString(body.resource) || undefined : readString(body.vendor);
 
   if (!agentId) {
     return jsonError("agentId is required.");
@@ -41,8 +42,8 @@ export async function POST(request: NextRequest) {
     return jsonError("action is required.");
   }
 
-  if (body.vendor !== undefined && !vendor) {
-    return jsonError("vendor must be a non-empty string.");
+  if ((body.vendor !== undefined || body.resource !== undefined) && !vendor) {
+    return jsonError("resource must be a non-empty string.");
   }
 
   const { amount, error: amountError } = parseOptionalAmount(body.amount);

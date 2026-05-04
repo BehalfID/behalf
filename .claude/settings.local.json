@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash -n /Users/jasperdragoo09/behalf/scripts/smoke-test.sh)"
+    ]
+  }
+}

@@ -56,7 +56,7 @@ export async function getAgentDetail(agentId: string, accountId: string) {
     Permission.find({ agentId, accountId })
       .sort({ createdAt: -1 })
       .limit(50)
-      .select("-_id permissionId action description constraints status lastUsedAt createdAt updatedAt")
+      .select("-_id permissionId action description resource scope blockedActions requiresApproval notes template constraints status lastUsedAt createdAt updatedAt")
       .lean(),
     VerificationLog.find({ agentId, accountId })
       .sort({ createdAt: -1 })

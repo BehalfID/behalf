@@ -9,7 +9,7 @@ This prototype includes the public permission API, a public docs site, a develop
 - Add native agents and connected agents with one-time API keys.
 - Store only hashed API keys.
 - Create and revoke permission rules.
-- Verify action, amount, vendor, expiration, revocation, and disabled-agent state.
+- Verify action, resource/service, amount, expiration, revocation, and disabled-agent state.
 - Log each authenticated verification decision with a stable `requestId`.
 - Rotate agent API keys.
 - Manage native and connected agents, permissions, logs, key rotation, and disable/enable state in `/console`.
@@ -91,9 +91,8 @@ const behalf = new BehalfID({
 
 const result = await behalf.verify({
   agentId: "agent_xxx",
-  action: "purchase",
-  amount: 742,
-  vendor: "coachella.com"
+  action: "access_data",
+  vendor: "gmail.com"
 });
 
 if (!result.allowed) {
@@ -175,6 +174,6 @@ https://behalfid.vercel.app
 - Console routes require the signed admin cookie.
 - Request bodies are field-whitelisted.
 - Rate limiting uses Upstash Redis when `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are configured. Otherwise it falls back to in-memory mode.
-- Optional verification `metadata` is only stored when `BEHALFID_LOG_METADATA` is not `false`; action, vendor, and amount are always stored and may still be sensitive.
+- Optional verification `metadata` is only stored when `BEHALFID_LOG_METADATA` is not `false`; action, vendor/resource, and amount are always stored and may still be sensitive.
 
 See [docs/SECURITY.md](docs/SECURITY.md) for the full security review and limitations.
