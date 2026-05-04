@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireConsoleApi } from "@/lib/adminAuth";
 import { getConsoleAccountId, getConsoleAgent } from "@/lib/consoleData";
 import { createPublicId } from "@/lib/ids";
+import { parsePermissionMetadata } from "@/lib/permissions";
 import { jsonError } from "@/lib/responses";
 import {
   isRecord,
@@ -32,6 +33,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const unknownError = rejectUnknownFields(body, [
     "action",
     "description",
+    "resource",
+    "scope",
+    "blockedActions",
+    "requiresApproval",
+    "notes",
+    "template",
     "constraints"
   ]);
   if (unknownError) {
@@ -47,6 +54,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   if (body.description !== undefined && !description) {
     return jsonError("description must be a non-empty string.");
+  }
+
+  const { metadata, error: metadataError } = parsePermissionMetadata(body);
+  if (metadataError || !metadata) {
+    return jsonError(metadataError ?? "Invalid permission metadata.");
   }
 
   const constraints = body.constraints === undefined ? {} : body.constraints;
@@ -103,6 +115,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     agentId,
     action,
     description,
+    ...metadata,
     constraints: {
       maxAmount,
       allowedVendors,

@@ -21,7 +21,7 @@ const flowSteps = [
   },
   {
     title: "Define permissions",
-    body: "Scope actions by vendor, amount, expiration, and active or revoked status."
+    body: "Define what an agent can do, what it can access, and what limits apply."
   },
   {
     title: "Verify action",
@@ -34,11 +34,19 @@ const flowSteps = [
 ];
 
 const connectedAgents = [
-  ["Ollie", "Represent a personal assistant and scope purchase or planning actions."],
+  ["Ollie", "Represent a personal assistant and scope planning, data, or transaction actions."],
   ["ChatGPT agent", "Attach a permission passport to a ChatGPT-powered workflow."],
   ["Claude agent", "Verify sensitive data access before a Claude agent proceeds."],
   ["Zapier / Make", "Wrap automations in action-level constraints and audit trails."],
   ["Custom agents", "Use native BehalfID agents for LangChain, OpenAI, or internal systems."]
+];
+
+const permissionExamples = [
+  ["Data access", "Read Gmail labels or CRM records without sending email or editing data."],
+  ["Messaging", "Draft Slack or email messages while requiring approval before sending."],
+  ["Scheduling", "Suggest times or create draft calendar events before booking."],
+  ["Transactions", "Purchase only under limits from approved merchants."],
+  ["Admin workflows", "Create invoices or tickets while blocking refunds and destructive actions."]
 ];
 
 export default function Home() {
@@ -69,9 +77,9 @@ export default function Home() {
           </div>
           <div className="signal-line"><span>connected agent</span><strong>Ollie</strong></div>
           <div className="signal-line"><span>provider</span><strong>ollie</strong></div>
-          <div className="signal-line"><span>action</span><strong>purchase</strong></div>
-          <div className="signal-line"><span>vendor</span><strong>coachella.com</strong></div>
-          <div className="signal-line"><span>amount</span><strong>$742 / $800</strong></div>
+          <div className="signal-line"><span>action</span><strong>access_data</strong></div>
+          <div className="signal-line"><span>resource</span><strong>gmail.com</strong></div>
+          <div className="signal-line"><span>scope</span><strong>read labels only</strong></div>
           <div className="signal-line signal-line--result"><span>decision</span><strong>allowed</strong></div>
           <div className="hero__event">
             <span>Webhook queued</span>
@@ -109,9 +117,26 @@ export default function Home() {
           </p>
           <p>
             API keys prove an integration can call your system. OAuth proves a user consented
-            to broad access. Neither models per-action delegation with constraints like amount,
-            vendor, expiration, and revocation.
+            to broad access. Neither models per-action delegation with resources, scopes,
+            expiration, approval requirements, revocation, or transaction limits.
           </p>
+        </div>
+      </section>
+
+      <section className="marketing-section">
+        <p className="section-kicker">Permissions beyond purchases</p>
+        <h2>General rules for agent actions.</h2>
+        <p className="section-lede">
+          A permission says an agent can do an action on a resource under constraints.
+          Transactions are one template, not the whole product.
+        </p>
+        <div className="connected-agent-grid">
+          {permissionExamples.map(([title, body]) => (
+            <div key={title}>
+              <strong>{title}</strong>
+              <p>{body}</p>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -141,8 +166,8 @@ export default function Home() {
       <section className="use-case">
         <div>
           <p className="section-kicker">Example</p>
-          <h2>An agent tries to buy event tickets.</h2>
-          <p>Allow only purchase actions at coachella.com, up to $800, expiring after two hours.</p>
+          <h2>A transaction permission is just one template.</h2>
+          <p>For a purchase-like action, allow only coachella.com, up to $800, expiring after two hours.</p>
           <dl className="constraint-list">
             <div><dt>vendor</dt><dd>coachella.com</dd></div>
             <div><dt>maxAmount</dt><dd>800</dd></div>
@@ -173,9 +198,8 @@ const behalf = new BehalfID({
 
 const result = await behalf.verify({
   agentId: "agent_xxx",
-  action: "purchase",
-  amount: 742,
-  vendor: "coachella.com"
+  action: "access_data",
+  vendor: "gmail.com"
 });`}</CodeBlock>
       </section>
 
@@ -201,7 +225,7 @@ const result = await behalf.verify({
 
 function featureCopy(feature: string) {
   const copy: Record<string, string> = {
-    "Scoped permissions": "Action rules with amount, vendor, expiration, and revoke controls.",
+    "Scoped permissions": "Action rules with resources, scopes, expiration, approval notes, and transaction limits.",
     "Audit logs": "Every verification decision is recorded with reason, risk, and request ID.",
     "Signed webhooks": "External systems receive HMAC-signed verification and lifecycle events.",
     "Durable outbox": "Webhook events are queued before delivery so failures are visible.",

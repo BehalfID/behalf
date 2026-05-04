@@ -28,7 +28,7 @@ The script checks `/api/health`, checks `/api/health/db` when a setup token is p
 4. Login with the admin password.
 5. Create an agent and store the one-time API key.
 6. Open the agent detail page.
-7. Create a purchase permission with max amount `800`, allowed vendor `coachella.com`, and tomorrow's expiration.
+7. Create a permission such as `access_data` on `gmail.com`, or a purchase permission with max amount `800`, allowed vendor `coachella.com`, and tomorrow's expiration.
 8. Rotate the API key and store the new one.
 9. Disable the agent, run a verify request, then enable it again.
 10. Review `/console/logs`.
@@ -39,7 +39,7 @@ The script checks `/api/health`, checks `/api/health/db` when a setup token is p
 2. Create a developer account with an email and a password of at least 10 characters.
 3. Open `/dashboard/onboarding`.
 4. Choose an existing agent such as Ollie for manual test mode, or choose a custom agent for developer integration mode.
-5. Create the first purchase permission.
+5. Create the first permission using a template such as data access, scheduling, messaging, or purchase.
 6. Test an action in the onboarding flow.
 7. For manual mode, open the passport link and copy the generated instructions into the external agent.
 8. For developer integration mode, use the SDK or curl demo with the one-time API key.
@@ -71,6 +71,8 @@ Expected output:
 ```
 
 The demo does not print API keys.
+
+The scripted SDK demo intentionally uses the purchase template because it exercises both allow and deny amount paths. BehalfID permissions are broader than transactions; the dashboard onboarding also supports data access, messaging/content creation, scheduling, and custom permission templates.
 
 ## Webhook Receiver Demo
 

@@ -10,11 +10,13 @@ export default function ConceptsPage() {
     ["Providers", "Provider metadata explains where the agent lives. It is descriptive only today and does not authenticate a provider account."],
     ["External reference", "Optional metadata that helps teams map BehalfID records back to an external assistant without collecting provider credentials."],
     ["Manual connection model", "Connected agents do not call provider APIs yet. Your app uses the BehalfID credential to verify actions on behalf of that external agent."],
-    ["Public passport links", "Tokenized links let users manually test whether an action would be allowed. They do not expose API keys, logs, developer email, or permission editing."],
+    ["Public passport links", "Tokenized links expose the agent's allowed permission scopes and let users manually test whether an action would be allowed. They do not expose API keys, logs, developer email, or permission editing. A passport token is not an API key — it only allows viewing the scoped passport and running manual preview checks for one agent."],
     ["Enforcement limitations", "Manual mode helps users test and communicate constraints. Automatic enforcement requires the external provider or your app to integrate the verification API."],
-    ["Permissions", "Rules that scope actions by amount, vendor, expiration, and status. Revoking the latest matching permission denies future verification."],
+    ["Passport token safety", "Passport links intentionally expose allowed permission scopes so external agents can read what they are permitted to do. They never expose API keys, webhook secrets, developer identity, internal IDs, or audit logs. Treat the passport link like a secret — anyone with the token can view the scoped passport."],
+    ["Permissions", "Rules that say an agent can do an action on a resource under constraints. Examples include access_data on gmail.com, create_content in Slack, schedule on Google Calendar, or purchase on coachella.com with maxAmount."],
     ["Verification", "A pre-action decision that returns allowed, reason, risk, and requestId before the agent proceeds."],
     ["Audit logs", "Records of authenticated verification decisions for debugging, compliance, and support workflows."],
+    ["MVP enforcement", "BehalfID currently enforces action, expiration, revoked status, and simple resource or amount constraints. Advanced semantic constraints require the integrating app to pass relevant context and respect BehalfID's decision."],
     ["Future integrations", "Provider-native integrations are planned, but the current model keeps the MVP focused on permission passports and verification."]
   ];
 

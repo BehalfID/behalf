@@ -28,10 +28,13 @@ const behalf = new BehalfID({
       <h2>Verify an action</h2>
       <CodeBlock label="verify.ts">{`const result = await behalf.verify({
   agentId,
-  action: "purchase",
-  amount: 742,
-  vendor: "coachella.com"
+  action: "access_data",
+  vendor: "gmail.com"
 });`}</CodeBlock>
+      <p>
+        In the current API, <code>vendor</code> can represent the resource or service
+        being accessed. Pass <code>amount</code> only for transaction-like actions.
+      </p>
       <h2>Logs and key rotation</h2>
       <CodeBlock label="keys-and-logs.ts">{`const logs = await behalf.getLogs(agentId);
 const rotated = await behalf.rotateKey(agentId);`}</CodeBlock>

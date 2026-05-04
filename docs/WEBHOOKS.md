@@ -36,7 +36,7 @@ Store it in your receiver environment. BehalfID stores only a derived hash and a
   "data": {
     "requestId": "req_xxx",
     "agentId": "agent_xxx",
-    "action": "purchase",
+    "action": "access_data",
     "allowed": true,
     "risk": "low",
     "permissionId": "perm_xxx"

@@ -20,9 +20,8 @@ const behalf = new BehalfID({
 
 const result = await behalf.verify({
   agentId: "agent_xxx",
-  action: "purchase",
-  amount: 742,
-  vendor: "coachella.com"
+  action: "access_data",
+  vendor: "gmail.com"
 });
 
 if (result.allowed) {
@@ -42,6 +41,8 @@ if (result.allowed) {
 - `verifyWebhookSignature(input)`
 
 `createAgent` uses the configured `apiKey` as a bearer token. When public agent creation is disabled, pass a server-side `BEHALFID_SETUP_TOKEN` as the SDK `apiKey` for provisioning.
+
+For non-transaction actions, the current API field `vendor` can represent the resource or service being accessed. Pass `amount` only when verifying purchase or transaction-like actions.
 
 For connected agents, pass metadata instead of just a name:
 

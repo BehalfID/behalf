@@ -30,7 +30,7 @@ BehalfID is currently a prototype. It is suitable for local demos and constraine
 - Webhook events are persisted to an outbox before delivery and retried with a capped five-attempt backoff schedule.
 - Webhook replay is console-authenticated, Origin-checked, account-scoped, and limited to failed dead-letter events.
 - Connected-agent provider metadata is descriptive only. BehalfID does not collect provider credentials, and `externalAgentId` is never treated as authentication.
-- Public passport links use a separate `bhf_pass_` token scoped to one agent. The token can only run manual verification previews and cannot create permissions, rotate keys, view logs, or expose API keys.
+- Public passport links use a separate `bhf_pass_` token scoped to one agent. The passport page intentionally exposes the agent's active permission scopes so external agents can read what they are allowed to do. The token cannot create permissions, rotate keys, view audit logs, or expose API keys, webhook secrets, developer identity, account IDs, or internal DB IDs. Revoked and expired permissions are hidden from the public passport. A passport token is not an API key — treat it like a secret link.
 
 ## Known Prototype Limitations
 
@@ -40,13 +40,14 @@ BehalfID is currently a prototype. It is suitable for local demos and constraine
 - Failed authentication attempts are not stored in verification logs.
 - The admin console still uses one admin password; the developer portal has individual accounts but no organizations yet.
 - There is no CSRF token system beyond SameSite cookies and Origin checks.
-- Audit logs always contain action, vendor, and amount when provided, and those fields may still be sensitive. Optional `metadata` is only persisted when `BEHALFID_LOG_METADATA` is not `false`.
+- Audit logs always contain action, vendor/resource, and amount when provided, and those fields may still be sensitive. Optional `metadata` is only persisted when `BEHALFID_LOG_METADATA` is not `false`.
 - Webhook delivery is at least once, not exactly once. Receivers should deduplicate by event ID.
 - The webhook worker is an API route intended for Vercel cron or an external scheduler, not a dedicated queue service.
 - Webhook event details expose the event payload to console admins for debugging. Event payload serializers must continue excluding API keys, setup tokens, webhook secrets, and rotated keys.
 - API actions and webhook outbox writes are not wrapped in MongoDB transactions yet.
 - Connected agents are manually represented today; provider-native connection state is not verified with external provider APIs.
 - Manual passport testing does not automatically control third-party agents. The provider or your app must integrate the BehalfID verification API for automatic enforcement.
+- Public passport pages expose active permission scopes by design. Do not create permissions containing sensitive data that should not be visible to anyone with the passport token.
 - API key hashes are deterministic. A future version should use an HMAC pepper or key identifier plus HMAC hash.
 
 ## Production Recommendations

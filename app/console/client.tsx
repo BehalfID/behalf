@@ -26,6 +26,12 @@ type Permission = {
   permissionId: string;
   action: string;
   description?: string;
+  resource?: string | null;
+  scope?: string | null;
+  blockedActions?: string[];
+  requiresApproval?: boolean;
+  notes?: string | null;
+  template?: string | null;
   constraints?: {
     maxAmount?: number;
     allowedVendors?: string[];
@@ -484,7 +490,8 @@ function AgentDetailView({ agentId }: { agentId: string }) {
   const [form, setForm] = useState({
     action: "",
     maxAmount: "",
-    allowedVendors: "",
+    resource: "",
+    scope: "",
     expiresAt: tomorrowIsoLocal(),
     description: ""
   });
@@ -512,10 +519,12 @@ function AgentDetailView({ agentId }: { agentId: string }) {
       body: JSON.stringify({
         action: form.action,
         description: form.description || undefined,
+        resource: form.resource || undefined,
+        scope: form.scope || undefined,
         constraints: {
           maxAmount: form.maxAmount ? Number(form.maxAmount) : undefined,
-          allowedVendors: form.allowedVendors
-            ? form.allowedVendors.split(",").map((vendor) => vendor.trim()).filter(Boolean)
+          allowedVendors: form.resource
+            ? form.resource.split(",").map((resource) => resource.trim()).filter(Boolean)
             : undefined,
           expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : undefined
         }
@@ -575,9 +584,11 @@ function AgentDetailView({ agentId }: { agentId: string }) {
             </div>
             <form className="console-panel" onSubmit={createPermission}>
               <SectionTitle title="Create permission" />
-              <label><span>Action</span><input onChange={(event) => setForm({ ...form, action: event.target.value })} placeholder="purchase" required value={form.action} /></label>
-              <label><span>Max amount</span><input min="0" onChange={(event) => setForm({ ...form, maxAmount: event.target.value })} placeholder="800" type="number" value={form.maxAmount} /></label>
-              <label><span>Allowed vendors</span><input onChange={(event) => setForm({ ...form, allowedVendors: event.target.value })} placeholder="coachella.com" value={form.allowedVendors} /></label>
+              <p className="field-help">Define what an agent can do, what it can access, and what limits apply.</p>
+              <label><span>Action</span><input onChange={(event) => setForm({ ...form, action: event.target.value })} placeholder="access_data, schedule, purchase" required value={form.action} /></label>
+              <label><span>Resource / service</span><input onChange={(event) => setForm({ ...form, resource: event.target.value })} placeholder="gmail.com, google-calendar, coachella.com" value={form.resource} /></label>
+              <label><span>Scope / constraints</span><input onChange={(event) => setForm({ ...form, scope: event.target.value })} placeholder="read labels only, require approval, max 10 records" value={form.scope} /></label>
+              <label><span>Max amount</span><input min="0" onChange={(event) => setForm({ ...form, maxAmount: event.target.value })} placeholder="Optional, e.g. 800" type="number" value={form.maxAmount} /></label>
               <label><span>Expires at</span><input onChange={(event) => setForm({ ...form, expiresAt: event.target.value })} type="datetime-local" value={form.expiresAt} /></label>
               <label><span>Description</span><textarea onChange={(event) => setForm({ ...form, description: event.target.value })} rows={3} value={form.description} /></label>
               <Button variant="primary" type="submit">Create permission</Button>
@@ -999,7 +1010,7 @@ function LogList({ logs, compact = false }: { logs: VerificationLog[]; compact?:
         <div className="console-list__item" key={log.requestId}>
           <span>
             <strong>{log.action}</strong>
-            <small>{log.agentId} / {log.vendor || "no vendor"} / {log.reason}</small>
+            <small>{log.agentId} / {log.vendor || "no resource"} / {log.reason}</small>
           </span>
           <span className={statusClass(log.allowed ? "allowed" : "denied")}>
             {log.allowed ? "allowed" : "denied"}
@@ -1035,10 +1046,14 @@ function SecretBox({ label, value }: { label: string; value: string }) {
 function permissionSummary(permission: Permission) {
   const constraints = permission.constraints ?? {};
   const parts = [
+    permission.resource ? `on ${permission.resource}` : null,
+    permission.scope ?? null,
     typeof constraints.maxAmount === "number" ? `max $${constraints.maxAmount}` : null,
-    constraints.allowedVendors?.length ? constraints.allowedVendors.join(", ") : null,
+    permission.requiresApproval ? "requires approval" : null,
+    permission.blockedActions?.length ? `blocks ${permission.blockedActions.join(", ")}` : null,
+    !permission.resource && constraints.allowedVendors?.length ? constraints.allowedVendors.join(", ") : null,
     constraints.expiresAt ? `expires ${formatDate(constraints.expiresAt)}` : null
   ].filter(Boolean);
 
-  return parts.length ? parts.join(" / ") : permission.description || permission.permissionId;
+  return parts.length ? parts.join(" / ") : permission.notes || permission.description || permission.permissionId;
 }

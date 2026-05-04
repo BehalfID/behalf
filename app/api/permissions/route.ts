@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { authenticateAgent } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/db";
 import { createPublicId } from "@/lib/ids";
+import { parsePermissionMetadata } from "@/lib/permissions";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { jsonError } from "@/lib/responses";
 import {
@@ -29,6 +30,12 @@ export async function POST(request: NextRequest) {
     "agentId",
     "action",
     "description",
+    "resource",
+    "scope",
+    "blockedActions",
+    "requiresApproval",
+    "notes",
+    "template",
     "constraints"
   ]);
   if (unknownError) {
@@ -50,6 +57,11 @@ export async function POST(request: NextRequest) {
 
   if (body.description !== undefined && !description) {
     return jsonError("description must be a non-empty string.");
+  }
+
+  const { metadata, error: metadataError } = parsePermissionMetadata(body);
+  if (metadataError || !metadata) {
+    return jsonError(metadataError ?? "Invalid permission metadata.");
   }
 
   await connectToDatabase();
@@ -115,6 +127,7 @@ export async function POST(request: NextRequest) {
     agentId,
     action,
     description,
+    ...metadata,
     constraints: {
       maxAmount,
       allowedVendors,
