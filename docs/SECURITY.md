@@ -49,6 +49,7 @@ BehalfID is currently a prototype. It is suitable for local demos and constraine
 - API actions and webhook outbox writes are not wrapped in MongoDB transactions yet.
 - Connected agents are manually represented today; provider-native connection state is not verified with external provider APIs.
 - Manual passport testing does not automatically control third-party agents. The provider or your app must integrate the BehalfID verification API for automatic enforcement.
+- Passport links use a `#token=…` URL fragment. This keeps the token out of server logs and referrer headers, but many AI agents (Gemini memory, ChatGPT system prompts, Claude project instructions) do not execute JavaScript or send authorization headers and cannot retrieve the scoped data from the URL. For these agents, use the Agent memory block on the passport page — a plain-English copy of the active scopes suitable for pasting into a memory field or system prompt. Do not switch to query-string tokens to work around this.
 - Public passport pages expose active permission scopes by design, including `allowedActions`, `blockedActions`, `requiresApproval`, `resource`, and `scope`. Do not create permissions containing sensitive data that should not be visible to anyone with the passport token.
 - Agent descriptions are informational. The structured permission fields (`allowedActions`, `blockedActions`) are the source of truth exposed to external agents reading the passport.
 - API key hashes are deterministic. A future version should use an HMAC pepper or key identifier plus HMAC hash.

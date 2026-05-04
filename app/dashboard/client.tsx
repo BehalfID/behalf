@@ -533,6 +533,7 @@ ${passportUrl || "[passport link]"}`;
             <h2>Manual test mode</h2>
             <p>Send this link to your agent so it can read the allowed scopes and ask you to verify actions.</p>
             <p>This does not automatically control the external agent. Developer integration is required for automatic enforcement.</p>
+            <p className="field-help">Some agents cannot fetch passport links directly (for example, Gemini memory or ChatGPT system prompts). If the agent cannot read the link, open the passport page and paste the Agent memory block into the agent instead.</p>
             <CodeBlock label="copy into your agent">{instructions}</CodeBlock>
           </Card>
           <Card className="dashboard-panel">
@@ -665,6 +666,7 @@ function AgentView({ agentId }: { agentId: string }) {
             <Button onClick={regeneratePassport} type="button">{agent.publicPassportEnabled ? "Regenerate passport link" : "Create passport link"}</Button>
             {passportUrl ? <Secret value={passportUrl} label="Passport link" /> : null}
             {agent.agentType === "connected" ? <p className="field-help">Treat this passport link like a secret. Anyone with the token can view this agent&apos;s allowed scopes and run manual previews.</p> : null}
+            {agent.agentType === "connected" ? <p className="field-help">Some agents cannot fetch passport links directly (e.g. Gemini memory, ChatGPT system prompts). If the agent cannot read the link, open the passport page and paste the Agent memory block into the agent instead.</p> : null}
             {agent.publicPassportTokenPreview ? <p>Current passport token: <code>{agent.publicPassportTokenPreview}</code></p> : null}
           </Card>
           <Card className="dashboard-panel">
