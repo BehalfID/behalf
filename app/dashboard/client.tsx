@@ -27,6 +27,7 @@ type Log = { requestId: string; agentId: string; action: string; allowed: boolea
 type Webhook = { webhookId: string; url: string; events: string[]; status: string; secretPreview: string; lastTriggeredAt?: string | null };
 type Delivery = { deliveryId: string; eventType: string; eventId: string; status: string; error?: string; attempt: number; maxAttempts?: number; createdAt?: string };
 type AgentProvider = "custom" | "ollie" | "chatgpt" | "claude" | "zapier" | "make" | "langchain" | "openai" | "other";
+type ProviderSelection = AgentProvider | "";
 type OnboardingMode = "existing" | "custom";
 type VerifyResult = { requestId: string; allowed: boolean; reason: string; risk: string };
 
@@ -160,25 +161,52 @@ function OnboardingView() {
   const [agent, setAgent] = useState<Agent | null>(null);
   const [permissionId, setPermissionId] = useState("");
   const [decision, setDecision] = useState<VerifyResult | null>(null);
+  const [onboardingError, setOnboardingError] = useState("");
   const [agentForm, setAgentForm] = useState({
-    name: "Ollie",
-    provider: "ollie" as AgentProvider,
+    name: "",
+    provider: "" as ProviderSelection,
     externalAgentLabel: "",
-    description: "Personal assistant used for planning"
+    description: ""
   });
   const [permissionForm, setPermissionForm] = useState({
-    actionChoice: "purchase",
+    actionChoice: "",
     customAction: "",
-    vendor: "coachella.com",
-    maxAmount: "800",
-    expiration: "2"
+    vendor: "",
+    maxAmount: "",
+    expiration: ""
   });
-  const [testForm, setTestForm] = useState({ action: "purchase", vendor: "coachella.com", amount: "742" });
+  const [testForm, setTestForm] = useState({ action: "", vendor: "", amount: "" });
 
   const selectedAction = permissionForm.actionChoice === "custom" ? permissionForm.customAction : permissionForm.actionChoice;
 
+  const useExampleValues = () => {
+    setOnboardingError("");
+    setAgentForm({
+      name: "Ollie",
+      provider: "ollie",
+      externalAgentLabel: "",
+      description: "Personal assistant used for planning"
+    });
+    setPermissionForm({
+      actionChoice: "purchase",
+      customAction: "",
+      vendor: "coachella.com",
+      maxAmount: "800",
+      expiration: "2"
+    });
+  };
+
   const createAgent = async (event: FormEvent) => {
     event.preventDefault();
+    setOnboardingError("");
+    if (!agentForm.name.trim()) {
+      setOnboardingError("Agent name is required.");
+      return;
+    }
+    if (mode === "existing" && !agentForm.provider) {
+      setOnboardingError("Provider is required for connected agents.");
+      return;
+    }
     const result = await api<{ agent: Agent; apiKey: string }>("/api/dashboard/agents", {
       method: "POST",
       body: JSON.stringify(mode === "existing" ? {
@@ -188,7 +216,7 @@ function OnboardingView() {
         externalAgentLabel: agentForm.externalAgentLabel || undefined,
         description: agentForm.description || undefined
       } : {
-        name: agentForm.name || "Custom agent",
+        name: agentForm.name,
         agentType: "native",
         provider: "custom",
         description: agentForm.description || undefined
@@ -204,6 +232,11 @@ function OnboardingView() {
   const createPermission = async (event: FormEvent) => {
     event.preventDefault();
     if (!agent) return;
+    setOnboardingError("");
+    if (!selectedAction.trim()) {
+      setOnboardingError("Action is required for permissions.");
+      return;
+    }
     const result = await api<{ permissionId: string }>(`/api/dashboard/agents/${agent.agentId}/permissions`, {
       method: "POST",
       body: JSON.stringify({
@@ -211,12 +244,14 @@ function OnboardingView() {
         constraints: {
           maxAmount: permissionForm.maxAmount ? Number(permissionForm.maxAmount) : undefined,
           allowedVendors: permissionForm.vendor ? [permissionForm.vendor] : undefined,
-          expiresAt: new Date(Date.now() + Number(permissionForm.expiration || "2") * 60 * 60 * 1000).toISOString()
+          expiresAt: permissionForm.expiration
+            ? new Date(Date.now() + Number(permissionForm.expiration) * 60 * 60 * 1000).toISOString()
+            : undefined
         }
       })
     });
     setPermissionId(result.permissionId);
-    setTestForm({ action: selectedAction, vendor: permissionForm.vendor, amount: permissionForm.maxAmount ? String(Math.min(Number(permissionForm.maxAmount), 742)) : "" });
+    setTestForm({ action: selectedAction, vendor: permissionForm.vendor, amount: permissionForm.maxAmount || "" });
     setStep(4);
   };
 
@@ -257,13 +292,13 @@ If BehalfID denies the action, do not proceed.`;
       </div>
       {step === 1 ? (
         <section className="agent-create-grid">
-          <button className="dashboard-panel onboarding-choice" onClick={() => { setMode("existing"); setAgentForm({ name: "Ollie", provider: "ollie", externalAgentLabel: "", description: "Personal assistant used for planning" }); setStep(2); }} type="button">
+          <button className="dashboard-panel onboarding-choice" onClick={() => { setMode("existing"); setAgentForm({ name: "", provider: "", externalAgentLabel: "", description: "" }); setPermissionForm({ actionChoice: "", customAction: "", vendor: "", maxAmount: "", expiration: "" }); setStep(2); }} type="button">
             <span className="console-status console-status--active">Manual test mode</span>
             <h2>I use an existing agent</h2>
             <p>Create a permission passport for Ollie, ChatGPT, Claude, Zapier, Make, or another assistant you already use.</p>
             <small>Works today in manual test mode. Provider-native integrations can be added later.</small>
           </button>
-          <button className="dashboard-panel onboarding-choice" onClick={() => { setMode("custom"); setAgentForm({ name: "Jasper Shopping Agent", provider: "custom", externalAgentLabel: "", description: "Custom checkout agent for ticket purchasing" }); setStep(2); }} type="button">
+          <button className="dashboard-panel onboarding-choice" onClick={() => { setMode("custom"); setAgentForm({ name: "", provider: "custom", externalAgentLabel: "", description: "" }); setPermissionForm({ actionChoice: "", customAction: "", vendor: "", maxAmount: "", expiration: "" }); setStep(2); }} type="button">
             <span className="console-status">Developer integration mode</span>
             <h2>I’m building my own agent</h2>
             <p>Create a BehalfID-native agent for API or SDK integration.</p>
@@ -272,28 +307,36 @@ If BehalfID denies the action, do not proceed.`;
         </section>
       ) : null}
       {step === 2 ? (
-        <form className="dashboard-panel onboarding-form" onSubmit={createAgent}>
+        <form className="dashboard-panel onboarding-form" noValidate onSubmit={createAgent}>
           <h2>{mode === "existing" ? "Existing agent setup" : "Custom agent setup"}</h2>
           <p>{mode === "existing" ? "This creates a manual permission passport for an agent you already use." : "This creates a native BehalfID agent with an API key for SDK/API enforcement."}</p>
-          <label><span>Agent name</span><input value={agentForm.name} onChange={(event) => setAgentForm({ ...agentForm, name: event.target.value })} required /></label>
+          {mode === "existing" ? <Button onClick={useExampleValues} type="button">Use example values</Button> : null}
+          <label><span>Agent name</span><input placeholder={mode === "existing" ? "e.g. Ollie, My ChatGPT agent, Finance tutor" : "e.g. Checkout agent, Support workflow agent"} value={agentForm.name} onChange={(event) => setAgentForm({ ...agentForm, name: event.target.value })} required /></label>
           {mode === "existing" ? (
             <>
-              <label><span>Provider</span><select value={agentForm.provider} onChange={(event) => setAgentForm({ ...agentForm, provider: event.target.value as AgentProvider })}>{providerOptions.map((provider) => <option key={provider.value} value={provider.value}>{provider.label}</option>)}</select></label>
-              <label><span>External label / handle / ID</span><input value={agentForm.externalAgentLabel} onChange={(event) => setAgentForm({ ...agentForm, externalAgentLabel: event.target.value })} /></label>
+              <label><span>Provider</span><select required value={agentForm.provider} onChange={(event) => setAgentForm({ ...agentForm, provider: event.target.value as ProviderSelection })}><option value="">Select provider</option>{providerOptions.map((provider) => <option key={provider.value} value={provider.value}>{provider.label}</option>)}</select></label>
+              <label>
+                <span>External reference (optional)</span>
+                <input placeholder="Optional: workspace name, agent URL, handle, or internal label" value={agentForm.externalAgentLabel} onChange={(event) => setAgentForm({ ...agentForm, externalAgentLabel: event.target.value })} />
+                <small className="field-help">This can be a handle, workspace name, URL, or any label that helps you identify the external agent. BehalfID does not use this field for authentication. <Link href="/docs/concepts#external-reference">What should I put here?</Link></small>
+              </label>
             </>
           ) : null}
-          <label><span>Description</span><textarea rows={3} value={agentForm.description} onChange={(event) => setAgentForm({ ...agentForm, description: event.target.value })} /></label>
+          <label><span>Description</span><textarea placeholder={mode === "existing" ? "Optional: what this agent helps you do" : "Optional: what this agent is used for"} rows={3} value={agentForm.description} onChange={(event) => setAgentForm({ ...agentForm, description: event.target.value })} /></label>
+          {onboardingError ? <p className="form-error">{onboardingError}</p> : null}
           <Button variant="primary" type="submit">Create passport</Button>
         </form>
       ) : null}
       {step === 3 ? (
-        <form className="dashboard-panel onboarding-form" onSubmit={createPermission}>
+        <form className="dashboard-panel onboarding-form" noValidate onSubmit={createPermission}>
           <h2>Create first permission</h2>
-          <label><span>Action</span><select value={permissionForm.actionChoice} onChange={(event) => setPermissionForm({ ...permissionForm, actionChoice: event.target.value })}><option value="purchase">purchase</option><option value="schedule">schedule</option><option value="send_message">send_message</option><option value="access_data">access_data</option><option value="custom">custom</option></select></label>
-          {permissionForm.actionChoice === "custom" ? <label><span>Custom action</span><input value={permissionForm.customAction} onChange={(event) => setPermissionForm({ ...permissionForm, customAction: event.target.value })} required /></label> : null}
-          <label><span>Vendor / service / workflow</span><input value={permissionForm.vendor} onChange={(event) => setPermissionForm({ ...permissionForm, vendor: event.target.value })} /></label>
-          <label><span>Max amount</span><input min="0" type="number" value={permissionForm.maxAmount} onChange={(event) => setPermissionForm({ ...permissionForm, maxAmount: event.target.value })} /></label>
-          <label><span>Expiration</span><select value={permissionForm.expiration} onChange={(event) => setPermissionForm({ ...permissionForm, expiration: event.target.value })}><option value="1">1 hour</option><option value="2">2 hours</option><option value="24">24 hours</option><option value="168">7 days</option></select></label>
+          <Button onClick={useExampleValues} type="button">Use example values</Button>
+          <label><span>Action</span><select required value={permissionForm.actionChoice} onChange={(event) => setPermissionForm({ ...permissionForm, actionChoice: event.target.value })}><option value="">Select action, e.g. purchase</option><option value="purchase">purchase</option><option value="schedule">schedule</option><option value="send_message">send_message</option><option value="access_data">access_data</option><option value="custom">custom</option></select></label>
+          {permissionForm.actionChoice === "custom" ? <label><span>Custom action</span><input placeholder="purchase" value={permissionForm.customAction} onChange={(event) => setPermissionForm({ ...permissionForm, customAction: event.target.value })} required /></label> : null}
+          <label><span>Vendor / service / workflow</span><input placeholder="coachella.com" value={permissionForm.vendor} onChange={(event) => setPermissionForm({ ...permissionForm, vendor: event.target.value })} /></label>
+          <label><span>Max amount</span><input min="0" placeholder="800" type="number" value={permissionForm.maxAmount} onChange={(event) => setPermissionForm({ ...permissionForm, maxAmount: event.target.value })} /></label>
+          <label><span>Expiration</span><select value={permissionForm.expiration} onChange={(event) => setPermissionForm({ ...permissionForm, expiration: event.target.value })}><option value="">Select expiration</option><option value="1">1 hour</option><option value="2">2 hours</option><option value="24">24 hours</option><option value="168">7 days</option></select></label>
+          {onboardingError ? <p className="form-error">{onboardingError}</p> : null}
           <Button variant="primary" type="submit">Create permission</Button>
         </form>
       ) : null}
@@ -348,7 +391,7 @@ function AgentView({ agentId }: { agentId: string }) {
   const detail = useResource<{ agent: Agent; permissions: Permission[]; logs: Log[] }>(`/api/dashboard/agents/${agentId}`);
   const [secret, setSecret] = useState("");
   const [passportUrl, setPassportUrl] = useState("");
-  const [form, setForm] = useState({ action: "purchase", maxAmount: "800", vendors: "coachella.com", expiresAt: "" });
+  const [form, setForm] = useState({ action: "", maxAmount: "", vendors: "", expiresAt: "" });
   const [profile, setProfile] = useState<Partial<Pick<Agent, "name" | "provider" | "externalAgentId" | "externalAgentLabel" | "description" | "connectionStatus">>>({});
   const createPermission = async (event: FormEvent) => {
     event.preventDefault();
@@ -398,7 +441,7 @@ function AgentView({ agentId }: { agentId: string }) {
           {agent.agentType === "connected" ? <p>Connected agents are manually represented today. Provider-native integrations are planned.</p> : null}
           <dl className="console-definition">
             <div><dt>Agent ID</dt><dd>{agent.agentId}</dd></div>
-            <div><dt>External label</dt><dd>{agent.externalAgentLabel || "Not set"}</dd></div>
+            <div><dt>External reference</dt><dd>{agent.externalAgentLabel || "Not set"}</dd></div>
             <div><dt>External ID</dt><dd>{agent.externalAgentId || "Not set"}</dd></div>
             <div><dt>Description</dt><dd>{agent.description || "Not set"}</dd></div>
           </dl>
@@ -408,7 +451,7 @@ function AgentView({ agentId }: { agentId: string }) {
         <label><span>Name</span><input value={profile.name ?? agent?.name ?? ""} onChange={(e) => setProfile({ ...profile, name: e.target.value })} /></label>
         <label><span>Provider</span><select value={profile.provider ?? agent?.provider ?? "custom"} onChange={(e) => setProfile({ ...profile, provider: e.target.value as AgentProvider })}>{providerOptions.map((provider) => <option key={provider.value} value={provider.value}>{provider.label}</option>)}</select></label>
         <label><span>Connection status</span><select value={profile.connectionStatus ?? agent?.connectionStatus ?? "manual"} onChange={(e) => setProfile({ ...profile, connectionStatus: e.target.value as Agent["connectionStatus"] })}><option value="manual">Manual</option><option value="connected">Connected</option><option value="disconnected">Disconnected</option></select></label>
-        <label><span>External label</span><input value={profile.externalAgentLabel ?? agent?.externalAgentLabel ?? ""} onChange={(e) => setProfile({ ...profile, externalAgentLabel: e.target.value })} /></label>
+        <label><span>External reference</span><input placeholder="Optional: workspace name, URL, handle, or internal label" value={profile.externalAgentLabel ?? agent?.externalAgentLabel ?? ""} onChange={(e) => setProfile({ ...profile, externalAgentLabel: e.target.value })} /></label>
         <label><span>External ID</span><input value={profile.externalAgentId ?? agent?.externalAgentId ?? ""} onChange={(e) => setProfile({ ...profile, externalAgentId: e.target.value })} /></label>
         <label><span>Description</span><input value={profile.description ?? agent?.description ?? ""} onChange={(e) => setProfile({ ...profile, description: e.target.value })} /></label>
         <Button variant="primary" type="submit">Save profile</Button>
@@ -444,15 +487,15 @@ const result = await behalf.verify({
       <form className="dashboard-panel form-grid" onSubmit={createPermission}>
         <label>
           <span>Action</span>
-          <input value={form.action} onChange={(e) => setForm({ ...form, action: e.target.value })} />
+          <input placeholder="purchase" required value={form.action} onChange={(e) => setForm({ ...form, action: e.target.value })} />
         </label>
         <label>
           <span>Max amount</span>
-          <input value={form.maxAmount} onChange={(e) => setForm({ ...form, maxAmount: e.target.value })} />
+          <input placeholder="800" value={form.maxAmount} onChange={(e) => setForm({ ...form, maxAmount: e.target.value })} />
         </label>
         <label>
           <span>Allowed vendors</span>
-          <input value={form.vendors} onChange={(e) => setForm({ ...form, vendors: e.target.value })} />
+          <input placeholder="coachella.com" value={form.vendors} onChange={(e) => setForm({ ...form, vendors: e.target.value })} />
         </label>
         <label>
           <span>Expires at</span>

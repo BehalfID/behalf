@@ -451,7 +451,7 @@ function AgentsView() {
               <SectionTitle title="Add agent" />
               <label>
                 <span>Name</span>
-                <input onChange={(event) => setName(event.target.value)} required value={name} />
+                <input onChange={(event) => setName(event.target.value)} placeholder="e.g. Checkout agent, Ollie, Finance tutor" required value={name} />
               </label>
               <label>
                 <span>Type</span>
@@ -482,9 +482,9 @@ function AgentDetailView({ agentId }: { agentId: string }) {
   const detail = useApiResource<AgentDetail>(`/api/console/agents/${agentId}`);
   const [oneTimeKey, setOneTimeKey] = useState("");
   const [form, setForm] = useState({
-    action: "purchase",
-    maxAmount: "800",
-    allowedVendors: "coachella.com",
+    action: "",
+    maxAmount: "",
+    allowedVendors: "",
     expiresAt: tomorrowIsoLocal(),
     description: ""
   });
@@ -562,7 +562,7 @@ function AgentDetailView({ agentId }: { agentId: string }) {
                 <div><dt>Type</dt><dd><span className={statusClass(data.agent.agentType)}>{data.agent.agentType}</span></dd></div>
                 <div><dt>Provider</dt><dd>{data.agent.provider}</dd></div>
                 <div><dt>Connection</dt><dd>{data.agent.connectionStatus}</dd></div>
-                <div><dt>External label</dt><dd>{data.agent.externalAgentLabel || "Not set"}</dd></div>
+                <div><dt>External reference</dt><dd>{data.agent.externalAgentLabel || "Not set"}</dd></div>
                 <div><dt>External ID</dt><dd>{data.agent.externalAgentId || "Not set"}</dd></div>
                 <div><dt>Description</dt><dd>{data.agent.description || "Not set"}</dd></div>
                 <div><dt>Status</dt><dd><span className={statusClass(data.agent.status)}>{data.agent.status}</span></dd></div>
@@ -575,9 +575,9 @@ function AgentDetailView({ agentId }: { agentId: string }) {
             </div>
             <form className="console-panel" onSubmit={createPermission}>
               <SectionTitle title="Create permission" />
-              <label><span>Action</span><input onChange={(event) => setForm({ ...form, action: event.target.value })} required value={form.action} /></label>
-              <label><span>Max amount</span><input min="0" onChange={(event) => setForm({ ...form, maxAmount: event.target.value })} type="number" value={form.maxAmount} /></label>
-              <label><span>Allowed vendors</span><input onChange={(event) => setForm({ ...form, allowedVendors: event.target.value })} value={form.allowedVendors} /></label>
+              <label><span>Action</span><input onChange={(event) => setForm({ ...form, action: event.target.value })} placeholder="purchase" required value={form.action} /></label>
+              <label><span>Max amount</span><input min="0" onChange={(event) => setForm({ ...form, maxAmount: event.target.value })} placeholder="800" type="number" value={form.maxAmount} /></label>
+              <label><span>Allowed vendors</span><input onChange={(event) => setForm({ ...form, allowedVendors: event.target.value })} placeholder="coachella.com" value={form.allowedVendors} /></label>
               <label><span>Expires at</span><input onChange={(event) => setForm({ ...form, expiresAt: event.target.value })} type="datetime-local" value={form.expiresAt} /></label>
               <label><span>Description</span><textarea onChange={(event) => setForm({ ...form, description: event.target.value })} rows={3} value={form.description} /></label>
               <Button variant="primary" type="submit">Create permission</Button>

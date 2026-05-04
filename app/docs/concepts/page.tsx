@@ -8,7 +8,7 @@ export default function ConceptsPage() {
     ["Native agents", "Agents created directly in BehalfID for custom SDK, API, LangChain, OpenAI, or internal company integrations."],
     ["Connected agents", "Manual representations of external agents people already use, such as Ollie, ChatGPT agents, Claude agents, Zapier, Make, or other assistants."],
     ["Providers", "Provider metadata explains where the agent lives. It is descriptive only today and does not authenticate a provider account."],
-    ["External identifiers", "Optional labels or handles help teams map BehalfID records back to an external assistant without collecting provider credentials."],
+    ["External reference", "Optional metadata that helps teams map BehalfID records back to an external assistant without collecting provider credentials."],
     ["Manual connection model", "Connected agents do not call provider APIs yet. Your app uses the BehalfID credential to verify actions on behalf of that external agent."],
     ["Public passport links", "Tokenized links let users manually test whether an action would be allowed. They do not expose API keys, logs, developer email, or permission editing."],
     ["Enforcement limitations", "Manual mode helps users test and communicate constraints. Automatic enforcement requires the external provider or your app to integrate the verification API."],
@@ -32,6 +32,23 @@ export default function ConceptsPage() {
           </section>
         ))}
       </div>
+      <section className="docs-anchor-section" id="external-reference">
+        <h2>External reference</h2>
+        <p>
+          For connected agents, the external reference is optional. Use it only to help identify
+          the agent outside BehalfID.
+        </p>
+        <ul className="docs-list">
+          <li><code>Jasper&apos;s Ollie assistant</code></li>
+          <li><code>ChatGPT project: Sales ops</code></li>
+          <li><code>Zapier automation: invoice follow-up</code></li>
+          <li><code>Internal agent URL</code></li>
+          <li>Leave it blank if you do not have one.</li>
+        </ul>
+        <p>
+          BehalfID does not use this value as authentication. It is metadata only.
+        </p>
+      </section>
     </DocsShell>
   );
 }
