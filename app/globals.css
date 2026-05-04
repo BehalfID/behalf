@@ -1887,6 +1887,13 @@ textarea.ui-input,
   color: var(--text);
 }
 
+.passport-copy-label {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 28px 0 10px;
+}
+
 .inline-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

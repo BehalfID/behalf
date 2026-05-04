@@ -13,9 +13,10 @@ export default function QuickstartPage() {
         <li><strong>Create account.</strong> Sign up at <code>/signup</code> and open the developer dashboard.</li>
         <li><strong>Add existing agent.</strong> Open <code>/dashboard/onboarding</code> and choose <code>I use an existing agent</code>.</li>
         <li><strong>Create first permission.</strong> Choose a template. For <code>access_data</code> on <code>gmail.com</code>: set allowed actions to <code>read labels, summarize messages</code> and blocked actions to <code>send email, delete email</code>. For purchase on <code>coachella.com</code>: set max amount to <code>800</code>. Agent descriptions are informational; permissions are the source of truth.</li>
-        <li><strong>Open passport link.</strong> The passport page shows the agent&apos;s allowed scopes, a machine-readable JSON passport, and a manual allow/deny preview form.</li>
+        <li><strong>Open passport link.</strong> The passport page shows the agent&apos;s allowed scopes, copyable agent memory block, machine-readable JSON, and a manual preview form.</li>
         <li><strong>Copy instructions.</strong> Paste the generated instructions into Ollie, ChatGPT, Claude, or another assistant. The instructions direct the agent to open the passport link, read the Allowed scopes section, and ask you to verify before acting.</li>
-        <li><strong>Understand the limitation.</strong> Manual mode does not control the provider directly; automatic enforcement requires API integration.</li>
+        <li><strong>Agents that cannot fetch passport links.</strong> Passport links use a <code>#token=…</code> URL fragment. Agents like Gemini memory, ChatGPT system prompts, or Claude project instructions do not execute JavaScript and cannot retrieve the scoped data. For these agents, open the passport page, copy the <strong>Agent memory block</strong>, and paste it directly into the agent&apos;s memory or system prompt instead of the link.</li>
+        <li><strong>Understand the limitation.</strong> Manual mode does not control the provider directly, and it relies on agent cooperation. Automatic enforcement requires API integration.</li>
       </ol>
       <h2>Path B: enforce in your app (fail closed)</h2>
       <ol className="docs-steps">

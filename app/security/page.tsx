@@ -98,6 +98,16 @@ if (!result.allowed) {
                 its decisions.
               </li>
               <li>
+                <strong>Fragment token limitation.</strong> Passport links use a{" "}
+                <code>#token=…</code> URL fragment. This keeps the token out of server logs and
+                referrer headers. However, many AI agents — Gemini memory, ChatGPT system prompts,
+                Claude project instructions — do not execute JavaScript or send authorization
+                headers. They can only see the base URL and cannot retrieve the scoped passport data.
+                For these agents, use the <strong>Agent memory block</strong> on the passport page:
+                a plain-English copy of the active scopes you can paste directly into the agent&apos;s
+                memory or system prompt.
+              </li>
+              <li>
                 Manual mode does not automatically enforce behavior inside a third-party provider.
                 If Ollie or ChatGPT reads the passport and ignores the constraints, BehalfID
                 cannot stop them.
@@ -109,8 +119,8 @@ if (!result.allowed) {
             </ul>
             <div className="security-note">
               Manual mode is a testing and communication tool, not an enforcement boundary.
-              Treat it as a way to describe intent and test the permission model before building
-              full integration.
+              Passport links are safer than query-string tokens but are not universally fetchable
+              by AI agents. Use the Agent memory block as the copy-paste fallback.
             </div>
           </div>
         </section>

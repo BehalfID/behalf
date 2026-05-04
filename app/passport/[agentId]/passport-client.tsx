@@ -128,8 +128,44 @@ Before taking an external action, compare the requested action against the allow
 
 If BehalfID denies the action, do not proceed.
 
+Note: Some agents cannot retrieve passport links directly. If you cannot open the link, the user can paste the Agent memory block from the passport page instead.
+
 Permission passport:
 ${passportHref}`;
+
+  const agentMemoryBlock = passport
+    ? [
+        "BEHALFID PERMISSION PASSPORT",
+        "",
+        `Agent: ${passport.agent.name}`,
+        `Provider: ${passport.agent.provider}`,
+        "Mode: Manual test",
+        "",
+        "Allowed scopes:",
+        ...passport.permissions.flatMap((p) => {
+          const lines = [`- ${p.action}${p.resource ? ` on ${p.resource}` : ""}`];
+          if (p.resource) lines.push(`  Resource: ${p.resource}`);
+          if (p.allowedActions?.length) lines.push(`  Allowed: ${p.allowedActions.join(", ")}`);
+          if (p.blockedActions?.length) lines.push(`  Blocked: ${p.blockedActions.join(", ")}`);
+          if (p.requiresApproval) lines.push("  Requires approval: yes");
+          if (p.maxAmount !== null) lines.push(`  Max amount: $${p.maxAmount}`);
+          if (p.expiresAt) lines.push(`  Expires: ${new Date(p.expiresAt).toLocaleString()}`);
+          else lines.push("  Expires: none");
+          return lines;
+        }),
+        passport.permissions.length === 0 ? "  (no active permissions)" : "",
+        "",
+        "Rules:",
+        "- Before taking external actions, compare the requested action against these scopes.",
+        "- If the action is not listed, exceeds a limit, is expired, or conflicts with a blocked action, do not proceed.",
+        "- If BehalfID denies an action, do not proceed.",
+        "- Manual mode does not automatically control you. These are user-provided operating rules."
+      ]
+        .join("\n")
+        .trim()
+    : "";
+
+  const agentInstructionBlock = `You are connected to my BehalfID permission passport. Follow the allowed scopes below. If an action is not explicitly allowed or conflicts with a blocked action, ask me to verify first and do not proceed if denied.`;
 
   const machineReadable = passport
     ? JSON.stringify(
@@ -242,16 +278,15 @@ ${passportHref}`;
           <section className="passport-section">
             <h2>Instructions for the agent</h2>
             <p>
-              Before taking an external action, compare the requested action against the allowed
-              scopes in this passport.
+              For agents that can follow links — paste the block below into Ollie, ChatGPT, Claude,
+              or another assistant. The agent will open the passport link and read the allowed scopes.
             </p>
             <p>
-              If the action is not listed, exceeds a limit, is expired, or conflicts with a blocked
-              action, ask the user to verify first.
+              If the agent cannot retrieve the passport link (e.g. Gemini memory, ChatGPT system
+              prompt, Claude project instructions), use the{" "}
+              <strong>Agent memory block</strong> in the section below instead.
             </p>
-            <p>If BehalfID denies the action, do not proceed.</p>
-            <p>Copy these into Ollie, ChatGPT, Claude, or another assistant for a manual test workflow.</p>
-            <CodeBlock label="copy into your agent">{instructions}</CodeBlock>
+            <CodeBlock label="copy into your agent (link mode)">{instructions}</CodeBlock>
             <p className="passport-warning">
               Treat this passport link like a secret. Anyone with the token can view this agent&apos;s
               allowed scopes and run manual previews.
@@ -259,15 +294,46 @@ ${passportHref}`;
           </section>
         ) : null}
 
-        {/* D: Machine-readable passport */}
+        {/* D: Use with agents that cannot open passport links */}
         {passport ? (
           <section className="passport-section">
-            <h2>Machine-readable passport</h2>
+            <h2>Use with agents that cannot open passport links</h2>
             <p>
-              Send this to an agent or tool that reads JSON. All data shown here is public-safe for
-              this passport link and does not include API keys, logs, developer identity, or secrets.
+              Passport links use a <code>#token=…</code> URL fragment. This keeps the token out of
+              server logs and referrer headers, but most AI agents do not execute JavaScript or send
+              authorization headers — they only see the base URL and cannot retrieve the scoped data.
+            </p>
+            <p>
+              For Gemini memory, ChatGPT system prompts, Claude project instructions, or any agent
+              without fetch support, copy and paste the blocks below directly.
+            </p>
+
+            <h3 className="passport-copy-label">1. Agent memory block</h3>
+            <p>
+              Plain English. Paste into a memory field, system prompt, or custom instructions. The
+              agent can read the allowed scopes without needing to fetch a URL.
+            </p>
+            <CodeBlock label="agent memory block — paste into system prompt or memory">{agentMemoryBlock}</CodeBlock>
+
+            <h3 className="passport-copy-label">2. Machine-readable JSON</h3>
+            <p>
+              For agents or tools that parse JSON. Does not include API keys, logs, developer
+              identity, or secrets.
             </p>
             <CodeBlock label="passport.json">{machineReadable}</CodeBlock>
+
+            <h3 className="passport-copy-label">3. Short instruction</h3>
+            <p>
+              A minimal instruction line. Pair it with the agent memory block above, or use it
+              alone as a compact reminder.
+            </p>
+            <CodeBlock label="short instruction">{agentInstructionBlock}</CodeBlock>
+
+            <p className="passport-warning">
+              Treat passport links and copied passport blocks as sensitive. They reveal this
+              agent&apos;s allowed scopes. They are not API keys and cannot edit permissions, but
+              they should still be shared carefully.
+            </p>
           </section>
         ) : null}
 
