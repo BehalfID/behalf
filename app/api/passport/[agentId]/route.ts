@@ -55,6 +55,7 @@ type LeanPermission = {
   resource?: string | null;
   scope?: string | null;
   description?: string | null;
+  allowedActions?: string[];
   blockedActions?: string[];
   requiresApproval?: boolean | null;
   notes?: string | null;
@@ -69,6 +70,7 @@ function safePermission(p: LeanPermission) {
     resource: p.resource ?? null,
     scope: p.scope ?? null,
     description: p.description ?? null,
+    allowedActions: p.allowedActions?.length ? [...p.allowedActions] : null,
     blockedActions: p.blockedActions?.length ? [...p.blockedActions] : null,
     requiresApproval: p.requiresApproval ?? null,
     notes: p.notes ?? null,
@@ -89,7 +91,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   if (!agent) return jsonError("Invalid passport link.", 401);
 
   const rawPermissions = (await Permission.find({ agentId, status: "active" })
-    .select("action resource scope description blockedActions requiresApproval notes template constraints status -_id")
+    .select("action resource scope description allowedActions blockedActions requiresApproval notes template constraints status -_id")
     .lean()) as LeanPermission[];
 
   const now = new Date();

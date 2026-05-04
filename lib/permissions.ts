@@ -37,6 +37,14 @@ export function parsePermissionMetadata(body: unknown) {
     template = templateValue as PermissionTemplate;
   }
 
+  let allowedActions: string[] | undefined;
+  if (body.allowedActions !== undefined) {
+    if (!Array.isArray(body.allowedActions) || body.allowedActions.some((item) => typeof item !== "string" || !item.trim())) {
+      return { metadata: null, error: "allowedActions must be an array of non-empty strings." };
+    }
+    allowedActions = body.allowedActions.map((item) => item.trim());
+  }
+
   let blockedActions: string[] | undefined;
   if (body.blockedActions !== undefined) {
     if (!Array.isArray(body.blockedActions) || body.blockedActions.some((item) => typeof item !== "string" || !item.trim())) {
@@ -57,6 +65,7 @@ export function parsePermissionMetadata(body: unknown) {
     metadata: {
       resource: resource.value,
       scope: scope.value,
+      allowedActions,
       blockedActions,
       requiresApproval,
       notes: notes.value,

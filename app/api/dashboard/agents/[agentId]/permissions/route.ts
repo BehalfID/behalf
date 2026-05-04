@@ -27,6 +27,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     "description",
     "resource",
     "scope",
+    "allowedActions",
     "blockedActions",
     "requiresApproval",
     "notes",

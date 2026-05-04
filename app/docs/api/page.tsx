@@ -49,12 +49,19 @@ export default function ApiDocsPage() {
         is also accepted by <code>/api/verify</code> and passport preview routes as a clearer alias.
         <code> amount</code> is optional and mainly relevant to transaction-like permissions.
       </p>
+      <p>
+        Agent descriptions are informational. Permissions are the source of truth for what an agent
+        may do. Use <code>allowedActions</code> and <code>blockedActions</code> to make permissions
+        explicit so external agents can read them from the passport page.
+      </p>
       <CodeBlock label="permission.json">{`{
   "agentId": "agent_xxx",
   "action": "access_data",
   "resource": "gmail.com",
-  "scope": "read labels only",
-  "blockedActions": ["send email", "delete messages"],
+  "scope": "read-only gmail access",
+  "allowedActions": ["read labels", "summarize messages", "provide pricing metrics"],
+  "blockedActions": ["send email", "delete messages", "schedule events"],
+  "requiresApproval": true,
   "template": "access_data",
   "constraints": {
     "allowedVendors": ["gmail.com"],

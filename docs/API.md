@@ -99,11 +99,14 @@ Request:
 Optional permission metadata:
 
 - `resource`: service, dataset, workflow, or merchant, such as `gmail.com` or `google-calendar`
-- `scope`: plain-English allowed scope, such as `read labels only`
-- `blockedActions`: plain-English blocked actions
-- `requiresApproval`: boolean used by integrations that require human approval
+- `scope`: plain-English summary of the allowed scope, such as `read-only gmail access`
+- `allowedActions`: array of explicit allowed actions, such as `["read labels", "summarize messages"]`
+- `blockedActions`: array of explicit blocked actions, such as `["send email", "delete messages"]`
+- `requiresApproval`: boolean used by integrations that require human approval before proceeding
 - `notes`: internal notes
 - `template`: `access_data`, `create_content`, `schedule`, `purchase`, or `custom`
+
+Agent descriptions are informational. Permissions — including `allowedActions` and `blockedActions` — are the source of truth for what an agent may do. External agents can read these structured fields from the public passport page.
 
 The existing `constraints.allowedVendors` field is also used as a simple
 resource/service allow-list for non-purchase permissions to preserve API
@@ -222,10 +225,11 @@ Response:
     {
       "action": "access_data",
       "resource": "gmail.com",
-      "scope": "read labels only",
+      "scope": "read-only gmail access",
       "description": null,
-      "blockedActions": ["send email", "delete messages"],
-      "requiresApproval": null,
+      "allowedActions": ["read labels", "summarize messages", "provide pricing metrics"],
+      "blockedActions": ["send email", "delete messages", "schedule events", "make purchases"],
+      "requiresApproval": true,
       "notes": null,
       "template": "access_data",
       "maxAmount": null,
