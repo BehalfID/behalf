@@ -99,28 +99,38 @@ if (!result.allowed) {
               </li>
               <li>
                 <strong>Fragment token limitation.</strong> Passport links use a{" "}
-                <code>#token=…</code> URL fragment. This keeps the token out of server logs and
-                referrer headers. However, many AI agents — Gemini memory, ChatGPT system prompts,
+                <code>#token=…</code> URL fragment, keeping the token out of server logs and
+                referrer headers. However, most AI agents — Gemini memory, ChatGPT system prompts,
                 Claude project instructions — do not execute JavaScript or send authorization
-                headers. They can only see the base URL and cannot retrieve the scoped passport data.
-                For these agents, use the <strong>Agent memory block</strong> on the passport page:
-                a plain-English copy of the active scopes you can paste directly into the agent&apos;s
-                memory or system prompt.
+                headers and cannot retrieve the scoped data. For these agents, use the copyable
+                blocks on the passport page.
+              </li>
+              <li>
+                <strong>Agent memory block (best-effort).</strong> A structured plain-English copy
+                of the active scopes. Paste into a memory field or system prompt. Some assistants
+                compress or ignore saved memory and may not preserve exact scopes — treat this as
+                best-effort, not a reliable enforcement boundary.
+              </li>
+              <li>
+                <strong>Per-task permission prompt (more reliable).</strong> Paste this directly
+                into the same chat where the agent is about to act. It includes the full scope
+                list, a blocked actions section, and asks the agent to answer three questions before
+                proceeding. More reliable than memory because it is in the active context window,
+                not stored state.
               </li>
               <li>
                 Manual mode does not automatically enforce behavior inside a third-party provider.
-                If Ollie or ChatGPT reads the passport and ignores the constraints, BehalfID
-                cannot stop them.
+                If an agent reads the passport and ignores the constraints, BehalfID cannot stop it.
               </li>
               <li>
-                Provider or app integration is required for automatic enforcement. When your app
-                calls BehalfID before actions, it controls whether the action proceeds.
+                Developer integration — calling <code>behalf.verify()</code> before every action —
+                remains the only path to automatic enforcement.
               </li>
             </ul>
             <div className="security-note">
               Manual mode is a testing and communication tool, not an enforcement boundary.
-              Passport links are safer than query-string tokens but are not universally fetchable
-              by AI agents. Use the Agent memory block as the copy-paste fallback.
+              The per-task prompt is more reliable than memory for consumer assistants, but
+              developer integration is the only real automatic enforcement path.
             </div>
           </div>
         </section>

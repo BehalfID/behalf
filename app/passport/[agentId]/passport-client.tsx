@@ -135,30 +135,43 @@ ${passportHref}`;
 
   const agentMemoryBlock = passport
     ? [
-        "BEHALFID PERMISSION PASSPORT",
-        "",
+        "[BEHALFID PERMISSION PASSPORT]",
         `Agent: ${passport.agent.name}`,
+        `Passport ID: ${passport.agent.agentId}`,
         `Provider: ${passport.agent.provider}`,
         "Mode: Manual test",
         "",
-        "Allowed scopes:",
-        ...passport.permissions.flatMap((p) => {
-          const lines = [`- ${p.action}${p.resource ? ` on ${p.resource}` : ""}`];
-          if (p.resource) lines.push(`  Resource: ${p.resource}`);
-          if (p.allowedActions?.length) lines.push(`  Allowed: ${p.allowedActions.join(", ")}`);
-          if (p.blockedActions?.length) lines.push(`  Blocked: ${p.blockedActions.join(", ")}`);
-          if (p.requiresApproval) lines.push("  Requires approval: yes");
-          if (p.maxAmount !== null) lines.push(`  Max amount: $${p.maxAmount}`);
-          if (p.expiresAt) lines.push(`  Expires: ${new Date(p.expiresAt).toLocaleString()}`);
-          else lines.push("  Expires: none");
-          return lines;
-        }),
-        passport.permissions.length === 0 ? "  (no active permissions)" : "",
+        "ALLOWED SCOPES",
+        "==============",
         "",
-        "Rules:",
-        "- Before taking external actions, compare the requested action against these scopes.",
-        "- If the action is not listed, exceeds a limit, is expired, or conflicts with a blocked action, do not proceed.",
-        "- If BehalfID denies an action, do not proceed.",
+        ...(passport.permissions.length === 0
+          ? ["(no active permissions)"]
+          : passport.permissions.flatMap((p, i) => {
+              const header = `${i + 1}. ${p.action}${p.resource ? ` on ${p.resource}` : ""}`;
+              const lines = [header];
+              if (p.allowedActions?.length) {
+                lines.push(`   ALLOWED ACTIONS: ${p.allowedActions.join(", ")}`);
+              } else {
+                lines.push("   ALLOWED ACTIONS: (action permitted; no specific sub-actions listed)");
+              }
+              if (p.blockedActions?.length) {
+                lines.push(`   BLOCKED ACTIONS: ${p.blockedActions.join(", ")}`);
+              }
+              if (p.maxAmount !== null) lines.push(`   Max amount: $${p.maxAmount}`);
+              if (p.requiresApproval) lines.push("   Requires approval: yes");
+              if (p.expiresAt) lines.push(`   Expires: ${new Date(p.expiresAt).toLocaleString()}`);
+              else lines.push("   Expires: none");
+              lines.push("");
+              return lines;
+            })),
+        "RULES",
+        "=====",
+        "- Before taking any external action, check it against ALLOWED SCOPES above.",
+        "- If the action is not listed under ALLOWED SCOPES, do not proceed.",
+        "- If the action appears under BLOCKED ACTIONS for any scope, do not proceed.",
+        "- If an action exceeds a listed limit (amount, expiration), do not proceed.",
+        "- Ask the user to verify any action not explicitly covered here.",
+        "- When asked about BehalfID permissions, answer only from this block. Do not answer with general AI safety policy. Do not invent permissions.",
         "- Manual mode does not automatically control you. These are user-provided operating rules."
       ]
         .join("\n")
@@ -166,6 +179,64 @@ ${passportHref}`;
     : "";
 
   const agentInstructionBlock = `You are connected to my BehalfID permission passport. Follow the allowed scopes below. If an action is not explicitly allowed or conflicts with a blocked action, ask me to verify first and do not proceed if denied.`;
+
+  const perTaskBlock = passport
+    ? [
+        "[BEHALFID PERMISSION PASSPORT — CURRENT TASK CHECK]",
+        "",
+        "Use only the rules below. Do not answer from general AI safety policy. Do not invent permissions.",
+        "",
+        `Agent: ${passport.agent.name}`,
+        `Passport ID: ${passport.agent.agentId}`,
+        `Provider: ${passport.agent.provider}`,
+        "Mode: Manual test",
+        "",
+        "ALLOWED SCOPES",
+        "==============",
+        "",
+        ...(passport.permissions.length === 0
+          ? ["(no active permissions)"]
+          : passport.permissions.flatMap((p, i) => {
+              const lines = [`${i + 1}. ${p.action}${p.resource ? ` on ${p.resource}` : ""}`];
+              if (p.allowedActions?.length) {
+                lines.push(`   ALLOWED ACTIONS: ${p.allowedActions.join(", ")}`);
+              } else {
+                lines.push("   ALLOWED ACTIONS: (action permitted; no specific sub-actions listed)");
+              }
+              if (p.blockedActions?.length) {
+                lines.push(`   BLOCKED ACTIONS: ${p.blockedActions.join(", ")}`);
+              } else {
+                lines.push("   BLOCKED ACTIONS: (none listed)");
+              }
+              if (p.maxAmount !== null) lines.push(`   Max amount: $${p.maxAmount}`);
+              if (p.expiresAt) lines.push(`   Expires: ${new Date(p.expiresAt).toLocaleString()}`);
+              else lines.push("   Expires: none");
+              lines.push("");
+              return lines;
+            })),
+        "RULES",
+        "=====",
+        "- Before taking any external action, check it against ALLOWED SCOPES above.",
+        "- If the action is not listed under ALLOWED SCOPES, do not proceed.",
+        "- If the action appears under BLOCKED ACTIONS for any scope, do not proceed.",
+        "- If an action exceeds a listed limit or expiration, do not proceed.",
+        "- Ask the user to verify any action not explicitly covered here.",
+        "- Manual mode does not automatically control you. These are user-provided operating rules.",
+        "",
+        "TASK TO CHECK",
+        "=============",
+        "[Describe the action you want to take]",
+        "",
+        "Before acting, answer:",
+        "1. Is this task explicitly allowed by the BehalfID passport?",
+        "2. Does it conflict with any blocked action?",
+        "3. Should you proceed or stop?",
+        "",
+        "If not explicitly allowed, stop and ask the user to verify."
+      ]
+        .join("\n")
+        .trim()
+    : "";
 
   const machineReadable = passport
     ? JSON.stringify(
@@ -307,11 +378,16 @@ ${passportHref}`;
               For Gemini memory, ChatGPT system prompts, Claude project instructions, or any agent
               without fetch support, copy and paste the blocks below directly.
             </p>
+            <p>
+              <strong>Note:</strong> Some assistants compress or ignore saved memory. For higher
+              reliability, paste the <strong>Per-task permission prompt</strong> (block 4 below)
+              directly into the same chat where the agent is about to act.
+            </p>
 
             <h3 className="passport-copy-label">1. Agent memory block</h3>
             <p>
-              Plain English. Paste into a memory field, system prompt, or custom instructions. The
-              agent can read the allowed scopes without needing to fetch a URL.
+              Paste into a memory field, system prompt, or custom instructions. Best-effort —
+              some assistants summarize or compress memory and may not preserve exact scopes.
             </p>
             <CodeBlock label="agent memory block — paste into system prompt or memory">{agentMemoryBlock}</CodeBlock>
 
@@ -328,6 +404,14 @@ ${passportHref}`;
               alone as a compact reminder.
             </p>
             <CodeBlock label="short instruction">{agentInstructionBlock}</CodeBlock>
+
+            <h3 className="passport-copy-label">4. Per-task permission prompt</h3>
+            <p>
+              More reliable than memory. Paste this into the same chat where the agent is about
+              to act. Replace <code>[Describe the action you want to take]</code> with the
+              actual task. The agent must answer the three questions before proceeding.
+            </p>
+            <CodeBlock label="per-task permission prompt — paste into active chat">{perTaskBlock}</CodeBlock>
 
             <p className="passport-warning">
               Treat passport links and copied passport blocks as sensitive. They reveal this
