@@ -41,9 +41,32 @@ type Permission = {
 type Log = { requestId: string; agentId: string; action: string; allowed: boolean; reason: string; risk: string; createdAt?: string };
 type Webhook = { webhookId: string; url: string; events: string[]; status: string; secretPreview: string; lastTriggeredAt?: string | null };
 type Delivery = { deliveryId: string; eventType: string; eventId: string; status: string; error?: string; attempt: number; maxAttempts?: number; createdAt?: string };
-type AgentProvider = "custom" | "ollie" | "chatgpt" | "claude" | "zapier" | "make" | "langchain" | "openai" | "other";
+type AgentProvider = "custom" | "ollie" | "chatgpt" | "claude" | "gemini" | "zapier" | "make" | "langchain" | "openai" | "other";
 type ProviderSelection = AgentProvider | "";
-type OnboardingMode = "existing" | "custom";
+type OnboardingUserPath = "developer" | "regular" | null;
+type DraftConstraints = {
+  maxAmount?: number;
+  allowedVendors?: string[];
+  expiresAt?: null;
+};
+type DraftPermission = {
+  action: string;
+  resource: string;
+  allowedActions: string[];
+  blockedActions: string[];
+  requiresApproval: boolean;
+  status: "active";
+  constraints?: DraftConstraints;
+  riskLevel: "low" | "medium" | "high";
+  reason: string;
+};
+type PermissionDraftResponse = {
+  agentDraft: { provider: string; description: string };
+  permissions: DraftPermission[];
+  needsClarification: { question: string; reason: string }[];
+  warnings: string[];
+  limitations: string[];
+};
 type VerifyResult = { requestId: string; allowed: boolean; reason: string; risk: string };
 
 const permissionTemplates: Array<{ value: PermissionTemplate; title: string; body: string }> = [
@@ -58,12 +81,30 @@ const providerOptions: Array<{ value: AgentProvider; label: string }> = [
   { value: "ollie", label: "Ollie" },
   { value: "chatgpt", label: "ChatGPT" },
   { value: "claude", label: "Claude" },
+  { value: "gemini", label: "Gemini" },
   { value: "zapier", label: "Zapier" },
   { value: "make", label: "Make" },
   { value: "langchain", label: "LangChain" },
   { value: "openai", label: "OpenAI" },
   { value: "custom", label: "Custom" },
   { value: "other", label: "Other" }
+];
+
+const regularProviderOptions: Array<{ value: AgentProvider; label: string; description: string }> = [
+  { value: "chatgpt", label: "ChatGPT", description: "OpenAI's ChatGPT" },
+  { value: "claude", label: "Claude", description: "Anthropic's Claude" },
+  { value: "gemini", label: "Gemini", description: "Google's Gemini" },
+  { value: "ollie", label: "Ollie", description: "Ollie personal assistant" },
+  { value: "zapier", label: "Zapier", description: "Zapier automation" },
+  { value: "make", label: "Make", description: "Make (formerly Integromat)" },
+  { value: "other", label: "Custom / Other", description: "Another AI assistant" }
+];
+
+const DESCRIPTION_EXAMPLES = [
+  "Browse the web and summarize public pages, but do not submit forms, log in, or buy anything.",
+  "Read and summarize my emails, but do not send, delete, forward, or change filters.",
+  "Compare products and make purchases under $25 only after I approve them.",
+  "Help schedule meetings by reading my calendar, but ask before creating, changing, or deleting events."
 ];
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -177,8 +218,8 @@ function AgentsView() {
 }
 
 function OnboardingView() {
+  // Shared developer path state
   const [step, setStep] = useState(1);
-  const [mode, setMode] = useState<OnboardingMode | null>(null);
   const [apiKey, setApiKey] = useState("");
   const [passportUrl, setPassportUrl] = useState("");
   const [agent, setAgent] = useState<Agent | null>(null);
@@ -206,6 +247,19 @@ function OnboardingView() {
     notes: ""
   });
   const [testForm, setTestForm] = useState({ action: "", resource: "", amount: "", context: "" });
+
+  // Path selection
+  const [userPath, setUserPath] = useState<OnboardingUserPath>(null);
+
+  // Regular user path state
+  const [regularStep, setRegularStep] = useState(1);
+  const [regularProvider, setRegularProvider] = useState<AgentProvider | "">("");
+  const [regularDescription, setRegularDescription] = useState("");
+  const [draftResponse, setDraftResponse] = useState<PermissionDraftResponse | null>(null);
+  const [draftLoading, setDraftLoading] = useState(false);
+  const [draftError, setDraftError] = useState("");
+  const [regularAgent, setRegularAgent] = useState<Agent | null>(null);
+  const [regularPassportUrl, setRegularPassportUrl] = useState("");
 
   const selectedAction = permissionForm.template === "custom" ? permissionForm.customAction : permissionForm.actionChoice;
 
@@ -301,19 +355,9 @@ function OnboardingView() {
       setOnboardingError("Agent name is required.");
       return;
     }
-    if (mode === "existing" && !agentForm.provider) {
-      setOnboardingError("Provider is required for connected agents.");
-      return;
-    }
     const result = await api<{ agent: Agent; apiKey: string }>("/api/dashboard/agents", {
       method: "POST",
-      body: JSON.stringify(mode === "existing" ? {
-        name: agentForm.name,
-        agentType: "connected",
-        provider: agentForm.provider,
-        externalAgentLabel: agentForm.externalAgentLabel || undefined,
-        description: agentForm.description || undefined
-      } : {
+      body: JSON.stringify({
         name: agentForm.name,
         agentType: "native",
         provider: "custom",
@@ -381,6 +425,71 @@ function OnboardingView() {
     setStep(5);
   };
 
+  const generateDraft = async () => {
+    if (!regularProvider) { setDraftError("Select a provider first."); return; }
+    if (!regularDescription.trim() || regularDescription.trim().length < 5) { setDraftError("Describe what you want the assistant to do."); return; }
+    setDraftError("");
+    setDraftLoading(true);
+    try {
+      const result = await api<PermissionDraftResponse>("/api/dashboard/onboarding/draft-permissions", {
+        method: "POST",
+        body: JSON.stringify({ provider: regularProvider, description: regularDescription.trim() })
+      });
+      setDraftResponse(result);
+      setRegularStep(3);
+    } catch (err) {
+      setDraftError(err instanceof Error ? err.message : "Failed to generate draft. Make sure Ollama is running locally.");
+    } finally {
+      setDraftLoading(false);
+    }
+  };
+
+  const confirmDraft = async () => {
+    const permissions = draftResponse?.permissions;
+    if (!permissions?.length) return;
+    setDraftError("");
+    setDraftLoading(true);
+    const providerLabel = regularProviderOptions.find((p) => p.value === regularProvider)?.label ?? regularProvider;
+    const agentDescription = draftResponse?.agentDraft.description || regularDescription.trim() || undefined;
+    try {
+      const result = await api<{ agent: Agent; apiKey: string }>("/api/dashboard/agents", {
+        method: "POST",
+        body: JSON.stringify({
+          name: `My ${providerLabel} agent`,
+          agentType: "connected",
+          provider: regularProvider || "other",
+          description: agentDescription
+        })
+      });
+      const newAgent = result.agent;
+      setRegularAgent(newAgent);
+      const passport = await api<{ passportUrl: string }>(`/api/dashboard/agents/${newAgent.agentId}/passport`, { method: "POST" });
+      setRegularPassportUrl(passport.passportUrl);
+      for (const perm of permissions) {
+        await api(`/api/dashboard/agents/${newAgent.agentId}/permissions`, {
+          method: "POST",
+          body: JSON.stringify({
+            action: perm.action,
+            resource: perm.resource || undefined,
+            allowedActions: perm.allowedActions.length ? perm.allowedActions : undefined,
+            blockedActions: perm.blockedActions.length ? perm.blockedActions : undefined,
+            requiresApproval: perm.requiresApproval,
+            constraints: perm.constraints ? {
+              maxAmount: perm.constraints.maxAmount ?? undefined,
+              allowedVendors: perm.constraints.allowedVendors?.length ? perm.constraints.allowedVendors : undefined,
+              expiresAt: perm.constraints.expiresAt ?? undefined
+            } : undefined
+          })
+        });
+      }
+      setRegularStep(4);
+    } catch (err) {
+      setDraftError(err instanceof Error ? err.message : "Something went wrong creating the passport.");
+    } finally {
+      setDraftLoading(false);
+    }
+  };
+
   const instructions = `You are connected to my BehalfID permission passport.
 
 Open the passport link and read the Allowed scopes section or Machine-readable passport section before deciding what you are allowed to do.
@@ -392,51 +501,266 @@ If BehalfID denies the action, do not proceed.
 Permission passport:
 ${passportUrl || "[passport link]"}`;
 
-  return (
-    <>
-      <Header title="Add agent" />
-      <Card className="dashboard-panel onboarding-callout">
-        <p className="section-kicker">Connect an agent / create permissions / test an action / choose how to use it</p>
-        <h2>Manual mode helps you test the permission model. Developer integration is required for automatic enforcement.</h2>
-      </Card>
-      <div className="onboarding-steps">
-        {[1, 2, 3, 4, 5].map((item) => <span className={item === step ? "console-status console-status--active" : "console-status"} key={item}>Step {item}</span>)}
-      </div>
-      {step === 1 ? (
+  const regularInstructions = `You are connected to my BehalfID permission passport.
+
+Open the passport link and read the Allowed scopes section or Machine-readable passport section before deciding what you are allowed to do.
+
+Before taking an external action, compare the requested action against the allowed scopes in this passport. If the action is not listed, exceeds a limit, is expired, or conflicts with a blocked action, ask me to verify it first.
+
+If BehalfID denies the action, do not proceed.
+
+Permission passport:
+${regularPassportUrl || "[passport link]"}`;
+
+  // --- Initial path choice ---
+  if (userPath === null) {
+    return (
+      <>
+        <Header title="What are you using BehalfID for?" />
         <section className="agent-create-grid">
-          <button className="dashboard-panel onboarding-choice" onClick={() => { setMode("existing"); setAgentForm({ name: "", provider: "", externalAgentLabel: "", description: "" }); resetPermissionForm(); setStep(2); }} type="button">
-            <span className="console-status console-status--active">Manual test mode</span>
-            <h2>I use an existing agent</h2>
-            <p>Create a permission passport for Ollie, ChatGPT, Claude, Zapier, Make, or another assistant you already use.</p>
-            <small>Works today in manual test mode. Provider-native integrations can be added later.</small>
-          </button>
-          <button className="dashboard-panel onboarding-choice" onClick={() => { setMode("custom"); setAgentForm({ name: "", provider: "custom", externalAgentLabel: "", description: "" }); resetPermissionForm(); setStep(2); }} type="button">
+          <button
+            className="dashboard-panel onboarding-choice"
+            onClick={() => {
+              setUserPath("developer");
+              setAgentForm({ name: "", provider: "custom", externalAgentLabel: "", description: "" });
+              resetPermissionForm();
+              setStep(2);
+            }}
+            type="button"
+          >
             <span className="console-status">Developer integration mode</span>
-            <h2>I’m building my own agent</h2>
-            <p>Create a BehalfID-native agent for API or SDK integration.</p>
-            <small>Best for apps that can call BehalfID before actions happen.</small>
+            <h2>I&apos;m a developer building with agents</h2>
+            <p>Use the API, SDK, webhooks, and verification endpoint to enforce permissions before your agent acts.</p>
+            <small>Create an agent, define scopes, call verify(), use the SDK or webhooks, and fail closed.</small>
+          </button>
+          <button
+            className="dashboard-panel onboarding-choice"
+            onClick={() => {
+              setUserPath("regular");
+              setRegularStep(1);
+              setRegularProvider("");
+              setRegularDescription("");
+              setDraftResponse(null);
+              setDraftError("");
+            }}
+            type="button"
+          >
+            <span className="console-status console-status--active">Manual passport mode</span>
+            <h2>I&apos;m using an existing AI assistant</h2>
+            <p>Create a manual permission passport for ChatGPT, Claude, Gemini, Ollie, Zapier, Make, or another assistant.</p>
+            <small>Describe what you want. AI drafts the permissions. You review and confirm before anything is created.</small>
           </button>
         </section>
-      ) : null}
+      </>
+    );
+  }
+
+  // --- Regular user path ---
+  if (userPath === "regular") {
+    return (
+      <>
+        <Header title="Create a permission passport" action={<Button onClick={() => { setUserPath(null); setRegularStep(1); }} type="button">Back</Button>} />
+        <Card className="dashboard-panel onboarding-callout">
+          <p className="section-kicker">Choose provider / describe what you want / review draft / confirm</p>
+          <h2>Describe what you want the assistant to do. AI will draft the permissions. You review and confirm.</h2>
+        </Card>
+        <div className="onboarding-steps">
+          {[1, 2, 3, 4].map((item) => (
+            <span className={item === regularStep ? "console-status console-status--active" : "console-status"} key={item}>Step {item}</span>
+          ))}
+        </div>
+
+        {regularStep === 1 ? (
+          <section className="onboarding-form dashboard-panel">
+            <h2>Which AI assistant are you using?</h2>
+            <p>Choose the provider for the assistant you want to create a passport for.</p>
+            <div className="agent-create-grid">
+              {regularProviderOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  className={regularProvider === opt.value ? "dashboard-panel onboarding-choice onboarding-choice--selected" : "dashboard-panel onboarding-choice"}
+                  onClick={() => setRegularProvider(opt.value)}
+                  type="button"
+                >
+                  <strong>{opt.label}</strong>
+                  <span>{opt.description}</span>
+                </button>
+              ))}
+            </div>
+            {draftError ? <p className="form-error">{draftError}</p> : null}
+            <Button
+              variant="primary"
+              type="button"
+              onClick={() => {
+                if (!regularProvider) { setDraftError("Select a provider to continue."); return; }
+                setDraftError("");
+                setRegularStep(2);
+              }}
+            >
+              Continue
+            </Button>
+          </section>
+        ) : null}
+
+        {regularStep === 2 ? (
+          <section className="dashboard-panel onboarding-form">
+            <h2>What do you want this assistant to do?</h2>
+            <p>Describe in plain English. Be specific about what it should and should not do.</p>
+            <label>
+              <textarea
+                placeholder={"e.g. Help me research flights and hotels, but do not book anything.\ne.g. Read and summarize my emails, but do not send, delete, or forward emails."}
+                rows={5}
+                value={regularDescription}
+                onChange={(e) => setRegularDescription(e.target.value)}
+              />
+            </label>
+            <details>
+              <summary className="field-help" style={{ cursor: "pointer", userSelect: "none" }}>Not sure? Try an example</summary>
+              <div className="permission-template-grid" style={{ marginTop: "0.5rem" }}>
+                {DESCRIPTION_EXAMPLES.map((example) => (
+                  <button
+                    key={example}
+                    className="permission-template"
+                    type="button"
+                    onClick={() => setRegularDescription(example)}
+                  >
+                    {example}
+                  </button>
+                ))}
+              </div>
+            </details>
+            {draftError ? <p className="form-error">{draftError}</p> : null}
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+              <Button type="button" onClick={() => { setDraftError(""); setRegularStep(1); }}>Back</Button>
+              <Button variant="primary" type="button" onClick={generateDraft} disabled={draftLoading}>
+                {draftLoading ? "Generating draft…" : "Generate draft passport"}
+              </Button>
+            </div>
+          </section>
+        ) : null}
+
+        {regularStep === 3 && draftResponse ? (
+          <section className="dashboard-panel onboarding-form">
+            <div className="agent-passport__header">
+              <span className="console-status">Draft — not active yet</span>
+            </div>
+            <h2>Review your draft passport</h2>
+            <p>The AI drafted these permissions based on your description. Review them carefully. <strong>Nothing has been created yet.</strong></p>
+            <p className="field-help">Permissions are inactive until you confirm. You can add, edit, or revoke permissions later from the agent detail page.</p>
+
+            {draftResponse.needsClarification.length > 0 ? (
+              <div className="dashboard-panel" style={{ marginBottom: "0.75rem", padding: "1rem", borderLeft: "3px solid #f59e0b" }}>
+                <strong>Before confirming, consider clarifying:</strong>
+                <ul style={{ margin: "0.5rem 0", paddingLeft: "1.25rem" }}>
+                  {draftResponse.needsClarification.map((item, i) => (
+                    <li key={i}>{item.question}<small style={{ display: "block", opacity: 0.7 }}>{item.reason}</small></li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {draftResponse.warnings.length > 0 ? (
+              <div className="dashboard-panel" style={{ marginBottom: "0.75rem", padding: "1rem", borderLeft: "3px solid #ef4444" }}>
+                <strong>Heads up:</strong>
+                <ul style={{ margin: "0.5rem 0", paddingLeft: "1.25rem" }}>
+                  {draftResponse.warnings.map((w, i) => <li key={i}>{w}</li>)}
+                </ul>
+              </div>
+            ) : null}
+
+            {draftResponse.permissions.map((perm, index) => (
+              <div key={index} className="dashboard-panel" style={{ marginBottom: "0.75rem", padding: "1rem" }}>
+                <div className="agent-passport__header">
+                  <span className="console-status">Draft permission {index + 1}</span>
+                  <code>{perm.action}</code>
+                  <Badge>{perm.riskLevel} risk</Badge>
+                  {perm.requiresApproval ? <span className="console-status console-status--active">Requires your approval</span> : null}
+                </div>
+                {perm.reason ? <p className="field-help">{perm.reason}</p> : null}
+                {perm.resource ? <p><strong>Resource:</strong> {perm.resource}</p> : null}
+                {perm.constraints?.maxAmount ? <p><strong>Spending limit:</strong> ${perm.constraints.maxAmount}</p> : null}
+                {perm.constraints?.allowedVendors?.length ? (
+                  <p><strong>Allowed vendors:</strong> {perm.constraints.allowedVendors.join(", ")}</p>
+                ) : null}
+                {perm.allowedActions.length ? (
+                  <div>
+                    <strong>Allowed:</strong>
+                    <ul style={{ margin: "0.25rem 0", paddingLeft: "1.25rem" }}>
+                      {perm.allowedActions.map((a) => <li key={a}>{a}</li>)}
+                    </ul>
+                  </div>
+                ) : null}
+                {perm.blockedActions.length ? (
+                  <div>
+                    <strong>Blocked:</strong>
+                    <ul style={{ margin: "0.25rem 0", paddingLeft: "1.25rem" }}>
+                      {perm.blockedActions.map((a) => <li key={a}>{a}</li>)}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+            ))}
+
+            {draftResponse.limitations.length > 0 ? (
+              <div className="field-help" style={{ marginBottom: "0.75rem" }}>
+                <strong>Limitations of this draft:</strong>
+                <ul style={{ margin: "0.25rem 0", paddingLeft: "1.25rem" }}>
+                  {draftResponse.limitations.map((l, i) => <li key={i}>{l}</li>)}
+                </ul>
+              </div>
+            ) : null}
+
+            {draftError ? <p className="form-error">{draftError}</p> : null}
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+              <Button type="button" onClick={() => { setDraftError(""); setRegularStep(2); }}>Edit description</Button>
+              <Button variant="primary" type="button" onClick={confirmDraft} disabled={draftLoading}>
+                {draftLoading ? "Creating passport…" : "Confirm and create passport"}
+              </Button>
+            </div>
+          </section>
+        ) : null}
+
+        {regularStep === 4 && regularAgent ? (
+          <section className="onboarding-result-grid">
+            <Card className="dashboard-panel">
+              <h2>Passport created</h2>
+              <p>Your permission passport is live. Copy the instructions below and paste them into your AI assistant.</p>
+              <div className="agent-passport__header">
+                <ButtonLink href={`/dashboard/agents/${regularAgent.agentId}`}>Open agent</ButtonLink>
+                {regularPassportUrl ? <ButtonLink href={regularPassportUrl}>Open passport</ButtonLink> : null}
+              </div>
+            </Card>
+            <Card className="dashboard-panel">
+              <h2>Paste into your assistant</h2>
+              <p>Copy this block into your AI assistant&apos;s system prompt, memory, or instructions. The assistant will read the passport link and ask you to verify actions it is not explicitly allowed to take.</p>
+              <p className="field-help">Some assistants cannot fetch passport links directly (for example, Gemini memory or ChatGPT system prompts). If the assistant cannot read the link, open the passport page and paste the Agent memory block instead.</p>
+              <CodeBlock label="copy into your assistant">{regularInstructions}</CodeBlock>
+            </Card>
+          </section>
+        ) : null}
+      </>
+    );
+  }
+
+  // --- Developer path ---
+  return (
+    <>
+      <Header title="Add agent" action={step === 2 ? <Button onClick={() => { setUserPath(null); setStep(1); }} type="button">Back</Button> : null} />
+      <Card className="dashboard-panel onboarding-callout">
+        <p className="section-kicker">Create agent / define scopes / call verify() / use SDK or webhooks / fail closed</p>
+        <h2>Create a native BehalfID agent with an API key for SDK/API enforcement.</h2>
+      </Card>
+      <div className="onboarding-steps">
+        {[2, 3, 4, 5].map((item) => <span className={item === step ? "console-status console-status--active" : "console-status"} key={item}>Step {item - 1}</span>)}
+      </div>
       {step === 2 ? (
         <form className="dashboard-panel onboarding-form" noValidate onSubmit={createAgent}>
-          <h2>{mode === "existing" ? "Existing agent setup" : "Custom agent setup"}</h2>
-          <p>{mode === "existing" ? "This creates a manual permission passport for an agent you already use." : "This creates a native BehalfID agent with an API key for SDK/API enforcement."}</p>
-          {mode === "existing" ? <Button onClick={useExampleValues} type="button">Use example values</Button> : null}
-          <label><span>Agent name</span><input placeholder={mode === "existing" ? "e.g. Ollie, My ChatGPT agent, Finance tutor" : "e.g. Checkout agent, Support workflow agent"} value={agentForm.name} onChange={(event) => setAgentForm({ ...agentForm, name: event.target.value })} required /></label>
-          {mode === "existing" ? (
-            <>
-              <label><span>Provider</span><select required value={agentForm.provider} onChange={(event) => setAgentForm({ ...agentForm, provider: event.target.value as ProviderSelection })}><option value="">Select provider</option>{providerOptions.map((provider) => <option key={provider.value} value={provider.value}>{provider.label}</option>)}</select></label>
-              <label>
-                <span>External reference (optional)</span>
-                <input placeholder="Optional: workspace name, agent URL, handle, or internal label" value={agentForm.externalAgentLabel} onChange={(event) => setAgentForm({ ...agentForm, externalAgentLabel: event.target.value })} />
-                <small className="field-help">This can be a handle, workspace name, URL, or any label that helps you identify the external agent. BehalfID does not use this field for authentication. <Link href="/docs/concepts#external-reference">What should I put here?</Link></small>
-              </label>
-            </>
-          ) : null}
-          <label><span>Description</span><textarea placeholder={mode === "existing" ? "Optional: what this agent helps you do" : "Optional: what this agent is used for"} rows={3} value={agentForm.description} onChange={(event) => setAgentForm({ ...agentForm, description: event.target.value })} /></label>
+          <h2>Agent setup</h2>
+          <p>This creates a native BehalfID agent with an API key for SDK/API enforcement.</p>
+          <label><span>Agent name</span><input placeholder="e.g. Checkout agent, Support workflow agent" value={agentForm.name} onChange={(event) => setAgentForm({ ...agentForm, name: event.target.value })} required /></label>
+          <label><span>Description</span><textarea placeholder="Optional: what this agent is used for" rows={3} value={agentForm.description} onChange={(event) => setAgentForm({ ...agentForm, description: event.target.value })} /></label>
           {onboardingError ? <p className="form-error">{onboardingError}</p> : null}
-          <Button variant="primary" type="submit">Create passport</Button>
+          <Button variant="primary" type="submit">Create agent</Button>
         </form>
       ) : null}
       {step === 3 ? (

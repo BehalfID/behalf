@@ -14,7 +14,7 @@ const AgentSchema = new Schema(
     },
     provider: {
       type: String,
-      enum: ["custom", "ollie", "chatgpt", "claude", "zapier", "make", "langchain", "openai", "other"],
+      enum: ["custom", "ollie", "chatgpt", "claude", "gemini", "zapier", "make", "langchain", "openai", "other"],
       default: "custom",
       index: true
     },
