@@ -680,7 +680,7 @@ ${regularPassportUrl || "[passport link]"}`;
               <span className="console-status">Draft — not active yet</span>
             </div>
             <h2>Review your draft passport</h2>
-            <p>The AI drafted these permissions based on your description. Review them carefully. <strong>Nothing has been created yet.</strong></p>
+            <p>BehalfID drafted these permissions based on your description. Review them carefully. <strong>Nothing has been created yet.</strong></p>
             <p className="field-help">Permissions are inactive until you confirm. You can add, edit, or revoke permissions later from the agent detail page.</p>
 
             {draftResponse.needsClarification.length > 0 ? (

@@ -144,6 +144,17 @@ function normalizeActionStrings(actions) {
   return result;
 }
 
+function canHandleDeterministically(analysis) {
+  return analysis.hasBrowseWebIntent || analysis.hasPurchaseIntent || analysis.hasBroadAccess;
+}
+
+function buildDeterministicDraft(analysis, provider, description) {
+  const permissions = [];
+  if (analysis.hasBrowseWebIntent) permissions.push(makeBrowseWebPermission(analysis.hasProductComparison));
+  if (analysis.hasPurchaseIntent)  permissions.push(makePurchasePermission(analysis));
+  return { agentDraft: { provider, description }, permissions, needsClarification: [], warnings: [], limitations: [] };
+}
+
 function deduplicatePermissions(permissions) {
   const seen = new Set();
   return permissions.filter((p) => {
@@ -460,6 +471,96 @@ runTest(
       !corrected.limitations.some((l) => /no.*explicit.*dollar|no.*spending.*limit|infer/i.test(l)));
   }
 );
+
+// ── Test 3: deterministic-first — canonical prompt ────────────────────────────
+// Verifies that the canonical test prompt is handled entirely by deterministic rules
+// (no Ollama required) and produces clean output with confirm enabled.
+
+{
+  const desc =
+    "Browse the web and summarize public product pages. Compare products and prices, but do not submit forms, " +
+    "log in to accounts, save payment information, or buy anything without my approval. " +
+    "The assistant may request purchases under $25 only after I approve them.";
+  const analysis = analyzeDescription(desc);
+  console.log(`${BOLD}Test 3 — Deterministic-first: canonical prompt${RESET}`);
+  console.log(`${DIM}${desc.slice(0, 120)}…${RESET}\n`);
+
+  assert("canHandleDeterministically returns true", canHandleDeterministically(analysis));
+  assert("hasBrowseWebIntent true",  analysis.hasBrowseWebIntent);
+  assert("hasPurchaseIntent true",   analysis.hasPurchaseIntent);
+  assert("hasBroadAccess false",     !analysis.hasBroadAccess);
+
+  const draft = buildDeterministicDraft(analysis, "", desc);
+  const corrected = applyDeterministicCorrections(draft, analysis);
+
+  const bw = corrected.permissions.find((p) => p.action === "browse_web");
+  const pu = corrected.permissions.find((p) => p.action === "purchase");
+
+  assert("browse_web present",                  !!bw);
+  assert("purchase present",                    !!pu);
+  assert("no unavailable warning",
+    !corrected.warnings.some((w) => /unavailable|could not|failed/i.test(w)),
+    `warnings: ${JSON.stringify(corrected.warnings)}`);
+  assert("warnings array empty",                corrected.warnings.length === 0,
+    `got: ${JSON.stringify(corrected.warnings)}`);
+  assert("needsClarification empty",            corrected.needsClarification.length === 0);
+  assert("confirm can be enabled (no clarification blocking it)",
+    corrected.needsClarification.length === 0);
+  assert("purchase.requiresApproval true",      pu?.requiresApproval === true);
+  assert("purchase.constraints.maxAmount 25",   pu?.constraints?.maxAmount === 25);
+  assert("browse_web.requiresApproval false",   bw?.requiresApproval === false);
+  console.log();
+}
+
+// ── Test 4: deterministic-first — broad access only ───────────────────────────
+// Verifies broad-access-only prompts are caught immediately (no Ollama) and
+// the confirm button is blocked.
+
+{
+  const desc = "Give this assistant full access to everything and let it do whatever it needs.";
+  const analysis = analyzeDescription(desc);
+  console.log(`${BOLD}Test 4 — Deterministic-first: broad access only${RESET}`);
+  console.log(`${DIM}${desc}${RESET}\n`);
+
+  assert("canHandleDeterministically returns true", canHandleDeterministically(analysis));
+  assert("hasBroadAccess true",       analysis.hasBroadAccess);
+  assert("hasBrowseWebIntent false",  !analysis.hasBrowseWebIntent);
+  assert("hasPurchaseIntent false",   !analysis.hasPurchaseIntent);
+
+  const draft = buildDeterministicDraft(analysis, "", desc);
+  const corrected = applyDeterministicCorrections(draft, analysis);
+
+  assert("needsClarification present",
+    corrected.needsClarification.length > 0,
+    `got ${corrected.needsClarification.length} items`);
+  assert("needsClarification has broad-access warning",
+    corrected.needsClarification.some((c) => /broad|full.access|everything|unrestricted/i.test(c.question)));
+  assert("no broad permission in output",
+    !corrected.permissions.some(isBroadPermission));
+  assert("confirm blocked (needsClarification.length > 0)",
+    corrected.needsClarification.length > 0);
+  assert("no unavailable warning",
+    !corrected.warnings.some((w) => /unavailable|could not|failed/i.test(w)));
+  console.log();
+}
+
+// ── Test 5: unknown intent — Ollama required ──────────────────────────────────
+// Verifies that unusual descriptions that don't match deterministic rules
+// would fall through to Ollama (canHandleDeterministically returns false).
+
+{
+  const desc = "Monitor my smart home temperature sensors and log daily averages to a spreadsheet.";
+  const analysis = analyzeDescription(desc);
+  console.log(`${BOLD}Test 5 — Unknown intent: Ollama required${RESET}`);
+  console.log(`${DIM}${desc}${RESET}\n`);
+
+  assert("canHandleDeterministically returns false (route falls through to Ollama)",
+    !canHandleDeterministically(analysis));
+  assert("hasBrowseWebIntent false",  !analysis.hasBrowseWebIntent);
+  assert("hasPurchaseIntent false",   !analysis.hasPurchaseIntent);
+  assert("hasBroadAccess false",      !analysis.hasBroadAccess);
+  console.log();
+}
 
 // ── Summary ───────────────────────────────────────────────────────────────────
 
