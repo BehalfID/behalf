@@ -679,7 +679,7 @@ ${regularPassportUrl || "[passport link]"}`;
 
             {draftResponse.needsClarification.length > 0 ? (
               <div className="dashboard-panel" style={{ marginBottom: "0.75rem", padding: "1rem", borderLeft: "3px solid #f59e0b" }}>
-                <strong>Before confirming, consider clarifying:</strong>
+                <strong>This draft needs clarification before it can be created:</strong>
                 <ul style={{ margin: "0.5rem 0", paddingLeft: "1.25rem" }}>
                   {draftResponse.needsClarification.map((item, i) => (
                     <li key={i}>{item.question}<small style={{ display: "block", opacity: 0.7 }}>{item.reason}</small></li>
@@ -745,9 +745,12 @@ ${regularPassportUrl || "[passport link]"}`;
                 {draftDetails ? <p className="field-help">{draftDetails}</p> : null}
               </div>
             ) : null}
+            {draftResponse.needsClarification.length > 0 ? (
+              <p className="field-help" style={{ color: "#f59e0b" }}>Clarify your description and regenerate before creating this passport.</p>
+            ) : null}
             <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
               <Button type="button" onClick={() => { setDraftError(""); setDraftDetails(""); setDraftErrorCode(""); setRegularStep(2); }}>Edit description</Button>
-              <Button variant="primary" type="button" onClick={confirmDraft} disabled={draftLoading}>
+              <Button variant="primary" type="button" onClick={confirmDraft} disabled={draftLoading || draftResponse.needsClarification.length > 0}>
                 {draftLoading ? "Creating passport…" : "Confirm and create passport"}
               </Button>
             </div>

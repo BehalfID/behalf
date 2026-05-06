@@ -77,6 +77,77 @@ type PermissionDraftResponse = {
 };
 
 // ────────────────────────────────────────────────────────────────────────────
+// Deterministic description analysis — runs independently of Ollama
+// ────────────────────────────────────────────────────────────────────────────
+
+type DescriptionAnalysis = {
+  hasBroadAccess: boolean;
+  hasBrowseWebIntent: boolean;
+  hasPurchaseIntent: boolean;
+  hasExplicitApproval: boolean;
+  spendingLimit: number | null;
+  hasExplicitFormBlock: boolean;
+  hasExplicitLoginBlock: boolean;
+  hasExplicitPurchaseBlock: boolean;
+};
+
+const BROAD_ACCESS_PATTERNS: RegExp[] = [
+  /full\s+access/i, /access\s+to\s+everything/i, /\beverything\b/i,
+  /do\s+whatever/i, /whatever\s+it\s+needs/i, /unrestricted/i,
+  /all\s+accounts/i, /admin\s+access/i, /anything\s+it\s+wants/i,
+];
+
+const BROWSE_WEB_PATTERNS: RegExp[] = [
+  /browse\s+(?:the\s+)?web/i, /search\s+(?:the\s+)?web/i,
+  /summarize\s+public\s+pages/i, /\bpublic\s+pages\b/i,
+  /compare\s+products/i, /research\s+(?:the\s+)?web/i,
+];
+
+// Positive purchase intent only — excludes "do not buy anything" via withoutNegations()
+const PURCHASE_POSITIVE_PATTERNS: RegExp[] = [
+  /\bmake\s+purchases?/i, /\bplace\s+(?:an\s+)?orders?\b/i,
+];
+
+const EXPLICIT_APPROVAL_PATTERNS: RegExp[] = [
+  /only\s+after\s+i\s+approve/i, /after\s+i\s+approve/i,
+  /ask\s+before\s+purchas/i, /with\s+my\s+approval/i,
+  /only\s+with\s+my\s+approval/i,
+];
+
+function withoutNegations(text: string): string {
+  return text.replace(/\bdo\s+not\b[^.;!?]*/gi, "");
+}
+
+function analyzeDescription(description: string): DescriptionAnalysis {
+  const d = description;
+  const positive = withoutNegations(d);
+
+  const hasBroadAccess    = BROAD_ACCESS_PATTERNS.some((p) => p.test(d));
+  const hasBrowseWebIntent = BROWSE_WEB_PATTERNS.some((p) => p.test(d));
+  const hasPurchaseIntent  = PURCHASE_POSITIVE_PATTERNS.some((p) => p.test(positive));
+  const hasExplicitApproval = EXPLICIT_APPROVAL_PATTERNS.some((p) => p.test(d));
+
+  let spendingLimit: number | null = null;
+  const dollarMatch = d.match(/\$\s*(\d+(?:\.\d+)?)/);
+  if (dollarMatch) {
+    spendingLimit = parseFloat(dollarMatch[1]);
+  } else {
+    const wordsMatch = d.match(/(\d+(?:\.\d+)?)\s+dollars?/i);
+    if (wordsMatch) spendingLimit = parseFloat(wordsMatch[1]);
+  }
+
+  const hasExplicitFormBlock     = /do\s+not\b[^.;!?]*\bsubmit\s+forms?/i.test(d);
+  const hasExplicitLoginBlock    = /do\s+not\b[^.;!?]*\blog\s+in\b/i.test(d);
+  const hasExplicitPurchaseBlock = /do\s+not\b[^.;!?]*\bbuy\b/i.test(d) ||
+                                   /do\s+not\b[^.;!?]*\bpurchas/i.test(d);
+
+  return {
+    hasBroadAccess, hasBrowseWebIntent, hasPurchaseIntent, hasExplicitApproval,
+    spendingLimit, hasExplicitFormBlock, hasExplicitLoginBlock, hasExplicitPurchaseBlock,
+  };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // System prompt
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -96,7 +167,7 @@ The object must match this exact shape:
   "permissions": [
     {
       "action": "string (snake_case verb: access_data | create_content | schedule | purchase | browse_web | send_email | send_message | or a custom snake_case verb)",
-      "resource": "string (e.g. gmail.com, google-calendar, web, stripe.com — empty string if not applicable)",
+      "resource": "string (e.g. gmail.com, google-calendar, web, commerce — empty string if not applicable)",
       "allowedActions": ["string (2-5 specific things the agent may do)"],
       "blockedActions": ["string (2-5 specific things the agent must never do)"],
       "requiresApproval": boolean,
@@ -121,15 +192,16 @@ The object must match this exact shape:
 }
 
 Rules:
-1. Return 1-3 permissions that fully cover the user's description. Do not over-split.
-2. requiresApproval must be true for: financial actions, destructive/irreversible actions, sending external messages, and any time the user said "ask before".
+1. SPLIT CAPABILITIES: If the user describes multiple distinct capabilities (e.g. web browsing AND purchasing), return each as a SEPARATE permission. A description with browsing and purchasing must produce at least a browse_web permission AND a purchase permission.
+2. requiresApproval must be true for: financial actions, destructive/irreversible actions, sending external messages, and any time the user said "ask before", "only after I approve", "with my approval", or similar. If the user already stated approval is required, set requiresApproval: true and do NOT ask a clarification question about it.
 3. riskLevel: low = read-only no external effects; medium = creates content or sends something; high = financial, destructive, or irreversible.
 4. Infer blockedActions from explicit "do not", "but not", "never" language. When in doubt, add protective blocked actions.
-5. Set constraints.maxAmount only when the user stated a spending limit — use the numeric value (e.g. 25 for "$25").
-6. Set needsClarification when important scope or limits are ambiguous (leave empty array if the description is clear).
-7. Set warnings for: broad access grants, financial permissions, "send on my behalf" permissions.
-8. Set limitations for things you could not encode (e.g. "No spending limit specified — consider adding one.").
-9. Every permission must have at least one allowedAction and one blockedAction.`;
+5. DOLLAR LIMITS: Always extract and set constraints.maxAmount when the user states any dollar amount. "$25", "under $25", "up to $25", "25 dollars" all mean maxAmount: 25. Never ignore a stated spending limit.
+6. needsClarification: Only ask about things genuinely ambiguous and NOT already answered in the description. Do not ask about approval if the user already said they require it. Do not ask about a spending limit if the user already stated one.
+7. BROAD ACCESS: If the description contains "full access", "access to everything", "do whatever it needs", "unrestricted", or "admin access", add a safety concern to needsClarification — do NOT create a permission granting broad or unrestricted access.
+8. Set warnings for: broad access grants, financial permissions, "send on my behalf" permissions.
+9. Set limitations for things you could not encode (e.g. "No spending limit specified — consider adding one.").
+10. Every permission must have at least one allowedAction and one blockedAction.`;
 
 // ────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -236,6 +308,151 @@ function buildDraftResponse(parsed: unknown, provider: string, description: stri
   return { agentDraft, permissions, needsClarification, warnings, limitations };
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// Post-processing: merge deterministic rules with Ollama output
+// ────────────────────────────────────────────────────────────────────────────
+
+function normalizeAction(action: string): string {
+  const a = action.toLowerCase().trim();
+  if (/^(browse[_\s]?web|web[_\s]?browsing?|search[_\s]?web|web[_\s]?search)$/.test(a)) return "browse_web";
+  if (/^(purchas(?:e|ing)?|buy(?:ing)?|order(?:ing)?)$/.test(a)) return "purchase";
+  return a.replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || action;
+}
+
+const BROAD_ACTION_NAMES = new Set(["full_access", "admin_access", "unrestricted_access", "all_access"]);
+
+function isBroadPermission(perm: DraftPermission): boolean {
+  if (BROAD_ACTION_NAMES.has(perm.action)) return true;
+  const allowedText = perm.allowedActions.join(" ").toLowerCase();
+  return /full\s+access|access\s+to\s+everything|unrestricted|do\s+whatever|anything\s+it\s+wants/.test(allowedText);
+}
+
+function makeBrowseWebPermission(): DraftPermission {
+  return {
+    action: "browse_web", resource: "web",
+    allowedActions: ["search the web", "read public pages", "summarize public pages", "extract structured data", "compare products"],
+    blockedActions: ["submit forms", "log in to accounts", "make purchases"],
+    requiresApproval: false, status: "active", riskLevel: "low",
+    reason: "Permission drafted from web browsing and public-page summary request.",
+  };
+}
+
+function makePurchasePermission(analysis: DescriptionAnalysis): DraftPermission {
+  const constraints: DraftConstraints | undefined = analysis.spendingLimit !== null
+    ? { maxAmount: analysis.spendingLimit, expiresAt: null }
+    : undefined;
+  return {
+    action: "purchase", resource: "commerce",
+    allowedActions: ["compare products", "request purchase under approved limit", "make purchase only after user approval"],
+    blockedActions: ["purchase above spending limit", "purchase without user approval", "save payment credentials", "start recurring subscriptions", "use unapproved vendors"],
+    requiresApproval: true, status: "active", constraints, riskLevel: "high",
+    reason: "Purchases are high-risk and require user approval.",
+  };
+}
+
+function deduplicatePermissions(permissions: DraftPermission[]): DraftPermission[] {
+  const seen = new Set<string>();
+  return permissions.filter((p) => {
+    const key = `${p.action}::${p.resource}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function applyDeterministicCorrections(
+  draft: PermissionDraftResponse,
+  analysis: DescriptionAnalysis,
+): PermissionDraftResponse {
+  const permissions = draft.permissions
+    .map((p) => ({ ...p, action: normalizeAction(p.action) }))
+    .filter((p) => !isBroadPermission(p));
+
+  const needsClarification = [...draft.needsClarification];
+  const warnings = [...draft.warnings];
+  const limitations = [...draft.limitations];
+
+  // Broad access language → server-enforced clarification (cannot be suppressed by the model)
+  if (analysis.hasBroadAccess) {
+    const alreadyFlagged = needsClarification.some(
+      (c) => /broad|full.access|everything|unrestricted/i.test(c.question + c.reason),
+    );
+    if (!alreadyFlagged) {
+      needsClarification.unshift({
+        question: "Your description includes broad access language. Specify exact actions and resources instead of granting full access.",
+        reason: 'Phrases like "full access", "everything", or "do whatever it needs" cannot be safely encoded as a permission. List the specific actions you want.',
+      });
+    }
+  }
+
+  // Ensure browse_web permission when browsing intent detected
+  if (analysis.hasBrowseWebIntent) {
+    const existing = permissions.find((p) => p.action === "browse_web");
+    if (!existing) {
+      permissions.push(makeBrowseWebPermission());
+    } else {
+      // Merge description-derived blocked actions the model may have missed
+      const mustBlock: Array<[boolean, string]> = [
+        [analysis.hasExplicitFormBlock, "submit forms"],
+        [analysis.hasExplicitLoginBlock, "log in to accounts"],
+        [analysis.hasExplicitPurchaseBlock, "make purchases"],
+      ];
+      for (const [should, phrase] of mustBlock) {
+        if (should && !existing.blockedActions.some((a) => a.toLowerCase().includes(phrase.split(" ")[0]))) {
+          existing.blockedActions.push(phrase);
+        }
+      }
+    }
+  }
+
+  // Ensure purchase permission when positive purchase intent detected
+  if (analysis.hasPurchaseIntent) {
+    const existing = permissions.find((p) => p.action === "purchase");
+    if (!existing) {
+      permissions.push(makePurchasePermission(analysis));
+    } else {
+      // Enforce correct risk/approval regardless of model output
+      existing.requiresApproval = true;
+      existing.riskLevel = "high";
+      // Fix spending limit if model missed it
+      if (analysis.spendingLimit !== null) {
+        if (!existing.constraints) {
+          existing.constraints = { maxAmount: analysis.spendingLimit, expiresAt: null };
+        } else if (!existing.constraints.maxAmount) {
+          existing.constraints.maxAmount = analysis.spendingLimit;
+        }
+      }
+      // Ensure critical blocked actions
+      const mustBlock = ["purchase without user approval", "purchase above spending limit"];
+      for (const phrase of mustBlock) {
+        if (!existing.blockedActions.some((a) => a.toLowerCase().includes(phrase.split(" ")[0]))) {
+          existing.blockedActions.push(phrase);
+        }
+      }
+    }
+    // Add limitation if no spending limit was found
+    if (analysis.spendingLimit === null && !limitations.some((l) => /spend|limit|amount/i.test(l))) {
+      limitations.push("Specify a spending limit before enabling purchases.");
+    }
+  }
+
+  // Remove clarification questions already answered by the description
+  const filteredClarifications = needsClarification.filter((item) => {
+    const q = (item.question + " " + item.reason).toLowerCase();
+    if (analysis.hasExplicitApproval && /approv/i.test(q) && /purchas|buy/i.test(q)) return false;
+    if (analysis.spendingLimit !== null && /spend|limit|amount/i.test(q)) return false;
+    return true;
+  });
+
+  return {
+    ...draft,
+    permissions: deduplicatePermissions(permissions),
+    needsClarification: filteredClarifications,
+    warnings,
+    limitations,
+  };
+}
+
 async function fetchAvailableModels(baseUrl: string, proxyToken: string): Promise<string[]> {
   try {
     const res = await fetch(`${baseUrl}/api/tags`, {
@@ -287,6 +504,8 @@ export async function POST(request: NextRequest) {
   const description = readString(body.description);
   if (!description || description.length < 5) return jsonError("description is required (minimum 5 characters).");
   if (description.length > 2000) return jsonError("description must be 2000 characters or fewer.");
+
+  const analysis = analyzeDescription(description);
 
   const userMessage = [
     provider ? `Assistant provider: ${provider}` : null,
@@ -394,7 +613,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const draft = buildDraftResponse(parsed, provider, description);
+  const rawDraft = buildDraftResponse(parsed, provider, description);
+  const draft = applyDeterministicCorrections(rawDraft, analysis);
 
   if (draft.permissions.length === 0) {
     return diagError(502, "INVALID_RESPONSE",
