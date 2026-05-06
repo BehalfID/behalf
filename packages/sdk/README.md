@@ -74,3 +74,29 @@ const valid = await verifyWebhookSignature({
 ```
 
 Use the raw request body exactly as received. The helper derives the same signing key BehalfID uses from the one-time `whsec_` secret. BehalfID webhook delivery is at least once, so receivers should deduplicate by event ID. Do not log webhook secrets.
+
+## Network access
+
+`@behalfid/sdk` uses the global `fetch` API to call the BehalfID API. This is expected and required — the SDK is an API client and cannot function without network access.
+
+**What makes network requests:**
+
+- `verify()`, `createAgent()`, `createPermission()`, `rotateKey()`, and `getLogs()` each call `fetch` to the configured `baseUrl`.
+- All requests include an `Authorization: Bearer <apiKey>` header. The API key is never sent to any other host.
+- `verifyWebhookSignature()` performs local HMAC-SHA256 verification using `node:crypto`. It makes no network requests.
+
+**What does not make network requests:**
+
+- Importing the package — no side effects on import.
+- Constructing a `BehalfID` instance — no network call is made until a method is invoked.
+
+**Security recommendations:**
+
+- Set `baseUrl` explicitly in production. The default points to the official BehalfID deployment.
+- Do not pass untrusted user input as `baseUrl`. The constructor requires a valid `http://` or `https://` URL and will throw for any other value.
+- For local development, `http://localhost` is accepted.
+- Do not log the `apiKey` or store it in client-side code.
+
+**Socket.dev / supply-chain scanners:**
+
+Static analysis tools including Socket.dev report a _Network access_ alert for this package because `globalThis["fetch"]` is detected in `dist/client.js`. This is intentional and expected for an API client SDK. The only host contacted is the value of `baseUrl` (defaulting to `https://behalfid.vercel.app`).
