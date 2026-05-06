@@ -11,8 +11,15 @@ function ollamaConfig() {
   return {
     baseUrl: process.env.OLLAMA_BASE_URL ?? "",
     model: process.env.OLLAMA_MODEL ?? "",
-    timeoutMs: Number(process.env.OLLAMA_TIMEOUT_MS ?? "30000")
+    timeoutMs: Number(process.env.OLLAMA_TIMEOUT_MS ?? "30000"),
+    // Optional bearer token forwarded to the secure proxy. Never sent to the browser.
+    proxyToken: process.env.OLLAMA_PROXY_TOKEN ?? ""
   };
+}
+
+/** Headers to attach to every upstream Ollama/proxy request. */
+function ollamaAuthHeaders(proxyToken: string): Record<string, string> {
+  return proxyToken ? { Authorization: `Bearer ${proxyToken}` } : {};
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -26,7 +33,8 @@ type DiagCode =
   | "TIMEOUT"
   | "MODEL_NOT_FOUND"
   | "INVALID_RESPONSE"
-  | "OLLAMA_ERROR";
+  | "OLLAMA_ERROR"
+  | "OLLAMA_PROXY_AUTH_FAILED";
 
 function diagError(
   httpStatus: number,
@@ -228,9 +236,12 @@ function buildDraftResponse(parsed: unknown, provider: string, description: stri
   return { agentDraft, permissions, needsClarification, warnings, limitations };
 }
 
-async function fetchAvailableModels(baseUrl: string): Promise<string[]> {
+async function fetchAvailableModels(baseUrl: string, proxyToken: string): Promise<string[]> {
   try {
-    const res = await fetch(`${baseUrl}/api/tags`, { signal: AbortSignal.timeout(5_000) });
+    const res = await fetch(`${baseUrl}/api/tags`, {
+      headers: ollamaAuthHeaders(proxyToken),
+      signal: AbortSignal.timeout(5_000)
+    });
     if (!res.ok) return [];
     const data = (await res.json()) as { models?: { name: string }[] };
     return data.models?.map((m) => m.name) ?? [];
@@ -248,7 +259,7 @@ export async function POST(request: NextRequest) {
   if (auth.error || !auth.user) return auth.error;
 
   // ── A: Missing env vars ──────────────────────────────────────────────────
-  const { baseUrl: rawBaseUrl, model: rawModel, timeoutMs } = ollamaConfig();
+  const { baseUrl: rawBaseUrl, model: rawModel, timeoutMs, proxyToken } = ollamaConfig();
   if (!rawBaseUrl || !rawModel) {
     return diagError(503, "NOT_CONFIGURED",
       "AI-assisted drafting is not configured.",
@@ -289,7 +300,7 @@ export async function POST(request: NextRequest) {
   try {
     const res = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...ollamaAuthHeaders(proxyToken) },
       body: JSON.stringify({
         model: OLLAMA_MODEL,
         stream: false,
@@ -302,6 +313,14 @@ export async function POST(request: NextRequest) {
     });
 
     if (!res.ok) {
+      // ── Proxy auth failure ─────────────────────────────────────────────
+      if (res.status === 401 || res.status === 403) {
+        return diagError(503, "OLLAMA_PROXY_AUTH_FAILED",
+          "Ollama proxy rejected the request.",
+          "Check that OLLAMA_PROXY_TOKEN is set correctly in BehalfID and on the proxy server. They must match."
+        );
+      }
+
       const text = await res.text().catch(() => "");
       const lowerText = text.toLowerCase();
       const isModelMissing =
@@ -312,7 +331,7 @@ export async function POST(request: NextRequest) {
 
       if (isModelMissing) {
         // ── D: Model unavailable ───────────────────────────────────────────
-        const availableModels = await fetchAvailableModels(OLLAMA_BASE_URL);
+        const availableModels = await fetchAvailableModels(OLLAMA_BASE_URL, proxyToken);
         return diagError(503, "MODEL_NOT_FOUND",
           "Configured Ollama model is not available.",
           `Run \`ollama pull ${OLLAMA_MODEL}\` on the machine running Ollama, or change OLLAMA_MODEL to an installed model.`,

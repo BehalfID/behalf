@@ -145,10 +145,108 @@ Vercel cannot reach your Mac's localhost or a private LAN IP. The draft flow wil
 Options for production:
 
 - **Keep AI drafting local only.** Run `npm run dev` and use the onboarding flow from your laptop. This is the simplest and safest option.
-- **Use a protected proxy/tunnel.** Run a reverse proxy (Nginx, Caddy, Cloudflare Tunnel) in front of Ollama with authentication, then set `OLLAMA_BASE_URL` to the HTTPS proxy URL in Vercel environment variables.
+- **Use the built-in secure proxy + Cloudflare Tunnel.** See below.
 - **Use a hosted Ollama service.** Some providers offer hosted Ollama-compatible APIs.
 
 Do not expose raw Ollama on a public IP without authentication.
+
+---
+
+## Secure proxy for Vercel production
+
+`scripts/ollama-secure-proxy.js` is a lightweight Node.js proxy that sits in front of your local Ollama instance and requires a bearer token. Expose it publicly with Cloudflare Tunnel — **never** by opening port 11434 directly.
+
+### Architecture
+
+```
+Vercel → HTTPS → Cloudflare Tunnel → ollama-secure-proxy (port 8787) → Ollama (port 11434)
+```
+
+The proxy only allows `GET /api/tags` and `POST /api/chat`. All other routes return 404.
+
+### 1. Generate a shared token
+
+```bash
+openssl rand -hex 32
+# Example output: a3f9c2e1b8d4...
+```
+
+Keep this value — you'll need it in step 3 and step 6.
+
+### 2. Start the proxy on the Ollama machine
+
+```bash
+# One-time (development/test)
+OLLAMA_PROXY_TOKEN=<your-token> npm run ollama:proxy
+
+# Or add to .env.local and run:
+npm run ollama:proxy
+```
+
+Default port is `8787`. Override with `OLLAMA_PROXY_PORT`.
+
+### 3. Test the proxy locally
+
+```bash
+# Should return 401
+curl http://localhost:8787/api/tags
+
+# Should return the model list
+curl -H "Authorization: Bearer <your-token>" http://localhost:8787/api/tags
+
+# Should 404 (not in allowlist)
+curl -H "Authorization: Bearer <your-token>" http://localhost:8787/api/generate
+```
+
+### 4. Expose via Cloudflare Tunnel
+
+Install `cloudflared` and run:
+
+```bash
+cloudflared tunnel --url http://localhost:8787
+```
+
+Cloudflare prints a URL like `https://random-words.trycloudflare.com`. Use this as `OLLAMA_BASE_URL`.
+
+For a persistent named tunnel (production):
+
+```bash
+cloudflared tunnel create ollama-proxy
+cloudflared tunnel route dns ollama-proxy ollama.yourdomain.com
+cloudflared tunnel run --url http://localhost:8787 ollama-proxy
+```
+
+### 5. Verify connectivity
+
+```bash
+# With OLLAMA_PROXY_TOKEN set in .env.local:
+npm run check:ollama
+```
+
+The checker reads `OLLAMA_PROXY_TOKEN` and attaches it automatically.
+
+### 6. Set env vars in Vercel
+
+In the Vercel dashboard (or via `vercel env add`):
+
+```
+OLLAMA_BASE_URL     = https://ollama.yourdomain.com
+OLLAMA_MODEL        = llama3.1:8b
+OLLAMA_PROXY_TOKEN  = <same-token-from-step-1>
+```
+
+`OLLAMA_PROXY_TOKEN` is a server-only variable — it is never sent to the browser.
+
+### Keeping the proxy running (optional)
+
+For a long-running setup, use `pm2`, `launchd` (Mac), or `systemd` (Linux):
+
+```bash
+# pm2 (cross-platform)
+pm2 start scripts/ollama-secure-proxy.js --name ollama-proxy \
+  --env OLLAMA_PROXY_TOKEN=<your-token>
+pm2 save
+```
 
 ---
 
@@ -156,9 +254,15 @@ Do not expose raw Ollama on a public IP without authentication.
 
 | Variable | Default | Description |
 |---|---|---|
-| `OLLAMA_BASE_URL` | *(none)* | Base URL of the Ollama server. Must be set for drafting to work. |
+| `OLLAMA_BASE_URL` | *(none)* | Base URL of the Ollama server (or proxy). Must be set for drafting to work. |
 | `OLLAMA_MODEL` | *(none)* | Model name, e.g. `llama3.1:8b`. Must be pulled before use. |
 | `OLLAMA_TIMEOUT_MS` | `30000` | Request timeout in milliseconds. Increase for slow machines or large models. |
+| `OLLAMA_PROXY_TOKEN` | *(none)* | Bearer token forwarded to the secure proxy. Never sent to the browser. Generate with `openssl rand -hex 32`. |
+| `OLLAMA_PROXY_HOST` | `127.0.0.1` | Proxy bind address. Use `127.0.0.1` (default) when Cloudflare Tunnel is on the same machine. |
+| `OLLAMA_PROXY_PORT` | `8787` | Port the proxy listens on. |
+| `OLLAMA_UPSTREAM_URL` | `http://127.0.0.1:11434` | URL of the Ollama instance the proxy forwards to. |
+| `OLLAMA_PROXY_TIMEOUT_MS` | `30000` | Proxy upstream timeout in milliseconds. |
+| `OLLAMA_PROXY_MAX_BODY_BYTES` | `1048576` | Maximum request body size the proxy accepts (1 MB). |
 
 ---
 
@@ -169,6 +273,7 @@ Do not expose raw Ollama on a public IP without authentication.
 | `AI-assisted drafting is not configured.` | `OLLAMA_BASE_URL` or `OLLAMA_MODEL` not set | Add both to `.env.local` and restart Next.js |
 | `Ollama is configured as localhost in production.` | Running on Vercel with `localhost` URL | Use `npm run dev` locally, or set up a proxy |
 | `Ollama is not reachable.` | Ollama not running, wrong URL, or firewall | Run `npm run check:ollama` to diagnose |
+| `Ollama proxy rejected the request.` | `OLLAMA_PROXY_TOKEN` mismatch between BehalfID and proxy | Ensure both sides use the same token value |
 | `Configured Ollama model is not available.` | Model not pulled | Run `ollama pull <model>` |
 | `Ollama timed out.` | Model too slow | Use a smaller model or increase `OLLAMA_TIMEOUT_MS` |
 | `Ollama returned an invalid draft.` | Model returned garbled output | Try again, or switch to a stronger model |
@@ -181,6 +286,9 @@ Do not expose raw Ollama on a public IP without authentication.
 # Check config and connectivity
 npm run check:ollama
 
+# Start the secure proxy (requires OLLAMA_PROXY_TOKEN)
+OLLAMA_PROXY_TOKEN=$(openssl rand -hex 32) npm run ollama:proxy
+
 # Pull a model
 ollama pull llama3.1:8b
 
@@ -192,4 +300,7 @@ ollama serve
 
 # See what's listening on port 11434
 lsof -nP -iTCP:11434 -sTCP:LISTEN
+
+# See what's listening on port 8787 (proxy default)
+lsof -nP -iTCP:8787 -sTCP:LISTEN
 ```
