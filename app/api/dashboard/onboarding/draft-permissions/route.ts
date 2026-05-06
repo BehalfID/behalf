@@ -83,6 +83,7 @@ type PermissionDraftResponse = {
 type DescriptionAnalysis = {
   hasBroadAccess: boolean;
   hasBrowseWebIntent: boolean;
+  hasProductComparison: boolean;
   hasPurchaseIntent: boolean;
   hasExplicitApproval: boolean;
   spendingLimit: number | null;
@@ -101,6 +102,10 @@ const BROWSE_WEB_PATTERNS: RegExp[] = [
   /browse\s+(?:the\s+)?web/i, /search\s+(?:the\s+)?web/i,
   /summarize\s+public\s+pages/i, /\bpublic\s+pages\b/i,
   /compare\s+products/i, /research\s+(?:the\s+)?web/i,
+];
+
+const PRODUCT_COMPARISON_PATTERNS: RegExp[] = [
+  /compare\s+products/i, /compare\s+prices/i, /product\s+comparison/i,
 ];
 
 // Positive purchase intent only — checked against negation-stripped text
@@ -131,12 +136,13 @@ function analyzeDescription(description: string): DescriptionAnalysis {
   const d = description;
   const positive = withoutNegations(d);
 
-  const hasBroadAccess    = BROAD_ACCESS_PATTERNS.some((p) => p.test(d));
-  const hasBrowseWebIntent = BROWSE_WEB_PATTERNS.some((p) => p.test(d));
+  const hasBroadAccess      = BROAD_ACCESS_PATTERNS.some((p) => p.test(d));
+  const hasBrowseWebIntent  = BROWSE_WEB_PATTERNS.some((p) => p.test(d));
+  const hasProductComparison = PRODUCT_COMPARISON_PATTERNS.some((p) => p.test(d));
   const hasExplicitApproval = EXPLICIT_APPROVAL_PATTERNS.some((p) => p.test(d));
   // Conditional pattern checked on original text (not stripped) — "buy without approval" = buy with approval OK
   const hasConditionalPurchaseIntent = CONDITIONAL_PURCHASE_PATTERNS.some((p) => p.test(d));
-  const hasPurchaseIntent  = PURCHASE_POSITIVE_PATTERNS.some((p) => p.test(positive)) || hasConditionalPurchaseIntent;
+  const hasPurchaseIntent   = PURCHASE_POSITIVE_PATTERNS.some((p) => p.test(positive)) || hasConditionalPurchaseIntent;
 
   let spendingLimit: number | null = null;
   const dollarMatch = d.match(/\$\s*(\d+(?:\.\d+)?)/);
@@ -153,8 +159,9 @@ function analyzeDescription(description: string): DescriptionAnalysis {
                                    /do\s+not\b[^.;!?]*\bpurchas/i.test(d);
 
   return {
-    hasBroadAccess, hasBrowseWebIntent, hasPurchaseIntent, hasExplicitApproval,
-    spendingLimit, hasExplicitFormBlock, hasExplicitLoginBlock, hasExplicitPurchaseBlock,
+    hasBroadAccess, hasBrowseWebIntent, hasProductComparison, hasPurchaseIntent,
+    hasExplicitApproval, spendingLimit, hasExplicitFormBlock, hasExplicitLoginBlock,
+    hasExplicitPurchaseBlock,
   };
 }
 
@@ -338,13 +345,22 @@ function isBroadPermission(perm: DraftPermission): boolean {
   return /full\s+access|access\s+to\s+everything|unrestricted|do\s+whatever|anything\s+it\s+wants/.test(allowedText);
 }
 
-function makeBrowseWebPermission(): DraftPermission {
+function makeBrowseWebPermission(hasProductComparison: boolean): DraftPermission {
+  const allowedActions = [
+    "search web",
+    "read public pages",
+    "summarize public pages",
+    ...(hasProductComparison ? ["compare products"] : []),
+    "extract structured data",
+  ];
   return {
     action: "browse_web", resource: "web",
-    allowedActions: ["search the web", "read public pages", "summarize public pages", "extract structured data", "compare products"],
-    blockedActions: ["submit forms", "log in to accounts", "make purchases"],
-    requiresApproval: false, status: "active", riskLevel: "low",
-    reason: "Permission drafted from web browsing and public-page summary request.",
+    allowedActions,
+    blockedActions: ["submit forms", "log in to accounts", "save payment information", "make purchases"],
+    requiresApproval: false, status: "active", riskLevel: "medium",
+    reason: hasProductComparison
+      ? "Permission drafted from web browsing, product comparison, and public-page summary request."
+      : "Permission drafted from web browsing and public-page summary request.",
   };
 }
 
@@ -354,7 +370,7 @@ function makePurchasePermission(analysis: DescriptionAnalysis): DraftPermission 
     : undefined;
   return {
     action: "purchase", resource: "commerce",
-    allowedActions: ["compare products", "request purchase under approved limit", "make purchase only after user approval"],
+    allowedActions: ["request purchase under approved limit", "make purchase only after user approval"],
     blockedActions: ["purchase above spending limit", "purchase without user approval", "save payment credentials", "start recurring subscriptions", "use unapproved vendors"],
     requiresApproval: true, status: "active", constraints, riskLevel: "high",
     reason: "Purchases are high-risk and require user approval.",
@@ -371,12 +387,52 @@ function deduplicatePermissions(permissions: DraftPermission[]): DraftPermission
   });
 }
 
+// Maps internal/enum-ish model strings to human-readable equivalents.
+// Returns null to signal the string should be dropped (e.g. spending amounts in action lists).
+const ACTION_NORMALIZATIONS: [RegExp, string | null][] = [
+  [/^browse[_\s]?web$/i, null],
+  [/^log[_\s]?in$/i, "log in to accounts"],
+  [/^login$/i, "log in to accounts"],
+  [/^submit[_\s]forms?$/i, "submit forms"],
+  [/^save[_\s]payment[_\s]info(?:rmation)?$/i, "save payment information"],
+  [/^(make[_\s]?)?purchases?$/i, "make purchases"],
+  [/^buy[_\s]?anything$/i, "make purchases"],
+  [/^(?:purchase|buy)[_\s]?without[_\s]?(?:explicit[_\s]?)?approval$/i, "purchase without user approval"],
+  [/under\s*\$?\d+/i, null],
+  [/\$\d+/i, null],
+];
+
+function normalizeActionString(str: string): string | null {
+  const t = str.trim();
+  for (const [pattern, replacement] of ACTION_NORMALIZATIONS) {
+    if (pattern.test(t)) return replacement;
+  }
+  return t;
+}
+
+function normalizeActionStrings(actions: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const a of actions) {
+    const normalized = normalizeActionString(a);
+    if (normalized === null) continue;
+    const key = normalized.toLowerCase();
+    if (!seen.has(key)) { seen.add(key); result.push(normalized); }
+  }
+  return result;
+}
+
 function applyDeterministicCorrections(
   draft: PermissionDraftResponse,
   analysis: DescriptionAnalysis,
 ): PermissionDraftResponse {
   const permissions = draft.permissions
-    .map((p) => ({ ...p, action: normalizeAction(p.action) }))
+    .map((p) => ({
+      ...p,
+      action: normalizeAction(p.action),
+      allowedActions: normalizeActionStrings(p.allowedActions),
+      blockedActions: normalizeActionStrings(p.blockedActions),
+    }))
     .filter((p) => !isBroadPermission(p));
 
   const needsClarification = [...draft.needsClarification];
@@ -400,9 +456,15 @@ function applyDeterministicCorrections(
   if (analysis.hasBrowseWebIntent) {
     const existing = permissions.find((p) => p.action === "browse_web");
     if (!existing) {
-      permissions.push(makeBrowseWebPermission());
+      permissions.push(makeBrowseWebPermission(analysis.hasProductComparison));
     } else {
-      // Merge description-derived blocked actions the model may have missed
+      // Replace with canonical allowedActions and blockedActions — model output is too raw
+      const canonical = makeBrowseWebPermission(analysis.hasProductComparison);
+      existing.allowedActions = [...canonical.allowedActions];
+      existing.blockedActions = [...canonical.blockedActions];
+      existing.riskLevel = "medium";
+      existing.reason = canonical.reason;
+      // Merge any extra explicit blocks from the description not already in canonical
       const mustBlock: Array<[boolean, string]> = [
         [analysis.hasExplicitFormBlock, "submit forms"],
         [analysis.hasExplicitLoginBlock, "log in to accounts"],
@@ -434,22 +496,20 @@ function applyDeterministicCorrections(
     if (!existing) {
       permissions.push(makePurchasePermission(analysis));
     } else {
+      // Replace with canonical action strings — model output is too raw
+      const canonical = makePurchasePermission(analysis);
+      existing.allowedActions = [...canonical.allowedActions];
+      existing.blockedActions = [...canonical.blockedActions];
       // Enforce correct risk/approval regardless of model output
       existing.requiresApproval = true;
       existing.riskLevel = "high";
+      existing.reason = canonical.reason;
       // Fix spending limit if model missed it
       if (analysis.spendingLimit !== null) {
         if (!existing.constraints) {
           existing.constraints = { maxAmount: analysis.spendingLimit, expiresAt: null };
         } else if (!existing.constraints.maxAmount) {
           existing.constraints.maxAmount = analysis.spendingLimit;
-        }
-      }
-      // Ensure critical blocked actions
-      const mustBlock = ["purchase without user approval", "purchase above spending limit"];
-      for (const phrase of mustBlock) {
-        if (!existing.blockedActions.some((a) => a.toLowerCase().includes(phrase.split(" ")[0]))) {
-          existing.blockedActions.push(phrase);
         }
       }
     }
@@ -473,9 +533,25 @@ function applyDeterministicCorrections(
   const filteredLimitations = analysis.spendingLimit !== null
     ? limitations.filter((l) => !isSpendingFalseNegative(l))
     : limitations;
-  const filteredWarnings = analysis.spendingLimit !== null
+
+  // Remove warnings that falsely imply the assistant can spend without approval
+  // when the purchase permission already requires approval and blocks unapproved purchases.
+  const purchasePerm = permissions.find((p) => p.action === "purchase");
+  const purchaseRequiresApproval = purchasePerm?.requiresApproval === true;
+  let filteredWarnings = analysis.spendingLimit !== null
     ? warnings.filter((w) => !isSpendingFalseNegative(w))
     : warnings;
+  if (purchaseRequiresApproval) {
+    filteredWarnings = filteredWarnings.filter((w) => {
+      const wl = w.toLowerCase();
+      return !(
+        (wl.includes("without") && wl.includes("approv")) ||
+        wl.includes("can potentially spend") ||
+        wl.includes("spend money without") ||
+        wl.includes("without explicit approval")
+      );
+    });
+  }
 
   return {
     ...draft,
@@ -498,6 +574,40 @@ async function fetchAvailableModels(baseUrl: string, proxyToken: string): Promis
   } catch {
     return [];
   }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Deterministic fallback — used when Ollama is unavailable
+// ────────────────────────────────────────────────────────────────────────────
+
+function buildDeterministicFallback(
+  analysis: DescriptionAnalysis,
+  provider: string,
+  description: string,
+): PermissionDraftResponse {
+  const permissions: DraftPermission[] = [];
+  if (analysis.hasBrowseWebIntent) permissions.push(makeBrowseWebPermission(analysis.hasProductComparison));
+  if (analysis.hasPurchaseIntent)  permissions.push(makePurchasePermission(analysis));
+  return {
+    agentDraft: { provider, description },
+    permissions,
+    needsClarification: [],
+    warnings: [
+      "AI model drafting was unavailable. BehalfID generated a conservative rule-based draft from your description.",
+    ],
+    limitations: [],
+  };
+}
+
+function tryDeterministicFallback(
+  analysis: DescriptionAnalysis,
+  provider: string,
+  description: string,
+): NextResponse | null {
+  if (!analysis.hasBrowseWebIntent && !analysis.hasPurchaseIntent) return null;
+  const fallback = buildDeterministicFallback(analysis, provider, description);
+  const corrected = applyDeterministicCorrections(fallback, analysis);
+  return NextResponse.json(corrected);
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -548,7 +658,9 @@ export async function POST(request: NextRequest) {
     .join("\n\n");
 
   // ── Call Ollama ──────────────────────────────────────────────────────────
-  let raw: string;
+  let raw: string | null = null;
+  let ollamaError: NextResponse | null = null;
+
   try {
     const res = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
       method: "POST",
@@ -591,17 +703,18 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      return diagError(503, "OLLAMA_ERROR",
+      ollamaError = diagError(503, "OLLAMA_ERROR",
         "Ollama returned an error.",
         text ? text.slice(0, 300) : `HTTP ${res.status} from Ollama.`
       );
+    } else {
+      const data = (await res.json()) as { message?: { content?: string }; error?: string };
+      if (data.error) {
+        ollamaError = diagError(503, "OLLAMA_ERROR", "Ollama returned an error.", data.error);
+      } else {
+        raw = data.message?.content ?? "";
+      }
     }
-
-    const data = (await res.json()) as { message?: { content?: string }; error?: string };
-    if (data.error) {
-      return diagError(503, "OLLAMA_ERROR", "Ollama returned an error.", data.error);
-    }
-    raw = data.message?.content ?? "";
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     const isTimeout = err instanceof Error && (err.name === "TimeoutError" || msg.includes("timed out"));
@@ -612,48 +725,56 @@ export async function POST(request: NextRequest) {
       msg.includes("network");
 
     if (isTimeout) {
-      // ── Timeout ────────────────────────────────────────────────────────
-      return diagError(503, "TIMEOUT",
+      // ── Timeout — try deterministic fallback before returning error ─────
+      ollamaError = diagError(503, "TIMEOUT",
         "Ollama timed out.",
         `Ollama did not respond within ${timeoutMs / 1000}s. Try a smaller/faster model, or increase OLLAMA_TIMEOUT_MS.`
       );
-    }
-    if (isRefused) {
+    } else if (isRefused) {
       // ── C: Unreachable ─────────────────────────────────────────────────
-      return diagError(503, "UNREACHABLE",
+      ollamaError = diagError(503, "UNREACHABLE",
         "Ollama is not reachable.",
         `The BehalfID server cannot reach ${OLLAMA_BASE_URL}. ` +
         `If testing locally, make sure Ollama is running (ollama serve) and restart Next.js after editing .env.local. ` +
         `If using Vercel, Ollama must be reachable through a secure proxy.`
       );
+    } else {
+      ollamaError = diagError(503, "UNREACHABLE", "Ollama request failed.", msg);
     }
-    return diagError(503, "UNREACHABLE", "Ollama request failed.", msg);
+  }
+
+  // ── If Ollama failed, try deterministic fallback before surfacing error ──
+  if (ollamaError !== null) {
+    return tryDeterministicFallback(analysis, provider, description) ?? ollamaError;
   }
 
   // ── E: Invalid/empty model output ────────────────────────────────────────
-  if (!raw.trim()) {
-    return diagError(502, "INVALID_RESPONSE",
-      "Ollama returned an invalid draft.",
-      "The model returned an empty response. Try again or use a stronger model."
-    );
+  if (!raw!.trim()) {
+    return tryDeterministicFallback(analysis, provider, description) ??
+      diagError(502, "INVALID_RESPONSE",
+        "Ollama returned an invalid draft.",
+        "The model returned an empty response. Try again or use a stronger model."
+      );
   }
 
-  const parsed = extractJson(raw);
+  const parsed = extractJson(raw!);
   if (parsed === null) {
-    return diagError(502, "INVALID_RESPONSE",
-      "Ollama returned an invalid draft.",
-      "The model did not return valid JSON. Try again or use a stronger model."
-    );
+    return tryDeterministicFallback(analysis, provider, description) ??
+      diagError(502, "INVALID_RESPONSE",
+        "Ollama returned an invalid draft.",
+        "The model did not return valid JSON. Try again or use a stronger model."
+      );
   }
 
   const rawDraft = buildDraftResponse(parsed, provider, description);
   const draft = applyDeterministicCorrections(rawDraft, analysis);
 
   if (draft.permissions.length === 0) {
-    return diagError(502, "INVALID_RESPONSE",
-      "Ollama returned an invalid draft.",
-      "The model did not produce any permissions. Try a more specific description or a stronger model."
-    );
+    return tryDeterministicFallback(analysis, provider, description) ??
+      diagError(502, "INVALID_RESPONSE",
+        "Ollama returned an invalid draft.",
+        "The model did not produce any permissions. Try a more specific description or a stronger model."
+      );
   }
 
   return NextResponse.json(draft);

@@ -17,6 +17,9 @@ const BROWSE_WEB_PATTERNS = [
   /summarize\s+public\s+pages/i, /\bpublic\s+pages\b/i,
   /compare\s+products/i, /research\s+(?:the\s+)?web/i,
 ];
+const PRODUCT_COMPARISON_PATTERNS = [
+  /compare\s+products/i, /compare\s+prices/i, /product\s+comparison/i,
+];
 const PURCHASE_POSITIVE_PATTERNS = [
   /\bmake\s+purchases?/i, /\bplace\s+(?:an\s+)?orders?\b/i,
   /\brequest\s+purchases?/i,
@@ -40,11 +43,12 @@ function withoutNegations(text) {
 function analyzeDescription(description) {
   const d = description;
   const positive = withoutNegations(d);
-  const hasBroadAccess     = BROAD_ACCESS_PATTERNS.some((p) => p.test(d));
-  const hasBrowseWebIntent = BROWSE_WEB_PATTERNS.some((p) => p.test(d));
+  const hasBroadAccess      = BROAD_ACCESS_PATTERNS.some((p) => p.test(d));
+  const hasBrowseWebIntent  = BROWSE_WEB_PATTERNS.some((p) => p.test(d));
+  const hasProductComparison = PRODUCT_COMPARISON_PATTERNS.some((p) => p.test(d));
   const hasExplicitApproval = EXPLICIT_APPROVAL_PATTERNS.some((p) => p.test(d));
   const hasConditionalPurchaseIntent = CONDITIONAL_PURCHASE_PATTERNS.some((p) => p.test(d));
-  const hasPurchaseIntent  = PURCHASE_POSITIVE_PATTERNS.some((p) => p.test(positive)) || hasConditionalPurchaseIntent;
+  const hasPurchaseIntent   = PURCHASE_POSITIVE_PATTERNS.some((p) => p.test(positive)) || hasConditionalPurchaseIntent;
   let spendingLimit = null;
   const dollarMatch = d.match(/\$\s*(\d+(?:\.\d+)?)/);
   if (dollarMatch) spendingLimit = parseFloat(dollarMatch[1]);
@@ -56,8 +60,9 @@ function analyzeDescription(description) {
   const hasExplicitLoginBlock    = /do\s+not\b[^.;!?]*\blog\s+in\b/i.test(d);
   const hasExplicitPurchaseBlock = /do\s+not\b[^.;!?]*\bbuy\b/i.test(d) ||
                                    /do\s+not\b[^.;!?]*\bpurchas/i.test(d);
-  return { hasBroadAccess, hasBrowseWebIntent, hasPurchaseIntent, hasExplicitApproval,
-           spendingLimit, hasExplicitFormBlock, hasExplicitLoginBlock, hasExplicitPurchaseBlock };
+  return { hasBroadAccess, hasBrowseWebIntent, hasProductComparison, hasPurchaseIntent,
+           hasExplicitApproval, spendingLimit, hasExplicitFormBlock, hasExplicitLoginBlock,
+           hasExplicitPurchaseBlock };
 }
 
 function normalizeAction(action) {
@@ -75,13 +80,22 @@ function isBroadPermission(perm) {
   return /full\s+access|access\s+to\s+everything|unrestricted|do\s+whatever|anything\s+it\s+wants/.test(allowedText);
 }
 
-function makeBrowseWebPermission() {
+function makeBrowseWebPermission(hasProductComparison) {
+  const allowedActions = [
+    "search web",
+    "read public pages",
+    "summarize public pages",
+    ...(hasProductComparison ? ["compare products"] : []),
+    "extract structured data",
+  ];
   return {
     action: "browse_web", resource: "web",
-    allowedActions: ["search the web", "read public pages", "summarize public pages", "extract structured data", "compare products"],
-    blockedActions: ["submit forms", "log in to accounts", "make purchases"],
-    requiresApproval: false, status: "active", riskLevel: "low",
-    reason: "Permission drafted from web browsing and public-page summary request.",
+    allowedActions,
+    blockedActions: ["submit forms", "log in to accounts", "save payment information", "make purchases"],
+    requiresApproval: false, status: "active", riskLevel: "medium",
+    reason: hasProductComparison
+      ? "Permission drafted from web browsing, product comparison, and public-page summary request."
+      : "Permission drafted from web browsing and public-page summary request.",
   };
 }
 
@@ -90,11 +104,44 @@ function makePurchasePermission(analysis) {
     ? { maxAmount: analysis.spendingLimit, expiresAt: null } : undefined;
   return {
     action: "purchase", resource: "commerce",
-    allowedActions: ["compare products", "request purchase under approved limit", "make purchase only after user approval"],
+    allowedActions: ["request purchase under approved limit", "make purchase only after user approval"],
     blockedActions: ["purchase above spending limit", "purchase without user approval", "save payment credentials", "start recurring subscriptions", "use unapproved vendors"],
     requiresApproval: true, status: "active", constraints, riskLevel: "high",
     reason: "Purchases are high-risk and require user approval.",
   };
+}
+
+const ACTION_NORMALIZATIONS = [
+  [/^browse[_\s]?web$/i, null],
+  [/^log[_\s]?in$/i, "log in to accounts"],
+  [/^login$/i, "log in to accounts"],
+  [/^submit[_\s]forms?$/i, "submit forms"],
+  [/^save[_\s]payment[_\s]info(?:rmation)?$/i, "save payment information"],
+  [/^(make[_\s]?)?purchases?$/i, "make purchases"],
+  [/^buy[_\s]?anything$/i, "make purchases"],
+  [/^(?:purchase|buy)[_\s]?without[_\s]?(?:explicit[_\s]?)?approval$/i, "purchase without user approval"],
+  [/under\s*\$?\d+/i, null],
+  [/\$\d+/i, null],
+];
+
+function normalizeActionString(str) {
+  const t = str.trim();
+  for (const [pattern, replacement] of ACTION_NORMALIZATIONS) {
+    if (pattern.test(t)) return replacement;
+  }
+  return t;
+}
+
+function normalizeActionStrings(actions) {
+  const seen = new Set();
+  const result = [];
+  for (const a of actions) {
+    const normalized = normalizeActionString(a);
+    if (normalized === null) continue;
+    const key = normalized.toLowerCase();
+    if (!seen.has(key)) { seen.add(key); result.push(normalized); }
+  }
+  return result;
 }
 
 function deduplicatePermissions(permissions) {
@@ -109,7 +156,12 @@ function deduplicatePermissions(permissions) {
 
 function applyDeterministicCorrections(draft, analysis) {
   const permissions = draft.permissions
-    .map((p) => ({ ...p, action: normalizeAction(p.action) }))
+    .map((p) => ({
+      ...p,
+      action: normalizeAction(p.action),
+      allowedActions: normalizeActionStrings(p.allowedActions),
+      blockedActions: normalizeActionStrings(p.blockedActions),
+    }))
     .filter((p) => !isBroadPermission(p));
 
   const needsClarification = [...draft.needsClarification];
@@ -131,8 +183,15 @@ function applyDeterministicCorrections(draft, analysis) {
   if (analysis.hasBrowseWebIntent) {
     const existing = permissions.find((p) => p.action === "browse_web");
     if (!existing) {
-      permissions.push(makeBrowseWebPermission());
+      permissions.push(makeBrowseWebPermission(analysis.hasProductComparison));
     } else {
+      // Replace with canonical action strings — model output is too raw
+      const canonical = makeBrowseWebPermission(analysis.hasProductComparison);
+      existing.allowedActions = [...canonical.allowedActions];
+      existing.blockedActions = [...canonical.blockedActions];
+      existing.riskLevel = "medium";
+      existing.reason = canonical.reason;
+      // Merge any extra explicit blocks not already in canonical
       const mustBlock = [
         [analysis.hasExplicitFormBlock, "submit forms"],
         [analysis.hasExplicitLoginBlock, "log in to accounts"],
@@ -162,17 +221,16 @@ function applyDeterministicCorrections(draft, analysis) {
     if (!existing) {
       permissions.push(makePurchasePermission(analysis));
     } else {
+      // Replace with canonical action strings — model output is too raw
+      const canonical = makePurchasePermission(analysis);
+      existing.allowedActions = [...canonical.allowedActions];
+      existing.blockedActions = [...canonical.blockedActions];
       existing.requiresApproval = true;
       existing.riskLevel = "high";
+      existing.reason = canonical.reason;
       if (analysis.spendingLimit !== null) {
         if (!existing.constraints) existing.constraints = { maxAmount: analysis.spendingLimit, expiresAt: null };
         else if (!existing.constraints.maxAmount) existing.constraints.maxAmount = analysis.spendingLimit;
-      }
-      const mustBlock = ["purchase without user approval", "purchase above spending limit"];
-      for (const phrase of mustBlock) {
-        if (!existing.blockedActions.some((a) => a.toLowerCase().includes(phrase.split(" ")[0]))) {
-          existing.blockedActions.push(phrase);
-        }
       }
     }
     if (analysis.spendingLimit === null && !limitations.some((l) => /spend|limit|amount/i.test(l))) {
@@ -191,8 +249,23 @@ function applyDeterministicCorrections(draft, analysis) {
     /spend|limit|amount/i.test(s) && /no|not|infer|assum|provid/i.test(s);
   const filteredLimitations = analysis.spendingLimit !== null
     ? limitations.filter((l) => !isSpendingFalseNegative(l)) : limitations;
-  const filteredWarnings = analysis.spendingLimit !== null
+
+  // Remove warnings that falsely imply spending without approval when purchase requires approval
+  const purchasePerm = permissions.find((p) => p.action === "purchase");
+  const purchaseRequiresApproval = purchasePerm?.requiresApproval === true;
+  let filteredWarnings = analysis.spendingLimit !== null
     ? warnings.filter((w) => !isSpendingFalseNegative(w)) : warnings;
+  if (purchaseRequiresApproval) {
+    filteredWarnings = filteredWarnings.filter((w) => {
+      const wl = w.toLowerCase();
+      return !(
+        (wl.includes("without") && wl.includes("approv")) ||
+        wl.includes("can potentially spend") ||
+        wl.includes("spend money without") ||
+        wl.includes("without explicit approval")
+      );
+    });
+  }
 
   return {
     ...draft,
@@ -281,10 +354,11 @@ runTest(
   }
 );
 
-// ── Test 2: "request purchases" + conditional purchase block ──────────────────
+// ── Test 2: exact regression prompt — raw/weak model output normalization ────
+//   This matches the canonical test prompt from the task specification.
 
 runTest(
-  "Test 2 — Conditional purchase block + request purchases + $25 limit",
+  "Test 2 — Exact regression prompt: browse + purchase + $25 + approval",
   "Browse the web and summarize public product pages. Compare products and prices, but do not submit forms, " +
   "log in to accounts, save payment information, or buy anything without my approval. " +
   "The assistant may request purchases under $25 only after I approve them.",
@@ -292,37 +366,98 @@ runTest(
     agentDraft: { provider: "", description: "Web research and purchase agent." },
     permissions: [
       {
+        // Simulates a bad Ollama output with raw/enum-ish strings and wrong flags
         action: "browse_web", resource: "web",
-        allowedActions: ["search web", "compare products", "summarize pages"],
-        blockedActions: ["submit forms"],
+        allowedActions: ["browse_web", "search web", "compare products", "summarize pages"],
+        blockedActions: ["login", "submit_forms", "save_payment_info", "purchase"],
         requiresApproval: true,   // model incorrectly set this
         status: "active", riskLevel: "low", reason: "Browsing.",
         constraints: { maxAmount: 25, expiresAt: null }, // model incorrectly attached to browse_web
-      }
+      },
+      {
+        // Simulates a bad purchase permission with raw/weak action strings
+        action: "purchase", resource: "commerce",
+        allowedActions: ["under $25", "purchase without explicit approval"],
+        blockedActions: ["purchase without user approval", "make purchases"],
+        requiresApproval: true,
+        status: "active", riskLevel: "high", reason: "Purchases.",
+        constraints: { maxAmount: 25, expiresAt: null },
+      },
     ],
     needsClarification: [],
-    warnings: [],
+    warnings: [
+      "The assistant has the ability to make purchases under $25, which means it can potentially spend money without explicit approval. This requires additional oversight.",
+    ],
     limitations: ["No explicit dollar limit was provided, so setting a limit of $25 was inferred."],
   },
   (corrected, analysis) => {
     const bw = corrected.permissions.find((p) => p.action === "browse_web");
     const pu = corrected.permissions.find((p) => p.action === "purchase");
+
+    // Analysis flags
     assert("hasPurchaseIntent is true",        analysis.hasPurchaseIntent);
     assert("hasExplicitApproval is true",      analysis.hasExplicitApproval);
+    assert("hasProductComparison is true",     analysis.hasProductComparison);
     assert("spendingLimit is 25",              analysis.spendingLimit === 25, `got ${analysis.spendingLimit}`);
+
+    // browse_web — allowed actions (canonical)
     assert("browse_web present",              !!bw);
     assert("browse_web.requiresApproval false", bw?.requiresApproval === false);
     assert("browse_web has no maxAmount",      bw?.constraints?.maxAmount === undefined);
-    assert("browse_web blocks forms",         bw?.blockedActions.some((a) => /form/i.test(a)));
-    assert("browse_web blocks log in",        bw?.blockedActions.some((a) => /log.?in/i.test(a)));
-    assert("browse_web blocks purchases",     bw?.blockedActions.some((a) => /purchas/i.test(a)));
+    assert('browse_web.allowedActions includes "search web"',
+      bw?.allowedActions.includes("search web"), `got: ${JSON.stringify(bw?.allowedActions)}`);
+    assert('browse_web.allowedActions includes "read public pages"',
+      bw?.allowedActions.includes("read public pages"));
+    assert('browse_web.allowedActions includes "summarize public pages"',
+      bw?.allowedActions.includes("summarize public pages"));
+    assert('browse_web.allowedActions includes "compare products"',
+      bw?.allowedActions.includes("compare products"));
+    assert('browse_web.allowedActions does NOT include "browse_web"',
+      !bw?.allowedActions.includes("browse_web"));
+
+    // browse_web — blocked actions (canonical + no internal enum strings)
+    assert('browse_web.blockedActions includes "submit forms"',
+      bw?.blockedActions.includes("submit forms"), `got: ${JSON.stringify(bw?.blockedActions)}`);
+    assert('browse_web.blockedActions includes "log in to accounts"',
+      bw?.blockedActions.includes("log in to accounts"));
+    assert('browse_web.blockedActions includes "save payment information"',
+      bw?.blockedActions.includes("save payment information"));
+    assert('browse_web.blockedActions includes "make purchases"',
+      bw?.blockedActions.includes("make purchases"));
+    assert('browse_web.blockedActions does NOT include "login"',
+      !bw?.blockedActions.includes("login"));
+    assert('browse_web.blockedActions does NOT include "submit_forms"',
+      !bw?.blockedActions.includes("submit_forms"));
+
+    // purchase
     assert("purchase present",                !!pu);
     assert("purchase.requiresApproval true",  pu?.requiresApproval === true);
     assert("purchase.riskLevel high",         pu?.riskLevel === "high");
     assert("purchase.constraints.maxAmount 25", pu?.constraints?.maxAmount === 25, `got ${pu?.constraints?.maxAmount}`);
-    assert("purchase blocks without-approval", pu?.blockedActions.some((a) => /without.*approv|approv/i.test(a)));
-    assert("No misleading spending-limit limitation", !corrected.limitations.some((l) => /no.*explicit.*dollar|no.*spending.*limit|infer/i.test(l)));
-    assert("needsClarification empty",        corrected.needsClarification.length === 0, `got ${corrected.needsClarification.length} items`);
+    assert('purchase.allowedActions includes "request purchase under approved limit"',
+      pu?.allowedActions.includes("request purchase under approved limit"), `got: ${JSON.stringify(pu?.allowedActions)}`);
+    assert('purchase.allowedActions includes "make purchase only after user approval"',
+      pu?.allowedActions.includes("make purchase only after user approval"));
+    assert('purchase.allowedActions does NOT include "under $25"',
+      !pu?.allowedActions.includes("under $25"));
+    assert('purchase.blockedActions includes "purchase without user approval"',
+      pu?.blockedActions.includes("purchase without user approval"), `got: ${JSON.stringify(pu?.blockedActions)}`);
+
+    // warnings must not falsely imply spending without approval
+    const badWarning = corrected.warnings.some((w) => {
+      const wl = w.toLowerCase();
+      return (wl.includes("without") && wl.includes("approv")) ||
+             wl.includes("can potentially spend") ||
+             wl.includes("without explicit approval");
+    });
+    assert("warnings do not say it can spend without approval", !badWarning,
+      `warnings: ${JSON.stringify(corrected.warnings)}`);
+
+    // clarification
+    assert("needsClarification.length === 0",  corrected.needsClarification.length === 0,
+      `got ${corrected.needsClarification.length} items`);
+    assert("No misleading spending-limit limitation",
+      !corrected.limitations.some((l) => /no.*explicit.*dollar|no.*spending.*limit|infer/i.test(l)));
   }
 );
 
