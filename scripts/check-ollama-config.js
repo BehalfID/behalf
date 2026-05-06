@@ -34,8 +34,9 @@ const env = { ...envBase, ...envLocal, ...process.env };
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-const BASE_URL = env.OLLAMA_BASE_URL || "";
-const MODEL    = env.OLLAMA_MODEL    || "";
+const BASE_URL    = env.OLLAMA_BASE_URL    || "";
+const MODEL       = env.OLLAMA_MODEL       || "";
+const PROXY_TOKEN = env.OLLAMA_PROXY_TOKEN || "";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -72,6 +73,12 @@ async function main() {
     info("Add it to .env.local: OLLAMA_MODEL=llama3.1:8b");
   }
 
+  if (PROXY_TOKEN) {
+    ok("OLLAMA_PROXY_TOKEN: set (checking via protected proxy)");
+  } else {
+    warn("OLLAMA_PROXY_TOKEN: not set (checking direct Ollama — no proxy auth)");
+  }
+
   nl();
 
   if (!BASE_URL) {
@@ -90,8 +97,11 @@ async function main() {
 
   // 3. Reachability check
   const tagsUrl = `${BASE_URL}/api/tags`;
-  console.log(`Checking ${tagsUrl} ...`);
+  const checkingVia = PROXY_TOKEN ? "protected proxy" : "direct Ollama";
+  console.log(`Checking ${tagsUrl} (${checkingVia}) ...`);
   nl();
+
+  const authHeaders = PROXY_TOKEN ? { Authorization: `Bearer ${PROXY_TOKEN}` } : {};
 
   let availableModels = [];
   let reachable = false;
@@ -99,7 +109,7 @@ async function main() {
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
-    const res = await fetch(tagsUrl, { signal: controller.signal });
+    const res = await fetch(tagsUrl, { headers: authHeaders, signal: controller.signal });
     clearTimeout(timer);
 
     if (res.ok) {
@@ -107,6 +117,10 @@ async function main() {
       const data = await res.json().catch(() => null);
       availableModels = (data?.models ?? []).map((m) => m.name);
       ok("Reachable: yes");
+    } else if (res.status === 401 || res.status === 403) {
+      fail(`Reachable: no  (HTTP ${res.status} — proxy rejected the token)`);
+      info("The OLLAMA_PROXY_TOKEN in this script does not match the token the proxy was started with.");
+      info("Make sure both sides use the same token. Regenerate with: openssl rand -hex 32");
     } else {
       fail(`Reachable: no  (HTTP ${res.status})`);
     }
