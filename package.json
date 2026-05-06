@@ -4,7 +4,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "build:sdk": "npm --prefix packages/sdk run build"
+    "build:sdk": "npm --prefix packages/sdk run build",
+    "check:ollama": "node scripts/check-ollama-config.js"
   },
   "dependencies": {
     "mongoose": "^9.6.1",

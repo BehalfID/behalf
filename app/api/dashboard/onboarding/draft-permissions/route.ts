@@ -3,9 +3,40 @@ import { requireDeveloperApi } from "@/lib/developerAuth";
 import { jsonError } from "@/lib/responses";
 import { isRecord, readString } from "@/lib/validation";
 
-const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL ?? "http://localhost:11434";
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "llama3";
-const OLLAMA_TIMEOUT_MS = Number(process.env.OLLAMA_TIMEOUT_MS ?? "30000");
+// ────────────────────────────────────────────────────────────────────────────
+// Config — read inside handler so pre-flight checks see the real env values
+// ────────────────────────────────────────────────────────────────────────────
+
+function ollamaConfig() {
+  return {
+    baseUrl: process.env.OLLAMA_BASE_URL ?? "",
+    model: process.env.OLLAMA_MODEL ?? "",
+    timeoutMs: Number(process.env.OLLAMA_TIMEOUT_MS ?? "30000")
+  };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Structured diagnostic error responses — never creates DB records
+// ────────────────────────────────────────────────────────────────────────────
+
+type DiagCode =
+  | "NOT_CONFIGURED"
+  | "LOCALHOST_IN_PRODUCTION"
+  | "UNREACHABLE"
+  | "TIMEOUT"
+  | "MODEL_NOT_FOUND"
+  | "INVALID_RESPONSE"
+  | "OLLAMA_ERROR";
+
+function diagError(
+  httpStatus: number,
+  code: DiagCode,
+  error: string,
+  details: string,
+  extra?: Record<string, unknown>
+) {
+  return NextResponse.json({ error, details, code, ...extra }, { status: httpStatus });
+}
 
 // ────────────────────────────────────────────────────────────────────────────
 // Output types (mirrored in client.tsx — keep in sync)
@@ -98,24 +129,22 @@ Rules:
 
 function extractStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
-  return (value as unknown[]).filter((x): x is string => typeof x === "string" && x.trim().length > 0).map((s) => s.trim());
+  return (value as unknown[])
+    .filter((x): x is string => typeof x === "string" && x.trim().length > 0)
+    .map((s) => s.trim());
 }
 
 function extractJson(raw: string): unknown {
-  // Strip markdown fences
   const stripped = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
 
-  // Direct parse
   try { return JSON.parse(stripped); } catch {}
 
-  // Find outermost { … }
   const objStart = stripped.indexOf("{");
   const objEnd = stripped.lastIndexOf("}");
   if (objStart !== -1 && objEnd > objStart) {
     try { return JSON.parse(stripped.slice(objStart, objEnd + 1)); } catch {}
   }
 
-  // Fallback: maybe the model returned a bare array
   const arrStart = stripped.indexOf("[");
   const arrEnd = stripped.lastIndexOf("]");
   if (arrStart !== -1 && arrEnd > arrStart) {
@@ -129,14 +158,15 @@ const VALID_RISK = new Set(["low", "medium", "high"]);
 
 function sanitizePermission(p: unknown): DraftPermission | null {
   if (!isRecord(p)) return null;
-
   const action = readString(p.action) || "access_data";
   const resource = readString(p.resource) || "";
   const allowedActions = extractStringArray(p.allowedActions);
   const blockedActions = extractStringArray(p.blockedActions);
   const requiresApproval = p.requiresApproval === true;
   const riskRaw = readString(p.riskLevel);
-  const riskLevel: "low" | "medium" | "high" = VALID_RISK.has(riskRaw) ? (riskRaw as "low" | "medium" | "high") : "medium";
+  const riskLevel: "low" | "medium" | "high" = VALID_RISK.has(riskRaw)
+    ? (riskRaw as "low" | "medium" | "high")
+    : "medium";
   const reason = readString(p.reason) || "Permission drafted from your description.";
 
   let constraints: DraftConstraints | undefined;
@@ -157,7 +187,6 @@ function sanitizePermission(p: unknown): DraftPermission | null {
 }
 
 function buildDraftResponse(parsed: unknown, provider: string, description: string): PermissionDraftResponse {
-  // Support both the full object format and a fallback bare-array format
   let rawPermissions: unknown[] = [];
   let rawAgentDraft: unknown = undefined;
   let rawClarifications: unknown[] = [];
@@ -174,24 +203,40 @@ function buildDraftResponse(parsed: unknown, provider: string, description: stri
     rawLimitations = Array.isArray(parsed.limitations) ? (parsed.limitations as unknown[]) : [];
   }
 
-  const permissions = rawPermissions.slice(0, 5).map(sanitizePermission).filter((p): p is DraftPermission => p !== null);
+  const permissions = rawPermissions
+    .slice(0, 5)
+    .map(sanitizePermission)
+    .filter((p): p is DraftPermission => p !== null);
 
   const agentDraft = {
     provider: (isRecord(rawAgentDraft) ? readString(rawAgentDraft.provider) : "") || provider,
     description: (isRecord(rawAgentDraft) ? readString(rawAgentDraft.description) : "") || description
   };
 
-  const needsClarification: { question: string; reason: string }[] = rawClarifications.slice(0, 5).flatMap((item) => {
-    if (!isRecord(item)) return [];
-    const question = readString(item.question);
-    const reason = readString(item.reason);
-    return question ? [{ question, reason }] : [];
-  });
+  const needsClarification: { question: string; reason: string }[] = rawClarifications
+    .slice(0, 5)
+    .flatMap((item) => {
+      if (!isRecord(item)) return [];
+      const question = readString(item.question);
+      const reason = readString(item.reason);
+      return question ? [{ question, reason }] : [];
+    });
 
   const warnings = rawWarnings.filter((x): x is string => typeof x === "string").slice(0, 5);
   const limitations = rawLimitations.filter((x): x is string => typeof x === "string").slice(0, 5);
 
   return { agentDraft, permissions, needsClarification, warnings, limitations };
+}
+
+async function fetchAvailableModels(baseUrl: string): Promise<string[]> {
+  try {
+    const res = await fetch(`${baseUrl}/api/tags`, { signal: AbortSignal.timeout(5_000) });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { models?: { name: string }[] };
+    return data.models?.map((m) => m.name) ?? [];
+  } catch {
+    return [];
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -202,6 +247,28 @@ export async function POST(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
 
+  // ── A: Missing env vars ──────────────────────────────────────────────────
+  const { baseUrl: rawBaseUrl, model: rawModel, timeoutMs } = ollamaConfig();
+  if (!rawBaseUrl || !rawModel) {
+    return diagError(503, "NOT_CONFIGURED",
+      "AI-assisted drafting is not configured.",
+      "Set OLLAMA_BASE_URL and OLLAMA_MODEL in .env.local, then restart the Next.js server or redeploy Vercel."
+    );
+  }
+
+  const OLLAMA_BASE_URL = rawBaseUrl;
+  const OLLAMA_MODEL = rawModel;
+
+  // ── B: Localhost in production ───────────────────────────────────────────
+  const isLocalhost = /localhost|127\.0\.0\.1/.test(OLLAMA_BASE_URL);
+  if (process.env.NODE_ENV === "production" && isLocalhost) {
+    return diagError(503, "LOCALHOST_IN_PRODUCTION",
+      "Ollama is configured as localhost in production.",
+      "In production, localhost points to the Vercel server, not your Mac. Use local development (npm run dev), or configure a secure reachable Ollama proxy."
+    );
+  }
+
+  // ── Validate request body ────────────────────────────────────────────────
   const body: unknown = await request.json().catch(() => null);
   if (!isRecord(body)) return jsonError("Request body must be a JSON object.");
 
@@ -213,8 +280,11 @@ export async function POST(request: NextRequest) {
   const userMessage = [
     provider ? `Assistant provider: ${provider}` : null,
     `User request: ${description}`
-  ].filter(Boolean).join("\n\n");
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 
+  // ── Call Ollama ──────────────────────────────────────────────────────────
   let raw: string;
   try {
     const res = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
@@ -228,52 +298,90 @@ export async function POST(request: NextRequest) {
           { role: "user", content: userMessage }
         ]
       }),
-      signal: AbortSignal.timeout(OLLAMA_TIMEOUT_MS)
+      signal: AbortSignal.timeout(timeoutMs)
     });
 
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      const detail = text ? `: ${text.slice(0, 200)}` : "";
-      return jsonError(
-        `Ollama returned an error (HTTP ${res.status})${detail}. ` +
-        `Check that the model "${OLLAMA_MODEL}" is pulled (ollama pull ${OLLAMA_MODEL}) ` +
-        `and that OLLAMA_BASE_URL is set correctly.`
+      const lowerText = text.toLowerCase();
+      const isModelMissing =
+        res.status === 404 ||
+        lowerText.includes("not found") ||
+        lowerText.includes("pull it first") ||
+        lowerText.includes("model not found");
+
+      if (isModelMissing) {
+        // ── D: Model unavailable ───────────────────────────────────────────
+        const availableModels = await fetchAvailableModels(OLLAMA_BASE_URL);
+        return diagError(503, "MODEL_NOT_FOUND",
+          "Configured Ollama model is not available.",
+          `Run \`ollama pull ${OLLAMA_MODEL}\` on the machine running Ollama, or change OLLAMA_MODEL to an installed model.`,
+          { configuredModel: OLLAMA_MODEL, availableModels }
+        );
+      }
+
+      return diagError(503, "OLLAMA_ERROR",
+        "Ollama returned an error.",
+        text ? text.slice(0, 300) : `HTTP ${res.status} from Ollama.`
       );
     }
 
     const data = (await res.json()) as { message?: { content?: string }; error?: string };
-    if (data.error) return jsonError(`Ollama error: ${data.error}`);
+    if (data.error) {
+      return diagError(503, "OLLAMA_ERROR", "Ollama returned an error.", data.error);
+    }
     raw = data.message?.content ?? "";
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
-    const isTimeout = msg.includes("timed out") || msg.includes("TimeoutError");
-    const isRefused = msg.includes("ECONNREFUSED") || msg.includes("fetch failed");
+    const isTimeout = err instanceof Error && (err.name === "TimeoutError" || msg.includes("timed out"));
+    const isRefused =
+      msg.includes("ECONNREFUSED") ||
+      msg.includes("fetch failed") ||
+      msg.includes("ENOTFOUND") ||
+      msg.includes("network");
+
     if (isTimeout) {
-      return jsonError(
-        `Ollama timed out after ${OLLAMA_TIMEOUT_MS / 1000}s. ` +
-        `Try a smaller model or increase OLLAMA_TIMEOUT_MS.`
+      // ── Timeout ────────────────────────────────────────────────────────
+      return diagError(503, "TIMEOUT",
+        "Ollama timed out.",
+        `Ollama did not respond within ${timeoutMs / 1000}s. Try a smaller/faster model, or increase OLLAMA_TIMEOUT_MS.`
       );
     }
     if (isRefused) {
-      return jsonError(
-        `Cannot reach Ollama at ${OLLAMA_BASE_URL}. ` +
-        `Make sure Ollama is running (ollama serve) and OLLAMA_BASE_URL is correct.`
+      // ── C: Unreachable ─────────────────────────────────────────────────
+      return diagError(503, "UNREACHABLE",
+        "Ollama is not reachable.",
+        `The BehalfID server cannot reach ${OLLAMA_BASE_URL}. ` +
+        `If testing locally, make sure Ollama is running (ollama serve) and restart Next.js after editing .env.local. ` +
+        `If using Vercel, Ollama must be reachable through a secure proxy.`
       );
     }
-    return jsonError(`Ollama request failed: ${msg}`);
+    return diagError(503, "UNREACHABLE", "Ollama request failed.", msg);
   }
 
-  if (!raw.trim()) return jsonError("Ollama returned an empty response. Try rephrasing your description.");
+  // ── E: Invalid/empty model output ────────────────────────────────────────
+  if (!raw.trim()) {
+    return diagError(502, "INVALID_RESPONSE",
+      "Ollama returned an invalid draft.",
+      "The model returned an empty response. Try again or use a stronger model."
+    );
+  }
 
   const parsed = extractJson(raw);
   if (parsed === null) {
-    return jsonError("AI did not return valid JSON. Try rephrasing your description or use a different model.");
+    return diagError(502, "INVALID_RESPONSE",
+      "Ollama returned an invalid draft.",
+      "The model did not return valid JSON. Try again or use a stronger model."
+    );
   }
 
   const draft = buildDraftResponse(parsed, provider, description);
 
   if (draft.permissions.length === 0) {
-    return jsonError("AI did not produce any permissions. Try a more specific description.");
+    return diagError(502, "INVALID_RESPONSE",
+      "Ollama returned an invalid draft.",
+      "The model did not produce any permissions. Try a more specific description or a stronger model."
+    );
   }
 
   return NextResponse.json(draft);

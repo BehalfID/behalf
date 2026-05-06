@@ -258,6 +258,8 @@ function OnboardingView() {
   const [draftResponse, setDraftResponse] = useState<PermissionDraftResponse | null>(null);
   const [draftLoading, setDraftLoading] = useState(false);
   const [draftError, setDraftError] = useState("");
+  const [draftDetails, setDraftDetails] = useState("");
+  const [draftErrorCode, setDraftErrorCode] = useState("");
   const [regularAgent, setRegularAgent] = useState<Agent | null>(null);
   const [regularPassportUrl, setRegularPassportUrl] = useState("");
 
@@ -429,16 +431,29 @@ function OnboardingView() {
     if (!regularProvider) { setDraftError("Select a provider first."); return; }
     if (!regularDescription.trim() || regularDescription.trim().length < 5) { setDraftError("Describe what you want the assistant to do."); return; }
     setDraftError("");
+    setDraftDetails("");
+    setDraftErrorCode("");
     setDraftLoading(true);
     try {
-      const result = await api<PermissionDraftResponse>("/api/dashboard/onboarding/draft-permissions", {
+      const res = await fetch("/api/dashboard/onboarding/draft-permissions", {
         method: "POST",
+        credentials: "include",
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
         body: JSON.stringify({ provider: regularProvider, description: regularDescription.trim() })
       });
-      setDraftResponse(result);
+      const body = await res.json().catch(() => null) as { error?: string; details?: string; code?: string } & Partial<PermissionDraftResponse> | null;
+      if (!res.ok) {
+        setDraftError(body?.error ?? `Request failed (${res.status})`);
+        setDraftDetails(body?.details ?? "");
+        setDraftErrorCode(body?.code ?? "");
+        return;
+      }
+      setDraftResponse(body as PermissionDraftResponse);
       setRegularStep(3);
     } catch (err) {
-      setDraftError(err instanceof Error ? err.message : "Failed to generate draft. Make sure Ollama is running locally.");
+      setDraftError(err instanceof Error ? err.message : "Failed to reach the server.");
+      setDraftDetails("");
+      setDraftErrorCode("");
     } finally {
       setDraftLoading(false);
     }
@@ -629,9 +644,23 @@ ${regularPassportUrl || "[passport link]"}`;
                 ))}
               </div>
             </details>
-            {draftError ? <p className="form-error">{draftError}</p> : null}
+            {draftError ? (
+              <div>
+                <p className="form-error">{draftError}</p>
+                {draftDetails ? <p className="field-help">{draftDetails}</p> : null}
+                {draftErrorCode === "LOCALHOST_IN_PRODUCTION" ? (
+                  <p className="field-help">Production cannot use localhost for Ollama. Test this flow locally with <code>npm run dev</code>, or configure a secure Ollama proxy.</p>
+                ) : null}
+                {draftErrorCode === "NOT_CONFIGURED" ? (
+                  <p className="field-help">Run <code>npm run check:ollama</code> locally to verify your Ollama setup, then add the env vars to .env.local.</p>
+                ) : null}
+                {draftErrorCode === "MODEL_NOT_FOUND" ? (
+                  <p className="field-help">Run <code>npm run check:ollama</code> to see which models are installed.</p>
+                ) : null}
+              </div>
+            ) : null}
             <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-              <Button type="button" onClick={() => { setDraftError(""); setRegularStep(1); }}>Back</Button>
+              <Button type="button" onClick={() => { setDraftError(""); setDraftDetails(""); setDraftErrorCode(""); setRegularStep(1); }}>Back</Button>
               <Button variant="primary" type="button" onClick={generateDraft} disabled={draftLoading}>
                 {draftLoading ? "Generating draft…" : "Generate draft passport"}
               </Button>
@@ -710,9 +739,14 @@ ${regularPassportUrl || "[passport link]"}`;
               </div>
             ) : null}
 
-            {draftError ? <p className="form-error">{draftError}</p> : null}
+            {draftError ? (
+              <div>
+                <p className="form-error">{draftError}</p>
+                {draftDetails ? <p className="field-help">{draftDetails}</p> : null}
+              </div>
+            ) : null}
             <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-              <Button type="button" onClick={() => { setDraftError(""); setRegularStep(2); }}>Edit description</Button>
+              <Button type="button" onClick={() => { setDraftError(""); setDraftDetails(""); setDraftErrorCode(""); setRegularStep(2); }}>Edit description</Button>
               <Button variant="primary" type="button" onClick={confirmDraft} disabled={draftLoading}>
                 {draftLoading ? "Creating passport…" : "Confirm and create passport"}
               </Button>
