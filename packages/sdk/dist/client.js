@@ -6,6 +6,9 @@ export class BehalfID {
         if (!apiKey || typeof apiKey !== "string") {
             throw new Error("BehalfID: apiKey is required.");
         }
+        if (typeof baseUrl !== "string" || !/^https?:\/\//i.test(baseUrl)) {
+            throw new Error("BehalfID: baseUrl must start with http:// or https://");
+        }
         this.apiKey = apiKey;
         this.baseUrl = baseUrl.replace(/\/+$/, "");
     }
