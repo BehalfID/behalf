@@ -657,6 +657,12 @@ ${regularPassportUrl || "[passport link]"}`;
                 {draftErrorCode === "MODEL_NOT_FOUND" ? (
                   <p className="field-help">Run <code>npm run check:ollama</code> to see which models are installed.</p>
                 ) : null}
+                {draftErrorCode === "TIMEOUT" ? (
+                  <p className="field-help">Ollama took too long to respond. Try again, or switch to a smaller/faster model. If this keeps happening, run <code>npm run check:ollama</code> to diagnose. When a known intent is detected, BehalfID will use a rule-based draft instead.</p>
+                ) : null}
+                {draftErrorCode === "UNREACHABLE" ? (
+                  <p className="field-help">Could not connect to Ollama. Make sure Ollama is running (<code>ollama serve</code>) and restart the dev server after editing .env.local. If your description matches a known pattern, BehalfID will generate a rule-based draft automatically.</p>
+                ) : null}
               </div>
             ) : null}
             <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
