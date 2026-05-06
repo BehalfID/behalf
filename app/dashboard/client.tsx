@@ -751,14 +751,17 @@ ${regularPassportUrl || "[passport link]"}`;
                 {draftDetails ? <p className="field-help">{draftDetails}</p> : null}
               </div>
             ) : null}
-            {draftResponse.needsClarification.length > 0 ? (
-              <p className="field-help" style={{ color: "#f59e0b" }}>Clarify your description and regenerate before creating this passport.</p>
-            ) : null}
             <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
               <Button type="button" onClick={() => { setDraftError(""); setDraftDetails(""); setDraftErrorCode(""); setRegularStep(2); }}>Edit description</Button>
-              <Button variant="primary" type="button" onClick={confirmDraft} disabled={draftLoading || draftResponse.needsClarification.length > 0}>
-                {draftLoading ? "Creating passport…" : "Confirm and create passport"}
-              </Button>
+              {draftResponse.needsClarification.length > 0 ? (
+                <Button type="button" disabled style={{ cursor: "not-allowed", opacity: 0.45 }}>
+                  Clarify before creating passport
+                </Button>
+              ) : (
+                <Button variant="primary" type="button" onClick={confirmDraft} disabled={draftLoading}>
+                  {draftLoading ? "Creating passport…" : "Confirm and create passport"}
+                </Button>
+              )}
             </div>
           </section>
         ) : null}
