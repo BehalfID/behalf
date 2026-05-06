@@ -577,10 +577,16 @@ async function fetchAvailableModels(baseUrl: string, proxyToken: string): Promis
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Deterministic fallback — used when Ollama is unavailable
+// Deterministic drafting — primary path for known intents
 // ────────────────────────────────────────────────────────────────────────────
 
-function buildDeterministicFallback(
+/** Returns true when deterministic rules can confidently produce a draft. */
+function canHandleDeterministically(analysis: DescriptionAnalysis): boolean {
+  return analysis.hasBrowseWebIntent || analysis.hasPurchaseIntent || analysis.hasBroadAccess;
+}
+
+/** Builds a clean deterministic draft (no unavailability warning). */
+function buildDeterministicDraft(
   analysis: DescriptionAnalysis,
   provider: string,
   description: string,
@@ -592,10 +598,26 @@ function buildDeterministicFallback(
     agentDraft: { provider, description },
     permissions,
     needsClarification: [],
+    warnings: [],
+    limitations: [],
+  };
+}
+
+/**
+ * Builds a deterministic draft annotated with an "Ollama unavailable" warning.
+ * Used only when Ollama was attempted and failed.
+ */
+function buildDeterministicFallback(
+  analysis: DescriptionAnalysis,
+  provider: string,
+  description: string,
+): PermissionDraftResponse {
+  const base = buildDeterministicDraft(analysis, provider, description);
+  return {
+    ...base,
     warnings: [
       "AI model drafting was unavailable. BehalfID generated a conservative rule-based draft from your description.",
     ],
-    limitations: [],
   };
 }
 
@@ -604,7 +626,7 @@ function tryDeterministicFallback(
   provider: string,
   description: string,
 ): NextResponse | null {
-  if (!analysis.hasBrowseWebIntent && !analysis.hasPurchaseIntent) return null;
+  if (!canHandleDeterministically(analysis)) return null;
   const fallback = buildDeterministicFallback(analysis, provider, description);
   const corrected = applyDeterministicCorrections(fallback, analysis);
   return NextResponse.json(corrected);
@@ -617,6 +639,28 @@ function tryDeterministicFallback(
 export async function POST(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
+
+  // ── Validate request body ────────────────────────────────────────────────
+  const body: unknown = await request.json().catch(() => null);
+  if (!isRecord(body)) return jsonError("Request body must be a JSON object.");
+
+  const provider = readString(body.provider);
+  const description = readString(body.description);
+  if (!description || description.length < 5) return jsonError("description is required (minimum 5 characters).");
+  if (description.length > 2000) return jsonError("description must be 2000 characters or fewer.");
+
+  const analysis = analyzeDescription(description);
+
+  // ── Deterministic-first: skip Ollama entirely for known intents ──────────
+  // browse_web, purchase, and broad-access prompts are all handled deterministically.
+  // This avoids timeout/rate-limit friction for the most common onboarding flows.
+  if (canHandleDeterministically(analysis)) {
+    const draft = buildDeterministicDraft(analysis, provider, description);
+    const corrected = applyDeterministicCorrections(draft, analysis);
+    return NextResponse.json(corrected);
+  }
+
+  // ── Ollama is only reached for descriptions that don't match known rules ──
 
   // ── A: Missing env vars ──────────────────────────────────────────────────
   const { baseUrl: rawBaseUrl, model: rawModel, timeoutMs, proxyToken } = ollamaConfig();
@@ -638,17 +682,6 @@ export async function POST(request: NextRequest) {
       "In production, localhost points to the Vercel server, not your Mac. Use local development (npm run dev), or configure a secure reachable Ollama proxy."
     );
   }
-
-  // ── Validate request body ────────────────────────────────────────────────
-  const body: unknown = await request.json().catch(() => null);
-  if (!isRecord(body)) return jsonError("Request body must be a JSON object.");
-
-  const provider = readString(body.provider);
-  const description = readString(body.description);
-  if (!description || description.length < 5) return jsonError("description is required (minimum 5 characters).");
-  if (description.length > 2000) return jsonError("description must be 2000 characters or fewer.");
-
-  const analysis = analyzeDescription(description);
 
   const userMessage = [
     provider ? `Assistant provider: ${provider}` : null,
