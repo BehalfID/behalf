@@ -103,9 +103,18 @@ const BROWSE_WEB_PATTERNS: RegExp[] = [
   /compare\s+products/i, /research\s+(?:the\s+)?web/i,
 ];
 
-// Positive purchase intent only — excludes "do not buy anything" via withoutNegations()
+// Positive purchase intent only — checked against negation-stripped text
 const PURCHASE_POSITIVE_PATTERNS: RegExp[] = [
   /\bmake\s+purchases?/i, /\bplace\s+(?:an\s+)?orders?\b/i,
+  /\brequest\s+purchases?/i,           // "request purchases under $25"
+  /\bpurchases?\s+under\b/i,           // "purchases under $25"
+  /\bask\s+before\s+(?:buy|purchas)/i, // "ask before buying/purchasing"
+];
+
+// "buy X without my approval" is a conditional prohibition (buy WITH approval = OK)
+const CONDITIONAL_PURCHASE_PATTERNS: RegExp[] = [
+  /\bbuy\b[^.;!?]*\bwithout\b[^.;!?]*\b(?:my\s+)?approv/i,
+  /\bpurchas[^.;!?]*\bwithout\b[^.;!?]*\b(?:my\s+)?approv/i,
 ];
 
 const EXPLICIT_APPROVAL_PATTERNS: RegExp[] = [
@@ -124,8 +133,10 @@ function analyzeDescription(description: string): DescriptionAnalysis {
 
   const hasBroadAccess    = BROAD_ACCESS_PATTERNS.some((p) => p.test(d));
   const hasBrowseWebIntent = BROWSE_WEB_PATTERNS.some((p) => p.test(d));
-  const hasPurchaseIntent  = PURCHASE_POSITIVE_PATTERNS.some((p) => p.test(positive));
   const hasExplicitApproval = EXPLICIT_APPROVAL_PATTERNS.some((p) => p.test(d));
+  // Conditional pattern checked on original text (not stripped) — "buy without approval" = buy with approval OK
+  const hasConditionalPurchaseIntent = CONDITIONAL_PURCHASE_PATTERNS.some((p) => p.test(d));
+  const hasPurchaseIntent  = PURCHASE_POSITIVE_PATTERNS.some((p) => p.test(positive)) || hasConditionalPurchaseIntent;
 
   let spendingLimit: number | null = null;
   const dollarMatch = d.match(/\$\s*(\d+(?:\.\d+)?)/);
@@ -405,6 +416,18 @@ function applyDeterministicCorrections(
     }
   }
 
+  // Harden browse_web regardless of model output: browsing is never approval-gated,
+  // and purchase constraints (maxAmount) must not be attached to a browsing permission.
+  const browseWebPerm = permissions.find((p) => p.action === "browse_web");
+  if (browseWebPerm) {
+    browseWebPerm.requiresApproval = false;
+    if (browseWebPerm.constraints) {
+      browseWebPerm.constraints = browseWebPerm.constraints.allowedVendors?.length
+        ? { allowedVendors: browseWebPerm.constraints.allowedVendors, expiresAt: null }
+        : undefined;
+    }
+  }
+
   // Ensure purchase permission when positive purchase intent detected
   if (analysis.hasPurchaseIntent) {
     const existing = permissions.find((p) => p.action === "purchase");
@@ -444,12 +467,22 @@ function applyDeterministicCorrections(
     return true;
   });
 
+  // Remove model-generated "no spending limit" messages when we found one in the description
+  const isSpendingFalseNegative = (s: string) =>
+    /spend|limit|amount/i.test(s) && /no|not|infer|assum|provid/i.test(s);
+  const filteredLimitations = analysis.spendingLimit !== null
+    ? limitations.filter((l) => !isSpendingFalseNegative(l))
+    : limitations;
+  const filteredWarnings = analysis.spendingLimit !== null
+    ? warnings.filter((w) => !isSpendingFalseNegative(w))
+    : warnings;
+
   return {
     ...draft,
     permissions: deduplicatePermissions(permissions),
     needsClarification: filteredClarifications,
-    warnings,
-    limitations,
+    warnings: filteredWarnings,
+    limitations: filteredLimitations,
   };
 }
 
