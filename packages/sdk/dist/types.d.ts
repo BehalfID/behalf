@@ -7,6 +7,7 @@ export type VerifyInput = {
     action: string;
     amount?: number;
     vendor?: string;
+    resource?: string;
     metadata?: Record<string, unknown>;
 };
 export type RiskLevel = "low" | "medium" | "high";
@@ -23,7 +24,7 @@ export type CreateAgentResult = {
     provider?: AgentProvider;
 };
 export type AgentType = "native" | "connected";
-export type AgentProvider = "custom" | "ollie" | "chatgpt" | "claude" | "zapier" | "make" | "langchain" | "openai" | "other";
+export type AgentProvider = "custom" | "ollie" | "chatgpt" | "claude" | "gemini" | "zapier" | "make" | "langchain" | "openai" | "other";
 export type CreateAgentInput = {
     name: string;
     agentType?: AgentType;

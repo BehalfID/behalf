@@ -196,18 +196,11 @@ async function handle(req, res) {
 // ── Startup checks ────────────────────────────────────────────────────────────
 
 function startup() {
-  // Token is required. Development-only exception with a loud warning.
   if (!PROXY_TOKEN) {
-    if (process.env.NODE_ENV === "development") {
-      log("WARN", "OLLAMA_PROXY_TOKEN is not set. Running WITHOUT auth (development only).");
-      log("WARN", "Generate a token with: openssl rand -hex 32");
-      log("WARN", "Set OLLAMA_PROXY_TOKEN before exposing this proxy to the network.");
-    } else {
-      log("ERROR", "OLLAMA_PROXY_TOKEN is not set. Refusing to start without a token.");
-      log("ERROR", "Generate one with: openssl rand -hex 32");
-      log("ERROR", "Add it to .env.local or export it before running npm run ollama:proxy.");
-      process.exit(1);
-    }
+    log("ERROR", "OLLAMA_PROXY_TOKEN is not set. Refusing to start without a token.");
+    log("ERROR", "Generate one with: openssl rand -hex 32");
+    log("ERROR", "Add it to .env.local or export it before running npm run ollama:proxy.");
+    process.exit(1);
   }
 
   if (HOST === "0.0.0.0") {
@@ -239,7 +232,7 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, HOST, () => {
   log("INFO", `Ollama secure proxy ready  http://${HOST}:${PORT}`);
   log("INFO", `Upstream: ${UPSTREAM_URL}`);
-  log("INFO", `Token: ${PROXY_TOKEN ? "set (" + PROXY_TOKEN.slice(0, 4) + "…)" : "NOT SET"}`);
+  log("INFO", `Token: ${PROXY_TOKEN ? "set" : "NOT SET"}`);
   log("INFO", `Allowed: GET /api/tags  POST /api/chat`);
   log("INFO", `Limits: body=${MAX_BODY}B  timeout=${TIMEOUT_MS}ms`);
 });

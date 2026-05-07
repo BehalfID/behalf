@@ -8,6 +8,7 @@ export type VerifyInput = {
   action: string;
   amount?: number;
   vendor?: string;
+  resource?: string;
   metadata?: Record<string, unknown>;
 };
 
@@ -34,6 +35,7 @@ export type AgentProvider =
   | "ollie"
   | "chatgpt"
   | "claude"
+  | "gemini"
   | "zapier"
   | "make"
   | "langchain"
