@@ -630,8 +630,8 @@ ${regularPassportUrl || "[passport link]"}`;
               />
             </label>
             <details>
-              <summary className="field-help" style={{ cursor: "pointer", userSelect: "none" }}>Not sure? Try an example</summary>
-              <div className="permission-template-grid" style={{ marginTop: "0.5rem" }}>
+              <summary className="field-help onboarding-summary">Not sure? Try an example</summary>
+              <div className="permission-template-grid permission-template-grid--nested">
                 {DESCRIPTION_EXAMPLES.map((example) => (
                   <button
                     key={example}
@@ -665,7 +665,7 @@ ${regularPassportUrl || "[passport link]"}`;
                 ) : null}
               </div>
             ) : null}
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+            <div className="form-actions">
               <Button type="button" onClick={() => { setDraftError(""); setDraftDetails(""); setDraftErrorCode(""); setRegularStep(1); }}>Back</Button>
               <Button variant="primary" type="button" onClick={generateDraft} disabled={draftLoading}>
                 {draftLoading ? "Generating draft…" : "Generate draft passport"}
@@ -684,27 +684,27 @@ ${regularPassportUrl || "[passport link]"}`;
             <p className="field-help">Permissions are inactive until you confirm. You can add, edit, or revoke permissions later from the agent detail page.</p>
 
             {draftResponse.needsClarification.length > 0 ? (
-              <div className="dashboard-panel" style={{ marginBottom: "0.75rem", padding: "1rem", borderLeft: "3px solid #f59e0b" }}>
+              <div className="dashboard-panel review-notice review-notice--clarify">
                 <strong>This draft needs clarification before it can be created:</strong>
-                <ul style={{ margin: "0.5rem 0", paddingLeft: "1.25rem" }}>
+                <ul className="review-list">
                   {draftResponse.needsClarification.map((item, i) => (
-                    <li key={i}>{item.question}<small style={{ display: "block", opacity: 0.7 }}>{item.reason}</small></li>
+                    <li key={i}>{item.question}<small>{item.reason}</small></li>
                   ))}
                 </ul>
               </div>
             ) : null}
 
             {draftResponse.warnings.length > 0 ? (
-              <div className="dashboard-panel" style={{ marginBottom: "0.75rem", padding: "1rem", borderLeft: "3px solid #ef4444" }}>
+              <div className="dashboard-panel review-notice review-notice--warning">
                 <strong>Heads up:</strong>
-                <ul style={{ margin: "0.5rem 0", paddingLeft: "1.25rem" }}>
+                <ul className="review-list">
                   {draftResponse.warnings.map((w, i) => <li key={i}>{w}</li>)}
                 </ul>
               </div>
             ) : null}
 
             {draftResponse.permissions.map((perm, index) => (
-              <div key={index} className="dashboard-panel" style={{ marginBottom: "0.75rem", padding: "1rem" }}>
+              <div key={index} className="dashboard-panel review-permission">
                 <div className="agent-passport__header">
                   <span className="console-status">Draft permission {index + 1}</span>
                   <code>{perm.action}</code>
@@ -720,7 +720,7 @@ ${regularPassportUrl || "[passport link]"}`;
                 {perm.allowedActions.length ? (
                   <div>
                     <strong>Allowed:</strong>
-                    <ul style={{ margin: "0.25rem 0", paddingLeft: "1.25rem" }}>
+                    <ul className="review-list review-list--compact">
                       {perm.allowedActions.map((a) => <li key={a}>{a}</li>)}
                     </ul>
                   </div>
@@ -728,7 +728,7 @@ ${regularPassportUrl || "[passport link]"}`;
                 {perm.blockedActions.length ? (
                   <div>
                     <strong>Blocked:</strong>
-                    <ul style={{ margin: "0.25rem 0", paddingLeft: "1.25rem" }}>
+                    <ul className="review-list review-list--compact">
                       {perm.blockedActions.map((a) => <li key={a}>{a}</li>)}
                     </ul>
                   </div>
@@ -737,9 +737,9 @@ ${regularPassportUrl || "[passport link]"}`;
             ))}
 
             {draftResponse.limitations.length > 0 ? (
-              <div className="field-help" style={{ marginBottom: "0.75rem" }}>
+              <div className="field-help review-limitations">
                 <strong>Limitations of this draft:</strong>
-                <ul style={{ margin: "0.25rem 0", paddingLeft: "1.25rem" }}>
+                <ul className="review-list review-list--compact">
                   {draftResponse.limitations.map((l, i) => <li key={i}>{l}</li>)}
                 </ul>
               </div>
@@ -751,10 +751,10 @@ ${regularPassportUrl || "[passport link]"}`;
                 {draftDetails ? <p className="field-help">{draftDetails}</p> : null}
               </div>
             ) : null}
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+            <div className="form-actions">
               <Button type="button" onClick={() => { setDraftError(""); setDraftDetails(""); setDraftErrorCode(""); setRegularStep(2); }}>Edit description</Button>
               {draftResponse.needsClarification.length > 0 ? (
-                <Button type="button" disabled style={{ cursor: "not-allowed", opacity: 0.45 }}>
+                <Button type="button" disabled>
                   Clarify before creating passport
                 </Button>
               ) : (
