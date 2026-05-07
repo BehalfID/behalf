@@ -204,7 +204,7 @@ pre {
 .console-ghost-button:disabled,
 .console-danger-button:disabled {
   opacity: 0.58;
-  cursor: progress;
+  cursor: not-allowed;
   transform: none;
 }
 
@@ -662,6 +662,10 @@ textarea.ui-input,
   border-radius: 12px;
   padding: 14px 16px;
   background: rgba(20, 26, 32, 0.62);
+}
+
+.section-note--spaced {
+  margin-top: 24px;
 }
 
 .flow-grid,
@@ -1142,7 +1146,7 @@ textarea.ui-input,
 
 .sandbox-action__btn:disabled {
   opacity: 0.5;
-  cursor: default;
+  cursor: not-allowed;
 }
 
 .sandbox-action__result {
@@ -1721,6 +1725,11 @@ textarea.ui-input,
   color: var(--accent);
 }
 
+.onboarding-summary {
+  cursor: pointer;
+  user-select: none;
+}
+
 .onboarding-form {
   max-width: 760px;
 }
@@ -1729,6 +1738,10 @@ textarea.ui-input,
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.permission-template-grid--nested {
+  margin-top: 0.5rem;
 }
 
 .permission-template {
@@ -1763,6 +1776,48 @@ textarea.ui-input,
 
 .onboarding-result-grid--native {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.review-notice,
+.review-permission {
+  margin-bottom: 0.75rem;
+  padding: 1rem;
+}
+
+.review-notice--clarify {
+  border-left: 3px solid rgba(99, 102, 241, 0.72);
+}
+
+.review-notice--warning {
+  border-left: 3px solid var(--border-strong);
+}
+
+.review-list {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.review-list--compact {
+  margin-top: 0.25rem;
+}
+
+.review-list small {
+  display: block;
+  color: var(--muted);
+  opacity: 0.82;
+}
+
+.review-limitations {
+  margin-bottom: 0.75rem;
 }
 
 .passport-page {
@@ -2153,7 +2208,9 @@ textarea.ui-input,
   .feature-grid,
   .connected-agent-grid,
   .metric-grid,
-  .console-metrics {
+  .console-metrics,
+  .security-grid,
+  .stops-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -2255,12 +2312,30 @@ textarea.ui-input,
   .connected-agent-grid,
   .metric-grid,
   .console-metrics,
+  .security-grid,
+  .security-grid--2col,
+  .stops-grid,
   .form-grid,
   .inline-form,
   .constraint-list,
   .auth-context ul,
   .flow {
     grid-template-columns: 1fr;
+  }
+
+  .sandbox-action {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .sandbox-action__result {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .passport-scope-meta div {
+    flex-direction: column;
+    gap: 2px;
   }
 
   .auth-shell {
