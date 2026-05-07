@@ -1,4 +1,4 @@
-const DEFAULT_BASE_URL = "https://behalfid.vercel.app";
+const DEFAULT_BASE_URL = "https://behalfid.com";
 export class BehalfID {
     apiKey;
     baseUrl;

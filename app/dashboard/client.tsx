@@ -913,7 +913,7 @@ ${regularPassportUrl || "[passport link]"}`;
 
 const behalf = new BehalfID({
   apiKey: process.env.BEHALFID_API_KEY!,
-  baseUrl: "https://behalfid.vercel.app"
+  baseUrl: "https://behalfid.com"
 });
 
 const result = await behalf.verify({
@@ -1231,7 +1231,7 @@ function buildVerifySnippet(agentId: string, permissions: Permission[] | undefin
 
 const behalf = new BehalfID({
   apiKey: process.env.BEHALFID_API_KEY!,
-  baseUrl: "https://behalfid.vercel.app"
+  baseUrl: "https://behalfid.com"
 });
 
 const result = await behalf.verify({

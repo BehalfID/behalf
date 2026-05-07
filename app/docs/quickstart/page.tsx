@@ -30,7 +30,7 @@ export default function QuickstartPage() {
 
 const behalf = new BehalfID({
   apiKey: process.env.BEHALFID_API_KEY!,
-  baseUrl: "https://behalfid.vercel.app"
+  baseUrl: "https://behalfid.com"
 });
 
 async function enforceAction(input) {

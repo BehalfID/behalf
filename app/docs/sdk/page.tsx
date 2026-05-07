@@ -15,7 +15,7 @@ export default function SdkDocsPage() {
 
 const behalf = new BehalfID({
   apiKey: process.env.BEHALFID_API_KEY!,
-  baseUrl: "https://behalfid.vercel.app"
+  baseUrl: "https://behalfid.com"
 });`}</CodeBlock>
       <h2>Add a connected agent</h2>
       <CodeBlock label="connected-agent.ts">{`const agent = await behalf.createAgent({
