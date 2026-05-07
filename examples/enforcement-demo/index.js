@@ -2,7 +2,7 @@ import { BehalfID } from "@behalfid/sdk";
 
 const apiKey = process.env.BEHALFID_API_KEY;
 const agentId = process.env.BEHALFID_AGENT_ID;
-const baseUrl = process.env.BEHALFID_BASE_URL || "https://behalfid.vercel.app";
+const baseUrl = process.env.BEHALFID_BASE_URL || "https://behalfid.com";
 
 if (!apiKey || !agentId) {
   console.error("Missing required environment variables.");

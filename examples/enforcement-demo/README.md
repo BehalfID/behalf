@@ -35,7 +35,7 @@ With only a `browse_web` permission on `web` active:
 ```
 BehalfID enforcement demo
 Agent:    agent_xxx
-Instance: https://behalfid.vercel.app
+Instance: https://behalfid.com
 
 1. browse_web on web
    ✓ Allowed — proceeding: searching for flights to Tokyo...
@@ -85,7 +85,7 @@ Fill in:
 ```env
 BEHALFID_API_KEY=bhf_sk_...      # from agent creation
 BEHALFID_AGENT_ID=agent_...      # from /dashboard/agents
-BEHALFID_BASE_URL=https://behalfid.vercel.app
+BEHALFID_BASE_URL=https://behalfid.com
 ```
 
 For a local instance use `BEHALFID_BASE_URL=http://localhost:3000`.

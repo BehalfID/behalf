@@ -35,6 +35,8 @@ BEHALFID_LOG_METADATA=true
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
+For production, set `NEXT_PUBLIC_APP_URL=https://behalfid.com` in Vercel.
+
 Then open:
 
 ```txt
@@ -86,7 +88,7 @@ import { BehalfID } from "@behalfid/sdk";
 
 const behalf = new BehalfID({
   apiKey: process.env.BEHALFID_API_KEY,
-  baseUrl: "https://behalfid.vercel.app"
+  baseUrl: "https://behalfid.com"
 });
 
 const result = await behalf.verify({
@@ -184,8 +186,18 @@ Never expose `BEHALFID_SETUP_TOKEN` to frontend JavaScript.
 Production URL target:
 
 ```txt
-https://behalfid.vercel.app
+https://behalfid.com
 ```
+
+Vercel preview and fallback deployment URLs may still exist, but `https://behalfid.com` is the canonical public domain.
+
+After changing domains:
+
+1. Update Vercel environment variables, including `NEXT_PUBLIC_APP_URL=https://behalfid.com`.
+2. Redeploy the app.
+3. Test generated passport links from `/dashboard/agents/[agentId]`.
+4. Test SDK examples against `https://behalfid.com`.
+5. Inspect Open Graph and canonical metadata for the production domain.
 
 ## Security Notes
 

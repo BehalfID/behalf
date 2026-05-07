@@ -224,7 +224,7 @@ export default function Home() {
 
 const behalf = new BehalfID({
   apiKey: process.env.BEHALFID_API_KEY!,
-  baseUrl: "https://behalfid.vercel.app"
+  baseUrl: "https://behalfid.com"
 });
 
 const result = await behalf.verify({

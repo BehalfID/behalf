@@ -4,7 +4,7 @@ Base URLs:
 
 ```txt
 http://localhost:3000
-https://behalfid.vercel.app
+https://behalfid.com
 ```
 
 Protected public endpoints require:
@@ -403,7 +403,7 @@ import { BehalfID } from "@behalfid/sdk";
 
 const behalf = new BehalfID({
   apiKey: process.env.BEHALFID_API_KEY,
-  baseUrl: "https://behalfid.vercel.app"
+  baseUrl: "https://behalfid.com"
 });
 
 const result = await behalf.verify({

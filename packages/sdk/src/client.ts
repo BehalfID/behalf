@@ -15,7 +15,7 @@ type RequestOptions = {
   body?: unknown;
 };
 
-const DEFAULT_BASE_URL = "https://behalfid.vercel.app";
+const DEFAULT_BASE_URL = "https://behalfid.com";
 
 export class BehalfID {
   private readonly apiKey: string;

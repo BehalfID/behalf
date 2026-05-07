@@ -15,7 +15,7 @@ import { BehalfID } from "@behalfid/sdk";
 
 const behalf = new BehalfID({
   apiKey: process.env.BEHALFID_API_KEY,
-  baseUrl: "https://behalfid.vercel.app"
+  baseUrl: "https://behalfid.com"
 });
 
 const result = await behalf.verify({
@@ -99,4 +99,4 @@ Use the raw request body exactly as received. The helper derives the same signin
 
 **Socket.dev / supply-chain scanners:**
 
-Static analysis tools including Socket.dev report a _Network access_ alert for this package because `globalThis["fetch"]` is detected in `dist/client.js`. This is intentional and expected for an API client SDK. The only host contacted is the value of `baseUrl` (defaulting to `https://behalfid.vercel.app`).
+Static analysis tools including Socket.dev report a _Network access_ alert for this package because `globalThis["fetch"]` is detected in `dist/client.js`. This is intentional and expected for an API client SDK. The only host contacted is the value of `baseUrl` (defaulting to `https://behalfid.com`).
