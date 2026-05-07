@@ -124,5 +124,9 @@ function extractErrorMessage(body: unknown) {
 }
 
 function redactSecrets(message: string) {
-  return message.replace(/bhf_sk_[A-Za-z0-9_-]+/g, "bhf_sk_[redacted]");
+  return message
+    .replace(/bhf_sk_[A-Za-z0-9_-]+/g, "bhf_sk_[redacted]")
+    .replace(/bhf_pass_[A-Za-z0-9_-]+/g, "bhf_pass_[redacted]")
+    .replace(/whsec_[A-Za-z0-9_-]+/g, "whsec_[redacted]")
+    .replace(/Bearer\s+[A-Za-z0-9._~+/-]+=*/gi, "Bearer [redacted]");
 }
