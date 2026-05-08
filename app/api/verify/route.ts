@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { authenticateAgent } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/db";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
+import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { isRecord, parseOptionalAmount, readString, rejectUnknownFields } from "@/lib/validation";
 import { verifyAction } from "@/lib/verify";
@@ -13,10 +14,9 @@ export async function POST(request: NextRequest) {
     return rateLimitError();
   }
 
-  const body: unknown = await request.json().catch(() => null);
-  if (!isRecord(body)) {
-    return jsonError("Request body must be a JSON object.");
-  }
+  const { body, error } = await readJsonObject(request);
+  if (error) return error;
+  if (!body) return jsonError("Request body must be a JSON object.");
 
   const unknownError = rejectUnknownFields(body, [
     "agentId",

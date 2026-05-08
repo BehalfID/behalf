@@ -2,8 +2,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import { hashApiKey, timingSafeEqualString } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/db";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
+import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
-import { isRecord, parseOptionalAmount, readString, rejectUnknownFields } from "@/lib/validation";
+import { parseOptionalAmount, readString, rejectUnknownFields } from "@/lib/validation";
 import { previewVerification } from "@/lib/verify";
 import Agent from "@/models/Agent";
 import Permission from "@/models/Permission";
@@ -16,8 +17,8 @@ type RouteContext = {
 
 function readPassportToken(request: NextRequest) {
   const header = request.headers.get("authorization") ?? "";
-  const [scheme, token] = header.split(" ");
-  if (scheme === "Bearer" && token?.startsWith("bhf_pass_")) return token;
+  const [scheme, token, extra] = header.trim().split(/\s+/);
+  if (scheme?.toLowerCase() === "bearer" && token?.startsWith("bhf_pass_") && !extra) return token;
   return "";
 }
 
@@ -120,8 +121,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const agent = await authenticatePassport(agentId, token);
   if (!agent) return jsonError("Invalid passport link.", 401);
 
-  const body: unknown = await request.json().catch(() => null);
-  if (!isRecord(body)) return jsonError("Request body must be a JSON object.");
+  const { body, error } = await readJsonObject(request);
+  if (error) return error;
+  if (!body) return jsonError("Request body must be a JSON object.");
   const unknownError = rejectUnknownFields(body, ["action", "vendor", "resource", "amount", "context"]);
   if (unknownError) return jsonError(unknownError);
 

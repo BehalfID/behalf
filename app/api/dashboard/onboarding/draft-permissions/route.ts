@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireDeveloperApi } from "@/lib/developerAuth";
+import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { isRecord, readString } from "@/lib/validation";
 
@@ -641,8 +642,9 @@ export async function POST(request: NextRequest) {
   if (auth.error || !auth.user) return auth.error;
 
   // ── Validate request body ────────────────────────────────────────────────
-  const body: unknown = await request.json().catch(() => null);
-  if (!isRecord(body)) return jsonError("Request body must be a JSON object.");
+  const { body, error } = await readJsonObject(request);
+  if (error) return error;
+  if (!body) return jsonError("Request body must be a JSON object.");
 
   const provider = readString(body.provider);
   const description = readString(body.description);

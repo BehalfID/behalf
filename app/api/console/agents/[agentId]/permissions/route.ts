@@ -3,6 +3,7 @@ import { requireConsoleApi } from "@/lib/adminAuth";
 import { getConsoleAccountId, getConsoleAgent } from "@/lib/consoleData";
 import { createPublicId } from "@/lib/ids";
 import { parsePermissionMetadata } from "@/lib/permissions";
+import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import {
   isRecord,
@@ -25,10 +26,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   const { agentId } = await context.params;
-  const body: unknown = await request.json().catch(() => null);
-  if (!isRecord(body)) {
-    return jsonError("Request body must be a JSON object.");
-  }
+  const { body, error } = await readJsonObject(request);
+  if (error) return error;
+  if (!body) return jsonError("Request body must be a JSON object.");
 
   const unknownError = rejectUnknownFields(body, [
     "action",
