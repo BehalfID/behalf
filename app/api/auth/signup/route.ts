@@ -11,8 +11,9 @@ import {
 } from "@/lib/developerAuth";
 import { createPublicId } from "@/lib/ids";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
+import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
-import { isRecord, readString, rejectUnknownFields } from "@/lib/validation";
+import { readString, rejectUnknownFields } from "@/lib/validation";
 import DeveloperUser from "@/models/DeveloperUser";
 
 export async function POST(request: NextRequest) {
@@ -22,8 +23,9 @@ export async function POST(request: NextRequest) {
   const originError = requireDashboardMutationOrigin(request);
   if (originError) return originError;
 
-  const body: unknown = await request.json().catch(() => null);
-  if (!isRecord(body)) return jsonError("Request body must be a JSON object.");
+  const { body, error } = await readJsonObject(request);
+  if (error) return error;
+  if (!body) return jsonError("Request body must be a JSON object.");
 
   const unknownError = rejectUnknownFields(body, ["email", "password"]);
   if (unknownError) return jsonError(unknownError);

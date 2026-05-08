@@ -2,8 +2,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import { parseAgentMetadata } from "@/lib/agents";
 import { getDeveloperAgentDetail, serializeAgent } from "@/lib/dashboardData";
 import { requireDeveloperApi } from "@/lib/developerAuth";
+import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
-import { isRecord, readString, rejectUnknownFields } from "@/lib/validation";
+import { readString, rejectUnknownFields } from "@/lib/validation";
 import Agent from "@/models/Agent";
 
 type RouteContext = {
@@ -23,8 +24,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
 
-  const body: unknown = await request.json().catch(() => null);
-  if (!isRecord(body)) return jsonError("Request body must be a JSON object.");
+  const { body, error } = await readJsonObject(request);
+  if (error) return error;
+  if (!body) return jsonError("Request body must be a JSON object.");
 
   const unknownError = rejectUnknownFields(body, [
     "name",

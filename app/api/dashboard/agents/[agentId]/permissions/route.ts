@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import { createPublicId } from "@/lib/ids";
 import { parsePermissionMetadata } from "@/lib/permissions";
+import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { isRecord, parseOptionalAmount, parseOptionalDate, readString, rejectUnknownFields } from "@/lib/validation";
 import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
@@ -20,8 +21,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const agent = await Agent.findOne({ developerUserId: auth.user.userId, agentId });
   if (!agent) return jsonError("Agent not found.", 404);
 
-  const body: unknown = await request.json().catch(() => null);
-  if (!isRecord(body)) return jsonError("Request body must be a JSON object.");
+  const { body, error } = await readJsonObject(request);
+  if (error) return error;
+  if (!body) return jsonError("Request body must be a JSON object.");
   const unknownError = rejectUnknownFields(body, [
     "action",
     "description",

@@ -110,8 +110,8 @@ export function verifySetupToken(candidate: string) {
 
 export function getSetupToken(request: NextRequest) {
   const header = request.headers.get("authorization") ?? "";
-  const [scheme, token] = header.split(" ");
-  if (scheme !== "Bearer" || !token) {
+  const [scheme, token, extra] = header.trim().split(/\s+/);
+  if (scheme?.toLowerCase() !== "bearer" || !token || extra) {
     return null;
   }
 

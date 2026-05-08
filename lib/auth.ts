@@ -19,9 +19,9 @@ export function timingSafeEqualString(a: string, b: string) {
 
 export function getBearerToken(request: NextRequest) {
   const header = request.headers.get("authorization") ?? "";
-  const [scheme, token] = header.split(" ");
+  const [scheme, token, extra] = header.trim().split(/\s+/);
 
-  if (scheme !== "Bearer" || !token || !token.startsWith("bhf_sk_")) {
+  if (scheme?.toLowerCase() !== "bearer" || !token || extra || !token.startsWith("bhf_sk_")) {
     return null;
   }
 
