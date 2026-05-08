@@ -671,6 +671,7 @@ textarea.ui-input,
 .flow-grid,
 .feature-grid,
 .connected-agent-grid,
+.faq-grid,
 .metric-grid,
 .console-metrics {
   display: grid;
@@ -686,6 +687,7 @@ textarea.ui-input,
 .flow-grid div,
 .feature-grid div,
 .connected-agent-grid div,
+.faq-grid section,
 .metric,
 .ui-stat {
   min-height: 116px;
@@ -694,7 +696,8 @@ textarea.ui-input,
 
 .flow-grid div,
 .feature-grid div,
-.connected-agent-grid div {
+.connected-agent-grid div,
+.faq-grid section {
   display: grid;
   align-content: start;
 }
@@ -715,6 +718,7 @@ textarea.ui-input,
 .flow-grid strong,
 .feature-grid strong,
 .connected-agent-grid strong,
+.faq-grid h3,
 .metric strong,
 .ui-stat strong,
 .console-metric strong {
@@ -725,10 +729,29 @@ textarea.ui-input,
 
 .flow-grid p,
 .feature-grid p,
-.connected-agent-grid p {
+.connected-agent-grid p,
+.faq-grid p {
   margin: 14px 0 0;
   color: var(--muted);
   line-height: 1.55;
+}
+
+.faq-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 28px;
+}
+
+.faq-grid section {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.faq-grid h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1rem;
+  line-height: 1.35;
 }
 
 .metric strong,
@@ -2278,6 +2301,7 @@ textarea.ui-input,
   .flow-grid,
   .feature-grid,
   .connected-agent-grid,
+  .faq-grid,
   .metric-grid,
   .console-metrics,
   .security-grid,
@@ -2382,6 +2406,7 @@ textarea.ui-input,
   .flow-grid,
   .feature-grid,
   .connected-agent-grid,
+  .faq-grid,
   .metric-grid,
   .console-metrics,
   .security-grid,

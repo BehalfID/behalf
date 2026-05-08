@@ -65,9 +65,87 @@ const siteGuardCapabilities = [
   ["Require identity later", "Use verified BehalfID agent credentials for sensitive site actions when available."]
 ];
 
+const faqs = [
+  {
+    question: "What is BehalfID?",
+    answer: "BehalfID is permission infrastructure for AI agents. It lets teams define explicit permission passports and verify actions before agents act."
+  },
+  {
+    question: "How does BehalfID enforce agent permissions?",
+    answer: "A developer integration calls BehalfID before an action runs. If BehalfID denies the request, the integration should fail closed and stop before executing the action."
+  },
+  {
+    question: "Does BehalfID control ChatGPT, Claude, or Gemini automatically?",
+    answer: "No. Manual mode helps existing assistants understand allowed scopes, but it is best-effort. Automatic enforcement requires an app, agent, SDK integration, gateway, middleware, or provider to call BehalfID before acting."
+  },
+  {
+    question: "What is a permission passport?",
+    answer: "A permission passport is a readable set of allowed actions, blocked actions, resources, limits, and expiration rules for an AI agent."
+  },
+  {
+    question: "What is BehalfID Site Guard?",
+    answer: "Site Guard is a planned AI access gateway for website owners. It is designed to enforce site rules when installed as middleware, a worker, proxy, or gateway."
+  },
+  {
+    question: "How is BehalfID different from robots.txt or llms.txt?",
+    answer: "robots.txt and llms.txt-style files declare preferences. BehalfID is designed for enforcement when software calls its API before an agent or automation acts."
+  }
+];
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://behalfid.com/#organization",
+      name: "BehalfID",
+      url: "https://behalfid.com",
+      description: "BehalfID builds permission passport infrastructure for AI agents."
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://behalfid.com/#website",
+      name: "BehalfID",
+      url: "https://behalfid.com",
+      description: "Permission passports for AI agents.",
+      publisher: { "@id": "https://behalfid.com/#organization" },
+      datePublished: "2026-05-03",
+      dateModified: "2026-05-08"
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://behalfid.com/#software",
+      name: "BehalfID",
+      applicationCategory: "DeveloperApplication",
+      operatingSystem: "Web",
+      url: "https://behalfid.com",
+      description: "BehalfID helps developers define agent permissions and verify actions before AI agents act.",
+      publisher: { "@id": "https://behalfid.com/#organization" },
+      datePublished: "2026-05-03",
+      dateModified: "2026-05-08"
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://behalfid.com/#faq",
+      mainEntity: faqs.map((faq) => ({
+        "@type": "Question",
+        name: faq.question,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: faq.answer
+        }
+      }))
+    }
+  ]
+};
+
 export default function Home() {
   return (
     <main className="marketing">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <PublicNav />
 
       <section className="hero">
@@ -272,6 +350,19 @@ const result = await behalf.verify({
             <p>{featureCopy(feature)}</p>
           </div>
         ))}
+      </section>
+
+      <section className="marketing-section">
+        <p className="section-kicker">FAQ</p>
+        <h2>Questions agents and developers ask.</h2>
+        <div className="faq-grid">
+          {faqs.map((faq) => (
+            <section key={faq.question}>
+              <h3>{faq.question}</h3>
+              <p>{faq.answer}</p>
+            </section>
+          ))}
+        </div>
       </section>
 
       <section className="final-cta">
