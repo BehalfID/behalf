@@ -93,8 +93,8 @@ Use the raw request body exactly as received. The helper derives the same signin
 **Security recommendations:**
 
 - Set `baseUrl` explicitly in production. The default points to the official BehalfID deployment.
-- Do not pass untrusted user input as `baseUrl`. The constructor requires a valid `http://` or `https://` URL and will throw for any other value.
-- For local development, `http://localhost` is accepted.
+- Do not pass untrusted user input as `baseUrl`. The constructor requires a valid `https://` URL by default and will throw for plaintext HTTP.
+- For local development only, pass `allowInsecureHttp: true` when using an `http://localhost` `baseUrl`.
 - Do not log the `apiKey` or store it in client-side code.
 
 **Socket.dev / supply-chain scanners:**

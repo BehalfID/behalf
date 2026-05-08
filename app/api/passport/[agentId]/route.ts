@@ -18,7 +18,7 @@ function readPassportToken(request: NextRequest) {
   const header = request.headers.get("authorization") ?? "";
   const [scheme, token] = header.split(" ");
   if (scheme === "Bearer" && token?.startsWith("bhf_pass_")) return token;
-  return request.nextUrl.searchParams.get("token") ?? "";
+  return "";
 }
 
 async function authenticatePassport(agentId: string, token: string) {

@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import net from "net";
 import { createPublicId, createWebhookSecret } from "@/lib/ids";
 import WebhookEventModel from "@/models/WebhookEvent";
 
@@ -100,6 +101,50 @@ export function validateWebhookUrl(value: unknown) {
   return { url: url.toString(), error: null };
 }
 
+export function isPrivateIpAddress(address: string) {
+  const normalizedAddress = address.toLowerCase().replace(/^\[|\]$/g, "");
+  const ipVersion = net.isIP(normalizedAddress);
+
+  if (ipVersion === 4) {
+    const parts = normalizedAddress.split(".").map(Number);
+    if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
+      return true;
+    }
+
+    const [a, b, c, d] = parts;
+    return (
+      a === 0 ||
+      a === 10 ||
+      a === 127 ||
+      (a === 100 && b >= 64 && b <= 127) ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      (a === 192 && b === 0 && c === 0) ||
+      (a === 198 && (b === 18 || b === 19)) ||
+      a >= 224 ||
+      (a === 255 && b === 255 && c === 255 && d === 255)
+    );
+  }
+
+  if (ipVersion === 6) {
+    return (
+      normalizedAddress === "::" ||
+      normalizedAddress === "::1" ||
+      normalizedAddress.startsWith("fc") ||
+      normalizedAddress.startsWith("fd") ||
+      normalizedAddress.startsWith("fe8") ||
+      normalizedAddress.startsWith("fe9") ||
+      normalizedAddress.startsWith("fea") ||
+      normalizedAddress.startsWith("feb") ||
+      normalizedAddress.startsWith("ff") ||
+      normalizedAddress.startsWith("::ffff:")
+    );
+  }
+
+  return false;
+}
+
 export function createWebhookEvent(
   accountId: string | null | undefined,
   type: WebhookEventType,
@@ -166,30 +211,7 @@ function isPrivateHostname(hostname: string) {
     return true;
   }
 
-  if (normalizedHostname === "127.0.0.1" || normalizedHostname === "0.0.0.0") {
-    return true;
-  }
-
-  if (/^\d+\.\d+\.\d+\.\d+$/.test(normalizedHostname)) {
-    const parts = normalizedHostname.split(".").map(Number);
-    const [a, b] = parts;
-    return (
-      a === 10 ||
-      a === 127 ||
-      (a === 172 && b >= 16 && b <= 31) ||
-      (a === 192 && b === 168) ||
-      (a === 169 && b === 254)
-    );
-  }
-
-  if (
-    normalizedHostname === "::1" ||
-    normalizedHostname.startsWith("fc") ||
-    normalizedHostname.startsWith("fd") ||
-    normalizedHostname.toLowerCase().startsWith("::ffff:127.")
-  ) {
-    return true;
-  }
+  if (isPrivateIpAddress(normalizedHostname)) return true;
 
   return false;
 }

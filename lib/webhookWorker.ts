@@ -1,7 +1,10 @@
+import dns from "dns/promises";
 import { connectToDatabase } from "@/lib/db";
 import { createPublicId } from "@/lib/ids";
 import {
+  isPrivateIpAddress,
   signWebhookPayload,
+  validateWebhookUrl,
   WEBHOOK_BACKOFF_MS,
   WEBHOOK_MAX_ATTEMPTS,
   type WebhookEvent
@@ -215,10 +218,21 @@ async function deliverToEndpoint({
 }): Promise<DeliveryResult> {
   const timestamp = Math.floor(Date.now() / 1000).toString();
   const signature = signWebhookPayload(secretHash, timestamp, rawBody);
+  const allowedUrl = await validateDeliveryUrl(url);
+
+  if (allowedUrl.error || !allowedUrl.url) {
+    return {
+      webhookId,
+      status: "failed",
+      error: allowedUrl.error ?? "Webhook URL is not allowed."
+    };
+  }
+  const deliveryUrl = allowedUrl.url;
 
   try {
-    const response = await fetch(url, {
+    const response = await fetch(deliveryUrl, {
       method: "POST",
+      redirect: "manual",
       headers: {
         "Content-Type": "application/json",
         "BehalfID-Event-ID": eventId,
@@ -228,6 +242,15 @@ async function deliverToEndpoint({
       body: rawBody,
       signal: AbortSignal.timeout(DELIVERY_TIMEOUT_MS)
     });
+
+    if (response.status >= 300 && response.status < 400) {
+      return {
+        webhookId,
+        status: "failed",
+        httpStatus: response.status,
+        error: "Endpoint returned a redirect, which is not followed for webhook delivery."
+      };
+    }
 
     if (response.ok) {
       return { webhookId, status: "success", httpStatus: response.status };
@@ -246,6 +269,30 @@ async function deliverToEndpoint({
       error: error instanceof Error ? error.message : "Delivery failed."
     };
   }
+}
+
+async function validateDeliveryUrl(url: string) {
+  const validation = validateWebhookUrl(url);
+  if (validation.error || !validation.url) {
+    return { url: null, error: validation.error ?? "Webhook URL is not allowed." };
+  }
+  const deliveryUrl = validation.url;
+
+  const hostname = new URL(deliveryUrl).hostname;
+  try {
+    const addresses = await dns.lookup(hostname, { all: true, verbatim: true });
+    if (!addresses.length) {
+      return { url: null, error: "Webhook URL host could not be resolved." };
+    }
+
+    if (addresses.some((address) => isPrivateIpAddress(address.address))) {
+      return { url: null, error: "Webhook URL resolved to a private or reserved address." };
+    }
+  } catch {
+    return { url: null, error: "Webhook URL host could not be resolved." };
+  }
+
+  return { url: deliveryUrl, error: null };
 }
 
 function nextAttemptAt(attempt: number) {

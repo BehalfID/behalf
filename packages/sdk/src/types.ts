@@ -1,6 +1,7 @@
 export type BehalfIDConfig = {
   apiKey: string;
   baseUrl?: string;
+  allowInsecureHttp?: boolean;
 };
 
 export type VerifyInput = {
