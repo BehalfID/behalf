@@ -59,6 +59,12 @@ const scopeCategories = [
   ["Admin", "Update CRM contacts, manage tickets, automate workflows."]
 ];
 
+const siteGuardCapabilities = [
+  ["Read public pages", "Allow summaries and citations for public routes."],
+  ["Block protected actions", "Deny form submissions, checkout, login, account creation, or admin workflows."],
+  ["Require identity later", "Use verified BehalfID agent credentials for sensitive site actions when available."]
+];
+
 export default function Home() {
   return (
     <main className="marketing">
@@ -169,6 +175,31 @@ export default function Home() {
           Transactions are one template, not the whole product. The same enforcement pattern applies
           to data access, messaging, scheduling, content creation, and admin workflows.
         </p>
+      </section>
+
+      <section className="marketing-section">
+        <p className="section-kicker">For website owners</p>
+        <h2>Site Guard for protected workflows.</h2>
+        <p className="section-lede">
+          BehalfID Site Guard is the planned AI access gateway for websites. <code>llms.txt</code>
+          can declare intent; Site Guard enforces rules when installed as middleware, a worker,
+          proxy, or gateway before traffic reaches protected routes.
+        </p>
+        <div className="connected-agent-grid">
+          {siteGuardCapabilities.map(([title, body]) => (
+            <div key={title}>
+              <strong>{title}</strong>
+              <p>{body}</p>
+            </div>
+          ))}
+        </div>
+        <p className="section-note">
+          Honest boundary: Site Guard cannot stop all AI traffic globally unless the website
+          installs an enforcement point that calls BehalfID and respects the decision.
+        </p>
+        <div className="hero__actions section-note--spaced">
+          <ButtonLink href="/docs/site-guard">Read Site Guard design</ButtonLink>
+        </div>
       </section>
 
       <section className="native-connected">

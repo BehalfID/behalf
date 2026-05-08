@@ -18,6 +18,7 @@
 - Browser-safe SDK variant after a separate threat model.
 - CLI for agent creation, permission creation, and verification.
 - Integration guides for common Node frameworks.
+- BehalfID Site Guard documentation, site-key policy checks, and middleware/Cloudflare Worker templates.
 - More detailed dashboard filters.
 
 ## Platform
@@ -26,11 +27,13 @@
 - Environment separation for development, staging, and production.
 - API key prefixes and HMAC-peppered key hashes.
 - Signed agent permission passports.
+- Site Guard site/rule/log models with privacy-preserving access logs.
 
 ## Future Exploration
 
 - OAuth/OIDC integrations.
 - Agent passport signing and verification.
 - Integration templates for common agent frameworks.
+- Verified agent credentials for Site Guard routes that require strong identity.
 - Connected-agent import and reconciliation flows.
 - Policy templates for purchase, booking, messaging, and data-access actions.
