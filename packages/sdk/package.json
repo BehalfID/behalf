@@ -1,6 +1,6 @@
 {
   "name": "@behalfid/sdk",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "BehalfID API client — agent permission verification for JavaScript/TypeScript.",
   "type": "module",
   "main": "./dist/index.js",

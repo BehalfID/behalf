@@ -2,15 +2,26 @@ const DEFAULT_BASE_URL = "https://behalfid.com";
 export class BehalfID {
     apiKey;
     baseUrl;
-    constructor({ apiKey, baseUrl = DEFAULT_BASE_URL }) {
+    constructor({ apiKey, baseUrl = DEFAULT_BASE_URL, allowInsecureHttp = false }) {
         if (!apiKey || typeof apiKey !== "string") {
             throw new Error("BehalfID: apiKey is required.");
         }
         if (typeof baseUrl !== "string" || !/^https?:\/\//i.test(baseUrl)) {
             throw new Error("BehalfID: baseUrl must start with http:// or https://");
         }
+        const normalizedBaseUrl = baseUrl.replace(/\/+$/, "");
+        let parsedBaseUrl;
+        try {
+            parsedBaseUrl = new URL(normalizedBaseUrl);
+        }
+        catch {
+            throw new Error("BehalfID: baseUrl must be a valid URL.");
+        }
+        if (parsedBaseUrl.protocol === "http:" && !allowInsecureHttp) {
+            throw new Error("BehalfID: baseUrl must use https://. For local development only, pass allowInsecureHttp: true.");
+        }
         this.apiKey = apiKey;
-        this.baseUrl = baseUrl.replace(/\/+$/, "");
+        this.baseUrl = normalizedBaseUrl;
     }
     verify(input) {
         return this.request("/api/verify", {

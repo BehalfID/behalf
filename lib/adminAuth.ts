@@ -7,9 +7,15 @@ import { jsonError } from "@/lib/responses";
 const COOKIE_NAME = "behalfid_console";
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
 const MUTATION_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const UNSAFE_ADMIN_PASSWORDS = new Set(["change-me", "changeme", "password", "admin"]);
 
 function getAdminPassword() {
-  return process.env.BEHALFID_ADMIN_PASSWORD?.trim() ?? "";
+  const password = process.env.BEHALFID_ADMIN_PASSWORD?.trim() ?? "";
+  if (process.env.NODE_ENV === "production" && UNSAFE_ADMIN_PASSWORDS.has(password.toLowerCase())) {
+    return "";
+  }
+
+  return password;
 }
 
 export function isPublicAgentCreationEnabled() {

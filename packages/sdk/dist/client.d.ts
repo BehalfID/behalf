@@ -2,7 +2,7 @@ import type { BehalfIDConfig, CreateAgentInput, CreateAgentResult, CreatePermiss
 export declare class BehalfID {
     private readonly apiKey;
     private readonly baseUrl;
-    constructor({ apiKey, baseUrl }: BehalfIDConfig);
+    constructor({ apiKey, baseUrl, allowInsecureHttp }: BehalfIDConfig);
     verify(input: VerifyInput): Promise<VerifyResult>;
     createAgent(input: string | CreateAgentInput): Promise<CreateAgentResult>;
     createPermission(input: CreatePermissionInput): Promise<CreatePermissionResult>;
