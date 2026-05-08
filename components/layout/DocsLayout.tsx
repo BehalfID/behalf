@@ -10,6 +10,7 @@ export const docsNav = [
   { href: "/docs/api", label: "API" },
   { href: "/docs/sdk", label: "SDK" },
   { href: "/docs/webhooks", label: "Webhooks" },
+  { href: "/docs/site-guard", label: "Site Guard" },
   { href: "/docs/concepts", label: "Concepts" },
   { href: "/security", label: "Security" }
 ];
