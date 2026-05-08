@@ -30,7 +30,7 @@ export default function ConceptsPage() {
     <DocsShell
       title="Concepts"
       description="The core nouns behind BehalfID’s connected-agent permission passport model."
-      previous={{ href: "/docs/webhooks", label: "Webhooks" }}
+      previous={{ href: "/docs/site-guard", label: "Site Guard" }}
     >
       <div className="concept-grid">
         {concepts.map(([title, body]) => (

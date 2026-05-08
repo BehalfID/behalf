@@ -6,7 +6,7 @@ export default function WebhookDocsPage() {
       title="Webhooks"
       description="Subscribe to verification, agent, and permission events. BehalfID signs each event and delivers through a durable outbox."
       previous={{ href: "/docs/sdk", label: "JavaScript SDK" }}
-      next={{ href: "/docs/concepts", label: "Concepts" }}
+      next={{ href: "/docs/site-guard", label: "Site Guard" }}
     >
       <h2>Event types</h2>
       <div className="docs-chip-grid">

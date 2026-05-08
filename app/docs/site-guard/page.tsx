@@ -24,6 +24,16 @@ export default function SiteGuardDocsPage() {
         worker, or another controlled gateway.
       </p>
       <p>
+        For crawler and indexability background, see Google&apos;s guidance on{" "}
+        <a href="https://developers.google.com/search/docs/advanced/robots/create-robots-txt" target="_blank" rel="noopener noreferrer">robots.txt</a>
+        {" "}and{" "}
+        <a href="https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap" target="_blank" rel="noopener noreferrer">sitemaps</a>.
+        AI crawler operators also publish their own crawler documentation, including{" "}
+        <a href="https://platform.openai.com/docs/bots" target="_blank" rel="noopener noreferrer">OpenAI crawlers</a>
+        {" "}and{" "}
+        <a href="https://support.anthropic.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler" target="_blank" rel="noopener noreferrer">Anthropic crawler controls</a>.
+      </p>
+      <p>
         This is complementary to permission passports. Passports answer:{" "}
         <strong>is this agent allowed to act for this user?</strong> Site Guard answers:{" "}
         <strong>is this agent or automation allowed to access or act on this website?</strong>

@@ -11,9 +11,9 @@ export function Logo({
   variant?: "full" | "symbol";
 }) {
   return (
-    <Link className={`site-logo site-logo--${variant}`} href={href}>
-      <span className="site-logo__mark" aria-hidden="true">
-        <Image alt="" height={24} src="/behalf_symbols.png" width={24} />
+    <Link aria-label="BehalfID" className={`site-logo site-logo--${variant}`} href={href}>
+      <span className="site-logo__mark">
+        <Image alt="BehalfID symbol" height={24} src="/behalf_symbols.png" width={24} />
       </span>
       <span className="site-logo__wordmark">
         {variant === "full" ? (

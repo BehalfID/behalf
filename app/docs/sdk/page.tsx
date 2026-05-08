@@ -10,6 +10,10 @@ export default function SdkDocsPage() {
     >
       <h2>Install</h2>
       <CodeBlock label="terminal">{`npm install @behalfid/sdk`}</CodeBlock>
+      <p>
+        The package is published on{" "}
+        <a href="https://www.npmjs.com/package/@behalfid/sdk" target="_blank" rel="noopener noreferrer">npm as @behalfid/sdk</a>.
+      </p>
       <h2>Initialize</h2>
       <CodeBlock label="client.ts">{`import { BehalfID } from "@behalfid/sdk";
 
