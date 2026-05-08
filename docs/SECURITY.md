@@ -34,6 +34,7 @@ BehalfID is currently a prototype. It is suitable for local demos and constraine
 - Connected-agent provider metadata is descriptive only. BehalfID does not collect provider credentials, and `externalAgentId` is never treated as authentication.
 - `@behalfid/sdk` makes network requests only when an SDK method is called (`verify`, `createAgent`, `createPermission`, `rotateKey`, `getLogs`). No network request is made on package import or `BehalfID` construction. All requests go to the configured `baseUrl` with `Authorization: Bearer`. `verifyWebhookSignature` is local-only and makes no network requests. The `baseUrl` constructor validates that the value starts with `http://` or `https://` and rejects other values.
 - Public passport links use a separate `bhf_pass_` token scoped to one agent. The passport page intentionally exposes the agent's active permission scopes so external agents can read what they are allowed to do. The token cannot create permissions, rotate keys, view audit logs, or expose API keys, webhook secrets, developer identity, account IDs, or internal DB IDs. Revoked and expired permissions are hidden from the public passport. A passport token is not an API key — treat it like a secret link.
+- BehalfID Site Guard is a planned website-owner enforcement pattern. It should require a separate site key, store only hashed site keys, and avoid logging cookies, authorization headers, raw query strings, page content, or request bodies by default.
 
 ## Known Prototype Limitations
 
@@ -56,6 +57,7 @@ BehalfID is currently a prototype. It is suitable for local demos and constraine
 - Public passport pages expose active permission scopes by design, including `allowedActions`, `blockedActions`, `requiresApproval`, `resource`, and `scope`. Do not create permissions containing sensitive data that should not be visible to anyone with the passport token.
 - Agent descriptions are informational. The structured permission fields (`allowedActions`, `blockedActions`) are the source of truth exposed to external agents reading the passport.
 - API key hashes are deterministic. A future version should use an HMAC pepper or key identifier plus HMAC hash.
+- Site Guard is not implemented as a production gateway yet. User-Agent detection is spoofable and must remain best-effort; verified agent identity should require a signed credential in a future iteration.
 
 ## Production Recommendations
 
@@ -67,3 +69,4 @@ BehalfID is currently a prototype. It is suitable for local demos and constraine
 - Add stronger webhook queue observability, alerting, and replay audit logs.
 - Use a stronger key storage design with a secret pepper.
 - Consider disabling public `POST /api/agents` in production and requiring console or provisioning auth.
+- Build Site Guard as a separate site-key authenticated policy-check API with Redis-backed limits and safe access logs before adding worker or middleware packages.

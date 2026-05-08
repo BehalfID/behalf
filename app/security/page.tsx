@@ -11,6 +11,7 @@ export const metadata = {
 const limitations = [
   "No provider-native integrations yet. Connected agents are represented manually inside BehalfID — BehalfID does not call Ollie, ChatGPT, Claude, or Zapier APIs on your behalf.",
   "Manual mode depends on user and agent cooperation. The external agent must read the passport and respect the listed constraints; BehalfID cannot enforce behavior inside third-party providers.",
+  "Site Guard is a planned website-owner enforcement pattern, not a global crawler blocker. It only protects routes or workflows where the website installs middleware, a proxy, worker, or gateway that calls BehalfID and respects the decision.",
   "No enterprise SSO or team roles yet. The admin console uses one shared password. The developer portal has individual accounts but no organizations.",
   "No formal external security audit yet. BehalfID is suitable for constrained deployments and demos, not open public multi-tenant use without further hardening.",
   "Not a replacement for app-level authorization. BehalfID is a pre-action verification layer. Your app still needs its own auth, input validation, and access control.",
@@ -77,6 +78,12 @@ if (!result.allowed) {
               respects the response. See the{" "}
               <Link href="/sandbox">live sandbox</Link> for a browser-based demonstration.
             </p>
+            <div className="security-note">
+              BehalfID Site Guard extends this pattern to websites: your middleware, worker, proxy,
+              or gateway calls BehalfID before protected routes such as checkout, forms, login,
+              account changes, data export, or admin workflows. User-Agent detection is best-effort
+              and spoofable; verified agent identity requires a future signed credential.
+            </div>
           </div>
         </section>
 

@@ -15,6 +15,7 @@ This prototype includes the public permission API, a public docs site, a develop
 - Manage native and connected agents, permissions, logs, key rotation, and disable/enable state in `/console`.
 - Sign up for a developer portal account and manage owned resources in `/dashboard`.
 - Read public integration pages at `/docs`.
+- Explore the planned BehalfID Site Guard pattern for website-owner AI access enforcement.
 
 ## Local Setup
 
@@ -103,6 +104,12 @@ if (!result.allowed) {
 ```
 
 Local SDK source lives in `packages/sdk`. A runnable Node example lives in `examples/node-demo`.
+
+## Site Guard Preview
+
+BehalfID Site Guard is the planned AI access gateway for website owners. `llms.txt`-style files can declare intent, but Site Guard is designed to enforce rules when installed as middleware, a worker, proxy, or gateway before protected site workflows run.
+
+Site Guard is not a full reverse proxy/CDN yet and does not claim reliable AI identity from User-Agent strings. See `/docs/site-guard` and [docs/SITE_GUARD.md](docs/SITE_GUARD.md) for the design.
 
 ### Reference enforcement demo
 

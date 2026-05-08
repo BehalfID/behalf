@@ -5,6 +5,7 @@ import { CodeBlock as SharedCodeBlock } from "@/components/ui";
 export const docsNav = [
   { href: "/docs", label: "Overview" },
   { href: "/docs/quickstart", label: "Quickstart" },
+  { href: "/docs/site-guard", label: "Site Guard" },
   { href: "/docs/api", label: "API" },
   { href: "/docs/sdk", label: "SDK" },
   { href: "/docs/webhooks", label: "Webhooks" },
