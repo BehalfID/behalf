@@ -192,8 +192,43 @@ function HomeView() {
         <Metric label="Webhook issues" value={summary.data?.failedEvents ?? 0} />
       </div>
       <Card className="dashboard-panel">
-        <h2>Quickstart</h2>
-        <ol><li>Add a native or connected agent</li><li>Create a permission passport</li><li>Install <code>@behalfid/sdk</code></li><li>Verify before the agent acts</li></ol>
+        <div className="dashboard-section-header">
+          <div>
+            <h2>Quickstart</h2>
+            <p>Set up the minimum path from passport to enforcement.</p>
+          </div>
+          <ButtonLink href="/dashboard/onboarding">Add agent</ButtonLink>
+        </div>
+        <div className="quickstart-steps">
+          <Link className="quickstart-step" href="/dashboard/onboarding">
+            <span className="quickstart-step__number">1</span>
+            <span>
+              <strong>Add agent</strong>
+              <small>Connect an existing assistant or create a native integration agent.</small>
+            </span>
+          </Link>
+          <Link className="quickstart-step" href="/dashboard/agents">
+            <span className="quickstart-step__number">2</span>
+            <span>
+              <strong>Create permissions</strong>
+              <small>Define allowed actions, resources, blocked actions, and limits.</small>
+            </span>
+          </Link>
+          <Link className="quickstart-step" href="/docs/sdk">
+            <span className="quickstart-step__number">3</span>
+            <span>
+              <strong>Install the SDK</strong>
+              <small>Use <code>@behalfid/sdk</code> from Node 18+.</small>
+            </span>
+          </Link>
+          <Link className="quickstart-step" href="/dashboard/docs">
+            <span className="quickstart-step__number">4</span>
+            <span>
+              <strong>Verify before acting</strong>
+              <small>Call BehalfID before actions; denied actions fail closed.</small>
+            </span>
+          </Link>
+        </div>
       </Card>
     </>
   );

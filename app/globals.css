@@ -1129,19 +1129,22 @@ textarea.ui-input,
 
 .sandbox-action__btn {
   flex-shrink: 0;
-  min-width: 72px;
-  padding: 9px 20px;
+  min-width: 88px;
+  padding: 10px 20px;
   border-radius: 8px;
-  border: 1px solid var(--border-strong);
-  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.42);
+  background: rgba(99, 102, 241, 0.16);
   color: var(--text);
   cursor: pointer;
   font-size: 0.9rem;
-  transition: background 0.15s;
+  font-weight: 650;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
 }
 
 .sandbox-action__btn:hover:not(:disabled) {
-  background: rgba(99, 102, 241, 0.22);
+  border-color: rgba(99, 102, 241, 0.72);
+  background: rgba(99, 102, 241, 0.26);
+  transform: translateY(-1px);
 }
 
 .sandbox-action__btn:disabled {
@@ -1494,7 +1497,7 @@ textarea.ui-input,
 
 .docs-links {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 12px;
   margin-top: 28px;
 }
@@ -1656,6 +1659,74 @@ textarea.ui-input,
 .agent-create-card h2 {
   margin: 0;
   color: var(--text);
+}
+
+.dashboard-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.dashboard-section-header h2 {
+  margin: 0;
+}
+
+.dashboard-section-header p {
+  margin: 6px 0 0;
+}
+
+.quickstart-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.quickstart-step {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: flex-start;
+  min-height: 132px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(11, 15, 20, 0.36);
+  color: var(--text);
+  text-decoration: none;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+
+.quickstart-step:hover {
+  border-color: rgba(99, 102, 241, 0.42);
+  background: rgba(99, 102, 241, 0.08);
+  transform: translateY(-1px);
+}
+
+.quickstart-step__number {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgba(99, 102, 241, 0.42);
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.quickstart-step strong {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--text);
+}
+
+.quickstart-step small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
 }
 
 .agent-passport__header {
@@ -2210,7 +2281,8 @@ textarea.ui-input,
   .metric-grid,
   .console-metrics,
   .security-grid,
-  .stops-grid {
+  .stops-grid,
+  .quickstart-steps {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -2315,12 +2387,17 @@ textarea.ui-input,
   .security-grid,
   .security-grid--2col,
   .stops-grid,
+  .quickstart-steps,
   .form-grid,
   .inline-form,
   .constraint-list,
   .auth-context ul,
   .flow {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-section-header {
+    flex-direction: column;
   }
 
   .sandbox-action {
