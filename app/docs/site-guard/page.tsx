@@ -12,9 +12,9 @@ export default function SiteGuardDocsPage() {
   return (
     <DocsShell
       title="BehalfID Site Guard"
-      description="A planned AI access gateway for website owners: declare site rules, install an enforcement point, and fail closed before protected site workflows run."
-      previous={{ href: "/docs/quickstart", label: "Quickstart" }}
-      next={{ href: "/docs/api", label: "API reference" }}
+      description="A planned AI access gateway for website owners. Define site rules, install an enforcement point, and fail closed before protected workflows run."
+      previous={{ href: "/docs/webhooks", label: "Webhooks" }}
+      next={{ href: "/docs/concepts", label: "Concepts" }}
     >
       <h2>What Site Guard is</h2>
       <p>
@@ -45,7 +45,7 @@ export default function SiteGuardDocsPage() {
         requires a signed credential in a future iteration.
       </p>
 
-      <h2>Planned policy check</h2>
+      <h2>Future policy check endpoint</h2>
       <p>
         The first backend milestone should add a separate site-key authenticated endpoint.
         It should not reuse agent API keys, passport tokens, or dashboard cookies.
