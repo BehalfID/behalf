@@ -29,6 +29,12 @@ export class BehalfID {
             body: input
         });
     }
+    executeAction(input) {
+        return this.request("/api/actions/execute", {
+            method: "POST",
+            body: input
+        });
+    }
     createAgent(input) {
         const body = typeof input === "string" ? { name: input } : input;
         if (!body?.name || typeof body.name !== "string") {

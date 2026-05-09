@@ -12,6 +12,7 @@ type VerifyInput = {
   amount?: number;
   vendor?: string;
   metadata?: Record<string, unknown>;
+  enforcementDenyReason?: string;
 };
 
 type VerificationDecision = {
@@ -107,6 +108,14 @@ export async function verifyAction(input: VerifyInput) {
   const permission = await findNewestMatchingPermission(input);
 
   const decision = evaluatePermission(permission, input);
+  const finalDecision =
+    decision.allowed && input.enforcementDenyReason
+      ? ({
+          allowed: false,
+          reason: input.enforcementDenyReason,
+          risk: "high"
+        } satisfies Omit<VerificationDecision, "requestId">)
+      : decision;
   const now = new Date();
 
   await Agent.updateOne({ agentId: input.agentId }, { $set: { lastUsedAt: now } });
@@ -131,13 +140,13 @@ export async function verifyAction(input: VerifyInput) {
     action: input.action,
     amount: input.amount,
     vendor: input.vendor,
-    allowed: decision.allowed,
-    reason: decision.reason,
-    risk: decision.risk,
+    allowed: finalDecision.allowed,
+    reason: finalDecision.reason,
+    risk: finalDecision.risk,
     metadata: logMetadata
   });
 
-  return { requestId, permissionId: permission?.permissionId ?? null, ...decision };
+  return { requestId, permissionId: permission?.permissionId ?? null, ...finalDecision };
 }
 
 export async function previewVerification(input: VerifyInput) {

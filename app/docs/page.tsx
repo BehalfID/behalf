@@ -5,6 +5,7 @@ const cards = [
   { href: "/docs/quickstart", title: "Quickstart", body: "Add a native or connected agent, define a permission passport, and verify an action." },
   { href: "/docs/api", title: "API Reference", body: "Use public REST endpoints for connected agents, permissions, verification, logs, and key rotation." },
   { href: "/docs/sdk", title: "SDK", body: "Install the JavaScript SDK from npm and call BehalfID from Node 18+." },
+  { href: "/docs/action-gateway", title: "Action Gateway", body: "Route safe public web reads through BehalfID so denied actions fail before execution." },
   { href: "/docs/webhooks", title: "Webhooks", body: "Receive signed events through an outbox-backed delivery system." },
   { href: "/docs/site-guard", title: "Site Guard", body: "Design website middleware, workers, or gateways that enforce AI access rules before protected workflows run." },
   { href: "/docs/concepts", title: "Concepts", body: "Understand native agents, connected agents, permission passports, providers, and audit logs." },

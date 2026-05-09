@@ -15,6 +15,7 @@ const routes: Array<{
   { path: "/docs/quickstart", changeFrequency: "weekly", priority: 0.85 },
   { path: "/docs/api", changeFrequency: "weekly", priority: 0.85 },
   { path: "/docs/sdk", changeFrequency: "weekly", priority: 0.85 },
+  { path: "/docs/action-gateway", changeFrequency: "weekly", priority: 0.84 },
   { path: "/docs/webhooks", changeFrequency: "monthly", priority: 0.78 },
   { path: "/docs/site-guard", changeFrequency: "monthly", priority: 0.76 },
   { path: "/docs/concepts", changeFrequency: "monthly", priority: 0.8 },

@@ -13,6 +13,7 @@ Key pages:
 - https://behalfid.com/docs/concepts
 - https://behalfid.com/docs/api
 - https://behalfid.com/docs/sdk
+- https://behalfid.com/docs/action-gateway
 - https://behalfid.com/docs/webhooks
 - https://behalfid.com/docs/site-guard
 - https://behalfid.com/security
@@ -24,12 +25,14 @@ BehalfID is agent permission infrastructure. Passports define what agents may do
 Product model:
 - Permission passports describe explicit allowed scopes for native or connected AI agents.
 - Developer integrations call the BehalfID API or JavaScript SDK before an agent acts.
+- The Action Gateway MVP can enforce allowed safe public web reads by executing them through BehalfID.
 - Manual mode gives existing assistants readable passport links, JSON, memory blocks, and per-task prompts.
 - Site Guard is a planned website-owner enforcement pattern unless a backend endpoint is explicitly documented as available.
 
 Important limitations:
 - Manual passports are best-effort and depend on agent cooperation.
 - BehalfID only enforces actions when an application, SDK integration, gateway, middleware, or provider calls BehalfID before acting.
+- The Action Gateway currently only supports safe public GET reads and does not submit forms, log in, purchase, send email, or use credentials.
 - BehalfID does not automatically control ChatGPT, Claude, Gemini, Ollie, Zapier, Make, or other third-party agents without an integration.
 - Site Guard cannot stop all AI traffic globally. It requires an installed middleware, proxy, worker, gateway, or similar enforcement point.
 

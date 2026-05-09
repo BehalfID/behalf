@@ -6,8 +6,10 @@ import { ButtonLink } from "@/components/ui";
 type ActionResult = {
   action: string;
   vendor: string;
+  url?: string;
   amount?: number;
   allowed: boolean;
+  executed: boolean;
   reason: string;
   risk: "low" | "medium" | "high";
 };
@@ -27,14 +29,15 @@ const DEMO_POLICY = {
   ]
 };
 
-function simulateVerify(input: { action: string; vendor: string; amount?: number }): ActionResult {
+function simulateGateway(input: { action: string; vendor: string; url?: string; amount?: number }): ActionResult {
   const permission = DEMO_POLICY.permissions.find(
     (p) => p.action === input.action && (p.resource === input.vendor || p.resource === "web")
   );
-  if (permission) {
+  if (permission && input.action === "browse_web" && input.vendor === "web") {
     return {
       ...input,
       allowed: true,
+      executed: true,
       reason: "Action allowed by active permission.",
       risk: "low"
     };
@@ -42,6 +45,7 @@ function simulateVerify(input: { action: string; vendor: string; amount?: number
   return {
     ...input,
     allowed: false,
+    executed: false,
     reason: "No active permission exists for this action.",
     risk: "high"
   };
@@ -49,9 +53,9 @@ function simulateVerify(input: { action: string; vendor: string; amount?: number
 
 const DEMO_ACTIONS = [
   {
-    label: "Browse web",
-    description: "Research flights to Tokyo on Google",
-    input: { action: "browse_web", vendor: "web" },
+    label: "Public read",
+    description: "Fetch a safe public page summary",
+    input: { action: "browse_web", vendor: "web", url: "https://example.com" },
     expectAllowed: true
   },
   {
@@ -61,9 +65,9 @@ const DEMO_ACTIONS = [
     expectAllowed: false
   },
   {
-    label: "Send message",
-    description: "Send Slack message to #general",
-    input: { action: "send_message", vendor: "slack.com" },
+    label: "Submit form",
+    description: "Submit contact form on a vendor site",
+    input: { action: "submit_form", vendor: "web" },
     expectAllowed: false
   }
 ];
@@ -72,10 +76,10 @@ export function SandboxClient() {
   const [results, setResults] = useState<Record<number, ActionResult | null>>({});
   const [running, setRunning] = useState<Record<number, boolean>>({});
 
-  const run = async (index: number, input: { action: string; vendor: string; amount?: number }) => {
+  const run = async (index: number, input: { action: string; vendor: string; url?: string; amount?: number }) => {
     setRunning((prev) => ({ ...prev, [index]: true }));
     await new Promise((resolve) => setTimeout(resolve, 320));
-    const result = simulateVerify(input);
+    const result = simulateGateway(input);
     setResults((prev) => ({ ...prev, [index]: result }));
     setRunning((prev) => ({ ...prev, [index]: false }));
   };
@@ -91,8 +95,8 @@ export function SandboxClient() {
         <p className="section-kicker">Sandbox — no real agents or secrets</p>
         <h1>Denied actions fail closed.</h1>
         <p className="sandbox-lede">
-          Ollie has one permission: browse the web. It cannot make purchases or send messages.
-          Click an action to see BehalfID enforce the policy before the agent proceeds.
+          Ollie has one permission: browse the web. It cannot make purchases or submit forms.
+          Click an action to see the Action Gateway enforce the policy before execution.
         </p>
       </div>
 
@@ -134,7 +138,7 @@ export function SandboxClient() {
                 <strong>{demo.label}</strong>
                 <span>{demo.description}</span>
                 <code className="sandbox-action__call">
-                  verify({`{ action: "${demo.input.action}", vendor: "${demo.input.vendor}"${demo.input.amount ? `, amount: ${demo.input.amount}` : ""} }`})
+                  executeAction({`{ action: "${demo.input.action}", resource: "${demo.input.vendor}"${demo.input.url ? `, url: "${demo.input.url}"` : ""}${demo.input.amount ? `, amount: ${demo.input.amount}` : ""} }`})
                 </code>
               </div>
               {!result ? (
@@ -149,7 +153,7 @@ export function SandboxClient() {
               ) : (
                 <div className="sandbox-action__result">
                   <span className={result.allowed ? "sandbox-result--allowed" : "sandbox-result--denied"}>
-                    {result.allowed ? "✓ Allowed" : "✗ Denied"}
+                    {result.executed ? "✓ Executed" : "✗ Not executed"}
                   </span>
                   <small>{result.reason}</small>
                   {!result.allowed ? (
@@ -173,23 +177,26 @@ export function SandboxClient() {
       <div className="sandbox-pattern">
         <h2>The enforce pattern</h2>
         <p>
-          Every action is gated. On denial, <code>enforceAction</code> throws — the agent never reaches the code that would have executed the action.
-          This is fail closed: on denial, the safe default is to stop rather than proceed.
+          Verify mode checks whether an action is allowed. The Action Gateway enforces by executing only supported allowed actions.
+          On denial, the gateway returns <code>executed: false</code> and nothing happens.
         </p>
         <pre className="sandbox-code">{`async function enforceAction(input) {
-  const result = await behalf.verify({ agentId, ...input });
-  if (!result.allowed) {
+  const result = await behalf.executeAction({ agentId, ...input });
+  if (!result.executed) {
     throw new Error(\`Action blocked by BehalfID: \${result.reason}\`);
   }
   return result;
 }
 
-// browse_web is allowed — this proceeds.
-await enforceAction({ action: "browse_web", vendor: "web" });
-console.log("Researching flights...");
+// browse_web is allowed and executed by the gateway.
+await enforceAction({
+  action: "browse_web",
+  resource: "web",
+  input: { url: "https://example.com" }
+});
 
-// purchase is denied — this throws. The next line never runs.
-await enforceAction({ action: "purchase", vendor: "coachella.com", amount: 742 });
+// purchase is denied — this throws. No purchase executor exists in the gateway.
+await enforceAction({ action: "purchase", resource: "coachella.com", input: {} });
 console.log("Booking ticket..."); // ← never reached`}</pre>
       </div>
 
@@ -200,8 +207,8 @@ console.log("Booking ticket..."); // ← never reached`}</pre>
           <ButtonLink href="/docs/quickstart">Read the quickstart</ButtonLink>
         </div>
         <p className="sandbox-note">
-          This sandbox simulates BehalfID enforcement locally. No real agents, API keys, or permissions were used.
-          Real enforcement requires creating an agent and calling the verification API or SDK.
+          This sandbox simulates Action Gateway enforcement locally. No real agents, API keys, permissions, or network requests were used.
+          Real enforcement requires creating an agent and calling the gateway API or SDK.
         </p>
       </div>
     </div>
