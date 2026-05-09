@@ -184,6 +184,12 @@ export function SandboxClient() {
               <span>{activeAction.eyebrow}</span>
               <h2>{activeAction.requestTitle}</h2>
             </div>
+            <div className="sandbox-status-stack" aria-label="Decision status">
+              <strong className={`decision-text decision-text--${activeAction.decision}`}>
+                {decisionText(activeAction.decision)}
+              </strong>
+              <span>executed: {activeAction.executed ? "true" : "false"}</span>
+            </div>
             <button
               className="sandbox-action__btn"
               disabled={running}
@@ -194,44 +200,26 @@ export function SandboxClient() {
             </button>
           </div>
 
-          <div className="trace-grid trace-stack">
-            <div className="trace-row trace-row--wide">
+          <div className="sandbox-console-body">
+            <div className="sandbox-decision-copy">
+              <span>reason</span>
+              <p>{activeAction.reason}</p>
+              <span>active passport rule</span>
+              <p>{activeAction.passportRule}</p>
+              <span>audit event</span>
+              <p>{activeAction.auditEvent}</p>
+            </div>
+
+            <div className="sandbox-request-panel">
               <span>request</span>
               <pre>{requestSnippet(activeAction)}</pre>
             </div>
-            <div className="trace-row">
-              <span>active passport rule</span>
-              <strong>{activeAction.passportRule}</strong>
-            </div>
-            <div className="trace-row">
-              <span>decision</span>
-              <strong className={`decision-text decision-text--${activeAction.decision}`}>
-                {decisionText(activeAction.decision)}
-              </strong>
-            </div>
-            <div className="trace-row">
-              <span>reason</span>
-              <strong>{activeAction.reason}</strong>
-            </div>
-            <div className="trace-row">
-              <span>executed</span>
-              <strong>{activeAction.executed ? "true" : "false"}</strong>
-            </div>
-            <div className="trace-row">
-              <span>audit event</span>
-              <strong>{activeAction.auditEvent}</strong>
-            </div>
           </div>
 
-          <div className="terminal-panel">
-            <div className="terminal-panel__bar">
-              <span>enforcement.result</span>
-              <span>{decisionText(activeAction.decision)}</span>
-            </div>
-            <div className="terminal-panel__body">
-              <p><span>result</span>{activeAction.result}</p>
-              {activeAction.note ? <p><span>note</span>{activeAction.note}</p> : null}
-            </div>
+          <div className="sandbox-result-line">
+            <span>result</span>
+            <p>{activeAction.result}</p>
+            {activeAction.note ? <p>{activeAction.note}</p> : null}
           </div>
         </section>
 
