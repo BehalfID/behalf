@@ -2,10 +2,10 @@ import { PublicNav } from "@/components/layout/PublicNav";
 import { ButtonLink, CodeBlock } from "@/components/ui";
 
 const productModel = [
-  ["Passport", "Allowed actions, blocked actions, resources, limits."],
-  ["Verify", "Decision point before execution."],
-  ["Enforce", "SDK/API integration or Action Gateway stops denied actions."],
-  ["Audit", "Logs and webhooks record the decision."]
+  ["Action request", "Agent, action, resource, vendor, amount, and route are packaged before execution."],
+  ["Decision boundary", "BehalfID verifies the request against the active passport before the tool runs."],
+  ["Execution state", "Allowed actions continue. Denied or missing permissions fail closed."],
+  ["Audit event", "The decision, reason, and enforcement result are recorded for review and webhooks."]
 ];
 
 const secondarySurfaces = [
@@ -21,6 +21,19 @@ const secondarySurfaces = [
     cta: "Read Site Guard design",
     href: "/docs/site-guard"
   }
+];
+
+const problemSignals = [
+  ["API key", "integration can call"],
+  ["OAuth grant", "user delegated broad access"],
+  ["Agent action", "specific operation still needs a boundary"]
+];
+
+const enforcementRows = [
+  ["Verify endpoint", "Check an action before your executor runs."],
+  ["SDK guard", "Throw or branch when decision.allowed is false."],
+  ["Action Gateway", "MVP supports safe public web reads through a controlled executor."],
+  ["Webhooks + logs", "Record allowed, denied, and approval-required decisions."]
 ];
 
 const jsonLd = {
@@ -60,38 +73,34 @@ const jsonLd = {
 
 function DecisionPacket() {
   return (
-    <div className="decision-packet" aria-label="Denied action decision packet">
-      <div className="decision-packet__header">
-        <span>Decision packet</span>
-        <strong>blocked before execution</strong>
+    <div className="decision-boundary-primitive" aria-label="Decision packet crossing BehalfID boundary">
+      <div className="primitive-stream primitive-stream--request">
+        <span>ACTION REQUEST</span>
+        <strong>purchase</strong>
+        <code>agent: agent_ollie</code>
+        <code>vendor: coachella.com</code>
+        <code>amount: $742</code>
       </div>
-      <div className="decision-packet__body">
-        <section className="packet-pane">
-          <p>ACTION REQUEST</p>
-          <dl className="packet-list">
-            <div><dt>agent</dt><dd>Ollie</dd></div>
-            <div><dt>action</dt><dd>purchase</dd></div>
-            <div><dt>vendor</dt><dd>coachella.com</dd></div>
-            <div><dt>amount</dt><dd>$742</dd></div>
-          </dl>
-        </section>
-        <div className="packet-boundary" aria-hidden="true">
-          <span>BehalfID decision boundary</span>
+
+      <div className="primitive-boundary" aria-hidden="true">
+        <span>BEHALFID DECISION BOUNDARY</span>
+      </div>
+
+      <div className="primitive-stream primitive-stream--decision">
+        <span>DECISION</span>
+        <strong>denied</strong>
+        <code>No active purchase permission</code>
+      </div>
+
+      <div className="primitive-ledger">
+        <div>
+          <span>EXECUTION STATE</span>
+          <strong>false</strong>
         </div>
-        <section className="packet-pane packet-pane--decision">
-          <p>PASSPORT MATCH</p>
-          <strong>active scope: browse_web only</strong>
-          <p>DECISION</p>
-          <strong className="packet-decision">denied</strong>
-          <p>REASON</p>
-          <strong>No active permission allows purchase.</strong>
-          <p>AUDIT</p>
-          <strong>verification.denied queued</strong>
-        </section>
-      </div>
-      <div className="decision-packet__footer">
-        <span>EXECUTION</span>
-        <strong>false</strong>
+        <div>
+          <span>AUDIT EVENT</span>
+          <strong>verification.denied</strong>
+        </div>
       </div>
     </div>
   );
@@ -122,29 +131,31 @@ export default function Home() {
         <DecisionPacket />
       </section>
 
-      <section className="marketing-section problem-section">
-        <p className="section-kicker">Problem</p>
-        <h2>Agents are moving from suggestions to actions.</h2>
-        <p className="section-lede">
-          Purchases, API calls, workflow automation, data access, and delegated user
-          actions all need the same answer: is this agent allowed to do this?
-        </p>
-        <div className="contrast-list" aria-label="Permission model contrast">
-          <p>API keys prove an integration can call your system.</p>
-          <p>OAuth proves a user granted broad access.</p>
-          <p>
-            BehalfID models per-action delegation with resources, scopes, limits,
-            approval, expiration, and revocation.
+      <section className="marketing-section problem-section" aria-labelledby="problem-heading">
+        <div>
+          <p className="section-kicker">Problem</p>
+          <h2 id="problem-heading">Agents now need runtime permission checks.</h2>
+          <p className="section-lede">
+            Purchases, API calls, workflow automation, data access, and delegated user
+            actions all need the same answer before execution: is this specific action allowed?
           </p>
+        </div>
+        <div className="signal-table" aria-label="Current authorization signals">
+          {problemSignals.map(([label, value]) => (
+            <div key={label}>
+              <span>{label}</span>
+              <strong>{value}</strong>
+            </div>
+          ))}
         </div>
       </section>
 
       <section className="marketing-section product-model" aria-labelledby="product-model-heading">
         <p className="section-kicker">Model</p>
-        <h2 id="product-model-heading">Passport. Verify. Enforce. Audit.</h2>
-        <div className="product-model__diagram" aria-label="BehalfID product model">
+        <h2 id="product-model-heading">The decision packet is the primitive.</h2>
+        <div className="boundary-flow" aria-label="BehalfID product model">
           {productModel.map(([title, body], index) => (
-            <article className="product-model__step" key={title}>
+            <article className="boundary-flow__step" key={title}>
               <span>0{index + 1}</span>
               <h3>{title}</h3>
               <p>{body}</p>
@@ -166,6 +177,14 @@ export default function Home() {
             Action Gateway currently supports safe public web reads as the MVP.
             Denied or missing permissions should fail closed before the executor runs.
           </p>
+          <div className="enforcement-rows" aria-label="Enforcement surfaces">
+            {enforcementRows.map(([label, body]) => (
+              <div key={label}>
+                <span>{label}</span>
+                <strong>{body}</strong>
+              </div>
+            ))}
+          </div>
         </div>
         <div className="enforcement-console">
           <CodeBlock label="install + verify">{`npm install @behalfid/sdk
@@ -191,7 +210,7 @@ if (!decision.allowed) {
 
       <section className="marketing-section secondary-surfaces" aria-labelledby="secondary-surfaces-heading">
         <p className="section-kicker">Secondary surfaces</p>
-        <h2 id="secondary-surfaces-heading">Beyond native integrations.</h2>
+        <h2 id="secondary-surfaces-heading">Useful surfaces, with the boundary made explicit.</h2>
         <div className="secondary-surface-grid">
           {secondarySurfaces.map((surface) => (
             <article className="secondary-surface" key={surface.title}>
@@ -204,6 +223,7 @@ if (!decision.allowed) {
       </section>
 
       <section className="final-cta trust-cta">
+        <p className="section-kicker">Ready</p>
         <h2>Start verifying agent actions.</h2>
         <div className="hero__actions">
           <ButtonLink variant="primary" href="/signup">Start building</ButtonLink>
