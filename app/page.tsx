@@ -1,51 +1,13 @@
 import { PublicNav } from "@/components/layout/PublicNav";
 import { ButtonLink, CodeBlock } from "@/components/ui";
 
-const badges = ["Fail-closed enforcement", "SDK on npm", "Permission passports", "Signed webhooks"];
-
-const features = [
-  "Fail-closed enforcement",
-  "Scoped permissions",
-  "Audit logs",
-  "Signed webhooks",
-  "Durable outbox",
-  "Dead-letter queue",
-  "JavaScript SDK",
-  "Developer dashboard"
-];
-
-const flowSteps = [
-  {
-    title: "Add agent",
-    body: "Create a native agent or connect an external agent your users already rely on."
-  },
-  {
-    title: "Define permissions",
-    body: "Define what an agent can do, what it can access, and what limits apply."
-  },
-  {
-    title: "Verify before acting",
-    body: "Call BehalfID before the agent spends money, calls APIs, or accesses data. Denied actions throw — the agent stops."
-  },
-  {
-    title: "Audit + webhook event",
-    body: "Record the decision and deliver signed events through the durable outbox."
-  }
-];
-
-const connectedAgents = [
-  ["Ollie", "Represent a personal assistant and scope planning, data, or transaction actions."],
-  ["ChatGPT agent", "Use a manual passport to describe allowed scope for a ChatGPT-powered workflow."],
-  ["Claude agent", "Share scoped instructions for Claude workflows until an app or provider enforces them."],
-  ["Zapier / Make", "Wrap automations in action-level constraints and audit trails."],
-  ["Custom agents", "Use native BehalfID agents for LangChain, OpenAI, or internal systems."]
-];
+const badges = ["Fail closed", "SDK/API", "Manual passports", "Site Guard concept"];
 
 const solutionCards = [
   {
     label: "01 / Developer systems",
     title: "Enforce actions in your app",
-    body: "Use the SDK, Verify API, and Action Gateway to check agent actions before they execute.",
+    body: "Use the SDK, Verify API, and Action Gateway to check agent actions before execution.",
     motif: "pipeline",
     outcome: "Denied actions fail closed before the executor runs.",
     links: [
@@ -57,7 +19,7 @@ const solutionCards = [
   {
     label: "02 / Existing assistants",
     title: "Set boundaries for assistants you already use",
-    body: "Describe what an assistant can do, review a draft passport, and share manual-mode instructions or passport links.",
+    body: "Describe what an assistant can do, then share manual-mode instructions or passport links.",
     motif: "passport",
     outcome: "Manual passports guide assistants that do not integrate yet.",
     links: [
@@ -69,7 +31,7 @@ const solutionCards = [
   {
     label: "03 / Website access",
     title: "Control how agents access your site",
-    body: "Site Guard moves beyond robots.txt-style hints toward enforceable rules at middleware, worker, or gateway boundaries.",
+    body: "Define route-level rules for AI traffic at middleware, worker, proxy, or gateway boundaries.",
     motif: "routes",
     outcome: "Site Guard requires an enforcement point such as middleware, a worker, or a gateway.",
     links: [
@@ -189,10 +151,10 @@ export default function Home() {
       <section className="hero">
         <div className="hero__content">
           <p className="section-kicker">Agent permission infrastructure</p>
-          <h1>Permission passports for AI agents.</h1>
+          <h1>Permissions need an execution boundary.</h1>
           <p>
-            Agents call BehalfID before acting. If an action exceeds scope,
-            it fails closed — the agent stops before it can proceed.
+            BehalfID gives agent actions a decision point. Passports define scope,
+            Verify makes the decision, and supported gateways fail closed before execution.
           </p>
           <div className="hero__badges" aria-label="Product capabilities">
             {badges.map((badge) => <span key={badge}>{badge}</span>)}
@@ -220,19 +182,24 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="marketing-section solution-matrix" aria-labelledby="solution-heading">
+      <section className="marketing-section operating-model" aria-labelledby="solution-heading">
         <div className="solution-matrix__header">
           <div>
             <p className="section-kicker">Operating model</p>
             <h2 id="solution-heading">One permission layer for every agent surface.</h2>
           </div>
           <p>
-            Developers route actions through BehalfID. Users create passports for assistants they
-            already use. Website owners define how agents access their sites.
+            Apps, assistants, and websites all need the same answer: is this agent allowed
+            to do this action, on this resource, right now?
           </p>
         </div>
 
-        <div className="system-pipeline" aria-label="BehalfID permission pipeline">
+        <div className="system-diagram" aria-label="BehalfID permission pipeline">
+          <div className="system-diagram__surfaces">
+            {["User", "Agent", "Website"].map((surface) => (
+              <span key={surface}>{surface}</span>
+            ))}
+          </div>
           {["Passport", "Verify", "Enforce", "Audit"].map((step, index) => (
             <div className="system-pipeline__step" key={step}>
               <span>0{index + 1}</span>
@@ -241,9 +208,9 @@ export default function Home() {
           ))}
         </div>
 
-        <div className="solution-matrix__grid">
+        <div className="surface-panel-grid">
           {solutionCards.map((card) => (
-            <article className={`solution-card solution-card--${card.motif}`} key={card.title}>
+            <article className={`surface-panel surface-panel--${card.motif}`} key={card.title}>
               <div className="solution-card__topline">
                 <span>{card.label}</span>
               </div>
@@ -280,7 +247,6 @@ export default function Home() {
               </div>
 
               <div className="solution-card__outcome">
-                <span>model</span>
                 <strong>{card.outcome}</strong>
               </div>
 
@@ -294,27 +260,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="marketing-section connected-agents-section">
-        <p className="section-kicker">Connected agents</p>
-        <h2>Works with agents you already use.</h2>
-        <p className="section-lede">
-          Start with manual passports for existing assistants, then move to API enforcement
-          when an app, provider, or automation calls BehalfID before acting.
-        </p>
-        <div className="connected-agent-grid">
-          {connectedAgents.map(([title, body]) => (
-            <div key={title}>
-              <strong>{title}</strong>
-              <p>{body}</p>
-            </div>
-          ))}
-        </div>
-        <p className="section-note">
-          BehalfID does not control third-party agents directly unless they or your app integrate the verification API.
-        </p>
-      </section>
-
-      <section className="marketing-section">
+      <section className="marketing-section editorial-split">
         <p className="section-kicker">Problem</p>
         <h2>AI agents are moving from suggestions to actions.</h2>
         <div className="problem-grid">
@@ -330,12 +276,12 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="marketing-section">
+      <section className="marketing-section stops-section">
         <p className="section-kicker">Fail-closed enforcement</p>
         <h2>What BehalfID stops.</h2>
         <p className="section-lede">
-          Denied actions fail closed — the agent throws before reaching the code that would have
-          executed the action. On denial, the safe default is to stop rather than proceed.
+          Denied actions stop before the executor runs. The product is deliberately narrow:
+          a decision must be checked at an app, gateway, middleware, worker, or provider boundary.
         </p>
         <div className="stops-grid">
           {whatBehalfIDStops.map(([title, body]) => (
@@ -347,14 +293,12 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="marketing-section">
-        <p className="section-kicker">Not just transactions</p>
-        <h2>A scope for every action category.</h2>
-        <p className="section-lede">
-          BehalfID ships with scope templates for common categories. A permission says an agent
-          can do an action on a resource under constraints — you define what that means for your agent.
-        </p>
-        <div className="connected-agent-grid">
+      <section className="marketing-section scope-section">
+        <div>
+          <p className="section-kicker">Scope categories</p>
+          <h2>Passports describe actions, resources, limits, and time.</h2>
+        </div>
+        <div className="scope-list">
           {scopeCategories.map(([title, body]) => (
             <div key={title}>
               <strong>{title}</strong>
@@ -362,13 +306,9 @@ export default function Home() {
             </div>
           ))}
         </div>
-        <p className="section-note">
-          Transactions are one template, not the whole product. The same enforcement pattern applies
-          to data access, messaging, scheduling, content creation, and admin workflows.
-        </p>
       </section>
 
-      <section className="marketing-section">
+      <section className="marketing-section site-guard-section">
         <p className="section-kicker">For website owners</p>
         <h2>Site Guard for protected workflows.</h2>
         <p className="section-lede">
@@ -376,7 +316,7 @@ export default function Home() {
           can declare intent; Site Guard enforces rules when installed as middleware, a worker,
           proxy, or gateway before traffic reaches protected routes.
         </p>
-        <div className="connected-agent-grid">
+        <div className="site-guard-rules">
           {siteGuardCapabilities.map(([title, body]) => (
             <div key={title}>
               <strong>{title}</strong>
@@ -384,36 +324,13 @@ export default function Home() {
             </div>
           ))}
         </div>
-        <p className="section-note">
+        <p className="section-note section-note--plain">
           Honest boundary: Site Guard cannot stop all AI traffic globally unless the website
           installs an enforcement point that calls BehalfID and respects the decision.
         </p>
         <div className="hero__actions section-note--spaced">
           <ButtonLink href="/docs/site-guard">Read Site Guard design</ButtonLink>
         </div>
-      </section>
-
-      <section className="native-connected">
-        <div>
-          <p className="section-kicker">Developer integration mode</p>
-          <h2>Enforce permissions in your app.</h2>
-          <p>Use this when your app or custom agent can call BehalfID before actions happen. This is the mode where your integration enforces the permission decision.</p>
-        </div>
-        <div>
-          <p className="section-kicker">Manual test mode</p>
-          <h2>Try the model with existing agents.</h2>
-          <p>Use this for Ollie, ChatGPT, Claude, Zapier, Make, or other external agents. It creates a passport and manual test link, but does not control the provider directly.</p>
-        </div>
-      </section>
-
-      <section className="flow-grid">
-        {flowSteps.map((step, index) => (
-          <div key={step.title}>
-            <span>{index + 1}</span>
-            <strong>{step.title}</strong>
-            <p>{step.body}</p>
-          </div>
-        ))}
       </section>
 
       <section className="use-case">
@@ -456,15 +373,6 @@ const result = await behalf.verify({
 });`}</CodeBlock>
       </section>
 
-      <section className="feature-grid">
-        {features.map((feature) => (
-          <div key={feature}>
-            <strong>{feature}</strong>
-            <p>{featureCopy(feature)}</p>
-          </div>
-        ))}
-      </section>
-
       <section className="marketing-section">
         <p className="section-kicker">FAQ</p>
         <h2>Questions agents and developers ask.</h2>
@@ -492,18 +400,4 @@ const result = await behalf.verify({
       </section>
     </main>
   );
-}
-
-function featureCopy(feature: string) {
-  const copy: Record<string, string> = {
-    "Fail-closed enforcement": "Denied actions throw before reaching the code that would execute them. On denial, the agent stops.",
-    "Scoped permissions": "Action rules with resources, allowed actions, blocked actions, expiration, and amount limits.",
-    "Audit logs": "Every verification decision is recorded with reason, risk, and request ID.",
-    "Signed webhooks": "External systems receive HMAC-signed verification and lifecycle events.",
-    "Durable outbox": "Webhook events are queued before delivery so failures are visible.",
-    "Dead-letter queue": "Failed events move to a dead-letter state after bounded retries.",
-    "JavaScript SDK": "Install from npm and verify actions with one TypeScript-friendly client.",
-    "Developer dashboard": "Manage agents, permissions, webhooks, logs, and delivery status."
-  };
-  return copy[feature] ?? "";
 }
