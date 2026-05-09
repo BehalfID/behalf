@@ -41,6 +41,44 @@ const connectedAgents = [
   ["Custom agents", "Use native BehalfID agents for LangChain, OpenAI, or internal systems."]
 ];
 
+const audienceCards = [
+  {
+    title: "Developers",
+    icon: "</>",
+    eyebrow: "Best for app builders",
+    subtitle: "Build fail-closed agent workflows",
+    body: "Define permission passports, call verify() before actions, or route supported actions through the Action Gateway.",
+    links: [
+      ["Explore SDK", "/docs/sdk"],
+      ["View API", "/docs/api"],
+      ["Action Gateway", "/docs/action-gateway"]
+    ]
+  },
+  {
+    title: "Daily users",
+    icon: "U",
+    eyebrow: "Best for existing assistants",
+    subtitle: "Set boundaries for the assistants you already use",
+    body: "Describe what an assistant should be allowed to do, review a draft passport, and use manual-mode instructions or passport links.",
+    links: [
+      ["Try onboarding", "/dashboard/onboarding"],
+      ["How passports work", "/docs/concepts"],
+      ["Sandbox", "/sandbox"]
+    ]
+  },
+  {
+    title: "Website owners",
+    icon: "W",
+    eyebrow: "Best for sites and docs",
+    subtitle: "Control how AI agents access your site",
+    body: "Use Site Guard concepts to move beyond robots.txt-style hints and toward enforcement through middleware, workers, or gateways.",
+    links: [
+      ["Site Guard", "/docs/site-guard"],
+      ["Security", "/security"]
+    ]
+  }
+];
+
 const whatBehalfIDStops = [
   ["Out-of-scope purchases", "An agent allowed to browse cannot spend money. The purchase call throws before the transaction runs."],
   ["Unauthorized data access", "Read-only permissions block write, delete, and export actions before they reach your APIs."],
@@ -182,6 +220,40 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="marketing-section audience-section" aria-labelledby="audience-heading">
+        <div className="audience-section__header">
+          <div>
+            <p className="section-kicker">Three ways to use BehalfID</p>
+            <h2 id="audience-heading">One permission layer, three use cases.</h2>
+          </div>
+          <p>
+            BehalfID supports developer integrations, manual passports for existing assistants,
+            and emerging Site Guard controls for website owners.
+          </p>
+        </div>
+        <div className="audience-grid">
+          {audienceCards.map((card, index) => (
+            <article className="audience-card" key={card.title}>
+              <div className="audience-card__topline">
+                <span className="audience-card__index">0{index + 1}</span>
+                <span>{card.eyebrow}</span>
+              </div>
+              <div className="audience-card__icon" aria-hidden="true">
+                <span>{card.icon}</span>
+              </div>
+              <h3>{card.title}</h3>
+              <strong>{card.subtitle}</strong>
+              <p>{card.body}</p>
+              <div className="audience-card__links" aria-label={`${card.title} links`}>
+                {card.links.map(([label, href]) => (
+                  <a key={href} href={href}>{label}</a>
+                ))}
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
       <section className="marketing-section connected-agents-section">
         <p className="section-kicker">Connected agents</p>
         <h2>Works with agents you already use.</h2>
@@ -259,7 +331,7 @@ export default function Home() {
         <p className="section-kicker">For website owners</p>
         <h2>Site Guard for protected workflows.</h2>
         <p className="section-lede">
-          BehalfID Site Guard is the planned AI access gateway for websites. <code>llms.txt</code>
+          BehalfID Site Guard is the planned AI access gateway for websites. <code>llms.txt</code>{" "}
           can declare intent; Site Guard enforces rules when installed as middleware, a worker,
           proxy, or gateway before traffic reaches protected routes.
         </p>
