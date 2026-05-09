@@ -62,36 +62,35 @@ function DecisionPacket() {
   return (
     <div className="decision-packet" aria-label="Denied action decision packet">
       <div className="decision-packet__header">
-        <span>ACTION REQUEST</span>
+        <span>Decision packet</span>
         <strong>blocked before execution</strong>
       </div>
       <div className="decision-packet__body">
-        <div className="packet-block packet-block--request">
-          <span>agent</span>
-          <strong>Ollie</strong>
-          <span>action</span>
-          <strong>purchase</strong>
-          <span>vendor</span>
-          <strong>coachella.com</strong>
-          <span>amount</span>
-          <strong>$742</strong>
-        </div>
+        <section className="packet-pane">
+          <p>ACTION REQUEST</p>
+          <dl className="packet-list">
+            <div><dt>agent</dt><dd>Ollie</dd></div>
+            <div><dt>action</dt><dd>purchase</dd></div>
+            <div><dt>vendor</dt><dd>coachella.com</dd></div>
+            <div><dt>amount</dt><dd>$742</dd></div>
+          </dl>
+        </section>
         <div className="packet-boundary" aria-hidden="true">
-          <span>BehalfID</span>
+          <span>BehalfID decision boundary</span>
         </div>
-        <div className="packet-block">
-          <span>PASSPORT MATCH</span>
+        <section className="packet-pane packet-pane--decision">
+          <p>PASSPORT MATCH</p>
           <strong>active scope: browse_web only</strong>
-          <span>DECISION</span>
+          <p>DECISION</p>
           <strong className="packet-decision">denied</strong>
-          <span>REASON</span>
+          <p>REASON</p>
           <strong>No active permission allows purchase.</strong>
-          <span>AUDIT</span>
+          <p>AUDIT</p>
           <strong>verification.denied queued</strong>
-        </div>
+        </section>
       </div>
       <div className="decision-packet__footer">
-        <span>execution</span>
+        <span>EXECUTION</span>
         <strong>false</strong>
       </div>
     </div>
