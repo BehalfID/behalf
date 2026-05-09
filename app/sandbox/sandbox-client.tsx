@@ -7,6 +7,7 @@ type Decision = "allowed" | "denied" | "needs_approval" | "guidance" | "concept"
 
 type DemoAction = {
   id: string;
+  group: string;
   label: string;
   eyebrow: string;
   requestTitle: string;
@@ -27,6 +28,7 @@ type DemoAction = {
 const actions: DemoAction[] = [
   {
     id: "denied-purchase",
+    group: "Gateway",
     label: "Denied purchase",
     eyebrow: "Gateway decision",
     requestTitle: "Ollie attempts a $742 purchase",
@@ -43,6 +45,7 @@ const actions: DemoAction[] = [
   },
   {
     id: "allowed-read",
+    group: "Gateway",
     label: "Allowed public read",
     eyebrow: "Gateway decision",
     requestTitle: "Ollie reads a public docs page",
@@ -59,6 +62,7 @@ const actions: DemoAction[] = [
   },
   {
     id: "denied-form",
+    group: "Gateway",
     label: "Denied form submission",
     eyebrow: "Gateway decision",
     requestTitle: "Ollie attempts a contact form POST",
@@ -75,6 +79,7 @@ const actions: DemoAction[] = [
   },
   {
     id: "approval-purchase",
+    group: "Approval",
     label: "Needs approval purchase",
     eyebrow: "Approval decision",
     requestTitle: "Ollie requests a $24 purchase",
@@ -91,6 +96,7 @@ const actions: DemoAction[] = [
   },
   {
     id: "manual-guidance",
+    group: "Manual",
     label: "Manual guidance",
     eyebrow: "Existing assistants",
     requestTitle: "User shares a manual passport",
@@ -108,6 +114,7 @@ const actions: DemoAction[] = [
   },
   {
     id: "site-guard-concept",
+    group: "Site Guard",
     label: "Site Guard concept",
     eyebrow: "Website access",
     requestTitle: "AI attempts protected checkout route",
@@ -229,22 +236,26 @@ export function SandboxClient() {
             <h2>Switch the simulated request</h2>
           </div>
           <div className="sandbox-action-grid">
-            {actions.map((action) => (
-              <button
-                className={[
-                  "sandbox-action-card",
-                  activeAction.id === action.id ? "sandbox-action-card--active" : "",
-                  `sandbox-action-card--${action.decision}`
-                ].filter(Boolean).join(" ")}
-                key={action.id}
-                onClick={() => setActiveActionId(action.id)}
-                type="button"
-              >
-                <span>{action.eyebrow}</span>
-                <strong>{action.label}</strong>
-                <small>{action.requestTitle}</small>
-                <em>{decisionText(action.decision)}</em>
-              </button>
+            {actions.map((action, index) => (
+              <div className="sandbox-action-item" key={action.id}>
+                {index === 0 || actions[index - 1].group !== action.group ? (
+                  <div className="sandbox-action-group">{action.group}</div>
+                ) : null}
+                <button
+                  className={[
+                    "sandbox-action-card",
+                    activeAction.id === action.id ? "sandbox-action-card--active" : "",
+                    `sandbox-action-card--${action.decision}`
+                  ].filter(Boolean).join(" ")}
+                  onClick={() => setActiveActionId(action.id)}
+                  type="button"
+                >
+                  <span>{action.eyebrow}</span>
+                  <strong>{action.label}</strong>
+                  <small>{action.requestTitle}</small>
+                  <em>{decisionText(action.decision)}</em>
+                </button>
+              </div>
             ))}
           </div>
         </aside>

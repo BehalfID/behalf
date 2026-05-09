@@ -4222,17 +4222,17 @@ textarea.ui-input,
 
 .boundary-hero {
   min-height: calc(82svh - 76px);
-  grid-template-columns: minmax(560px, 1fr) minmax(450px, 540px);
-  gap: clamp(32px, 4.5vw, 64px);
+  grid-template-columns: minmax(540px, 1fr) minmax(480px, 580px);
+  gap: clamp(30px, 4vw, 56px);
   align-items: center;
   padding-top: clamp(42px, 5vw, 72px);
   padding-bottom: clamp(54px, 6vw, 88px);
 }
 
 .boundary-hero .hero__content h1 {
-  max-width: 820px;
-  font-size: clamp(3.7rem, 5.9vw, 5.95rem);
-  line-height: 0.96;
+  max-width: 780px;
+  font-size: clamp(3.45rem, 5.25vw, 5.45rem);
+  line-height: 0.98;
 }
 
 .boundary-hero .hero__content > p:not(.section-kicker) {
@@ -4248,7 +4248,7 @@ textarea.ui-input,
 
 .decision-packet {
   width: 100%;
-  max-width: 540px;
+  max-width: 580px;
   justify-self: end;
   overflow: hidden;
   border-radius: 14px;
@@ -4256,6 +4256,15 @@ textarea.ui-input,
     linear-gradient(180deg, rgba(230, 234, 240, 0.065), transparent 34%),
     rgba(5, 9, 14, 0.94);
   box-shadow: 0 28px 90px rgba(0, 0, 0, 0.38);
+}
+
+.decision-packet::after {
+  content: "";
+  position: absolute;
+  inset: 10px;
+  border: 1px solid rgba(230, 234, 240, 0.045);
+  border-radius: 10px;
+  pointer-events: none;
 }
 
 .decision-packet::before {
@@ -4276,7 +4285,7 @@ textarea.ui-input,
 }
 
 .decision-packet__body {
-  grid-template-columns: minmax(0, 1fr) 52px minmax(0, 1.04fr);
+  grid-template-columns: minmax(0, 1fr) 52px minmax(0, 1.08fr);
   min-height: 0;
 }
 
@@ -4285,7 +4294,7 @@ textarea.ui-input,
   display: grid;
   align-content: start;
   gap: 12px;
-  padding: 22px;
+  padding: 24px;
 }
 
 .packet-pane p,
@@ -4322,7 +4331,7 @@ textarea.ui-input,
 }
 
 .packet-pane--decision {
-  gap: 9px;
+  gap: 10px;
 }
 
 .packet-pane--decision p:not(:first-child) {
@@ -4496,33 +4505,95 @@ textarea.ui-input,
   border-bottom-color: rgba(230, 234, 240, 0.09);
 }
 
+.action-switcher .sandbox-action-grid {
+  gap: 0;
+}
+
+.sandbox-action-item {
+  display: grid;
+}
+
 .action-switcher .sandbox-action-card {
-  min-height: 104px;
+  min-height: 96px;
+  border: 1px solid transparent;
   border-bottom-color: rgba(230, 234, 240, 0.075);
-  padding: 15px 14px;
+  border-radius: 0;
+  padding: 14px 14px 15px;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .action-switcher .sandbox-action-card--active {
-  border-left: 3px solid rgba(248, 113, 113, 0.72);
-  background: rgba(230, 234, 240, 0.045);
+  border-color: rgba(248, 113, 113, 0.36);
+  border-left-color: rgba(248, 113, 113, 0.86);
+  background:
+    linear-gradient(90deg, rgba(239, 68, 68, 0.13), rgba(230, 234, 240, 0.045) 46%, rgba(230, 234, 240, 0.025));
+  box-shadow: inset 3px 0 0 rgba(248, 113, 113, 0.82);
 }
 
 .action-switcher .sandbox-action-card--active strong {
   color: #ffffff;
 }
 
+.sandbox-action-group {
+  margin: 18px 0 6px;
+  color: rgba(230, 234, 240, 0.48);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.sandbox-action-item:first-child .sandbox-action-group {
+  margin-top: 0;
+}
+
+.action-switcher .sandbox-action-card em {
+  width: max-content;
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(230, 234, 240, 0.12);
+  border-radius: 999px;
+  padding: 0 8px;
+  background: rgba(230, 234, 240, 0.045);
+  font-size: 0.72rem;
+  font-style: normal;
+  line-height: 1;
+}
+
+.action-switcher .sandbox-action-card--denied em {
+  border-color: rgba(248, 113, 113, 0.28);
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.action-switcher .sandbox-action-card--allowed em {
+  border-color: rgba(134, 239, 172, 0.22);
+  color: #bbf7d0;
+  background: rgba(34, 197, 94, 0.09);
+}
+
+.action-switcher .sandbox-action-card--needs_approval em {
+  border-color: rgba(253, 186, 116, 0.26);
+  color: #fed7aa;
+  background: rgba(249, 115, 22, 0.09);
+}
+
 @media (max-width: 1180px) {
   .boundary-hero {
-    grid-template-columns: minmax(500px, 1fr) minmax(390px, 470px);
-    gap: 36px;
+    grid-template-columns: minmax(490px, 1fr) minmax(430px, 500px);
+    gap: 32px;
   }
 
   .boundary-hero .hero__content h1 {
-    font-size: clamp(3.25rem, 5.5vw, 4.6rem);
+    font-size: clamp(3.1rem, 5.05vw, 4.25rem);
   }
 
   .packet-pane {
-    padding: 19px;
+    padding: 20px;
   }
 
   .decision-packet__body {
