@@ -3,168 +3,314 @@
 import { useMemo, useState } from "react";
 import { ButtonLink } from "@/components/ui";
 
-type DemoMode = "verify" | "gateway" | "manual";
-
-type DemoInput = {
-  action: string;
-  vendor: string;
-  resource: string;
-  url?: string;
-  amount?: number;
-};
-
-type ActionResult = DemoInput & {
-  allowed: boolean;
-  executed: boolean;
-  reason: string;
-  risk: "low" | "medium" | "high";
-  output?: string;
-};
+type Decision = "allowed" | "denied" | "needs_approval";
+type LaneId = "developer" | "daily-user" | "site-guard";
 
 type DemoAction = {
+  id: string;
   label: string;
-  audience: string;
+  requestLabel: string;
   description: string;
-  input: DemoInput;
+  action: string;
+  resource: string;
+  vendor: string;
+  amount?: number;
+  route?: string;
+  decision: Decision;
+  executed: boolean;
+  reason: string;
+  matchedRule: string;
+  result: string;
+  badge: string;
 };
 
-const DEMO_POLICY = {
-  agentName: "Ollie (sandbox)",
-  agentType: "connected",
-  provider: "ollie",
-  mode: "Manual passport + gateway demo",
-  permissions: [
-    {
-      action: "browse_web",
-      resource: "web",
-      allowedActions: ["search web", "read public pages", "extract structured data"],
-      blockedActions: ["submit forms", "make purchases", "login to accounts"],
-      requiresApproval: false
-    }
-  ]
+type DemoLane = {
+  id: LaneId;
+  eyebrow: string;
+  title: string;
+  summary: string;
+  mode: string;
+  status?: string;
+  actions: DemoAction[];
 };
 
 const layers = [
-  ["Permission passport", "The readable rule set: allowed actions, blocked actions, resources, and limits."],
-  ["Verify API", "The decision point your app calls before an agent performs an action."],
-  ["Action Gateway", "The enforcement path for supported actions: allowed actions execute, denied actions stop."]
+  ["Passport", "Readable permission rules: scopes, resources, limits, approval, and expiration."],
+  ["Verify", "The decision point your app, gateway, worker, or provider calls before action."],
+  ["Enforce", "Allowed actions continue. Denied actions fail closed before execution."]
 ];
 
-const modeCopy: Record<DemoMode, string> = {
-  verify: "Verify mode answers: is this action allowed by the passport?",
-  gateway: "Gateway mode shows the supported-action path: BehalfID checks first, then executes only if allowed.",
-  manual: "Manual mode creates guidance for existing assistants. It is best-effort unless an app or provider enforces the decision."
-};
-
-const DEMO_ACTIONS: DemoAction[] = [
+const lanes: DemoLane[] = [
   {
-    label: "Read public page",
-    audience: "Developer example",
-    description: "Fetch a public page summary through a supported web-read action.",
-    input: { action: "browse_web", vendor: "web", resource: "web", url: "https://example.com" }
+    id: "developer",
+    eyebrow: "Developer workflow",
+    title: "App calls Verify API",
+    summary: "Simulate an app checking actions against a passport, then executing only supported allowed actions through the gateway.",
+    mode: "SDK + Verify + Action Gateway",
+    actions: [
+      {
+        id: "dev-read",
+        label: "Read public page",
+        requestLabel: "Read public page through Action Gateway",
+        description: "A supported read action runs after Verify returns allowed.",
+        action: "browse_web",
+        resource: "web.public_page",
+        vendor: "example.com",
+        route: "/docs/getting-started",
+        decision: "allowed",
+        executed: true,
+        reason: "Allowed by active browse_web permission for public web resources.",
+        matchedRule: "allow browse_web on public pages",
+        result: "Public page fetched and summarized. No login, form submission, or purchase was attempted.",
+        badge: "executed"
+      },
+      {
+        id: "dev-purchase",
+        label: "Attempt purchase",
+        requestLabel: "Attempt purchase",
+        description: "A commerce action has no matching active permission.",
+        action: "purchase",
+        resource: "commerce.checkout",
+        vendor: "coachella.com",
+        amount: 742,
+        decision: "denied",
+        executed: false,
+        reason: "No active permission covers purchases for this agent, vendor, or amount.",
+        matchedRule: "blocked by missing commerce permission",
+        result: "Gateway stops before the executor receives the request.",
+        badge: "fail closed"
+      },
+      {
+        id: "dev-form",
+        label: "Submit form",
+        requestLabel: "Attempt form submission",
+        description: "The passport allows reading public pages, not changing site state.",
+        action: "submit_form",
+        resource: "web.form",
+        vendor: "example.com",
+        route: "/contact",
+        decision: "denied",
+        executed: false,
+        reason: "Blocked by passport rule: form submission is outside the allowed public web-read scope.",
+        matchedRule: "deny submit forms",
+        result: "No form POST is sent.",
+        badge: "fail closed"
+      }
+    ]
   },
   {
-    label: "Purchase ticket",
-    audience: "Daily-user example",
-    description: "Attempt a $742 ticket purchase while the passport only allows public browsing.",
-    input: { action: "purchase", vendor: "coachella.com", resource: "commerce", amount: 742 }
+    id: "daily-user",
+    eyebrow: "Daily-user assistant",
+    title: "Manual passport guides an existing assistant",
+    summary: "Manual mode translates a passport into boundaries a user can share with assistants that do not integrate yet.",
+    mode: "Manual guidance",
+    actions: [
+      {
+        id: "user-summary",
+        label: "Summarize page",
+        requestLabel: "Summarize public page",
+        description: "A read-only assistant task is in scope.",
+        action: "summarize_page",
+        resource: "web.public_page",
+        vendor: "web",
+        route: "/pricing",
+        decision: "allowed",
+        executed: false,
+        reason: "Manual guidance says public summaries are allowed. Enforcement depends on the assistant or app honoring the passport.",
+        matchedRule: "allow read-only public web tasks",
+        result: "Share the passport instructions with the assistant. No automatic execution happens in manual mode.",
+        badge: "manual guidance"
+      },
+      {
+        id: "user-approval",
+        label: "Purchase under $25",
+        requestLabel: "Purchase under $25 with approval required",
+        description: "The passport requires user confirmation before spending money.",
+        action: "purchase",
+        resource: "commerce.checkout",
+        vendor: "merchant.example",
+        amount: 24,
+        decision: "needs_approval",
+        executed: false,
+        reason: "The requested amount is under the limit, but the passport requires approval before purchase.",
+        matchedRule: "approval required for commerce under $25",
+        result: "Assistant should ask for explicit approval. In this sandbox, execution remains false.",
+        badge: "needs approval"
+      },
+      {
+        id: "user-full-access",
+        label: "Full access",
+        requestLabel: "Request full access to everything",
+        description: "Broad, undefined authority is rejected.",
+        action: "unbounded_access",
+        resource: "all",
+        vendor: "assistant",
+        decision: "denied",
+        executed: false,
+        reason: "The request is too broad and does not map to a specific allowed action, resource, or limit.",
+        matchedRule: "block unscoped authority",
+        result: "Clarify the exact task and scope before creating a passport.",
+        badge: "blocked"
+      }
+    ]
   },
   {
-    label: "Submit contact form",
-    audience: "Website-owner example",
-    description: "Try to submit a form on a site workflow that the passport explicitly blocks.",
-    input: { action: "submit_form", vendor: "web", resource: "form" }
+    id: "site-guard",
+    eyebrow: "Website owner / Site Guard",
+    title: "Site Guard checks AI access at the boundary",
+    summary: "A planned Site Guard enforcement point can evaluate route-level rules before traffic reaches protected workflows.",
+    mode: "Planned Site Guard concept",
+    status: "planned",
+    actions: [
+      {
+        id: "site-docs",
+        label: "Read docs page",
+        requestLabel: "AI reads public docs page",
+        description: "Public documentation can be summarized and cited.",
+        action: "read_route",
+        resource: "site.public_docs",
+        vendor: "site-worker",
+        route: "/docs",
+        decision: "allowed",
+        executed: true,
+        reason: "Route policy allows AI reads for public documentation pages.",
+        matchedRule: "allow GET /docs",
+        result: "Boundary forwards the request to the public docs route.",
+        badge: "allowed"
+      },
+      {
+        id: "site-contact",
+        label: "Submit contact form",
+        requestLabel: "AI submits contact form",
+        description: "State-changing form routes are blocked by default.",
+        action: "submit_form",
+        resource: "site.contact_form",
+        vendor: "site-worker",
+        route: "/contact",
+        decision: "denied",
+        executed: false,
+        reason: "Site Guard concept blocks form submissions unless an enforcement point has an explicit allow rule.",
+        matchedRule: "deny POST /contact",
+        result: "Boundary returns a denied decision before the form handler runs.",
+        badge: "fail closed"
+      },
+      {
+        id: "site-checkout",
+        label: "Attempt checkout",
+        requestLabel: "AI attempts checkout route",
+        description: "Sensitive commerce routes require stronger authorization.",
+        action: "checkout",
+        resource: "site.checkout",
+        vendor: "site-worker",
+        route: "/checkout",
+        decision: "denied",
+        executed: false,
+        reason: "Checkout is a protected workflow and no verified permission permits this action.",
+        matchedRule: "deny /checkout for AI traffic",
+        result: "The route fails closed at the worker or gateway boundary.",
+        badge: "fail closed"
+      },
+      {
+        id: "site-crawl",
+        label: "Bulk crawl docs",
+        requestLabel: "AI bulk crawls docs",
+        description: "Bulk access can be rate-limited or denied by route policy.",
+        action: "bulk_crawl",
+        resource: "site.public_docs",
+        vendor: "site-worker",
+        route: "/docs/*",
+        decision: "denied",
+        executed: false,
+        reason: "Bulk crawling exceeds the route policy for public docs access.",
+        matchedRule: "deny high-volume crawl",
+        result: "Boundary rejects or rate-limits the crawl according to site policy.",
+        badge: "rate-limited"
+      }
+    ]
   }
 ];
 
-function simulateGateway(input: DemoInput): ActionResult {
-  const canReadPublicWeb = input.action === "browse_web" && input.vendor === "web";
-
-  if (canReadPublicWeb) {
-    return {
-      ...input,
-      allowed: true,
-      executed: true,
-      reason: "Allowed by the active browse_web permission for public web resources.",
-      risk: "low",
-      output: "Public page fetched and summarized. No account login, form submission, or purchase was attempted."
-    };
-  }
-
-  const isBlockedForm = input.action === "submit_form";
-
-  return {
-    ...input,
-    allowed: false,
-    executed: false,
-    reason: isBlockedForm
-      ? "Blocked by passport rule: submit forms is outside the allowed public web-read scope."
-      : "No active permission covers purchases for this agent, vendor, or amount.",
-    risk: isBlockedForm ? "medium" : "high"
-  };
+function decisionText(decision: Decision) {
+  if (decision === "needs_approval") return "needs approval";
+  return decision;
 }
 
-function formatRequest(input: DemoInput) {
-  const lines = [
-    `action: "${input.action}"`,
-    `resource: "${input.resource}"`,
-    `vendor: "${input.vendor}"`
-  ];
-  if (input.url) lines.push(`url: "${input.url}"`);
-  if (input.amount) lines.push(`amount: ${input.amount}`);
-  return lines.join(", ");
+function requestSnippet(action: DemoAction) {
+  return JSON.stringify(
+    {
+      agentId: "agent_sandbox_ollie",
+      action: action.action,
+      resource: action.resource,
+      vendor: action.vendor,
+      ...(action.route ? { route: action.route } : {}),
+      ...(action.amount ? { amount: action.amount } : {})
+    },
+    null,
+    2
+  );
 }
 
 export function SandboxClient() {
-  const [activeMode, setActiveMode] = useState<DemoMode>("gateway");
-  const [activeAction, setActiveAction] = useState(0);
-  const [results, setResults] = useState<Record<number, ActionResult | null>>({});
-  const [running, setRunning] = useState<Record<number, boolean>>({});
+  const [activeLaneId, setActiveLaneId] = useState<LaneId>("developer");
+  const [activeActionId, setActiveActionId] = useState("dev-read");
+  const [running, setRunning] = useState(false);
+  const [checkedIds, setCheckedIds] = useState<string[]>(["dev-read"]);
 
-  const selected = DEMO_ACTIONS[activeAction];
-  const selectedResult = results[activeAction] ?? null;
+  const activeLane = lanes.find((lane) => lane.id === activeLaneId) ?? lanes[0];
+  const activeAction = activeLane.actions.find((action) => action.id === activeActionId) ?? activeLane.actions[0];
 
   const summary = useMemo(() => {
-    const completed = Object.values(results).filter(Boolean) as ActionResult[];
+    const allActions = lanes.flatMap((lane) => lane.actions);
+    const checked = allActions.filter((action) => checkedIds.includes(action.id));
     return {
-      checked: completed.length,
-      allowed: completed.filter((result) => result.allowed).length,
-      denied: completed.filter((result) => !result.allowed).length
+      checked: checked.length,
+      allowed: checked.filter((action) => action.decision === "allowed").length,
+      denied: checked.filter((action) => action.decision === "denied").length,
+      approval: checked.filter((action) => action.decision === "needs_approval").length
     };
-  }, [results]);
+  }, [checkedIds]);
 
-  const run = async (index: number, input: DemoInput) => {
-    setActiveAction(index);
-    setRunning((prev) => ({ ...prev, [index]: true }));
-    await new Promise((resolve) => setTimeout(resolve, 360));
-    const result = simulateGateway(input);
-    setResults((prev) => ({ ...prev, [index]: result }));
-    setRunning((prev) => ({ ...prev, [index]: false }));
+  const selectLane = (lane: DemoLane) => {
+    setActiveLaneId(lane.id);
+    setActiveActionId(lane.actions[0].id);
+    setRunning(false);
+  };
+
+  const runAction = async (actionId = activeAction.id) => {
+    setRunning(true);
+    await new Promise((resolve) => setTimeout(resolve, 280));
+    setCheckedIds((previous) => previous.includes(actionId) ? previous : [...previous, actionId]);
+    setRunning(false);
+  };
+
+  const selectAction = (action: DemoAction) => {
+    setActiveActionId(action.id);
+    if (!checkedIds.includes(action.id)) void runAction(action.id);
   };
 
   const reset = () => {
-    setResults({});
-    setRunning({});
-    setActiveAction(0);
+    setCheckedIds([]);
+    setRunning(false);
   };
 
   return (
     <div className="sandbox-page">
       <section className="sandbox-header">
         <div>
-          <p className="section-kicker">Sandbox - no real agents or secrets</p>
-          <h1>See permissions become decisions.</h1>
+          <p className="section-kicker">Sandbox - simulated decisions only</p>
+          <h1>See permissions become enforcement.</h1>
           <p className="sandbox-lede">
-            This sandbox shows how BehalfID evaluates a permission passport, returns a Verify decision,
-            and enforces supported actions through the Action Gateway.
+            Run simulated agent actions through passports, verification, gateway enforcement,
+            manual guidance, and planned site access rules.
           </p>
         </div>
         <div className="sandbox-header__panel" aria-label="Sandbox run summary">
-          <span>demo run</span>
-          <strong>{summary.checked}/3 checked</strong>
+          <span>decision run</span>
+          <strong>{summary.checked}/10 checked</strong>
           <div>
             <code>{summary.allowed} allowed</code>
             <code>{summary.denied} denied</code>
+            <code>{summary.approval} approval</code>
           </div>
         </div>
       </section>
@@ -179,166 +325,158 @@ export function SandboxClient() {
         ))}
       </section>
 
-      <section className="sandbox-workspace">
-        <aside className="sandbox-policy" aria-label="Permission passport">
+      <section className="sandbox-shell">
+        <aside className="sandbox-scenarios" aria-label="Scenario selector">
           <div className="sandbox-panel-heading">
-            <p className="section-kicker">Permission passport</p>
-            <h2>{DEMO_POLICY.agentName}</h2>
+            <p className="section-kicker">Scenario selector</p>
+            <h2>Choose an enforcement surface</h2>
           </div>
-          <div className="sandbox-policy__agent">
-            <span className="console-status console-status--active">connected</span>
-            <span className="console-status">{DEMO_POLICY.provider}</span>
-            <span className="console-status">{DEMO_POLICY.mode}</span>
-          </div>
-          <div className="sandbox-policy__permissions">
-            {DEMO_POLICY.permissions.map((p) => (
-              <div key={p.action} className="sandbox-permission">
-                <div className="sandbox-permission__head">
-                  <strong>{p.action}</strong>
-                  <span>{p.resource}</span>
-                </div>
-                <div className="sandbox-permission__list sandbox-permission__list--allow">
-                  <span>allows</span>
-                  {p.allowedActions.map((a) => <code key={a}>{a}</code>)}
-                </div>
-                <div className="sandbox-permission__list sandbox-permission__list--block">
-                  <span>blocks</span>
-                  {p.blockedActions.map((a) => <code key={a}>{a}</code>)}
-                </div>
-              </div>
-            ))}
-          </div>
-          <p className="sandbox-policy__note">
-            Manual-mode instructions can describe this passport to an existing assistant. Automatic
-            enforcement requires an SDK, API, gateway, middleware, or provider integration.
-          </p>
-        </aside>
 
-        <div className="sandbox-demo">
-          <div className="sandbox-mode-tabs" role="tablist" aria-label="Sandbox mode">
-            {(["verify", "gateway", "manual"] as DemoMode[]).map((mode) => (
+          <div className="sandbox-scenario-list">
+            {lanes.map((lane) => (
               <button
-                key={mode}
-                className={activeMode === mode ? "sandbox-mode-tabs__tab sandbox-mode-tabs__tab--active" : "sandbox-mode-tabs__tab"}
-                onClick={() => setActiveMode(mode)}
+                className={[
+                  "sandbox-scenario",
+                  activeLane.id === lane.id ? "sandbox-scenario--active" : ""
+                ].filter(Boolean).join(" ")}
+                key={lane.id}
+                onClick={() => selectLane(lane)}
                 type="button"
               >
-                {mode === "verify" ? "Verify mode" : mode === "gateway" ? "Gateway mode" : "Manual mode"}
+                <span>{lane.eyebrow}</span>
+                <strong>{lane.title}</strong>
+                <small>{lane.summary}</small>
+                <em>{lane.mode}</em>
               </button>
             ))}
           </div>
-          <p className="sandbox-mode-copy">{modeCopy[activeMode]}</p>
+
+          <div className="sandbox-passport-card">
+            <span>active passport</span>
+            <strong>Ollie (sandbox)</strong>
+            <p>Allows public web reads. Blocks forms, checkout, account login, and unscoped authority unless a narrower rule applies.</p>
+          </div>
+        </aside>
+
+        <div className="sandbox-demo">
+          <div className="sandbox-demo__header">
+            <div>
+              <p className="section-kicker">{activeLane.eyebrow}</p>
+              <h2>{activeLane.title}</h2>
+            </div>
+            <div className="sandbox-demo__badges">
+              {activeLane.status ? <span className="decision-chip decision-chip--planned">{activeLane.status}</span> : null}
+              <span className="decision-chip">{activeLane.mode}</span>
+            </div>
+          </div>
 
           <div className="sandbox-action-grid">
-            {DEMO_ACTIONS.map((demo, index) => {
-              const result = results[index] ?? null;
-              const busy = running[index] ?? false;
+            {activeLane.actions.map((action) => {
+              const checked = checkedIds.includes(action.id);
               return (
                 <button
                   className={[
                     "sandbox-action-card",
-                    activeAction === index ? "sandbox-action-card--active" : "",
-                    result ? (result.allowed ? "sandbox-action-card--allowed" : "sandbox-action-card--denied") : ""
+                    activeAction.id === action.id ? "sandbox-action-card--active" : "",
+                    checked ? `sandbox-action-card--${action.decision}` : ""
                   ].filter(Boolean).join(" ")}
-                  key={demo.label}
-                  onClick={() => {
-                    setActiveAction(index);
-                    if (!result && !busy) void run(index, demo.input);
-                  }}
+                  key={action.id}
+                  onClick={() => selectAction(action)}
                   type="button"
                 >
-                  <span>{demo.audience}</span>
-                  <strong>{demo.label}</strong>
-                  <small>{demo.description}</small>
-                  <em>{busy ? "checking" : result ? (result.allowed ? "allowed" : "denied") : "run demo"}</em>
+                  <span>{action.requestLabel}</span>
+                  <strong>{action.label}</strong>
+                  <small>{action.description}</small>
+                  <em>{checked ? decisionText(action.decision) : "run trace"}</em>
                 </button>
               );
             })}
           </div>
 
-          <div className={selectedResult?.allowed ? "sandbox-result-panel sandbox-result-panel--allowed" : selectedResult ? "sandbox-result-panel sandbox-result-panel--denied" : "sandbox-result-panel"}>
-            <div className="sandbox-result-panel__header">
+          <section className={`sandbox-trace sandbox-trace--${activeAction.decision}`} aria-live="polite">
+            <div className="sandbox-trace__header">
               <div>
-                <span>{selected.audience}</span>
-                <h2>{selected.label}</h2>
+                <span>Decision console</span>
+                <h2>{activeAction.requestLabel}</h2>
               </div>
               <button
                 className="sandbox-action__btn"
-                disabled={running[activeAction] ?? false}
-                onClick={() => run(activeAction, selected.input)}
+                disabled={running}
+                onClick={() => runAction(activeAction.id)}
                 type="button"
               >
-                {running[activeAction] ? "Checking..." : selectedResult ? "Run again" : "Run action"}
+                {running ? "Checking..." : "Run trace"}
               </button>
             </div>
 
-            <div className="sandbox-result-grid">
-              <div>
+            <div className="trace-grid">
+              <div className="trace-row trace-row--wide">
                 <span>request</span>
-                <code>{`executeAction({ ${formatRequest(selected.input)} })`}</code>
+                <pre>{requestSnippet(activeAction)}</pre>
               </div>
-              <div>
+              <div className="trace-row">
                 <span>decision</span>
-                <strong className={selectedResult?.allowed ? "sandbox-result--allowed" : selectedResult ? "sandbox-result--denied" : ""}>
-                  {selectedResult ? (selectedResult.allowed ? "allowed" : "denied") : "not checked"}
+                <strong className={`decision-text decision-text--${activeAction.decision}`}>
+                  {decisionText(activeAction.decision)}
                 </strong>
               </div>
-              <div>
+              <div className="trace-row">
                 <span>executed</span>
-                <strong>{selectedResult ? (selectedResult.executed ? "yes" : "no") : "pending"}</strong>
+                <strong>{activeAction.executed ? "true" : "false"}</strong>
               </div>
-              <div>
-                <span>risk</span>
-                <strong>{selectedResult?.risk ?? "pending"}</strong>
+              <div className="trace-row">
+                <span>matched rule</span>
+                <strong>{activeAction.matchedRule}</strong>
+              </div>
+              <div className="trace-row">
+                <span>audit event</span>
+                <strong>queued</strong>
               </div>
             </div>
 
-            <div className="sandbox-reason">
-              <span>why</span>
-              <p>{selectedResult?.reason ?? "Run the action to see BehalfID evaluate it against the active passport."}</p>
+            <div className="terminal-panel">
+              <div className="terminal-panel__bar">
+                <span>verification.trace</span>
+                <span>{activeAction.badge}</span>
+              </div>
+              <div className="terminal-panel__body">
+                <p><span>reason</span>{activeAction.reason}</p>
+                <p><span>result</span>{activeAction.result}</p>
+                {activeLane.id === "site-guard" ? (
+                  <p><span>boundary</span>Site Guard is shown as a planned concept unless installed as middleware, a worker, or a gateway.</p>
+                ) : null}
+                {activeLane.id === "daily-user" ? (
+                  <p><span>manual</span>Manual passports guide existing assistants; automatic enforcement requires an integration that checks BehalfID.</p>
+                ) : null}
+              </div>
             </div>
-
-            {selectedResult?.output ? (
-              <div className="sandbox-output">
-                <span>output</span>
-                <p>{selectedResult.output}</p>
-              </div>
-            ) : null}
-
-            {selectedResult && !selectedResult.allowed ? (
-              <div className="sandbox-output sandbox-output--blocked">
-                <span>gateway result</span>
-                <p>The agent stops here. The supported executor is not called, so the action does not happen.</p>
-              </div>
-            ) : null}
-          </div>
+          </section>
         </div>
       </section>
 
       {summary.checked > 0 ? (
         <div className="sandbox-reset">
-          <button className="sandbox-reset__btn" onClick={reset} type="button">Reset sandbox</button>
+          <button className="sandbox-reset__btn" onClick={reset} type="button">Reset traces</button>
         </div>
       ) : null}
 
       <section className="sandbox-pattern">
         <div>
           <p className="section-kicker">Enforcement pattern</p>
-          <h2>Check first. Execute only if allowed.</h2>
+          <h2>Passport to decision to boundary.</h2>
           <p>
-            Verify mode is the decision. Action Gateway is the supported execution path.
-            Manual mode is useful for guidance, but it is not automatic enforcement by itself.
+            Verify is the decision. Action Gateway is the supported execution path.
+            Manual mode is useful guidance. Site Guard requires a real enforcement point.
           </p>
         </div>
-        <pre className="sandbox-code">{`const result = await behalf.executeAction({
+        <pre className="sandbox-code">{`const result = await behalf.verify({
   agentId,
-  action: "browse_web",
-  resource: "web",
-  input: { url: "https://example.com" }
+  action: "submit_form",
+  resource: "site.contact_form"
 });
 
-if (!result.executed) {
-  throw new Error(result.reason);
+if (!result.allowed) {
+  return failClosed(result.reason);
 }`}</pre>
       </section>
 

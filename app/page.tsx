@@ -41,37 +41,37 @@ const connectedAgents = [
   ["Custom agents", "Use native BehalfID agents for LangChain, OpenAI, or internal systems."]
 ];
 
-const audienceCards = [
+const solutionCards = [
   {
-    title: "Developers",
-    icon: "</>",
-    eyebrow: "Best for app builders",
-    subtitle: "Build fail-closed agent workflows",
-    body: "Define permission passports, call verify() before actions, or route supported actions through the Action Gateway.",
+    label: "01 / Developer systems",
+    title: "Enforce actions in your app",
+    body: "Use the SDK, Verify API, and Action Gateway to check agent actions before they execute.",
+    motif: "pipeline",
+    outcome: "Denied actions fail closed before the executor runs.",
     links: [
-      ["Explore SDK", "/docs/sdk"],
-      ["View API", "/docs/api"],
+      ["SDK", "/docs/sdk"],
+      ["API", "/docs/api"],
       ["Action Gateway", "/docs/action-gateway"]
     ]
   },
   {
-    title: "Daily users",
-    icon: "U",
-    eyebrow: "Best for existing assistants",
-    subtitle: "Set boundaries for the assistants you already use",
-    body: "Describe what an assistant should be allowed to do, review a draft passport, and use manual-mode instructions or passport links.",
+    label: "02 / Existing assistants",
+    title: "Set boundaries for assistants you already use",
+    body: "Describe what an assistant can do, review a draft passport, and share manual-mode instructions or passport links.",
+    motif: "passport",
+    outcome: "Manual passports guide assistants that do not integrate yet.",
     links: [
       ["Try onboarding", "/dashboard/onboarding"],
-      ["How passports work", "/docs/concepts"],
+      ["Passports", "/docs/concepts"],
       ["Sandbox", "/sandbox"]
     ]
   },
   {
-    title: "Website owners",
-    icon: "W",
-    eyebrow: "Best for sites and docs",
-    subtitle: "Control how AI agents access your site",
-    body: "Use Site Guard concepts to move beyond robots.txt-style hints and toward enforcement through middleware, workers, or gateways.",
+    label: "03 / Website access",
+    title: "Control how agents access your site",
+    body: "Site Guard moves beyond robots.txt-style hints toward enforceable rules at middleware, worker, or gateway boundaries.",
+    motif: "routes",
+    outcome: "Site Guard requires an enforcement point such as middleware, a worker, or a gateway.",
     links: [
       ["Site Guard", "/docs/site-guard"],
       ["Security", "/security"]
@@ -220,31 +220,71 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="marketing-section audience-section" aria-labelledby="audience-heading">
-        <div className="audience-section__header">
+      <section className="marketing-section solution-matrix" aria-labelledby="solution-heading">
+        <div className="solution-matrix__header">
           <div>
-            <p className="section-kicker">Three ways to use BehalfID</p>
-            <h2 id="audience-heading">One permission layer, three use cases.</h2>
+            <p className="section-kicker">Operating model</p>
+            <h2 id="solution-heading">One permission layer for every agent surface.</h2>
           </div>
           <p>
-            BehalfID supports developer integrations, manual passports for existing assistants,
-            and emerging Site Guard controls for website owners.
+            Developers route actions through BehalfID. Users create passports for assistants they
+            already use. Website owners define how agents access their sites.
           </p>
         </div>
-        <div className="audience-grid">
-          {audienceCards.map((card, index) => (
-            <article className="audience-card" key={card.title}>
-              <div className="audience-card__topline">
-                <span className="audience-card__index">0{index + 1}</span>
-                <span>{card.eyebrow}</span>
-              </div>
-              <div className="audience-card__icon" aria-hidden="true">
-                <span>{card.icon}</span>
+
+        <div className="system-pipeline" aria-label="BehalfID permission pipeline">
+          {["Passport", "Verify", "Enforce", "Audit"].map((step, index) => (
+            <div className="system-pipeline__step" key={step}>
+              <span>0{index + 1}</span>
+              <strong>{step}</strong>
+            </div>
+          ))}
+        </div>
+
+        <div className="solution-matrix__grid">
+          {solutionCards.map((card) => (
+            <article className={`solution-card solution-card--${card.motif}`} key={card.title}>
+              <div className="solution-card__topline">
+                <span>{card.label}</span>
               </div>
               <h3>{card.title}</h3>
-              <strong>{card.subtitle}</strong>
               <p>{card.body}</p>
-              <div className="audience-card__links" aria-label={`${card.title} links`}>
+
+              <div className="solution-card__visual" aria-hidden="true">
+                {card.motif === "pipeline" ? (
+                  <>
+                    <div className="solution-node solution-node--source">agent</div>
+                    <div className="solution-flow-line" />
+                    <div className="solution-node solution-node--accent">verify</div>
+                    <div className="solution-flow-line" />
+                    <div className="solution-node solution-node--split">
+                      <span>allow</span>
+                      <span>deny</span>
+                    </div>
+                  </>
+                ) : null}
+                {card.motif === "passport" ? (
+                  <div className="solution-passport">
+                    <div><span>allowed</span><strong>read public pages</strong></div>
+                    <div><span>approval</span><strong>purchase under $25</strong></div>
+                    <div><span>blocked</span><strong>full account access</strong></div>
+                  </div>
+                ) : null}
+                {card.motif === "routes" ? (
+                  <div className="solution-routes">
+                    <div><span>/docs</span><strong>allow</strong></div>
+                    <div><span>/contact</span><strong>deny form</strong></div>
+                    <div><span>/checkout</span><strong>fail closed</strong></div>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="solution-card__outcome">
+                <span>model</span>
+                <strong>{card.outcome}</strong>
+              </div>
+
+              <div className="solution-card__cta" aria-label={`${card.title} links`}>
                 {card.links.map(([label, href]) => (
                   <a key={href} href={href}>{label}</a>
                 ))}
