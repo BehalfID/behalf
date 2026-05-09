@@ -1056,6 +1056,13 @@ textarea.ui-input,
   margin-top: 28px;
 }
 
+.connected-agent-grid div {
+  min-height: 128px;
+  border-top: 1px solid var(--border);
+  padding: 18px 14px 0 0;
+  background: linear-gradient(180deg, rgba(230, 234, 240, 0.035), transparent 56px);
+}
+
 .native-connected {
   align-items: stretch;
 }

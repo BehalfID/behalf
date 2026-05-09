@@ -35,8 +35,8 @@ const flowSteps = [
 
 const connectedAgents = [
   ["Ollie", "Represent a personal assistant and scope planning, data, or transaction actions."],
-  ["ChatGPT agent", "Attach a permission passport to a ChatGPT-powered workflow."],
-  ["Claude agent", "Verify sensitive data access before a Claude agent proceeds."],
+  ["ChatGPT agent", "Use a manual passport to describe allowed scope for a ChatGPT-powered workflow."],
+  ["Claude agent", "Share scoped instructions for Claude workflows until an app or provider enforces them."],
   ["Zapier / Make", "Wrap automations in action-level constraints and audit trails."],
   ["Custom agents", "Use native BehalfID agents for LangChain, OpenAI, or internal systems."]
 ];
@@ -298,7 +298,8 @@ export default function Home() {
         <p className="section-kicker">Connected agents</p>
         <h2>Works with agents you already use.</h2>
         <p className="section-lede">
-          Start in manual test mode, then move to API enforcement when your app or provider integrates BehalfID.
+          Start with manual passports for existing assistants, then move to API enforcement
+          when an app, provider, or automation calls BehalfID before acting.
         </p>
         <div className="connected-agent-grid">
           {connectedAgents.map(([title, body]) => (
@@ -396,7 +397,7 @@ export default function Home() {
         <div>
           <p className="section-kicker">Developer integration mode</p>
           <h2>Enforce permissions in your app.</h2>
-          <p>Use this when your app or custom agent can call BehalfID before actions happen. This is the mode that automatically enforces the permission decision.</p>
+          <p>Use this when your app or custom agent can call BehalfID before actions happen. This is the mode where your integration enforces the permission decision.</p>
         </div>
         <div>
           <p className="section-kicker">Manual test mode</p>
