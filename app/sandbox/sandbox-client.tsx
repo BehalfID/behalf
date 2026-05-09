@@ -298,10 +298,10 @@ export function SandboxClient() {
       <section className="sandbox-header">
         <div>
           <p className="section-kicker">Sandbox - simulated decisions only</p>
-          <h1>See permissions become enforcement.</h1>
+          <h1>Run an action through the boundary.</h1>
           <p className="sandbox-lede">
-            Run simulated agent actions through passports, verification, gateway enforcement,
-            manual guidance, and planned site access rules.
+            Choose an enforcement surface, send an action, and watch BehalfID evaluate
+            passport scope, execution state, and the audit event.
           </p>
         </div>
         <div className="sandbox-header__panel" aria-label="Sandbox run summary">
@@ -359,6 +359,14 @@ export function SandboxClient() {
         </aside>
 
         <div className="sandbox-demo">
+          <div className="sandbox-operating-strip" aria-label="Sandbox operating sequence">
+            <span>surface</span>
+            <span>action</span>
+            <span>verify</span>
+            <span>boundary</span>
+            <span>audit</span>
+          </div>
+
           <div className="sandbox-demo__header">
             <div>
               <p className="section-kicker">{activeLane.eyebrow}</p>
@@ -393,7 +401,7 @@ export function SandboxClient() {
             })}
           </div>
 
-          <section className={`sandbox-trace sandbox-trace--${activeAction.decision}`} aria-live="polite">
+          <section className={`sandbox-trace decision-console sandbox-trace--${activeAction.decision}`} aria-live="polite">
             <div className="sandbox-trace__header">
               <div>
                 <span>Decision console</span>
@@ -409,7 +417,7 @@ export function SandboxClient() {
               </button>
             </div>
 
-            <div className="trace-grid">
+            <div className="trace-grid trace-stack">
               <div className="trace-row trace-row--wide">
                 <span>request</span>
                 <pre>{requestSnippet(activeAction)}</pre>
