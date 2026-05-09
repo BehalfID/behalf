@@ -1,6 +1,6 @@
 {
   "name": "@behalfid/sdk",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "BehalfID API client — agent permission verification for JavaScript/TypeScript.",
   "type": "module",
   "main": "./dist/index.js",
@@ -22,7 +22,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/potatobeyonddefeat/behalf.git",
+    "url": "git+https://github.com/potatobeyonddefeat/behalf.git",
     "directory": "packages/sdk"
   },
   "engines": {
