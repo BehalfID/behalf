@@ -134,8 +134,8 @@ const actions: DemoAction[] = [
 
 const model = [
   ["Passport", "Rules define allowed actions, blocked actions, resources, limits, approval, and expiration."],
-  ["Verify", "Your app, gateway, worker, middleware, or provider checks the action before it runs."],
-  ["Enforce", "Allowed actions continue. Denied actions fail closed and audit the decision."]
+  ["Boundary", "The request must cross a verification point before an executor or route handler runs."],
+  ["Ledger", "Allowed, denied, approval-required, guidance, and concept outcomes are visible as audit events."]
 ];
 
 function decisionText(decision: Decision) {
@@ -160,6 +160,19 @@ function requestSnippet(action: DemoAction) {
   );
 }
 
+function boundaryValue(action: DemoAction) {
+  if (action.decision === "concept") return "planned route policy";
+  if (action.decision === "guidance") return "manual passport guidance";
+  return "passport rule evaluated";
+}
+
+function stageClass(action: DemoAction, stage: "request" | "boundary" | "decision" | "execution" | "audit") {
+  if (stage === "boundary") return "sandbox-stage--boundary";
+  if (stage === "execution" && !action.executed) return "sandbox-stage--blocked";
+  if (stage === "decision") return `sandbox-stage--${action.decision}`;
+  return "";
+}
+
 export function SandboxClient() {
   const [activeActionId, setActiveActionId] = useState(actions[0].id);
   const [running, setRunning] = useState(false);
@@ -175,11 +188,11 @@ export function SandboxClient() {
     <div className="sandbox-page sandbox-simplified">
       <section className="sandbox-header sandbox-hero">
         <div>
-          <p className="section-kicker">Sandbox - simulated decisions only</p>
-          <h1>Watch BehalfID stop an action.</h1>
+          <p className="section-kicker">Sandbox - simulated boundary</p>
+          <h1>Run a decision packet through the boundary.</h1>
           <p className="sandbox-lede">
-            Run simulated agent actions through a passport, verify decision, and
-            enforcement boundary.
+            Select a simulated agent action and inspect the request, passport match,
+            decision, execution state, and audit event. No real actions run here.
           </p>
         </div>
       </section>
@@ -205,6 +218,25 @@ export function SandboxClient() {
             >
               {running ? "Checking..." : "Run trace"}
             </button>
+          </div>
+
+          <div className="sandbox-stage-line" aria-label="Decision boundary stages">
+            {[
+              ["ACTION REQUEST", activeAction.action],
+              ["BEHALFID DECISION BOUNDARY", boundaryValue(activeAction)],
+              ["DECISION", decisionText(activeAction.decision)],
+              ["EXECUTION STATE", activeAction.executed ? "true" : "false"],
+              ["AUDIT EVENT", activeAction.auditEvent]
+            ].map(([label, value], index) => {
+              const stages = ["request", "boundary", "decision", "execution", "audit"] as const;
+              const stage = stages[index];
+              return (
+                <div className={["sandbox-stage", stageClass(activeAction, stage)].filter(Boolean).join(" ")} key={label}>
+                  <span>{label}</span>
+                  <strong>{value}</strong>
+                </div>
+              );
+            })}
           </div>
 
           <div className="sandbox-console-body">
