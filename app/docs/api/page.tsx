@@ -4,6 +4,7 @@ const endpoints = [
   ["POST", "/api/agents", "Add a native or connected agent and return the API key once."],
   ["POST", "/api/permissions", "Create a permission for the authenticated agent."],
   ["POST", "/api/verify", "Evaluate whether an agent can perform an action."],
+  ["POST", "/api/actions/execute", "Execute an allowed safe public web read through the Action Gateway MVP."],
   ["GET", "/api/logs/[agentId]", "Read recent verification logs for the authenticated agent."],
   ["POST", "/api/agents/[agentId]/rotate-key", "Rotate an agent API key and return the new key once."]
 ];
@@ -92,6 +93,20 @@ export default function ApiDocsPage() {
   -H "Authorization: Bearer $BEHALFID_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{"agentId":"agent_xxx","action":"access_data","resource":"gmail.com"}'`}</CodeBlock>
+      <h2>Action Gateway</h2>
+      <p>
+        <code>POST /api/actions/execute</code> uses the same agent API key pattern as verify.
+        The MVP only executes <code>browse_web</code> on <code>web</code> by fetching a public URL with GET.
+        Unsupported or denied actions fail closed and are not executed.
+      </p>
+      <CodeBlock label="gateway.json">{`{
+  "agentId": "agent_xxx",
+  "action": "browse_web",
+  "resource": "web",
+  "input": {
+    "url": "https://example.com"
+  }
+}`}</CodeBlock>
     </DocsShell>
   );
 }

@@ -8,6 +8,8 @@ export type {
   CreateAgentResult,
   CreatePermissionInput,
   CreatePermissionResult,
+  ExecuteActionInput,
+  ExecuteActionResult,
   PermissionConstraints,
   RiskLevel,
   RotateKeyResult,

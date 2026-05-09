@@ -78,6 +78,24 @@ console.log("Booking ticket..."); // ← never reached`}</CodeBlock>
         being accessed. Pass <code>amount</code> only for transaction-like actions.
         Pass <code>metadata.scope</code> to hint which allowed action is being requested.
       </p>
+      <h2>Execute through the Action Gateway</h2>
+      <p>
+        <code>executeAction</code> routes execution through BehalfID-controlled infrastructure.
+        The MVP supports only safe public web reads: <code>browse_web</code> on <code>web</code>.
+        Denied actions return <code>executed: false</code> and no fetch happens.
+      </p>
+      <CodeBlock label="gateway.ts">{`const result = await behalf.executeAction({
+  agentId,
+  action: "browse_web",
+  resource: "web",
+  input: {
+    url: "https://example.com"
+  }
+});
+
+if (result.executed) {
+  console.log(result.result?.title, result.result?.excerpt);
+}`}</CodeBlock>
       <h2>Logs and key rotation</h2>
       <CodeBlock label="keys-and-logs.ts">{`const logs = await behalf.getLogs(agentId);
 const rotated = await behalf.rotateKey(agentId);`}</CodeBlock>

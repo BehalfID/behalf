@@ -22,6 +22,32 @@ export type VerifyResult = {
   risk: RiskLevel;
 };
 
+export type ExecuteActionInput = {
+  agentId: string;
+  action: "browse_web" | string;
+  resource: "web" | string;
+  input: {
+    url: string;
+  };
+};
+
+export type ExecuteActionResult = {
+  requestId?: string;
+  allowed: boolean;
+  decision: "allowed" | "denied";
+  reason: string;
+  executed: boolean;
+  error?: string;
+  result?: {
+    url: string;
+    status: number;
+    contentType: string;
+    title: string | null;
+    excerpt: string;
+    truncated: boolean;
+  };
+};
+
 export type CreateAgentResult = {
   agentId: string;
   apiKey: string;

@@ -4,6 +4,8 @@ import type {
   CreateAgentResult,
   CreatePermissionInput,
   CreatePermissionResult,
+  ExecuteActionInput,
+  ExecuteActionResult,
   RotateKeyResult,
   VerificationLog,
   VerifyInput,
@@ -49,6 +51,13 @@ export class BehalfID {
 
   verify(input: VerifyInput): Promise<VerifyResult> {
     return this.request<VerifyResult>("/api/verify", {
+      method: "POST",
+      body: input
+    });
+  }
+
+  executeAction(input: ExecuteActionInput): Promise<ExecuteActionResult> {
+    return this.request<ExecuteActionResult>("/api/actions/execute", {
       method: "POST",
       body: input
     });
