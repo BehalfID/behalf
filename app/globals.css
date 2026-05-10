@@ -1,16 +1,71 @@
+/* Design system tokens — BehalfID v2 */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
 :root {
   color-scheme: dark;
+
+  /* Surfaces */
   --bg: #0B0F14;
   --panel: #141A20;
-  --muted: #9BA3AE;
-  --source: #9BA3AE;
-  --text: #E6EAF0;
-  --accent: #6366F1;
-  --border: rgba(230, 234, 240, 0.08);
-  --border-strong: rgba(230, 234, 240, 0.16);
   --surface: rgba(20, 26, 32, 0.82);
   --surface-soft: rgba(20, 26, 32, 0.54);
-  --shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+  --surface-elev: rgba(20, 26, 32, 0.94);
+
+  /* Ink */
+  --text: #E6EAF0;
+  --text-2: #9BA3AE;
+  --muted: #9BA3AE;
+  --source: #9BA3AE;
+
+  /* Borders */
+  --border: rgba(230, 234, 240, 0.08);
+  --border-strong: rgba(230, 234, 240, 0.16);
+  --hairline: rgba(230, 234, 240, 0.05);
+
+  /* Brand accent */
+  --accent: #6366F1;
+  --accent-hover: #5558e6;
+  --accent-soft: rgba(99, 102, 241, 0.12);
+  --accent-glow: rgba(99, 102, 241, 0.18);
+
+  /* Status — decision outcomes only */
+  --ok:          #6ee7b7;
+  --ok-border:   rgba(16, 185, 129, 0.32);
+  --ok-bg:       rgba(16, 185, 129, 0.08);
+  --deny:        #fca5a5;
+  --deny-border: rgba(239, 68, 68, 0.32);
+  --deny-bg:     rgba(239, 68, 68, 0.08);
+  --warn:        #fcd34d;
+  --warn-border: rgba(234, 179, 8, 0.32);
+  --warn-bg:     rgba(234, 179, 8, 0.06);
+
+  /* Typography */
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+
+  /* Radius */
+  --radius-sm:   4px;
+  --radius-md:   6px;
+  --radius-lg:   8px;
+  --radius-xl:   10px;
+  --radius-2xl:  12px;
+  --radius-pill: 999px;
+
+  /* Shadow */
+  --shadow:      0 24px 80px rgba(0, 0, 0, 0.28);
+  --shadow-sm:   0 1px 0 rgba(255, 255, 255, 0.04) inset;
+  --shadow-md:   0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-hero: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 30px 60px rgba(0, 0, 0, 0.5);
+
+  /* Spacing (4px base) */
+  --s-1: 4px;  --s-2: 8px;   --s-3: 12px;  --s-4: 16px;
+  --s-5: 20px; --s-6: 24px;  --s-7: 32px;  --s-8: 40px;
+  --s-9: 56px; --s-10: 80px; --s-11: 120px; --s-12: 160px;
+
+  /* Layout */
+  --container:     1200px;
+  --container-doc: 1100px;
+  --gutter:        24px;
 }
 
 * {
@@ -26,9 +81,7 @@ body {
 body {
   background: var(--bg);
   color: var(--text);
-  font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+  font-family: var(--font-sans);
   text-rendering: geometricPrecision;
 }
 
@@ -67,7 +120,7 @@ img {
 
 code,
 pre {
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-family: var(--font-mono);
 }
 
 /* Shared primitives */
@@ -445,6 +498,25 @@ textarea.ui-input,
   color: var(--muted);
   border-color: var(--border-strong);
   background: rgba(230, 234, 240, 0.045);
+}
+
+/* Decision badge variants (design system status semantics) */
+.ui-badge--allow {
+  border-color: var(--ok-border);
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.ui-badge--deny {
+  border-color: var(--deny-border);
+  background: var(--deny-bg);
+  color: var(--deny);
+}
+
+.ui-badge--warn {
+  border-color: var(--warn-border);
+  background: var(--warn-bg);
+  color: var(--warn);
 }
 
 .form-error,
@@ -1110,7 +1182,7 @@ textarea.ui-input,
 
 /* Homepage denial visual */
 .signal-line--denied strong {
-  color: #ef4444;
+  color: var(--deny);
 }
 
 /* Security page */
@@ -1204,7 +1276,7 @@ textarea.ui-input,
 }
 
 .security-list--safe li::marker {
-  color: #86efac;
+  color: var(--ok);
 }
 
 .security-note {
@@ -1572,15 +1644,15 @@ textarea.ui-input,
 }
 
 .sandbox-action-card--allowed {
-  border-color: rgba(34, 197, 94, 0.32);
+  border-color: var(--ok-border);
 }
 
 .sandbox-action-card--denied {
-  border-color: rgba(239, 68, 68, 0.3);
+  border-color: var(--deny-border);
 }
 
 .sandbox-action-card--needs_approval {
-  border-color: rgba(234, 179, 8, 0.34);
+  border-color: var(--warn-border);
 }
 
 .sandbox-action-card span,
@@ -1618,15 +1690,15 @@ textarea.ui-input,
 }
 
 .sandbox-trace--allowed {
-  border-color: rgba(34, 197, 94, 0.32);
+  border-color: var(--ok-border);
 }
 
 .sandbox-trace--denied {
-  border-color: rgba(239, 68, 68, 0.3);
+  border-color: var(--deny-border);
 }
 
 .sandbox-trace--needs_approval {
-  border-color: rgba(234, 179, 8, 0.34);
+  border-color: var(--warn-border);
 }
 
 .sandbox-action__btn {
@@ -1694,17 +1766,17 @@ textarea.ui-input,
 }
 
 .decision-text--allowed {
-  color: #86efac !important;
+  color: var(--ok) !important;
   font-weight: 700;
 }
 
 .decision-text--denied {
-  color: #f87171 !important;
+  color: var(--deny) !important;
   font-weight: 700;
 }
 
 .decision-text--needs_approval {
-  color: #fde68a !important;
+  color: var(--warn) !important;
   font-weight: 700;
 }
 
@@ -4355,11 +4427,11 @@ textarea.ui-input,
 
 .packet-decision {
   width: max-content;
-  border: 1px solid rgba(248, 113, 113, 0.45);
+  border: 1px solid var(--deny-border);
   border-radius: 999px;
   padding: 5px 10px 6px;
-  color: #fecaca !important;
-  background: rgba(239, 68, 68, 0.12);
+  color: var(--deny) !important;
+  background: var(--deny-bg);
   font-size: 0.88rem !important;
   font-weight: 820;
   line-height: 1 !important;
@@ -4389,8 +4461,26 @@ textarea.ui-input,
   min-height: 0;
   border-radius: 14px;
   padding: clamp(22px, 3.4vw, 40px);
+  background: rgba(5, 9, 14, 0.9);
+}
+
+.sandbox-focus .sandbox-trace--denied,
+.sandbox-focus .sandbox-trace--guidance,
+.sandbox-focus .sandbox-trace--concept {
   background:
     linear-gradient(180deg, rgba(239, 68, 68, 0.07), transparent 230px),
+    rgba(5, 9, 14, 0.9);
+}
+
+.sandbox-focus .sandbox-trace--allowed {
+  background:
+    linear-gradient(180deg, rgba(16, 185, 129, 0.06), transparent 230px),
+    rgba(5, 9, 14, 0.9);
+}
+
+.sandbox-focus .sandbox-trace--needs_approval {
+  background:
+    linear-gradient(180deg, rgba(234, 179, 8, 0.06), transparent 230px),
     rgba(5, 9, 14, 0.9);
 }
 
@@ -4419,13 +4509,28 @@ textarea.ui-input,
 
 .sandbox-status-stack .decision-text {
   width: max-content;
-  border: 1px solid rgba(248, 113, 113, 0.42);
+  border: 1px solid var(--border-strong);
   border-radius: 999px;
   padding: 6px 11px;
-  background: rgba(239, 68, 68, 0.11);
+  background: rgba(230, 234, 240, 0.06);
   font-size: 0.88rem !important;
   line-height: 1 !important;
   text-transform: uppercase;
+}
+
+.sandbox-status-stack .decision-text--denied {
+  border-color: var(--deny-border);
+  background: var(--deny-bg);
+}
+
+.sandbox-status-stack .decision-text--allowed {
+  border-color: var(--ok-border);
+  background: var(--ok-bg);
+}
+
+.sandbox-status-stack .decision-text--needs_approval {
+  border-color: var(--warn-border);
+  background: var(--warn-bg);
 }
 
 .sandbox-status-stack span {
@@ -4526,11 +4631,34 @@ textarea.ui-input,
 }
 
 .action-switcher .sandbox-action-card--active {
-  border-color: rgba(248, 113, 113, 0.36);
-  border-left-color: rgba(248, 113, 113, 0.86);
+  border-color: var(--border-strong);
+  border-left-color: rgba(230, 234, 240, 0.5);
+  background: rgba(230, 234, 240, 0.045);
+  box-shadow: inset 3px 0 0 rgba(230, 234, 240, 0.5);
+}
+
+.action-switcher .sandbox-action-card--active.sandbox-action-card--denied {
+  border-color: var(--deny-border);
+  border-left-color: var(--deny);
   background:
-    linear-gradient(90deg, rgba(239, 68, 68, 0.13), rgba(230, 234, 240, 0.045) 46%, rgba(230, 234, 240, 0.025));
-  box-shadow: inset 3px 0 0 rgba(248, 113, 113, 0.82);
+    linear-gradient(90deg, var(--deny-bg), rgba(230, 234, 240, 0.03) 46%, transparent);
+  box-shadow: inset 3px 0 0 var(--deny);
+}
+
+.action-switcher .sandbox-action-card--active.sandbox-action-card--allowed {
+  border-color: var(--ok-border);
+  border-left-color: var(--ok);
+  background:
+    linear-gradient(90deg, var(--ok-bg), rgba(230, 234, 240, 0.03) 46%, transparent);
+  box-shadow: inset 3px 0 0 var(--ok);
+}
+
+.action-switcher .sandbox-action-card--active.sandbox-action-card--needs_approval {
+  border-color: var(--warn-border);
+  border-left-color: var(--warn);
+  background:
+    linear-gradient(90deg, var(--warn-bg), rgba(230, 234, 240, 0.03) 46%, transparent);
+  box-shadow: inset 3px 0 0 var(--warn);
 }
 
 .action-switcher .sandbox-action-card--active strong {
@@ -4565,21 +4693,21 @@ textarea.ui-input,
 }
 
 .action-switcher .sandbox-action-card--denied em {
-  border-color: rgba(248, 113, 113, 0.28);
-  color: #fecaca;
-  background: rgba(239, 68, 68, 0.1);
+  border-color: var(--deny-border);
+  color: var(--deny);
+  background: var(--deny-bg);
 }
 
 .action-switcher .sandbox-action-card--allowed em {
-  border-color: rgba(134, 239, 172, 0.22);
-  color: #bbf7d0;
-  background: rgba(34, 197, 94, 0.09);
+  border-color: var(--ok-border);
+  color: var(--ok);
+  background: var(--ok-bg);
 }
 
 .action-switcher .sandbox-action-card--needs_approval em {
-  border-color: rgba(253, 186, 116, 0.26);
-  color: #fed7aa;
-  background: rgba(249, 115, 22, 0.09);
+  border-color: var(--warn-border);
+  color: var(--warn);
+  background: var(--warn-bg);
 }
 
 @media (max-width: 1180px) {
@@ -4821,7 +4949,7 @@ textarea.ui-input,
 }
 
 .primitive-stream--decision strong {
-  color: #fecaca;
+  color: var(--deny);
 }
 
 .primitive-boundary {
@@ -4934,8 +5062,8 @@ textarea.ui-input,
 }
 
 .boundary-flow__step:nth-child(2) {
-  box-shadow: inset 3px 0 0 rgba(248, 113, 113, 0.74);
-  background: rgba(239, 68, 68, 0.035);
+  box-shadow: inset 3px 0 0 var(--deny);
+  background: var(--deny-bg);
 }
 
 .boundary-flow__step span {
@@ -5020,29 +5148,29 @@ textarea.ui-input,
 
 .sandbox-stage--boundary {
   box-shadow: inset 3px 0 0 rgba(248, 113, 113, 0.75);
-  background: rgba(239, 68, 68, 0.045);
+  background: var(--deny-bg);
 }
 
 .sandbox-stage--denied,
 .sandbox-stage--blocked {
-  background: rgba(239, 68, 68, 0.06);
+  background: var(--deny-bg);
 }
 
 .sandbox-stage--denied strong,
 .sandbox-stage--blocked strong {
-  color: #fecaca;
+  color: var(--deny);
 }
 
 .sandbox-stage--allowed {
-  background: rgba(34, 197, 94, 0.045);
+  background: var(--ok-bg);
 }
 
 .sandbox-stage--allowed strong {
-  color: #bbf7d0;
+  color: var(--ok);
 }
 
 .sandbox-stage--needs_approval strong {
-  color: #fed7aa;
+  color: var(--warn);
 }
 
 .sandbox-stage--guidance strong,
