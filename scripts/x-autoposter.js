@@ -2,24 +2,26 @@
 /**
  * BehalfID X Autoposter
  *
- * Spins up a Claude agent on a random interval (35–106 min) that reads brand
- * context + recent posts, generates a tweet, and posts it to X.
+ * Spins up a `claude -p` session on a random interval (35–106 min) that reads
+ * brand context + recent posts, generates a tweet, and posts it to X.
  *
  * Usage:
  *   node scripts/x-autoposter.js           # runs forever
  *   node scripts/x-autoposter.js --once    # single run then exit
  *   node scripts/x-autoposter.js --dry-run # generates tweet but does not post
  *
+ * Prerequisites:
+ *   - `claude` CLI installed and authenticated (run `claude` once to verify)
+ *
  * Required env vars (add to .env.local or export before running):
- *   ANTHROPIC_API_KEY
  *   X_API_KEY
  *   X_API_SECRET
  *   X_ACCESS_TOKEN
  *   X_ACCESS_TOKEN_SECRET
- *   X_USERNAME   (your account handle, without @, for fetching past tweets)
+ *   X_USERNAME   (account handle without @, used to fetch past tweets)
  *
  * Install deps first:
- *   npm install @anthropic-ai/sdk twitter-api-v2 dotenv
+ *   npm install twitter-api-v2 dotenv
  */
 
 "use strict";
@@ -28,7 +30,7 @@ const path = require("path");
 require("dotenv").config({ path: path.resolve(__dirname, "../.env.local") });
 require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 
-const Anthropic = require("@anthropic-ai/sdk");
+const { spawn, execSync } = require("child_process");
 const { TwitterApi } = require("twitter-api-v2");
 const fs = require("fs");
 
@@ -52,7 +54,16 @@ function assertEnv(name) {
   }
 }
 
-assertEnv("ANTHROPIC_API_KEY");
+function assertClaude() {
+  try {
+    execSync("which claude", { stdio: "ignore" });
+  } catch {
+    console.error("[autoposter] `claude` CLI not found in PATH. Install Claude Code and authenticate first.");
+    process.exit(1);
+  }
+}
+
+assertClaude();
 if (!DRY_RUN) {
   assertEnv("X_API_KEY");
   assertEnv("X_API_SECRET");
@@ -61,8 +72,6 @@ if (!DRY_RUN) {
 }
 
 // ─── Clients ─────────────────────────────────────────────────────────────────
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 function makeXClient() {
   return new TwitterApi({
@@ -132,7 +141,7 @@ async function generateTweet(brandContext, recentPosts) {
           .join("\n\n")}`
       : "## Recent posts\n\n(none available)";
 
-  const systemPrompt = `You are the social media voice for BehalfID. Your only job is to write a single X (Twitter) post.
+  const prompt = `You are the social media voice for BehalfID. Your only job is to write a single X (Twitter) post.
 
 ${brandContext}
 
@@ -141,31 +150,39 @@ Rules for this response:
 - Maximum 280 characters.
 - Match the brand voice exactly as described above.
 - Vary your angle from recent posts — don't repeat a topic that was just covered.
-- Never include a URL unless it is https://behalfid.com and it genuinely adds value.`;
+- Never include a URL unless it is https://behalfid.com and it genuinely adds value.
 
-  const userPrompt = `${recentPostsBlock}
+${recentPostsBlock}
 
 Write one tweet for BehalfID right now. Output only the tweet text.`;
 
-  const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 300,
-    system: systemPrompt,
-    messages: [{ role: "user", content: userPrompt }],
+  return new Promise((resolve, reject) => {
+    const proc = spawn("claude", ["-p", prompt], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    proc.stdout.on("data", (chunk) => { stdout += chunk; });
+    proc.stderr.on("data", (chunk) => { stderr += chunk; });
+
+    proc.on("close", (code) => {
+      if (code !== 0) {
+        return reject(new Error(`claude exited with code ${code}: ${stderr.trim()}`));
+      }
+      const tweet = stdout.trim();
+      if (!tweet) return reject(new Error("claude returned empty output"));
+      if (tweet.length > 280) {
+        return reject(new Error(`Generated tweet is too long (${tweet.length} chars): ${tweet}`));
+      }
+      resolve(tweet);
+    });
+
+    proc.on("error", (err) =>
+      reject(new Error(`Failed to spawn claude: ${err.message}`))
+    );
   });
-
-  const tweet = message.content
-    .filter((block) => block.type === "text")
-    .map((block) => block.text.trim())
-    .join("")
-    .trim();
-
-  if (!tweet) throw new Error("Claude returned an empty response");
-  if (tweet.length > 280) {
-    throw new Error(`Generated tweet is too long (${tweet.length} chars): ${tweet}`);
-  }
-
-  return tweet;
 }
 
 async function postTweet(text) {
@@ -186,6 +203,7 @@ async function runOnce() {
   const recentPosts = DRY_RUN ? [] : await fetchRecentPosts();
   console.log(`[autoposter] Fetched ${recentPosts.length} recent posts for context`);
 
+  console.log("[autoposter] Calling claude...");
   const tweet = await generateTweet(brandContext, recentPosts);
   console.log(`[autoposter] Generated tweet (${tweet.length} chars):\n\n  ${tweet}\n`);
 
