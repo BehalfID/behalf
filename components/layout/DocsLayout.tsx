@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Logo } from "@/components/ui";
+import { Logo, ThemeToggle } from "@/components/ui";
 
 export const docsNav = [
   { href: "/docs", label: "Overview" },
@@ -30,6 +30,9 @@ export function DocsLayout({ children }: { children: React.ReactNode }) {
             </Link>
           ))}
         </nav>
+        <div className="app-sidebar__footer">
+          <ThemeToggle />
+        </div>
       </aside>
       <article className="docs-article">{children}</article>
     </main>

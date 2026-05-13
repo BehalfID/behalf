@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Logo } from "@/components/ui";
+import { Logo, ThemeToggle } from "@/components/ui";
 
 const consoleNav = [
   { href: "/console", label: "Dashboard" },
@@ -37,9 +37,12 @@ export function ConsoleShellLayout({
             </Link>
           ))}
         </nav>
-        <button className="ui-button ui-button--secondary app-sidebar__logout" onClick={onLogout} type="button">
-          Logout
-        </button>
+        <div className="app-sidebar__footer">
+          <ThemeToggle />
+          <button className="ui-button ui-button--secondary app-sidebar__logout" onClick={onLogout} type="button">
+            Logout
+          </button>
+        </div>
       </aside>
       <section className="console-workspace app-main">{children}</section>
     </main>
