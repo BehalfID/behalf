@@ -1,4 +1,7 @@
 import dns from "dns/promises";
+import http from "http";
+import https from "https";
+import type { IncomingMessage } from "http";
 import { connectToDatabase } from "@/lib/db";
 import { createPublicId } from "@/lib/ids";
 import {
@@ -220,27 +223,25 @@ async function deliverToEndpoint({
   const signature = signWebhookPayload(secretHash, timestamp, rawBody);
   const allowedUrl = await validateDeliveryUrl(url);
 
-  if (allowedUrl.error || !allowedUrl.url) {
+  if (allowedUrl.error || !allowedUrl.url || !allowedUrl.pinnedAddress) {
     return {
       webhookId,
       status: "failed",
       error: allowedUrl.error ?? "Webhook URL is not allowed."
     };
   }
-  const deliveryUrl = allowedUrl.url;
 
   try {
-    const response = await fetch(deliveryUrl, {
-      method: "POST",
-      redirect: "manual",
+    const response = await postWithPinnedAddress({
+      url: allowedUrl.url,
+      pinnedAddress: allowedUrl.pinnedAddress,
       headers: {
         "Content-Type": "application/json",
         "BehalfID-Event-ID": eventId,
         "BehalfID-Timestamp": timestamp,
         "BehalfID-Signature": `v1=${signature}`
       },
-      body: rawBody,
-      signal: AbortSignal.timeout(DELIVERY_TIMEOUT_MS)
+      body: rawBody
     });
 
     if (response.status >= 300 && response.status < 400) {
@@ -252,7 +253,7 @@ async function deliverToEndpoint({
       };
     }
 
-    if (response.ok) {
+    if (response.status >= 200 && response.status < 300) {
       return { webhookId, status: "success", httpStatus: response.status };
     }
 
@@ -271,10 +272,12 @@ async function deliverToEndpoint({
   }
 }
 
+type PinnedAddress = { address: string; family: number };
+
 async function validateDeliveryUrl(url: string) {
   const validation = validateWebhookUrl(url);
   if (validation.error || !validation.url) {
-    return { url: null, error: validation.error ?? "Webhook URL is not allowed." };
+    return { url: null, pinnedAddress: null, error: validation.error ?? "Webhook URL is not allowed." };
   }
   const deliveryUrl = validation.url;
 
@@ -282,17 +285,63 @@ async function validateDeliveryUrl(url: string) {
   try {
     const addresses = await dns.lookup(hostname, { all: true, verbatim: true });
     if (!addresses.length) {
-      return { url: null, error: "Webhook URL host could not be resolved." };
+      return { url: null, pinnedAddress: null, error: "Webhook URL host could not be resolved." };
     }
 
     if (addresses.some((address) => isPrivateIpAddress(address.address))) {
-      return { url: null, error: "Webhook URL resolved to a private or reserved address." };
+      return { url: null, pinnedAddress: null, error: "Webhook URL resolved to a private or reserved address." };
     }
-  } catch {
-    return { url: null, error: "Webhook URL host could not be resolved." };
-  }
 
-  return { url: deliveryUrl, error: null };
+    return { url: deliveryUrl, pinnedAddress: addresses[0] as PinnedAddress, error: null };
+  } catch {
+    return { url: null, pinnedAddress: null, error: "Webhook URL host could not be resolved." };
+  }
+}
+
+function postWithPinnedAddress({
+  url,
+  pinnedAddress,
+  headers,
+  body
+}: {
+  url: string;
+  pinnedAddress: PinnedAddress;
+  headers: Record<string, string>;
+  body: string;
+}): Promise<{ status: number }> {
+  const parsed = new URL(url);
+  const client = parsed.protocol === "https:" ? https : http;
+
+  return new Promise((resolve, reject) => {
+    const bodyBuffer = Buffer.from(body, "utf8");
+    const req = client.request(
+      parsed,
+      {
+        method: "POST",
+        timeout: DELIVERY_TIMEOUT_MS,
+        headers: {
+          ...headers,
+          "Content-Length": String(bodyBuffer.byteLength)
+        },
+        lookup: (_hostname, _options, callback) => {
+          callback(null, pinnedAddress.address, pinnedAddress.family);
+        }
+      },
+      (res: IncomingMessage) => {
+        res.resume();
+        resolve({ status: res.statusCode ?? 0 });
+      }
+    );
+
+    req.on("timeout", () => {
+      req.destroy(new Error("Webhook delivery timed out."));
+    });
+    req.on("error", (err) => {
+      reject(err.message === "Webhook delivery timed out." ? err : new Error("Delivery failed."));
+    });
+    req.write(bodyBuffer);
+    req.end();
+  });
 }
 
 function nextAttemptAt(attempt: number) {
