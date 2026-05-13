@@ -12,3 +12,7 @@ npm-debug.log*
 
 # Design system source files — not for distribution
 *.zip
+
+# X autoposter — local-only scripts
+/scripts/x-autoposter.js
+/scripts/x-brand-context.md
