@@ -10,7 +10,7 @@ import {
   setDeveloperSessionCookie
 } from "@/lib/developerAuth";
 import { createPublicId } from "@/lib/ids";
-import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
+import { checkAuthRateLimit, checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
@@ -36,9 +36,16 @@ export async function POST(request: NextRequest) {
   if (!isValidEmail(email)) return jsonError("A valid email is required.");
   if (!isValidPassword(password)) return jsonError("Password must be between 10 and 200 characters.");
 
+  // Per-email rate limit to slow automated account probing
+  const authLimit = await checkAuthRateLimit(email);
+  if (authLimit.limited) return rateLimitError();
+
   await connectToDatabase();
   const existing = await DeveloperUser.exists({ email });
-  if (existing) return jsonError("An account with this email already exists.", 409);
+  if (existing) {
+    // Do not confirm whether the email is registered; direct the user to login instead.
+    return jsonError("Unable to complete registration. If an account with this email exists, please sign in instead.", 409);
+  }
 
   let user;
   try {
@@ -54,7 +61,7 @@ export async function POST(request: NextRequest) {
       "code" in error &&
       error.code === 11000
     ) {
-      return jsonError("An account with this email already exists.", 409);
+      return jsonError("Unable to complete registration. If an account with this email exists, please sign in instead.", 409);
     }
     throw error;
   }

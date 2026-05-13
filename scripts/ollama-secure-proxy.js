@@ -169,23 +169,25 @@ async function handle(req, res) {
     const upstreamBody  = await upstreamRes.text();
     const upstreamCT    = upstreamRes.headers.get("content-type") || "application/json";
 
-    log("INFO", `${req.method} ${urlPath} → ${upstreamRes.status}`);
+    const safeUrlPath = urlPath.replace(/[\r\n\t\x00-\x1f\x7f]/g, "");
+    log("INFO", `${req.method} ${safeUrlPath} → ${upstreamRes.status}`);
 
     res.writeHead(upstreamRes.status, { "Content-Type": upstreamCT });
     res.end(upstreamBody);
 
   } catch (err) {
     clearTimeout(timer);
+    const safeUrlPath = urlPath.replace(/[\r\n\t\x00-\x1f\x7f]/g, "");
     const isTimeout = err && err.name === "AbortError";
     if (isTimeout) {
-      log("ERROR", `Upstream timeout  ${urlPath}`);
+      log("ERROR", `Upstream timeout  ${safeUrlPath}`);
       return jsonRes(res, 504, {
         error:   "Upstream timeout.",
         details: `Ollama did not respond within ${TIMEOUT_MS / 1000}s.`
       });
     }
     const msg = err instanceof Error ? err.message : String(err);
-    log("ERROR", `Upstream error  ${urlPath}  ${msg}`);
+    log("ERROR", `Upstream error  ${safeUrlPath}  ${msg}`);
     return jsonRes(res, 502, {
       error:   "Upstream error.",
       details: "Could not reach Ollama. Make sure it is running (ollama serve)."

@@ -6,6 +6,13 @@ export type VerifyWebhookSignatureInput = {
   timestamp: string | string[] | undefined;
   signature: string | string[] | undefined;
   toleranceSeconds?: number;
+  /**
+   * Optional signing pepper that matches BEHALFID_WEBHOOK_SIGNING_PEPPER on the
+   * server. When set, the effective HMAC key is HMAC-SHA256(pepper, SHA256(secret))
+   * rather than SHA256(secret) alone. Configure this if the server has the pepper
+   * environment variable set.
+   */
+  signingPepper?: string;
 };
 
 export async function verifyWebhookSignature({
@@ -13,7 +20,8 @@ export async function verifyWebhookSignature({
   payload,
   timestamp,
   signature,
-  toleranceSeconds = 300
+  toleranceSeconds = 300,
+  signingPepper
 }: VerifyWebhookSignatureInput): Promise<boolean> {
   const timestampValue = Array.isArray(timestamp) ? timestamp[0] : timestamp;
   const signatureValue = Array.isArray(signature) ? signature[0] : signature;
@@ -32,12 +40,15 @@ export async function verifyWebhookSignature({
   }
 
   const rawBody = Buffer.isBuffer(payload) ? payload.toString("utf8") : payload;
-  const expected = sign(secret, timestampValue, rawBody);
+  const expected = sign(secret, timestampValue, rawBody, signingPepper);
   return timingSafeEqual(signatureValue.slice(3), expected);
 }
 
-function sign(secret: string, timestamp: string, rawBody: string) {
-  const signingKey = crypto.createHash("sha256").update(secret).digest("hex");
+function sign(secret: string, timestamp: string, rawBody: string, pepper?: string) {
+  const secretHash = crypto.createHash("sha256").update(secret).digest("hex");
+  const signingKey = pepper
+    ? crypto.createHmac("sha256", pepper).update(secretHash).digest("hex")
+    : secretHash;
   return crypto.createHmac("sha256", signingKey).update(`${timestamp}.${rawBody}`).digest("hex");
 }
 
