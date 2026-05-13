@@ -9,6 +9,10 @@ const routes: Array<{
   priority: number;
 }> = [
   { path: "/", changeFrequency: "weekly", priority: 1 },
+  { path: "/blog", changeFrequency: "weekly", priority: 0.88 },
+  { path: "/blog/the-decision-packet", changeFrequency: "monthly", priority: 0.75 },
+  { path: "/blog/fail-closed-agent-enforcement", changeFrequency: "monthly", priority: 0.75 },
+  { path: "/blog/permission-passports-not-api-keys", changeFrequency: "monthly", priority: 0.75 },
   { path: "/sandbox", changeFrequency: "weekly", priority: 0.85 },
   { path: "/security", changeFrequency: "monthly", priority: 0.85 },
   { path: "/docs", changeFrequency: "weekly", priority: 0.9 },
