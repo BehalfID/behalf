@@ -6,13 +6,21 @@
     "lint": "eslint",
     "build:sdk": "npm --prefix packages/sdk run build",
     "check:ollama": "node scripts/check-ollama-config.js",
-    "ollama:proxy": "node scripts/ollama-secure-proxy.js"
+    "ollama:proxy": "node scripts/ollama-secure-proxy.js",
+    "x:post": "node scripts/x-autoposter.js",
+    "x:post:once": "node scripts/x-autoposter.js --once",
+    "x:post:dry": "node scripts/x-autoposter.js --dry-run --once"
   },
   "dependencies": {
     "mongoose": "^9.6.1",
     "next": "^16.2.4",
     "react": "^19.2.5",
     "react-dom": "^19.2.5"
+  },
+  "optionalDependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "dotenv": "^16.4.7",
+    "twitter-api-v2": "^1.19.0"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
