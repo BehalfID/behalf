@@ -1,9 +1,15 @@
+import crypto from "crypto";
 import type { NextRequest } from "next/server";
 import { jsonError } from "@/lib/responses";
 
 const WINDOW_MS = 60_000;
 const MAX_REQUESTS = 60;
 const REDIS_PREFIX = "behalfid:rate-limit";
+
+// Auth endpoints: stricter window and lower cap to limit brute-force per identity
+const AUTH_WINDOW_MS = 15 * 60_000;
+const AUTH_MAX_ATTEMPTS = 10;
+const AUTH_REDIS_PREFIX = "behalfid:auth-limit";
 
 type RateLimitEntry = {
   count: number;
@@ -18,10 +24,29 @@ const globalForRateLimit = globalThis as typeof globalThis & {
 const store = globalForRateLimit.behalfRateLimitStore ?? new Map<string, RateLimitEntry>();
 globalForRateLimit.behalfRateLimitStore = store;
 
+if (
+  process.env.NODE_ENV === "production" &&
+  !(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
+) {
+  console.warn(
+    "[behalfid] WARNING: Running in production without Redis. Rate limits are stored in process memory and will not survive restarts or be shared across instances. Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN to enable durable rate limiting."
+  );
+}
+
 function getIpFallback(request: NextRequest) {
-  const forwardedFor = request.headers.get("x-forwarded-for");
-  const ip = forwardedFor?.split(",")[0]?.trim();
-  return ip || request.headers.get("x-real-ip") || "unknown";
+  // x-real-ip is set by Vercel's edge network and cannot be spoofed by the client.
+  // Only fall back to x-forwarded-for when TRUST_PROXY_XFF=true is explicitly set,
+  // because that header can be injected by the client to bypass rate limiting.
+  const realIp = request.headers.get("x-real-ip")?.trim();
+  if (realIp) return realIp;
+
+  if (process.env.TRUST_PROXY_XFF === "true") {
+    const forwardedFor = request.headers.get("x-forwarded-for");
+    const ip = forwardedFor?.split(",")[0]?.trim();
+    if (ip) return ip;
+  }
+
+  return "unknown";
 }
 
 export function getRateLimitKey(request: NextRequest, apiKeyHash?: string) {
@@ -56,28 +81,28 @@ async function redisCommand<T>(command: string[]) {
   return (await response.json()) as { result: T };
 }
 
-async function checkRedisRateLimit(key: string) {
-  const redisKey = `${REDIS_PREFIX}:${key}`;
+async function checkRedisRateLimit(key: string, maxRequests = MAX_REQUESTS, windowMs = WINDOW_MS, prefix = REDIS_PREFIX) {
+  const redisKey = `${prefix}:${key}`;
   try {
     const increment = await redisCommand<number>(["INCR", redisKey]);
     const count = Number(increment?.result ?? 0);
 
     if (count === 1) {
-      await redisCommand<number>(["EXPIRE", redisKey, String(Math.ceil(WINDOW_MS / 1000))]);
+      await redisCommand<number>(["EXPIRE", redisKey, String(Math.ceil(windowMs / 1000))]);
     } else {
       const ttl = await redisCommand<number>(["TTL", redisKey]);
       if (Number(ttl?.result) === -1) {
-        await redisCommand<number>(["EXPIRE", redisKey, String(Math.ceil(WINDOW_MS / 1000))]);
+        await redisCommand<number>(["EXPIRE", redisKey, String(Math.ceil(windowMs / 1000))]);
       }
     }
 
-    return { limited: count > MAX_REQUESTS };
+    return { limited: count > maxRequests };
   } catch {
     return { limited: true };
   }
 }
 
-function checkMemoryRateLimit(key: string) {
+function checkMemoryRateLimit(key: string, maxRequests = MAX_REQUESTS, windowMs = WINDOW_MS) {
   const now = Date.now();
   if (
     !globalForRateLimit.behalfRateLimitLastPruneAt ||
@@ -94,11 +119,11 @@ function checkMemoryRateLimit(key: string) {
   const current = store.get(key);
 
   if (!current || current.resetAt <= now) {
-    store.set(key, { count: 1, resetAt: now + WINDOW_MS });
+    store.set(key, { count: 1, resetAt: now + windowMs });
     return { limited: false };
   }
 
-  if (current.count >= MAX_REQUESTS) {
+  if (current.count >= maxRequests) {
     return { limited: true };
   }
 
@@ -113,6 +138,20 @@ export async function checkRateLimit(request: NextRequest, apiKeyHash?: string) 
   }
 
   return checkMemoryRateLimit(key);
+}
+
+/**
+ * Per-identity rate limit for auth endpoints (login, signup).
+ * Keyed by a hashed identifier (email or static key for console) so brute-forcing
+ * a single account is throttled independently of the IP-based general limit.
+ */
+export async function checkAuthRateLimit(identifier: string) {
+  const key = `auth:${crypto.createHash("sha256").update(identifier).digest("hex")}`;
+  if (getRateLimitMode() === "redis") {
+    return checkRedisRateLimit(key, AUTH_MAX_ATTEMPTS, AUTH_WINDOW_MS, AUTH_REDIS_PREFIX);
+  }
+
+  return checkMemoryRateLimit(key, AUTH_MAX_ATTEMPTS, AUTH_WINDOW_MS);
 }
 
 export function rateLimitError() {

@@ -128,18 +128,22 @@ export function isPrivateIpAddress(address: string) {
   }
 
   if (ipVersion === 6) {
-    return (
-      normalizedAddress === "::" ||
-      normalizedAddress === "::1" ||
-      normalizedAddress.startsWith("fc") ||
-      normalizedAddress.startsWith("fd") ||
-      normalizedAddress.startsWith("fe8") ||
-      normalizedAddress.startsWith("fe9") ||
-      normalizedAddress.startsWith("fea") ||
-      normalizedAddress.startsWith("feb") ||
-      normalizedAddress.startsWith("ff") ||
-      normalizedAddress.startsWith("::ffff:")
-    );
+    const addr = normalizedAddress;
+    // Loopback / unspecified
+    if (addr === "::" || addr === "::1") return true;
+    // Unique Local (fc00::/7)
+    if (addr.startsWith("fc") || addr.startsWith("fd")) return true;
+    // Link-local (fe80::/10)
+    if (addr.startsWith("fe8") || addr.startsWith("fe9") || addr.startsWith("fea") || addr.startsWith("feb")) return true;
+    // Multicast (ff00::/8)
+    if (addr.startsWith("ff")) return true;
+    // IPv4-mapped (::ffff:/96) — compressed form
+    if (addr.startsWith("::ffff:")) return true;
+    // IPv4-mapped — full form: 0:0:0:0:0:ffff:x.x.x.x or 0000:...:ffff:x.x.x.x
+    if (/^(?:0+:){5}ffff:/i.test(addr)) return true;
+    // NAT64 (64:ff9b::/96) — could translate private IPv4 addresses
+    if (addr.startsWith("64:ff9b:")) return true;
+    return false;
   }
 
   return false;
@@ -194,8 +198,24 @@ export async function enqueueWebhookEvent(event: WebhookEvent) {
   });
 }
 
+/**
+ * Derive the effective HMAC signing key from the stored secretHash.
+ * When BEHALFID_WEBHOOK_SIGNING_PEPPER is set, the key is derived as
+ * HMAC-SHA256(pepper, secretHash) so that the value stored in the database
+ * is not sufficient on its own to forge signatures — the pepper must also
+ * be known. Generate the pepper with: openssl rand -hex 32
+ */
+function deriveSigningKey(secretHash: string): string {
+  const pepper = process.env.BEHALFID_WEBHOOK_SIGNING_PEPPER?.trim();
+  if (pepper) {
+    return crypto.createHmac("sha256", pepper).update(secretHash).digest("hex");
+  }
+  return secretHash;
+}
+
 export function signWebhookPayload(secretHash: string, timestamp: string, rawBody: string) {
-  return crypto.createHmac("sha256", secretHash).update(`${timestamp}.${rawBody}`).digest("hex");
+  const key = deriveSigningKey(secretHash);
+  return crypto.createHmac("sha256", key).update(`${timestamp}.${rawBody}`).digest("hex");
 }
 
 function isPrivateHostname(hostname: string) {
