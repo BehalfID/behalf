@@ -1,32 +1,38 @@
+import crypto from "crypto";
 import { NextResponse, type NextRequest } from "next/server";
 
-const CSP_PRODUCTION = [
-  "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data:",
-  "font-src 'self'",
-  "connect-src 'self'",
-  "frame-ancestors 'none'",
-  "base-uri 'self'",
-  "form-action 'self'"
-].join("; ");
+// 'unsafe-inline' is retained for style-src only — React/Next.js inline styles
+// require it. For script-src, 'unsafe-inline' is dropped in favour of a per-request
+// nonce. Next.js reads the x-nonce request header and applies the nonce to all
+// inline script tags it generates during streaming SSR.
+function buildCsp(nonce: string, isDev: boolean) {
+  const scriptSrc = isDev
+    ? `'nonce-${nonce}' 'unsafe-inline' 'unsafe-eval'`
+    : `'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline'`;
+  // 'strict-dynamic' causes compliant browsers to ignore 'unsafe-inline',
+  // allowing scripts loaded by a nonced script to run. 'unsafe-inline' is
+  // kept as a fallback for browsers that don't support strict-dynamic.
 
-// Development relaxations (applied when running on localhost):
-// - 'unsafe-eval': React dev mode uses eval() for call-stack reconstruction
-// - fonts.googleapis.com / fonts.gstatic.com: next/font/google fetches from
-//   Google's CDN in dev mode; production builds self-host the font files
-const CSP_DEV = [
-  "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "img-src 'self' data:",
-  "font-src 'self' https://fonts.gstatic.com",
-  "connect-src 'self'",
-  "frame-ancestors 'none'",
-  "base-uri 'self'",
-  "form-action 'self'"
-].join("; ");
+  const styleSrc = isDev
+    ? `'self' 'unsafe-inline' https://fonts.googleapis.com`
+    : `'self' 'unsafe-inline'`;
+
+  const fontSrc = isDev
+    ? `'self' https://fonts.gstatic.com`
+    : `'self'`;
+
+  return [
+    "default-src 'self'",
+    `script-src 'self' ${scriptSrc}`,
+    `style-src ${styleSrc}`,
+    "img-src 'self' data:",
+    `font-src ${fontSrc}`,
+    "connect-src 'self'",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'"
+  ].join("; ");
+}
 
 function isLocalDev(request: NextRequest) {
   const { hostname } = request.nextUrl;
@@ -34,8 +40,16 @@ function isLocalDev(request: NextRequest) {
 }
 
 export function middleware(request: NextRequest) {
-  const response = NextResponse.next();
-  response.headers.set("Content-Security-Policy", isLocalDev(request) ? CSP_DEV : CSP_PRODUCTION);
+  const nonce = crypto.randomBytes(16).toString("base64");
+  const isDev = isLocalDev(request);
+
+  // Inject the nonce into the request headers so Next.js server components
+  // (and the RSC streaming runtime) can read it via headers().get("x-nonce").
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  response.headers.set("Content-Security-Policy", buildCsp(nonce, isDev));
   return response;
 }
 
