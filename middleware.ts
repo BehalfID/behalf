@@ -1,4 +1,3 @@
-import crypto from "crypto";
 import { NextResponse, type NextRequest } from "next/server";
 
 // 'unsafe-inline' is retained for style-src only — React/Next.js inline styles
@@ -40,7 +39,9 @@ function isLocalDev(request: NextRequest) {
 }
 
 export function middleware(request: NextRequest) {
-  const nonce = crypto.randomBytes(16).toString("base64");
+  const array = new Uint8Array(16);
+  globalThis.crypto.getRandomValues(array);
+  const nonce = btoa(String.fromCharCode(...array));
   const isDev = isLocalDev(request);
 
   // Inject the nonce into the request headers so Next.js server components
