@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Logo } from "@/components/ui";
+import { Logo, ThemeToggle } from "@/components/ui";
 
 const dashboardNav = [
   { href: "/dashboard", label: "Overview" },
@@ -32,9 +32,12 @@ export function DashboardShellLayout({ children }: { children: React.ReactNode }
             </Link>
           ))}
         </nav>
-        <a className="ui-button ui-button--secondary app-sidebar__logout" href="/logout">
-          Log out
-        </a>
+        <div className="app-sidebar__footer">
+          <ThemeToggle />
+          <a className="ui-button ui-button--secondary app-sidebar__logout" href="/logout">
+            Log out
+          </a>
+        </div>
       </aside>
       <section className="dashboard-main app-main">{children}</section>
     </main>
