@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { PublicNav } from "@/components/layout/PublicNav";
 import { ButtonLink, CodeBlock } from "@/components/ui";
 
@@ -106,11 +107,13 @@ function DecisionPacket() {
   );
 }
 
-export default function Home() {
+export default async function Home() {
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <main className="marketing public-site">
       <script
         type="application/ld+json"
+        nonce={nonce}
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <PublicNav />

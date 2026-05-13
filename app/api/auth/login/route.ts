@@ -7,7 +7,7 @@ import {
   setDeveloperSessionCookie,
   verifyPassword
 } from "@/lib/developerAuth";
-import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
+import { checkAuthRateLimit, checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
@@ -29,6 +29,10 @@ export async function POST(request: NextRequest) {
 
   const email = normalizeEmail(readString(body.email));
   const password = typeof body.password === "string" ? body.password : "";
+
+  // Per-email rate limit applied before any DB work to prevent brute-force
+  const authLimit = await checkAuthRateLimit(email);
+  if (authLimit.limited) return rateLimitError();
 
   await connectToDatabase();
   const user = await DeveloperUser.findOne({ email }).select("+passwordHash");

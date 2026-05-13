@@ -37,8 +37,8 @@ function timingSafeEqualString(a: string, b: string) {
   return crypto.timingSafeEqual(aBuffer, bBuffer);
 }
 
-function signSession(issuedAt: number, password: string) {
-  return crypto.createHmac("sha256", password).update(String(issuedAt)).digest("base64url");
+function signSession(issuedAt: number, nonce: string, password: string) {
+  return crypto.createHmac("sha256", password).update(`${issuedAt}.${nonce}`).digest("base64url");
 }
 
 function normalizeOrigin(value?: string | null) {
@@ -129,7 +129,8 @@ export function createConsoleSessionValue() {
   }
 
   const issuedAt = Date.now();
-  return `${issuedAt}.${signSession(issuedAt, password)}`;
+  const nonce = crypto.randomBytes(12).toString("base64url");
+  return `${issuedAt}.${nonce}.${signSession(issuedAt, nonce, password)}`;
 }
 
 export function isValidConsoleSession(value?: string) {
@@ -138,9 +139,14 @@ export function isValidConsoleSession(value?: string) {
     return false;
   }
 
-  const [issuedAtRaw, signature] = value.split(".");
+  const parts = value.split(".");
+  if (parts.length !== 3) {
+    return false;
+  }
+
+  const [issuedAtRaw, nonce, signature] = parts;
   const issuedAt = Number(issuedAtRaw);
-  if (!Number.isFinite(issuedAt) || !signature) {
+  if (!Number.isFinite(issuedAt) || !nonce || !signature) {
     return false;
   }
 
@@ -148,7 +154,7 @@ export function isValidConsoleSession(value?: string) {
     return false;
   }
 
-  return timingSafeEqualString(signature, signSession(issuedAt, password));
+  return timingSafeEqualString(signature, signSession(issuedAt, nonce, password));
 }
 
 export async function hasConsoleSession() {

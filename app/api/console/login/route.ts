@@ -5,7 +5,7 @@ import {
   setConsoleSessionCookie,
   verifyAdminPassword
 } from "@/lib/adminAuth";
-import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
+import { checkAuthRateLimit, checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
@@ -18,6 +18,12 @@ export async function POST(request: NextRequest) {
 
   const limit = await checkRateLimit(request);
   if (limit.limited) {
+    return rateLimitError();
+  }
+
+  // Per-instance (single admin password) auth limit: 10 attempts per 15 minutes
+  const authLimit = await checkAuthRateLimit("console");
+  if (authLimit.limited) {
     return rateLimitError();
   }
 
