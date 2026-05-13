@@ -278,20 +278,42 @@ ${passportHref}`;
 
         {/* A: Passport summary */}
         <div className="passport-hero">
-          <p className="section-kicker">Manual test mode</p>
-          <h1>{agent?.name ?? "Permission passport"}</h1>
-          <div className="agent-passport__header">
-            <span className="console-status">{agent?.agentType ?? "agent"}</span>
-            <span className="console-status">{agent?.provider ?? "provider"}</span>
-            <span className="console-status">{agent?.connectionStatus ?? "manual"}</span>
-          </div>
-          {agent?.description ? <p>{agent.description}</p> : null}
-          <p>
-            This is a manual permission passport. It describes what this agent is allowed to do.
-            Automatic enforcement requires the app or provider to integrate BehalfID.
-          </p>
-          <p>This page does not expose API keys, logs, developer accounts, or permission editing.</p>
-          {error || (tokenReady && !token) ? <p className="form-error">{error || "Invalid passport link."}</p> : null}
+          {error || (tokenReady && !token) ? (
+            <div className="passport-empty-state">
+              <p className="section-kicker">Permission passport</p>
+              <h1>Invalid passport link.</h1>
+              <p>
+                {error
+                  ? error
+                  : "This link is missing a valid token. Passport links are generated from the BehalfID console and include a secure token in the URL."}
+              </p>
+              <p>
+                To get a valid passport link: open the BehalfID console, navigate to the agent you
+                want to share, and use <strong>Share passport</strong>. The link includes a token
+                that lets recipients view the allowed scopes and run manual previews.
+              </p>
+              <div style={{ marginTop: 24, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <Link className="ui-button ui-button--primary" href="/login">Open console</Link>
+                <Link className="ui-button" href="/docs/concepts">How passports work</Link>
+              </div>
+            </div>
+          ) : (
+            <>
+              <p className="section-kicker">Manual test mode</p>
+              <h1>{agent?.name ?? "Permission passport"}</h1>
+              <div className="agent-passport__header">
+                <span className="console-status">{agent?.agentType ?? "agent"}</span>
+                <span className="console-status">{agent?.provider ?? "provider"}</span>
+                <span className="console-status">{agent?.connectionStatus ?? "manual"}</span>
+              </div>
+              {agent?.description ? <p>{agent.description}</p> : null}
+              <p>
+                This is a manual permission passport. It describes what this agent is allowed to do.
+                Automatic enforcement requires the app or provider to integrate BehalfID.
+              </p>
+              <p>This page does not expose API keys, logs, developer accounts, or permission editing.</p>
+            </>
+          )}
         </div>
 
         {/* B: Allowed scopes */}

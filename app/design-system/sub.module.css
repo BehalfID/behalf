@@ -1,0 +1,183 @@
+/* Shared layout for design-system sub-pages */
+
+/* ── Top nav ─────────────────────────────── */
+.topnav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.topnavInner {
+  width: 100%;
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+}
+.topnavGroup {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.topnavDivider {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+}
+.topnavSub {
+  color: var(--muted);
+  font: 500 0.78rem/1 var(--font-mono);
+}
+.topnavLinks {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  color: var(--text-2);
+  font: 500 0.875rem/1 var(--font-sans);
+}
+.topnavLinks a {
+  transition: color 120ms ease;
+  text-decoration: none;
+}
+.topnavLinks a:hover { color: var(--text); }
+.topnavLinks a[aria-current="page"] { color: var(--text); }
+.topnavCta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* ── Doc wrap ────────────────────────────── */
+.doc {
+  width: min(1180px, calc(100% - 64px));
+  margin: 0 auto;
+  padding: 72px 0 120px;
+}
+
+/* ── Typography ──────────────────────────── */
+.kicker {
+  font: 800 0.75rem/1 var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 16px;
+}
+.h1 {
+  margin: 0 0 8px;
+  font: 800 clamp(2.6rem, 5.5vw, 4.6rem)/0.96 var(--font-sans);
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.h2 {
+  margin: 64px 0 16px;
+  font: 700 1.6rem/1.1 var(--font-sans);
+  color: var(--text);
+}
+.h3 {
+  margin: 28px 0 8px;
+  font: 700 1.05rem/1.3 var(--font-sans);
+  color: var(--muted);
+}
+.lede {
+  max-width: 720px;
+  color: var(--muted);
+  font-size: 1.08rem;
+  line-height: 1.65;
+  margin: 0;
+}
+
+/* ── Version badge + build btn ───────────── */
+.versionBadge {
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  color: var(--muted);
+  font: 600 0.72rem/24px var(--font-mono);
+  letter-spacing: 0.06em;
+}
+.buildBtn {
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  font: 500 0.875rem/32px var(--font-sans);
+  text-decoration: none;
+  transition: border-color 120ms ease, color 120ms ease;
+  white-space: nowrap;
+}
+.buildBtn:hover {
+  border-color: rgba(255,255,255,0.28);
+  color: var(--text);
+}
+
+/* ── Grids ───────────────────────────────── */
+.grid2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 24px;
+}
+.grid3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 24px;
+}
+.grid4 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 24px;
+}
+
+/* ── Footer ──────────────────────────────── */
+.foot {
+  border-top: 1px solid var(--border);
+  margin-top: 88px;
+  padding: 48px 0;
+}
+.footInner {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 32px;
+  align-items: start;
+  color: var(--muted);
+  font: 500 0.78rem/1.6 var(--font-mono);
+}
+.footInner a:hover { color: var(--text); }
+.footCols {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 56px;
+}
+.footCols h5 {
+  font: 500 0.72rem/1 var(--font-mono);
+  color: var(--text);
+  margin: 0 0 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.footCols ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
+
+@media (max-width: 880px) {
+  .topnavLinks { display: none; }
+  .grid2, .grid3, .grid4 { grid-template-columns: 1fr; }
+  .footCols { grid-template-columns: 1fr 1fr; gap: 32px; }
+}
