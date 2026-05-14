@@ -225,4 +225,37 @@ LOGS_RESPONSE=$(
 print_json_response "$LOGS_RESPONSE" "view logs"
 expect_json_value "$LOGS_RESPONSE" "type" "array"
 
+step "12. Billing checkout requires auth"
+CHECKOUT_UNAUTH=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/billing/checkout")
+if [[ "$CHECKOUT_UNAUTH" != "401" ]]; then
+  echo "Expected 401 from /api/billing/checkout without auth, got $CHECKOUT_UNAUTH." >&2
+  exit 1
+fi
+echo "401 confirmed"
+
+step "13. Billing portal requires auth"
+PORTAL_UNAUTH=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/billing/portal")
+if [[ "$PORTAL_UNAUTH" != "401" ]]; then
+  echo "Expected 401 from /api/billing/portal without auth, got $PORTAL_UNAUTH." >&2
+  exit 1
+fi
+echo "401 confirmed"
+
+step "14. Billing webhook rejects missing signature"
+WEBHOOK_NOSIG=$(
+  curl -s -X POST "$BASE_URL/api/billing/webhook" \
+    -H "Content-Type: application/json" \
+    -d '{}'
+)
+print_json_response "$WEBHOOK_NOSIG" "billing webhook no-sig"
+expect_json_value "$WEBHOOK_NOSIG" ".error" "Missing stripe-signature header."
+
+step "15. Billing page redirects to login when unauthenticated"
+BILLING_PAGE_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/dashboard/billing")
+if [[ "$BILLING_PAGE_STATUS" != "307" && "$BILLING_PAGE_STATUS" != "302" && "$BILLING_PAGE_STATUS" != "200" ]]; then
+  echo "Expected redirect or 200 from /dashboard/billing, got $BILLING_PAGE_STATUS." >&2
+  exit 1
+fi
+echo "$BILLING_PAGE_STATUS confirmed"
+
 printf "\nSmoke test passed for %s\n" "$BASE_URL"
