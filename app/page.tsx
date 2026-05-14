@@ -245,6 +245,13 @@ if (!decision.allowed) {
                 <li><Link href="/design-system/patterns">Patterns</Link></li>
               </ul>
             </div>
+            <div>
+              <h5>Legal</h5>
+              <ul>
+                <li><Link href="/privacy">Privacy policy</Link></li>
+                <li><Link href="/security">Security</Link></li>
+              </ul>
+            </div>
           </nav>
         </div>
       </footer>

@@ -10,3 +10,4 @@ export * from "./StatCard";
 export * from "./Table";
 export * from "./Tabs";
 export * from "./ThemeToggle";
+export * from "./CookieBanner";

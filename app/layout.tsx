@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
+import { CookieBanner } from "@/components/ui";
 import "./globals.css";
 
 const inter = Inter({
@@ -52,7 +54,11 @@ export default function RootLayout({
         {/* eslint-disable-next-line @next/next/no-sync-scripts */}
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <CookieBanner />
+        <Analytics />
+      </body>
     </html>
   );
 }
