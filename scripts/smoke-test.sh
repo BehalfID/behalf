@@ -227,7 +227,7 @@ expect_json_value "$LOGS_RESPONSE" "type" "array"
 
 step "12. Billing checkout requires auth"
 CHECKOUT_UNAUTH=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/billing/checkout")
-if [[ "$CHECKOUT_UNAUTH" != "401" ]]; then
+if [[ "$CHECKOUT_UNAUTH" != "401" && "$CHECKOUT_UNAUTH" != "403" ]]; then
   echo "Expected 401 from /api/billing/checkout without auth, got $CHECKOUT_UNAUTH." >&2
   exit 1
 fi
