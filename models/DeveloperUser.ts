@@ -4,7 +4,8 @@ const DeveloperUserSchema = new Schema(
   {
     userId: { type: String, required: true, unique: true, index: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
-    passwordHash: { type: String, required: true, select: false }
+    passwordHash: { type: String, required: true, select: false },
+    primaryAccountId: { type: String, index: true, sparse: true }
   },
   { timestamps: true }
 );
