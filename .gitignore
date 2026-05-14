@@ -19,3 +19,7 @@ npm-debug.log*
 /scripts/x-autopost-daemon.sh
 /scripts/x-replier.sh
 /scripts/x-reply-queue.txt
+
+# Local Stripe key storage — never commit
+stripeapikeys.txt
+.vercel

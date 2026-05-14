@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { createDeveloperAccount } from "@/lib/account";
 import { connectToDatabase } from "@/lib/db";
 import {
   createDeveloperSession,
@@ -65,6 +66,14 @@ export async function POST(request: NextRequest) {
     }
     throw error;
   }
+  // Best-effort: create a billing account for this developer. If it fails the user
+  // is still signed up and the backfill script will create the account later.
+  try {
+    await createDeveloperAccount(user.userId, email);
+  } catch {
+    console.error("[behalfid] Failed to create developer account during signup for userId:", user.userId);
+  }
+
   const { token } = await createDeveloperSession(user.userId);
   const response = NextResponse.json({ user: { userId: user.userId, email: user.email } }, { status: 201 });
   setDeveloperSessionCookie(response, token);

@@ -6,6 +6,7 @@ import { connectToDatabase } from "@/lib/db";
 import { createPublicId } from "@/lib/ids";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { jsonError } from "@/lib/responses";
+import Account, { type AccountDocument } from "@/models/Account";
 import DeveloperSession from "@/models/DeveloperSession";
 import DeveloperUser, { type DeveloperUserDocument } from "@/models/DeveloperUser";
 
@@ -121,7 +122,7 @@ export async function getDeveloperFromToken(token?: string | null) {
 
   if (!session) return null;
   const user = await DeveloperUser.findOne({ userId: session.userId })
-    .select("-_id userId email createdAt updatedAt")
+    .select("-_id userId email primaryAccountId createdAt updatedAt")
     .lean();
 
   return user;
@@ -135,20 +136,25 @@ export async function getCurrentDeveloper() {
 export async function requireDeveloperApi(request: NextRequest) {
   const limit = await checkRateLimit(request);
   if (limit.limited) {
-    return { user: null, error: rateLimitError() };
+    return { user: null, account: null, error: rateLimitError() };
   }
 
   const originError = requireDashboardMutationOrigin(request);
   if (originError) {
-    return { user: null, error: originError };
+    return { user: null, account: null, error: originError };
   }
 
   const user = await getDeveloperFromToken(request.cookies.get(COOKIE_NAME)?.value);
   if (!user) {
-    return { user: null, error: jsonError("Developer authentication required.", 401) };
+    return { user: null, account: null, error: jsonError("Developer authentication required.", 401) };
   }
 
-  return { user, error: null };
+  const account = user.primaryAccountId
+    ? await Account.findOne({ accountId: user.primaryAccountId }).lean()
+    : null;
+
+  return { user, account, error: null };
 }
 
 export type DeveloperPublic = Pick<DeveloperUserDocument, "userId" | "email" | "createdAt" | "updatedAt">;
+export type DeveloperAccount = AccountDocument | null;

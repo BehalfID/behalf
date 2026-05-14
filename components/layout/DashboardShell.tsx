@@ -11,7 +11,8 @@ const dashboardNav = [
   { href: "/dashboard/webhooks", label: "Webhooks" },
   { href: "/dashboard/logs", label: "Logs" },
   { href: "/dashboard/docs", label: "Docs" },
-  { href: "/dashboard/settings", label: "Settings" }
+  { href: "/dashboard/settings", label: "Settings" },
+  { href: "/dashboard/billing", label: "Billing" }
 ];
 
 export function DashboardShellLayout({ children }: { children: React.ReactNode }) {

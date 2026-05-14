@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import { createPublicId } from "@/lib/ids";
+import { checkWebhooksEnabled } from "@/lib/quota";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { rejectUnknownFields } from "@/lib/validation";
@@ -25,6 +26,12 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
+
+  const webhookQuota = checkWebhooksEnabled(auth.account?.plan);
+  if (!webhookQuota.allowed) {
+    return jsonError(webhookQuota.reason ?? "Webhooks are not available on this plan.", 403);
+  }
+
   const { body, error } = await readJsonObject(request);
   if (error) return error;
   if (!body) return jsonError("Request body must be a JSON object.");
