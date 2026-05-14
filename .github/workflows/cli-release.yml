@@ -1,0 +1,91 @@
+name: CLI Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and release
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install CLI dependencies
+        run: bun install
+        working-directory: packages/cli
+
+      # Build npm distributable (TypeScript → dist/)
+      - name: Build npm package
+        run: bun run build
+        working-directory: packages/cli
+
+      # Build standalone binaries via Bun compile (cross-compilation)
+      - name: Build binaries
+        working-directory: packages/cli
+        run: |
+          mkdir -p bin
+          bun build src/index.ts --compile --outfile bin/behalf-linux-x64   --target bun-linux-x64
+          bun build src/index.ts --compile --outfile bin/behalf-linux-arm64 --target bun-linux-arm64
+          bun build src/index.ts --compile --outfile bin/behalf-darwin-x64  --target bun-darwin-x64
+          bun build src/index.ts --compile --outfile bin/behalf-darwin-arm64 --target bun-darwin-arm64
+          bun build src/index.ts --compile --outfile bin/behalf-windows-x64.exe --target bun-windows-x64
+
+      # Compress each binary into a tarball (required by Homebrew)
+      - name: Package binaries
+        working-directory: packages/cli/bin
+        run: |
+          for f in behalf-linux-x64 behalf-linux-arm64 behalf-darwin-x64 behalf-darwin-arm64; do
+            cp $f behalf
+            tar czf ${f}.tar.gz behalf
+            rm behalf
+          done
+          cp behalf-windows-x64.exe behalf.exe
+          zip behalf-windows-x64.zip behalf.exe
+          rm behalf.exe
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            packages/cli/bin/*.tar.gz
+            packages/cli/bin/*.zip
+          generate_release_notes: true
+
+      - name: Publish to npm
+        run: npm publish --access public
+        working-directory: packages/cli
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Update Homebrew tap
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          ARM64_SHA=$(sha256sum packages/cli/bin/behalf-darwin-arm64.tar.gz | cut -d' ' -f1)
+          X64_SHA=$(sha256sum packages/cli/bin/behalf-darwin-x64.tar.gz | cut -d' ' -f1)
+          git clone https://x-access-token:${TAP_TOKEN}@github.com/potatobeyonddefeat/homebrew-tap.git tap
+          cd tap
+          sed -i "s/version \".*\"/version \"${VERSION}\"/" Formula/behalf.rb
+          sed -i "/darwin-arm64/ { n; s/sha256 \".*\"/sha256 \"${ARM64_SHA}\"/ }" Formula/behalf.rb
+          sed -i "/darwin-x64/ { n; s/sha256 \".*\"/sha256 \"${X64_SHA}\"/ }" Formula/behalf.rb
+          git config user.email "ci@behalfid.com"
+          git config user.name "BehalfID CI"
+          git add Formula/behalf.rb
+          git commit -m "behalf ${VERSION}"
+          git push

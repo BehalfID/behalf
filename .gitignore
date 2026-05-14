@@ -24,3 +24,7 @@ CLAUDE.md
 # Local Stripe key storage — never commit
 stripeapikeys.txt
 .vercel
+
+# CLI build artifacts
+/packages/cli/dist/
+/packages/cli/bin/

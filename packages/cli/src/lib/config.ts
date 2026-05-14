@@ -1,0 +1,57 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
+
+const CONFIG_DIR = join(homedir(), ".behalf");
+const CONFIG_FILE = join(CONFIG_DIR, "config.json");
+const SESSION_FILE = join(CONFIG_DIR, "session");
+
+export type Config = {
+  apiKey?: string;
+  agentId?: string;
+  baseUrl?: string;
+};
+
+function ensureDir() {
+  if (!existsSync(CONFIG_DIR)) mkdirSync(CONFIG_DIR, { recursive: true });
+}
+
+export function readConfig(): Config {
+  if (!existsSync(CONFIG_FILE)) return {};
+  try {
+    return JSON.parse(readFileSync(CONFIG_FILE, "utf-8")) as Config;
+  } catch {
+    return {};
+  }
+}
+
+export function writeConfig(config: Config): void {
+  ensureDir();
+  writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2) + "\n", { mode: 0o600 });
+}
+
+export function patchConfig(patch: Partial<Config>): void {
+  writeConfig({ ...readConfig(), ...patch });
+}
+
+export function readSession(): string | null {
+  if (!existsSync(SESSION_FILE)) return null;
+  try {
+    const val = readFileSync(SESSION_FILE, "utf-8").trim();
+    return val || null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeSession(cookie: string): void {
+  ensureDir();
+  writeFileSync(SESSION_FILE, cookie, { mode: 0o600 });
+}
+
+export function clearSession(): void {
+  if (existsSync(SESSION_FILE)) writeFileSync(SESSION_FILE, "", { mode: 0o600 });
+}
+
+export const CONFIG_FILE_PATH = CONFIG_FILE;
+export const CONFIG_DIR_PATH = CONFIG_DIR;

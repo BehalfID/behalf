@@ -9,7 +9,8 @@
     "ollama:proxy": "node scripts/ollama-secure-proxy.js",
     "x:post": "node scripts/x-autoposter.js",
     "x:post:once": "node scripts/x-autoposter.js --once",
-    "x:post:dry": "node scripts/x-autoposter.js --dry-run --once"
+    "x:post:dry": "node scripts/x-autoposter.js --dry-run --once",
+    "build:cli": "npm --prefix packages/cli run build"
   },
   "dependencies": {
     "mongoose": "^9.6.1",
