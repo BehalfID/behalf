@@ -14,5 +14,8 @@ npm-debug.log*
 *.zip
 
 # X autoposter — local-only scripts
-/scripts/x-autoposter.js
+/scripts/x-autoposter.sh
 /scripts/x-brand-context.md
+/scripts/x-autopost-daemon.sh
+/scripts/x-replier.sh
+/scripts/x-reply-queue.txt
