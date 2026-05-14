@@ -7,6 +7,7 @@ import {
 import { getDefaultAccountId } from "@/lib/account";
 import { parseAgentMetadata } from "@/lib/agents";
 import { connectToDatabase } from "@/lib/db";
+import { authenticateDeveloperToken } from "@/lib/developerToken";
 import { createApiKey, createPublicId } from "@/lib/ids";
 import { checkAgentLimit } from "@/lib/quota";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
@@ -22,14 +23,21 @@ export async function POST(request: NextRequest) {
     return rateLimitError();
   }
 
-  if (!isPublicAgentCreationEnabled()) {
-    const authError = requireSetupTokenOrConsoleSession(request);
-    if (authError) {
-      return authError;
-    }
+  await connectToDatabase();
+
+  const { tokenDoc, error: tokenError } = await authenticateDeveloperToken(request);
+  if (tokenError) {
+    return jsonError(tokenError, 401);
   }
 
-  await connectToDatabase();
+  if (!tokenDoc) {
+    if (!isPublicAgentCreationEnabled()) {
+      const authError = requireSetupTokenOrConsoleSession(request);
+      if (authError) {
+        return authError;
+      }
+    }
+  }
 
   const { body, error } = await readJsonObject(request);
   if (error) return error;
@@ -58,7 +66,8 @@ export async function POST(request: NextRequest) {
     return jsonError(metadataError ?? "Invalid agent metadata.");
   }
 
-  const accountId = await getDefaultAccountId();
+  const accountId = tokenDoc ? tokenDoc.accountId : await getDefaultAccountId();
+  const developerUserId = tokenDoc ? tokenDoc.userId : undefined;
 
   const agentQuota = await checkAgentLimit(accountId);
   if (!agentQuota.allowed) {
@@ -71,6 +80,7 @@ export async function POST(request: NextRequest) {
   await Agent.create({
     agentId,
     accountId,
+    ...(developerUserId ? { developerUserId } : {}),
     name,
     ...metadata,
     apiKeyHash: hashApiKey(apiKey),

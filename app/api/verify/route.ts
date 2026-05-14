@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { authenticateAgent } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/db";
+import { authenticateDeveloperToken } from "@/lib/developerToken";
 import { checkAndIncrementVerifications } from "@/lib/quota";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { readJsonObject } from "@/lib/request";
@@ -64,6 +65,14 @@ export async function POST(request: NextRequest) {
   const auth = await authenticateAgent(request, agentId);
   if (auth.error || !auth.agent) {
     return jsonError(auth.error, auth.error === "Unknown agent." ? 404 : 401);
+  }
+
+  const { tokenDoc, error: tokenError } = await authenticateDeveloperToken(request);
+  if (tokenError) {
+    return jsonError(tokenError, 401);
+  }
+  if (tokenDoc && auth.agent.accountId !== tokenDoc.accountId) {
+    return jsonError("Agent does not belong to this developer account.", 403);
   }
 
   const limit = await checkRateLimit(request, auth.agent.apiKeyHash);
