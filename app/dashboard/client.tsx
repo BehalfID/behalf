@@ -5,6 +5,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { DashboardShellLayout } from "@/components/layout/DashboardShell";
 import { Badge, Button, ButtonLink, Card, CodeBlock, EmptyState, PageHeader, StatCard } from "@/components/ui";
 import { SCOPE_TEMPLATES } from "@/lib/scopeTemplates";
+import { PASSPORT_PRESETS, buildPresetPermissions, type PassportPreset } from "@/lib/passportPresets";
 
 type Agent = {
   agentId: string;
@@ -462,6 +463,25 @@ function OnboardingView() {
     setStep(5);
   };
 
+  const applyPreset = (preset: PassportPreset) => {
+    setDraftError("");
+    setDraftDetails("");
+    setDraftErrorCode("");
+    const permissions = buildPresetPermissions(preset);
+    setRegularProvider(preset.provider);
+    setRegularDescription(preset.agentDescription);
+    setDraftResponse({
+      agentDraft: { provider: preset.provider, description: preset.agentDescription },
+      permissions,
+      needsClarification: [],
+      warnings: [],
+      limitations: [
+        "This passport was generated from a preset. Review and adjust the permissions to fit your specific needs."
+      ]
+    });
+    setRegularStep(3);
+  };
+
   const generateDraft = async () => {
     if (!regularProvider) { setDraftError("Select a provider first."); return; }
     if (!regularDescription.trim() || regularDescription.trim().length < 5) { setDraftError("Describe what you want the assistant to do."); return; }
@@ -622,8 +642,26 @@ ${regularPassportUrl || "[passport link]"}`;
 
         {regularStep === 1 ? (
           <section className="onboarding-form dashboard-panel">
-            <h2>Which AI assistant are you using?</h2>
-            <p>Choose the provider for the assistant you want to create a passport for.</p>
+            <h2>Start from a preset or choose a provider</h2>
+
+            <p className="section-kicker">Preset passports</p>
+            <p>Pick a common use case — your passport permissions will be ready to review instantly, no description needed.</p>
+            <div className="agent-create-grid">
+              {PASSPORT_PRESETS.map((preset) => (
+                <button
+                  key={preset.id}
+                  className="dashboard-panel onboarding-choice"
+                  type="button"
+                  onClick={() => applyPreset(preset)}
+                >
+                  <strong>{preset.label}</strong>
+                  <span>{preset.tagline}</span>
+                </button>
+              ))}
+            </div>
+
+            <p className="section-kicker" style={{ marginTop: 24 }}>Or choose a provider</p>
+            <p>Pick your AI assistant and describe what you want it to do. AI will draft the permissions.</p>
             <div className="agent-create-grid">
               {regularProviderOptions.map((opt) => (
                 <button
