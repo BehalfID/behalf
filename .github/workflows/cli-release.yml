@@ -85,16 +85,10 @@ jobs:
           generate_release_notes: true
 
       - name: Publish to npm
+        run: npm publish --access public
         working-directory: packages/cli
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          VERSION=${{ steps.version.outputs.version }}
-          if npm view "@behalfid/cli@${VERSION}" version 2>/dev/null | grep -q "${VERSION}"; then
-            echo "Version ${VERSION} already on npm, skipping publish."
-          else
-            npm publish --access public
-          fi
 
       - name: Update Homebrew tap
         env:
