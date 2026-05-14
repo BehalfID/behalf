@@ -21,11 +21,20 @@ const DEFAULT_BASE_URL = "https://behalfid.com";
 
 export class BehalfID {
   private readonly apiKey: string;
+  private readonly developerToken: string | undefined;
   private readonly baseUrl: string;
 
-  constructor({ apiKey, baseUrl = DEFAULT_BASE_URL, allowInsecureHttp = false }: BehalfIDConfig) {
+  constructor({ apiKey, developerToken, baseUrl = DEFAULT_BASE_URL, allowInsecureHttp = false }: BehalfIDConfig) {
     if (!apiKey || typeof apiKey !== "string") {
       throw new Error("BehalfID: apiKey is required.");
+    }
+    if (!apiKey.startsWith("bhf_sk_")) {
+      throw new Error("BehalfID: apiKey must be a valid agent key (bhf_sk_...).");
+    }
+    if (developerToken !== undefined) {
+      if (typeof developerToken !== "string" || !developerToken.startsWith("bhf_dev_")) {
+        throw new Error("BehalfID: developerToken must be a valid developer token (bhf_dev_...).");
+      }
     }
     if (typeof baseUrl !== "string" || !/^https?:\/\//i.test(baseUrl)) {
       throw new Error("BehalfID: baseUrl must start with http:// or https://");
@@ -46,6 +55,7 @@ export class BehalfID {
     }
 
     this.apiKey = apiKey;
+    this.developerToken = developerToken;
     this.baseUrl = normalizedBaseUrl;
   }
 
@@ -108,6 +118,7 @@ export class BehalfID {
         headers: {
           Accept: "application/json",
           Authorization: `Bearer ${this.apiKey}`,
+          ...(this.developerToken ? { "X-Developer-Token": this.developerToken } : {}),
           ...(options.body === undefined ? {} : { "Content-Type": "application/json" })
         },
         body: options.body === undefined ? undefined : JSON.stringify(options.body)
@@ -149,6 +160,7 @@ function extractErrorMessage(body: unknown) {
 function redactSecrets(message: string) {
   return message
     .replace(/bhf_sk_[A-Za-z0-9_-]+/g, "bhf_sk_[redacted]")
+    .replace(/bhf_dev_[A-Za-z0-9_-]+/g, "bhf_dev_[redacted]")
     .replace(/bhf_pass_[A-Za-z0-9_-]+/g, "bhf_pass_[redacted]")
     .replace(/whsec_[A-Za-z0-9_-]+/g, "whsec_[redacted]")
     .replace(/Bearer\s+[A-Za-z0-9._~+/-]+=*/gi, "Bearer [redacted]");

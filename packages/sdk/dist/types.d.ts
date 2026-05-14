@@ -1,5 +1,6 @@
 export type BehalfIDConfig = {
     apiKey: string;
+    developerToken?: string;
     baseUrl?: string;
     allowInsecureHttp?: boolean;
 };
