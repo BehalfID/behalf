@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { parseAgentMetadata } from "@/lib/agents";
 import { createDeveloperAgent, serializeAgent } from "@/lib/dashboardData";
 import { requireDeveloperApi } from "@/lib/developerAuth";
+import { checkAgentLimit } from "@/lib/quota";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
@@ -40,6 +41,11 @@ export async function POST(request: NextRequest) {
 
   const name = readString(body.name);
   if (!name) return jsonError("name is required.");
+
+  const agentQuota = await checkAgentLimit(auth.user.primaryAccountId);
+  if (!agentQuota.allowed) {
+    return jsonError(agentQuota.reason ?? "Agent limit reached.", 402);
+  }
 
   const { metadata, error: metadataError } = parseAgentMetadata(body);
   if (metadataError || !metadata) return jsonError(metadataError ?? "Invalid agent metadata.");

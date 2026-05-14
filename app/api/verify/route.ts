@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { authenticateAgent } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/db";
+import { checkAndIncrementVerifications } from "@/lib/quota";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
@@ -68,6 +69,11 @@ export async function POST(request: NextRequest) {
   const limit = await checkRateLimit(request, auth.agent.apiKeyHash);
   if (limit.limited) {
     return rateLimitError();
+  }
+
+  const quota = await checkAndIncrementVerifications(auth.agent.accountId);
+  if (!quota.allowed) {
+    return jsonError(quota.reason ?? "Verification quota exceeded.", 429);
   }
 
   const decision = await verifyAction({
