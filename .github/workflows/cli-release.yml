@@ -21,6 +21,19 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "version=${TAG#v}" >> $GITHUB_OUTPUT
 
       - uses: actions/setup-node@v4
         with:
@@ -67,6 +80,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.tag }}
           files: |
             packages/cli/bin/*.tar.gz
             packages/cli/bin/*.zip
@@ -82,7 +96,7 @@ jobs:
         env:
           TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
-          VERSION=${GITHUB_REF_NAME#v}
+          VERSION=${{ steps.version.outputs.version }}
           ARM64_SHA=$(sha256sum packages/cli/bin/behalf-darwin-arm64.tar.gz | cut -d' ' -f1)
           X64_SHA=$(sha256sum packages/cli/bin/behalf-darwin-x64.tar.gz | cut -d' ' -f1)
           git clone https://x-access-token:${TAP_TOKEN}@github.com/potatobeyonddefeat/homebrew-tap.git tap
