@@ -8,6 +8,7 @@ import { getDefaultAccountId } from "@/lib/account";
 import { parseAgentMetadata } from "@/lib/agents";
 import { connectToDatabase } from "@/lib/db";
 import { createApiKey, createPublicId } from "@/lib/ids";
+import { checkAgentLimit } from "@/lib/quota";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
@@ -57,9 +58,15 @@ export async function POST(request: NextRequest) {
     return jsonError(metadataError ?? "Invalid agent metadata.");
   }
 
+  const accountId = await getDefaultAccountId();
+
+  const agentQuota = await checkAgentLimit(accountId);
+  if (!agentQuota.allowed) {
+    return jsonError(agentQuota.reason ?? "Agent limit reached.", 402);
+  }
+
   const apiKey = createApiKey();
   const agentId = createPublicId("agent");
-  const accountId = await getDefaultAccountId();
 
   await Agent.create({
     agentId,

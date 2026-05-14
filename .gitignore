@@ -16,3 +16,7 @@ npm-debug.log*
 # X autoposter — local-only scripts
 /scripts/x-autoposter.js
 /scripts/x-brand-context.md
+
+# Local Stripe key storage — never commit
+stripeapikeys.txt
+.vercel

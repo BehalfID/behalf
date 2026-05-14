@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireDeveloperApi } from "@/lib/developerAuth";
+import { retentionSince } from "@/lib/quota";
 import VerificationLog from "@/models/VerificationLog";
 
 export async function GET(request: NextRequest) {
@@ -8,7 +9,10 @@ export async function GET(request: NextRequest) {
   const agentId = request.nextUrl.searchParams.get("agentId")?.trim();
   const allowed = request.nextUrl.searchParams.get("allowed");
   const risk = request.nextUrl.searchParams.get("risk")?.trim();
-  const query: Record<string, unknown> = { developerUserId: auth.user.userId };
+  const query: Record<string, unknown> = {
+    developerUserId: auth.user.userId,
+    createdAt: { $gte: retentionSince(auth.account?.plan) }
+  };
   if (agentId) query.agentId = agentId;
   if (allowed === "true") query.allowed = true;
   if (allowed === "false") query.allowed = false;

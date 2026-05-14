@@ -1,10 +1,21 @@
 import { createPublicId } from "@/lib/ids";
 import Account from "@/models/Account";
 import Agent from "@/models/Agent";
+import DeveloperUser from "@/models/DeveloperUser";
 import Permission from "@/models/Permission";
 import VerificationLog from "@/models/VerificationLog";
 
 export const DEFAULT_ACCOUNT_NAME = "Prototype Admin";
+
+export async function createDeveloperAccount(userId: string, email: string) {
+  const name = email.split("@")[0]?.trim() || email;
+  const account = await Account.create({
+    accountId: createPublicId("acct"),
+    name
+  });
+  await DeveloperUser.updateOne({ userId }, { $set: { primaryAccountId: account.accountId } });
+  return account;
+}
 
 export async function getDefaultAccount() {
   let account = await Account.findOne({ name: DEFAULT_ACCOUNT_NAME });
