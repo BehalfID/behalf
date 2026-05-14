@@ -9,6 +9,7 @@ vercel.json
 npm-debug.log*
 /scripts/diagnose-prod-db.sh
 .claude/
+CLAUDE.md
 
 # Design system source files — not for distribution
 *.zip
