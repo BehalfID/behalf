@@ -6122,6 +6122,261 @@ html[data-theme="light"] .console-filters input,
 html[data-theme="light"] .console-filters select {
   background: #ffffff;
 }
+/* ================================================================
+   MARKETING / HERO — light mode overrides
+   All rgba(255,255,255,*) borders and dark panel backgrounds
+   ================================================================ */
+
+/* Page background — override the fixed radial gradient */
+html[data-theme="light"] .marketing {
+  background:
+    radial-gradient(circle at 80% 4%, rgba(99, 102, 241, 0.07), transparent 30rem),
+    #ffffff;
+}
+
+/* Hero divider line — was white-on-dark, make dark-on-light */
+html[data-theme="light"] .hero::after {
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.10), transparent);
+}
+
+/* Hero body text — was hardcoded white */
+html[data-theme="light"] .hero__content > p:not(.section-kicker),
+html[data-theme="light"] .hero__badges span {
+  color: var(--muted);
+}
+
+/* Hero visual panel — was near-black */
+html[data-theme="light"] .hero__visual {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.04), transparent 36%),
+    var(--surface);
+  box-shadow: 0 34px 110px rgba(0, 0, 0, 0.12);
+}
+
+html[data-theme="light"] .hero__visual::before {
+  border-color: rgba(0, 0, 0, 0.09);
+}
+
+html[data-theme="light"] .hero__visual-header,
+html[data-theme="light"] .signal-line,
+html[data-theme="light"] .hero__event {
+  background: var(--surface-elev);
+}
+
+/* Marketing section dividers — was rgba(255,255,255,0.075) */
+html[data-theme="light"] .marketing-section,
+html[data-theme="light"] .use-case,
+html[data-theme="light"] .developer-section,
+html[data-theme="light"] .native-connected {
+  border-top-color: rgba(0, 0, 0, 0.07);
+}
+
+/* System diagram — white borders → dark borders */
+html[data-theme="light"] .system-diagram {
+  border-top-color: rgba(0, 0, 0, 0.10);
+  border-bottom-color: rgba(0, 0, 0, 0.10);
+  background:
+    linear-gradient(90deg, rgba(99, 102, 241, 0.08), transparent 42%),
+    rgba(0, 0, 0, 0.015);
+}
+
+html[data-theme="light"] .system-diagram__surfaces,
+html[data-theme="light"] .system-pipeline__step {
+  border-right-color: rgba(0, 0, 0, 0.07);
+}
+
+html[data-theme="light"] .system-diagram__surfaces span {
+  color: var(--text-2);
+}
+
+/* Surface panels — white tint backgrounds → dark tint */
+html[data-theme="light"] .surface-panel-grid {
+  border-top-color: rgba(0, 0, 0, 0.09);
+  border-bottom-color: rgba(0, 0, 0, 0.09);
+}
+
+html[data-theme="light"] .surface-panel {
+  border-right-color: rgba(0, 0, 0, 0.07);
+}
+
+html[data-theme="light"] .surface-panel:first-child {
+  background: rgba(0, 0, 0, 0.025);
+}
+
+html[data-theme="light"] .surface-panel:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+html[data-theme="light"] .surface-panel .solution-card__visual {
+  border-color: rgba(0, 0, 0, 0.07);
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.025) 1px, transparent 1px),
+    rgba(245, 245, 246, 0.80);
+}
+
+html[data-theme="light"] .surface-panel .solution-card__outcome {
+  border-left-color: rgba(0, 0, 0, 0.18);
+}
+
+/* Stops grid — white borders → dark borders */
+html[data-theme="light"] .stops-grid {
+  border-top-color: rgba(0, 0, 0, 0.09);
+}
+
+html[data-theme="light"] .stops-grid div {
+  border-right-color: rgba(0, 0, 0, 0.07);
+  border-bottom-color: rgba(0, 0, 0, 0.07);
+}
+
+/* Scope list — white borders → dark borders */
+html[data-theme="light"] .scope-list {
+  border-top-color: rgba(0, 0, 0, 0.09);
+}
+
+html[data-theme="light"] .scope-list div {
+  border-bottom-color: rgba(0, 0, 0, 0.07);
+}
+
+/* Site guard rules — white borders → dark */
+html[data-theme="light"] .site-guard-rules {
+  border-top-color: rgba(0, 0, 0, 0.09);
+  border-bottom-color: rgba(0, 0, 0, 0.09);
+}
+
+html[data-theme="light"] .site-guard-rules div {
+  border-right-color: rgba(0, 0, 0, 0.07);
+}
+
+/* Sandbox — white borders and dark backgrounds */
+html[data-theme="light"] .sandbox-header__panel {
+  border-top-color: rgba(0, 0, 0, 0.10);
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+html[data-theme="light"] .sandbox-layer {
+  border-top-color: rgba(0, 0, 0, 0.09);
+  border-right-color: rgba(0, 0, 0, 0.06);
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.015);
+}
+
+html[data-theme="light"] .sandbox-panel-heading {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+html[data-theme="light"] .sandbox-scenario {
+  border-bottom-color: rgba(0, 0, 0, 0.07);
+}
+
+html[data-theme="light"] .sandbox-scenario:hover,
+html[data-theme="light"] .sandbox-scenario--active {
+  border-color: rgba(0, 0, 0, 0.14);
+}
+
+html[data-theme="light"] .sandbox-scenario--active strong {
+  color: var(--text);
+}
+
+html[data-theme="light"] .sandbox-passport-card {
+  border-color: rgba(0, 0, 0, 0.09);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+html[data-theme="light"] .sandbox-demo {
+  border-color: rgba(0, 0, 0, 0.09);
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.02), transparent 260px),
+    var(--surface);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.08);
+}
+
+html[data-theme="light"] .sandbox-operating-strip {
+  border-top-color: rgba(0, 0, 0, 0.09);
+  border-bottom-color: rgba(0, 0, 0, 0.09);
+}
+
+html[data-theme="light"] .sandbox-operating-strip span {
+  border-right-color: rgba(0, 0, 0, 0.06);
+  color: var(--muted);
+}
+
+html[data-theme="light"] .sandbox-action-grid {
+  border-top-color: rgba(0, 0, 0, 0.07);
+}
+
+html[data-theme="light"] .sandbox-action-card {
+  border-right-color: rgba(0, 0, 0, 0.06);
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+html[data-theme="light"] .sandbox-action-card:hover,
+html[data-theme="light"] .sandbox-action-card--active {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+html[data-theme="light"] .decision-console {
+  border-color: rgba(0, 0, 0, 0.09);
+  background:
+    linear-gradient(180deg, rgba(99, 102, 241, 0.05), transparent 230px),
+    var(--surface);
+}
+
+html[data-theme="light"] .trace-row {
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+html[data-theme="light"] .terminal-panel {
+  border-color: rgba(0, 0, 0, 0.09);
+}
+
+/* Auth context panel — was near-black */
+html[data-theme="light"] .auth-context {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(99, 102, 241, 0.08), transparent 18rem),
+    var(--surface);
+}
+
+html[data-theme="light"] .auth-context li {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+/* Docs/app shell background gradient */
+html[data-theme="light"] .docs-page,
+html[data-theme="light"] .dashboard-shell,
+html[data-theme="light"] .console-shell,
+html[data-theme="light"] .app-shell {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(99, 102, 241, 0.06), transparent 24rem),
+    var(--bg);
+}
+
+/* Auth page background */
+html[data-theme="light"] .auth-page,
+html[data-theme="light"] .console-login-page {
+  background:
+    radial-gradient(circle at 52% 0%, rgba(99, 102, 241, 0.09), transparent 26rem),
+    linear-gradient(180deg, #ffffff 0%, #f5f5f6 100%);
+}
+
+/* Security/blog pages — generic marketing surface overrides */
+html[data-theme="light"] .security-page .stops-grid,
+html[data-theme="light"] .blog-grid-section .stops-grid {
+  border-top-color: rgba(0, 0, 0, 0.09);
+}
+
+/* Code blocks — dark bg in otherwise light context */
+html[data-theme="light"] pre,
+html[data-theme="light"] .code-block {
+  background: var(--surface);
+  border-color: rgba(0, 0, 0, 0.09);
+}
+
+/* App sidebar footer (theme toggle area) */
+html[data-theme="light"] .app-sidebar__footer {
+  border-top-color: rgba(0, 0, 0, 0.09);
+}
+
 
 /* Theme toggle button */
 .theme-toggle {
