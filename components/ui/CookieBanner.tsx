@@ -49,7 +49,7 @@ export function CookieBanner() {
   if (!visible) return null;
 
   return (
-    <div className="site-consent" role="dialog" aria-label="Cookie preferences" aria-modal="false">
+    <div className="site-consent" role="dialog" aria-label="Site preferences" aria-modal="false">
       <div className="site-consent__inner">
         <p className="site-consent__text">
           We use cookies to keep you signed in and measure site usage anonymously.{' '}
