@@ -37,11 +37,14 @@ export function ThemeToggle() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
     const stored = localStorage.getItem("theme") as "dark" | "light" | null;
     const resolved =
       stored ?? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-    setTheme(resolved);
+    document.documentElement.setAttribute("data-theme", resolved);
+    queueMicrotask(() => {
+      setTheme(resolved);
+      setMounted(true);
+    });
   }, []);
 
   function toggle() {

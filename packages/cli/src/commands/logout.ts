@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { clearSession, readSession } from "../lib/config.js";
-import { apiRequest, originOf, resolveBaseUrl } from "../lib/client.js";
+import { apiRequest, resolveBaseUrl } from "../lib/client.js";
 import { isJsonMode, printJson, printSuccess, runAction } from "../lib/output.js";
 
 export function logoutCommand() {

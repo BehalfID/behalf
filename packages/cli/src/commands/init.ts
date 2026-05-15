@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { patchConfig, readConfig, readSession, writeSession } from "../lib/config.js";
-import { DEFAULT_BASE_URL, originOf, resolveBaseUrl } from "../lib/client.js";
-import { ask, askPassword, confirm } from "../lib/prompt.js";
+import { DEFAULT_BASE_URL, originOf } from "../lib/client.js";
+import { ask, askPassword } from "../lib/prompt.js";
 import { runAction } from "../lib/output.js";
 
 type LoginResponse = {

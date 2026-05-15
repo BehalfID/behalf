@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { Command } from "commander";
@@ -6,8 +6,7 @@ import { resolveBaseUrl } from "../lib/client.js";
 import { readConfig } from "../lib/config.js";
 import { generateContextMd, generateMcpJson } from "../lib/context-generator.js";
 import { fetchAndCacheDetail, readCachedDetail } from "../lib/passport-cache.js";
-import { printError, runAction } from "../lib/output.js";
-import { mkdirSync } from "node:fs";
+import { runAction } from "../lib/output.js";
 
 type ToolDef = {
   binary: string;

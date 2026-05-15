@@ -167,7 +167,7 @@ export default function PatternsPage() {
         <h2 className={s.h2}>Action grid (sandbox pattern)</h2>
         <p className={s.lede} style={{ marginBottom: 12 }}>Used in the sandbox and demo pages to show how the same agent gets different decisions for different actions.</p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", borderTop: "1px solid var(--border)" }}>
-          {actions.map(({ type, action, title, copy, vendor, borderColor }, i) => (
+          {actions.map(({ action, title, copy, vendor, borderColor }, i) => (
             <div key={action} style={{ padding: 22, borderRight: i < 2 ? "1px solid var(--border)" : "none", borderBottom: "1px solid var(--border)", display: "grid", gap: 10, minHeight: 160, alignContent: "start", borderLeft: `2px solid ${borderColor}` }}>
               <span style={{ color: "var(--muted)", font: "500 0.78rem/1 var(--font-mono)", letterSpacing: "0.04em", textTransform: "uppercase" }}>{action}</span>
               <strong style={{ color: "var(--text)", font: "700 1.05rem/1.2 var(--font-sans)" }}>{title}</strong>

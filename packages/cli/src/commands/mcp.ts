@@ -5,7 +5,7 @@ import { resolveApiKey, resolveBaseUrl } from "../lib/client.js";
 import { readConfig } from "../lib/config.js";
 import { generateContextMd, generateMcpJson } from "../lib/context-generator.js";
 import { fetchAndCacheDetail, readCachedDetail } from "../lib/passport-cache.js";
-import { isJsonMode, printJson, printKv, printSuccess, runAction } from "../lib/output.js";
+import { isJsonMode, printJson, printKv, runAction } from "../lib/output.js";
 import { confirm } from "../lib/prompt.js";
 
 function readJsonFile(path: string): Record<string, unknown> | null {

@@ -1,48 +1,53 @@
-'use client';
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
+"use client";
 
-const CONSENT_KEY = 'behalf_cookie_consent';
+import Link from "next/link";
+import { useEffect, useState } from "react";
+
+const CONSENT_KEY = "behalf_cookie_consent";
 
 function ping(state: string) {
-  fetch('/api/consent-ping', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ state }),
+  fetch("/api/consent-ping", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ state })
   }).catch(() => {});
+}
+
+function rememberConsent(value: "accepted" | "declined") {
+  try {
+    localStorage.setItem(CONSENT_KEY, value);
+  } catch {
+    // Storage can be unavailable in hardened browser contexts.
+  }
 }
 
 export function CookieBanner() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    console.log('[CookieBanner] mounted');
     try {
       const val = localStorage.getItem(CONSENT_KEY);
-      console.log('[CookieBanner] stored value:', val);
       if (!val) {
-        console.log('[CookieBanner] no consent stored — showing banner');
-        ping('shown');
-        setVisible(true);
+        ping("shown");
+        queueMicrotask(() => setVisible(true));
       } else {
-        ping('already-set:' + val);
+        ping(`already-set:${val}`);
       }
-    } catch (err) {
-      console.error('[CookieBanner] localStorage unavailable:', err);
-      ping('storage-error');
-      setVisible(true);
+    } catch {
+      ping("storage-error");
+      queueMicrotask(() => setVisible(true));
     }
   }, []);
 
   function accept() {
-    localStorage.setItem(CONSENT_KEY, 'accepted');
-    ping('accepted');
+    rememberConsent("accepted");
+    ping("accepted");
     setVisible(false);
   }
 
   function decline() {
-    localStorage.setItem(CONSENT_KEY, 'declined');
-    ping('declined');
+    rememberConsent("declined");
+    ping("declined");
     setVisible(false);
   }
 
@@ -52,14 +57,14 @@ export function CookieBanner() {
     <div className="site-consent" role="dialog" aria-label="Site preferences" aria-modal="false">
       <div className="site-consent__inner">
         <p className="site-consent__text">
-          We use cookies to keep you signed in and measure site usage anonymously.{' '}
+          We use cookies to keep you signed in and measure site usage anonymously.{" "}
           <Link href="/privacy" className="site-consent__link">Privacy policy</Link>
         </p>
         <div className="site-consent__actions">
-          <button className="site-consent__btn site-consent__btn--decline" onClick={decline}>
+          <button className="site-consent__btn site-consent__btn--decline" onClick={decline} type="button">
             Essential only
           </button>
-          <button className="site-consent__btn site-consent__btn--accept" onClick={accept}>
+          <button className="site-consent__btn site-consent__btn--accept" onClick={accept} type="button">
             Accept all
           </button>
         </div>

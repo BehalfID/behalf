@@ -1,13 +1,18 @@
 import { type NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { jsonError } from "@/lib/responses";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import Account from "@/models/Account";
 
 export async function POST(request: NextRequest) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!webhookSecret) {
     return jsonError("Webhook secret not configured.", 500);
+  }
+
+  const stripe = getStripe();
+  if (!stripe) {
+    return jsonError("Billing is not configured.", 503);
   }
 
   const sig = request.headers.get("stripe-signature");

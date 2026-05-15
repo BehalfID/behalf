@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import { jsonError } from "@/lib/responses";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import Account from "@/models/Account";
 
 export async function POST(request: NextRequest) {
@@ -18,6 +18,11 @@ export async function POST(request: NextRequest) {
 
   const priceId = process.env.STRIPE_PRO_PRICE_ID;
   if (!priceId) {
+    return jsonError("Billing is not configured.", 503);
+  }
+
+  const stripe = getStripe();
+  if (!stripe) {
     return jsonError("Billing is not configured.", 503);
   }
 

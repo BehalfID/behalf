@@ -906,5 +906,9 @@ export function getPost(slug: string): Post | undefined {
 }
 
 export function getPostMeta(): PostMeta[] {
-  return posts.map(({ content: _content, ...meta }) => meta);
+  return posts.map((post) => {
+    const { content, ...meta } = post;
+    void content;
+    return meta;
+  });
 }

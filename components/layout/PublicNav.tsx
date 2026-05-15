@@ -7,8 +7,8 @@ export function PublicNav() {
       <Logo />
       <div className="public-nav__links">
         <Link href="/docs">Docs</Link>
-        <Link href="/blog">Blog</Link>
-        <Link href="/security">Security</Link>
+        <Link href="/blog" className="nav-secondary">Blog</Link>
+        <Link href="/security" className="nav-secondary">Security</Link>
         <Link href="/login">Log in</Link>
         <ThemeToggle />
         <ButtonLink href="/signup" variant="primary">

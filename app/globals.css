@@ -3625,6 +3625,10 @@ textarea.ui-input,
     gap: 12px;
   }
 
+  .nav-secondary {
+    display: none;
+  }
+
   .hero {
     min-height: auto;
     padding-top: 54px;
@@ -5992,6 +5996,25 @@ textarea.ui-input,
 
   .site-footer__cols {
     grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .home-hero {
+    min-height: 0;
+    padding-block: 52px 64px;
+  }
+
+  .home-steps__intro {
+    margin-bottom: 40px;
+  }
+
+  .home-steps {
+    padding-block: clamp(52px, 8vw, 80px);
+  }
+
+  .home-step {
+    padding-block: clamp(32px, 6vw, 48px);
   }
 }
 
