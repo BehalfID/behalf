@@ -18,6 +18,7 @@ export function serializeAgent(agent: {
   externalAgentLabel?: string | null;
   connectionStatus?: string | null;
   description?: string | null;
+  guidelines?: string[] | null;
   publicPassportTokenPreview?: string | null;
   publicPassportEnabled?: boolean | null;
   lastUsedAt?: Date | null;

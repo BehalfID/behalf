@@ -3581,6 +3581,10 @@ textarea.ui-input,
   .public-nav,
   .marketing-nav,
   .hero,
+  .home-hero,
+  .home-steps,
+  .home-code,
+  .home-cta,
   .marketing-section,
   .sandbox-page,
   .use-case,
@@ -3621,8 +3625,12 @@ textarea.ui-input,
   .public-nav__links,
   .marketing-nav div {
     width: 100%;
-    justify-content: space-between;
-    gap: 12px;
+    justify-content: flex-start;
+    gap: 20px;
+  }
+
+  .public-nav__links .ui-button {
+    margin-left: auto;
   }
 
   .nav-secondary {

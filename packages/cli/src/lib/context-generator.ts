@@ -11,6 +11,7 @@ function formatConstraints(p: PermissionEntry): string[] {
 export function generateContextMd(detail: AgentDetail, updatedAt?: string): string {
   const { agent, permissions } = detail;
   const active = permissions.filter(p => p.status === "active");
+  const guidelines = agent.guidelines ?? [];
   const timestamp = updatedAt ?? new Date().toISOString().slice(0, 16).replace("T", " ");
 
   const lines = [
@@ -48,6 +49,14 @@ export function generateContextMd(detail: AgentDetail, updatedAt?: string): stri
       if (p.requiresApproval) {
         lines.push(`  - ⚠ Requires human approval before proceeding`);
       }
+    }
+    lines.push(``);
+  }
+
+  if (guidelines.length > 0) {
+    lines.push(`### Guidelines`, ``);
+    for (const g of guidelines) {
+      lines.push(`- ${g}`);
     }
     lines.push(``);
   }

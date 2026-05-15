@@ -67,6 +67,7 @@ export function normalizeAgentMetadata(agent: {
   externalAgentId?: string | null;
   externalAgentLabel?: string | null;
   description?: string | null;
+  guidelines?: string[] | null;
 }) {
   return {
     agentType: readEnum(agent.agentType, AGENT_TYPES, "native"),
@@ -74,7 +75,8 @@ export function normalizeAgentMetadata(agent: {
     connectionStatus: readEnum(agent.connectionStatus, CONNECTION_STATUSES, "manual"),
     externalAgentId: agent.externalAgentId ?? null,
     externalAgentLabel: agent.externalAgentLabel ?? null,
-    description: agent.description ?? null
+    description: agent.description ?? null,
+    guidelines: agent.guidelines?.length ? [...agent.guidelines] : []
   };
 }
 

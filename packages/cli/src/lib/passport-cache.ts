@@ -32,6 +32,7 @@ export type AgentDetail = {
     agentType?: string | null;
     provider?: string | null;
     description?: string | null;
+    guidelines?: string[];
   };
   permissions: PermissionEntry[];
 };

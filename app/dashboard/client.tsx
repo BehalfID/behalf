@@ -23,6 +23,7 @@ type Agent = {
   keyRotatedAt?: string | null;
   publicPassportTokenPreview?: string | null;
   publicPassportEnabled?: boolean;
+  guidelines?: string[];
 };
 type PermissionTemplate = "access_data" | "create_content" | "schedule" | "purchase" | "custom";
 type Permission = {
@@ -1020,6 +1021,9 @@ function AgentView({ agentId }: { agentId: string }) {
   });
   const [agentViewScopeId, setAgentViewScopeId] = useState("");
   const [profile, setProfile] = useState<Partial<Pick<Agent, "name" | "provider" | "externalAgentId" | "externalAgentLabel" | "description" | "connectionStatus">>>({});
+  const [guidelines, setGuidelines] = useState<string[]>([]);
+  const [newGuideline, setNewGuideline] = useState("");
+  const [guidelinesInitialized, setGuidelinesInitialized] = useState(false);
   const createPermission = async (event: FormEvent) => {
     event.preventDefault();
     const resolvedAction = form.action || form.template || "";
@@ -1069,6 +1073,29 @@ function AgentView({ agentId }: { agentId: string }) {
     await detail.reload();
   };
   const agent = detail.data?.agent;
+
+  if (agent && !guidelinesInitialized) {
+    setGuidelines(agent.guidelines ?? []);
+    setGuidelinesInitialized(true);
+  }
+
+  const addGuideline = () => {
+    const trimmed = newGuideline.trim();
+    if (!trimmed || guidelines.includes(trimmed) || guidelines.length >= 20) return;
+    setGuidelines([...guidelines, trimmed]);
+    setNewGuideline("");
+  };
+
+  const removeGuideline = (index: number) => setGuidelines(guidelines.filter((_, i) => i !== index));
+
+  const saveGuidelines = async () => {
+    await api(`/api/dashboard/agents/${agentId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ guidelines })
+    });
+    await detail.reload();
+  };
+
   return (
     <>
       <Header title={agent?.name ?? "Agent"} action={<Button onClick={rotate}>Rotate key</Button>} />
@@ -1119,6 +1146,35 @@ function AgentView({ agentId }: { agentId: string }) {
           </Card>
         </section>
       ) : null}
+      <section className="dashboard-panel form-grid">
+        <h2>Guidelines</h2>
+        <p className="field-help">Behavioral rules for this agent — things it should always or never do, regardless of which service it&apos;s accessing. These appear in the MCP context and permission passport.</p>
+        {guidelines.length > 0 ? (
+          <ul className="guidelines-list">
+            {guidelines.map((g, i) => (
+              <li key={i}>
+                <span>{g}</span>
+                <Button type="button" onClick={() => removeGuideline(i)}>Remove</Button>
+              </li>
+            ))}
+          </ul>
+        ) : <p className="field-help">No guidelines yet.</p>}
+        <label>
+          <span>Add guideline</span>
+          <input
+            placeholder="e.g. Never commit directly to main, Always ask before deleting files"
+            value={newGuideline}
+            onChange={(e) => setNewGuideline(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addGuideline(); } }}
+            maxLength={500}
+          />
+          <small className="field-help">Press Enter or click Add. Max 20 guidelines, 500 characters each.</small>
+        </label>
+        <div className="form-actions">
+          <Button type="button" onClick={addGuideline} disabled={!newGuideline.trim() || guidelines.length >= 20}>Add</Button>
+          <Button variant="primary" type="button" onClick={saveGuidelines}>Save guidelines</Button>
+        </div>
+      </section>
       <form className="dashboard-panel form-grid" onSubmit={createPermission}>
         <label>
           <span>Scope template</span>

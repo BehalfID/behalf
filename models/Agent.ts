@@ -27,6 +27,7 @@ const AgentSchema = new Schema(
       index: true
     },
     description: { type: String, trim: true, maxlength: 800 },
+    guidelines: [{ type: String, trim: true, maxlength: 500 }],
     publicPassportTokenHash: { type: String, select: false },
     publicPassportTokenPreview: { type: String },
     publicPassportEnabled: { type: Boolean, default: false, index: true },

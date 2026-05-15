@@ -26,7 +26,7 @@ async function authenticatePassport(agentId: string, token: string) {
   if (!token || !token.startsWith("bhf_pass_")) return null;
   await connectToDatabase();
   const agent = await Agent.findOne({ agentId, publicPassportEnabled: true })
-    .select("+publicPassportTokenHash agentId name agentType provider connectionStatus description status publicPassportEnabled")
+    .select("+publicPassportTokenHash agentId name agentType provider connectionStatus description guidelines status publicPassportEnabled")
     .lean();
   if (!agent?.publicPassportTokenHash) return null;
   const tokenHash = hashApiKey(token);
@@ -40,6 +40,7 @@ function safeAgent(agent: {
   provider?: string | null;
   connectionStatus?: string | null;
   description?: string | null;
+  guidelines?: string[] | null;
 }) {
   return {
     agentId: agent.agentId,
@@ -47,7 +48,8 @@ function safeAgent(agent: {
     agentType: agent.agentType ?? "native",
     provider: agent.provider ?? "custom",
     connectionStatus: agent.connectionStatus ?? "manual",
-    description: agent.description ?? null
+    description: agent.description ?? null,
+    guidelines: agent.guidelines?.length ? [...agent.guidelines] : []
   };
 }
 

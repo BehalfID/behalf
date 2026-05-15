@@ -34,7 +34,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     "externalAgentId",
     "externalAgentLabel",
     "description",
-    "connectionStatus"
+    "connectionStatus",
+    "guidelines"
   ]);
   if (unknownError) return jsonError(unknownError);
 
@@ -55,6 +56,20 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   if (body.externalAgentLabel !== undefined) update.externalAgentLabel = metadata.externalAgentLabel;
   if (body.description !== undefined) update.description = metadata.description;
   if (body.connectionStatus !== undefined) update.connectionStatus = metadata.connectionStatus;
+
+  if (body.guidelines !== undefined) {
+    if (!Array.isArray(body.guidelines)) return jsonError("guidelines must be an array of strings.");
+    const items = body.guidelines as unknown[];
+    if (items.length > 20) return jsonError("guidelines must have 20 items or fewer.");
+    const parsed: string[] = [];
+    for (const item of items) {
+      if (typeof item !== "string") return jsonError("Each guideline must be a string.");
+      const trimmed = item.trim();
+      if (trimmed.length > 500) return jsonError("Each guideline must be 500 characters or fewer.");
+      if (trimmed) parsed.push(trimmed);
+    }
+    (update as Record<string, unknown>).guidelines = parsed;
+  }
 
   if (!Object.keys(update).length) {
     return jsonError("At least one editable agent field is required.");
