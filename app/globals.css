@@ -580,6 +580,66 @@ textarea.ui-input,
   color: var(--text);
 }
 
+/* Hamburger button — desktop: hidden */
+.public-nav__hamburger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text);
+  flex-shrink: 0;
+  transition: background 120ms ease;
+}
+
+.public-nav__hamburger:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* Mobile CTA — desktop: hidden */
+.public-nav__mobile-cta {
+  display: none;
+}
+
+/* Drawer panel */
+.public-nav__drawer {
+  display: flex;
+  flex-direction: column;
+  background: rgba(6, 6, 6, 0.96);
+  backdrop-filter: blur(18px);
+  border-bottom: 1px solid var(--border);
+  padding: 4px 22px 18px;
+}
+
+.public-nav__drawer a {
+  display: block;
+  padding: 15px 0;
+  border-bottom: 1px solid var(--hairline);
+  color: var(--muted);
+  font-size: 1rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 120ms ease;
+}
+
+.public-nav__drawer a:hover {
+  color: var(--text);
+}
+
+.public-nav__drawer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0 4px;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
 .hero {
   min-height: calc(88svh - 76px);
   display: grid;
@@ -3614,27 +3674,20 @@ textarea.ui-input,
 }
 
 @media (max-width: 620px) {
-  .public-nav,
-  .marketing-nav {
-    align-items: flex-start;
-    flex-direction: column;
-    padding-top: 18px;
-    padding-bottom: 18px;
+  .public-nav {
+    padding-inline: 22px;
   }
 
-  .public-nav__links,
-  .marketing-nav div {
-    width: 100%;
-    justify-content: flex-start;
-    gap: 20px;
+  .public-nav__hamburger {
+    display: flex;
   }
 
-  .public-nav__links .ui-button {
-    margin-left: auto;
-  }
-
-  .nav-secondary {
+  .public-nav__links {
     display: none;
+  }
+
+  .public-nav__mobile-cta {
+    display: inline-flex;
   }
 
   .hero {
@@ -6065,6 +6118,14 @@ html[data-theme="light"] {
 html[data-theme="light"] .public-nav,
 html[data-theme="light"] .marketing-nav {
   background: rgba(255, 255, 255, 0.88);
+}
+
+html[data-theme="light"] .public-nav__drawer {
+  background: rgba(252, 252, 252, 0.97);
+}
+
+html[data-theme="light"] .public-nav__hamburger:hover {
+  background: rgba(0, 0, 0, 0.05);
 }
 
 /* App sidebars — hardcoded near-black bg → light */
