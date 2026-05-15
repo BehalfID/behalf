@@ -34,7 +34,11 @@ export function verifyCommand() {
           method: "POST", body, apiKey, baseUrl,
         });
 
-        if (isJsonMode()) { printJson(data); return; }
+        if (isJsonMode()) {
+          printJson(data);
+          if (!data.allowed) process.exit(1);
+          return;
+        }
 
         console.log(`\n${data.allowed ? "✓ ALLOWED" : "✗ DENIED"}`);
         printKv({ requestId: data.requestId, reason: data.reason, risk: data.risk });
