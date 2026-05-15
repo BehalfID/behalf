@@ -6150,7 +6150,7 @@ html[data-theme="light"] .console-filters select {
 }
 
 /* ── Cookie Banner ────────────────────────────────── */
-.cookie-banner {
+.site-consent {
   position: fixed;
   bottom: 0;
   left: 0;
@@ -6160,7 +6160,7 @@ html[data-theme="light"] .console-filters select {
   border-top: 1px solid var(--border-strong);
 }
 
-.cookie-banner__inner {
+.site-consent__inner {
   max-width: var(--container);
   margin: 0 auto;
   padding: var(--s-4) var(--s-6);
@@ -6171,28 +6171,28 @@ html[data-theme="light"] .console-filters select {
   flex-wrap: wrap;
 }
 
-.cookie-banner__text {
+.site-consent__text {
   margin: 0;
   font-size: 13px;
   color: var(--text-2);
   line-height: 1.5;
 }
 
-.cookie-banner__link {
+.site-consent__link {
   color: var(--accent);
 }
 
-.cookie-banner__link:hover {
+.site-consent__link:hover {
   text-decoration: underline;
 }
 
-.cookie-banner__actions {
+.site-consent__actions {
   display: flex;
   gap: var(--s-2);
   flex-shrink: 0;
 }
 
-.cookie-banner__btn {
+.site-consent__btn {
   padding: 6px var(--s-4);
   border-radius: var(--radius-md);
   font-size: 13px;
@@ -6202,24 +6202,24 @@ html[data-theme="light"] .console-filters select {
   transition: background 0.12s, border-color 0.12s;
 }
 
-.cookie-banner__btn--decline {
+.site-consent__btn--decline {
   background: transparent;
   color: var(--text-2);
 }
 
-.cookie-banner__btn--decline:hover {
+.site-consent__btn--decline:hover {
   background: var(--surface-elev);
   border-color: var(--border-strong);
   color: var(--text);
 }
 
-.cookie-banner__btn--accept {
+.site-consent__btn--accept {
   background: var(--accent);
   color: #fff;
   border-color: var(--accent);
 }
 
-.cookie-banner__btn--accept:hover {
+.site-consent__btn--accept:hover {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
 }
