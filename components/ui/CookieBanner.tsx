@@ -8,7 +8,18 @@ export function CookieBanner() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (!localStorage.getItem(CONSENT_KEY)) setVisible(true);
+    console.log('[CookieBanner] mounted');
+    try {
+      const val = localStorage.getItem(CONSENT_KEY);
+      console.log('[CookieBanner] stored value:', val);
+      if (!val) {
+        console.log('[CookieBanner] no consent stored — showing banner');
+        setVisible(true);
+      }
+    } catch (err) {
+      console.error('[CookieBanner] localStorage unavailable:', err);
+      setVisible(true);
+    }
   }, []);
 
   function accept() {
