@@ -108,13 +108,17 @@ const BROWSE_WEB_PATTERNS: RegExp[] = [
   /summarize\s+public\s+pages/i, /\bpublic\s+pages\b/i,
   /compare\s+products/i, /research\s+(?:the\s+)?web/i,
   /\bvisit\s+(?:websites?|web\s+pages?|sites?)\b/i,
-  /\bwell-known\s+sites?\b/i,
+  /\bwell[\s-]known\s+(?:sites?|packages?|sources?|downloads?|distributions?)\b/i,
   /\bdownload\s+(?:files?|packages?|content|data)\s+from\s+(?:the\s+)?(?:web|sites?|internet|urls?)\b/i,
-  /\bfetch\s+(?:content|data|files?)\s+from\s+(?:public|well-known|trusted|https?)\s+(?:sites?|urls?|pages?)\b/i,
-  /\baccess\s+(?:public|well-known|trusted|https?)\s+(?:sites?|pages?|urls?|content)\b/i,
+  /\bfetch\s+(?:content|data|files?)\s+from\s+(?:public|well[\s-]known|trusted|reputable?|https?)\s+(?:sites?|urls?|pages?)\b/i,
+  /\baccess\s+(?:public|well[\s-]known|trusted|reputable?|https?)\s+(?:sites?|pages?|urls?|content)\b/i,
   /\bread\s+(?:web|website|online)\s+(?:content|pages?|articles?)\b/i,
-  /\bhttps?\s+sites?\b/i,
-  /\bfrom\s+(?:public|well-known|trusted|https?)\s+sites?\b/i,
+  /\bhttps?\s+(?:sites?|websites?|urls?|only)\b/i,
+  /\bonly\s+https?\b/i,
+  /\bwebsites?\s+with\s+https?\b/i,
+  /\bfrom\s+(?:public|well[\s-]known|trusted|reputable?|https?)\s+(?:sites?|sources?|parties)\b/i,
+  /\breputable?\s+(?:sites?|sources?|third[\s-]parties|packages?)\b/i,
+  /\bknown\s+(?:sites?|packages?|sources?)\b/i,
 ];
 
 const PRODUCT_COMPARISON_PATTERNS: RegExp[] = [
