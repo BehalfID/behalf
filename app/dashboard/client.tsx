@@ -956,15 +956,46 @@ ${regularPassportUrl || "[passport link]"}`;
         </form>
       ) : null}
       {step === 4 ? (
-        <form className="dashboard-panel onboarding-form" onSubmit={testAction}>
-          <h2>Test an action</h2>
-          <p>Permission created: <code>{permissionId}</code></p>
-          <label><span>Action</span><input value={testForm.action} onChange={(event) => setTestForm({ ...testForm, action: event.target.value })} /></label>
-          <label><span>Resource / service</span><input placeholder="gmail.com, slack, google-calendar, coachella.com" value={testForm.resource} onChange={(event) => setTestForm({ ...testForm, resource: event.target.value })} /></label>
-          {permissionForm.template === "purchase" ? <label><span>Amount</span><input min="0" type="number" value={testForm.amount} onChange={(event) => setTestForm({ ...testForm, amount: event.target.value })} /></label> : null}
-          <label><span>Context / notes</span><input placeholder="Optional context for the preview" value={testForm.context} onChange={(event) => setTestForm({ ...testForm, context: event.target.value })} /></label>
-          <Button variant="primary" type="submit">Test verification</Button>
-        </form>
+        <section>
+          <div className="onboarding-result-grid onboarding-result-grid--native" style={{ marginBottom: 18 }}>
+            <Card className="dashboard-panel">
+              <h2>Install the SDK</h2>
+              <p>Install the BehalfID CLI to connect your AI tools with permission enforcement.</p>
+              <CodeBlock label="terminal">npm install -g @behalfid/sdk</CodeBlock>
+              <p className="field-help" style={{ marginTop: 16, marginBottom: 8 }}>Copy this to authenticate in your terminal — it includes your API key and agent ID.</p>
+              <CodeBlock label="copy and run">{`behalf config set api-key ${apiKey}\nbehalf config set agent-id ${agent?.agentId ?? ""}`}</CodeBlock>
+              <p className="field-help" style={{ marginTop: 8 }}>Your API key was shown once after creating the agent. If you missed it, rotate it from the agent detail page.</p>
+            </Card>
+            <Card className="dashboard-panel">
+              <h2>Connect your AI tool</h2>
+              <p>After authenticating, launch your AI with BehalfID enforcement active.</p>
+              <div className="sdk-connect-tools">
+                <div className="sdk-connect-tool">
+                  <strong>Claude Code</strong>
+                  <CodeBlock label="terminal">behalf claude</CodeBlock>
+                </div>
+                <div className="sdk-connect-tool">
+                  <strong>Codex CLI</strong>
+                  <CodeBlock label="terminal">behalf codex</CodeBlock>
+                </div>
+                <div className="sdk-connect-tool">
+                  <strong>Gemini / other tools</strong>
+                  <CodeBlock label="terminal">behalf mcp init</CodeBlock>
+                  <p className="field-help">Generates a <code>.mcp.json</code> and injects the BehalfID context into your agent config file. Open Gemini or your IDE with that config active.</p>
+                </div>
+              </div>
+            </Card>
+          </div>
+          <form className="dashboard-panel onboarding-form" onSubmit={testAction}>
+            <h2>Test a verification call</h2>
+            <p>Preview how BehalfID will respond when your agent requests permission for an action. Permission created: <code>{permissionId}</code></p>
+            <label><span>Action</span><input value={testForm.action} onChange={(event) => setTestForm({ ...testForm, action: event.target.value })} /></label>
+            <label><span>Resource / service</span><input placeholder="gmail.com, slack, google-calendar, coachella.com" value={testForm.resource} onChange={(event) => setTestForm({ ...testForm, resource: event.target.value })} /></label>
+            {permissionForm.template === "purchase" ? <label><span>Amount</span><input min="0" type="number" value={testForm.amount} onChange={(event) => setTestForm({ ...testForm, amount: event.target.value })} /></label> : null}
+            <label><span>Context / notes</span><input placeholder="Optional context for the preview" value={testForm.context} onChange={(event) => setTestForm({ ...testForm, context: event.target.value })} /></label>
+            <Button variant="primary" type="submit">Test verification</Button>
+          </form>
+        </section>
       ) : null}
       {step === 5 && agent ? (
         <section className="onboarding-result-grid">
