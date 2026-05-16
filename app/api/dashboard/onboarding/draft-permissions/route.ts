@@ -107,6 +107,14 @@ const BROWSE_WEB_PATTERNS: RegExp[] = [
   /browse\s+(?:the\s+)?web/i, /search\s+(?:the\s+)?web/i,
   /summarize\s+public\s+pages/i, /\bpublic\s+pages\b/i,
   /compare\s+products/i, /research\s+(?:the\s+)?web/i,
+  /\bvisit\s+(?:websites?|web\s+pages?|sites?)\b/i,
+  /\bwell-known\s+sites?\b/i,
+  /\bdownload\s+(?:files?|packages?|content|data)\s+from\s+(?:the\s+)?(?:web|sites?|internet|urls?)\b/i,
+  /\bfetch\s+(?:content|data|files?)\s+from\s+(?:public|well-known|trusted|https?)\s+(?:sites?|urls?|pages?)\b/i,
+  /\baccess\s+(?:public|well-known|trusted|https?)\s+(?:sites?|pages?|urls?|content)\b/i,
+  /\bread\s+(?:web|website|online)\s+(?:content|pages?|articles?)\b/i,
+  /\bhttps?\s+sites?\b/i,
+  /\bfrom\s+(?:public|well-known|trusted|https?)\s+sites?\b/i,
 ];
 
 const PRODUCT_COMPARISON_PATTERNS: RegExp[] = [
@@ -233,7 +241,7 @@ The object must match this exact shape:
   "permissions": [
     {
       "action": "string (snake_case verb: access_data | create_content | schedule | purchase | browse_web | send_email | send_message | or a descriptive snake_case verb like read_calendar, update_crm, monitor_sensors)",
-      "resource": "string (real service name or domain: gmail.com, google-calendar, slack, notion, github, salesforce — NOT abstract nouns like 'email', 'data', or 'information')",
+      "resource": "string (bare domain or service name ONLY — e.g. gmail.com, google-calendar, slack, notion, github.com — NEVER include https://, http://, or URL paths; NOT abstract nouns like 'email' or 'data')",
       "allowedActions": ["string (plain English phrase — e.g. 'read email messages', 'summarize threads' — NEVER snake_case, NEVER repeat the action name itself, 2–5 items)"],
       "blockedActions": ["string (plain English phrase — e.g. 'send or reply to emails', 'delete messages' — NEVER snake_case, 2–5 items)"],
       "requiresApproval": boolean,
@@ -306,17 +314,26 @@ function extractJson(raw: string): unknown {
 
 const VALID_RISK = new Set(["low", "medium", "high"]);
 
+function normalizeResource(raw: string): string {
+  return raw
+    .replace(/^https?:\/\//i, "")  // strip protocol prefix
+    .replace(/\/.*$/, "")           // strip path after domain
+    .trim();
+}
+
 function sanitizePermission(p: unknown): DraftPermission | null {
   if (!isRecord(p)) return null;
   const action = readString(p.action) || "access_data";
-  const resource = readString(p.resource) || "";
+  const resource = normalizeResource(readString(p.resource) || "");
   const allowedActions = extractStringArray(p.allowedActions);
   const blockedActions = extractStringArray(p.blockedActions);
-  const requiresApproval = p.requiresApproval === true;
   const riskRaw = readString(p.riskLevel);
   const riskLevel: "low" | "medium" | "high" = VALID_RISK.has(riskRaw)
     ? (riskRaw as "low" | "medium" | "high")
     : "medium";
+  // Auto-correct the common model mistake of setting requiresApproval on low-risk read actions
+  const modelRequiresApproval = p.requiresApproval === true;
+  const requiresApproval = riskLevel === "low" ? false : modelRequiresApproval;
   const reason = readString(p.reason) || "Permission drafted from your description.";
 
   let constraints: DraftConstraints | undefined;
