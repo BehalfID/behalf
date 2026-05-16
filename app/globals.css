@@ -424,10 +424,10 @@ textarea.ui-input,
   max-width: 100%;
   overflow: auto;
   margin: 0;
-  padding: 14px 16px 16px;
+  padding: 6px 16px 10px;
   color: var(--text);
   font-size: 0.82rem;
-  line-height: 1.6;
+  line-height: 1.5;
   white-space: pre;
   word-break: normal;
   border: 0;
@@ -3039,7 +3039,6 @@ textarea.ui-input,
   margin-top: 36px;
 }
 
-.docs-code,
 .developer-section .ui-code-shell,
 .use-case .ui-code-shell {
   margin-top: 14px;

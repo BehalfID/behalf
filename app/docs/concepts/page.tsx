@@ -4,6 +4,7 @@ import { DocsShell } from "../content";
 export default function ConceptsPage() {
   const concepts = [
     ["Permission passports", "A permission passport is the BehalfID record that ties an agent, its credential, permission rules, audit logs, and webhook events together."],
+    ["Passport presets", "Ready-made permission bundles for common agent roles: email reader, scheduling assistant, research assistant, shopping assistant, content creator, and CRM assistant. Each preset populates the agent description, provider, and a set of permission scopes that you can review and edit before saving. Presets are available in the agent creation flow and use the same scope templates as manual permissions."],
     ["Manual test mode", "Use this for existing agents when the provider has not integrated BehalfID. Users can test actions through a passport link and copy instructions into the agent, but BehalfID does not automatically control the external provider."],
     ["Developer integration mode", "Use this when your app or custom agent can call the BehalfID API or SDK before actions happen. This is the enforcement path."],
     ["Native agents", "Agents created directly in BehalfID for custom SDK, API, LangChain, OpenAI, or internal company integrations."],
@@ -18,6 +19,7 @@ export default function ConceptsPage() {
     ["Passport token safety", "Passport links intentionally expose allowed permission scopes so external agents can read what they are permitted to do. They never expose API keys, webhook secrets, developer identity, internal IDs, or audit logs. Treat the passport link like a secret — anyone with the token can view the scoped passport."],
     ["Permissions", "Rules that say an agent can do an action on a resource under constraints. Each permission can include an explicit list of allowed actions, blocked actions, a requires-approval flag, and expiration. Examples include access_data on gmail.com (allowed: read labels, blocked: send email), schedule on google-calendar (allowed: suggest times, blocked: delete events), or purchase on coachella.com (max $800). Agent descriptions are informational; permissions are the source of truth for what an agent may do."],
     ["Fail-closed enforcement", "When BehalfID denies an action, enforceAction throws — the caller never reaches the code that would have executed the action. This is fail closed: on denial, the safe default is to stop rather than proceed. The opposite would be fail open (proceeding if the check fails or is unavailable). BehalfID's enforcement pattern is always fail closed."],
+    ["MCP enforcement", "The behalf CLI ships a Model Context Protocol server that exposes a verify_action tool. When an AI tool (Claude Code, Codex, Cursor) connects to the MCP server, it can call verify_action before executing any external action. behalf mcp init writes .mcp.json and .behalf/context.md to the project directory; behalf claude and behalf codex fetch the latest permissions and launch the tool with the server already wired in."],
     ["Site Guard", "A planned website-owner enforcement pattern for AI access rules. llms.txt-style files can declare intent; Site Guard should enforce rules only when installed as middleware, proxy, worker, or gateway that calls BehalfID before protected routes execute."],
     ["Scope templates", "Reusable permission patterns organized by category: data access, communication, scheduling, commerce, content, and admin. Each template provides a default action, allowed actions, blocked actions, and a requires-approval flag that you can edit before saving. Examples: read_email (access_data on gmail.com), browse_web, schedule_meeting, purchase."],
     ["Verification", "A pre-action decision that returns allowed, reason, risk, and requestId before the agent proceeds."],
@@ -29,7 +31,7 @@ export default function ConceptsPage() {
   return (
     <DocsShell
       title="Concepts"
-      description="The core nouns behind BehalfID’s connected-agent permission passport model."
+      description="The core nouns behind BehalfID's connected-agent permission passport model."
       previous={{ href: "/docs/site-guard", label: "Site Guard" }}
     >
       <div className="concept-grid">

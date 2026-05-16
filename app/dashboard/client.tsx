@@ -694,30 +694,30 @@ ${regularPassportUrl || "[passport link]"}`;
         {regularStep === 2 ? (
           <section className="dashboard-panel onboarding-form">
             <h2>What do you want this assistant to do?</h2>
-            <p>Describe in plain English. Be specific about what it should and should not do.</p>
+            <p>Include what it <strong>can</strong> do, what it <strong>must not</strong> do, and any limits (e.g. dollar amounts, specific services). The more specific you are, the better the draft.</p>
             <label>
               <textarea
-                placeholder={"e.g. Help me research flights and hotels, but do not book anything.\ne.g. Read and summarize my emails, but do not send, delete, or forward emails."}
+                placeholder="e.g. Read and summarize my emails, but do not send, delete, forward, or change filters."
                 rows={5}
+                maxLength={2000}
                 value={regularDescription}
                 onChange={(e) => setRegularDescription(e.target.value)}
               />
             </label>
-            <details>
-              <summary className="field-help onboarding-summary">Not sure? Try an example</summary>
-              <div className="permission-template-grid permission-template-grid--nested">
-                {DESCRIPTION_EXAMPLES.map((example) => (
-                  <button
-                    key={example}
-                    className="permission-template"
-                    type="button"
-                    onClick={() => setRegularDescription(example)}
-                  >
-                    {example}
-                  </button>
-                ))}
-              </div>
-            </details>
+            <p className="field-help" style={{ textAlign: "right", marginTop: 2 }}>{regularDescription.length} / 2000</p>
+            <p className="section-kicker">Examples — click to use</p>
+            <div className="permission-template-grid permission-template-grid--nested">
+              {DESCRIPTION_EXAMPLES.map((example) => (
+                <button
+                  key={example}
+                  className="permission-template"
+                  type="button"
+                  onClick={() => setRegularDescription(example)}
+                >
+                  {example}
+                </button>
+              ))}
+            </div>
             {draftError ? (
               <div>
                 <p className="form-error">{draftError}</p>

@@ -91,6 +91,10 @@ type DescriptionAnalysis = {
   hasExplicitFormBlock: boolean;
   hasExplicitLoginBlock: boolean;
   hasExplicitPurchaseBlock: boolean;
+  hasEmailReadIntent: boolean;
+  hasEmailSendIntent: boolean;
+  hasCalendarReadIntent: boolean;
+  hasCalendarScheduleIntent: boolean;
 };
 
 const BROAD_ACCESS_PATTERNS: RegExp[] = [
@@ -129,6 +133,41 @@ const EXPLICIT_APPROVAL_PATTERNS: RegExp[] = [
   /only\s+with\s+my\s+approval/i,
 ];
 
+const EMAIL_READ_PATTERNS: RegExp[] = [
+  /\breads?\s+(?:and\s+\w+\s+)?(?:my\s+)?emails?\b/i,
+  /\breading\s+(?:my\s+)?emails?\b/i,
+  /\bcheck\w*\s+(?:my\s+)?(?:inbox|emails?)\b/i,
+  /\bsummariz\w+\s+(?:my\s+)?emails?\b/i,
+  /\bemail\s+summar/i,
+  /\binbox\s+(?:summary|summaries)\b/i,
+];
+
+const EMAIL_SEND_PATTERNS: RegExp[] = [
+  /\bsends?\s+(?:an?\s+)?emails?\b/i,
+  /\bsendings?\s+emails?\b/i,
+  /\breply\w*\s+(?:to\s+)?(?:my\s+)?emails?\b/i,
+  /\bcompos\w+\s+(?:an?\s+)?emails?\b/i,
+  /\bwrite\s+(?:an?\s+)?emails?\b/i,
+  /\bwriting\s+(?:an?\s+)?emails?\b/i,
+  /\bdraft\w*\s+(?:an?\s+)?emails?\b/i,
+];
+
+const CALENDAR_READ_PATTERNS: RegExp[] = [
+  /\bcheck\w*\s+(?:my\s+)?(?:calendar|schedule)\b/i,
+  /\breads?\s+(?:my\s+)?(?:calendar|schedule)\b/i,
+  /\breading\s+(?:my\s+)?(?:calendar|schedule)\b/i,
+  /\bview\w*\s+(?:my\s+)?(?:calendar|events?)\b/i,
+  /\baccess\w*\s+(?:my\s+)?calendar\b/i,
+];
+
+const CALENDAR_SCHEDULE_PATTERNS: RegExp[] = [
+  /\bschedul\w+\s+(?:a\s+)?meetings?\b/i,
+  /\bbook\w*\s+(?:a\s+)?meetings?\b/i,
+  /\bcreat\w+\s+(?:calendar\s+)?events?\b/i,
+  /\bset\s+up\s+(?:a\s+)?meetings?\b/i,
+  /\badd\s+(?:an?\s+)?(?:event|meeting)\s+to\s+(?:my\s+)?calendar\b/i,
+];
+
 function withoutNegations(text: string): string {
   return text.replace(/\bdo\s+not\b[^.;!?]*/gi, "");
 }
@@ -159,10 +198,18 @@ function analyzeDescription(description: string): DescriptionAnalysis {
   const hasExplicitPurchaseBlock = /do\s+not\b[^.;!?]*\bbuy\b/i.test(d) ||
                                    /do\s+not\b[^.;!?]*\bpurchas/i.test(d);
 
+  // Email and calendar intents — tested on positive (negation-stripped) text so that
+  // "do not send emails" does not trigger hasEmailSendIntent.
+  const hasEmailReadIntent        = EMAIL_READ_PATTERNS.some((p) => p.test(positive));
+  const hasEmailSendIntent        = EMAIL_SEND_PATTERNS.some((p) => p.test(positive));
+  const hasCalendarReadIntent     = CALENDAR_READ_PATTERNS.some((p) => p.test(positive));
+  const hasCalendarScheduleIntent = CALENDAR_SCHEDULE_PATTERNS.some((p) => p.test(positive));
+
   return {
     hasBroadAccess, hasBrowseWebIntent, hasProductComparison, hasPurchaseIntent,
     hasExplicitApproval, spendingLimit, hasExplicitFormBlock, hasExplicitLoginBlock,
-    hasExplicitPurchaseBlock,
+    hasExplicitPurchaseBlock, hasEmailReadIntent, hasEmailSendIntent,
+    hasCalendarReadIntent, hasCalendarScheduleIntent,
   };
 }
 
@@ -185,10 +232,10 @@ The object must match this exact shape:
   },
   "permissions": [
     {
-      "action": "string (snake_case verb: access_data | create_content | schedule | purchase | browse_web | send_email | send_message | or a custom snake_case verb)",
-      "resource": "string (e.g. gmail.com, google-calendar, web, commerce — empty string if not applicable)",
-      "allowedActions": ["string (2-5 specific things the agent may do)"],
-      "blockedActions": ["string (2-5 specific things the agent must never do)"],
+      "action": "string (snake_case verb: access_data | create_content | schedule | purchase | browse_web | send_email | send_message | or a descriptive snake_case verb like read_calendar, update_crm, monitor_sensors)",
+      "resource": "string (real service name or domain: gmail.com, google-calendar, slack, notion, github, salesforce — NOT abstract nouns like 'email', 'data', or 'information')",
+      "allowedActions": ["string (plain English phrase — e.g. 'read email messages', 'summarize threads' — NEVER snake_case, NEVER repeat the action name itself, 2–5 items)"],
+      "blockedActions": ["string (plain English phrase — e.g. 'send or reply to emails', 'delete messages' — NEVER snake_case, 2–5 items)"],
       "requiresApproval": boolean,
       "status": "active",
       "constraints": {
@@ -197,7 +244,7 @@ The object must match this exact shape:
         "expiresAt": null
       },
       "riskLevel": "low" | "medium" | "high",
-      "reason": "string (one sentence explaining why this permission was drafted)"
+      "reason": "string (one sentence naming the service and what capability this grants, e.g. 'Allows the assistant to read Gmail messages and summarize threads without any write access.')"
     }
   ],
   "needsClarification": [
@@ -206,21 +253,25 @@ The object must match this exact shape:
       "reason": "string (why this is unclear from the description)"
     }
   ],
-  "warnings": ["string (things the user should consider before confirming)"],
-  "limitations": ["string (constraints you could not capture from the description)"]
+  "warnings": ["string (1–2 things the user should consider before confirming)"],
+  "limitations": ["string (1–2 constraints you could not capture from the description)"]
 }
 
 Rules:
-1. SPLIT CAPABILITIES: If the user describes multiple distinct capabilities (e.g. web browsing AND purchasing), return each as a SEPARATE permission. A description with browsing and purchasing must produce at least a browse_web permission AND a purchase permission.
-2. requiresApproval must be true for: financial actions, destructive/irreversible actions, sending external messages, and any time the user said "ask before", "only after I approve", "with my approval", or similar. If the user already stated approval is required, set requiresApproval: true and do NOT ask a clarification question about it.
-3. riskLevel: low = read-only no external effects; medium = creates content or sends something; high = financial, destructive, or irreversible.
-4. Infer blockedActions from explicit "do not", "but not", "never" language. When in doubt, add protective blocked actions.
-5. DOLLAR LIMITS: Always extract and set constraints.maxAmount when the user states any dollar amount. "$25", "under $25", "up to $25", "25 dollars" all mean maxAmount: 25. Never ignore a stated spending limit.
-6. needsClarification: Only ask about things genuinely ambiguous and NOT already answered in the description. Do not ask about approval if the user already said they require it. Do not ask about a spending limit if the user already stated one.
-7. BROAD ACCESS: If the description contains "full access", "access to everything", "do whatever it needs", "unrestricted", or "admin access", add a safety concern to needsClarification — do NOT create a permission granting broad or unrestricted access.
-8. Set warnings for: broad access grants, financial permissions, "send on my behalf" permissions.
-9. Set limitations for things you could not encode (e.g. "No spending limit specified — consider adding one.").
-10. Every permission must have at least one allowedAction and one blockedAction.`;
+1. SPLIT CAPABILITIES: If the user describes multiple distinct capabilities (e.g. email reading AND calendar scheduling), return each as a SEPARATE permission with its own action and resource.
+2. requiresApproval must be true for: financial actions, destructive/irreversible actions, sending external messages, and any time the user said "ask before", "only after I approve", "with my approval", or similar. Do NOT ask a clarification question about approval if the user already stated it.
+3. riskLevel: low = read-only no external effects; medium = creates content, sends something, or modifies state; high = financial, destructive, or irreversible.
+4. allowedActions and blockedActions MUST be plain English phrases. Never use snake_case, never repeat the action name itself as an item. Good: "read email messages". Bad: "access_data", "browse_web".
+5. DOLLAR LIMITS: Always extract and set constraints.maxAmount when the user states any dollar amount. "$25", "under $25", "up to $25", "25 dollars" all mean maxAmount: 25.
+6. needsClarification: Only ask about things genuinely ambiguous and NOT already answered in the description. If the description is specific, return an empty array. Do NOT ask about approval or spending limits if the user already stated them.
+7. BROAD ACCESS: If the description contains "full access", "access to everything", "do whatever it needs", "unrestricted", or "admin access", add a concern to needsClarification — do NOT create a permission granting broad access.
+8. Set warnings for: financial permissions and "send on my behalf" permissions. Maximum 2 warnings.
+9. Set limitations for things you genuinely could not encode. Maximum 2 limitations.
+10. Every permission must have at least one allowedAction and one blockedAction.
+11. resource must be a real service name or domain. If the user did not name a specific service, use the closest category (email, google-calendar, documents, crm).
+
+Example — for "Read and summarize my emails, but do not send, delete, or forward them":
+{"agentDraft":{"provider":"claude","description":"Reads and summarizes email without write access."},"permissions":[{"action":"access_data","resource":"gmail.com","allowedActions":["read email messages","search inbox","summarize email threads","view attachments"],"blockedActions":["send or reply to emails","delete messages","forward emails","modify inbox filters or rules"],"requiresApproval":false,"status":"active","constraints":{"maxAmount":null,"allowedVendors":[],"expiresAt":null},"riskLevel":"low","reason":"Allows the assistant to read and summarize Gmail messages without any write or send access."}],"needsClarification":[],"warnings":[],"limitations":[]}`;
 
 // ────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -375,6 +426,46 @@ function makePurchasePermission(analysis: DescriptionAnalysis): DraftPermission 
     blockedActions: ["purchase above spending limit", "purchase without user approval", "save payment credentials", "start recurring subscriptions", "use unapproved vendors"],
     requiresApproval: true, status: "active", constraints, riskLevel: "high",
     reason: "Purchases are high-risk and require user approval.",
+  };
+}
+
+function makeEmailReadPermission(): DraftPermission {
+  return {
+    action: "access_data", resource: "email",
+    allowedActions: ["read email messages", "search inbox", "summarize email threads", "view attachments"],
+    blockedActions: ["send or reply to emails", "delete messages", "forward emails to other addresses", "modify inbox filters or rules"],
+    requiresApproval: false, status: "active", riskLevel: "low",
+    reason: "Allows the assistant to read and summarize emails with no write or send access.",
+  };
+}
+
+function makeEmailSendPermission(): DraftPermission {
+  return {
+    action: "send_email", resource: "email",
+    allowedActions: ["compose email drafts", "suggest reply text", "send emails only after user approval"],
+    blockedActions: ["send emails without user review", "delete messages", "forward emails to external addresses", "access contact list without permission"],
+    requiresApproval: true, status: "active", riskLevel: "medium",
+    reason: "Sending emails on behalf of the user requires explicit approval before each message is sent.",
+  };
+}
+
+function makeCalendarReadPermission(): DraftPermission {
+  return {
+    action: "access_data", resource: "google-calendar",
+    allowedActions: ["read calendar events", "check availability", "view event details and participants"],
+    blockedActions: ["create or delete calendar events", "share calendar with others", "invite external contacts", "modify recurring event series"],
+    requiresApproval: false, status: "active", riskLevel: "low",
+    reason: "Allows the assistant to read calendar data and check availability without creating or modifying events.",
+  };
+}
+
+function makeCalendarSchedulePermission(): DraftPermission {
+  return {
+    action: "schedule", resource: "google-calendar",
+    allowedActions: ["check availability", "suggest meeting times", "create calendar events after approval", "send meeting invites after approval"],
+    blockedActions: ["delete existing events", "share calendar externally", "invite contacts without user approval", "modify recurring event series"],
+    requiresApproval: true, status: "active", riskLevel: "medium",
+    reason: "Creating or modifying calendar events changes the user's schedule and requires approval.",
   };
 }
 
@@ -583,7 +674,15 @@ async function fetchAvailableModels(baseUrl: string, proxyToken: string): Promis
 
 /** Returns true when deterministic rules can confidently produce a draft. */
 function canHandleDeterministically(analysis: DescriptionAnalysis): boolean {
-  return analysis.hasBrowseWebIntent || analysis.hasPurchaseIntent || analysis.hasBroadAccess;
+  return (
+    analysis.hasBrowseWebIntent ||
+    analysis.hasPurchaseIntent ||
+    analysis.hasBroadAccess ||
+    analysis.hasEmailReadIntent ||
+    analysis.hasEmailSendIntent ||
+    analysis.hasCalendarReadIntent ||
+    analysis.hasCalendarScheduleIntent
+  );
 }
 
 /** Builds a clean deterministic draft (no unavailability warning). */
@@ -593,8 +692,12 @@ function buildDeterministicDraft(
   description: string,
 ): PermissionDraftResponse {
   const permissions: DraftPermission[] = [];
-  if (analysis.hasBrowseWebIntent) permissions.push(makeBrowseWebPermission(analysis.hasProductComparison));
-  if (analysis.hasPurchaseIntent)  permissions.push(makePurchasePermission(analysis));
+  if (analysis.hasBrowseWebIntent)        permissions.push(makeBrowseWebPermission(analysis.hasProductComparison));
+  if (analysis.hasPurchaseIntent)         permissions.push(makePurchasePermission(analysis));
+  if (analysis.hasEmailReadIntent)        permissions.push(makeEmailReadPermission());
+  if (analysis.hasEmailSendIntent)        permissions.push(makeEmailSendPermission());
+  if (analysis.hasCalendarReadIntent)     permissions.push(makeCalendarReadPermission());
+  if (analysis.hasCalendarScheduleIntent) permissions.push(makeCalendarSchedulePermission());
   return {
     agentDraft: { provider, description },
     permissions,

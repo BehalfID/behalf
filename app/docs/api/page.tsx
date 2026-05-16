@@ -18,7 +18,7 @@ export default function ApiDocsPage() {
     <DocsShell
       title="API reference"
       description="Agent API keys use Authorization: Bearer bhf_sk_xxx. Dashboard routes use developer session cookies."
-      previous={{ href: "/docs/quickstart", label: "Quickstart" }}
+      previous={{ href: "/docs/cli", label: "CLI" }}
       next={{ href: "/docs/sdk", label: "JavaScript SDK" }}
     >
       <div className="endpoint-list">

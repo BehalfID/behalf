@@ -6,7 +6,7 @@ export default function QuickstartPage() {
       title="Quickstart"
       description="Test with an existing agent in manual mode, or enforce permissions from your own app with the SDK."
       previous={{ href: "/docs", label: "Overview" }}
-      next={{ href: "/docs/api", label: "API reference" }}
+      next={{ href: "/docs/cli", label: "CLI" }}
     >
       <h2>Path A: test with an existing agent</h2>
       <ol className="docs-steps">
