@@ -732,7 +732,7 @@ ${regularPassportUrl || "[passport link]"}`;
                   <p className="field-help">Run <code>npm run check:ollama</code> to see which models are installed.</p>
                 ) : null}
                 {draftErrorCode === "TIMEOUT" ? (
-                  <p className="field-help">Ollama took too long to respond. Try again, or switch to a smaller/faster model. If this keeps happening, run <code>npm run check:ollama</code> to diagnose. When a known intent is detected, BehalfID will use a rule-based draft instead.</p>
+                  <p className="field-help">Ollama took too long. Increase <code>OLLAMA_TIMEOUT_MS</code> in .env.local, then restart both the dev server (<code>npm run dev</code>) and the secure proxy (<code>npm run ollama:proxy</code>) so they both pick up the new value.</p>
                 ) : null}
                 {draftErrorCode === "UNREACHABLE" ? (
                   <p className="field-help">Could not connect to Ollama. Make sure Ollama is running (<code>ollama serve</code>) and restart the dev server after editing .env.local. If your description matches a known pattern, BehalfID will generate a rule-based draft automatically.</p>

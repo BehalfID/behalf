@@ -42,7 +42,7 @@ const HOST         = env.OLLAMA_PROXY_HOST         || "127.0.0.1";
 const PORT         = parseInt(env.OLLAMA_PROXY_PORT || "8787", 10);
 const UPSTREAM_URL = (env.OLLAMA_UPSTREAM_URL       || "http://127.0.0.1:11434").replace(/\/$/, "");
 const PROXY_TOKEN  = env.OLLAMA_PROXY_TOKEN         || "";
-const TIMEOUT_MS   = parseInt(env.OLLAMA_PROXY_TIMEOUT_MS      || "30000",  10);
+const TIMEOUT_MS   = parseInt(env.OLLAMA_PROXY_TIMEOUT_MS || env.OLLAMA_TIMEOUT_MS || "30000", 10);
 const MAX_BODY     = parseInt(env.OLLAMA_PROXY_MAX_BODY_BYTES   || "1048576", 10);
 
 // ── Logging ───────────────────────────────────────────────────────────────────

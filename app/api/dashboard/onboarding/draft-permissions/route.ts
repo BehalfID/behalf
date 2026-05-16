@@ -883,7 +883,7 @@ export async function POST(request: NextRequest) {
       // ── Timeout — try deterministic fallback before returning error ─────
       ollamaError = diagError(503, "TIMEOUT",
         "Ollama timed out.",
-        `Ollama did not respond within ${timeoutMs / 1000}s. Try a smaller/faster model, or increase OLLAMA_TIMEOUT_MS.`
+        `Ollama did not respond within ${timeoutMs / 1000}s. Increase OLLAMA_TIMEOUT_MS in .env.local — if you are running the secure proxy, restart it so it picks up the new value (the proxy also reads OLLAMA_TIMEOUT_MS as its timeout).`
       );
     } else if (isRefused) {
       // ── C: Unreachable ─────────────────────────────────────────────────
