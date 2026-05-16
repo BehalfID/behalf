@@ -3276,6 +3276,24 @@ textarea.ui-input,
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.sdk-connect-tools {
+  display: grid;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.sdk-connect-tool {
+  display: grid;
+  gap: 8px;
+}
+
+.sdk-connect-tool strong {
+  display: block;
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 620;
+}
+
 .form-actions {
   display: flex;
   gap: 0.5rem;
