@@ -145,11 +145,29 @@ export function OnboardingClient() {
   const cls = (base: string) => `${base} ${base}--${phase}`;
 
   if (step === "hello") {
+    const letters = "Hello ".split("");
     return (
       <main className="ob-page ob-page--dark">
         <div className={cls("ob-hello-wrap")}>
-          <p className="ob-hello">
-            Hello <span className="ob-wave">👋</span>
+          <p className="ob-hello" aria-label="Hello 👋">
+            {letters.map((ch, i) => (
+              <span
+                aria-hidden="true"
+                className="ob-char"
+                key={i}
+                style={{ animationDelay: `${i * 13}ms` }}
+              >
+                {ch === " " ? " " : ch}
+              </span>
+            ))}
+            {/* emoji: ob-char entry wraps ob-wave rotation */}
+            <span
+              aria-hidden="true"
+              className="ob-char"
+              style={{ animationDelay: `${letters.length * 13}ms` }}
+            >
+              <span className="ob-wave">👋</span>
+            </span>
           </p>
         </div>
       </main>

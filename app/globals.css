@@ -2805,6 +2805,7 @@ textarea.ui-input,
 
 .ob-page {
   min-height: 100svh;
+  width: 100%;
   display: grid;
   place-items: center;
   padding: 32px 24px;
@@ -2822,9 +2823,8 @@ textarea.ui-input,
   text-align: center;
 }
 
-.ob-hello-wrap--enter {
-  animation: ob-enter 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
+/* --enter: chars animate individually; no wrapper motion needed */
+.ob-hello-wrap--enter {}
 
 .ob-hello-wrap--exit {
   animation: ob-exit 0.3s ease-in forwards;
@@ -2833,14 +2833,26 @@ textarea.ui-input,
 .ob-hello {
   margin: 0;
   color: var(--text);
-  font-size: clamp(3rem, 8vw, 5.5rem);
+  font-size: clamp(1.8rem, 9vw, 5.5rem);
   font-weight: 720;
   letter-spacing: -0.025em;
+  white-space: nowrap;
+}
+
+@keyframes ob-char-enter {
+  from { opacity: 0; transform: translateY(-22px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.ob-char {
+  display: inline-block;
+  opacity: 0;
+  animation: ob-char-enter 0.52s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .ob-wave {
   display: inline-block;
-  animation: ob-wave-anim 1.1s ease 0.7s 1 both;
+  animation: ob-wave-anim 1.1s ease 0.72s 1 both;
   transform-origin: 70% 80%;
 }
 
