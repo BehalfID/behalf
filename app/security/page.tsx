@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PublicNav } from "@/components/layout/PublicNav";
+import { PublicFooter } from "@/components/layout/PublicFooter";
 import { ButtonLink, CodeBlock, SplitCTAButton } from "@/components/ui";
 
 export const metadata = {
@@ -360,6 +361,7 @@ if (!result.allowed) {
           </div>
         </section>
       </div>
+      <PublicFooter />
     </main>
   );
 }

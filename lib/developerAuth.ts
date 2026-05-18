@@ -122,7 +122,7 @@ export async function getDeveloperFromToken(token?: string | null) {
 
   if (!session) return null;
   const user = await DeveloperUser.findOne({ userId: session.userId })
-    .select("-_id userId email primaryAccountId createdAt updatedAt")
+    .select("-_id userId email onboardingUseCase primaryAccountId createdAt updatedAt")
     .lean();
 
   return user;

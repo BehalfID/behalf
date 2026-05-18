@@ -249,6 +249,7 @@ if (!decision.allowed) {
             <div>
               <h5>Legal</h5>
               <ul>
+                <li><Link href="/terms">Terms of Service</Link></li>
                 <li><Link href="/privacy">Privacy policy</Link></li>
                 <li><Link href="/security">Security</Link></li>
               </ul>

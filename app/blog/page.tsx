@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { PublicNav } from "@/components/layout/PublicNav";
+import { PublicFooter } from "@/components/layout/PublicFooter";
 import { getPostMeta } from "./posts";
 
 export const metadata: Metadata = {
@@ -52,6 +53,7 @@ export default function BlogPage() {
           ))}
         </div>
       </div>
+      <PublicFooter />
     </main>
   );
 }

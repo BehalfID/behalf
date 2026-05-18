@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PublicNav } from "@/components/layout/PublicNav";
+import { PublicFooter } from "@/components/layout/PublicFooter";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -8,8 +9,8 @@ export const metadata: Metadata = {
   alternates: { canonical: "/privacy" }
 };
 
-const EFFECTIVE = "14 May 2026";
-const CONTACT   = "privacy@behalfid.com";
+const EFFECTIVE = "13 May 2026";
+const CONTACT   = "legal@behalfid.com";
 
 export default function PrivacyPage() {
   return (
@@ -63,15 +64,13 @@ export default function PrivacyPage() {
             <h3>Technical and usage data</h3>
             <p>
               We collect IP addresses for rate-limiting and abuse prevention. These are not
-              linked to user accounts for analytics purposes. We collect page-view data via
-              Vercel Analytics (see <Link href="#analytics">§ 5</Link>).
+              linked to user accounts for analytics or profiling purposes.
             </p>
 
             <h3>Billing data</h3>
             <p>
-              Payment card details are handled entirely by Stripe and are never transmitted to
-              or stored on our servers. We receive subscription status, plan tier, and
-              anonymised billing events from Stripe.
+              BehalfID does not currently process payments. No payment card or billing data
+              is collected or stored.
             </p>
           </section>
 
@@ -98,14 +97,6 @@ export default function PrivacyPage() {
               <code>behalf_cookie_consent</code>. It is not transmitted to our servers.
             </p>
 
-            <h3>Third-party cookies</h3>
-            <p>
-              Stripe.js may set cookies on billing-related pages for fraud-prevention purposes.
-              These are governed by{' '}
-              <a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer">
-                Stripe&rsquo;s privacy policy
-              </a>.
-            </p>
           </section>
 
           <section className="legal-section">
@@ -114,8 +105,6 @@ export default function PrivacyPage() {
               <li>To authenticate and operate your developer account.</li>
               <li>To execute, log, and deliver webhook events for verification requests.</li>
               <li>To enforce rate limits and detect abuse.</li>
-              <li>To process billing via Stripe.</li>
-              <li>To understand aggregate usage patterns and improve the product (anonymised).</li>
               <li>To respond to support or security enquiries.</li>
             </ul>
             <p>
@@ -127,14 +116,9 @@ export default function PrivacyPage() {
           <section className="legal-section" id="analytics">
             <h2>5. Analytics</h2>
             <p>
-              We use <strong>Vercel Analytics</strong> to count page views and measure
-              navigation patterns. Vercel Analytics does not set cookies, does not use
-              fingerprinting, and does not collect IP addresses or any other personally
-              identifiable information. It is compliant with GDPR and PECR without requiring
-              explicit cookie consent.
-            </p>
-            <p>
-              No data is shared with advertising networks. No cross-site tracking occurs.
+              BehalfID does not currently use third-party analytics, advertising networks, or
+              cross-site tracking. No tracking cookies or fingerprinting scripts are loaded on
+              any page of the service.
             </p>
           </section>
 
@@ -177,13 +161,8 @@ export default function PrivacyPage() {
                 </tr>
                 <tr>
                   <td>Vercel</td>
-                  <td>Hosting and analytics</td>
-                  <td>Request metadata, anonymised page-view data</td>
-                </tr>
-                <tr>
-                  <td>Stripe</td>
-                  <td>Payment processing</td>
-                  <td>Email, subscription plan, billing events</td>
+                  <td>Hosting and edge delivery</td>
+                  <td>Request metadata (IP, path) for routing and abuse prevention</td>
                 </tr>
               </tbody>
             </table>
@@ -233,6 +212,7 @@ export default function PrivacyPage() {
 
         </div>
       </div>
+      <PublicFooter />
     </main>
   );
 }

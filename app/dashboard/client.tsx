@@ -46,6 +46,14 @@ type Delivery = { deliveryId: string; eventType: string; eventId: string; status
 type AgentProvider = "custom" | "ollie" | "chatgpt" | "claude" | "gemini" | "zapier" | "make" | "langchain" | "openai" | "other";
 type ProviderSelection = AgentProvider | "";
 type OnboardingUserPath = "developer" | "regular" | null;
+type OnboardingUseCase = "personal" | "website" | "sdk";
+type AuthMe = {
+  user: {
+    userId: string;
+    email: string;
+    onboardingUseCase?: OnboardingUseCase;
+  };
+};
 type DraftConstraints = {
   maxAmount?: number;
   allowedVendors?: string[];
@@ -108,6 +116,55 @@ const DESCRIPTION_EXAMPLES = [
   "Compare products and make purchases under $25 only after I approve them.",
   "Help schedule meetings by reading my calendar, but ask before creating, changing, or deleting events."
 ];
+
+const dashboardUseCaseContent: Record<OnboardingUseCase, {
+  kicker: string;
+  title: string;
+  body: string;
+  actionLabel: string;
+  actionHref: string;
+  steps: Array<{ title: string; body: string; href: string }>;
+}> = {
+  personal: {
+    kicker: "Manual passport path",
+    title: "Create a permission passport for an assistant you already use.",
+    body: "Start with a simple passport, review the drafted boundaries, then paste the instructions into the assistant.",
+    actionLabel: "Create passport",
+    actionHref: "/dashboard/onboarding",
+    steps: [
+      { title: "Choose assistant", body: "Pick ChatGPT, Claude, Gemini, Ollie, Zapier, Make, or another tool.", href: "/dashboard/onboarding" },
+      { title: "Describe the job", body: "State what it can do, what it must not do, and any spending or vendor limits.", href: "/dashboard/onboarding" },
+      { title: "Review passport", body: "Confirm allowed actions, blocked actions, approval requirements, and limits.", href: "/dashboard/agents" },
+      { title: "Paste instructions", body: "Add the passport instructions to the assistant and keep enforcement expectations explicit.", href: "/dashboard/docs" }
+    ]
+  },
+  website: {
+    kicker: "Website owner path",
+    title: "Prepare boundaries for AI agents and crawlers visiting your site.",
+    body: "Use the dashboard to model site access, inspect decision logs, and set up enforcement before protected workflows run.",
+    actionLabel: "Start Site Guard setup",
+    actionHref: "/dashboard/docs",
+    steps: [
+      { title: "Map protected actions", body: "Identify public reads, form submits, checkout, account, or content workflows.", href: "/dashboard/docs" },
+      { title: "Create site agent", body: "Represent the agent or gateway that will check requests before site actions execute.", href: "/dashboard/onboarding" },
+      { title: "Define site rules", body: "Set resources, blocked actions, approval needs, and limits for risky workflows.", href: "/dashboard/agents" },
+      { title: "Review events", body: "Use logs and webhooks to inspect allowed, denied, and failed decisions.", href: "/dashboard/logs" }
+    ]
+  },
+  sdk: {
+    kicker: "SDK developer path",
+    title: "Create a guarded agent and verify its first test action.",
+    body: "Get to the core loop quickly: create an agent, define a boundary, call verify(), and inspect the audit event.",
+    actionLabel: "Add agent",
+    actionHref: "/dashboard/onboarding",
+    steps: [
+      { title: "Add agent", body: "Create a native identity and store the one-time API key in your environment.", href: "/dashboard/onboarding" },
+      { title: "Create permission", body: "Define the action, resource, spending limit, expiration, and approval requirement.", href: "/dashboard/agents" },
+      { title: "Install SDK", body: "Use @behalfid/sdk from Node 18+ and call verify before tool execution.", href: "/docs/sdk" },
+      { title: "Verify before acting", body: "Fail closed on denied decisions and use request IDs for debugging.", href: "/dashboard/docs" }
+    ]
+  }
+};
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -174,19 +231,31 @@ export function DashboardShell({ view, id }: { view: "home" | "onboarding" | "ag
 
 function HomeView() {
   const summary = useResource<{ totalAgents: number; activePermissions: number; logsToday: number; pendingEvents: number; failedEvents: number }>("/api/dashboard/summary");
+  const me = useResource<AuthMe>("/api/auth/me");
+  const useCase = me.data?.user.onboardingUseCase ?? "sdk";
+  const content = dashboardUseCaseContent[useCase];
   const hasAgents = (summary.data?.totalAgents ?? 0) > 0;
   return (
     <>
-      <Header title="Dashboard" action={<ButtonLink variant="primary" href="/dashboard/onboarding">Add agent</ButtonLink>} />
+      <Header title="Dashboard" action={<ButtonLink variant="primary" href={content.actionHref}>{content.actionLabel}</ButtonLink>} />
       {summary.error ? <p className="form-error">{summary.error}</p> : null}
+      {me.error ? <p className="form-error">{me.error}</p> : null}
       {!hasAgents ? (
         <Card className="dashboard-panel onboarding-callout">
-          <p className="section-kicker">Start here</p>
-          <h2>Connect an agent, create permissions, then test an action.</h2>
-          <p>Manual mode helps you test the permission model. Developer integration is required for automatic enforcement.</p>
-          <ButtonLink variant="primary" href="/dashboard/onboarding">Start onboarding</ButtonLink>
+          <p className="section-kicker">{content.kicker}</p>
+          <h2>{content.title}</h2>
+          <p>{content.body}</p>
+          <ButtonLink variant="primary" href={content.actionHref}>{content.actionLabel}</ButtonLink>
         </Card>
       ) : null}
+      <section className="dashboard-panel dashboard-usecase-strip">
+        <div>
+          <p className="section-kicker">{content.kicker}</p>
+          <h2>{content.title}</h2>
+          <p>{content.body}</p>
+        </div>
+        <Badge>{useCase === "personal" ? "Simple mode" : useCase === "website" ? "Site path" : "SDK path"}</Badge>
+      </section>
       <div className="metric-grid">
         <Metric label="Agents" value={summary.data?.totalAgents ?? 0} />
         <Metric label="Active permissions" value={summary.data?.activePermissions ?? 0} />
@@ -197,39 +266,20 @@ function HomeView() {
         <div className="dashboard-section-header">
           <div>
             <h2>Quickstart</h2>
-            <p>Set up the minimum path from passport to enforcement.</p>
+            <p>Next actions are tailored to the use case selected during signup.</p>
           </div>
-          <ButtonLink href="/dashboard/onboarding">Add agent</ButtonLink>
+          <ButtonLink href={content.actionHref}>{content.actionLabel}</ButtonLink>
         </div>
         <div className="quickstart-steps">
-          <Link className="quickstart-step" href="/dashboard/onboarding">
-            <span className="quickstart-step__number">1</span>
-            <span>
-              <strong>Add agent</strong>
-              <small>Connect an existing assistant or create a native integration agent.</small>
-            </span>
-          </Link>
-          <Link className="quickstart-step" href="/dashboard/agents">
-            <span className="quickstart-step__number">2</span>
-            <span>
-              <strong>Create permissions</strong>
-              <small>Define allowed actions, resources, blocked actions, and limits.</small>
-            </span>
-          </Link>
-          <Link className="quickstart-step" href="/docs/sdk">
-            <span className="quickstart-step__number">3</span>
-            <span>
-              <strong>Install the SDK</strong>
-              <small>Use <code>@behalfid/sdk</code> from Node 18+.</small>
-            </span>
-          </Link>
-          <Link className="quickstart-step" href="/dashboard/docs">
-            <span className="quickstart-step__number">4</span>
-            <span>
-              <strong>Verify before acting</strong>
-              <small>Call BehalfID before actions; denied actions fail closed.</small>
-            </span>
-          </Link>
+          {content.steps.map((item, index) => (
+            <Link className="quickstart-step" href={item.href} key={item.title}>
+              <span className="quickstart-step__number">{index + 1}</span>
+              <span>
+                <strong>{item.title}</strong>
+                <small>{item.body}</small>
+              </span>
+            </Link>
+          ))}
         </div>
       </Card>
     </>

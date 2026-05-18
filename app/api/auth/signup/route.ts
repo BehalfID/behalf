@@ -17,6 +17,16 @@ import { jsonError } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
 import DeveloperUser from "@/models/DeveloperUser";
 
+const ONBOARDING_USE_CASES = ["personal", "website", "sdk"] as const;
+type OnboardingUseCase = (typeof ONBOARDING_USE_CASES)[number];
+
+function readOnboardingUseCase(value: unknown): OnboardingUseCase {
+  const useCase = readString(value);
+  return ONBOARDING_USE_CASES.includes(useCase as OnboardingUseCase)
+    ? (useCase as OnboardingUseCase)
+    : "sdk";
+}
+
 export async function POST(request: NextRequest) {
   const limit = await checkRateLimit(request);
   if (limit.limited) return rateLimitError();
@@ -28,11 +38,12 @@ export async function POST(request: NextRequest) {
   if (error) return error;
   if (!body) return jsonError("Request body must be a JSON object.");
 
-  const unknownError = rejectUnknownFields(body, ["email", "password"]);
+  const unknownError = rejectUnknownFields(body, ["email", "password", "onboardingUseCase"]);
   if (unknownError) return jsonError(unknownError);
 
   const email = normalizeEmail(readString(body.email));
   const password = typeof body.password === "string" ? body.password : "";
+  const onboardingUseCase = readOnboardingUseCase(body.onboardingUseCase);
 
   if (!isValidEmail(email)) return jsonError("A valid email is required.");
   if (!isValidPassword(password)) return jsonError("Password must be between 10 and 200 characters.");
@@ -53,6 +64,7 @@ export async function POST(request: NextRequest) {
     user = await DeveloperUser.create({
       userId: createPublicId("user"),
       email,
+      onboardingUseCase,
       passwordHash: await hashPassword(password)
     });
   } catch (error) {
