@@ -1,11 +1,57 @@
 import { Command } from "commander";
 import { apiRequest, resolveApiKey, resolveBaseUrl } from "../lib/client.js";
-import { isJsonMode, printJson, printKv, printSuccess, runAction } from "../lib/output.js";
+import { readSession } from "../lib/config.js";
+import { isJsonMode, printJson, printKv, printSuccess, printTable, runAction } from "../lib/output.js";
 
 type CreatePermissionResult = { permissionId: string; status: string };
 
+type Permission = {
+  permissionId: string;
+  action: string;
+  resource?: string;
+  status: string;
+  expiresAt?: string;
+};
+
+function requireSession() {
+  if (!readSession()) {
+    throw new Error("This command requires you to be logged in. Run `behalfid login`.");
+  }
+}
+
 export function permissionsCommand() {
   const cmd = new Command("permissions").description("manage agent permissions");
+
+  cmd
+    .command("list <agentId>")
+    .description("list permissions for an agent")
+    .action(
+      runAction(async (agentId: string) => {
+        requireSession();
+        const baseUrl = resolveBaseUrl();
+        const data = await apiRequest<{ agent: unknown; permissions: Permission[] }>(
+          `/api/dashboard/agents/${encodeURIComponent(agentId)}`,
+          { baseUrl }
+        );
+
+        if (isJsonMode()) { printJson(data.permissions); return; }
+
+        if (!Array.isArray(data.permissions) || data.permissions.length === 0) {
+          console.log("No permissions for this agent.");
+          return;
+        }
+
+        printTable(
+          data.permissions.map((p) => ({
+            permissionId: p.permissionId,
+            action: p.action,
+            resource: p.resource ?? "",
+            status: p.status,
+            expires: p.expiresAt ? p.expiresAt.slice(0, 10) : "never",
+          }))
+        );
+      })
+    );
 
   cmd
     .command("create <agentId>")
@@ -36,7 +82,7 @@ export function permissionsCommand() {
         apiKey?: string;
       }) => {
         const apiKey = opts.apiKey ?? resolveApiKey();
-        if (!apiKey) throw new Error("An agent API key is required. Set it with `behalf config set api-key <key>` or pass --api-key.");
+        if (!apiKey) throw new Error("An agent API key is required. Set it with `behalfid config set api-key <key>` or pass --api-key.");
 
         const baseUrl = resolveBaseUrl();
         const body: Record<string, unknown> = { agentId, action: opts.action };
@@ -73,7 +119,7 @@ export function permissionsCommand() {
     .action(
       runAction(async (permissionId: string, opts: { apiKey?: string }) => {
         const apiKey = opts.apiKey ?? resolveApiKey();
-        if (!apiKey) throw new Error("An agent API key is required. Set it with `behalf config set api-key <key>` or pass --api-key.");
+        if (!apiKey) throw new Error("An agent API key is required. Set it with `behalfid config set api-key <key>` or pass --api-key.");
 
         const baseUrl = resolveBaseUrl();
         const data = await apiRequest<{ revoked: boolean }>(

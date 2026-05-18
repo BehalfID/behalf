@@ -17,6 +17,8 @@ import { passportCommand } from "./commands/passport.js";
 import { healthCommand } from "./commands/health.js";
 import { mcpCommand } from "./commands/mcp.js";
 import { runCommand, claudeCommand, codexCommand } from "./commands/run.js";
+import { webhooksCommand } from "./commands/webhooks.js";
+import { doctorCommand } from "./commands/doctor.js";
 
 const rawArgs = process.argv.slice(2);
 const jsonMode = rawArgs.includes("--json");
@@ -32,21 +34,25 @@ const { version } = JSON.parse(
 const program = new Command();
 
 program
-  .name("behalf")
+  .name("behalfid")
   .description("Official CLI for BehalfID — agent permission management and enforcement")
   .version(version)
   .addHelpText(
     "after",
     `
 Examples:
-  behalf init                                     interactive setup wizard
-  behalf login                                    log in to your account
-  behalf agents create --name "My Bot" --save     create agent and save credentials
-  behalf mcp init                                 set up BehalfID enforcement in this directory
-  behalf claude                                   launch Claude Code with enforcement active
-  behalf verify agent_xxx --action purchase -v amazon.com --amount 25
-  behalf permissions create agent_xxx --action purchase -r amazon.com --max-amount 50
-  behalf logs agent_xxx                           view recent verification logs
+  behalfid login                                  log in via browser (device flow)
+  behalfid login --password                       log in with email and password
+  behalfid init                                   interactive setup wizard
+  behalfid agents list                            list all agents
+  behalfid agents create --name "My Bot" --save  create agent and save credentials
+  behalfid permissions list agent_xxx            list permissions for an agent
+  behalfid permissions create agent_xxx --action purchase -r amazon.com
+  behalfid verify agent_xxx --action purchase -v amazon.com --amount 25
+  behalfid logs tail                              stream verification logs live
+  behalfid webhooks listen                        stream webhook events live
+  behalfid doctor                                 check CLI configuration
+  behalfid mcp init                               set up BehalfID enforcement in this directory
 `
   );
 
@@ -66,6 +72,8 @@ program.addCommand(mcpCommand());
 program.addCommand(runCommand());
 program.addCommand(claudeCommand());
 program.addCommand(codexCommand());
+program.addCommand(webhooksCommand());
+program.addCommand(doctorCommand());
 
 program.parseAsync(["", "", ...filteredArgs]).catch(err => {
   if (jsonMode) {

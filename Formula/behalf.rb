@@ -1,38 +1,24 @@
 # Homebrew formula for BehalfID CLI
-# This file lives in the tap repo: github.com/potatobeyonddefeat/homebrew-tap
-# It is committed here as a reference template and updated by CI on each release.
+# Tap: github.com/potatobeyonddefeat/homebrew-tap
+# Install: brew tap potatobeyonddefeat/tap && brew install behalf
 
 class Behalf < Formula
   desc "Official CLI for BehalfID — agent permission management"
   homepage "https://behalfid.com"
-  version "0.1.0"
+  url "https://registry.npmjs.org/@behalfid/cli/-/cli-0.2.0.tgz"
+  sha256 "a69cfdf9bf2fafb567472e15343f1dfad53a846a6b9156aa792ebe8365f900fa"
+  version "0.2.0"
   license "MIT"
 
-  on_macos do
-    if Hardware::CPU.arm?
-      url "https://github.com/potatobeyonddefeat/behalf/releases/download/v#{version}/behalf-darwin-arm64.tar.gz"
-      sha256 "PLACEHOLDER_ARM64_SHA256"
-    else
-      url "https://github.com/potatobeyonddefeat/behalf/releases/download/v#{version}/behalf-darwin-x64.tar.gz"
-      sha256 "PLACEHOLDER_X64_SHA256"
-    end
-  end
-
-  on_linux do
-    if Hardware::CPU.arm?
-      url "https://github.com/potatobeyonddefeat/behalf/releases/download/v#{version}/behalf-linux-arm64.tar.gz"
-      sha256 "PLACEHOLDER_LINUX_ARM64_SHA256"
-    else
-      url "https://github.com/potatobeyonddefeat/behalf/releases/download/v#{version}/behalf-linux-x64.tar.gz"
-      sha256 "PLACEHOLDER_LINUX_X64_SHA256"
-    end
-  end
+  depends_on "node"
 
   def install
-    bin.install "behalf"
+    system "npm", "install", *std_npm_args
+    bin.install_symlink Dir["#{libexec}/bin/*"]
   end
 
   test do
+    assert_match version.to_s, shell_output("#{bin}/behalfid --version")
     assert_match version.to_s, shell_output("#{bin}/behalf --version")
   end
 end

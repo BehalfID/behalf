@@ -1,10 +1,11 @@
 {
   "name": "@behalfid/cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Official CLI for BehalfID — agent permission management",
   "type": "module",
   "bin": {
-    "behalf": "./dist/index.js"
+    "behalf": "./dist/index.js",
+    "behalfid": "./dist/index.js"
   },
   "files": [
     "dist",
