@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ButtonLink, Logo, ThemeToggle } from "@/components/ui";
+import { Logo, SplitCTAButton, ThemeToggle } from "@/components/ui";
 
 export function PublicNav() {
   const [open, setOpen] = useState(false);
@@ -34,16 +34,11 @@ export function PublicNav() {
           <Link href="/docs">Docs</Link>
           <Link href="/blog">Blog</Link>
           <Link href="/security">Security</Link>
-          <Link href="/login">Log in</Link>
           <ThemeToggle />
-          <ButtonLink href="/signup" variant="primary">
-            Start building
-          </ButtonLink>
+          <SplitCTAButton buildHref="/signup" loginHref="/login" className="split-cta--nav" />
         </div>
 
-        <ButtonLink href="/signup" variant="primary" className="public-nav__mobile-cta">
-          Start building
-        </ButtonLink>
+        <SplitCTAButton buildHref="/signup" loginHref="/login" className="split-cta--nav public-nav__mobile-cta" />
       </nav>
 
       {open && (

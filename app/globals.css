@@ -6139,6 +6139,11 @@ textarea.ui-input,
   z-index: 2;
 }
 
+.split-cta--nav .split-cta__half {
+  padding: 8px 20px;
+  font-size: 0.875rem;
+}
+
 @media (max-width: 480px) {
   .split-cta__half {
     padding: 12px 24px;
