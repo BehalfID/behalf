@@ -186,6 +186,127 @@ export const SCOPE_TEMPLATES: ScopeTemplate[] = [
     exampleResource: "notion.so"
   },
   {
+    id: "read_analytics",
+    label: "Read analytics",
+    category: "data_access",
+    description: "Read analytics dashboards and generate performance reports.",
+    defaultAction: "access_data",
+    defaultAllowedActions: ["view dashboards", "export reports", "query metrics", "filter by date range"],
+    defaultBlockedActions: ["modify tracking code", "delete data", "change account settings", "add users"],
+    requiresApprovalDefault: false,
+    exampleResource: "analytics.google.com"
+  },
+  {
+    id: "read_code",
+    label: "Read code repository",
+    category: "data_access",
+    description: "Read files, commits, and pull requests from a code repository.",
+    defaultAction: "access_data",
+    defaultAllowedActions: ["read files", "view commits", "list pull requests", "check CI status"],
+    defaultBlockedActions: ["push code", "merge pull requests", "delete branches", "modify repository settings"],
+    requiresApprovalDefault: false,
+    exampleResource: "github.com"
+  },
+  {
+    id: "write_code",
+    label: "Write code and open PRs",
+    category: "content",
+    description: "Create branches, commit code changes, and open pull requests.",
+    defaultAction: "create_content",
+    defaultAllowedActions: ["create branch", "commit changes", "open pull request", "add review comments"],
+    defaultBlockedActions: ["merge to main", "delete branches", "force push", "modify repository settings"],
+    requiresApprovalDefault: true,
+    exampleResource: "github.com"
+  },
+  {
+    id: "read_finance",
+    label: "Read financial data",
+    category: "data_access",
+    description: "Read invoices, transactions, and financial reports without making changes.",
+    defaultAction: "access_data",
+    defaultAllowedActions: ["view invoices", "read reports", "check balances", "export statements"],
+    defaultBlockedActions: ["create charges", "issue refunds", "modify payment methods", "cancel subscriptions"],
+    requiresApprovalDefault: false,
+    exampleResource: "quickbooks.com"
+  },
+  {
+    id: "read_monitoring",
+    label: "Read monitoring and logs",
+    category: "data_access",
+    description: "Read application logs, error reports, and system health metrics.",
+    defaultAction: "access_data",
+    defaultAllowedActions: ["read logs", "view errors", "check metrics", "query alerts"],
+    defaultBlockedActions: ["modify alert rules", "delete logs", "change monitoring config", "silence alerts"],
+    requiresApprovalDefault: false,
+    exampleResource: "datadog.com"
+  },
+  {
+    id: "read_tickets",
+    label: "Read support tickets",
+    category: "data_access",
+    description: "Read and summarize customer support tickets and conversations.",
+    defaultAction: "access_data",
+    defaultAllowedActions: ["read tickets", "view conversations", "search tickets", "summarize issues"],
+    defaultBlockedActions: ["close tickets", "delete tickets", "modify customer data", "issue refunds"],
+    requiresApprovalDefault: false,
+    exampleResource: "zendesk.com"
+  },
+  {
+    id: "update_tickets",
+    label: "Update support tickets",
+    category: "admin",
+    description: "Reply to and update the status of customer support tickets.",
+    defaultAction: "create_content",
+    defaultAllowedActions: ["add internal notes", "update ticket status", "assign to team", "reply to customer"],
+    defaultBlockedActions: ["delete tickets", "modify billing", "issue refunds", "close customer account"],
+    requiresApprovalDefault: true,
+    exampleResource: "zendesk.com"
+  },
+  {
+    id: "manage_tasks",
+    label: "Manage tasks",
+    category: "admin",
+    description: "Create and update tasks in project management tools.",
+    defaultAction: "access_data",
+    defaultAllowedActions: ["read tasks", "create tasks", "update task status", "add comments"],
+    defaultBlockedActions: ["delete tasks", "modify project settings", "invite members", "export all data"],
+    requiresApprovalDefault: false,
+    exampleResource: "linear.app"
+  },
+  {
+    id: "post_social",
+    label: "Post to social media",
+    category: "communication",
+    description: "Draft and publish posts to social media accounts.",
+    defaultAction: "create_content",
+    defaultAllowedActions: ["draft posts", "schedule posts", "reply to comments", "view analytics"],
+    defaultBlockedActions: ["delete account", "change privacy settings", "follow or unfollow accounts", "send direct messages"],
+    requiresApprovalDefault: true,
+    exampleResource: "twitter.com"
+  },
+  {
+    id: "send_notifications",
+    label: "Send notifications",
+    category: "communication",
+    description: "Send push notifications or SMS messages to users.",
+    defaultAction: "send_message",
+    defaultAllowedActions: ["send push notification", "send SMS", "schedule notification"],
+    defaultBlockedActions: ["bulk message all users", "modify notification settings", "access user PII", "unsubscribe users"],
+    requiresApprovalDefault: true,
+    exampleResource: "twilio.com"
+  },
+  {
+    id: "book_travel",
+    label: "Book travel",
+    category: "commerce",
+    description: "Search and book flights, hotels, and transportation within defined limits.",
+    defaultAction: "purchase",
+    defaultAllowedActions: ["search flights", "search hotels", "book within budget", "cancel reservations"],
+    defaultBlockedActions: ["book business class without approval", "exceed budget limit", "add unauthorized travelers", "modify loyalty accounts"],
+    requiresApprovalDefault: true,
+    exampleResource: "expedia.com"
+  },
+  {
     id: "access_data",
     label: "Access data (general)",
     category: "data_access",
