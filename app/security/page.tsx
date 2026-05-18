@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { PublicNav } from "@/components/layout/PublicNav";
-import { ButtonLink, CodeBlock } from "@/components/ui";
+import { ButtonLink, CodeBlock, SplitCTAButton } from "@/components/ui";
 
 export const metadata = {
   title: "Security and trust — BehalfID",
@@ -354,7 +354,7 @@ if (!result.allowed) {
               issue in the project repository.
             </p>
             <div className="hero__actions">
-              <ButtonLink href="/signup">Start building</ButtonLink>
+              <SplitCTAButton leftLabel="Build" leftHref="/signup" rightLabel="Log In" rightHref="/login" />
               <ButtonLink href="/docs">Docs</ButtonLink>
             </div>
           </div>

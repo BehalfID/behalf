@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PublicNav } from "@/components/layout/PublicNav";
+import { ButtonLink, SplitCTAButton } from "@/components/ui";
 import { getPost, posts } from "../posts";
 
 export function generateStaticParams() {
@@ -69,12 +70,8 @@ export default async function BlogPostPage({
             ← All posts
           </Link>
           <div className="hero__actions">
-            <Link href="/signup" className="ui-button ui-button--primary">
-              Start building
-            </Link>
-            <Link href="/docs" className="ui-button">
-              Read the docs
-            </Link>
+            <SplitCTAButton leftLabel="Build" leftHref="/signup" rightLabel="Log In" rightHref="/login" />
+            <ButtonLink href="/docs">Read the docs</ButtonLink>
           </div>
         </div>
       </div>

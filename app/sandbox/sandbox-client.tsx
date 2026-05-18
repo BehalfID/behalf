@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ButtonLink } from "@/components/ui";
+import { ButtonLink, SplitCTAButton } from "@/components/ui";
 
 type Decision = "allowed" | "denied" | "needs_approval" | "guidance" | "concept";
 
@@ -388,7 +388,7 @@ export function SandboxClient() {
       <section className="sandbox-ctas">
         <h2>Add the decision point.</h2>
         <div className="hero__actions">
-          <ButtonLink variant="primary" href="/signup">Start building</ButtonLink>
+          <SplitCTAButton leftLabel="Build" leftHref="/signup" rightLabel="Log In" rightHref="/login" />
           <ButtonLink href="/docs/quickstart">Read quickstart</ButtonLink>
           <ButtonLink href="/docs/action-gateway">Action Gateway docs</ButtonLink>
         </div>
