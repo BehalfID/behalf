@@ -35,7 +35,24 @@ export function PublicNav() {
           <Link href="/blog">Blog</Link>
           <Link href="/security">Security</Link>
           <ThemeToggle />
-          <SplitCTAButton buildHref="/signup" loginHref="/login" className="split-cta--nav" />
+          <SplitCTAButton
+            leftLabel="Build"
+            leftHref="/signup"
+            rightLabel="Log In"
+            rightHref="/login"
+            className="split-cta--nav"
+          />
+        </div>
+
+        {/* Mobile-only CTA: shown when public-nav__links is hidden */}
+        <div className="public-nav__mobile-cta">
+          <SplitCTAButton
+            leftLabel="Build"
+            leftHref="/signup"
+            rightLabel="Log In"
+            rightHref="/login"
+            className="split-cta--nav"
+          />
         </div>
       </nav>
 

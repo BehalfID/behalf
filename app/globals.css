@@ -4027,7 +4027,8 @@ textarea.ui-input,
   }
 
   .public-nav__mobile-cta {
-    display: inline-flex;
+    display: flex;
+    align-items: center;
   }
 
   .hero {
