@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { haptic } from "@/lib/haptic";
 
 function SunIcon() {
   return (
@@ -48,6 +49,7 @@ export function ThemeToggle() {
   }, []);
 
   function toggle() {
+    haptic("light");
     const next = theme === "dark" ? "light" : "dark";
     setTheme(next);
     localStorage.setItem("theme", next);
