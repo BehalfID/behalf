@@ -5,35 +5,10 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { Button, Logo } from "@/components/ui";
 
-type SignupUseCase = "personal" | "website" | "sdk";
-
-const signupUseCases: Array<{
-  value: SignupUseCase;
-  label: string;
-  description: string;
-}> = [
-  {
-    value: "personal",
-    label: "Existing AI assistant",
-    description: "Create a simple permission passport for ChatGPT, Claude, Gemini, Ollie, Zapier, or Make."
-  },
-  {
-    value: "website",
-    label: "Website owner",
-    description: "Track AI access patterns, prepare Site Guard rules, and review crawler-facing controls."
-  },
-  {
-    value: "sdk",
-    label: "SDK developer",
-    description: "Create an agent identity, define boundaries, call verify(), and inspect audit logs."
-  }
-];
-
 export function AuthPage({ mode }: { mode: "login" | "signup" }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [signupUseCase, setSignupUseCase] = useState<SignupUseCase>("sdk");
   const [error, setError] = useState("");
 
   const submit = async (event: FormEvent) => {
@@ -43,18 +18,14 @@ export function AuthPage({ mode }: { mode: "login" | "signup" }) {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email,
-        password,
-        ...(mode === "signup" ? { onboardingUseCase: signupUseCase } : {})
-      })
+      body: JSON.stringify({ email, password })
     });
     if (!response.ok) {
       const body = (await response.json().catch(() => null)) as { error?: string } | null;
       setError(body?.error ?? "Authentication failed.");
       return;
     }
-    router.push("/dashboard");
+    router.push(mode === "signup" ? "/onboarding" : "/dashboard");
   };
 
   return (
@@ -86,23 +57,6 @@ export function AuthPage({ mode }: { mode: "login" | "signup" }) {
             <span>Password</span>
             <input autoComplete={mode === "signup" ? "new-password" : "current-password"} minLength={10} onChange={(event) => setPassword(event.target.value)} required type="password" value={password} />
           </label>
-          {mode === "signup" ? (
-            <fieldset className="signup-usecase">
-              <legend>What are you setting up first?</legend>
-              {signupUseCases.map((useCase) => (
-                <button
-                  aria-pressed={signupUseCase === useCase.value}
-                  className={signupUseCase === useCase.value ? "signup-usecase__option signup-usecase__option--active" : "signup-usecase__option"}
-                  key={useCase.value}
-                  onClick={() => setSignupUseCase(useCase.value)}
-                  type="button"
-                >
-                  <strong>{useCase.label}</strong>
-                  <span>{useCase.description}</span>
-                </button>
-              ))}
-            </fieldset>
-          ) : null}
           {error ? <p className="form-error">{error}</p> : null}
           <Button variant="primary" type="submit">{mode === "signup" ? "Create account" : "Log in"}</Button>
           {mode === "signup" && (
