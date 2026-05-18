@@ -35,9 +35,8 @@ export function PublicNav() {
           <Link href="/blog">Blog</Link>
           <Link href="/security">Security</Link>
           <ThemeToggle />
+          <SplitCTAButton buildHref="/signup" loginHref="/login" className="split-cta--nav" />
         </div>
-
-        <SplitCTAButton buildHref="/signup" loginHref="/login" className="split-cta--nav" />
       </nav>
 
       {open && (

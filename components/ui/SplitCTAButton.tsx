@@ -10,11 +10,10 @@ export function SplitCTAButton({ buildHref, loginHref, className }: SplitCTAButt
   const cls = ["split-cta", className].filter(Boolean).join(" ");
   return (
     <div className={cls} role="group" aria-label="Primary actions">
-      <Link href={buildHref} className="split-cta__half" aria-label="Build — create your account">
+      <Link href={buildHref} className="split-cta__half split-cta__half--left" aria-label="Build — create your account">
         Build
       </Link>
-      <span className="split-cta__divider" aria-hidden="true" />
-      <Link href={loginHref} className="split-cta__half" aria-label="Log in to your account">
+      <Link href={loginHref} className="split-cta__half split-cta__half--right" aria-label="Log in to your account">
         Log In
       </Link>
     </div>

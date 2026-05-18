@@ -6092,61 +6092,75 @@ textarea.ui-input,
 }
 
 /* ── Split CTA button ──────────────────────────────────────── */
+/*
+ * Two halves share a /-diagonal edge. The right half uses margin-left: -14px
+ * to overlap the left by the skew amount, and its clip-path starts at (17px,0)
+ * so the visible left edge is 3px to the right of the left half's visible right
+ * edge — creating a uniform 3px background-showing diagonal gap.
+ */
 .split-cta {
-  position: relative;
   display: inline-flex;
-  overflow: hidden;
-  border-radius: var(--radius-pill);
-  background: var(--accent);
-  border: 1px solid var(--accent-hover);
+  align-items: stretch;
+  flex-shrink: 0;
 }
 
 .split-cta__half {
-  position: relative;
-  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 14px 36px;
+  background: var(--accent);
   color: var(--text);
   text-decoration: none;
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 0.9375rem;
   white-space: nowrap;
   transition: background-color 140ms ease;
+}
+
+.split-cta__half--left {
+  border-radius: 999px 0 0 999px;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 14px) 100%, 0 100%);
+  padding: 10px 26px 10px 20px;
+}
+
+/* right half overlaps left by 14px; clip starts at gap(3)+skew(14)=17px top, gap(3px) bottom */
+.split-cta__half--right {
+  position: relative;
   z-index: 1;
+  border-radius: 0 999px 999px 0;
+  clip-path: polygon(17px 0, 100% 0, 100% 100%, 3px 100%);
+  margin-left: -14px;
+  padding: 10px 20px 10px 26px;
 }
 
 .split-cta__half:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--accent-hover);
 }
 
 .split-cta__half:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -3px;
-  border-radius: var(--radius-pill);
+  outline: 2px solid rgba(255, 255, 255, 0.8);
+  outline-offset: 2px;
+  border-radius: 999px;
 }
 
-.split-cta__divider {
-  position: absolute;
-  left: 50%;
-  top: -20%;
-  width: 1.5px;
-  height: 140%;
-  background: rgba(255, 255, 255, 0.35);
-  transform: translateX(-50%) rotate(28deg);
-  pointer-events: none;
-  z-index: 2;
+.split-cta--nav .split-cta__half--left {
+  padding: 8px 22px 8px 16px;
+  font-size: 0.875rem;
 }
 
-.split-cta--nav .split-cta__half {
-  padding: 8px 20px;
+.split-cta--nav .split-cta__half--right {
+  padding: 8px 16px 8px 22px;
   font-size: 0.875rem;
 }
 
 @media (max-width: 480px) {
-  .split-cta__half {
-    padding: 12px 24px;
+  .split-cta__half--left {
+    padding: 8px 20px 8px 14px;
+    font-size: 0.9375rem;
+  }
+
+  .split-cta__half--right {
+    padding: 8px 14px 8px 20px;
     font-size: 0.9375rem;
   }
 }
