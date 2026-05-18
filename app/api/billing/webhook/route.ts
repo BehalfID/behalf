@@ -3,6 +3,18 @@ import { connectToDatabase } from "@/lib/db";
 import { jsonError } from "@/lib/responses";
 import { getStripe } from "@/lib/stripe";
 import Account from "@/models/Account";
+import DeveloperUser from "@/models/DeveloperUser";
+import WebhookEndpoint from "@/models/WebhookEndpoint";
+
+async function setAccountWebhookStatus(accountId: string, status: "active" | "disabled") {
+  const user = await DeveloperUser.findOne({ primaryAccountId: accountId }).lean();
+  if (!user) return;
+  const currentStatus = status === "active" ? "disabled" : "active";
+  await WebhookEndpoint.updateMany(
+    { developerUserId: user.userId, status: currentStatus },
+    { $set: { status } }
+  );
+}
 
 export async function POST(request: NextRequest) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -47,6 +59,7 @@ export async function POST(request: NextRequest) {
           }
         }
       );
+      await setAccountWebhookStatus(accountId, "active");
       break;
     }
 
@@ -65,11 +78,13 @@ export async function POST(request: NextRequest) {
           }
         }
       );
+      await setAccountWebhookStatus(account.accountId, isActive ? "active" : "disabled");
       break;
     }
 
     case "customer.subscription.deleted": {
       const sub = event.data.object;
+      const account = await Account.findOne({ stripeCustomerId: sub.customer as string });
       await Account.updateOne(
         { stripeCustomerId: sub.customer as string },
         {
@@ -80,6 +95,7 @@ export async function POST(request: NextRequest) {
           }
         }
       );
+      if (account) await setAccountWebhookStatus(account.accountId, "disabled");
       break;
     }
 

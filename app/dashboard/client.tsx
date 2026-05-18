@@ -290,6 +290,7 @@ function OnboardingView() {
 
   // Regular user path state
   const [regularStep, setRegularStep] = useState(1);
+  const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const [regularProvider, setRegularProvider] = useState<AgentProvider | "">("");
   const [regularDescription, setRegularDescription] = useState("");
   const [draftResponse, setDraftResponse] = useState<PermissionDraftResponse | null>(null);
@@ -609,6 +610,7 @@ ${regularPassportUrl || "[passport link]"}`;
             onClick={() => {
               setUserPath("regular");
               setRegularStep(1);
+              setActivePresetId(null);
               setRegularProvider("");
               setRegularDescription("");
               setDraftResponse(null);
@@ -651,9 +653,12 @@ ${regularPassportUrl || "[passport link]"}`;
               {PASSPORT_PRESETS.map((preset) => (
                 <button
                   key={preset.id}
-                  className="dashboard-panel onboarding-choice"
+                  className={`dashboard-panel onboarding-choice${activePresetId === preset.id ? " onboarding-choice--selected" : ""}`}
                   type="button"
-                  onClick={() => applyPreset(preset)}
+                  onClick={() => {
+                    setActivePresetId(preset.id);
+                    setTimeout(() => { applyPreset(preset); setActivePresetId(null); }, 120);
+                  }}
                 >
                   <strong>{preset.label}</strong>
                   <span>{preset.tagline}</span>
@@ -1129,9 +1134,8 @@ function AgentView({ agentId }: { agentId: string }) {
 
   return (
     <>
-      <Header title={agent?.name ?? "Agent"} action={<Button onClick={rotate}>Rotate key</Button>} />
+      <Header title={agent?.name ?? "Agent"} action={<div className="form-actions"><Button onClick={rotate}>Rotate key</Button><Button onClick={() => setStatus("disable")}>Disable</Button><Button onClick={() => setStatus("enable")}>Enable</Button></div>} />
       {secret ? <Secret value={secret} label="Rotated API key" /> : null}
-      <div className="dashboard-actions"><Button onClick={() => setStatus("disable")}>Disable</Button><Button onClick={() => setStatus("enable")}>Enable</Button></div>
       {agent ? (
         <Card className="dashboard-panel agent-passport">
           <div className="agent-passport__header">
@@ -1144,23 +1148,22 @@ function AgentView({ agentId }: { agentId: string }) {
           {agent.agentType === "connected" ? <p>Connected agents are manually represented today. Provider-native integrations are planned.</p> : null}
           <dl className="console-definition">
             <div><dt>Agent ID</dt><dd>{agent.agentId}</dd></div>
-            <div><dt>External reference</dt><dd>{agent.externalAgentLabel || "Not set"}</dd></div>
-            <div><dt>External ID</dt><dd>{agent.externalAgentId || "Not set"}</dd></div>
-            <div><dt>Description</dt><dd>{agent.description || "Not set"}</dd></div>
           </dl>
         </Card>
       ) : null}
-      <form className="dashboard-panel form-grid agent-edit-form" onSubmit={updateProfile}>
+      <form className="dashboard-panel agent-edit-form" onSubmit={updateProfile}>
         <label><span>Name</span><input value={profile.name ?? agent?.name ?? ""} onChange={(e) => setProfile({ ...profile, name: e.target.value })} /></label>
         <label><span>Provider</span><select value={profile.provider ?? agent?.provider ?? "custom"} onChange={(e) => setProfile({ ...profile, provider: e.target.value as AgentProvider })}>{providerOptions.map((provider) => <option key={provider.value} value={provider.value}>{provider.label}</option>)}</select></label>
         <label><span>Connection status</span><select value={profile.connectionStatus ?? agent?.connectionStatus ?? "manual"} onChange={(e) => setProfile({ ...profile, connectionStatus: e.target.value as Agent["connectionStatus"] })}><option value="manual">Manual</option><option value="connected">Connected</option><option value="disconnected">Disconnected</option></select></label>
         <label><span>External reference</span><input placeholder="Optional: workspace name, URL, handle, or internal label" value={profile.externalAgentLabel ?? agent?.externalAgentLabel ?? ""} onChange={(e) => setProfile({ ...profile, externalAgentLabel: e.target.value })} /></label>
-        <label><span>External ID</span><input value={profile.externalAgentId ?? agent?.externalAgentId ?? ""} onChange={(e) => setProfile({ ...profile, externalAgentId: e.target.value })} /></label>
-        <label><span>Description</span><input value={profile.description ?? agent?.description ?? ""} onChange={(e) => setProfile({ ...profile, description: e.target.value })} /></label>
-        <Button variant="primary" type="submit">Save profile</Button>
+        <label style={{ gridColumn: "1 / -1" }}><span>External ID</span><input value={profile.externalAgentId ?? agent?.externalAgentId ?? ""} onChange={(e) => setProfile({ ...profile, externalAgentId: e.target.value })} /></label>
+        <label style={{ gridColumn: "1 / -1" }}><span>Description</span><textarea rows={3} value={profile.description ?? agent?.description ?? ""} onChange={(e) => setProfile({ ...profile, description: e.target.value })} /></label>
+        <div className="form-actions" style={{ gridColumn: "1 / -1" }}>
+          <Button variant="primary" type="submit">Save profile</Button>
+        </div>
       </form>
       {agent ? (
-        <section className={agent.agentType === "connected" ? "onboarding-result-grid" : "onboarding-result-grid onboarding-result-grid--native"}>
+        <section className="onboarding-result-grid onboarding-result-grid--native">
           <Card className="dashboard-panel">
             <h2>{agent.agentType === "connected" ? "Manual test mode" : "Developer integration"}</h2>
             <p>{agent.agentType === "connected" ? "Send this link to your agent so it can read the allowed scopes and ask you to verify actions. Automatic enforcement requires provider or app integration." : "Use this API key directly from your custom integration and call verify before actions happen."}</p>
@@ -1177,7 +1180,7 @@ function AgentView({ agentId }: { agentId: string }) {
           </Card>
         </section>
       ) : null}
-      <section className="dashboard-panel form-grid">
+      <section className="dashboard-panel">
         <h2>Guidelines</h2>
         <p className="field-help">Behavioral rules for this agent — things it should always or never do, regardless of which service it&apos;s accessing. These appear in the MCP context and permission passport.</p>
         {guidelines.length > 0 ? (
@@ -1206,7 +1209,8 @@ function AgentView({ agentId }: { agentId: string }) {
           <Button variant="primary" type="button" onClick={saveGuidelines}>Save guidelines</Button>
         </div>
       </section>
-      <form className="dashboard-panel form-grid" onSubmit={createPermission}>
+      <form className="dashboard-panel" onSubmit={createPermission}>
+        <h2>Add permission</h2>
         <label>
           <span>Scope template</span>
           <select value={agentViewScopeId} onChange={(e) => {
@@ -1285,10 +1289,14 @@ function AgentView({ agentId }: { agentId: string }) {
         </label>
         <Button variant="primary" type="submit">Create permission</Button>
       </form>
-      <h2>Permissions</h2>
-      <div className="dashboard-list">{(detail.data?.permissions ?? []).map((p) => <div key={p.permissionId}><span><strong>{p.action}</strong><small>{dashboardPermissionSummary(p)}</small></span><Badge>{p.status}</Badge>{p.status === "active" ? <Button onClick={() => revoke(p.permissionId)}>Revoke</Button> : null}</div>)}</div>
-      <h2>Recent logs</h2>
-      <LogList logs={detail.data?.logs ?? []} />
+      <section className="dashboard-panel">
+        <h2>Permissions</h2>
+        <div className="dashboard-list">{(detail.data?.permissions ?? []).map((p) => <div key={p.permissionId}><span><strong>{p.action}</strong><small>{dashboardPermissionSummary(p)}</small></span><Badge>{p.status}</Badge>{p.status === "active" ? <Button onClick={() => revoke(p.permissionId)}>Revoke</Button> : null}</div>)}</div>
+      </section>
+      <section className="dashboard-panel">
+        <h2>Recent logs</h2>
+        <LogList logs={detail.data?.logs ?? []} />
+      </section>
     </>
   );
 }

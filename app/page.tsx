@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { PublicNav } from "@/components/layout/PublicNav";
-import { ButtonLink, CodeBlock } from "@/components/ui";
+import { ButtonLink, CodeBlock, HomeDemo } from "@/components/ui";
 
 export const metadata: Metadata = {
   title: "BehalfID — Permission infrastructure for AI agents",
@@ -188,6 +188,9 @@ if (!decision.allowed) {
 // Executor only runs when decision.allowed === true`}</CodeBlock>
         </div>
       </section>
+
+      {/* ── Interactive demo ──────────────────────────────── */}
+      <HomeDemo />
 
       {/* ── Final CTA ─────────────────────────────────────── */}
       <section className="home-cta" aria-labelledby="cta-heading">
