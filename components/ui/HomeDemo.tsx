@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { haptic } from "@/lib/haptic";
 
 type Outcome = "allowed" | "denied" | "needs_approval";
 
@@ -57,12 +58,15 @@ export function HomeDemo() {
   const scenario = scenarios.find((s) => s.id === activeId) ?? scenarios[0];
 
   const runTrace = async () => {
+    haptic("medium");
     setChecking(true);
     await new Promise((r) => setTimeout(r, 380));
+    haptic("success");
     setChecking(false);
   };
 
   const switchScenario = (id: string) => {
+    haptic("light");
     setActiveId(id);
     setChecking(false);
   };

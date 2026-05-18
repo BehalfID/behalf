@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { HTMLAttributes } from "react";
+import { haptic } from "@/lib/haptic";
 
 type CodeBlockProps = HTMLAttributes<HTMLPreElement> & {
   label?: string;
@@ -13,6 +14,7 @@ export function CodeBlock({ className, label = "Code", children, ...props }: Cod
   const copy = () => {
     const text = typeof children === "string" ? children : "";
     navigator.clipboard.writeText(text).then(() => {
+      haptic("success");
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
