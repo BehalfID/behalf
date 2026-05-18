@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { PublicNav } from "@/components/layout/PublicNav";
-import { ButtonLink, CodeBlock, HomeDemo } from "@/components/ui";
+import { ButtonLink, CodeBlock, HomeDemo, SplitCTAButton } from "@/components/ui";
 
 export const metadata: Metadata = {
   title: "BehalfID — Permission infrastructure for AI agents",
@@ -53,7 +53,7 @@ export default function Home() {
           If permission is missing, the action fails closed — not after.
         </p>
         <div className="home-actions">
-          <ButtonLink variant="primary" href="/signup">Start building</ButtonLink>
+          <SplitCTAButton buildHref="/signup" loginHref="/login" />
           <ButtonLink href="/sandbox">Run sandbox</ButtonLink>
         </div>
       </section>
@@ -201,7 +201,7 @@ if (!decision.allowed) {
           with existing agents before you integrate.
         </p>
         <div className="home-actions home-actions--center">
-          <ButtonLink variant="primary" href="/signup">Start building</ButtonLink>
+          <SplitCTAButton buildHref="/signup" loginHref="/login" />
           <ButtonLink href="/docs/quickstart">Read quickstart</ButtonLink>
           <ButtonLink href="/sandbox">Run sandbox</ButtonLink>
         </div>

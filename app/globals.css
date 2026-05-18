@@ -6091,6 +6091,61 @@ textarea.ui-input,
   justify-content: center;
 }
 
+/* ── Split CTA button ──────────────────────────────────────── */
+.split-cta {
+  position: relative;
+  display: inline-flex;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: #2b2b2b;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.split-cta__half {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 36px;
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 1rem;
+  white-space: nowrap;
+  transition: background-color 140ms ease;
+  z-index: 1;
+}
+
+.split-cta__half:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.split-cta__half:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
+  border-radius: var(--radius-pill);
+}
+
+.split-cta__divider {
+  position: absolute;
+  left: 50%;
+  top: -20%;
+  width: 1.5px;
+  height: 140%;
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateX(-50%) rotate(28deg);
+  pointer-events: none;
+  z-index: 2;
+}
+
+@media (max-width: 480px) {
+  .split-cta__half {
+    padding: 12px 24px;
+    font-size: 0.9375rem;
+  }
+}
+
 /* ── Steps section ─────────────────────────────────────────── */
 .home-steps {
   padding-block: clamp(80px, 10vw, 140px);

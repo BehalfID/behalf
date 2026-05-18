@@ -12,3 +12,4 @@ export * from "./Tabs";
 export * from "./ThemeToggle";
 export * from "./CookieBanner";
 export * from "./HomeDemo";
+export * from "./SplitCTAButton";
