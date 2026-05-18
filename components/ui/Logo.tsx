@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 
 export function Logo({
@@ -11,20 +10,11 @@ export function Logo({
   variant?: "full" | "symbol";
 }) {
   return (
-    <Link aria-label="BehalfID" className={`site-logo site-logo--${variant}`} href={href}>
-      <span className="site-logo__mark">
-        <Image alt="BehalfID symbol" height={24} src="/behalf_symbols.png" width={24} />
-      </span>
+    <Link aria-label="BehalfID home" className={`site-logo site-logo--${variant}`} href={href}>
       <span className="site-logo__wordmark">
-        {variant === "full" ? (
-          <strong className="site-logo__text">
-            Behalf<span>ID</span>
-          </strong>
-        ) : (
-          <strong className="site-logo__text">
-            Behalf<span>ID</span>
-          </strong>
-        )}
+        <strong className="site-logo__text">
+          Behalf<span className="site-logo__slash">/</span><span className="site-logo__id">ID</span>
+        </strong>
         {subtitle ? <small>{subtitle}</small> : null}
       </span>
     </Link>

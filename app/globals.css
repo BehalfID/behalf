@@ -175,8 +175,16 @@ pre {
   line-height: 1;
 }
 
-.site-logo__text span {
+.site-logo__slash {
+  color: var(--muted);
+  font-weight: 400;
+  margin: 0 0.13em;
+}
+
+.site-logo__id {
   color: var(--accent);
+  position: relative;
+  top: 0.17em;
 }
 
 .public-nav .site-logo__text,
