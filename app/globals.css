@@ -6152,6 +6152,15 @@ textarea.ui-input,
   border-radius: 999px;
 }
 
+.split-cta--ghost .split-cta__half {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-strong);
+}
+
+.split-cta--ghost .split-cta__half:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
 .split-cta--nav .split-cta__half--left {
   padding: 8px 22px 8px 16px;
   font-size: 0.875rem;

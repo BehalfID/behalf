@@ -53,7 +53,7 @@ export default function Home() {
           If permission is missing, the action fails closed — not after.
         </p>
         <div className="home-actions">
-          <SplitCTAButton leftLabel="Build" leftHref="/signup" rightLabel="Sandbox" rightHref="/sandbox" />
+          <SplitCTAButton leftLabel="Build" leftHref="/signup" rightLabel="Sandbox" rightHref="/sandbox" className="split-cta--ghost" />
         </div>
       </section>
 
@@ -200,7 +200,7 @@ if (!decision.allowed) {
           with existing agents before you integrate.
         </p>
         <div className="home-actions home-actions--center">
-          <SplitCTAButton leftLabel="Build" leftHref="/signup" rightLabel="Sandbox" rightHref="/sandbox" />
+          <SplitCTAButton leftLabel="Build" leftHref="/signup" rightLabel="Sandbox" rightHref="/sandbox" className="split-cta--ghost" />
           <ButtonLink href="/docs/quickstart">Read quickstart</ButtonLink>
         </div>
       </section>
