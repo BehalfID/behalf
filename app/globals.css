@@ -2850,6 +2850,10 @@ textarea.ui-input,
   gap: 20px;
 }
 
+.ob-step--wide {
+  width: min(600px, 100%);
+}
+
 .ob-step--enter {
   animation: ob-enter 0.44s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
@@ -2893,7 +2897,7 @@ textarea.ui-input,
   padding: 16px 18px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: rgba(10, 10, 10, 0.5);
+  background: var(--surface);
   color: var(--text);
   text-align: left;
   cursor: pointer;
@@ -2941,7 +2945,7 @@ textarea.ui-input,
   padding: 20px;
   border: 1px solid var(--border);
   border-radius: 14px;
-  background: rgba(10, 10, 10, 0.5);
+  background: var(--surface);
   color: var(--text);
   text-align: left;
   cursor: pointer;
@@ -3015,14 +3019,35 @@ textarea.ui-input,
 }
 
 .ob-plan__features li {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 4px;
   color: var(--muted);
   font-size: 0.82rem;
   line-height: 1.4;
 }
 
-.ob-plan__features li::before {
-  content: "✓ ";
+.ob-plan__feat-icon {
   color: var(--ok);
+  font-style: normal;
+  line-height: 1.4;
+}
+
+.ob-plan__feat-icon--up {
+  color: var(--accent);
+}
+
+.ob-plan__feat-icon--new {
+  color: var(--ok);
+}
+
+.ob-plan__feat-body {
+  display: grid;
+}
+
+.ob-plan__feat-from {
+  color: var(--muted-2);
+  font-size: 0.73rem;
 }
 
 .ob-plan__cta {
@@ -3043,6 +3068,33 @@ textarea.ui-input,
   .ob-plans {
     grid-template-columns: 1fr;
   }
+}
+
+/* Onboarding — light mode overrides */
+html[data-theme="light"] .ob-page {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.08), transparent 32rem),
+    var(--bg);
+}
+
+html[data-theme="light"] .ob-choice:hover {
+  background: rgba(99, 102, 241, 0.06);
+  border-color: rgba(99, 102, 241, 0.38);
+}
+
+html[data-theme="light"] .ob-choice--active {
+  background: rgba(99, 102, 241, 0.08);
+  border-color: rgba(99, 102, 241, 0.45);
+}
+
+html[data-theme="light"] .ob-plan--featured {
+  border-color: rgba(99, 102, 241, 0.35);
+  background: rgba(99, 102, 241, 0.05);
+}
+
+html[data-theme="light"] .ob-plan--featured:hover {
+  border-color: rgba(99, 102, 241, 0.55);
+  background: rgba(99, 102, 241, 0.09);
 }
 
 /* Docs */

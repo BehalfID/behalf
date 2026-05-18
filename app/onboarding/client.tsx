@@ -7,6 +7,8 @@ type Step = "hello" | "role" | "goal" | "plan";
 type Phase = "enter" | "exit";
 type Role = "personal" | "website" | "sdk";
 type Goal = "block" | "audit" | "limits";
+type FeatureKind = "check" | "up" | "new";
+type Feature = { text: string; kind: FeatureKind; from?: string };
 
 const roles: Array<{ value: Role; label: string; desc: string }> = [
   {
@@ -44,13 +46,29 @@ const goals: Array<{ value: Goal; label: string; desc: string }> = [
   },
 ];
 
-const plans = [
+type Plan = {
+  value: string;
+  label: string;
+  price: string;
+  period: string;
+  features: Feature[];
+  cta: string;
+  available: boolean;
+};
+
+const plans: Plan[] = [
   {
     value: "free",
     label: "Free",
     price: "$0",
     period: "/ mo",
-    features: ["5 agents", "50k verifications / mo", "30-day audit log", "Signed webhooks"],
+    features: [
+      { text: "5 agents", kind: "check" },
+      { text: "50k verifications / mo", kind: "check" },
+      { text: "30-day audit log", kind: "check" },
+      { text: "Signed webhooks", kind: "check" },
+      { text: "Community support", kind: "check" },
+    ],
     cta: "Continue with Free",
     available: true,
   },
@@ -59,11 +77,23 @@ const plans = [
     label: "Pro",
     price: "$29",
     period: "/ mo",
-    features: ["Unlimited agents", "5M verifications / mo", "1-year audit log", "Priority support"],
+    features: [
+      { text: "Unlimited agents", kind: "up", from: "5 on Free" },
+      { text: "5M verifications / mo", kind: "up", from: "50k on Free" },
+      { text: "1-year audit log", kind: "up", from: "30-day on Free" },
+      { text: "Signed webhooks", kind: "check" },
+      { text: "Priority support + SLA", kind: "new" },
+    ],
     cta: "Coming soon",
     available: false,
   },
 ];
+
+const FEATURE_ICONS: Record<FeatureKind, string> = {
+  check: "✓",
+  up: "↑",
+  new: "+",
+};
 
 const TRANSITION_MS = 300;
 
@@ -107,7 +137,7 @@ export function OnboardingClient() {
         body: JSON.stringify({ onboardingUseCase: role ?? "sdk" }),
       });
     } catch {
-      // best-effort — dashboard still loads without it
+      // best-effort — dashboard loads regardless
     }
     router.push("/dashboard");
   }
@@ -118,7 +148,9 @@ export function OnboardingClient() {
     return (
       <main className="ob-page ob-page--dark">
         <div className={cls("ob-hello-wrap")}>
-          <p className="ob-hello">Hello <span className="ob-wave">👋</span></p>
+          <p className="ob-hello">
+            Hello <span className="ob-wave">👋</span>
+          </p>
         </div>
       </main>
     );
@@ -174,7 +206,7 @@ export function OnboardingClient() {
 
   return (
     <main className="ob-page">
-      <div className={cls("ob-step")}>
+      <div className={`${cls("ob-step")} ob-step--wide`}>
         <p className="ob-kicker">Step 3 of 3</p>
         <h1 className="ob-heading">Choose your plan.</h1>
         <p className="ob-sub">Start free. Upgrade when you need more.</p>
@@ -203,7 +235,15 @@ export function OnboardingClient() {
               </div>
               <ul className="ob-plan__features">
                 {p.features.map((f) => (
-                  <li key={f}>{f}</li>
+                  <li key={f.text}>
+                    <em className={`ob-plan__feat-icon${f.kind !== "check" ? ` ob-plan__feat-icon--${f.kind}` : ""}`}>
+                      {FEATURE_ICONS[f.kind]}
+                    </em>
+                    <span className="ob-plan__feat-body">
+                      {f.text}
+                      {f.from && <span className="ob-plan__feat-from">up from {f.from}</span>}
+                    </span>
+                  </li>
                 ))}
               </ul>
               <span className={`ob-plan__cta${!p.available ? " ob-plan__cta--muted" : ""}`}>
