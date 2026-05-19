@@ -132,17 +132,25 @@ describe("POST /api/actions/execute enforcement", () => {
     expect(routeMocks.fetchPublicWebRead).not.toHaveBeenCalled();
   });
 
-  it("does not call the executor when verification throws", async () => {
+  it("fails closed and does not call the executor when verification throws", async () => {
     routeMocks.verifyAction.mockRejectedValue(new Error("verification unavailable"));
     const { POST } = await import("@/app/api/actions/execute/route");
 
-    await expect(POST(actionRequest({
+    const response = await POST(actionRequest({
       agentId: "agent_test",
       action: "browse_web",
       resource: "web",
       input: { url: "https://example.com/" }
-    }))).rejects.toThrow("verification unavailable");
+    }));
+    const json = await response.json();
 
+    expect(response.status).toBe(503);
+    expect(json).toEqual({
+      allowed: false,
+      decision: "denied",
+      reason: "Verification failed closed.",
+      executed: false
+    });
     expect(routeMocks.fetchPublicWebRead).not.toHaveBeenCalled();
   });
 
