@@ -108,6 +108,8 @@ Optional permission metadata:
 
 Agent descriptions are informational. Permissions — including `allowedActions` and `blockedActions` — are the source of truth for what an agent may do. External agents can read these structured fields from the public passport page.
 
+When `allowedActions` is non-empty, it narrows the permission to those explicit actions. Verifying the broad parent `action` alone does not bypass a non-empty `allowedActions` list. Any active `blockedActions` match denies the request, even if another active permission would otherwise allow it.
+
 The existing `constraints.allowedVendors` field is also used as a simple
 resource/service allow-list for non-purchase permissions to preserve API
 compatibility.

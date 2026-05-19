@@ -4,6 +4,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "build:sdk": "npm --prefix packages/sdk run build",
     "check:ollama": "node scripts/check-ollama-config.js",
     "ollama:proxy": "node scripts/ollama-secure-proxy.js",
@@ -28,9 +31,11 @@
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@vitest/coverage-v8": "^4.1.6",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.4",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6"
   },
   "overrides": {
     "postcss": "^8.5.13"

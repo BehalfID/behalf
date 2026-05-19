@@ -104,7 +104,7 @@ behalf mcp init`}</CodeBlock>
       <p>
         The MCP server exposes a single tool, <code>verify_action</code>, that the AI calls
         before any external action. The context file instructs the AI to call it and to stop if
-        the result is <code>"allowed": false</code>.
+        the result is <code>&quot;allowed&quot;: false</code>.
       </p>
       <CodeBlock label="terminal">{`behalf mcp status           # show config and cached permissions for this directory
 behalf mcp init --refresh   # force-refresh the permissions cache from the server
