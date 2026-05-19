@@ -502,6 +502,7 @@ function AgentDetailView({ agentId }: { agentId: string }) {
   const reload = detail.reload;
 
   const rotateKey = async () => {
+    if (!window.confirm("Rotate this agent API key? The old key will stop working immediately.")) return;
     const result = await apiFetch<{ agentId: string; apiKey: string }>(
       `/api/console/agents/${agentId}/rotate-key`,
       { method: "POST" }
@@ -571,6 +572,7 @@ function AgentDetailView({ agentId }: { agentId: string }) {
           <section className="console-detail">
             <div className="console-panel">
               <SectionTitle title="Agent" />
+              <p className="field-help">Rotating this key invalidates the old key immediately. The new key is shown once and only its hash is stored.</p>
               <dl className="console-definition">
                 <div><dt>Agent ID</dt><dd>{data.agent.agentId}</dd></div>
                 <div><dt>Type</dt><dd><span className={statusClass(data.agent.agentType)}>{data.agent.agentType}</span></dd></div>

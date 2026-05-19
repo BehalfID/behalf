@@ -30,6 +30,22 @@ export default function ApiDocsPage() {
           </div>
         ))}
       </div>
+      <h2>Key management</h2>
+      <p>
+        Agent API keys and developer API tokens are shown only once when they are created or rotated.
+        BehalfID stores hashes and safe metadata such as created date, last-used date, and rotation date.
+        List and detail views show short previews where available, never full raw keys.
+      </p>
+      <p>
+        Successful agent-key or developer-token authentication updates <code>lastUsedAt</code> on a best-effort
+        basis. Invalid, malformed, missing, or previously rotated keys do not update it. Rotating an agent key
+        invalidates the old key immediately, clears last-used metadata for the newly active key, and returns the
+        new key once.
+      </p>
+      <p>
+        API errors, webhook payloads, worker summaries, SDK errors, and CLI errors are expected to redact bearer
+        tokens, agent keys, developer tokens, passport tokens, and webhook signing secrets.
+      </p>
       <h2>Agent metadata</h2>
       <p>
         <code>POST /api/agents</code> remains compatible with <code>{`{ "name": "Jasper Shopping Agent" }`}</code>.

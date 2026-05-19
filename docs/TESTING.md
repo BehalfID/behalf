@@ -34,7 +34,9 @@ Current coverage includes:
 - Billing/quota enforcement for free, pro, and enterprise agent and monthly verification limits, current unmetered behavior when `accountId` or the `Account` record is missing, webhook plan gating, and missing/invalid plan fallback.
 - Production hardening checks for env validation, Redis rate-limit fallback warnings, protected health response shape, webhook worker route auth and summary output, and Stripe webhook idempotency/unknown-event behavior.
 - Webhook worker integration-style coverage for atomic pending-event claims, already-processing/completed/dead-letter skips, stuck processing recovery, retry timing, max-attempt dead-lettering, delivery record creation, endpoint status/event/account filtering, secret redaction, worker route safe error responses, and console replay authorization/dead-letter reset behavior.
-- API key hashing, real bearer-token parsing for missing/malformed/wrong-scheme/invalid-prefix formats, valid-looking key lookup, matching against hashed keys, rotation invalidating the old hash condition, one-time raw key response, and non-persistence of raw rotated keys.
+- API key hashing, real bearer-token parsing for missing/malformed/wrong-scheme/invalid-prefix formats, valid-looking key lookup, matching against hashed keys, successful-use `lastUsedAt` updates, no `lastUsedAt` updates for invalid or previously rotated keys, rotation invalidating the old hash condition, one-time raw key response, and non-persistence of raw rotated keys.
+- Developer API token list/create/revoke behavior, one-time raw token response, hashed token storage with safe preview metadata, developer-token `lastUsedAt` updates, and token list redaction after creation.
+- Secret redaction for best-effort last-used update failures and CLI error output.
 
 ## What is mocked
 
@@ -42,7 +44,7 @@ Tests mock MongoDB/Mongoose models at the model boundary and do not open a datab
 
 Network calls are mocked. Action Gateway tests mock DNS and `http`/`https` clients so SSRF and redirect behavior is tested without reaching external URLs. Webhook worker tests also mock DNS and `http`/`https` clients while exercising the real processing loop, endpoint filtering, retry/dead-letter transitions, delivery record writes, and sanitized error handling.
 
-Rate limiting, developer-token authentication, and quota checks are mocked in route tests where they are not the behavior under test. Dedicated quota tests cover plan enforcement directly.
+Rate limiting and quota checks are mocked in route tests where they are not the behavior under test. Dedicated developer-token tests cover token authentication and `lastUsedAt` updates, and dedicated quota tests cover plan enforcement directly.
 
 `/api/verify` route tests still mock `authenticateAgent`; those tests cover route response shape when auth fails. Direct API key tests cover the real bearer parsing and hashed-key lookup behavior.
 

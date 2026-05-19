@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import type { NextRequest } from "next/server";
+import { logger } from "@/lib/logger";
 import Agent, { type AgentDocument } from "@/models/Agent";
 
 export function hashApiKey(apiKey: string) {
@@ -28,6 +29,18 @@ export function getBearerToken(request: NextRequest) {
   return token;
 }
 
+export function recordAgentKeyUse(agentId: string, apiKeyHash?: string | null) {
+  const filter: Record<string, string> = { agentId };
+  if (apiKeyHash) filter.apiKeyHash = apiKeyHash;
+
+  Promise.resolve(Agent.updateOne(filter, { $set: { lastUsedAt: new Date() } })).catch((error: unknown) => {
+    logger.warn("Failed to update agent key lastUsedAt.", {
+      agentId,
+      error: error instanceof Error ? error.message : String(error)
+    });
+  });
+}
+
 export async function authenticateAgent(request: NextRequest, agentId: string) {
   const apiKey = getBearerToken(request);
 
@@ -47,6 +60,8 @@ export async function authenticateAgent(request: NextRequest, agentId: string) {
   if (!isMatch) {
     return { agent: null, error: "API key does not match this agent." };
   }
+
+  recordAgentKeyUse(agent.agentId, candidateHash);
 
   return { agent: agent as AgentDocument, error: null };
 }
@@ -69,6 +84,8 @@ export async function authenticateApiKey(request: NextRequest) {
   if (!isMatch) {
     return { agent: null, error: "Missing or invalid API key." };
   }
+
+  recordAgentKeyUse(agent.agentId, apiKeyHash);
 
   return { agent: agent as AgentDocument, error: null };
 }

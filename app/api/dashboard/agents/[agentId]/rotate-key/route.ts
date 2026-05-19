@@ -17,7 +17,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const apiKey = createApiKey();
   const result = await Agent.updateOne(
     { developerUserId: auth.user.userId, agentId },
-    { $set: { apiKeyHash: hashApiKey(apiKey), keyRotatedAt: new Date() } }
+    {
+      $set: { apiKeyHash: hashApiKey(apiKey), keyRotatedAt: new Date() },
+      $unset: { lastUsedAt: "" }
+    }
   );
   if (result.matchedCount !== 1) return jsonError("Agent not found.", 404);
 

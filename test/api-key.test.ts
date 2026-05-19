@@ -85,6 +85,10 @@ describe("API key handling", () => {
       agent: null,
       error: "API key does not match this agent."
     });
+    expect(keyMocks.agentUpdateOne).toHaveBeenCalledWith(
+      { agentId: "agent_test", apiKeyHash: hashApiKey(rawApiKey) },
+      { $set: { lastUsedAt: expect.any(Date) } }
+    );
   });
 
   it("rejects missing or malformed bearer token formats before hash lookup", async () => {
@@ -106,6 +110,37 @@ describe("API key handling", () => {
     }
 
     expect(keyMocks.agentFindOne).not.toHaveBeenCalled();
+    expect(keyMocks.agentUpdateOne).not.toHaveBeenCalled();
+  });
+
+  it("does not update lastUsedAt for a valid-looking but wrong API key", async () => {
+    const { authenticateAgent } = await vi.importActual<typeof import("@/lib/auth")>("@/lib/auth");
+    keyMocks.agentFindOne.mockReturnValue({
+      select: vi.fn().mockResolvedValue(agentFixture())
+    });
+
+    await expect(authenticateAgent(authRequest("Bearer bhf_sk_wrong_abcdefghijklmnopqrstuvwxyz123456"), "agent_test")).resolves.toEqual({
+      agent: null,
+      error: "API key does not match this agent."
+    });
+
+    expect(keyMocks.agentUpdateOne).not.toHaveBeenCalled();
+  });
+
+  it("does not update lastUsedAt when an old rotated key is presented", async () => {
+    const { authenticateAgent, hashApiKey } = await vi.importActual<typeof import("@/lib/auth")>("@/lib/auth");
+    keyMocks.agentFindOne.mockReturnValue({
+      select: vi.fn().mockResolvedValue(agentFixture({
+        apiKeyHash: hashApiKey("bhf_sk_current_abcdefghijklmnopqrstuvwxyz123456")
+      }))
+    });
+
+    await expect(authenticateAgent(authRequest(`Bearer ${rawApiKey}`), "agent_test")).resolves.toEqual({
+      agent: null,
+      error: "API key does not match this agent."
+    });
+
+    expect(keyMocks.agentUpdateOne).not.toHaveBeenCalled();
   });
 
   it("passes valid-looking bearer token formats to hashed key lookup", async () => {
@@ -135,7 +170,10 @@ describe("API key handling", () => {
     expect(json).toEqual({ agentId: "agent_test", apiKey: "bhf_sk_rotated_secret" });
     expect(keyMocks.agentUpdateOne).toHaveBeenCalledWith(
       { agentId: "agent_test", apiKeyHash: hashApiKey(rawApiKey) },
-      { $set: { apiKeyHash: hashApiKey("bhf_sk_rotated_secret"), keyRotatedAt: expect.any(Date) } }
+      {
+        $set: { apiKeyHash: hashApiKey("bhf_sk_rotated_secret"), keyRotatedAt: expect.any(Date) },
+        $unset: { lastUsedAt: "" }
+      }
     );
     expect(JSON.stringify(keyMocks.agentUpdateOne.mock.calls)).not.toContain("bhf_sk_rotated_secret");
   });

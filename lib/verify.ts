@@ -1,5 +1,5 @@
 import { createPublicId } from "@/lib/ids";
-import Agent from "@/models/Agent";
+import { recordAgentKeyUse } from "@/lib/auth";
 import Permission, { type PermissionDocument } from "@/models/Permission";
 import VerificationLog from "@/models/VerificationLog";
 
@@ -249,7 +249,7 @@ export async function verifyAction(input: VerifyInput) {
       : decision;
   const now = new Date();
 
-  await Agent.updateOne({ agentId: input.agentId }, { $set: { lastUsedAt: now } });
+  recordAgentKeyUse(input.agentId);
 
   if (permission) {
     await Permission.updateOne(

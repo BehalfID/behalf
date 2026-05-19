@@ -25,6 +25,24 @@ Protected public endpoints are rate limited by IP before authentication and by A
 
 Developer portal routes under `/api/dashboard/*` use HTTP-only developer session cookies. Public documentation pages are available under `/docs`.
 
+## Key Management
+
+Agent API keys and developer API tokens are shown only once when they are created or rotated. BehalfID stores hashes, plus safe metadata such as `createdAt`, `lastUsedAt`, `keyRotatedAt`, and short previews where available. List and detail endpoints never return raw keys after the one-time create or rotate response.
+
+`lastUsedAt` is updated after successful agent-key authentication and successful developer-token authentication. Invalid, missing, malformed, or previously rotated keys do not update `lastUsedAt`. Timestamp updates are best effort: if the metadata write fails, the authenticated request continues and logs only sanitized identifiers/error text.
+
+Rotating an agent API key invalidates the old key immediately, clears `lastUsedAt` for the newly active key, sets `keyRotatedAt`, and returns the new raw key once. Store it in a secret manager or environment variable before leaving the response.
+
+Error responses, webhook payloads, worker summaries, SDK errors, and CLI errors are expected to redact bearer tokens, agent keys, developer tokens, passport tokens, and webhook signing secrets.
+
+## Integration Paths
+
+- SDK path: use `@behalfid/sdk` inside your app and call `verify` before your code executes a tool action.
+- Action Gateway path: call `/api/actions/execute` when BehalfID should verify and execute a supported safe action in one request.
+- CLI/MCP path: use `behalf mcp init`, `behalf claude`, or `behalf codex` to add permission context and `verify_action` to local coding agents.
+
+The CLI/MCP path is documented in [MCP_DEMO.md](MCP_DEMO.md). It does not change the core verify API: denied, approval-required, or unavailable verification must fail closed before execution.
+
 ## POST /api/agents
 
 Adds a native or connected agent and returns its API key once. The original `{ "name": "..." }` request remains supported.
@@ -399,6 +417,57 @@ Response:
 }
 ```
 
+The route stores only the new key hash, sets `keyRotatedAt`, and clears `lastUsedAt` until the new key is used.
+
+## GET /api/dashboard/tokens
+
+Lists developer API token metadata for the authenticated dashboard user. Raw token values are not returned.
+
+Response:
+
+```json
+{
+  "tokens": [
+    {
+      "tokenId": "tok_xxx",
+      "name": "CI",
+      "tokenPreview": "bhf_dev_xxx...abc123",
+      "createdAt": "2026-05-19T00:00:00.000Z",
+      "lastUsedAt": null
+    }
+  ]
+}
+```
+
+## POST /api/dashboard/tokens
+
+Creates a developer API token for the authenticated dashboard user. The raw token is returned once.
+
+Request:
+
+```json
+{
+  "name": "CI"
+}
+```
+
+Response:
+
+```json
+{
+  "tokenId": "tok_xxx",
+  "name": "CI",
+  "token": "bhf_dev_xxx",
+  "tokenPreview": "bhf_dev_xxx...abc123",
+  "createdAt": "2026-05-19T00:00:00.000Z",
+  "lastUsedAt": null
+}
+```
+
+## DELETE /api/dashboard/tokens/[tokenId]
+
+Revokes a developer API token by deleting it. The route only deletes tokens owned by the authenticated dashboard user.
+
 ## POST /api/permissions/[permissionId]/revoke
 
 Revokes a permission. Requires the API key for the agent that owns the permission.
@@ -455,6 +524,8 @@ The developer dashboard uses these session-protected routes:
 - `POST /api/dashboard/agents/[agentId]/rotate-key`
 - `POST /api/dashboard/agents/[agentId]/disable`
 - `POST /api/dashboard/agents/[agentId]/enable`
+- `GET|POST /api/dashboard/tokens`
+- `DELETE /api/dashboard/tokens/[tokenId]`
 - `GET|POST /api/dashboard/webhooks`
 - `GET /api/dashboard/webhooks/[webhookId]`
 - `POST /api/dashboard/webhooks/[webhookId]/disable`

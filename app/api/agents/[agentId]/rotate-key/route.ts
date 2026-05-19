@@ -38,7 +38,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const apiKey = createApiKey();
   const result = await Agent.updateOne(
     { agentId, apiKeyHash: auth.agent.apiKeyHash },
-    { $set: { apiKeyHash: hashApiKey(apiKey), keyRotatedAt: new Date() } }
+    {
+      $set: { apiKeyHash: hashApiKey(apiKey), keyRotatedAt: new Date() },
+      $unset: { lastUsedAt: "" }
+    }
   );
   if (result.matchedCount !== 1) {
     return jsonError("API key has already been rotated.", 409);

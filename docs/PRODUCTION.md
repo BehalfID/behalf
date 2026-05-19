@@ -26,6 +26,15 @@ Requirements:
 
 Production startup validation fails loudly when required variables are missing or unsafe. Error messages list variable names only and do not print secret values.
 
+## Key and Secret Handling
+
+- Agent API keys and developer API tokens are shown only once on create or rotation.
+- Agent keys, developer tokens, sessions, and webhook signing secrets are stored as hashes or derived signing keys, not raw secrets.
+- Agent key rotation invalidates the old key immediately, sets `keyRotatedAt`, and clears current-key `lastUsedAt` until the new key is used.
+- Successful agent-key and developer-token authentication update `lastUsedAt` on a best-effort basis. Failed metadata writes must not fail the authenticated request.
+- Invalid, missing, malformed, or previously rotated keys must not update `lastUsedAt`.
+- Logs, webhook payloads, CLI errors, SDK errors, worker summaries, and route errors must not include raw bearer tokens, API keys, developer tokens, passport tokens, setup tokens, Stripe secrets, or webhook signing secrets.
+
 ## Optional Environment Variables
 
 ```env

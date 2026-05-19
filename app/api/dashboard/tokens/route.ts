@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { requireDeveloperApi } from "@/lib/developerAuth";
-import { hashDeveloperToken } from "@/lib/developerToken";
+import { hashDeveloperToken, previewDeveloperToken } from "@/lib/developerToken";
 import { createDeveloperToken, createPublicId } from "@/lib/ids";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   await connectToDatabase();
 
   const tokens = await DeveloperApiToken.find({ userId: auth.user.userId })
-    .select("-_id tokenId name accountId lastUsedAt createdAt")
+    .select("-_id tokenId name accountId tokenPreview lastUsedAt createdAt")
     .lean();
 
   return NextResponse.json({ tokens });
@@ -54,8 +54,16 @@ export async function POST(request: NextRequest) {
     userId: auth.user.userId,
     accountId: auth.account.accountId,
     name,
+    tokenPreview: previewDeveloperToken(plaintext),
     tokenHash
   });
 
-  return NextResponse.json({ tokenId, name, token: plaintext }, { status: 201 });
+  return NextResponse.json({
+    tokenId,
+    name,
+    token: plaintext,
+    tokenPreview: previewDeveloperToken(plaintext),
+    createdAt: new Date().toISOString(),
+    lastUsedAt: null
+  }, { status: 201 });
 }

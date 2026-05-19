@@ -6,6 +6,7 @@ const DeveloperApiTokenSchema = new Schema(
     userId: { type: String, required: true, index: true },
     accountId: { type: String, required: true, index: true },
     name: { type: String, required: true, trim: true, maxlength: 120 },
+    tokenPreview: { type: String },
     tokenHash: { type: String, required: true, unique: true, select: false },
     lastUsedAt: { type: Date }
   },

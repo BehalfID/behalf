@@ -43,6 +43,7 @@ type Permission = {
 type Log = { requestId: string; agentId: string; action: string; allowed: boolean; reason: string; risk: string; createdAt?: string };
 type Webhook = { webhookId: string; url: string; events: string[]; status: string; secretPreview: string; lastTriggeredAt?: string | null };
 type Delivery = { deliveryId: string; eventType: string; eventId: string; status: string; error?: string; attempt: number; maxAttempts?: number; createdAt?: string };
+type DeveloperToken = { tokenId: string; name: string; tokenPreview?: string | null; createdAt?: string; lastUsedAt?: string | null };
 type AgentProvider = "custom" | "ollie" | "chatgpt" | "claude" | "gemini" | "zapier" | "make" | "langchain" | "openai" | "other";
 type ProviderSelection = AgentProvider | "";
 type OnboardingUserPath = "developer" | "regular" | null;
@@ -1154,7 +1155,11 @@ function AgentView({ agentId }: { agentId: string }) {
     });
     await detail.reload();
   };
-  const rotate = async () => setSecret((await api<{ apiKey: string }>(`/api/dashboard/agents/${agentId}/rotate-key`, { method: "POST" })).apiKey);
+  const rotate = async () => {
+    if (!window.confirm("Rotate this agent API key? The old key will stop working immediately.")) return;
+    setSecret((await api<{ apiKey: string }>(`/api/dashboard/agents/${agentId}/rotate-key`, { method: "POST" })).apiKey);
+    await detail.reload();
+  };
   const regeneratePassport = async () => {
     const result = await api<{ passportUrl: string }>(`/api/dashboard/agents/${agentId}/passport`, { method: "POST" });
     setPassportUrl(result.passportUrl);
@@ -1220,8 +1225,13 @@ function AgentView({ agentId }: { agentId: string }) {
           <p>{agent.agentType === "native" ? "Use this API key directly from your custom integration." : "Use this BehalfID credential to represent this external agent when your app verifies actions."}</p>
           {agent.agentType === "connected" ? <p>The agent description explains the agent&apos;s purpose. Permissions define what it is actually allowed to do.</p> : null}
           {agent.agentType === "connected" ? <p>Connected agents are manually represented today. Provider-native integrations are planned.</p> : null}
+          <p className="field-help">Rotating this key invalidates the old key immediately. The new key is shown once and BehalfID stores only a hash.</p>
           <dl className="console-definition">
             <div><dt>Agent ID</dt><dd>{agent.agentId}</dd></div>
+            <div><dt>Status</dt><dd>{agent.status}</dd></div>
+            <div><dt>Created</dt><dd>{date(agent.createdAt)}</dd></div>
+            <div><dt>Last used</dt><dd>{date(agent.lastUsedAt)}</dd></div>
+            <div><dt>Key rotated</dt><dd>{date(agent.keyRotatedAt)}</dd></div>
           </dl>
         </Card>
       ) : null}
@@ -1464,7 +1474,56 @@ function LogsView() {
 
 function SettingsView() {
   const settings = useResource<{ email: string; appUrl: string; apiUsage: string; dangerZone: string }>("/api/dashboard/settings");
-  return <><Header title="Settings" /><Card className="dashboard-panel"><p>{settings.data?.email}</p><p>{settings.data?.appUrl}</p><p>{settings.data?.apiUsage}</p><p>{settings.data?.dangerZone}</p></Card></>;
+  const tokens = useResource<{ tokens: DeveloperToken[] }>("/api/dashboard/tokens");
+  const [tokenName, setTokenName] = useState("");
+  const [newToken, setNewToken] = useState("");
+
+  const createToken = async (event: FormEvent) => {
+    event.preventDefault();
+    const result = await api<{ token: string }>("/api/dashboard/tokens", {
+      method: "POST",
+      body: JSON.stringify({ name: tokenName })
+    });
+    setNewToken(result.token);
+    setTokenName("");
+    await tokens.reload();
+  };
+
+  const revokeToken = async (tokenId: string) => {
+    await api(`/api/dashboard/tokens/${tokenId}`, { method: "DELETE" });
+    await tokens.reload();
+  };
+
+  return (
+    <>
+      <Header title="Settings" />
+      <Card className="dashboard-panel"><p>{settings.data?.email}</p><p>{settings.data?.appUrl}</p><p>{settings.data?.apiUsage}</p><p>{settings.data?.dangerZone}</p></Card>
+      <section className="dashboard-panel">
+        <h2>Developer API tokens</h2>
+        <p className="field-help">Developer tokens are optional account-scoped credentials for SDK/API calls that need developer context. Raw tokens are shown once and stored hashed.</p>
+        <form className="inline-form" onSubmit={createToken}>
+          <label>
+            <span>Token name</span>
+            <input maxLength={120} onChange={(event) => setTokenName(event.target.value)} placeholder="CI, local dev, staging" required value={tokenName} />
+          </label>
+          <Button variant="primary" type="submit">Create token</Button>
+        </form>
+        {newToken ? <Secret label="Developer API token" value={newToken} /> : null}
+        <div className="dashboard-list">
+          {(tokens.data?.tokens ?? []).map((token) => (
+            <div key={token.tokenId}>
+              <span>
+                <strong>{token.name}</strong>
+                <small>{token.tokenPreview ?? "Preview unavailable"} / created {date(token.createdAt)} / last used {date(token.lastUsedAt)}</small>
+              </span>
+              <Button onClick={() => revokeToken(token.tokenId)} type="button">Revoke</Button>
+            </div>
+          ))}
+        </div>
+        {tokens.data && tokens.data.tokens.length === 0 ? <EmptyState className="dashboard-empty">No developer tokens yet.</EmptyState> : null}
+      </section>
+    </>
+  );
 }
 
 function DashboardDocs() {

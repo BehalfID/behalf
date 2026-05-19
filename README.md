@@ -7,13 +7,13 @@ This prototype includes the public permission API, a public docs site, a develop
 ## What It Does
 
 - Add native agents and connected agents with one-time API keys.
-- Store only hashed API keys.
+- Store only hashed API keys and developer tokens.
 - Create and revoke permission rules.
 - Verify action, resource/service, amount, expiration, revocation, and disabled-agent state.
 - Log each authenticated verification decision with a stable `requestId`.
-- Rotate agent API keys.
+- Rotate agent API keys, invalidating the old key immediately.
 - Manage native and connected agents, permissions, logs, key rotation, and disable/enable state in `/console`.
-- Sign up for a developer portal account and manage owned resources in `/dashboard`.
+- Sign up for a developer portal account and manage owned resources, developer tokens, and key metadata in `/dashboard`.
 - Read public integration pages at `/docs`.
 - Explore the planned BehalfID Site Guard pattern for website-owner AI access enforcement.
 
@@ -70,9 +70,17 @@ The console uses an HTTP-only signed cookie. The admin password is verified serv
 
 The dashboard is separate from `/console`; dashboard users only see resources with their own `developerUserId`.
 
+API keys and developer tokens are shown only once. Store them in environment variables or a secret manager. BehalfID stores only hashes plus safe metadata such as created, last-used, and rotated timestamps.
+
 ## API Usage
 
-Public API docs are available at `/docs` and in [docs/API.md](docs/API.md). Demo commands are in [docs/DEMO.md](docs/DEMO.md).
+Public API docs are available at `/docs` and in [docs/API.md](docs/API.md). Demo commands are in [docs/DEMO.md](docs/DEMO.md). The local coding-agent MCP workflow is in [docs/MCP_DEMO.md](docs/MCP_DEMO.md).
+
+BehalfID has three developer adoption paths:
+
+- SDK path: use `@behalfid/sdk` inside your app and verify before your code executes a tool action.
+- Action Gateway path: call BehalfID to verify and execute a supported safe action in one request.
+- CLI/MCP path: add permission context and `verify_action` to Claude Code, Codex, and MCP-compatible local agents.
 
 Agents can be `native` or `connected`. Native agents are BehalfID-created identities for custom integrations. Connected agents manually represent external agents people already use; provider fields are metadata and are not authentication.
 
@@ -104,6 +112,20 @@ if (!result.allowed) {
 ```
 
 Local SDK source lives in `packages/sdk`. Runnable examples live in `examples/node-demo` and `examples/enforcement-demo`.
+
+## CLI / MCP For Coding Agents
+
+Use the CLI/MCP path when a local AI coding agent should inspect permissions and call `verify_action` before risky work:
+
+```bash
+behalf config set agent-id agent_xxx
+behalf config set api-key bhf_sk_xxx
+behalf mcp init
+behalf doctor
+behalf claude   # or: behalf codex
+```
+
+`behalf mcp init` creates `.behalf/context.md` and merges a BehalfID server entry into `.mcp.json`. Denied verification results, approval-required results, and unavailable verification all fail closed: the agent must not execute the action. See [docs/MCP_DEMO.md](docs/MCP_DEMO.md).
 
 ## Site Guard Preview
 

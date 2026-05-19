@@ -369,12 +369,21 @@ describe("verifyAction permission decisions", () => {
     );
   });
 
-  it("does not convert logging or state update failures into allowed results", async () => {
-    modelMocks.agentUpdateOne.mockRejectedValue(new Error("agent update failed"));
+  it("does not let last-used update failures block verification or leak raw keys", async () => {
+    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    modelMocks.agentUpdateOne.mockRejectedValue(new Error("failed for bhf_sk_super_secret_value"));
     const { verifyAction } = await import("@/lib/verify");
 
-    await expect(verifyAction(verificationRequestFixture())).rejects.toThrow("agent update failed");
-    expect(modelMocks.verificationLogCreate).not.toHaveBeenCalled();
+    await expect(verifyAction(verificationRequestFixture())).resolves.toEqual(
+      expect.objectContaining({ allowed: true })
+    );
+    expect(modelMocks.verificationLogCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ allowed: true })
+    );
+    await vi.waitFor(() => expect(consoleSpy).toHaveBeenCalled());
+    expect(JSON.stringify(consoleSpy.mock.calls)).not.toContain("bhf_sk_super_secret_value");
+    expect(JSON.stringify(consoleSpy.mock.calls)).toContain("bhf_sk_[redacted]");
+    consoleSpy.mockRestore();
   });
 
   it("fails closed when constrained amount or vendor inputs are missing", async () => {

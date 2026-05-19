@@ -26,7 +26,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       $set: {
         apiKeyHash: hashApiKey(apiKey),
         keyRotatedAt: new Date()
-      }
+      },
+      $unset: { lastUsedAt: "" }
     }
   );
   if (result.matchedCount !== 1) {
