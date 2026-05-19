@@ -33,13 +33,14 @@ Current coverage includes:
 - Action Gateway verification-before-execution call order, denial and thrown-verification short-circuiting, unsupported-action denial, DNS-pinned HTTP lookup behavior, private/internal URL blocking, private DNS resolution blocking, redirect-to-private blocking, and response truncation.
 - Billing/quota enforcement for free, pro, and enterprise agent and monthly verification limits, current unmetered behavior when `accountId` or the `Account` record is missing, webhook plan gating, and missing/invalid plan fallback.
 - Production hardening checks for env validation, Redis rate-limit fallback warnings, protected health response shape, webhook worker route auth and summary output, and Stripe webhook idempotency/unknown-event behavior.
+- Webhook worker integration-style coverage for atomic pending-event claims, already-processing/completed/dead-letter skips, stuck processing recovery, retry timing, max-attempt dead-lettering, delivery record creation, endpoint status/event/account filtering, secret redaction, worker route safe error responses, and console replay authorization/dead-letter reset behavior.
 - API key hashing, real bearer-token parsing for missing/malformed/wrong-scheme/invalid-prefix formats, valid-looking key lookup, matching against hashed keys, rotation invalidating the old hash condition, one-time raw key response, and non-persistence of raw rotated keys.
 
 ## What is mocked
 
 Tests mock MongoDB/Mongoose models at the model boundary and do not open a database connection. This keeps the suite fast and stable while still exercising the real decision functions and route handlers.
 
-Network calls are mocked. Action Gateway tests mock DNS and `http`/`https` clients so SSRF and redirect behavior is tested without reaching external URLs. Webhook delivery tests do not call webhook endpoints.
+Network calls are mocked. Action Gateway tests mock DNS and `http`/`https` clients so SSRF and redirect behavior is tested without reaching external URLs. Webhook worker tests also mock DNS and `http`/`https` clients while exercising the real processing loop, endpoint filtering, retry/dead-letter transitions, delivery record writes, and sanitized error handling.
 
 Rate limiting, developer-token authentication, and quota checks are mocked in route tests where they are not the behavior under test. Dedicated quota tests cover plan enforcement directly.
 
@@ -49,7 +50,7 @@ Rate limiting, developer-token authentication, and quota checks are mocked in ro
 
 The suite does not yet run against a real MongoDB test database. A later integration layer should create real accounts, agents, permissions, logs, and webhook events in an isolated database and call the HTTP routes end to end.
 
-Webhook worker route auth and summary behavior is covered. The deeper `processWebhookEvents` delivery loop is still only partially covered through signing and redaction helpers; a future test should exercise it with mocked endpoints and delivery records.
+Webhook worker route auth, summary behavior, safe error response, delivery loop state transitions, endpoint filtering, retry/dead-letter handling, and replay route behavior are covered with mocked model and network boundaries.
 
 Dashboard and console routes have separate auth/session behavior and are not fully covered here.
 

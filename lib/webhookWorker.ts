@@ -25,6 +25,9 @@ type ProcessSummary = {
   completed: number;
   retried: number;
   failed: number;
+  skipped: number;
+  deadLettered: number;
+  recovered: number;
 };
 
 type DeliveryResult = {
@@ -36,13 +39,16 @@ type DeliveryResult = {
 
 export async function processWebhookEvents(limit = DEFAULT_BATCH_SIZE): Promise<ProcessSummary> {
   await connectToDatabase();
-  await recoverStuckEvents();
+  const recovery = await recoverStuckEvents();
 
   const summary: ProcessSummary = {
     processed: 0,
     completed: 0,
     retried: 0,
-    failed: 0
+    failed: 0,
+    skipped: 0,
+    deadLettered: recovery.deadLettered,
+    recovered: recovery.recovered
   };
 
   for (let index = 0; index < limit; index += 1) {
@@ -53,7 +59,10 @@ export async function processWebhookEvents(limit = DEFAULT_BATCH_SIZE): Promise<
 
     summary.processed += 1;
     const result = await processClaimedEvent(event);
-    summary[result] += 1;
+    summary[result.outcome] += 1;
+    if (result.deadLettered) {
+      summary.deadLettered += 1;
+    }
   }
 
   return summary;
@@ -67,7 +76,7 @@ async function recoverStuckEvents() {
     deadLetter: false
   } as const;
 
-  await WebhookEventModel.updateMany(
+  const recovered = await WebhookEventModel.updateMany(
     {
       ...stuckQuery,
       attempts: { $lt: WEBHOOK_MAX_ATTEMPTS },
@@ -78,7 +87,7 @@ async function recoverStuckEvents() {
     }
   );
 
-  await WebhookEventModel.updateMany(
+  const deadLettered = await WebhookEventModel.updateMany(
     {
       ...stuckQuery,
       attempts: { $gte: WEBHOOK_MAX_ATTEMPTS }
@@ -93,6 +102,11 @@ async function recoverStuckEvents() {
       $unset: { processingStartedAt: "" }
     }
   );
+
+  return {
+    recovered: recovered.modifiedCount ?? 0,
+    deadLettered: deadLettered.modifiedCount ?? 0
+  };
 }
 
 async function claimNextEvent() {
@@ -128,7 +142,7 @@ async function processClaimedEvent(event: WebhookEventDocument) {
 
   if (!endpoints.length) {
     await markEventCompleted(event.eventId);
-    return "completed" as const;
+    return { outcome: "completed" as const };
   }
 
   const rawBody = JSON.stringify(payload);
@@ -177,7 +191,7 @@ async function processClaimedEvent(event: WebhookEventDocument) {
 
   if (!failed) {
     await markEventCompleted(event.eventId);
-    return "completed" as const;
+    return { outcome: "completed" as const };
   }
 
   if (attempt >= WEBHOOK_MAX_ATTEMPTS) {
@@ -193,7 +207,7 @@ async function processClaimedEvent(event: WebhookEventDocument) {
         $unset: { processingStartedAt: "" }
       }
     );
-    return "failed" as const;
+    return { outcome: "failed" as const, deadLettered: true };
   }
 
   await WebhookEventModel.updateOne(
@@ -203,7 +217,7 @@ async function processClaimedEvent(event: WebhookEventDocument) {
       $unset: { processingStartedAt: "" }
     }
   );
-  return "retried" as const;
+  return { outcome: "retried" as const };
 }
 
 async function deliverToEndpoint({

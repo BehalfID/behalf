@@ -316,9 +316,18 @@ Response:
   "processed": 1,
   "completed": 1,
   "retried": 0,
-  "failed": 0
+  "failed": 0,
+  "skipped": 0,
+  "deadLettered": 0,
+  "recovered": 0
 }
 ```
+
+Webhook delivery is at least once. The worker atomically claims due `pending` events before delivery so concurrent cron or scheduler calls do not process the same event at the same time. Events already `processing`, `completed`, or dead-lettered are not claimed; stuck `processing` events are moved back to `pending` after the worker timeout unless they have reached the max attempt count.
+
+Failed deliveries retry after the configured backoff schedule and are not retried before `nextAttemptAt`. The current policy makes up to 5 attempts. After the fifth failed attempt, the event is marked `failed` with `deadLetter: true`. Console replay is intentional-only and resets a dead-lettered event to `pending` with attempts set back to 0. Completed events are not replayed.
+
+Webhook receivers should verify `BehalfID-Signature` with the SDK `verifyWebhookSignature` helper, deduplicate by `BehalfID-Event-ID`, and avoid assuming exactly-once delivery. Delivery records store status, HTTP status when available, attempt count, retry time, and sanitized error summaries. They must not store webhook secrets, bearer tokens, cookies, or API keys.
 
 ## POST /api/agents/[agentId]/rotate-key
 

@@ -14,9 +14,19 @@ export async function GET(request: NextRequest) {
     return authError;
   }
 
-  const summary = await processWebhookEvents();
-  return NextResponse.json({
-    status: "ok",
-    ...summary
-  });
+  try {
+    const summary = await processWebhookEvents();
+    return NextResponse.json({
+      status: "ok",
+      ...summary
+    });
+  } catch {
+    return NextResponse.json(
+      {
+        status: "error",
+        error: "Webhook processing failed."
+      },
+      { status: 500 }
+    );
+  }
 }

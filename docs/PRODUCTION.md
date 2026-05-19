@@ -107,6 +107,28 @@ Authorization: Bearer <BEHALFID_SETUP_TOKEN>
 
 The worker claims pending events atomically, retries with backoff, recovers stuck processing events, and dead-letters events that exceed the max attempt count. Receivers should still deduplicate by `BehalfID-Event-ID` because delivery is at least once.
 
+Retry policy:
+
+- Eligible events are `pending`, not dead-lettered, below the max attempt count, and due by `nextAttemptAt`.
+- Processing claims increment the attempt count before endpoint delivery.
+- Failed endpoint deliveries create failed delivery records and set the next retry time.
+- Events are retried up to 5 total attempts, then marked `failed` and `deadLetter: true`.
+- Stuck `processing` events are recovered after the worker timeout; if the event is already at the max attempt count, it is dead-lettered instead.
+
+Replay policy:
+
+- Console replay requires console auth.
+- Only dead-lettered webhook events can be replayed.
+- Replay resets the event to `pending`, clears the last error and processing timestamp, and resets attempts to 0.
+- Completed events are not replayed, so receivers should treat replay as an intentional recovery path rather than a normal duplicate-send path.
+
+Operational expectations:
+
+- Schedule `GET /api/webhooks/process` from Vercel Cron or an external scheduler with `Authorization: Bearer <BEHALFID_SETUP_TOKEN>`.
+- Do not expose `BEHALFID_SETUP_TOKEN`, webhook secrets, or API keys to webhook receivers.
+- Receivers should verify `BehalfID-Signature`, enforce timestamp tolerance, and deduplicate on `BehalfID-Event-ID`.
+- Worker responses and delivery errors are sanitized and should not include stack traces, raw webhook secrets, bearer tokens, cookies, or API keys.
+
 ## Health Checks
 
 - `GET /api/health` is public liveness only.

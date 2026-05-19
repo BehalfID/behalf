@@ -25,7 +25,10 @@ describe("GET /api/webhooks/process", () => {
       processed: 1,
       completed: 0,
       retried: 1,
-      failed: 0
+      failed: 0,
+      skipped: 0,
+      deadLettered: 0,
+      recovered: 0
     });
   });
 
@@ -53,7 +56,26 @@ describe("GET /api/webhooks/process", () => {
       processed: 1,
       completed: 0,
       retried: 1,
-      failed: 0
+      failed: 0,
+      skipped: 0,
+      deadLettered: 0,
+      recovered: 0
     });
+  });
+
+  it("returns a safe generic error when processing fails", async () => {
+    processMocks.processWebhookEvents.mockRejectedValue(new Error("database stack with whsec_secret"));
+    const { GET } = await import("@/app/api/webhooks/process/route");
+
+    const response = await GET(new Request("http://localhost/api/webhooks/process") as never);
+    const json = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(json).toEqual({
+      status: "error",
+      error: "Webhook processing failed."
+    });
+    expect(JSON.stringify(json)).not.toContain("whsec_secret");
+    expect(JSON.stringify(json)).not.toContain("database stack");
   });
 });
