@@ -21,7 +21,7 @@ Errors use:
 }
 ```
 
-Protected public endpoints are rate limited by IP before authentication and by API key hash after authentication. Rate limiting uses Upstash Redis when `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are configured; otherwise it falls back to in-memory mode.
+Protected public endpoints are rate limited by IP before authentication and by API key hash after authentication. Rate limiting uses Upstash Redis when `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are configured; otherwise it intentionally falls back to per-process memory mode.
 
 Developer portal routes under `/api/dashboard/*` use HTTP-only developer session cookies. Public documentation pages are available under `/docs`.
 
@@ -277,8 +277,8 @@ Response:
 ```json
 {
   "status": "ok",
-  "timestamp": "2026-05-02T00:00:00.000Z",
-  "environment": "production"
+  "service": "behalfid",
+  "timestamp": "2026-05-02T00:00:00.000Z"
 }
 ```
 
@@ -295,6 +295,7 @@ Response:
 ```json
 {
   "status": "ok",
+  "service": "behalfid",
   "database": "connected"
 }
 ```

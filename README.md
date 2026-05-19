@@ -185,10 +185,15 @@ Never expose `BEHALFID_SETUP_TOKEN` to frontend JavaScript.
 
 1. Push the repo to GitHub.
 2. Import the project in Vercel.
-3. Add `MONGODB_URI`, `BEHALFID_ADMIN_PASSWORD`, `BEHALFID_PUBLIC_AGENT_CREATION=false`, `BEHALFID_SETUP_TOKEN`, `BEHALFID_LOG_METADATA`, and optionally `NEXT_PUBLIC_APP_URL`.
-4. Add `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` for shared production rate limiting.
-5. Ensure MongoDB Atlas allows Vercel egress connections.
-6. Deploy.
+3. Add required production env vars: `MONGODB_URI`, `BEHALFID_ADMIN_PASSWORD`, `BEHALFID_SETUP_TOKEN`, `NEXT_PUBLIC_APP_URL`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and `STRIPE_PRO_PRICE_ID`.
+4. Keep `BEHALFID_PUBLIC_AGENT_CREATION=false` unless intentionally running an open demo.
+5. Add `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` for shared production rate limiting.
+6. Ensure MongoDB Atlas allows Vercel egress connections.
+7. Configure Stripe to send billing webhooks to `/api/billing/webhook`.
+8. Configure a protected cron or scheduler for `/api/webhooks/process`.
+9. Deploy.
+
+See [docs/PRODUCTION.md](docs/PRODUCTION.md) for the full production checklist.
 
 Production URL target:
 
@@ -214,7 +219,7 @@ After changing domains:
 - Agent API keys can access only their own agent, permissions, and logs.
 - Console routes require the signed admin cookie.
 - Request bodies are field-whitelisted.
-- Rate limiting uses Upstash Redis when `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are configured. Otherwise it falls back to in-memory mode.
+- Rate limiting uses Upstash Redis when `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are configured. Otherwise it intentionally falls back to per-process memory mode and logs a production warning once per process.
 - Optional verification `metadata` is only stored when `BEHALFID_LOG_METADATA` is not `false`; action, vendor/resource, and amount are always stored and may still be sensitive.
 
 See [docs/SECURITY.md](docs/SECURITY.md) for the full security review and limitations, and `/security` for the public-facing security and trust page.

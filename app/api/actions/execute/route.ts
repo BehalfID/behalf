@@ -37,7 +37,11 @@ export async function POST(request: NextRequest) {
   const inputUnknownError = rejectUnknownFields(body.input, ["url"]);
   if (inputUnknownError) return jsonError(inputUnknownError);
 
-  await connectToDatabase();
+  try {
+    await connectToDatabase();
+  } catch {
+    return jsonError("Service temporarily unavailable.", 503);
+  }
 
   const auth = await authenticateAgent(request, agentId);
   if (auth.error || !auth.agent) {
@@ -50,18 +54,28 @@ export async function POST(request: NextRequest) {
   }
 
   const supported = action === SUPPORTED_ACTION && resource === SUPPORTED_RESOURCE;
-  const decision = await verifyAction({
-    agentId,
-    accountId: auth.agent.accountId ?? undefined,
-    developerUserId: auth.agent.developerUserId ?? undefined,
-    agentStatus: auth.agent.status,
-    action,
-    vendor: resource,
-    metadata: { gateway: "actions.execute", resource },
-    enforcementDenyReason: supported
-      ? undefined
-      : "Action Gateway MVP only supports browse_web on the web resource."
-  });
+  let decision;
+  try {
+    decision = await verifyAction({
+      agentId,
+      accountId: auth.agent.accountId ?? undefined,
+      developerUserId: auth.agent.developerUserId ?? undefined,
+      agentStatus: auth.agent.status,
+      action,
+      vendor: resource,
+      metadata: { gateway: "actions.execute", resource },
+      enforcementDenyReason: supported
+        ? undefined
+        : "Action Gateway MVP only supports browse_web on the web resource."
+    });
+  } catch {
+    return NextResponse.json({
+      allowed: false,
+      decision: "denied",
+      reason: "Verification failed closed.",
+      executed: false
+    }, { status: 503 });
+  }
 
   await emitWebhookEvent(
     createWebhookEvent(

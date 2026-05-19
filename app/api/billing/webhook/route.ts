@@ -4,6 +4,7 @@ import { jsonError } from "@/lib/responses";
 import { getStripe } from "@/lib/stripe";
 import Account from "@/models/Account";
 import DeveloperUser from "@/models/DeveloperUser";
+import StripeWebhookEvent from "@/models/StripeWebhookEvent";
 import WebhookEndpoint from "@/models/WebhookEndpoint";
 
 async function setAccountWebhookStatus(accountId: string, status: "active" | "disabled") {
@@ -14,6 +15,27 @@ async function setAccountWebhookStatus(accountId: string, status: "active" | "di
     { developerUserId: user.userId, status: currentStatus },
     { $set: { status } }
   );
+}
+
+async function claimStripeEvent(eventId: string, type: string) {
+  try {
+    await StripeWebhookEvent.create({ eventId, type, processedAt: new Date() });
+    return true;
+  } catch (error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error as { code?: number }).code === 11000
+    ) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+function asString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value : null;
 }
 
 export async function POST(request: NextRequest) {
@@ -43,18 +65,25 @@ export async function POST(request: NextRequest) {
 
   await connectToDatabase();
 
+  const shouldProcess = await claimStripeEvent(event.id, event.type);
+  if (!shouldProcess) {
+    return new Response(null, { status: 204 });
+  }
+
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object;
-      const accountId = session.client_reference_id;
+      const accountId = asString(session.client_reference_id);
       if (!accountId) break;
+      const customerId = asString(session.customer);
+      const subscriptionId = asString(session.subscription);
       await Account.updateOne(
         { accountId },
         {
           $set: {
             plan: "pro",
-            stripeCustomerId: session.customer as string,
-            stripeSubscriptionId: session.subscription as string,
+            ...(customerId ? { stripeCustomerId: customerId } : {}),
+            ...(subscriptionId ? { stripeSubscriptionId: subscriptionId } : {}),
             stripeSubscriptionStatus: "active"
           }
         }
@@ -65,11 +94,13 @@ export async function POST(request: NextRequest) {
 
     case "customer.subscription.updated": {
       const sub = event.data.object;
-      const account = await Account.findOne({ stripeCustomerId: sub.customer as string });
+      const customerId = asString(sub.customer);
+      if (!customerId) break;
+      const account = await Account.findOne({ stripeCustomerId: customerId });
       if (!account) break;
       const isActive = sub.status === "active" || sub.status === "trialing";
       await Account.updateOne(
-        { stripeCustomerId: sub.customer as string },
+        { stripeCustomerId: customerId },
         {
           $set: {
             plan: isActive ? "pro" : "free",
@@ -84,9 +115,11 @@ export async function POST(request: NextRequest) {
 
     case "customer.subscription.deleted": {
       const sub = event.data.object;
-      const account = await Account.findOne({ stripeCustomerId: sub.customer as string });
+      const customerId = asString(sub.customer);
+      if (!customerId) break;
+      const account = await Account.findOne({ stripeCustomerId: customerId });
       await Account.updateOne(
-        { stripeCustomerId: sub.customer as string },
+        { stripeCustomerId: customerId },
         {
           $set: {
             plan: "free",
@@ -101,8 +134,10 @@ export async function POST(request: NextRequest) {
 
     case "invoice.payment_failed": {
       const invoice = event.data.object;
+      const customerId = asString(invoice.customer);
+      if (!customerId) break;
       await Account.updateOne(
-        { stripeCustomerId: invoice.customer as string },
+        { stripeCustomerId: customerId },
         { $set: { stripeSubscriptionStatus: "past_due" } }
       );
       break;

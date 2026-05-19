@@ -19,9 +19,10 @@ export async function GET(request: NextRequest) {
     await connectToDatabase();
     return NextResponse.json({
       status: "ok",
+      service: "behalfid",
       database: mongoose.connection.readyState === 1 ? "connected" : "connecting"
     });
   } catch {
-    return NextResponse.json({ status: "error", database: "unavailable" }, { status: 503 });
+    return NextResponse.json({ status: "error", service: "behalfid", database: "unavailable" }, { status: 503 });
   }
 }

@@ -60,7 +60,11 @@ export async function POST(request: NextRequest) {
     return jsonError("metadata must be an object under 2KB.");
   }
 
-  await connectToDatabase();
+  try {
+    await connectToDatabase();
+  } catch {
+    return jsonError("Service temporarily unavailable.", 503);
+  }
 
   const auth = await authenticateAgent(request, agentId);
   if (auth.error || !auth.agent) {
@@ -85,16 +89,21 @@ export async function POST(request: NextRequest) {
     return jsonError(quota.reason ?? "Verification quota exceeded.", 429);
   }
 
-  const decision = await verifyAction({
-    agentId,
-    accountId: auth.agent.accountId ?? undefined,
-    developerUserId: auth.agent.developerUserId ?? undefined,
-    agentStatus: auth.agent.status,
-    action,
-    amount,
-    vendor,
-    metadata: body.metadata
-  });
+  let decision;
+  try {
+    decision = await verifyAction({
+      agentId,
+      accountId: auth.agent.accountId ?? undefined,
+      developerUserId: auth.agent.developerUserId ?? undefined,
+      agentStatus: auth.agent.status,
+      action,
+      amount,
+      vendor,
+      metadata: body.metadata
+    });
+  } catch {
+    return jsonError("Verification failed closed.", 503);
+  }
 
   await emitWebhookEvent(
     createWebhookEvent(

@@ -32,6 +32,7 @@ Current coverage includes:
 - Webhook event payload safety, HMAC signing interoperability with the SDK verifier, invalid signature/body/secret failures, replay tolerance, and delivery-error redaction.
 - Action Gateway verification-before-execution call order, denial and thrown-verification short-circuiting, unsupported-action denial, DNS-pinned HTTP lookup behavior, private/internal URL blocking, private DNS resolution blocking, redirect-to-private blocking, and response truncation.
 - Billing/quota enforcement for free, pro, and enterprise agent and monthly verification limits, current unmetered behavior when `accountId` or the `Account` record is missing, webhook plan gating, and missing/invalid plan fallback.
+- Production hardening checks for env validation, Redis rate-limit fallback warnings, protected health response shape, webhook worker route auth and summary output, and Stripe webhook idempotency/unknown-event behavior.
 - API key hashing, real bearer-token parsing for missing/malformed/wrong-scheme/invalid-prefix formats, valid-looking key lookup, matching against hashed keys, rotation invalidating the old hash condition, one-time raw key response, and non-persistence of raw rotated keys.
 
 ## What is mocked
@@ -48,7 +49,7 @@ Rate limiting, developer-token authentication, and quota checks are mocked in ro
 
 The suite does not yet run against a real MongoDB test database. A later integration layer should create real accounts, agents, permissions, logs, and webhook events in an isolated database and call the HTTP routes end to end.
 
-Webhook worker delivery processing is only partially covered through signing and redaction helpers. A future test should exercise `processWebhookEvents` with mocked endpoints and delivery records.
+Webhook worker route auth and summary behavior is covered. The deeper `processWebhookEvents` delivery loop is still only partially covered through signing and redaction helpers; a future test should exercise it with mocked endpoints and delivery records.
 
 Dashboard and console routes have separate auth/session behavior and are not fully covered here.
 

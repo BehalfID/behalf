@@ -19,17 +19,24 @@ type RateLimitEntry = {
 const globalForRateLimit = globalThis as typeof globalThis & {
   behalfRateLimitStore?: Map<string, RateLimitEntry>;
   behalfRateLimitLastPruneAt?: number;
+  behalfRateLimitWarningEmitted?: boolean;
 };
 
 const store = globalForRateLimit.behalfRateLimitStore ?? new Map<string, RateLimitEntry>();
 globalForRateLimit.behalfRateLimitStore = store;
 
-if (
-  process.env.NODE_ENV === "production" &&
-  !(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
-) {
+function warnProductionMemoryRateLimitOnce() {
+  if (
+    process.env.NODE_ENV !== "production" ||
+    getRateLimitMode() !== "memory" ||
+    globalForRateLimit.behalfRateLimitWarningEmitted
+  ) {
+    return;
+  }
+
+  globalForRateLimit.behalfRateLimitWarningEmitted = true;
   console.warn(
-    "[behalfid] WARNING: Running in production without Redis. Rate limits are stored in process memory and will not survive restarts or be shared across instances. Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN to enable durable rate limiting."
+    "[behalfid] Production rate limits are using per-process memory fallback. Set both UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN for shared durable rate limiting."
   );
 }
 
@@ -54,7 +61,9 @@ export function getRateLimitKey(request: NextRequest, apiKeyHash?: string) {
 }
 
 export function getRateLimitMode() {
-  return process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+  const hasUrl = Boolean(process.env.UPSTASH_REDIS_REST_URL?.trim());
+  const hasToken = Boolean(process.env.UPSTASH_REDIS_REST_TOKEN?.trim());
+  return hasUrl && hasToken
     ? "redis"
     : "memory";
 }
@@ -132,6 +141,7 @@ function checkMemoryRateLimit(key: string, maxRequests = MAX_REQUESTS, windowMs 
 }
 
 export async function checkRateLimit(request: NextRequest, apiKeyHash?: string) {
+  warnProductionMemoryRateLimitOnce();
   const key = getRateLimitKey(request, apiKeyHash);
   if (getRateLimitMode() === "redis") {
     return checkRedisRateLimit(key);
