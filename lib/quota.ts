@@ -5,6 +5,7 @@ import Agent from "@/models/Agent";
 type QuotaResult = { allowed: boolean; reason?: string };
 
 export async function checkAndIncrementVerifications(accountId: string | null | undefined): Promise<QuotaResult> {
+  // TODO: Revisit whether missing account state should fail closed or remain unmetered.
   if (!accountId) return { allowed: true };
 
   const account = await Account.findOne({ accountId });
@@ -33,6 +34,7 @@ export async function checkAndIncrementVerifications(accountId: string | null | 
 }
 
 export async function checkAgentLimit(accountId: string | null | undefined): Promise<QuotaResult> {
+  // TODO: Revisit whether missing account state should fail closed or remain unmetered.
   if (!accountId) return { allowed: true };
 
   const account = await Account.findOne({ accountId });

@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { apiRequest, resolveApiKey, resolveBaseUrl } from "../lib/client.js";
-import { readConfig, readSession } from "../lib/config.js";
+import { readConfig } from "../lib/config.js";
 import { isJsonMode, printJson, printTable, runAction } from "../lib/output.js";
 
 type LogEntry = {
