@@ -20,10 +20,10 @@ export const docsNav = [
 
 const searchIndex = [
   { href: "/docs",                 title: "Overview",        body: "BehalfID connects external agents and native custom agents to scoped permissions, verification decisions, audit logs, and signed webhook events." },
-  { href: "/docs/quickstart",      title: "Quickstart",      body: "Test with an existing agent in manual mode, or enforce permissions from your own app with the SDK. Create a native or connected agent, define a permission passport, and verify an action." },
+  { href: "/docs/quickstart",      title: "Quickstart",      body: "Create an agent, add a permission, install the SDK, call verify before execution, show allowed and denied requests, and fail closed." },
   { href: "/docs/cli",             title: "CLI",             body: "Install the behalf CLI to manage agents, permissions, and enforcement from the terminal. Includes MCP server setup, AI tool launchers, context generation, and key management." },
   { href: "/docs/api",             title: "API Reference",   body: "Use public REST endpoints for connected agents, permissions, verification, logs, and key rotation. Requires an API key. POST verify, GET agents, PATCH permissions." },
-  { href: "/docs/sdk",             title: "SDK",             body: "Install the JavaScript SDK from npm and call BehalfID from Node 18+. Import BehalfID, call enforceAction to fail closed before running your executor." },
+  { href: "/docs/sdk",             title: "SDK",             body: "Install the JavaScript SDK from npm and call BehalfID from Node 18+. Import BehalfID, call verify, and fail closed before running your executor." },
   { href: "/docs/action-gateway",  title: "Action Gateway",  body: "Route safe public web reads through BehalfID so denied actions fail before execution. Proxy HTTP requests with permission enforcement built in." },
   { href: "/docs/webhooks",        title: "Webhooks",        body: "Receive signed verification events through an outbox-backed delivery system. HMAC signatures, retries, payload structure, and endpoint configuration." },
   { href: "/docs/site-guard",      title: "Site Guard",      body: "Design website middleware, workers, or gateways that enforce AI access rules before protected workflows run. Block or challenge agent requests at the edge." },

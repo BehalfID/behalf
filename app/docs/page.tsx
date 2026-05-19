@@ -2,7 +2,7 @@ import Link from "next/link";
 import { DocsShell } from "./content";
 
 const cards = [
-  { href: "/docs/quickstart", title: "Quickstart", body: "Add a native or connected agent, define a permission passport, and verify an action." },
+  { href: "/docs/quickstart", title: "Quickstart", body: "Create an agent, add a permission, install the SDK, verify before execution, and test allowed and denied requests." },
   { href: "/docs/cli", title: "CLI", body: "Install the behalf CLI to manage agents, permissions, and enforcement from the terminal. Includes MCP server setup and AI tool launchers." },
   { href: "/docs/api", title: "API Reference", body: "Use public REST endpoints for connected agents, permissions, verification, logs, and key rotation." },
   { href: "/docs/sdk", title: "SDK", body: "Install the JavaScript SDK from npm and call BehalfID from Node 18+." },

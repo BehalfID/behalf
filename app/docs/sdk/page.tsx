@@ -42,13 +42,15 @@ const behalf = new BehalfID({
       <p>
         Agent descriptions are informational. Permissions are the source of truth.
         Use <code>allowedActions</code> and <code>blockedActions</code> to make the permission
-        explicit so external agents can read them from the passport page.
+        explicit so external agents can read them from the passport page. Active blocked
+        actions override allows, and non-empty allowed actions narrow the permission to those
+        exact action strings.
       </p>
       <h2>Fail-closed enforcement</h2>
       <p>
-        Use <code>enforceAction</code> to gate every external action. On denial, this throws —
-        the agent never reaches the code that would have executed the action.
-        This is fail closed: on denial, the safe default is to stop.
+        Gate every external action with <code>verify</code>. On denial, throw or return before
+        calling the executor. This is fail closed: verify first, execute second, and stop when
+        permission is missing, approval is required, constraints are missing, or a check fails.
       </p>
       <CodeBlock label="enforce.ts">{`async function enforceAction(input) {
   const result = await behalf.verify({ agentId, ...input });
@@ -76,7 +78,9 @@ console.log("Booking ticket..."); // ← never reached`}</CodeBlock>
       <p>
         In the current API, <code>vendor</code> can represent the resource or service
         being accessed. Pass <code>amount</code> only for transaction-like actions.
-        Pass <code>metadata.scope</code> to hint which allowed action is being requested.
+        Pass the exact action string you want to execute. If the permission has
+        <code> allowedActions</code>, that action must appear in the list; a broad parent
+        action does not bypass the narrowed scope.
       </p>
       <h2>Execute through the Action Gateway</h2>
       <p>

@@ -55,6 +55,14 @@ export default function ApiDocsPage() {
         may do. Use <code>allowedActions</code> and <code>blockedActions</code> to make permissions
         explicit so external agents can read them from the passport page.
       </p>
+      <p>
+        Enforcement is strict. Active <code>blockedActions</code> override allows globally for the
+        same agent. A non-empty <code>allowedActions</code> list narrows the permission to those
+        exact action strings, so verifying the broad parent action does not bypass the narrowed
+        list. Resource and vendor constraints must match when present; missing
+        <code> vendor</code>, <code>resource</code>, or <code>amount</code> values do not bypass
+        those constraints.
+      </p>
       <CodeBlock label="permission.json">{`{
   "agentId": "agent_xxx",
   "action": "access_data",
@@ -97,7 +105,8 @@ export default function ApiDocsPage() {
       <p>
         <code>POST /api/actions/execute</code> uses the same agent API key pattern as verify.
         The MVP only executes <code>browse_web</code> on <code>web</code> by fetching a public URL with GET.
-        Unsupported or denied actions fail closed and are not executed.
+        It verifies first, then executes only if the decision is allowed. Unsupported, denied,
+        approval-required, or verification-error actions fail closed and are not executed.
       </p>
       <CodeBlock label="gateway.json">{`{
   "agentId": "agent_xxx",

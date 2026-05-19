@@ -24,6 +24,11 @@ export default function ActionGatewayDocsPage() {
         boundary: denied or unsupported actions return <code>executed: false</code>, and BehalfID does
         not fetch or perform anything after denial.
       </p>
+      <p>
+        The gateway verifies before any executor runs. A denied decision, approval-required
+        permission, missing constrained input, unsupported action, or verification failure stops
+        the flow before the public-web-read fetch is attempted.
+      </p>
       <CodeBlock label="request.json">{`{
   "agentId": "agent_xxx",
   "action": "browse_web",

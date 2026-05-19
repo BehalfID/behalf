@@ -96,7 +96,7 @@ The `enforceAction` helper throws on any denial. Any code after the throw in tha
 
 ## Sandbox
 
-`/sandbox` demonstrates the same enforcement pattern in the browser without real agents or API keys. Three action buttons show how BehalfID allows `browse_web` and denies `purchase` and `send_message` for a demo policy. Denied actions fail closed — the agent stops before reaching the code that would execute them.
+`/sandbox` demonstrates the same enforcement pattern in the browser without real agents or API keys. The simulated scenarios show an allowed web browse, a denied purchase over the limit, a denied blocked action, a denied missing permission, an approval-required action, and a denied missing constrained resource. Denied and approval-required actions fail closed — the agent stops before reaching the code that would execute them.
 
 ## SDK Demo
 

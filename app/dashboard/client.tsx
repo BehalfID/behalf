@@ -117,6 +117,19 @@ const DESCRIPTION_EXAMPLES = [
   "Help schedule meetings by reading my calendar, but ask before creating, changing, or deleting events."
 ];
 
+const FIRST_AGENT_EXAMPLES = [
+  { title: "Research agent", body: "Allow web research and public page reads. Deny checkout, forms, and account access." },
+  { title: "Shopping agent", body: "Allow product comparison. Allow purchases only under $25 from approved vendors." },
+  { title: "Coding agent", body: "Allow GitHub issue reads. Deny production deploys, secret access, and destructive repo actions." }
+];
+
+const FIRST_PERMISSION_EXAMPLES = [
+  "Allow web browsing",
+  "Allow calendar read",
+  "Allow purchases up to $25",
+  "Deny checkout or sending email"
+];
+
 const dashboardUseCaseContent: Record<OnboardingUseCase, {
   kicker: string;
   title: string;
@@ -141,8 +154,8 @@ const dashboardUseCaseContent: Record<OnboardingUseCase, {
   website: {
     kicker: "Website owner path",
     title: "Prepare boundaries for AI agents and crawlers visiting your site.",
-    body: "Use the dashboard to model site access, inspect decision logs, and set up enforcement before protected workflows run.",
-    actionLabel: "Start Site Guard setup",
+    body: "Use the dashboard to model site access, represent the agent or gateway, and inspect decision logs before protected workflows run.",
+    actionLabel: "Create site agent",
     actionHref: "/dashboard/docs",
     steps: [
       { title: "Map protected actions", body: "Identify public reads, form submits, checkout, account, or content workflows.", href: "/dashboard/docs" },
@@ -294,9 +307,17 @@ function AgentsView() {
       <Header title="Agents" action={<ButtonLink variant="primary" href="/dashboard/onboarding">Add agent</ButtonLink>} />
       {!agents.length ? (
         <Card className="dashboard-panel onboarding-callout">
-          <h2>Add an agent to create its permission passport.</h2>
-          <p>Start with an existing assistant in manual test mode, or create a native agent for API enforcement.</p>
-          <ButtonLink variant="primary" href="/dashboard/onboarding">Start onboarding</ButtonLink>
+          <h2>Create your first agent.</h2>
+          <p>An agent is the AI system or workflow BehalfID identifies before it tries to browse, buy, email, book, edit, or access data. API keys identify it; permissions define what it may do.</p>
+          <div className="permission-template-grid permission-template-grid--nested">
+            {FIRST_AGENT_EXAMPLES.map((example) => (
+              <div className="permission-template" key={example.title}>
+                <strong>{example.title}</strong>
+                <span>{example.body}</span>
+              </div>
+            ))}
+          </div>
+          <ButtonLink variant="primary" href="/dashboard/onboarding">Create your first agent</ButtonLink>
         </Card>
       ) : null}
       <Rows items={agents} href={(agent) => `/dashboard/agents/${agent.agentId}`} title={(agent) => agent.name} meta={(agent) => `${agent.agentType} / ${agent.provider} / ${agent.status}`} />
@@ -1005,7 +1026,7 @@ ${regularPassportUrl || "[passport link]"}`;
               <label><span>Notes</span><input placeholder="read-only, max 10 records, internal use only" value={permissionForm.notes} onChange={(event) => setPermissionForm({ ...permissionForm, notes: event.target.value })} /></label>
             </>
           ) : null}
-          <p className="field-help">Advanced resource/scope constraints are currently descriptive unless enforced by the integration. BehalfID enforces action, expiration, and simple resource/amount constraints.</p>
+          <p className="field-help">BehalfID enforces action, blocked actions, allowed actions, approval requirements, expiration, and simple resource/vendor/amount constraints. Your integration still needs to call verify before the tool runs.</p>
           {onboardingError ? <p className="form-error">{onboardingError}</p> : null}
           <Button variant="primary" type="submit">Create permission</Button>
         </form>
@@ -1015,9 +1036,10 @@ ${regularPassportUrl || "[passport link]"}`;
           <div className="onboarding-result-grid onboarding-result-grid--native" style={{ marginBottom: 18 }}>
             <Card className="dashboard-panel">
               <h2>Install the SDK</h2>
-              <p>Install the BehalfID CLI to connect your AI tools with permission enforcement.</p>
-              <CodeBlock label="terminal">npm install -g @behalfid/sdk</CodeBlock>
-              <p className="field-help" style={{ marginTop: 16, marginBottom: 8 }}>Copy this to authenticate in your terminal — it includes your API key and agent ID.</p>
+              <p>Install the BehalfID SDK in the app or executor that will call verify before tools run.</p>
+              <CodeBlock label="terminal">npm install @behalfid/sdk</CodeBlock>
+              <p className="field-help" style={{ marginTop: 16, marginBottom: 8 }}>If you also use the BehalfID CLI or MCP server, install the CLI and configure it with the same agent.</p>
+              <CodeBlock label="terminal">npm install -g @behalfid/cli</CodeBlock>
               <CodeBlock label="copy and run">{`behalf config set api-key ${apiKey}\nbehalf config set agent-id ${agent?.agentId ?? ""}`}</CodeBlock>
               <p className="field-help" style={{ marginTop: 8 }}>Your API key was shown once after creating the agent. If you missed it, rotate it from the agent detail page.</p>
             </Card>
@@ -1159,6 +1181,8 @@ function AgentView({ agentId }: { agentId: string }) {
     await detail.reload();
   };
   const agent = detail.data?.agent;
+  const permissions = detail.data?.permissions ?? [];
+  const hasPermissions = permissions.some((permission) => permission.status === "active");
 
   if (agent && !guidelinesInitialized) {
     setGuidelines(agent.guidelines ?? []);
@@ -1261,6 +1285,31 @@ function AgentView({ agentId }: { agentId: string }) {
       </section>
       <form className="dashboard-panel" onSubmit={createPermission}>
         <h2>Add permission</h2>
+        <p className="field-help">Permissions define which actions this agent can take. Start narrow: allow one useful action and explicitly block risky ones.</p>
+        {!hasPermissions ? (
+          <div className="permission-template-grid permission-template-grid--nested">
+            {FIRST_PERMISSION_EXAMPLES.map((example) => (
+              <button
+                className="permission-template"
+                key={example}
+                type="button"
+                onClick={() => {
+                  if (example.includes("web")) {
+                    setForm({ ...form, template: "access_data", action: "browse_web", resource: "web", allowedActions: "browse_web", blockedActions: "checkout, submit_form, purchase" });
+                  } else if (example.includes("calendar")) {
+                    setForm({ ...form, template: "schedule", action: "read_calendar", resource: "google-calendar", allowedActions: "read_calendar", blockedActions: "send_invites, delete_events" });
+                  } else if (example.includes("purchases")) {
+                    setForm({ ...form, template: "purchase", action: "purchase", resource: "shop.example", allowedActions: "purchase", blockedActions: "purchase over limit", maxAmount: "25" });
+                  } else {
+                    setForm({ ...form, template: "custom", action: "checkout", resource: "web", allowedActions: "", blockedActions: "checkout, send_email" });
+                  }
+                }}
+              >
+                <strong>{example}</strong>
+              </button>
+            ))}
+          </div>
+        ) : null}
         <label>
           <span>Scope template</span>
           <select value={agentViewScopeId} onChange={(e) => {
@@ -1341,8 +1390,21 @@ function AgentView({ agentId }: { agentId: string }) {
       </form>
       <section className="dashboard-panel">
         <h2>Permissions</h2>
-        <div className="dashboard-list">{(detail.data?.permissions ?? []).map((p) => <div key={p.permissionId}><span><strong>{p.action}</strong><small>{dashboardPermissionSummary(p)}</small></span><Badge>{p.status}</Badge>{p.status === "active" ? <Button onClick={() => revoke(p.permissionId)}>Revoke</Button> : null}</div>)}</div>
+        {!permissions.length ? <EmptyState className="dashboard-empty">No permissions yet. Add one above before this agent can be allowed to do anything.</EmptyState> : null}
+        <div className="dashboard-list">{permissions.map((p) => <div key={p.permissionId}><span><strong>{p.action}</strong><small>{dashboardPermissionSummary(p)}</small></span><Badge>{p.status}</Badge>{p.status === "active" ? <Button onClick={() => revoke(p.permissionId)}>Revoke</Button> : null}</div>)}</div>
       </section>
+      {hasPermissions ? (
+        <section className="dashboard-panel">
+          <div className="dashboard-section-header">
+            <div>
+              <h2>Try a verification</h2>
+              <p>Use the sandbox or the snippet below to confirm that allowed actions pass and denied actions stop before execution.</p>
+            </div>
+            <ButtonLink href="/sandbox">Open sandbox</ButtonLink>
+          </div>
+          <CodeBlock label="verify.ts">{buildVerifySnippet(agentId, permissions)}</CodeBlock>
+        </section>
+      ) : null}
       <section className="dashboard-panel">
         <h2>Recent logs</h2>
         <LogList logs={detail.data?.logs ?? []} />
@@ -1406,7 +1468,7 @@ function SettingsView() {
 }
 
 function DashboardDocs() {
-  return <><Header title="Integration docs" /><Card className="dashboard-panel dashboard-doc-links"><ButtonLink href="/docs/quickstart">Quickstart</ButtonLink><ButtonLink href="/docs/site-guard">Site Guard</ButtonLink><ButtonLink href="/docs/sdk">SDK</ButtonLink><ButtonLink href="/docs/webhooks">Webhooks</ButtonLink></Card></>;
+  return <><Header title="Integration docs" /><Card className="dashboard-panel dashboard-doc-links"><ButtonLink href="/docs/quickstart">Quickstart</ButtonLink><ButtonLink href="/docs/api">API</ButtonLink><ButtonLink href="/docs/sdk">SDK</ButtonLink><ButtonLink href="/docs/webhooks">Webhooks</ButtonLink></Card></>;
 }
 
 function Header({ title, action }: { title: string; action?: React.ReactNode }) {

@@ -24,16 +24,17 @@ const result = await behalf.verify({
   vendor: "gmail.com"
 });
 
-if (result.allowed) {
-  // proceed
-} else {
-  console.log(result.reason);
+if (!result.allowed) {
+  throw new Error(`Blocked by BehalfID: ${result.reason}`);
 }
+
+// proceed only after BehalfID allows the action
 ```
 
 ## Methods
 
 - `verify(input)`
+- `executeAction(input)`
 - `createAgent(nameOrInput)`
 - `createPermission(input)`
 - `rotateKey(agentId)`
@@ -42,7 +43,7 @@ if (result.allowed) {
 
 `createAgent` uses the configured `apiKey` as a bearer token. When public agent creation is disabled, pass a server-side `BEHALFID_SETUP_TOKEN` as the SDK `apiKey` for provisioning.
 
-For non-transaction actions, the current API field `vendor` can represent the resource or service being accessed. Pass `amount` only when verifying purchase or transaction-like actions.
+For non-transaction actions, the current API field `vendor` can represent the resource or service being accessed; `resource` is also accepted by `/api/verify`. Pass `amount` only when verifying purchase or transaction-like actions. Active `blockedActions` override allows, and non-empty `allowedActions` narrow a permission to exact action strings. Missing constrained `vendor`/`resource` or `amount` values fail closed.
 
 For connected agents, pass metadata instead of just a name:
 

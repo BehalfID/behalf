@@ -110,6 +110,8 @@ Agent descriptions are informational. Permissions — including `allowedActions`
 
 When `allowedActions` is non-empty, it narrows the permission to those explicit actions. Verifying the broad parent `action` alone does not bypass a non-empty `allowedActions` list. Any active `blockedActions` match denies the request, even if another active permission would otherwise allow it.
 
+Resource and vendor matching is strict. `resource` and `constraints.allowedVendors` support exact values and comma-separated values when stored that way. If a matching permission has a resource, allowed vendor, or max amount constraint, a request that omits the required `vendor`/`resource` or `amount` fails closed instead of bypassing the constraint.
+
 The existing `constraints.allowedVendors` field is also used as a simple
 resource/service allow-list for non-purchase permissions to preserve API
 compatibility.
@@ -178,6 +180,10 @@ Denial reasons include:
 - `amount is required for permissions with a maxAmount constraint.`
 - `Amount exceeds maxAmount constraint.`
 - `Vendor is not included in allowedVendors constraint.`
+- `Resource does not match permission resource.`
+- `Action is blocked by this permission.`
+- `Action is not included in allowedActions.`
+- `Permission requires approval before execution.`
 
 ## GET /api/logs/[agentId]
 
@@ -418,6 +424,7 @@ const result = await behalf.verify({
 Available methods:
 
 - `verify(input)`
+- `executeAction(input)`
 - `createAgent(name)`
 - `createPermission(input)`
 - `rotateKey(agentId)`

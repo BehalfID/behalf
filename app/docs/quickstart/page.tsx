@@ -4,75 +4,118 @@ export default function QuickstartPage() {
   return (
     <DocsShell
       title="Quickstart"
-      description="Test with an existing agent in manual mode, or enforce permissions from your own app with the SDK."
+      description="Create an agent, add one permission, verify before execution, and prove both allowed and denied actions in about five minutes."
       previous={{ href: "/docs", label: "Overview" }}
       next={{ href: "/docs/cli", label: "CLI" }}
     >
-      <h2>Path A: test with an existing agent</h2>
+      <h2>The five-minute model</h2>
+      <p>
+        BehalfID sits between the AI agent and the tool it wants to run. Your code asks
+        BehalfID first. If the decision is not allowed, the executor does not run.
+      </p>
       <ol className="docs-steps">
-        <li><strong>Create account.</strong> Sign up at <code>/signup</code> and open the developer dashboard.</li>
-        <li><strong>Add existing agent.</strong> Open <code>/dashboard/onboarding</code> and choose <code>I use an existing agent</code>.</li>
-        <li><strong>Create first permission.</strong> Choose a template. For <code>access_data</code> on <code>gmail.com</code>: set allowed actions to <code>read labels, summarize messages</code> and blocked actions to <code>send email, delete email</code>. For purchase on <code>coachella.com</code>: set max amount to <code>800</code>. Agent descriptions are informational; permissions are the source of truth.</li>
-        <li><strong>Open passport link.</strong> The passport page shows the agent&apos;s allowed scopes, copyable agent memory block, machine-readable JSON, and a manual preview form.</li>
-        <li><strong>Copy instructions.</strong> Paste the generated instructions into Ollie, ChatGPT, Claude, or another assistant. The instructions direct the agent to open the passport link, read the Allowed scopes section, and ask you to verify before acting.</li>
-        <li><strong>Agents that cannot fetch passport links.</strong> Passport links use a <code>#token=…</code> URL fragment. Agents like Gemini memory, ChatGPT system prompts, or Claude project instructions do not execute JavaScript and cannot retrieve the scoped data. For these agents, the passport page provides two copyable blocks: the <strong>Agent memory block</strong> (paste into the agent&apos;s memory or system prompt — best-effort, some assistants compress or ignore saved memory) and the <strong>Per-task permission prompt</strong> (paste directly into the active chat where the agent is about to act — more reliable because it is in the active context window, not stored state).</li>
-        <li><strong>Understand the limitation.</strong> Manual mode does not control the provider directly, and it relies on agent cooperation. Automatic enforcement requires API integration.</li>
+        <li><strong>Create an agent.</strong> Use <code>/dashboard/onboarding</code> or <code>behalf agents create</code>. Store the one-time <code>bhf_sk_...</code> API key as <code>BEHALFID_API_KEY</code>.</li>
+        <li><strong>Create a permission.</strong> Start with one clear rule, such as <code>browse_web</code> on <code>web</code>, <code>read_calendar</code> on <code>google-calendar</code>, or <code>purchase</code> on <code>amazon.com</code> with <code>maxAmount: 25</code>.</li>
+        <li><strong>Install the SDK.</strong> Add the published Node SDK to the app that owns the tool execution.</li>
+        <li><strong>Call verify before the action.</strong> The SDK requires <code>agentId</code>, <code>action</code>, and the API key. Pass <code>vendor</code> or <code>resource</code> when a permission is scoped to a service.</li>
+        <li><strong>Show an allowed request.</strong> Call <code>verify</code> with an action and resource covered by an active permission.</li>
+        <li><strong>Show a denied request.</strong> Try a blocked action, a missing permission, a missing constrained vendor/resource, or an amount over the limit.</li>
+        <li><strong>Fail closed.</strong> Throw or return before the executor. Never run the tool when <code>decision.allowed</code> is false.</li>
       </ol>
-      <h2>Path B: enforce in your app (fail closed)</h2>
-      <ol className="docs-steps">
-        <li><strong>Create native agent.</strong> Choose <code>I&apos;m building my own agent</code> and store the one-time API key.</li>
-        <li><strong>Create permission.</strong> Choose a scope template or define a custom action with allowed actions, blocked actions, and constraints.</li>
-        <li><strong>Install SDK.</strong> Add the published Node SDK to your app.</li>
-        <li><strong>Call verify before action.</strong> Use <code>enforceAction</code> to fail closed — denied actions throw before reaching the code that would execute the action.</li>
-      </ol>
+
       <CodeBlock label="terminal">{`npm install @behalfid/sdk`}</CodeBlock>
-      <CodeBlock label="enforce.ts">{`import { BehalfID } from "@behalfid/sdk";
+
+      <h2>Copy-paste executor pattern</h2>
+      <CodeBlock label="purchase.ts">{`import { BehalfID } from "@behalfid/sdk";
 
 const behalf = new BehalfID({
   apiKey: process.env.BEHALFID_API_KEY!,
-  baseUrl: "https://behalfid.com"
 });
 
-async function enforceAction(input) {
-  const result = await behalf.verify({ agentId: "agent_xxx", ...input });
-  if (!result.allowed) {
-    throw new Error(\`Action blocked by BehalfID: \${result.reason}\`);
+const agentId = process.env.BEHALFID_AGENT_ID!;
+
+async function purchase(vendor: string, amount: number) {
+  const decision = await behalf.verify({
+    agentId,
+    action: "purchase",
+    vendor,
+    amount,
+  });
+
+  if (!decision.allowed) {
+    throw new Error(\`Blocked by BehalfID: \${decision.reason}\`);
   }
-  return result;
+
+  return runPurchase({ vendor, amount });
+}`}</CodeBlock>
+
+      <h2>Allowed request</h2>
+      <p>
+        This succeeds when the agent has an active <code>browse_web</code> permission
+        for <code>web</code> and no matching blocked action.
+      </p>
+      <CodeBlock label="allowed.ts">{`const decision = await behalf.verify({
+  agentId: process.env.BEHALFID_AGENT_ID!,
+  action: "browse_web",
+  resource: "web",
+});
+
+if (decision.allowed) {
+  await runBrowserRead("https://example.com");
+}`}</CodeBlock>
+      <CodeBlock label="allowed response">{`{
+  "requestId": "req_xxx",
+  "allowed": true,
+  "reason": "Action allowed by active permission.",
+  "risk": "low"
+}`}</CodeBlock>
+
+      <h2>Denied request</h2>
+      <p>
+        This fails closed when the purchase permission is missing, the vendor does not
+        match, <code>blockedActions</code> includes <code>purchase</code>, approval is
+        required, or the amount exceeds the permission limit.
+      </p>
+      <CodeBlock label="denied.ts">{`const decision = await behalf.verify({
+  agentId: process.env.BEHALFID_AGENT_ID!,
+  action: "purchase",
+  vendor: "shop.example",
+  amount: 742,
+});
+
+if (!decision.allowed) {
+  throw new Error(\`Blocked by BehalfID: \${decision.reason}\`);
 }
 
-// browse_web is allowed — continues.
-await enforceAction({ action: "browse_web", vendor: "web" });
-
-// purchase is denied — throws. Next line never runs.
-await enforceAction({ action: "purchase", vendor: "coachella.com", amount: 742 });
-console.log("Booking ticket..."); // ← never reached`}</CodeBlock>
+await runCheckout(); // not reached when denied`}</CodeBlock>
       <CodeBlock label="denied response">{`{
   "requestId": "req_xxx",
   "allowed": false,
-  "reason": "No active permission exists for this action.",
+  "reason": "Amount exceeds maxAmount constraint.",
   "risk": "high"
 }`}</CodeBlock>
-      <h2>Scope templates</h2>
-      <p>The dashboard and SDK ship with scope templates for common categories. Each template prefills the action, resource, allowed actions, and blocked actions — edit before saving.</p>
-      <CodeBlock label="scope examples">{`// Data access
-{ action: "access_data", vendor: "gmail.com",
-  allowedActions: ["read labels", "summarize messages"],
-  blockedActions: ["send email", "delete messages"] }
 
-// Browse web
-{ action: "browse_web", vendor: "web",
-  allowedActions: ["search web", "read public pages"],
-  blockedActions: ["submit forms", "make purchases"] }
+      <h2>Create permission with the SDK</h2>
+      <CodeBlock label="permission.ts">{`await behalf.createPermission({
+  agentId: process.env.BEHALFID_AGENT_ID!,
+  action: "purchase",
+  resource: "shop.example",
+  allowedActions: ["purchase"],
+  blockedActions: ["checkout without approval"],
+  requiresApproval: false,
+  constraints: {
+    maxAmount: 25,
+    allowedVendors: ["shop.example"],
+  },
+});`}</CodeBlock>
 
-// Purchase with constraints
-{ action: "purchase", vendor: "coachella.com",
-  constraints: { maxAmount: 800, allowedVendors: ["coachella.com"] } }
-
-// Schedule
-{ action: "schedule", vendor: "calendar.google.com",
-  allowedActions: ["create events", "send invites"],
-  blockedActions: ["delete events", "create recurring events"] }`}</CodeBlock>
+      <h2>Manual mode vs enforcement</h2>
+      <p>
+        Passport links and manual preview forms help existing assistants understand
+        the rules, but they do not control a provider directly. Automatic enforcement
+        happens when your app, MCP server, or Action Gateway calls BehalfID before
+        the action and refuses to run denied tools.
+      </p>
     </DocsShell>
   );
 }

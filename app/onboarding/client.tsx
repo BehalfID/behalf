@@ -19,7 +19,7 @@ const roles: Array<{ value: Role; label: string; desc: string }> = [
   {
     value: "website",
     label: "Website or app owner",
-    desc: "Track AI crawler access, prepare Site Guard rules, and review agent-facing controls.",
+    desc: "Model which agent actions your site should allow, deny, or require approval for.",
   },
   {
     value: "sdk",

@@ -28,7 +28,7 @@ const jsonLd = {
       description: "The permission layer between agents and action.",
       publisher: { "@id": "https://behalfid.com/#organization" },
       datePublished: "2026-05-03",
-      dateModified: "2026-05-13"
+      dateModified: "2026-05-18"
     }
   ]
 };
@@ -46,12 +46,18 @@ export default function Home() {
       <section className="home-hero">
         <p className="section-kicker">Agent permission infrastructure</p>
         <h1 className="home-h1">
-          Verify before<br />the agent acts.
+          Permission checks<br />before AI agents act.
         </h1>
         <p className="home-sub">
-          BehalfID checks every action against a permission passport before execution.
-          If permission is missing, the action fails closed — not after.
+          AI agents are starting to buy, email, book, edit, browse, and access data.
+          API keys identify the agent. BehalfID verifies what the agent is allowed to do
+          before the tool runs. Denied actions fail closed.
         </p>
+        <div className="home-code__links" aria-label="Permission examples">
+          <span>Allow browsing, deny purchases over $25.</span>
+          <span>Allow calendar reads, deny sending emails.</span>
+          <span>Allow GitHub issue reads, deny production deploys.</span>
+        </div>
         <div className="home-actions">
           <SplitCTAButton leftLabel="Build" leftHref="/signup" rightLabel="Try It" rightHref="/sandbox" className="split-cta--ghost" />
         </div>
@@ -62,7 +68,7 @@ export default function Home() {
         <div className="home-steps__intro">
           <p className="section-kicker">How it works</p>
           <h2 id="steps-heading" className="home-steps__h2">
-            Four moments.<br />One boundary.
+            Verify first.<br />Execute second.
           </h2>
         </div>
 
@@ -91,11 +97,11 @@ export default function Home() {
           <li className="home-step home-step--check">
             <div className="home-step__left">
               <span className="home-step__num">02</span>
-              <h3 className="home-step__title">Passport check</h3>
+              <h3 className="home-step__title">BehalfID verify</h3>
               <p className="home-step__body">
-                BehalfID evaluates the request against the agent&apos;s active permission
-                passport — the permissions, constraints, and expiry you configured.
-                Every field is checked before the executor is called.
+                BehalfID evaluates the request against active permissions, blocked actions,
+                allowed actions, resource or vendor constraints, amount limits, approval
+                requirements, and expiry before the executor is called.
               </p>
             </div>
             <div className="home-step__visual home-step__visual--accent" aria-hidden="true">
@@ -115,9 +121,8 @@ export default function Home() {
               <p className="home-step__body">
                 A decision packet is returned:{" "}
                 <code className="hi-code">allowed</code>,{" "}
-                <code className="hi-code">denied</code>, or{" "}
-                <code className="hi-code">needs_approval</code>.
-                Denied actions stop here. Your executor never runs.
+                <code className="hi-code">denied</code>, or approval required.
+                The tool executes only when <code className="hi-code">allowed</code> is true.
               </p>
             </div>
             <div className="home-step__visual home-step__visual--deny" aria-hidden="true">
@@ -134,11 +139,11 @@ export default function Home() {
           <li className="home-step">
             <div className="home-step__left">
               <span className="home-step__num">04</span>
-              <h3 className="home-step__title">Audit event</h3>
+              <h3 className="home-step__title">Execute and audit</h3>
               <p className="home-step__body">
-                Every verified decision is logged with a stable request ID, the result,
-                reason, and enforcement outcome — available in the dashboard and delivered
-                via signed webhook.
+                Allowed actions can continue to your tool. Denied actions stop before execution.
+                Every verified decision is logged with a stable request ID and delivered via
+                signed webhook.
               </p>
             </div>
             <div className="home-step__visual home-step__visual--ok" aria-hidden="true">
@@ -164,8 +169,8 @@ export default function Home() {
           </h2>
           <p className="home-code__body">
             Install the SDK, call <code className="hi-code">behalf.verify()</code> before your
-            executor, and throw on denial. Works with any agent framework —
-            enforcement lives in your code, not the model.
+            executor, and throw on denial. Works with any agent framework because the
+            fail-closed check lives in your code, not in the model&apos;s memory.
           </p>
           <div className="home-code__links">
             <Link href="/docs/quickstart">Quickstart →</Link>
@@ -194,7 +199,7 @@ if (!decision.allowed) {
       {/* ── Final CTA ─────────────────────────────────────── */}
       <section className="home-cta" aria-labelledby="cta-heading">
         <p className="section-kicker">Ready</p>
-        <h2 id="cta-heading" className="home-cta__h2">Add the boundary.</h2>
+        <h2 id="cta-heading" className="home-cta__h2">Add the permission check.</h2>
         <p className="home-cta__body">
           Integrated enforcement fails closed. Manual mode is best-effort for testing
           with existing agents before you integrate.

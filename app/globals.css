@@ -6796,7 +6796,8 @@ html[data-theme="light"] .ob-plan--featured:hover {
   flex-wrap: wrap;
 }
 
-.home-code__links a {
+.home-code__links a,
+.home-code__links span {
   color: var(--accent);
   text-decoration: none;
   font-size: 0.9rem;
