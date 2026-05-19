@@ -4,10 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node index.js"
+    "build": "tsc -p tsconfig.json",
+    "setup": "node dist/setup-permissions.js",
+    "demo": "node dist/demo.js",
+    "start": "npm run demo"
   },
   "dependencies": {
-    "@behalfid/sdk": "^0.1.5"
+    "@behalfid/sdk": "file:../../packages/sdk"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "typescript": "^6.0.3"
   },
   "engines": {
     "node": ">=18"

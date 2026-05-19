@@ -41,6 +41,18 @@ export default function ActionGatewayDocsPage() {
   -H "Authorization: Bearer $BEHALFID_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{"agentId":"agent_xxx","action":"browse_web","resource":"web","input":{"url":"https://example.com"}}'`}</CodeBlock>
+      <h2>Runnable demo</h2>
+      <p>
+        The <code>examples/enforcement-demo</code> package runs this flow against a real
+        agent. It creates permissions, runs an allowed web read through the Action Gateway,
+        proves denied executors do not run, and checks that the request IDs are present in
+        the audit logs.
+      </p>
+      <CodeBlock label="terminal">{`cd examples/enforcement-demo
+npm install
+cp .env.example .env
+npm run setup
+npm run demo`}</CodeBlock>
       <h2>Security controls</h2>
       <ul className="docs-list">
         <li>Only <code>GET</code> is used.</li>

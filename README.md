@@ -103,7 +103,7 @@ if (!result.allowed) {
 }
 ```
 
-Local SDK source lives in `packages/sdk`. A runnable Node example lives in `examples/node-demo`.
+Local SDK source lives in `packages/sdk`. Runnable examples live in `examples/node-demo` and `examples/enforcement-demo`.
 
 ## Site Guard Preview
 
@@ -113,22 +113,39 @@ Site Guard is not a full reverse proxy/CDN yet and does not claim reliable AI id
 
 ### Reference enforcement demo
 
-`examples/enforcement-demo` demonstrates the core enforcement pattern end-to-end using a pre-configured agent and permission:
+`examples/enforcement-demo` demonstrates the core enforcement pattern end-to-end using a real agent, real permissions, the SDK, Action Gateway execution, and audit-log lookup:
 
-```js
-async function enforceAction(input) {
-  const result = await behalf.verify({ agentId, ...input });
-  if (!result.allowed) {
-    throw new Error(`Action blocked by BehalfID: ${result.reason}`);
-  }
-  return result;
+```ts
+const decision = await behalf.verify({ agentId, ...input });
+
+if (!decision.allowed) {
+  throw new Error(`Action blocked by BehalfID: ${decision.reason}`);
 }
 
-await enforceAction({ action: "access_data", vendor: "gmail.com" });
-// Only proceeds if allowed.
+return executeAction(decision);
+```
 
-await enforceAction({ action: "send_email", vendor: "gmail.com" });
-// Throws — the agent never reaches the next line.
+Run it locally:
+
+```bash
+npm run dev
+
+cd examples/enforcement-demo
+npm install
+cp .env.example .env
+npm run setup
+npm run demo
+```
+
+It covers:
+
+```txt
+allowed browse_web -> Action Gateway executor runs
+purchase over maxAmount -> executor does not run
+blocked send_email -> executor does not run
+approval-required renewal -> executor does not run
+missing deploy permission -> executor does not run
+audit logs -> requestIds are present
 ```
 
 Denied actions fail closed. See `examples/enforcement-demo/README.md` for setup and expected output.

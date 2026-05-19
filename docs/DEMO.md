@@ -49,50 +49,79 @@ The dashboard is separate from `/console`; dashboard users only see resources at
 
 ## Reference Enforcement Demo
 
-`examples/enforcement-demo` demonstrates the core enforcement pattern using a pre-configured agent and permission. Denied actions fail closed.
+`examples/enforcement-demo` demonstrates the core enforcement loop using a real agent, real permissions, the SDK, `/api/verify`, `/api/actions/execute`, and `/api/logs/[agentId]`.
+
+It proves:
+
+- allowed `browse_web` on `web` reaches the Action Gateway executor
+- denied `purchase` over `maxAmount` does not run the purchase executor
+- denied blocked `send_email` does not run the email executor
+- approval-required `renew_subscription` does not run automatically
+- missing `deploy_production` permission fails closed
+- observed `requestId` values appear in the agent audit logs
 
 ### Setup
 
-1. Create an agent in `/dashboard/onboarding` and store the one-time API key.
-2. Create a `browse_web` permission on `web` using the Browse web scope template — allowed actions: `search web, read public pages`; blocked actions: `submit forms, make purchases`.
-3. Do **not** create `purchase` or `send_message` permissions — the demo tests that those are denied.
+1. Start the app locally with MongoDB configured, or use the hosted API.
+2. Create a fresh demo agent in `/dashboard/onboarding`, `/dashboard/agents`, or `/console/agents`.
+3. Store the one-time API key and agent ID.
 
 ### Run
 
 ```bash
-npm --prefix examples/enforcement-demo install
-BEHALFID_API_KEY=bhf_sk_... BEHALFID_AGENT_ID=agent_... npm --prefix examples/enforcement-demo start
+cd examples/enforcement-demo
+npm install
+cp .env.example .env
 ```
 
-For a local instance:
+Fill in `BEHALFID_API_KEY`, `BEHALFID_AGENT_ID`, and `BEHALFID_BASE_URL`, then create the demo permissions:
 
 ```bash
-BEHALFID_API_KEY=bhf_sk_... BEHALFID_AGENT_ID=agent_... BEHALFID_BASE_URL=http://localhost:3000 npm --prefix examples/enforcement-demo start
+npm run setup
+npm run demo
 ```
 
 Expected output:
 
 ```txt
-BehalfID enforcement demo
+BehalfID Action Gateway enforcement demo
 Agent:    agent_xxx
-Instance: https://behalfid.com
+Instance: http://localhost:3000
 
-1. browse_web on web
-   ✓ Allowed — proceeding: searching for flights to Tokyo...
+1. Allowed web research through the Action Gateway
+   request: browse_web on web
+   decision: allowed
+   Action Gateway public-web-read executor: executor ran: Example Domain
 
-2. purchase on coachella.com ($742)
-   ✗ Blocked — Action blocked by BehalfID: No active permission exists for this action.
-   The agent did not complete the purchase.
+2. Denied over maxAmount
+   request: purchase on example-store.com
+   decision: denied (high) - Amount exceeds maxAmount constraint.
+   purchase executor: not run
 
-3. send_message on slack.com
-   ✗ Blocked — Action blocked by BehalfID: No active permission exists for this action.
-   The agent did not send the message.
+3. Denied blocked action
+   request: send_email on gmail.com
+   decision: denied (high) - Action is blocked by this permission.
+   email executor: not run
+
+4. Approval required
+   request: renew_subscription on example-store.com
+   decision: denied (medium) - Permission requires approval before execution.
+   subscription renewal executor: not run
+
+5. Denied missing permission
+   request: deploy_production on github.com
+   decision: denied (high) - No active permission exists for this action.
+   deployment executor: not run
+
+Audit check
+   requestIds observed: req_xxx, req_yyy
+   matching logs found: 6/6
 
 Demo complete.
-Denied actions failed closed — the agent never reached those lines.
+Denied actions failed closed; their executors did not run.
 ```
 
-The `enforceAction` helper throws on any denial. Any code after the throw in that block does not run — the agent stops before acting. This is fail closed: on denial, the safe default is to not proceed.
+The `enforceAction` helper throws on any denial. Any code after the throw in that block does not run. This is fail closed: on denial, the safe default is to not proceed.
 
 ## Sandbox
 

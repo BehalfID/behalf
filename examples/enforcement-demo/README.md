@@ -1,127 +1,143 @@
 # BehalfID Enforcement Demo
 
-Demonstrates the core enforcement pattern:
+This is a real end-to-end demo of the BehalfID product loop:
 
-> Agents must call BehalfID before acting. Denied actions fail closed.
-
-## What this proves
-
-The `enforceAction` helper calls `behalf.verify()` before any action proceeds. If
-BehalfID returns `allowed: false`, `enforceAction` throws immediately — the agent
-never reaches the code that would have executed the action.
-
-Three scenarios are tested:
-
-| # | Action | Vendor | Expected |
-|---|--------|--------|----------|
-| 1 | `browse_web` | `web` | Allowed (if permission exists) |
-| 2 | `purchase` | `coachella.com` | Denied — no purchase permission |
-| 3 | `send_message` | `slack.com` | Denied — no send_message permission |
-
-## What "fail closed" means
-
-When `enforceAction` denies an action it throws an error. Any code after the throw
-in that try-block does not run — the agent is stopped before it can act. If
-BehalfID is unavailable or returns an error, the same throw behavior applies: the
-agent stops rather than proceeding without a decision.
-
-The opposite would be "fail open": proceeding if the check fails. BehalfID's
-enforcement pattern is always fail closed.
-
-## Expected output
-
-With only a `browse_web` permission on `web` active:
-
+```txt
+create permissions -> verify action -> allow or deny -> execute only if allowed -> audit log
 ```
-BehalfID enforcement demo
-Agent:    agent_xxx
-Instance: https://behalfid.com
 
-1. browse_web on web
-   ✓ Allowed — proceeding: searching for flights to Tokyo...
+The demo uses the local workspace SDK and can run against either a local BehalfID app or the hosted API. It does not require Stripe, webhooks, Vercel, Upstash Redis, or production services.
 
-2. purchase on coachella.com ($742)
-   ✗ Blocked — Action blocked by BehalfID: No active permission exists for this action.
-   The agent did not complete the purchase.
+## What This Proves
 
-3. send_message on slack.com
-   ✗ Blocked — Action blocked by BehalfID: No active permission exists for this action.
-   The agent did not send the message.
+The core helper is intentionally small:
 
-Demo complete.
-Denied actions failed closed — the agent never reached those lines.
+```ts
+const decision = await behalf.verify({ agentId, ...input });
+
+if (!decision.allowed) {
+  throw new Error(`Action blocked by BehalfID: ${decision.reason}`);
+}
+
+return executeAction(decision);
 ```
+
+Denied actions fail closed. The executor function is not called unless BehalfID returns `allowed: true`.
+
+## Scenarios
+
+| Scenario | Permission state | Expected result |
+|---|---|---|
+| Allowed web research | `browse_web` on `web` exists | Action Gateway public-web-read executor runs |
+| Denied over maxAmount | `purchase` is limited to `$25` | `$742` purchase is denied; executor does not run |
+| Denied blocked action | Gmail permission has `blockedActions: ["send_email"]` | email executor does not run |
+| Approval required | subscription renewal permission has `requiresApproval: true` | renewal executor does not run automatically |
+| Missing permission | no `deploy_production` permission exists | deployment executor does not run |
+
+The demo also fetches the agent logs and confirms the observed `requestId` values exist in the audit trail.
 
 ## Setup
 
-### 1. Create a BehalfID account and agent
-
-1. Sign up at `/signup`.
-2. Open `/dashboard/onboarding` and create an agent.
-3. Store the one-time API key — it is shown once.
-
-### 2. Create the browse_web permission
-
-In `/dashboard/agents/[agentId]`, create a permission using the **Browse web** scope template:
-
-- Scope template: `Browse web`
-- Action: `browse_web`
-- Resource / service: `web`
-- Allowed actions: `search web, read public pages, extract structured data`
-- Blocked actions: `submit forms, make purchases, login to accounts`
-- Requires approval: `No`
-
-This is the only permission the demo expects to be allowed. Do **not** create a
-`purchase` or `send_message` permission — the demo tests that those are denied.
-
-### 3. Configure environment
+Run the BehalfID app locally if you want a local demo:
 
 ```bash
+npm install
+cp .env.example .env.local
+npm run dev
+```
+
+The local app needs MongoDB configured as described in the root README.
+
+Create a fresh demo agent through `/dashboard/onboarding`, `/dashboard/agents`, or `/console/agents`, then store the one-time API key. A fresh agent keeps the missing-permission scenario deterministic. This demo intentionally does not open anonymous agent creation.
+
+Configure the example:
+
+```bash
+cd examples/enforcement-demo
+npm install
 cp .env.example .env
 ```
 
 Fill in:
 
 ```env
-BEHALFID_API_KEY=bhf_sk_...      # from agent creation
-BEHALFID_AGENT_ID=agent_...      # from /dashboard/agents
+BEHALFID_API_KEY=bhf_sk_...
+BEHALFID_AGENT_ID=agent_...
+BEHALFID_BASE_URL=http://localhost:3000
+```
+
+For the hosted API, use:
+
+```env
 BEHALFID_BASE_URL=https://behalfid.com
 ```
 
-For a local instance use `BEHALFID_BASE_URL=http://localhost:3000`.
-
-## How to run
+## Create Demo Permissions
 
 ```bash
-npm install
-npm start
+npm run setup
 ```
 
-Or inline:
+The setup script creates:
+
+- `browse_web` on `web`
+- `purchase` on `example-store.com` with `maxAmount: 25`
+- `read_email` on `gmail.com` with `send_email` blocked
+- `renew_subscription` on `example-store.com` with `requiresApproval: true`
+
+It deliberately does not create a `deploy_production` permission.
+
+## Run
 
 ```bash
-BEHALFID_API_KEY=bhf_sk_... BEHALFID_AGENT_ID=agent_... npm start
+npm run demo
 ```
 
-## The enforce pattern in your own code
+Expected shape:
 
-```js
-import { BehalfID } from "@behalfid/sdk";
+```txt
+BehalfID Action Gateway enforcement demo
+Agent:    agent_xxx
+Instance: http://localhost:3000
 
-const behalf = new BehalfID({ apiKey: process.env.BEHALFID_API_KEY });
+1. Allowed web research through the Action Gateway
+   request: browse_web on web
+   decision: allowed
+   Action Gateway public-web-read executor: executor ran: Example Domain
 
-async function enforceAction(input) {
-  const result = await behalf.verify({ agentId: process.env.BEHALFID_AGENT_ID, ...input });
-  if (!result.allowed) {
-    throw new Error(`Action blocked by BehalfID: ${result.reason}`);
-  }
-  return result;
-}
+2. Denied over maxAmount
+   request: purchase on example-store.com
+   decision: denied (high) - Amount exceeds maxAmount constraint.
+   purchase executor: not run
 
-// Agent calls this before every external action.
-await enforceAction({ action: "access_data", vendor: "gmail.com" });
-// Only reaches here if BehalfID allowed it.
+3. Denied blocked action
+   request: send_email on gmail.com
+   decision: denied (high) - Action is blocked by this permission.
+   email executor: not run
+
+4. Approval required
+   request: renew_subscription on example-store.com
+   decision: denied (medium) - Permission requires approval before execution.
+   subscription renewal executor: not run
+
+5. Denied missing permission
+   request: deploy_production on github.com
+   decision: denied (high) - No active permission exists for this action.
+   deployment executor: not run
+
+Audit check
+   requestIds observed: req_xxx, req_yyy
+   matching logs found: 6/6
+
+Demo complete.
+Denied actions failed closed; their executors did not run.
 ```
 
-For automatic enforcement in production, integrate this pattern in your agent's
-action dispatch layer so every action is gated before it runs.
+The allowed Action Gateway scenario records two request IDs: one for the explicit `verify` call in the fail-closed helper and one for `/api/actions/execute`, which verifies again before running the gateway executor.
+
+## Source Layout
+
+- `src/enforcement.ts` contains the fail-closed helper.
+- `src/setup-permissions.ts` creates the permissions for an existing agent.
+- `src/demo.ts` runs the scenarios and checks audit logs.
+- `dist/` is generated by `npm run build` and is what `npm run demo` executes.

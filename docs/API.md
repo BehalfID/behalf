@@ -268,6 +268,63 @@ Request:
 
 If no permission matched, `permissionId` is `null`.
 
+## POST /api/actions/execute
+
+Runs the Action Gateway MVP. Requires the agent API key. The route verifies the requested action first and only runs the supported executor when the decision is allowed.
+
+Current supported executor:
+
+- action: `browse_web`
+- resource: `web`
+- input: `{ "url": "https://example.com" }`
+
+Request:
+
+```json
+{
+  "agentId": "agent_xxx",
+  "action": "browse_web",
+  "resource": "web",
+  "input": {
+    "url": "https://example.com"
+  }
+}
+```
+
+Allowed and executed response:
+
+```json
+{
+  "requestId": "req_xxx",
+  "allowed": true,
+  "decision": "allowed",
+  "reason": "Action allowed by active permission.",
+  "executed": true,
+  "result": {
+    "url": "https://example.com",
+    "status": 200,
+    "contentType": "text/html",
+    "title": "Example Domain",
+    "excerpt": "Example Domain...",
+    "truncated": false
+  }
+}
+```
+
+Denied response:
+
+```json
+{
+  "requestId": "req_xxx",
+  "allowed": false,
+  "decision": "denied",
+  "reason": "Permission requires approval before execution.",
+  "executed": false
+}
+```
+
+Denied, approval-required, unsupported, or failed verification decisions do not run the executor.
+
 ## GET /api/health
 
 Public liveness check. It does not reveal secrets.
@@ -441,4 +498,4 @@ Available methods:
 - `getLogs(agentId)`
 - `verifyWebhookSignature(input)`
 
-When public agent creation is disabled, use a server-side `BEHALFID_SETUP_TOKEN` as the SDK `apiKey` only for provisioning with `createAgent`.
+When public agent creation is disabled, create agents through the dashboard/console or call `POST /api/agents` with a server-side `BEHALFID_SETUP_TOKEN`. Do not expose setup tokens to browser code or bundled examples.

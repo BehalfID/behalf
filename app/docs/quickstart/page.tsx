@@ -116,6 +116,11 @@ await runCheckout(); // not reached when denied`}</CodeBlock>
         happens when your app, MCP server, or Action Gateway calls BehalfID before
         the action and refuses to run denied tools.
       </p>
+      <p>
+        For a runnable end-to-end version of this loop, use <code>examples/enforcement-demo</code>.
+        It creates demo permissions, runs allowed and denied actions, and checks the resulting
+        audit log entries.
+      </p>
     </DocsShell>
   );
 }
