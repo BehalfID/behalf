@@ -1766,7 +1766,11 @@ function WebhooksView() {
   const webhooksEnabled = resource.data?.webhooksEnabled ?? false;
   return (
     <>
-      <Header title="Webhooks" action={<ButtonLink href="/dashboard/billing">{webhooksEnabled ? "Manage billing" : "Upgrade"}</ButtonLink>} />
+      <Header
+        title="Webhooks"
+        description="Manage event delivery endpoints and signing secrets."
+        action={<ButtonLink href="/dashboard/billing">{webhooksEnabled ? "Manage billing" : "Upgrade"}</ButtonLink>}
+      />
       {resource.error ? <p className="form-error">{resource.error}</p> : null}
       {!webhooksEnabled ? (
         <Card className="dashboard-panel">
@@ -1826,7 +1830,11 @@ function LogsView() {
   const exportHref = `${path}${path.includes("?") ? "&" : "?"}format=csv`;
   return (
     <>
-      <Header title="Logs" action={<ButtonLink href={exportHref}>Export CSV</ButtonLink>} />
+      <Header
+        title="Logs"
+        description="Search and export verification decisions."
+        action={<ButtonLink href={exportHref}>Export CSV</ButtonLink>}
+      />
       <div className="console-toolbar">
         <input aria-label="Filter by agent ID" onChange={(event) => setAgentId(event.target.value)} placeholder="agent_xxx" value={agentId} />
         <select aria-label="Allowed filter" onChange={(event) => setAllowed(event.target.value)} value={allowed}>
@@ -1873,7 +1881,7 @@ function SettingsView() {
 
   return (
     <>
-      <Header title="Settings" />
+      <Header title="Settings" description="Manage account details and developer tokens." />
       <Card className="dashboard-panel"><p>{settings.data?.email}</p><p>{settings.data?.appUrl}</p><p>{settings.data?.apiUsage}</p><p>{settings.data?.dangerZone}</p></Card>
       <section className="dashboard-panel">
         <h2>Developer API tokens</h2>
@@ -1904,11 +1912,11 @@ function SettingsView() {
 }
 
 function DashboardDocs() {
-  return <><Header title="Integration docs" /><Card className="dashboard-panel dashboard-doc-links"><ButtonLink href="/docs/quickstart">Quickstart</ButtonLink><ButtonLink href="/docs/api">API</ButtonLink><ButtonLink href="/docs/sdk">SDK</ButtonLink><ButtonLink href="/docs/webhooks">Webhooks</ButtonLink></Card></>;
+  return <><Header title="Integration docs" description="Open implementation guides and API references." /><Card className="dashboard-panel dashboard-doc-links"><ButtonLink href="/docs/quickstart">Quickstart</ButtonLink><ButtonLink href="/docs/api">API</ButtonLink><ButtonLink href="/docs/sdk">SDK</ButtonLink><ButtonLink href="/docs/webhooks">Webhooks</ButtonLink></Card></>;
 }
 
-function Header({ title, action }: { title: string; action?: React.ReactNode }) {
-  return <PageHeader eyebrow="Developer portal" title={title} action={action} className="dashboard-header" />;
+function Header({ title, description, action }: { title: string; description?: string; action?: React.ReactNode }) {
+  return <PageHeader eyebrow="Developer portal" title={title} description={description} action={action} className="dashboard-header" />;
 }
 
 function Metric({ label, value }: { label: string; value: number | string }) {
