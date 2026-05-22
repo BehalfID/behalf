@@ -88,7 +88,12 @@ export function BillingClient({
 
   return (
     <DashboardShellLayout>
-      <PageHeader title="Billing" description="Manage your plan and usage." />
+      <PageHeader
+        eyebrow="Developer portal"
+        title="Billing"
+        description="Manage your plan and usage."
+        className="dashboard-header"
+      />
 
       {stripeSubscriptionStatus === "past_due" && (
         <div className="billing-alert" role="alert">
