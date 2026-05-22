@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SocialLinks } from "@/components/ui";
 
 export function PublicFooter() {
   return (
@@ -10,6 +11,7 @@ export function PublicFooter() {
           <Link href="/privacy">Privacy Policy</Link>
           <Link href="/security">Security</Link>
         </nav>
+        <SocialLinks className="social-links--footer" />
       </div>
     </footer>
   );

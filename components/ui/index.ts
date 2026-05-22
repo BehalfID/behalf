@@ -13,3 +13,4 @@ export * from "./ThemeToggle";
 export * from "./CookieBanner";
 export * from "./HomeDemo";
 export * from "./SplitCTAButton";
+export * from "./SocialLinks";
