@@ -94,8 +94,148 @@ Content-Type: application/json
         is not proof of provider identity.
       </p>
 
-      <h2>Middleware sketch</h2>
-      <CodeBlock label="middleware.ts">{`const decision = await fetch(\`\${process.env.BEHALFID_BASE_URL}/api/site-guard/check\`, {
+      <h2>Next.js middleware</h2>
+      <p>
+        Place <code>middleware.ts</code> at the project root (same level as <code>app/</code>).
+        It runs server-side before any route handler. See{" "}
+        <code>examples/site-guard-nextjs/</code> for the full example.
+      </p>
+      <CodeBlock label="middleware.ts">{`import { NextResponse, type NextRequest } from "next/server";
+
+const GUARDED_PREFIXES = ["/docs", "/admin"];
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Skip Next.js internals and static assets.
+  if (pathname.startsWith("/_next/")) return NextResponse.next();
+  if (!GUARDED_PREFIXES.some((p) => pathname.startsWith(p))) {
+    return NextResponse.next();
+  }
+
+  let decision;
+  try {
+    const r = await fetch(
+      \`\${process.env.BEHALFID_BASE_URL}/api/site-guard/check\`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          // Site key — server-side only, never sent to the browser.
+          Authorization: \`Bearer \${process.env.SITE_GUARD_KEY}\`,
+        },
+        body: JSON.stringify({
+          path: pathname,
+          userAgent: request.headers.get("user-agent") ?? "unknown",
+          agentIdentifier: request.headers.get("behalfid-agent") ?? undefined,
+          // no siteId — the site key already encodes the site
+        }),
+      },
+    );
+    // Fail closed on non-2xx.
+    if (!r.ok) return new NextResponse("Site Guard unavailable.", { status: 403 });
+    decision = await r.json();
+  } catch {
+    // Fail closed on network error.
+    return new NextResponse("Site Guard unavailable.", { status: 403 });
+  }
+
+  if (!decision.allowed) {
+    return new NextResponse(decision.reason ?? "Denied by Site Guard.", { status: 403 });
+  }
+  return NextResponse.next();
+}
+
+export const config = { matcher: ["/docs/:path*", "/admin/:path*"] };`}</CodeBlock>
+
+      <h2>Express middleware</h2>
+      <p>
+        Call <code>siteGuard()</code> before the route handler. The middleware
+        responds <code>403</code> on deny or error without calling{" "}
+        <code>next()</code>. See <code>examples/site-guard-express/</code> for
+        the full example.
+      </p>
+      <CodeBlock label="src/siteGuard.ts">{`import type { Request, Response, NextFunction } from "express";
+
+export function siteGuard() {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    const key = process.env.SITE_GUARD_KEY;
+    // Fail closed — cannot verify without a key.
+    if (!key) { res.status(403).send("SITE_GUARD_KEY not configured."); return; }
+
+    let decision;
+    try {
+      const r = await fetch(
+        \`\${process.env.BEHALFID_BASE_URL}/api/site-guard/check\`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: \`Bearer \${key}\`,
+          },
+          body: JSON.stringify({
+            path: req.path,
+            userAgent: req.headers["user-agent"] ?? "unknown",
+            agentIdentifier: req.headers["behalfid-agent"],
+            // no siteId — the site key already encodes the site
+          }),
+        },
+      );
+      if (!r.ok) { res.status(403).send("Site Guard error."); return; }
+      decision = await r.json();
+    } catch {
+      res.status(403).send("Site Guard unavailable."); return;
+    }
+
+    if (!decision.allowed) { res.status(403).send(decision.reason); return; }
+    next(); // allowed — route handler runs
+  };
+}
+
+// Usage:
+// app.get("/docs/:slug", siteGuard(), docsHandler);
+// app.get("/admin/:page", siteGuard(), adminHandler);`}</CodeBlock>
+
+      <h2>Fail-closed rules</h2>
+      <p>
+        Every integration point must fail closed. A route must not be served
+        unless Site Guard explicitly returns <code>allowed: true</code>.
+      </p>
+      <div className="endpoint-list">
+        {[
+          ["SITE_GUARD_KEY not set", "Respond 403 — do not serve the route."],
+          ["Network error or timeout", "Respond 403 — do not serve the route."],
+          ["BehalfID returns non-2xx", "Respond 403 — do not serve the route."],
+          ["decision.allowed === false", "Respond 403 — do not serve the route."],
+          ["decision.allowed === true", "Allow — let the route handler run."]
+        ].map(([event, behavior]) => (
+          <div className="endpoint-card" key={event}>
+            <span>Behavior</span>
+            <code>{event}</code>
+            <p>{behavior}</p>
+          </div>
+        ))}
+      </div>
+      <p>
+        <code>SITE_GUARD_KEY</code> is server-side only. Never import the helper
+        from a Client Component or any module in the browser bundle. When using a
+        site key, omit <code>siteId</code> and <code>domain</code> from the
+        request body — the key already encodes the site scope and a body-provided
+        value cannot override it.
+      </p>
+
+      <h2>Test with curl</h2>
+      <CodeBlock label="allowed path">{`curl https://behalfid.com/api/site-guard/check \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer $SITE_GUARD_KEY" \\
+  -d '{"path": "/docs/getting-started", "userAgent": "ExampleBot/1.0"}'`}</CodeBlock>
+      <CodeBlock label="blocked path">{`curl https://behalfid.com/api/site-guard/check \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer $SITE_GUARD_KEY" \\
+  -d '{"path": "/admin/settings", "userAgent": "ExampleBot/1.0"}'`}</CodeBlock>
+
+      <h2>Middleware sketch (raw)</h2>
+      <CodeBlock label="middleware.ts">{`const response = await fetch(\`\${process.env.BEHALFID_BASE_URL}/api/site-guard/check\`, {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
@@ -105,11 +245,12 @@ Content-Type: application/json
     path: new URL(request.url).pathname,
     userAgent: request.headers.get("user-agent") ?? "unknown",
     agentIdentifier: request.headers.get("behalfid-agent") ?? undefined
+    // no siteId — the key already encodes the site
   })
-}).then((response) => response.json());
+});
 
-if (!decision.allowed) {
-  return new Response(decision.reason, { status: 403 });
+if (!response.ok || !(await response.json()).allowed) {
+  return new Response("Denied by Site Guard.", { status: 403 });
 }`}</CodeBlock>
 
       <h2>Logs and limits</h2>

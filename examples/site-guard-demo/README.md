@@ -2,6 +2,11 @@
 
 This small TypeScript helper shows the Site Guard integration point using a **site key**. A website calls BehalfID from server-side middleware, a worker, or protected route code before serving the route.
 
+For complete, runnable framework examples see:
+
+- [`../site-guard-nextjs/`](../site-guard-nextjs/) — Next.js middleware example
+- [`../site-guard-express/`](../site-guard-express/) — Express middleware example
+
 ## Setup
 
 1. Create a site in `/dashboard/sites`.

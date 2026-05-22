@@ -105,9 +105,134 @@ The `siteId` and `domain` fields are ignored when a site key is used. The key's 
 
 Unexpected policy errors fail closed.
 
-## Integration sketch
+## Integration examples
 
-### Site key (recommended)
+Full, copy-ready examples live in the `examples/` directory:
+
+| Example | Framework | Path |
+|---|---|---|
+| Next.js middleware | Next.js 15+ | `examples/site-guard-nextjs/` |
+| Express middleware | Express 4+ | `examples/site-guard-express/` |
+| Raw helper + curl | Any / none | `examples/site-guard-demo/` |
+
+### Next.js middleware
+
+See `examples/site-guard-nextjs/` for the complete example.  The short version:
+
+```ts
+// middleware.ts (project root, not inside app/)
+import { NextResponse, type NextRequest } from "next/server";
+
+const GUARDED_PREFIXES = ["/docs", "/admin"];
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Skip /_next/ internals and static assets.
+  if (pathname.startsWith("/_next/")) return NextResponse.next();
+
+  // Only check guarded prefixes.
+  if (!GUARDED_PREFIXES.some((p) => pathname.startsWith(p))) {
+    return NextResponse.next();
+  }
+
+  const response = await fetch(
+    `${process.env.BEHALFID_BASE_URL}/api/site-guard/check`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.SITE_GUARD_KEY}`,
+      },
+      body: JSON.stringify({
+        path: pathname,
+        userAgent: request.headers.get("user-agent") ?? "unknown",
+        agentIdentifier: request.headers.get("behalfid-agent") ?? undefined,
+        // no siteId — the site key already encodes the site
+      }),
+    },
+  );
+
+  // Fail closed on network error or non-2xx.
+  if (!response.ok) {
+    return new NextResponse("Site Guard unavailable.", { status: 403 });
+  }
+
+  const decision = await response.json();
+  if (!decision.allowed) {
+    return new NextResponse(decision.reason ?? "Denied by Site Guard.", { status: 403 });
+  }
+
+  return NextResponse.next();
+}
+
+export const config = { matcher: ["/docs/:path*", "/admin/:path*"] };
+```
+
+### Express middleware
+
+See `examples/site-guard-express/` for the complete example.  The short version:
+
+```ts
+// src/siteGuard.ts
+import type { Request, Response, NextFunction } from "express";
+
+export function siteGuard() {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    const key = process.env.SITE_GUARD_KEY;
+    if (!key) { res.status(403).send("SITE_GUARD_KEY not configured."); return; }
+
+    let decision;
+    try {
+      const r = await fetch(
+        `${process.env.BEHALFID_BASE_URL}/api/site-guard/check`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${key}`,
+          },
+          body: JSON.stringify({
+            path: req.path,
+            userAgent: req.headers["user-agent"] ?? "unknown",
+            agentIdentifier: req.headers["behalfid-agent"],
+            // no siteId — the site key already encodes the site
+          }),
+        },
+      );
+      if (!r.ok) { res.status(403).send("Site Guard error."); return; }
+      decision = await r.json();
+    } catch {
+      res.status(403).send("Site Guard unavailable."); return;
+    }
+
+    if (!decision.allowed) { res.status(403).send(decision.reason); return; }
+    next();
+  };
+}
+
+// src/server.ts
+app.get("/docs/:slug?", siteGuard(), docsHandler);
+app.get("/admin/:page?", siteGuard(), adminHandler);
+```
+
+### Raw API (curl)
+
+```bash
+# Allowed path:
+curl https://behalfid.com/api/site-guard/check \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $SITE_GUARD_KEY" \
+  -d '{"path": "/docs/getting-started", "userAgent": "ExampleBot/1.0"}'
+
+# Blocked path:
+curl https://behalfid.com/api/site-guard/check \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $SITE_GUARD_KEY" \
+  -d '{"path": "/admin/settings", "userAgent": "ExampleBot/1.0"}'
+```
+
+### Integration sketch (site key)
 
 ```ts
 const response = await fetch(`${process.env.BEHALFID_BASE_URL}/api/site-guard/check`, {
@@ -120,16 +245,16 @@ const response = await fetch(`${process.env.BEHALFID_BASE_URL}/api/site-guard/ch
     path: new URL(request.url).pathname,
     userAgent: request.headers.get("user-agent") ?? "unknown",
     agentIdentifier: request.headers.get("behalfid-agent") ?? undefined
+    // no siteId — the key already encodes the site
   })
 });
 
-const decision = await response.json();
-if (!response.ok || !decision.allowed) {
-  return new Response(decision.reason ?? "Denied by Site Guard.", { status: 403 });
+if (!response.ok || !(await response.json()).allowed) {
+  return new Response("Denied by Site Guard.", { status: 403 });
 }
 ```
 
-### Developer token (legacy)
+### Integration sketch (developer token, legacy)
 
 ```ts
 const response = await fetch(`${process.env.BEHALFID_BASE_URL}/api/site-guard/check`, {
@@ -152,7 +277,21 @@ if (!response.ok || !decision.allowed) {
 }
 ```
 
-See `examples/site-guard-demo` for a small helper and allowed/denied requests.
+## Fail-closed rules
+
+Every integration point must obey the fail-closed contract:
+
+| Event | Required behavior |
+|---|---|
+| `SITE_GUARD_KEY` not set | Respond `403` — do not serve the route |
+| Network error / timeout | Respond `403` — do not serve the route |
+| BehalfID returns non-2xx | Respond `403` — do not serve the route |
+| `decision.allowed === false` | Respond `403` — do not serve the route |
+| `decision.allowed === true` | Let the route handler run |
+
+`blockedPaths` always override `allowedPaths`, even across multiple active matching rules.  A path that appears in `blockedPaths` on any matching rule cannot be allowed by any other rule.
+
+When using a site key, do not include `siteId` or `domain` in the request body.  The key's own site scope always wins and a body-provided value cannot override it.
 
 ## Logs
 
