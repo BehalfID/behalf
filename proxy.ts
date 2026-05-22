@@ -40,7 +40,7 @@ function isLocalDev(request: NextRequest) {
 
 const bypassAssetPattern = /\.(ico|png|jpg|jpeg|svg|webp|css|js|map)$/i;
 
-export function shouldBypassMiddleware(pathname: string) {
+export function shouldBypassProxy(pathname: string) {
   return (
     pathname === "/api/health" ||
     pathname === "/api/health/db" ||
@@ -51,8 +51,8 @@ export function shouldBypassMiddleware(pathname: string) {
   );
 }
 
-export function middleware(request: NextRequest) {
-  if (shouldBypassMiddleware(request.nextUrl.pathname)) {
+export function proxy(request: NextRequest) {
+  if (shouldBypassProxy(request.nextUrl.pathname)) {
     return NextResponse.next();
   }
 
