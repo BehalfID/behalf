@@ -2,12 +2,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const routeMocks = vi.hoisted(() => ({
   authenticateDeveloperToken: vi.fn(),
+  authenticateSiteGuardKey: vi.fn(),
+  updateSiteGuardKeyLastUsed: vi.fn(),
   checkRateLimit: vi.fn(),
   checkSiteAccess: vi.fn()
 }));
 
 vi.mock("@/lib/developerToken", () => ({
   authenticateDeveloperToken: routeMocks.authenticateDeveloperToken
+}));
+vi.mock("@/lib/siteGuardKey", () => ({
+  authenticateSiteGuardKey: routeMocks.authenticateSiteGuardKey,
+  updateSiteGuardKeyLastUsed: routeMocks.updateSiteGuardKeyLastUsed
 }));
 vi.mock("@/lib/rateLimit", () => ({
   checkRateLimit: routeMocks.checkRateLimit,
@@ -18,13 +24,23 @@ vi.mock("@/lib/siteGuard", async (importOriginal) => ({
   checkSiteAccess: routeMocks.checkSiteAccess
 }));
 
-function siteGuardRequest(body: unknown, token?: string) {
+const keyDoc = {
+  keyId: "sgk_test",
+  siteId: "site_from_key",
+  accountId: "acct_key",
+  developerUserId: "dev_key",
+  name: "Test key",
+  keyPreview: "bhf_site_testxx...yyyyyy",
+  status: "active"
+};
+
+function siteGuardRequest(body: unknown, token?: string, siteKeyToken?: string) {
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (token) headers["x-developer-token"] = token;
+  if (siteKeyToken) headers["authorization"] = `Bearer ${siteKeyToken}`;
   return new Request("http://localhost/api/site-guard/check", {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      ...(token ? { "x-developer-token": token } : {})
-    },
+    headers,
     body: typeof body === "string" ? body : JSON.stringify(body)
   }) as never;
 }
@@ -32,6 +48,7 @@ function siteGuardRequest(body: unknown, token?: string) {
 describe("POST /api/site-guard/check route", () => {
   beforeEach(() => {
     routeMocks.checkRateLimit.mockResolvedValue({ limited: false });
+    routeMocks.authenticateSiteGuardKey.mockResolvedValue({ keyDoc: null, error: null });
     routeMocks.authenticateDeveloperToken.mockResolvedValue({
       tokenDoc: { accountId: "acct_site", userId: "dev_site" },
       error: null
@@ -46,7 +63,7 @@ describe("POST /api/site-guard/check route", () => {
     });
   });
 
-  it("returns allowed and denied decisions", async () => {
+  it("returns allowed and denied decisions via developer token", async () => {
     const { POST } = await import("@/app/api/site-guard/check/route");
     const allowed = await POST(siteGuardRequest({
       siteId: "site_test",
@@ -81,20 +98,70 @@ describe("POST /api/site-guard/check route", () => {
     }));
   });
 
-  it("rejects invalid route fields and missing auth", async () => {
-    const { POST } = await import("@/app/api/site-guard/check/route");
-    const malformed = await POST(siteGuardRequest({ siteId: "site_test", userAgent: "bot", path: "/a?secret=1" }));
-    routeMocks.authenticateDeveloperToken.mockResolvedValueOnce({ tokenDoc: null, error: null });
-    const missingAuth = await POST(siteGuardRequest({ siteId: "site_test", userAgent: "bot", path: "/a" }));
+  it("uses the site key scope and ignores body siteId/domain", async () => {
+    routeMocks.authenticateSiteGuardKey.mockResolvedValue({ keyDoc, error: null });
+    routeMocks.checkSiteAccess.mockResolvedValueOnce({
+      allowed: true,
+      reason: "Path allowed by an active Site Guard rule.",
+      requestId: "req_key",
+      matchedRuleId: "sgr_key",
+      siteId: "site_from_key",
+      risk: "low"
+    });
 
-    expect(malformed.status).toBe(400);
-    expect(missingAuth.status).toBe(401);
-    await expect(missingAuth.json()).resolves.toEqual({ error: "Developer token required." });
+    const { POST } = await import("@/app/api/site-guard/check/route");
+    const response = await POST(siteGuardRequest(
+      { siteId: "site_attacker", domain: "evil.example", path: "/docs/api", userAgent: "Bot/1.0" },
+      undefined,
+      "bhf_site_validkey"
+    ));
+
+    expect(response.status).toBe(200);
+    expect(routeMocks.checkSiteAccess).toHaveBeenCalledWith(
+      expect.objectContaining({ siteId: "site_from_key", accountId: "acct_key" })
+    );
+    // siteId override from body must not reach checkSiteAccess
+    expect(routeMocks.checkSiteAccess).not.toHaveBeenCalledWith(
+      expect.objectContaining({ siteId: "site_attacker" })
+    );
+    expect(routeMocks.authenticateDeveloperToken).not.toHaveBeenCalled();
+    expect(routeMocks.updateSiteGuardKeyLastUsed).toHaveBeenCalledWith("sgk_test");
   });
 
-  it("rejects malformed JSON before a Site Guard check", async () => {
-    const { POST } = await import("@/app/api/site-guard/check/route");
+  it("rejects an invalid or revoked site key with 401", async () => {
+    routeMocks.authenticateSiteGuardKey.mockResolvedValue({ keyDoc: null, error: "Site Guard key has been revoked." });
 
+    const { POST } = await import("@/app/api/site-guard/check/route");
+    const response = await POST(siteGuardRequest(
+      { path: "/docs", userAgent: "Bot/1.0" },
+      undefined,
+      "bhf_site_revokedkey"
+    ));
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: "Site Guard key has been revoked." });
+    expect(routeMocks.checkSiteAccess).not.toHaveBeenCalled();
+  });
+
+  it("requires siteId or domain when using a developer token", async () => {
+    const { POST } = await import("@/app/api/site-guard/check/route");
+    const response = await POST(siteGuardRequest({ path: "/docs", userAgent: "Bot/1.0" }, "bhf_dev_test"));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "siteId or domain is required." });
+  });
+
+  it("returns 401 when no auth is provided", async () => {
+    routeMocks.authenticateDeveloperToken.mockResolvedValueOnce({ tokenDoc: null, error: null });
+    const { POST } = await import("@/app/api/site-guard/check/route");
+    const missingAuth = await POST(siteGuardRequest({ siteId: "site_test", userAgent: "bot", path: "/a" }));
+
+    expect(missingAuth.status).toBe(401);
+    await expect(missingAuth.json()).resolves.toEqual({ error: "Site Guard key or developer token required." });
+  });
+
+  it("rejects malformed JSON before auth checks", async () => {
+    const { POST } = await import("@/app/api/site-guard/check/route");
     const response = await POST(siteGuardRequest("{bad json", "bhf_dev_test"));
 
     expect(response.status).toBe(400);

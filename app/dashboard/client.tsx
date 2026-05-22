@@ -87,6 +87,15 @@ type SiteLog = {
   risk: "low" | "medium" | "high";
   createdAt?: string;
 };
+type SiteGuardKey = {
+  keyId: string;
+  siteId: string;
+  name: string;
+  keyPreview: string;
+  status: "active" | "revoked";
+  lastUsedAt?: string | null;
+  createdAt?: string;
+};
 type AgentProvider = "custom" | "ollie" | "chatgpt" | "claude" | "gemini" | "zapier" | "make" | "langchain" | "openai" | "other";
 type ProviderSelection = AgentProvider | "";
 type Plan = "free" | "pro" | "enterprise";
@@ -487,7 +496,7 @@ function SitesView() {
 }
 
 function SiteDetailView({ siteId, onChanged }: { siteId: string; onChanged: () => Promise<void> }) {
-  const detail = useResource<{ site: Site; rules: SiteRule[]; logs: SiteLog[] }>(`/api/dashboard/sites/${siteId}`);
+  const detail = useResource<{ site: Site; rules: SiteRule[]; logs: SiteLog[]; keys: SiteGuardKey[] }>(`/api/dashboard/sites/${siteId}`);
   const [name, setName] = useState("");
   const [signal, setSignal] = useState("");
   const [pattern, setPattern] = useState("");
@@ -495,6 +504,9 @@ function SiteDetailView({ siteId, onChanged }: { siteId: string; onChanged: () =
   const [blockedPaths, setBlockedPaths] = useState("/admin/*");
   const [requiresApproval, setRequiresApproval] = useState(false);
   const [detailError, setDetailError] = useState("");
+  const [keyName, setKeyName] = useState("");
+  const [keyError, setKeyError] = useState("");
+  const [newKeyData, setNewKeyData] = useState<{ keyId: string; rawKey: string } | null>(null);
 
   const createRule = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -515,6 +527,32 @@ function SiteDetailView({ siteId, onChanged }: { siteId: string; onChanged: () =
       await detail.reload();
     } catch (requestError) {
       setDetailError(requestError instanceof Error ? requestError.message : "Rule creation failed.");
+    }
+  };
+
+  const createKey = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    try {
+      setKeyError("");
+      const result = await api<{ key: SiteGuardKey; rawKey: string }>(`/api/dashboard/sites/${siteId}/keys`, {
+        method: "POST",
+        body: JSON.stringify({ name: keyName })
+      });
+      setKeyName("");
+      setNewKeyData({ keyId: result.key.keyId, rawKey: result.rawKey });
+      await detail.reload();
+    } catch (requestError) {
+      setKeyError(requestError instanceof Error ? requestError.message : "Key creation failed.");
+    }
+  };
+
+  const revokeKey = async (keyId: string) => {
+    try {
+      await api(`/api/dashboard/sites/${siteId}/keys/${keyId}`, { method: "DELETE" });
+      if (newKeyData?.keyId === keyId) setNewKeyData(null);
+      await detail.reload();
+    } catch {
+      // revoke errors are surfaced inline
     }
   };
 
@@ -548,6 +586,25 @@ function SiteDetailView({ siteId, onChanged }: { siteId: string; onChanged: () =
             {site.status === "active" ? "Disable" : "Enable"}
           </Button>
         </div>
+        <h3>Site keys</h3>
+        <p>Use a site key (<code>bhf_site_...</code>) in <code>Authorization: Bearer</code> to scope requests to this site only. Keys are narrower than developer tokens.</p>
+        {newKeyData ? (
+          <div className="dashboard-list-row" style={{ flexDirection: "column", gap: "0.5rem" }}>
+            <strong>Key created — copy now, it will not be shown again.</strong>
+            <code style={{ wordBreak: "break-all", userSelect: "all" }}>{newKeyData.rawKey}</code>
+            <Button onClick={() => setNewKeyData(null)}>Dismiss</Button>
+          </div>
+        ) : null}
+        <div className="dashboard-list">
+          {(detail.data?.keys ?? []).map((key) => (
+            <div className="dashboard-list-row" key={key.keyId}>
+              <strong>{key.name} <Badge>{key.status}</Badge></strong>
+              <small>{key.keyPreview} / {key.status === "active" && key.lastUsedAt ? `last used ${date(key.lastUsedAt)}` : "never used"}</small>
+              {key.status === "active" ? <Button onClick={() => void revokeKey(key.keyId)}>Revoke</Button> : null}
+            </div>
+          ))}
+        </div>
+        {!(detail.data?.keys ?? []).length && detail.data ? <EmptyState className="dashboard-empty">No site keys yet.</EmptyState> : null}
         <h3>Rules</h3>
         <div className="dashboard-list">
           {detail.data?.rules.map((rule) => (
@@ -568,17 +625,25 @@ function SiteDetailView({ siteId, onChanged }: { siteId: string; onChanged: () =
           ))}
         </div>
       </Card>
-      <form className="dashboard-panel" onSubmit={createRule}>
-        <h2>Add rule</h2>
-        {detailError ? <p className="form-error">{detailError}</p> : null}
-        <label><span>Name</span><input onChange={(event) => setName(event.target.value)} required value={name} /></label>
-        <label><span>Agent identifier</span><input onChange={(event) => setSignal(event.target.value)} placeholder="crawler_alpha" value={signal} /></label>
-        <label><span>User-Agent pattern</span><input onChange={(event) => setPattern(event.target.value)} placeholder="ExampleBot/*" value={pattern} /></label>
-        <label><span>Allowed paths</span><textarea onChange={(event) => setAllowedPaths(event.target.value)} rows={3} value={allowedPaths} /></label>
-        <label><span>Blocked paths</span><textarea onChange={(event) => setBlockedPaths(event.target.value)} rows={3} value={blockedPaths} /></label>
-        <label><span><input checked={requiresApproval} onChange={(event) => setRequiresApproval(event.target.checked)} type="checkbox" /> Require approval</span></label>
-        <Button variant="primary" type="submit">Add rule</Button>
-      </form>
+      <div className="dashboard-panel" style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+        <form onSubmit={createKey}>
+          <h2>Create site key</h2>
+          {keyError ? <p className="form-error">{keyError}</p> : null}
+          <label><span>Name</span><input onChange={(event) => setKeyName(event.target.value)} placeholder="Middleware key" required value={keyName} /></label>
+          <Button variant="primary" type="submit">Create key</Button>
+        </form>
+        <form onSubmit={createRule}>
+          <h2>Add rule</h2>
+          {detailError ? <p className="form-error">{detailError}</p> : null}
+          <label><span>Name</span><input onChange={(event) => setName(event.target.value)} required value={name} /></label>
+          <label><span>Agent identifier</span><input onChange={(event) => setSignal(event.target.value)} placeholder="crawler_alpha" value={signal} /></label>
+          <label><span>User-Agent pattern</span><input onChange={(event) => setPattern(event.target.value)} placeholder="ExampleBot/*" value={pattern} /></label>
+          <label><span>Allowed paths</span><textarea onChange={(event) => setAllowedPaths(event.target.value)} rows={3} value={allowedPaths} /></label>
+          <label><span>Blocked paths</span><textarea onChange={(event) => setBlockedPaths(event.target.value)} rows={3} value={blockedPaths} /></label>
+          <label><span><input checked={requiresApproval} onChange={(event) => setRequiresApproval(event.target.checked)} type="checkbox" /> Require approval</span></label>
+          <Button variant="primary" type="submit">Add rule</Button>
+        </form>
+      </div>
     </section>
   );
 }

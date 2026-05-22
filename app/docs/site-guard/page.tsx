@@ -32,17 +32,18 @@ export default function SiteGuardDocsPage() {
         authorization, sessions, permissions, and route access controls.
       </p>
 
-      <h2>MVP endpoint</h2>
+      <h2>Site keys (recommended)</h2>
       <p>
-        Site Guard checks use an account-scoped developer token in <code>x-developer-token</code>.
-        Keep it server-side. A separate site-key credential is a later hardening step.
+        Create a site key (<code>bhf_site_...</code>) from the site detail page in your
+        dashboard. Site keys are scoped to a single site — the key cannot check a different
+        site, even with a valid credential. Use <code>Authorization: Bearer</code> and omit
+        <code>siteId</code> from the request body.
       </p>
       <CodeBlock label="request">{`POST /api/site-guard/check
-x-developer-token: bhf_dev_xxx
+Authorization: Bearer bhf_site_xxx
 Content-Type: application/json
 
 {
-  "siteId": "site_xxx",
   "path": "/docs/api",
   "userAgent": "ExampleBot/1.0",
   "agentIdentifier": "crawler_example"
@@ -53,6 +54,28 @@ Content-Type: application/json
   "requestId": "req_xxx",
   "matchedRuleId": "sgr_xxx",
   "siteId": "site_xxx"
+}`}</CodeBlock>
+      <p>
+        Set <code>SITE_GUARD_KEY=bhf_site_xxx</code> in your environment. The raw key is
+        shown only once at creation time. Store it in a secret manager or environment
+        variable — it cannot be retrieved again.
+      </p>
+
+      <h2>Developer token (legacy)</h2>
+      <p>
+        Developer tokens (<code>bhf_dev_...</code>) in <code>x-developer-token</code> are
+        still accepted for backwards compatibility but are broader than ideal for website
+        middleware. Prefer site keys for new integrations.
+      </p>
+      <CodeBlock label="request">{`POST /api/site-guard/check
+x-developer-token: bhf_dev_xxx
+Content-Type: application/json
+
+{
+  "siteId": "site_xxx",
+  "path": "/docs/api",
+  "userAgent": "ExampleBot/1.0",
+  "agentIdentifier": "crawler_example"
 }`}</CodeBlock>
 
       <h2>Rule behavior</h2>
@@ -76,10 +99,9 @@ Content-Type: application/json
   method: "POST",
   headers: {
     "Content-Type": "application/json",
-    "x-developer-token": process.env.BEHALFID_DEVELOPER_TOKEN!
+    "Authorization": \`Bearer \${process.env.SITE_GUARD_KEY}\`
   },
   body: JSON.stringify({
-    siteId: process.env.BEHALFID_SITE_ID,
     path: new URL(request.url).pathname,
     userAgent: request.headers.get("user-agent") ?? "unknown",
     agentIdentifier: request.headers.get("behalfid-agent") ?? undefined

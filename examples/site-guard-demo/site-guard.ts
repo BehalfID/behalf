@@ -12,20 +12,19 @@ export async function checkSiteGuard(input: {
   agentIdentifier?: string;
 }) {
   const baseUrl = process.env.BEHALFID_BASE_URL ?? "http://localhost:3000";
-  const developerToken = process.env.BEHALFID_DEVELOPER_TOKEN;
-  const siteId = process.env.BEHALFID_SITE_ID;
+  const siteGuardKey = process.env.SITE_GUARD_KEY;
 
-  if (!developerToken || !siteId) {
-    throw new Error("BEHALFID_DEVELOPER_TOKEN and BEHALFID_SITE_ID are required.");
+  if (!siteGuardKey) {
+    throw new Error("SITE_GUARD_KEY is required. Create a site key from the Site Guard site detail page.");
   }
 
   const response = await fetch(`${baseUrl}/api/site-guard/check`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-developer-token": developerToken
+      "Authorization": `Bearer ${siteGuardKey}`
     },
-    body: JSON.stringify({ siteId, ...input })
+    body: JSON.stringify(input)
   });
   const decision = (await response.json()) as SiteGuardDecision | { error?: string };
 

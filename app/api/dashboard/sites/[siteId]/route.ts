@@ -6,6 +6,7 @@ import { readString, rejectUnknownFields } from "@/lib/validation";
 import Site from "@/models/Site";
 import SiteAccessLog from "@/models/SiteAccessLog";
 import SiteAccessRule from "@/models/SiteAccessRule";
+import SiteGuardKey from "@/models/SiteGuardKey";
 
 type RouteContext = {
   params: Promise<{ siteId: string }>;
@@ -16,25 +17,29 @@ export async function GET(request: NextRequest, context: RouteContext) {
   if (auth.error || !auth.user) return auth.error;
   const { siteId } = await context.params;
 
-  const site = await Site.findOne({ developerUserId: auth.user.userId, siteId })
+  const site = await Site.findOne({ developerUserId: auth.user.userId, accountId: auth.user.primaryAccountId, siteId })
     .select("-_id siteId name domain status createdAt updatedAt")
     .lean();
   if (!site) return jsonError("Site not found.", 404);
 
-  const [rules, logs] = await Promise.all([
-    SiteAccessRule.find({ developerUserId: auth.user.userId, siteId })
+  const [rules, logs, keys] = await Promise.all([
+    SiteAccessRule.find({ developerUserId: auth.user.userId, accountId: auth.user.primaryAccountId, siteId })
       .sort({ createdAt: -1 })
       .limit(50)
       .select("-_id ruleId siteId name status agentIdentifier userAgentPattern allowedPaths blockedPaths requiresApproval notes createdAt updatedAt")
       .lean(),
-    SiteAccessLog.find({ developerUserId: auth.user.userId, siteId })
+    SiteAccessLog.find({ developerUserId: auth.user.userId, accountId: auth.user.primaryAccountId, siteId })
       .sort({ createdAt: -1 })
       .limit(25)
       .select("-_id requestId ruleId path userAgent agentIdentifier allowed reason risk createdAt")
+      .lean(),
+    SiteGuardKey.find({ developerUserId: auth.user.userId, accountId: auth.user.primaryAccountId, siteId })
+      .sort({ createdAt: -1 })
+      .select("-_id keyId siteId name keyPreview status lastUsedAt createdAt updatedAt")
       .lean()
   ]);
 
-  return NextResponse.json({ site, rules, logs });
+  return NextResponse.json({ site, rules, logs, keys });
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
@@ -62,7 +67,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   const { siteId } = await context.params;
   const site = await Site.findOneAndUpdate(
-    { developerUserId: auth.user.userId, siteId },
+    { developerUserId: auth.user.userId, accountId: auth.user.primaryAccountId, siteId },
     { $set: update },
     { returnDocument: "after" }
   ).select("-_id siteId name domain status createdAt updatedAt");

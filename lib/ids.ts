@@ -1,7 +1,7 @@
 import crypto from "crypto";
 
 export function createPublicId(
-  prefix: "acct" | "agent" | "perm" | "log" | "req" | "evt" | "wh" | "dlv" | "user" | "sess" | "tok" | "dev" | "site" | "sgr"
+  prefix: "acct" | "agent" | "perm" | "log" | "req" | "evt" | "wh" | "dlv" | "user" | "sess" | "tok" | "dev" | "site" | "sgr" | "sgk"
 ) {
   return `${prefix}_${crypto.randomBytes(12).toString("base64url")}`;
 }
@@ -30,4 +30,8 @@ export function createPassportToken() {
 
 export function createDeveloperToken() {
   return `bhf_dev_${crypto.randomBytes(32).toString("base64url")}`;
+}
+
+export function createSiteGuardKey() {
+  return `bhf_site_${crypto.randomBytes(32).toString("base64url")}`;
 }

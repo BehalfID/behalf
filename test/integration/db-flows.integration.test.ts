@@ -6,6 +6,7 @@ import { authenticateDeveloperToken, hashDeveloperToken } from "@/lib/developerT
 import { getQuotas, verificationPeriodStart } from "@/lib/plans";
 import { checkAgentLimit, checkAndIncrementVerifications } from "@/lib/quota";
 import { checkSiteAccess } from "@/lib/siteGuard";
+import { authenticateSiteGuardKey, hashSiteGuardKey } from "@/lib/siteGuardKey";
 import { verifyAction } from "@/lib/verify";
 import { WEBHOOK_MAX_ATTEMPTS } from "@/lib/webhooks";
 import { processWebhookEvents } from "@/lib/webhookWorker";
@@ -17,6 +18,7 @@ import Permission from "@/models/Permission";
 import Site from "@/models/Site";
 import SiteAccessLog from "@/models/SiteAccessLog";
 import SiteAccessRule from "@/models/SiteAccessRule";
+import SiteGuardKey from "@/models/SiteGuardKey";
 import StripeWebhookEvent from "@/models/StripeWebhookEvent";
 import VerificationLog from "@/models/VerificationLog";
 import WebhookDelivery from "@/models/WebhookDelivery";
@@ -469,6 +471,130 @@ describe("MongoDB-backed Site Guard flow", () => {
       siteId: null
     }));
     await expect(SiteAccessLog.countDocuments({ siteId: "site_dev_b" })).resolves.toBe(0);
+  });
+});
+
+describe("MongoDB-backed Site Guard key flow", () => {
+  const rawSiteKey = "bhf_site_integration_abcdefghijklmnopqrstuvwxyz12";
+
+  function siteKeyCheckRequest(key: string, body: unknown) {
+    return new Request("http://localhost/api/site-guard/check", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "authorization": `Bearer ${key}`
+      },
+      body: JSON.stringify(body)
+    }) as never;
+  }
+
+  async function seedSiteAndKey() {
+    await Site.create({
+      siteId: "site_key_integration",
+      accountId: "acct_key",
+      developerUserId: "dev_key",
+      name: "Key site",
+      domain: "key.example.com",
+      status: "active"
+    });
+    await SiteGuardKey.create({
+      keyId: "sgk_integration",
+      siteId: "site_key_integration",
+      accountId: "acct_key",
+      developerUserId: "dev_key",
+      name: "Integration key",
+      keyHash: hashSiteGuardKey(rawSiteKey),
+      keyPreview: "bhf_site_integra...yz12",
+      status: "active"
+    });
+  }
+
+  it("authenticates an active site key", async () => {
+    await seedSiteAndKey();
+
+    const req = new Request("http://localhost", {
+      headers: { authorization: `Bearer ${rawSiteKey}` }
+    }) as never;
+    const result = await authenticateSiteGuardKey(req);
+
+    expect(result.error).toBeNull();
+    expect(result.keyDoc).toMatchObject({ keyId: "sgk_integration", siteId: "site_key_integration" });
+  });
+
+  it("refuses a revoked key", async () => {
+    await SiteGuardKey.create({
+      keyId: "sgk_revoked",
+      siteId: "site_key_integration",
+      accountId: "acct_key",
+      developerUserId: "dev_key",
+      name: "Revoked key",
+      keyHash: hashSiteGuardKey("bhf_site_revoked_abcdefghijklmnopqrstuvwxyz12"),
+      keyPreview: "bhf_site_revoked...yz12",
+      status: "revoked"
+    });
+
+    const req = new Request("http://localhost", {
+      headers: { authorization: "Bearer bhf_site_revoked_abcdefghijklmnopqrstuvwxyz12" }
+    }) as never;
+    const result = await authenticateSiteGuardKey(req);
+
+    expect(result.keyDoc).toBeNull();
+    expect(result.error).toBe("Site Guard key has been revoked.");
+  });
+
+  it("scopes the check to the key's site even when a different siteId is in the body", async () => {
+    await seedSiteAndKey();
+    await SiteAccessRule.create({
+      ruleId: "sgr_key_integration",
+      siteId: "site_key_integration",
+      accountId: "acct_key",
+      developerUserId: "dev_key",
+      name: "Allow docs",
+      userAgentPattern: "Bot/*",
+      allowedPaths: ["/docs/*"],
+      blockedPaths: [],
+      status: "active"
+    });
+
+    const { POST } = await import("@/app/api/site-guard/check/route");
+    const response = await POST(siteKeyCheckRequest(rawSiteKey, {
+      siteId: "site_attacker",
+      domain: "evil.example.com",
+      path: "/docs/api",
+      userAgent: "Bot/1.0"
+    }));
+
+    expect(response.status).toBe(200);
+    const json = await response.json() as { allowed: boolean; siteId: string };
+    expect(json.allowed).toBe(true);
+    expect(json.siteId).toBe("site_key_integration");
+    await expect(SiteAccessLog.countDocuments({ siteId: "site_attacker" })).resolves.toBe(0);
+  });
+
+  it("updates lastUsedAt on the SiteGuardKey after a successful check", async () => {
+    await seedSiteAndKey();
+    await SiteAccessRule.create({
+      ruleId: "sgr_key_lastused",
+      siteId: "site_key_integration",
+      accountId: "acct_key",
+      developerUserId: "dev_key",
+      name: "Allow docs",
+      userAgentPattern: "Bot/*",
+      allowedPaths: ["/docs/*"],
+      blockedPaths: [],
+      status: "active"
+    });
+
+    const { POST } = await import("@/app/api/site-guard/check/route");
+    await POST(siteKeyCheckRequest(rawSiteKey, {
+      path: "/docs/api",
+      userAgent: "Bot/1.0"
+    }));
+
+    await vi.waitFor(async () => {
+      const key = await SiteGuardKey.findOne({ keyId: "sgk_integration" }).lean();
+      expect(key?.lastUsedAt).toBeInstanceOf(Date);
+    });
   });
 });
 
