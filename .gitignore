@@ -35,3 +35,6 @@ stripeapikeys.txt
 # CLI build artifacts
 /packages/cli/dist/
 /packages/cli/bin/
+
+# Destructive maintenance backups
+/tmp/cleanup-backups/

@@ -71,6 +71,30 @@ Rate limiting and quota checks are mocked in route tests where they are not the 
 
 The real-DB integration suite still mocks outbound webhook DNS/HTTP delivery, Stripe event signature construction, and dashboard developer-session authorization. Those mocks isolate persistence and business transitions from live third-party systems and browser/session setup.
 
+## Demo data cleanup
+
+`npm run cleanup:demo` loads `.env.local`, connects to that MongoDB database, and prints a dry-run summary of the Site Guard demo records selected for cleanup:
+
+```bash
+npm run cleanup:demo
+```
+
+Review the host, database, counts, and document summaries before executing a delete. Destructive cleanup requires both confirmation flags and writes a JSON backup under `tmp/cleanup-backups/` before deletion starts:
+
+```bash
+npm run cleanup:demo -- --execute --confirm CLEAN_DEMO_DATA
+```
+
+Broader flags are opt-in. Do not run them casually:
+
+```bash
+npm run cleanup:demo -- --include-agents
+npm run cleanup:demo -- --include-users --include-accounts
+npm run cleanup:demo -- --older-than-days 7
+```
+
+`--include-webhooks` scopes webhook records to selected users/accounts or selected agent event payloads. `--include-billing-test-events` is narrower still: Stripe webhook cleanup only considers event IDs that explicitly contain `test` or `demo`.
+
 ## Remaining gaps
 
 The real-DB integration suite is library-and-route focused. It does not start a Next.js server, establish real dashboard cookies, or run browser flows end to end.
