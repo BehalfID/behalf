@@ -38,7 +38,23 @@ function isLocalDev(request: NextRequest) {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
 }
 
+const bypassAssetPattern = /\.(ico|png|jpg|jpeg|svg|webp|css|js|map)$/i;
+
+export function shouldBypassMiddleware(pathname: string) {
+  return (
+    pathname === "/api/health" ||
+    pathname === "/robots.txt" ||
+    pathname === "/sitemap.xml" ||
+    pathname.startsWith("/_next/") ||
+    bypassAssetPattern.test(pathname)
+  );
+}
+
 export function middleware(request: NextRequest) {
+  if (shouldBypassMiddleware(request.nextUrl.pathname)) {
+    return NextResponse.next();
+  }
+
   const array = new Uint8Array(16);
   globalThis.crypto.getRandomValues(array);
   const nonce = btoa(String.fromCharCode(...array));
@@ -55,5 +71,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: "/(.*)"
+  matcher: ["/((?!api/health$|robots\\.txt$|sitemap\\.xml$|_next/|.*\\.(?:ico|png|jpg|jpeg|svg|webp|css|js|map)$).*)"]
 };
