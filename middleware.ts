@@ -43,6 +43,7 @@ const bypassAssetPattern = /\.(ico|png|jpg|jpeg|svg|webp|css|js|map)$/i;
 export function shouldBypassMiddleware(pathname: string) {
   return (
     pathname === "/api/health" ||
+    pathname === "/api/health/db" ||
     pathname === "/robots.txt" ||
     pathname === "/sitemap.xml" ||
     pathname.startsWith("/_next/") ||
@@ -71,5 +72,7 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api/health$|robots\\.txt$|sitemap\\.xml$|_next/|.*\\.(?:ico|png|jpg|jpeg|svg|webp|css|js|map)$).*)"]
+  matcher: [
+    "/((?!api/health$|api/health/db$|robots\\.txt$|sitemap\\.xml$|_next/|.*\\.(?:ico|png|jpg|jpeg|svg|webp|css|js|map)$).*)"
+  ]
 };
