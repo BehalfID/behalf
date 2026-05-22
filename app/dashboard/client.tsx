@@ -318,7 +318,7 @@ function HomeView() {
   const hasAgents = (summary.data?.totalAgents ?? 0) > 0;
   return (
     <>
-      <Header title="Dashboard" action={<ButtonLink variant="primary" href={content.actionHref}>{content.actionLabel}</ButtonLink>} />
+      <Header title="Dashboard" description="Overview of your agents, usage, and verification activity." action={<ButtonLink variant="primary" href={content.actionHref}>{content.actionLabel}</ButtonLink>} />
       {summary.error ? <p className="form-error">{summary.error}</p> : null}
       {me.error ? <p className="form-error">{me.error}</p> : null}
       {!hasAgents ? (
@@ -328,15 +328,16 @@ function HomeView() {
           <p>{content.body}</p>
           <ButtonLink variant="primary" href={content.actionHref}>{content.actionLabel}</ButtonLink>
         </Card>
-      ) : null}
-      <section className="dashboard-panel dashboard-usecase-strip">
-        <div>
-          <p className="section-kicker">{content.kicker}</p>
-          <h2>{content.title}</h2>
-          <p>{content.body}</p>
-        </div>
-        <Badge>{useCase === "personal" ? "Simple mode" : useCase === "website" ? "Site path" : "SDK path"}</Badge>
-      </section>
+      ) : (
+        <section className="dashboard-panel dashboard-usecase-strip">
+          <div>
+            <p className="section-kicker">{content.kicker}</p>
+            <h2>{content.title}</h2>
+            <p>{content.body}</p>
+          </div>
+          <Badge>{useCase === "personal" ? "Simple mode" : useCase === "website" ? "Site path" : "SDK path"}</Badge>
+        </section>
+      )}
       <div className="metric-grid">
         <Metric label="Agents" value={summary.data?.totalAgents ?? 0} />
         <Metric label="Active permissions" value={summary.data?.activePermissions ?? 0} />
@@ -406,8 +407,8 @@ function AgentsView() {
   const agents = resource.data?.agents ?? [];
   return (
     <>
-      <Header title="Agents" action={<ButtonLink variant="primary" href="/dashboard/onboarding">Add agent</ButtonLink>} />
-      {!agents.length ? (
+      <Header title="Agents" description="Manage the AI agents BehalfID enforces permissions for." action={<ButtonLink variant="primary" href="/dashboard/onboarding">Add agent</ButtonLink>} />
+      {!agents.length && resource.data ? (
         <Card className="dashboard-panel onboarding-callout">
           <h2>Create your first agent.</h2>
           <p>An agent is the AI system or workflow BehalfID identifies before it tries to browse, buy, email, book, edit, or access data. API keys identify it; permissions define what it may do.</p>
@@ -419,10 +420,12 @@ function AgentsView() {
               </div>
             ))}
           </div>
-          <ButtonLink variant="primary" href="/dashboard/onboarding">Create your first agent</ButtonLink>
+          <div><ButtonLink variant="primary" href="/dashboard/onboarding">Create your first agent</ButtonLink></div>
         </Card>
       ) : null}
-      <Rows items={agents} href={(agent) => `/dashboard/agents/${agent.agentId}`} title={(agent) => agent.name} meta={(agent) => `${agent.agentType} / ${agent.provider} / ${agent.status}`} />
+      {agents.length > 0 ? (
+        <Rows items={agents} href={(agent) => `/dashboard/agents/${agent.agentId}`} title={(agent) => agent.name} meta={(agent) => `${agent.agentType} / ${agent.provider} / ${agent.status}`} />
+      ) : null}
     </>
   );
 }
@@ -462,7 +465,7 @@ function SitesView() {
 
   return (
     <>
-      <Header title="Site Guard" action={<ButtonLink href="/docs/site-guard">Integration docs</ButtonLink>} />
+      <Header title="Site Guard" description="Block or allow AI agents from accessing your website paths." action={<ButtonLink href="/docs/site-guard">Integration docs</ButtonLink>} />
       {resource.error ? <p className="form-error">{resource.error}</p> : null}
       {siteError ? <p className="form-error">{siteError}</p> : null}
       <div className="dashboard-grid">
@@ -470,7 +473,7 @@ function SitesView() {
           <div className="dashboard-section-header">
             <div>
               <h2>Sites</h2>
-              <p>Site Guard checks are deny by default until an active rule allows a path.</p>
+              <p>Checks are deny-by-default until an active rule allows the path.</p>
             </div>
           </div>
           <div className="dashboard-list">
@@ -483,11 +486,11 @@ function SitesView() {
           </div>
           {!sites.length && resource.data ? <EmptyState className="dashboard-empty">No Site Guard sites yet.</EmptyState> : null}
         </Card>
-        <form className="dashboard-panel" onSubmit={createSite}>
+        <form className="dashboard-panel dashboard-form-card" onSubmit={createSite}>
           <h2>Create site</h2>
           <label><span>Name</span><input onChange={(event) => setName(event.target.value)} placeholder="Docs site" required value={name} /></label>
           <label><span>Domain</span><input onChange={(event) => setDomain(event.target.value)} placeholder="docs.example.com" required value={domain} /></label>
-          <Button variant="primary" type="submit">Create</Button>
+          <div><Button variant="primary" type="submit">Create site</Button></div>
         </form>
       </div>
       {selectedSiteId ? <SiteDetailView siteId={selectedSiteId} onChanged={resource.reload} /> : null}
@@ -580,7 +583,7 @@ function SiteDetailView({ siteId, onChanged }: { siteId: string; onChanged: () =
           <div>
             <p className="section-kicker">{site.siteId}</p>
             <h2>{site.name}</h2>
-            <p>{site.domain} / {site.status}</p>
+            <p>{site.domain} · <Badge>{site.status}</Badge></p>
           </div>
           <Button onClick={() => void setSiteStatus(site.status === "active" ? "disabled" : "active")}>
             {site.status === "active" ? "Disable" : "Enable"}
@@ -589,17 +592,19 @@ function SiteDetailView({ siteId, onChanged }: { siteId: string; onChanged: () =
         <h3>Site keys</h3>
         <p>Use a site key (<code>bhf_site_...</code>) in <code>Authorization: Bearer</code> to scope requests to this site only. Keys are narrower than developer tokens.</p>
         {newKeyData ? (
-          <div className="dashboard-list-row" style={{ flexDirection: "column", gap: "0.5rem" }}>
+          <div className="secret-panel">
             <strong>Key created — copy now, it will not be shown again.</strong>
-            <code style={{ wordBreak: "break-all", userSelect: "all" }}>{newKeyData.rawKey}</code>
+            <code>{newKeyData.rawKey}</code>
             <Button onClick={() => setNewKeyData(null)}>Dismiss</Button>
           </div>
         ) : null}
         <div className="dashboard-list">
           {(detail.data?.keys ?? []).map((key) => (
-            <div className="dashboard-list-row" key={key.keyId}>
-              <strong>{key.name} <Badge>{key.status}</Badge></strong>
-              <small>{key.keyPreview} / {key.status === "active" && key.lastUsedAt ? `last used ${date(key.lastUsedAt)}` : "never used"}</small>
+            <div key={key.keyId}>
+              <span>
+                <strong>{key.name} <Badge>{key.status}</Badge></strong>
+                <small>{key.keyPreview} / {key.status === "active" && key.lastUsedAt ? `last used ${date(key.lastUsedAt)}` : "never used"}</small>
+              </span>
               {key.status === "active" ? <Button onClick={() => void revokeKey(key.keyId)}>Revoke</Button> : null}
             </div>
           ))}
@@ -608,31 +613,38 @@ function SiteDetailView({ siteId, onChanged }: { siteId: string; onChanged: () =
         <h3>Rules</h3>
         <div className="dashboard-list">
           {detail.data?.rules.map((rule) => (
-            <div className="dashboard-list-row" key={rule.ruleId}>
-              <strong>{rule.name} <Badge>{rule.status}</Badge></strong>
-              <small>{rule.agentIdentifier || rule.userAgentPattern} / allow {rule.allowedPaths.join(", ") || "none"} / block {rule.blockedPaths.join(", ") || "none"}</small>
+            <div key={rule.ruleId}>
+              <span>
+                <strong>{rule.name} <Badge>{rule.status}</Badge></strong>
+                <small>{rule.agentIdentifier || rule.userAgentPattern} / allow {rule.allowedPaths.join(", ") || "none"} / block {rule.blockedPaths.join(", ") || "none"}</small>
+              </span>
               <Button onClick={() => void setRuleStatus(rule)}>{rule.status === "active" ? "Disable" : "Enable"}</Button>
             </div>
           ))}
         </div>
+        {!(detail.data?.rules ?? []).length && detail.data ? <EmptyState className="dashboard-empty">No rules yet. Add a rule to allow specific paths.</EmptyState> : null}
         <h3>Recent checks</h3>
         <div className="dashboard-list">
           {detail.data?.logs.map((log) => (
-            <div className="dashboard-list-row" key={log.requestId}>
-              <strong>{log.allowed ? "Allowed" : "Denied"} {log.path}</strong>
-              <small>{log.reason} / {log.requestId} / {date(log.createdAt)}</small>
+            <div key={log.requestId}>
+              <span>
+                <strong>{log.allowed ? "Allowed" : "Denied"} {log.path}</strong>
+                <small>{log.reason} · {log.requestId} · {date(log.createdAt)}</small>
+              </span>
+              <Badge>{log.risk} risk</Badge>
             </div>
           ))}
         </div>
+        {!(detail.data?.logs ?? []).length && detail.data ? <EmptyState className="dashboard-empty">No recent checks.</EmptyState> : null}
       </Card>
-      <div className="dashboard-panel" style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-        <form onSubmit={createKey}>
+      <div className="dashboard-side-forms">
+        <form className="dashboard-panel dashboard-form-card" onSubmit={createKey}>
           <h2>Create site key</h2>
           {keyError ? <p className="form-error">{keyError}</p> : null}
           <label><span>Name</span><input onChange={(event) => setKeyName(event.target.value)} placeholder="Middleware key" required value={keyName} /></label>
-          <Button variant="primary" type="submit">Create key</Button>
+          <div><Button variant="primary" type="submit">Create key</Button></div>
         </form>
-        <form onSubmit={createRule}>
+        <form className="dashboard-panel dashboard-form-card" onSubmit={createRule}>
           <h2>Add rule</h2>
           {detailError ? <p className="form-error">{detailError}</p> : null}
           <label><span>Name</span><input onChange={(event) => setName(event.target.value)} required value={name} /></label>
@@ -641,7 +653,7 @@ function SiteDetailView({ siteId, onChanged }: { siteId: string; onChanged: () =
           <label><span>Allowed paths</span><textarea onChange={(event) => setAllowedPaths(event.target.value)} rows={3} value={allowedPaths} /></label>
           <label><span>Blocked paths</span><textarea onChange={(event) => setBlockedPaths(event.target.value)} rows={3} value={blockedPaths} /></label>
           <label><span><input checked={requiresApproval} onChange={(event) => setRequiresApproval(event.target.checked)} type="checkbox" /> Require approval</span></label>
-          <Button variant="primary" type="submit">Add rule</Button>
+          <div><Button variant="primary" type="submit">Add rule</Button></div>
         </form>
       </div>
     </section>
@@ -982,7 +994,7 @@ ${regularPassportUrl || "[passport link]"}`;
   if (userPath === null) {
     return (
       <>
-        <Header title="What are you using BehalfID for?" />
+        <Header title="Add agent" description="Choose how you want to integrate BehalfID — as a developer or as an existing AI assistant user." />
         <section className="agent-create-grid">
           <button
             className="dashboard-panel onboarding-choice"
@@ -994,10 +1006,10 @@ ${regularPassportUrl || "[passport link]"}`;
             }}
             type="button"
           >
-            <span className="console-status">Developer integration mode</span>
+            <span className="console-status">Developer mode</span>
             <h2>I&apos;m a developer building with agents</h2>
             <p>Use the API, SDK, webhooks, and verification endpoint to enforce permissions before your agent acts.</p>
-            <small>Create an agent, define scopes, call verify(), use the SDK or webhooks, and fail closed.</small>
+            <small>Create an agent → define scopes → call verify() → fail closed.</small>
           </button>
           <button
             className="dashboard-panel onboarding-choice"
@@ -1012,10 +1024,10 @@ ${regularPassportUrl || "[passport link]"}`;
             }}
             type="button"
           >
-            <span className="console-status console-status--active">Manual passport mode</span>
+            <span className="console-status console-status--active">Passport mode</span>
             <h2>I&apos;m using an existing AI assistant</h2>
             <p>Create a manual permission passport for ChatGPT, Claude, Gemini, Ollie, Zapier, Make, or another assistant.</p>
-            <small>Describe what you want. AI drafts the permissions. You review and confirm before anything is created.</small>
+            <small>Describe what you want → AI drafts permissions → you review and confirm.</small>
           </button>
         </section>
       </>
@@ -1535,7 +1547,7 @@ function AgentView({ agentId }: { agentId: string }) {
 
   return (
     <>
-      <Header title={agent?.name ?? "Agent"} action={<div className="form-actions"><Button onClick={rotate}>Rotate key</Button><Button onClick={() => setStatus("disable")}>Disable</Button><Button onClick={() => setStatus("enable")}>Enable</Button></div>} />
+      <Header title={agent?.name ?? "Agent"} description={agent?.description ?? "Agent credentials, permissions, and verification logs."} action={<div className="form-actions"><Button onClick={rotate}>Rotate key</Button>{agent?.status === "active" ? <Button onClick={() => setStatus("disable")}>Disable</Button> : <Button onClick={() => setStatus("enable")}>Enable</Button>}</div>} />
       {secret ? <Secret value={secret} label="Rotated API key" /> : null}
       {agent ? (
         <Card className="dashboard-panel agent-passport">
@@ -1562,9 +1574,9 @@ function AgentView({ agentId }: { agentId: string }) {
         <label><span>Provider</span><select value={profile.provider ?? agent?.provider ?? "custom"} onChange={(e) => setProfile({ ...profile, provider: e.target.value as AgentProvider })}>{providerOptions.map((provider) => <option key={provider.value} value={provider.value}>{provider.label}</option>)}</select></label>
         <label><span>Connection status</span><select value={profile.connectionStatus ?? agent?.connectionStatus ?? "manual"} onChange={(e) => setProfile({ ...profile, connectionStatus: e.target.value as Agent["connectionStatus"] })}><option value="manual">Manual</option><option value="connected">Connected</option><option value="disconnected">Disconnected</option></select></label>
         <label><span>External reference</span><input placeholder="Optional: workspace name, URL, handle, or internal label" value={profile.externalAgentLabel ?? agent?.externalAgentLabel ?? ""} onChange={(e) => setProfile({ ...profile, externalAgentLabel: e.target.value })} /></label>
-        <label style={{ gridColumn: "1 / -1" }}><span>External ID</span><input value={profile.externalAgentId ?? agent?.externalAgentId ?? ""} onChange={(e) => setProfile({ ...profile, externalAgentId: e.target.value })} /></label>
-        <label style={{ gridColumn: "1 / -1" }}><span>Description</span><textarea rows={3} value={profile.description ?? agent?.description ?? ""} onChange={(e) => setProfile({ ...profile, description: e.target.value })} /></label>
-        <div className="form-actions" style={{ gridColumn: "1 / -1" }}>
+        <label className="agent-edit-form__full-col"><span>External ID</span><input value={profile.externalAgentId ?? agent?.externalAgentId ?? ""} onChange={(e) => setProfile({ ...profile, externalAgentId: e.target.value })} /></label>
+        <label className="agent-edit-form__full-col"><span>Description</span><textarea rows={3} value={profile.description ?? agent?.description ?? ""} onChange={(e) => setProfile({ ...profile, description: e.target.value })} /></label>
+        <div className="form-actions agent-edit-form__full-col">
           <Button variant="primary" type="submit">Save profile</Button>
         </div>
       </form>
@@ -1766,32 +1778,35 @@ function WebhooksView() {
   const webhooksEnabled = resource.data?.webhooksEnabled ?? false;
   return (
     <>
-      <Header
-        title="Webhooks"
-        description="Manage event delivery endpoints and signing secrets."
-        action={<ButtonLink href="/dashboard/billing">{webhooksEnabled ? "Manage billing" : "Upgrade"}</ButtonLink>}
-      />
+      <Header title="Webhooks" description="Manage event delivery endpoints and signing secrets." action={<ButtonLink variant={webhooksEnabled ? "secondary" : "primary"} href="/dashboard/billing">{webhooksEnabled ? "Manage billing" : "Upgrade to Pro"}</ButtonLink>} />
       {resource.error ? <p className="form-error">{resource.error}</p> : null}
       {!webhooksEnabled ? (
         <Card className="dashboard-panel">
-          <div className="agent-passport__header">
-            <Badge>Free plan</Badge>
-            <Badge>Webhooks disabled</Badge>
+          <div className="dashboard-section-header">
+            <div>
+              <div className="agent-passport__header">
+                <Badge>Free plan</Badge>
+                <Badge>Webhooks disabled</Badge>
+              </div>
+              <h2>Webhooks require Pro.</h2>
+              <p>Free accounts can create agents and call verify, but webhook delivery is disabled until the account upgrades. Existing endpoints stay disabled after downgrade so verification still fails closed without silent delivery.</p>
+            </div>
+            <ButtonLink variant="primary" href="/dashboard/billing">Upgrade to Pro</ButtonLink>
           </div>
-          <h2>Webhooks require Pro.</h2>
-          <p>Free accounts can create agents and call verify, but webhook delivery is disabled until the account upgrades. Existing endpoints stay disabled after downgrade so verification still fails closed without silent delivery.</p>
-          <ButtonLink href="/dashboard/billing">View plan limits</ButtonLink>
         </Card>
       ) : null}
-      <form className="dashboard-panel inline-form" onSubmit={create}>
-        <label>
-          <span>Endpoint URL</span>
-          <input disabled={!webhooksEnabled} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com/webhooks/behalfid" required value={url} />
-        </label>
-        <Button disabled={!webhooksEnabled} variant="primary">Create webhook</Button>
-      </form>
-      {webhookError ? <p className="form-error">{webhookError}</p> : null}
-      {secret ? <Secret value={secret} label="Signing secret" /> : null}
+      <Card className="dashboard-panel webhook-form-card">
+        <h2>Create webhook</h2>
+        <form className="inline-form" onSubmit={create}>
+          <label>
+            <span>Endpoint URL</span>
+            <input disabled={!webhooksEnabled} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com/webhooks/behalfid" required value={url} />
+          </label>
+          <Button disabled={!webhooksEnabled} variant="primary">Create</Button>
+        </form>
+        {webhookError ? <p className="form-error">{webhookError}</p> : null}
+        {secret ? <Secret value={secret} label="Signing secret" /> : null}
+      </Card>
       <Rows items={resource.data?.webhooks ?? []} href={(w) => `/dashboard/webhooks/${w.webhookId}`} title={(w) => w.url} meta={(w) => `${w.status} / ${w.events.join(", ")}`} />
     </>
   );
@@ -1802,13 +1817,37 @@ function WebhookView({ webhookId }: { webhookId: string }) {
   const [secret, setSecret] = useState("");
   const rotate = async () => setSecret((await api<{ secret: string }>(`/api/dashboard/webhooks/${webhookId}/rotate-secret`, { method: "POST" })).secret);
   const setStatus = async (status: "enable" | "disable") => { await api(`/api/dashboard/webhooks/${webhookId}/${status}`, { method: "POST" }); await detail.reload(); };
+  const webhook = detail.data?.webhook;
   return (
     <>
-      <Header title="Webhook" action={<Button onClick={rotate}>Rotate secret</Button>} />
+      <Header title="Webhook" description={webhook?.url ?? ""} action={<div className="form-actions"><Button onClick={rotate}>Rotate secret</Button>{webhook?.status === "active" ? <Button onClick={() => setStatus("disable")}>Disable</Button> : <Button onClick={() => setStatus("enable")}>Enable</Button>}</div>} />
       {secret ? <Secret value={secret} label="Rotated signing secret" /> : null}
-      <div className="dashboard-actions"><Button onClick={() => setStatus("disable")}>Disable</Button><Button onClick={() => setStatus("enable")}>Enable</Button></div>
-      <Card className="dashboard-panel"><strong>{detail.data?.webhook.url}</strong><p>{detail.data?.webhook.secretPreview}</p></Card>
-      <div className="dashboard-list">{(detail.data?.deliveries ?? []).map((d) => <div key={d.deliveryId}><span><strong>{d.eventType}</strong><small>{d.eventId} / attempt {d.attempt}{d.error ? ` / ${d.error}` : ""}</small></span><Badge>{d.status}</Badge></div>)}</div>
+      {webhook ? (
+        <Card className="dashboard-panel">
+          <div className="dashboard-section-header">
+            <div>
+              <strong>{webhook.url}</strong>
+              <p className="field-help">Secret preview: {webhook.secretPreview}</p>
+            </div>
+            <Badge>{webhook.status}</Badge>
+          </div>
+        </Card>
+      ) : null}
+      <section className="dashboard-panel">
+        <h2>Delivery history</h2>
+        <div className="dashboard-list">
+          {(detail.data?.deliveries ?? []).map((d) => (
+            <div key={d.deliveryId}>
+              <span>
+                <strong>{d.eventType}</strong>
+                <small>{d.eventId} · attempt {d.attempt}{d.error ? ` · ${d.error}` : ""}</small>
+              </span>
+              <Badge>{d.status}</Badge>
+            </div>
+          ))}
+        </div>
+        {!(detail.data?.deliveries ?? []).length && detail.data ? <EmptyState className="dashboard-empty">No deliveries yet.</EmptyState> : null}
+      </section>
     </>
   );
 }
@@ -1830,26 +1869,36 @@ function LogsView() {
   const exportHref = `${path}${path.includes("?") ? "&" : "?"}format=csv`;
   return (
     <>
-      <Header
-        title="Logs"
-        description="Search and export verification decisions."
-        action={<ButtonLink href={exportHref}>Export CSV</ButtonLink>}
-      />
+      <Header title="Logs" description="Search and export verification decisions." action={<ButtonLink href={exportHref}>Export CSV</ButtonLink>} />
       <div className="console-toolbar">
-        <input aria-label="Filter by agent ID" onChange={(event) => setAgentId(event.target.value)} placeholder="agent_xxx" value={agentId} />
-        <select aria-label="Allowed filter" onChange={(event) => setAllowed(event.target.value)} value={allowed}>
-          <option value="">All decisions</option>
-          <option value="true">Allowed</option>
-          <option value="false">Denied</option>
-        </select>
-        <input aria-label="Filter by action" onChange={(event) => setAction(event.target.value)} placeholder="action" value={action} />
-        <select aria-label="Risk filter" onChange={(event) => setRisk(event.target.value)} value={risk}>
-          <option value="">All risk</option>
-          <option value="low">Low</option>
-          <option value="medium">Medium</option>
-          <option value="high">High</option>
-        </select>
-        <Button onClick={logs.reload} type="button">Refresh</Button>
+        <label style={{ flex: "1 1 160px" }}>
+          <span style={{ display: "block", fontSize: "0.78rem", color: "var(--muted)", marginBottom: 4 }}>Agent ID</span>
+          <input aria-label="Filter by agent ID" onChange={(event) => setAgentId(event.target.value)} placeholder="agent_xxx" value={agentId} />
+        </label>
+        <label style={{ flex: "1 1 130px" }}>
+          <span style={{ display: "block", fontSize: "0.78rem", color: "var(--muted)", marginBottom: 4 }}>Decision</span>
+          <select aria-label="Allowed filter" onChange={(event) => setAllowed(event.target.value)} value={allowed}>
+            <option value="">All decisions</option>
+            <option value="true">Allowed</option>
+            <option value="false">Denied</option>
+          </select>
+        </label>
+        <label style={{ flex: "1 1 130px" }}>
+          <span style={{ display: "block", fontSize: "0.78rem", color: "var(--muted)", marginBottom: 4 }}>Action</span>
+          <input aria-label="Filter by action" onChange={(event) => setAction(event.target.value)} placeholder="access_data" value={action} />
+        </label>
+        <label style={{ flex: "1 1 120px" }}>
+          <span style={{ display: "block", fontSize: "0.78rem", color: "var(--muted)", marginBottom: 4 }}>Risk</span>
+          <select aria-label="Risk filter" onChange={(event) => setRisk(event.target.value)} value={risk}>
+            <option value="">All risk</option>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+        </label>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 8 }}>
+          <Button onClick={logs.reload} type="button">Refresh</Button>
+        </div>
       </div>
       {logs.data?.summary ? <LogSummaryStrip summary={logs.data.summary} /> : null}
       <LogList logs={logs.data?.logs ?? []} />
@@ -1882,10 +1931,38 @@ function SettingsView() {
   return (
     <>
       <Header title="Settings" description="Manage account details and developer tokens." />
-      <Card className="dashboard-panel"><p>{settings.data?.email}</p><p>{settings.data?.appUrl}</p><p>{settings.data?.apiUsage}</p><p>{settings.data?.dangerZone}</p></Card>
+      <Card className="dashboard-panel">
+        <div className="dashboard-section-header">
+          <h2>Account</h2>
+        </div>
+        {settings.data ? (
+          <div className="account-details">
+            <div className="account-details__row">
+              <span className="account-details__label">Email</span>
+              <span className="account-details__value">{settings.data.email}</span>
+            </div>
+            <div className="account-details__row">
+              <span className="account-details__label">App URL</span>
+              <span className="account-details__value">{settings.data.appUrl}</span>
+            </div>
+            <div className="account-details__row">
+              <span className="account-details__label">API usage</span>
+              <span className="account-details__value">{settings.data.apiUsage}</span>
+            </div>
+            <div className="account-details__row">
+              <span className="account-details__label">Danger zone</span>
+              <span className="account-details__value">{settings.data.dangerZone}</span>
+            </div>
+          </div>
+        ) : null}
+      </Card>
       <section className="dashboard-panel">
-        <h2>Developer API tokens</h2>
-        <p className="field-help">Developer tokens are optional account-scoped credentials for SDK/API calls that need developer context. Raw tokens are shown once and stored hashed.</p>
+        <div className="dashboard-section-header">
+          <div>
+            <h2>Developer API tokens</h2>
+            <p className="field-help">Account-scoped credentials for SDK/API calls that need developer context. Tokens are shown once and stored hashed.</p>
+          </div>
+        </div>
         <form className="inline-form" onSubmit={createToken}>
           <label>
             <span>Token name</span>
@@ -1899,7 +1976,7 @@ function SettingsView() {
             <div key={token.tokenId}>
               <span>
                 <strong>{token.name}</strong>
-                <small>{token.tokenPreview ?? "Preview unavailable"} / created {date(token.createdAt)} / last used {date(token.lastUsedAt)}</small>
+                <small>{token.tokenPreview ?? "Preview unavailable"} · created {date(token.createdAt)} · last used {date(token.lastUsedAt)}</small>
               </span>
               <Button onClick={() => revokeToken(token.tokenId)} type="button">Revoke</Button>
             </div>
@@ -1911,8 +1988,29 @@ function SettingsView() {
   );
 }
 
+const DOC_CARDS = [
+  { title: "Quickstart", description: "Get your first agent running in under 10 minutes.", href: "/docs/quickstart" },
+  { title: "API reference", description: "Full HTTP API documentation for verify, agents, and permissions.", href: "/docs/api" },
+  { title: "SDK", description: "Node.js SDK for calling verify() before tool execution.", href: "/docs/sdk" },
+  { title: "Webhooks", description: "Receive real-time events for allowed, denied, and failed decisions.", href: "/docs/webhooks" },
+  { title: "Site Guard", description: "Block or allow AI agents and crawlers from accessing your website paths.", href: "/docs/site-guard" },
+  { title: "CLI & MCP", description: "Configure agents and connect Claude Code or Codex to BehalfID.", href: "/docs/cli" },
+];
+
 function DashboardDocs() {
-  return <><Header title="Integration docs" description="Open implementation guides and API references." /><Card className="dashboard-panel dashboard-doc-links"><ButtonLink href="/docs/quickstart">Quickstart</ButtonLink><ButtonLink href="/docs/api">API</ButtonLink><ButtonLink href="/docs/sdk">SDK</ButtonLink><ButtonLink href="/docs/webhooks">Webhooks</ButtonLink></Card></>;
+  return (
+    <>
+      <Header title="Integration docs" description="Open implementation guides and API references." />
+      <div className="dashboard-doc-cards">
+        {DOC_CARDS.map((card) => (
+          <Link key={card.href} href={card.href} className="dashboard-doc-card">
+            <strong className="dashboard-doc-card__title">{card.title}</strong>
+            <p className="dashboard-doc-card__description">{card.description}</p>
+          </Link>
+        ))}
+      </div>
+    </>
+  );
 }
 
 function Header({ title, description, action }: { title: string; description?: string; action?: React.ReactNode }) {

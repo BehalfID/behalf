@@ -3749,6 +3749,10 @@ html[data-theme="light"] .ob-plan--featured:hover {
   align-items: start;
 }
 
+.agent-edit-form__full-col {
+  grid-column: 1 / -1;
+}
+
 .onboarding-callout h2,
 .onboarding-form h2,
 .passport-hero h1,
@@ -4252,6 +4256,153 @@ html[data-theme="light"] .ob-plan--featured:hover {
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 }
 
+/* ── Dashboard two-column grid (Sites, Site detail) ──── */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 18px;
+  align-items: start;
+}
+
+/* ── Agent guidelines list ──────────────────────────── */
+.guidelines-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.guidelines-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.3);
+  font-size: 0.88rem;
+}
+
+.guidelines-list li span {
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ── Integration docs card grid ─────────────────────── */
+.dashboard-doc-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.dashboard-doc-card {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 120px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  background: var(--surface);
+  text-decoration: none;
+  color: var(--text);
+  transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
+}
+
+.dashboard-doc-card:hover {
+  border-color: var(--border-strong);
+  background: rgba(10, 10, 10, 0.96);
+  transform: translateY(-1px);
+}
+
+.dashboard-doc-card__title {
+  font-size: 0.95rem;
+  font-weight: 660;
+  color: var(--text);
+  display: block;
+}
+
+.dashboard-doc-card__description {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+/* ── Dashboard site-form card wrapper ───────────────── */
+.dashboard-form-card {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  margin-bottom: 0;
+}
+
+.dashboard-form-card h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1rem;
+}
+
+/* ── Dashboard side-forms column (Site detail) ──────── */
+.dashboard-side-forms {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* ── Consistent h2 margin inside dashboard panels ────── */
+.dashboard-panel > h2:first-child,
+.dashboard-panel > h3 {
+  margin-top: 0;
+}
+
+/* ── Account details list ───────────────────────────── */
+.account-details {
+  display: grid;
+  gap: 0;
+}
+
+.account-details__row {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.account-details__row:last-child {
+  border-bottom: none;
+}
+
+.account-details__label {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.account-details__value {
+  color: var(--text);
+  font-size: 0.88rem;
+  overflow-wrap: anywhere;
+}
+
+/* ── Webhook plan-gated form state ──────────────────── */
+.webhook-form-card {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+}
+
+.webhook-form-card h2 {
+  margin: 0;
+}
+
 /* Legacy landing selectors retained in case old static routes are revisited. */
 .home {
   min-height: 100svh;
@@ -4364,8 +4515,13 @@ html[data-theme="light"] .ob-plan--featured:hover {
   .onboarding-result-grid,
   .onboarding-result-grid--native,
   .billing-grid,
-  .passport-grid {
+  .passport-grid,
+  .dashboard-grid {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-doc-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -4538,7 +4694,8 @@ html[data-theme="light"] .ob-plan--featured:hover {
 
   .docs-links,
   .concept-grid,
-  .dashboard-doc-links {
+  .dashboard-doc-links,
+  .dashboard-doc-cards {
     grid-template-columns: 1fr;
   }
 }
@@ -4589,7 +4746,8 @@ html[data-theme="light"] .ob-plan--featured:hover {
   .inline-form,
   .constraint-list,
   .auth-context ul,
-  .flow {
+  .flow,
+  .dashboard-grid {
     grid-template-columns: 1fr;
   }
 
@@ -8044,4 +8202,44 @@ html[data-theme="light"] .app-sidebar__footer {
     flex-direction: column;
     align-items: flex-start;
   }
+}
+
+/* ─── Social Links ──────────────────────────────────────────── */
+.social-links {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.social-links__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 120ms ease, opacity 120ms ease;
+  flex-shrink: 0;
+}
+
+.social-links__icon:hover {
+  color: var(--text);
+}
+
+/* Nav: small separator before social icons, tighten gap slightly */
+.social-links--nav {
+  gap: 12px;
+}
+
+/* Drawer: full-width row at the bottom with top border */
+.social-links--drawer {
+  gap: 18px;
+  padding: 16px 0 4px;
+  border-top: 1px solid var(--hairline);
+  margin-top: 4px;
+}
+
+/* Footer: slightly smaller icons */
+.social-links--footer .social-links__icon svg {
+  width: 14px;
+  height: 14px;
 }
