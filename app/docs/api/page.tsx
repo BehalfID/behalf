@@ -5,7 +5,7 @@ const endpoints = [
   ["POST", "/api/permissions", "Create a permission for the authenticated agent."],
   ["POST", "/api/verify", "Evaluate whether an agent can perform an action."],
   ["POST", "/api/actions/execute", "Execute an allowed safe public web read through the Action Gateway MVP."],
-  ["GET", "/api/logs/[agentId]", "Read recent verification logs for the authenticated agent."],
+  ["GET", "/api/logs/[agentId]", "Read filtered verification logs and summaries for the authenticated agent."],
   ["POST", "/api/agents/[agentId]/rotate-key", "Rotate an agent API key and return the new key once."]
 ];
 const passportEndpoints = [
@@ -45,6 +45,37 @@ export default function ApiDocsPage() {
       <p>
         API errors, webhook payloads, worker summaries, SDK errors, and CLI errors are expected to redact bearer
         tokens, agent keys, developer tokens, passport tokens, and webhook signing secrets.
+      </p>
+      <h2>Plans and quota errors</h2>
+      <p>
+        Free accounts include 5 agents, 10,000 verifications per UTC calendar month, no dashboard webhooks,
+        and 7-day log retention. Pro includes 50 agents, 250,000 verifications per month, dashboard webhooks,
+        and 90-day log retention. Enterprise treats agent and verification quotas as unlimited, enables
+        webhooks, and keeps 365 days of logs.
+      </p>
+      <p>
+        Limit failures return stable codes with safe plan context, for example
+        <code> AGENT_LIMIT_REACHED</code>, <code>VERIFICATION_LIMIT_REACHED</code>, or
+        <code> WEBHOOKS_REQUIRE_PRO</code>. Responses include the current plan, relevant limit, and upgrade hint,
+        but not Stripe customer IDs, subscription IDs, price IDs, or secrets.
+      </p>
+      <h2>Verification logs</h2>
+      <p>
+        Verification logs record the decision fields developers need to debug agent activity:
+        <code> requestId</code>, agent, permission when matched, action, vendor or resource,
+        amount when supplied, allowed/denied status, reason, risk, and timestamp. Optional metadata is only
+        persisted when <code>BEHALFID_LOG_METADATA</code> is not <code>false</code>, and current list/export
+        endpoints omit metadata.
+      </p>
+      <p>
+        Log endpoints support filters for agent, action, vendor/resource, allowed/denied, risk, request ID,
+        date range, limit, and page. Dashboard reads are scoped to the authenticated developer. Console reads
+        are admin-only and account-scoped. <code>format=csv</code> exports the selected safe fields.
+      </p>
+      <p>
+        Use <code>requestId</code> to connect the verify response, dashboard or console log row, CLI output,
+        and verification webhook payload. Raw bearer tokens, agent keys, developer tokens, passport tokens,
+        and webhook signing secrets are redacted from log responses and exports.
       </p>
       <h2>Agent metadata</h2>
       <p>

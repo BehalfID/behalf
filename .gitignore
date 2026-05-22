@@ -4,6 +4,7 @@ out
 .env
 .env*.local
 .env.*
+!examples/site-guard-demo/.env.example
 *.tsbuildinfo
 vercel.json
 npm-debug.log*
@@ -16,12 +17,16 @@ packages/cli/behalfid-cli-0.2.0.tgz
 # Design system source files — not for distribution
 *.zip
 
-# X autoposter — local-only scripts
+# Social posting scripts — local-only
 /scripts/x-autoposter.sh
 /scripts/x-brand-context.md
 /scripts/x-autopost-daemon.sh
 /scripts/x-replier.sh
 /scripts/x-reply-queue.txt
+/scripts/post-x.sh
+/scripts/post-bsky.sh
+/scripts/post-linkedin.sh
+/scripts/post-master.sh
 
 # Local Stripe key storage — never commit
 stripeapikeys.txt

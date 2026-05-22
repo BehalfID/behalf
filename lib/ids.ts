@@ -1,7 +1,7 @@
 import crypto from "crypto";
 
 export function createPublicId(
-  prefix: "acct" | "agent" | "perm" | "log" | "req" | "evt" | "wh" | "dlv" | "user" | "sess" | "tok" | "dev"
+  prefix: "acct" | "agent" | "perm" | "log" | "req" | "evt" | "wh" | "dlv" | "user" | "sess" | "tok" | "dev" | "site" | "sgr"
 ) {
   return `${prefix}_${crypto.randomBytes(12).toString("base64url")}`;
 }

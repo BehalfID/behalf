@@ -40,6 +40,7 @@ Current coverage includes:
 - Developer API token list/create/revoke behavior, one-time raw token response, hashed token storage with safe preview metadata, developer-token `lastUsedAt` updates, and token list redaction after creation.
 - Secret redaction for best-effort last-used update failures and CLI error output.
 - Verification log filtering, date-range retention floor behavior, summary counts, dashboard developer scoping, console account scoping, pagination metadata, CSV export redaction, and CLI log filter/output redaction.
+- Site Guard path wildcard matching, blocked-path precedence, deny-by-default logic, disabled site/rule behavior, log creation, metadata redaction, fail-closed lookup handling, and check-route auth/input/response coverage.
 
 ## MongoDB integration coverage
 
@@ -56,6 +57,7 @@ Current real-DB coverage proves:
 - Webhook event claiming/completion, retry scheduling, dead-lettering, endpoint event/status/account filtering, and delivery-record writes against real WebhookEvent, WebhookEndpoint, and WebhookDelivery records.
 - Stripe webhook idempotency and plan/webhook status mutations against real StripeWebhookEvent, Account, DeveloperUser, and WebhookEndpoint records.
 - Developer token create/list/auth/delete behavior against real DeveloperApiToken records, including hash storage, preview-only listing, and last-used updates.
+- Site Guard Site, Rule, check decision, and SiteAccessLog persistence against real MongoDB records.
 
 ## What is mocked
 

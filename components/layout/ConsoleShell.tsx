@@ -7,6 +7,7 @@ import { Logo, ThemeToggle } from "@/components/ui";
 const consoleNav = [
   { href: "/console", label: "Dashboard" },
   { href: "/console/agents", label: "Agents" },
+  { href: "/console/site-guard", label: "Site Guard" },
   { href: "/console/webhooks", label: "Webhooks" },
   { href: "/console/webhook-events", label: "Events" },
   { href: "/console/logs", label: "Logs" },

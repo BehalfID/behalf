@@ -74,7 +74,7 @@ behalf verify agent_xxx --action purchase --vendor amazon.com --amount 25`}</Cod
       <h2>MCP enforcement</h2>
       <p>
         BehalfID ships a Model Context Protocol (MCP) server that makes real-time
-        <code> verify_action</code> available to any AI tool that supports MCP. Run{" "}
+        <code> verify_action</code> and <code> get_permissions</code> available to any AI tool that supports MCP. Run{" "}
         <code>behalf mcp init</code> once per project to wire it in.
       </p>
       <CodeBlock label="terminal">{`behalf config set agent-id agent_xxx
@@ -102,24 +102,33 @@ behalf mcp init`}</CodeBlock>
   }
 }`}</CodeBlock>
       <p>
-        The MCP server exposes a single tool, <code>verify_action</code>, that the AI calls
-        before any external action. The context file instructs the AI to call it and to stop if
-        the result is <code>&quot;allowed&quot;: false</code>.
+        The MCP server exposes <code>get_permissions</code> for inspection and
+        <code> verify_action</code> for enforcement. The context file instructs the AI to call
+        <code> verify_action</code> before risky or permissioned actions, stop on denied decisions,
+        fail closed if verification is unavailable, and pause when approval is required.
       </p>
       <CodeBlock label="terminal">{`behalf mcp status           # show config and cached permissions for this directory
 behalf mcp init --refresh   # force-refresh the permissions cache from the server
-behalf mcp init --dry-run   # preview what would be written without writing`}</CodeBlock>
+behalf mcp init --dry-run   # preview what would be written without writing
+behalf doctor               # diagnose CLI and MCP setup`}</CodeBlock>
 
       <h2>Launch AI tools with enforcement</h2>
       <p>
         The <code>behalf claude</code>, <code>behalf codex</code>, and <code>behalf run</code> commands
         fetch the latest permissions, write <code>.behalf/context.md</code> and <code>.mcp.json</code>,
         and then launch the tool — so enforcement is always current when the session starts.
+        The launcher prints the agent, base URL, context file, MCP config, and command it is
+        about to run. It does not print API keys.
       </p>
       <CodeBlock label="terminal">{`behalf claude              # launch Claude Code with enforcement active
 behalf codex               # launch Codex CLI with enforcement active
 behalf run cursor          # launch Cursor with enforcement active
 behalf claude --resume     # pass extra flags straight through to the tool`}</CodeBlock>
+
+      <p>
+        For a runnable local walkthrough with allowed, denied, and approval-required examples,
+        see <code>docs/MCP_DEMO.md</code>.
+      </p>
 
       <h2>Config</h2>
       <CodeBlock label="terminal">{`behalf config set api-key bhf_sk_xxx

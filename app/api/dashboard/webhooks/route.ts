@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import { createPublicId } from "@/lib/ids";
-import { checkWebhooksEnabled } from "@/lib/quota";
+import { checkWebhooksEnabled, quotaErrorDetails } from "@/lib/quota";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { rejectUnknownFields } from "@/lib/validation";
@@ -12,15 +12,24 @@ import {
   WEBHOOK_EVENT_TYPES
 } from "@/lib/webhooks";
 import WebhookEndpoint from "@/models/WebhookEndpoint";
+import { getQuotas, type Plan } from "@/lib/plans";
 
 export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
+  const plan = (auth.account?.plan ?? "free") as Plan;
+  const quotas = getQuotas(plan);
   const webhooks = await WebhookEndpoint.find({ developerUserId: auth.user.userId })
     .sort({ createdAt: -1 })
     .select("-_id webhookId url secretPreview events status lastTriggeredAt createdAt updatedAt")
     .lean();
-  return NextResponse.json({ webhooks, eventTypes: WEBHOOK_EVENT_TYPES });
+  return NextResponse.json({
+    webhooks,
+    eventTypes: WEBHOOK_EVENT_TYPES,
+    plan,
+    webhooksEnabled: quotas.webhooksEnabled,
+    upgradeHint: quotas.webhooksEnabled ? null : "Upgrade to Pro to enable webhook delivery."
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -29,7 +38,7 @@ export async function POST(request: NextRequest) {
 
   const webhookQuota = checkWebhooksEnabled(auth.account?.plan);
   if (!webhookQuota.allowed) {
-    return jsonError(webhookQuota.reason ?? "Webhooks are not available on this plan.", 403);
+    return jsonError(webhookQuota.reason ?? "Webhooks are not available on this plan.", 403, quotaErrorDetails(webhookQuota));
   }
 
   const { body, error } = await readJsonObject(request);
@@ -46,7 +55,7 @@ export async function POST(request: NextRequest) {
   const signing = createSigningSecret();
   const webhook = await WebhookEndpoint.create({
     webhookId: createPublicId("wh"),
-    accountId: auth.user.userId,
+    accountId: auth.account?.accountId ?? auth.user.primaryAccountId ?? auth.user.userId,
     developerUserId: auth.user.userId,
     url,
     secretHash: signing.secretHash,

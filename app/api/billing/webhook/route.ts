@@ -136,10 +136,12 @@ export async function POST(request: NextRequest) {
       const invoice = event.data.object;
       const customerId = asString(invoice.customer);
       if (!customerId) break;
+      const account = await Account.findOne({ stripeCustomerId: customerId });
       await Account.updateOne(
         { stripeCustomerId: customerId },
-        { $set: { stripeSubscriptionStatus: "past_due" } }
+        { $set: { plan: "free", stripeSubscriptionStatus: "past_due" } }
       );
+      if (account) await setAccountWebhookStatus(account.accountId, "disabled");
       break;
     }
   }

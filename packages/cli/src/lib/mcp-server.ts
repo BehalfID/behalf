@@ -17,13 +17,15 @@ function respondError(id: string | number | null, code: number, message: string)
   process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id, error: { code, message } }) + "\n");
 }
 
-const TOOLS = [
+export const MCP_TOOLS = [
   {
     name: "verify_action",
     description:
       "Verify whether this agent is permitted to perform an action BEFORE executing it. " +
-      "You MUST call this before any action that touches an external service. " +
-      "If the response contains `\"allowed\": false`, do NOT proceed — explain the reason to the user instead.",
+      "You MUST call verify_action before tool execution for risky, external, state-changing, permissioned, or sensitive actions. " +
+      "If the response contains `\"allowed\": false`, do not execute the action. " +
+      "If verification is unavailable, fails, or returns an error, fail closed and do not execute. " +
+      "If the reason says approval is required, pause for user approval; do not execute automatically.",
     inputSchema: {
       type: "object",
       properties: {
@@ -48,13 +50,69 @@ const TOOLS = [
   {
     name: "get_permissions",
     description:
-      "Get the current active permissions for this agent — what actions are allowed, on which resources, and under what constraints.",
+      "Inspect the current active permissions for this agent: allowed actions, blocked actions, approval-required actions, resources, and constraints. " +
+      "This is context only. It does not replace verify_action. Before executing a risky or permissioned action, call verify_action. " +
+      "Denial means do not execute; unavailable verification means fail closed; approval-required means pause for user approval.",
     inputSchema: {
       type: "object",
       properties: {},
     },
   },
 ];
+
+export async function callMcpTool(config: {
+  agentId: string;
+  apiKey: string;
+  baseUrl: string;
+}, toolName: string | undefined, args: Record<string, unknown>) {
+  if (toolName === "verify_action") {
+    const body: Record<string, unknown> = {
+      agentId: config.agentId,
+      action: args.action,
+    };
+    if (args.vendor) body.vendor = args.vendor;
+    if (args.amount !== undefined) body.amount = args.amount;
+
+    const result = await apiRequest<Record<string, unknown>>("/api/verify", {
+      method: "POST",
+      body,
+      apiKey: config.apiKey,
+      baseUrl: config.baseUrl,
+      skipAuth: false,
+    });
+
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  }
+
+  if (toolName === "get_permissions") {
+    let detail = readCachedDetail(config.agentId);
+    if (!detail) {
+      try {
+        detail = await fetchAndCacheDetail(config.agentId, config.baseUrl);
+      } catch {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                error: "Permissions cache is empty. Run `behalf mcp init` to populate it.",
+              }),
+            },
+          ],
+          isError: true,
+        };
+      }
+    }
+
+    return {
+      content: [{ type: "text", text: JSON.stringify(detail, null, 2) }],
+    };
+  }
+
+  return null;
+}
 
 export async function startMcpServer(config: {
   agentId: string;
@@ -94,7 +152,7 @@ export async function startMcpServer(config: {
           break;
 
         case "tools/list":
-          respond(req.id, { tools: TOOLS });
+          respond(req.id, { tools: MCP_TOOLS });
           break;
 
         case "tools/call": {
@@ -102,49 +160,9 @@ export async function startMcpServer(config: {
           const toolName = params?.name;
           const args = params?.arguments ?? {};
 
-          if (toolName === "verify_action") {
-            const body: Record<string, unknown> = {
-              agentId: config.agentId,
-              action: args.action,
-            };
-            if (args.vendor) body.vendor = args.vendor;
-            if (args.amount !== undefined) body.amount = args.amount;
-
-            const result = await apiRequest<Record<string, unknown>>("/api/verify", {
-              method: "POST",
-              body,
-              apiKey: config.apiKey,
-              baseUrl: config.baseUrl,
-              skipAuth: false,
-            });
-
-            respond(req.id, {
-              content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-            });
-          } else if (toolName === "get_permissions") {
-            let detail = readCachedDetail(config.agentId);
-            if (!detail) {
-              try {
-                detail = await fetchAndCacheDetail(config.agentId, config.baseUrl);
-              } catch {
-                respond(req.id, {
-                  content: [
-                    {
-                      type: "text",
-                      text: JSON.stringify({
-                        error: "Permissions cache is empty. Run `behalf mcp init` to populate it.",
-                      }),
-                    },
-                  ],
-                  isError: true,
-                });
-                break;
-              }
-            }
-
-            respond(req.id, {
-              content: [{ type: "text", text: JSON.stringify(detail, null, 2) }],
-            });
+          const result = await callMcpTool(config, toolName, args);
+          if (result) {
+            respond(req.id, result);
           } else {
             respondError(req.id, -32601, `Unknown tool: ${toolName ?? "(none)"}`);
           }

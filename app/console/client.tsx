@@ -45,7 +45,10 @@ type Permission = {
 
 type VerificationLog = {
   requestId: string;
+  accountId?: string | null;
+  developerUserId?: string | null;
   agentId: string;
+  agentName?: string | null;
   permissionId?: string | null;
   action: string;
   amount?: number;
@@ -54,6 +57,15 @@ type VerificationLog = {
   reason: string;
   risk: "low" | "medium" | "high";
   createdAt?: string;
+};
+type LogSummary = {
+  total: number;
+  allowed: number;
+  denied: number;
+  highRisk: number;
+  approvalRequired: number;
+  topDeniedAction: string | null;
+  topVendor: string | null;
 };
 
 type Summary = {
@@ -70,7 +82,26 @@ type AgentDetail = {
 };
 
 type AgentsResponse = { agents: Agent[] };
-type LogsResponse = { logs: VerificationLog[] };
+type LogsResponse = { logs: VerificationLog[]; summary: LogSummary };
+type SiteGuardSite = {
+  siteId: string;
+  developerUserId?: string;
+  name: string;
+  domain: string;
+  status: "active" | "disabled";
+  createdAt?: string;
+};
+type SiteGuardLog = {
+  requestId: string;
+  siteId: string;
+  domain: string;
+  path: string;
+  userAgent: string;
+  allowed: boolean;
+  reason: string;
+  risk: "low" | "medium" | "high";
+  createdAt?: string;
+};
 type Settings = {
   appUrl: string;
   environment: string;
@@ -256,11 +287,12 @@ export function LoginPage() {
   );
 }
 
-export function ConsolePage({ view }: { view: "dashboard" | "agents" | "webhooks" | "webhook-events" | "logs" | "settings" }) {
+export function ConsolePage({ view }: { view: "dashboard" | "agents" | "site-guard" | "webhooks" | "webhook-events" | "logs" | "settings" }) {
   return (
     <ConsoleFrame>
       {view === "dashboard" ? <DashboardView /> : null}
       {view === "agents" ? <AgentsView /> : null}
+      {view === "site-guard" ? <SiteGuardView /> : null}
       {view === "webhooks" ? <WebhooksView /> : null}
       {view === "webhook-events" ? <WebhookEventsView /> : null}
       {view === "logs" ? <LogsView /> : null}
@@ -485,6 +517,53 @@ function AgentsView() {
   );
 }
 
+function SiteGuardView() {
+  const sites = useApiResource<{ sites: SiteGuardSite[] }>("/api/console/sites");
+  const logs = useApiResource<{ logs: SiteGuardLog[] }>("/api/console/site-guard/logs");
+  const setStatus = async (site: SiteGuardSite) => {
+    await apiFetch(`/api/console/sites/${site.siteId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: site.status === "active" ? "disabled" : "active" })
+    });
+    await sites.reload();
+  };
+
+  return (
+    <>
+      <Header title="Site Guard" />
+      {sites.error ? <p className="form-error">{sites.error.message}</p> : null}
+      {logs.error ? <p className="form-error">{logs.error.message}</p> : null}
+      <section className="console-grid">
+        <div className="console-panel">
+          <SectionTitle title="Sites" />
+          <div className="console-list">
+            {(sites.data?.sites ?? []).map((site) => (
+              <div className="console-list-row" key={site.siteId}>
+                <strong>{site.name}</strong>
+                <small>{site.domain} / {site.status} / {site.siteId}</small>
+                <button className="ui-button ui-button--secondary" onClick={() => void setStatus(site)} type="button">
+                  {site.status === "active" ? "Disable" : "Enable"}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="console-panel">
+          <SectionTitle title="Recent checks" />
+          <div className="console-list">
+            {(logs.data?.logs ?? []).map((log) => (
+              <div className="console-list-row" key={log.requestId}>
+                <strong>{log.allowed ? "Allowed" : "Denied"} {log.path}</strong>
+                <small>{log.domain} / {log.reason} / {log.requestId}</small>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}
+
 function AgentDetailView({ agentId }: { agentId: string }) {
   const detail = useApiResource<AgentDetail>(`/api/console/agents/${agentId}`);
   const [oneTimeKey, setOneTimeKey] = useState("");
@@ -622,17 +701,24 @@ function AgentDetailView({ agentId }: { agentId: string }) {
 function LogsView() {
   const [agentId, setAgentId] = useState("");
   const [allowed, setAllowed] = useState("");
+  const [action, setAction] = useState("");
+  const [risk, setRisk] = useState("");
+  const [requestId, setRequestId] = useState("");
   const path = useMemo(() => {
     const params = new URLSearchParams();
     if (agentId) params.set("agentId", agentId);
     if (allowed) params.set("allowed", allowed);
+    if (action) params.set("action", action);
+    if (risk) params.set("risk", risk);
+    if (requestId) params.set("requestId", requestId);
     return `/api/console/logs${params.size ? `?${params.toString()}` : ""}`;
-  }, [agentId, allowed]);
+  }, [action, agentId, allowed, requestId, risk]);
   const logs = useApiResource<LogsResponse>(path);
+  const exportHref = `${path}${path.includes("?") ? "&" : "?"}format=csv`;
 
   return (
     <>
-      <Header title="Logs" />
+      <Header title="Logs" action={<ButtonLink href={exportHref}>Export CSV</ButtonLink>} />
       <div className="console-toolbar">
         <input aria-label="Filter by agent ID" onChange={(event) => setAgentId(event.target.value)} placeholder="agent_xxx" value={agentId} />
         <select aria-label="Allowed filter" onChange={(event) => setAllowed(event.target.value)} value={allowed}>
@@ -640,10 +726,23 @@ function LogsView() {
           <option value="true">Allowed</option>
           <option value="false">Denied</option>
         </select>
+        <input aria-label="Filter by action" onChange={(event) => setAction(event.target.value)} placeholder="action" value={action} />
+        <select aria-label="Risk filter" onChange={(event) => setRisk(event.target.value)} value={risk}>
+          <option value="">All risk</option>
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+        </select>
+        <input aria-label="Filter by request ID" onChange={(event) => setRequestId(event.target.value)} placeholder="req_xxx" value={requestId} />
         <Button onClick={logs.reload} type="button">Refresh</Button>
       </div>
       <ResourceState resource={logs}>
-        {(data) => <LogList logs={data.logs} />}
+        {(data) => (
+          <>
+            <LogSummaryStrip summary={data.summary} />
+            <LogList logs={data.logs} />
+          </>
+        )}
       </ResourceState>
     </>
   );
@@ -1014,20 +1113,36 @@ function PermissionList({ items, onRevoke }: { items: Permission[]; onRevoke: (i
 function LogList({ logs, compact = false }: { logs: VerificationLog[]; compact?: boolean }) {
   if (!logs.length) return <EmptyState className="console-empty">No logs found.</EmptyState>;
   return (
-    <div className={compact ? "console-list console-list--compact" : "console-list"}>
+    <div className={compact ? "console-list console-list--compact" : "console-list console-log-list"}>
       {logs.map((log) => (
         <div className="console-list__item" key={log.requestId}>
           <span>
             <strong>{log.action}</strong>
-            <small>{log.agentId} / {log.vendor || "no resource"} / {log.reason}</small>
+            <small>{log.agentName || log.agentId} / {log.vendor || "no resource"}{typeof log.amount === "number" ? ` / $${log.amount}` : ""}</small>
+            <small>{log.reason}</small>
+            {!compact ? <small>{log.requestId} / account {log.accountId ?? "unknown"} / developer {log.developerUserId ?? "unknown"}</small> : null}
           </span>
           <span className={statusClass(log.allowed ? "allowed" : "denied")}>
             {log.allowed ? "allowed" : "denied"}
           </span>
+          {!compact ? <span className={statusClass(log.risk)}>{log.risk}</span> : null}
           <span>{formatDate(log.createdAt)}</span>
         </div>
       ))}
     </div>
+  );
+}
+
+function LogSummaryStrip({ summary }: { summary: LogSummary }) {
+  return (
+    <section className="console-metrics console-log-summary" aria-label="Log summary">
+      <Metric label="Total" value={summary.total} />
+      <Metric label="Allowed" value={summary.allowed} />
+      <Metric label="Denied" value={summary.denied} />
+      <Metric label="High risk" value={summary.highRisk} />
+      <Metric label="Approval required" value={summary.approvalRequired} />
+      <Metric label="Top vendor" value={summary.topVendor ?? "None"} />
+    </section>
   );
 }
 

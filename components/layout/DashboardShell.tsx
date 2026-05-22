@@ -8,6 +8,7 @@ const dashboardNav = [
   { href: "/dashboard", label: "Overview" },
   { href: "/dashboard/onboarding", label: "Add agent" },
   { href: "/dashboard/agents", label: "Agents" },
+  { href: "/dashboard/sites", label: "Site Guard" },
   { href: "/dashboard/webhooks", label: "Webhooks" },
   { href: "/dashboard/logs", label: "Logs" },
   { href: "/dashboard/docs", label: "Docs" },

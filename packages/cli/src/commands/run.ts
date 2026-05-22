@@ -1,11 +1,11 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { Command } from "commander";
-import { resolveBaseUrl } from "../lib/client.js";
+import { resolveApiKey, resolveBaseUrl } from "../lib/client.js";
 import { readConfig } from "../lib/config.js";
-import { generateContextMd, generateMcpJson } from "../lib/context-generator.js";
 import { fetchAndCacheDetail, readCachedDetail } from "../lib/passport-cache.js";
+import { getProjectSetupStatus, writeProjectSetup } from "../lib/mcp-setup.js";
 import { runAction } from "../lib/output.js";
 
 type ToolDef = {
@@ -32,50 +32,51 @@ const TOOLS: Record<string, ToolDef> = {
   },
 };
 
-async function launchTool(toolKey: string, extraArgs: string[]) {
+function redactArg(arg: string): string {
+  return arg.replace(/bhf_sk_[A-Za-z0-9._-]+/g, "bhf_sk_[redacted]");
+}
+
+type LaunchDeps = {
+  spawn?: typeof spawnSync;
+  stderr?: Pick<NodeJS.WriteStream, "write">;
+  stdout?: Pick<NodeJS.WriteStream, "write">;
+};
+
+export async function launchTool(toolKey: string, extraArgs: string[], deps: LaunchDeps = {}): Promise<number> {
   const tool = TOOLS[toolKey];
   if (!tool) throw new Error(`Unknown tool "${toolKey}". Supported: ${Object.keys(TOOLS).join(", ")}`);
 
   const config = readConfig();
   const agentId = config.agentId ?? process.env.BEHALFID_AGENT_ID;
+  const apiKey = resolveApiKey();
   const baseUrl = resolveBaseUrl();
+  const stderr = deps.stderr ?? process.stderr;
+  const stdout = deps.stdout ?? process.stdout;
+  const spawn = deps.spawn ?? spawnSync;
 
   if (!agentId) {
     throw new Error(
       "Agent ID not configured.\nRun: behalf config set agent-id <agentId>"
     );
   }
+  if (!apiKey) {
+    throw new Error(
+      "API key not configured. MCP startup requires an agent API key.\nRun: behalf config set api-key <bhf_sk_xxx>"
+    );
+  }
 
   const cwd = process.cwd();
-  const behalfDir = join(cwd, ".behalf");
-  const contextFile = join(behalfDir, "context.md");
-  const mcpJsonPath = join(cwd, ".mcp.json");
+  const status = getProjectSetupStatus(cwd);
 
   // Fetch or refresh permissions
   let detail = readCachedDetail(agentId);
   if (!detail) {
-    process.stderr.write("Fetching BehalfID permissions… ");
-    try {
-      detail = await fetchAndCacheDetail(agentId, baseUrl, false);
-      process.stderr.write("done.\n");
-    } catch (err) {
-      process.stderr.write(`failed (${err instanceof Error ? err.message : String(err)}).\n`);
-      process.stderr.write("Continuing without live permissions. Run `behalf mcp init` to populate the cache.\n");
-    }
+    stderr.write("Fetching BehalfID permissions... ");
+    detail = await fetchAndCacheDetail(agentId, baseUrl, false);
+    stderr.write("done.\n");
   }
 
-  // Write .behalf/context.md
-  if (detail) {
-    if (!existsSync(behalfDir)) mkdirSync(behalfDir, { recursive: true });
-    writeFileSync(contextFile, generateContextMd(detail));
-  }
-
-  // Write .mcp.json (merge with existing)
-  let existingMcp: Record<string, unknown> | null = null;
-  if (existsSync(mcpJsonPath)) {
-    try { existingMcp = JSON.parse(readFileSync(mcpJsonPath, "utf-8")); } catch { /* ignore */ }
-  }
-  writeFileSync(mcpJsonPath, generateMcpJson(existingMcp ?? undefined));
+  const setup = writeProjectSetup(detail, { cwd });
 
   // Inject include into tool config files (idempotent)
   for (const fileName of tool.contextFiles) {
@@ -87,9 +88,22 @@ async function launchTool(toolKey: string, extraArgs: string[]) {
     }
   }
 
+  if (!status.contextExists || !status.hasBehalfServer) {
+    stderr.write("Initialized BehalfID MCP project setup for this directory.\n");
+  }
+
+  stdout.write(
+    `Launching ${tool.binary} with BehalfID MCP enforcement.\n` +
+    `Agent: ${agentId}\n` +
+    `Base URL: ${baseUrl}\n` +
+    `Context: ${setup.contextFile}\n` +
+    `MCP config: ${setup.mcpJsonFile}\n` +
+    `Command: ${tool.binary}${extraArgs.length ? ` ${extraArgs.map(redactArg).join(" ")}` : ""}\n`
+  );
+
   // Launch the tool
-  const result = spawnSync(tool.binary, extraArgs, { stdio: "inherit" });
-  process.exit(result.status ?? 0);
+  const result: SpawnSyncReturns<Buffer> = spawn(tool.binary, extraArgs, { stdio: "inherit" });
+  return result.status ?? 1;
 }
 
 function toolCommand(toolKey: string, description: string) {
@@ -100,7 +114,7 @@ function toolCommand(toolKey: string, description: string) {
     .argument("[args...]", `arguments to pass to ${toolKey}`)
     .action(
       runAction(async (args: string[]) => {
-        await launchTool(toolKey, args);
+        process.exit(await launchTool(toolKey, args));
       })
     );
 }
@@ -114,7 +128,7 @@ export function runCommand() {
     .argument("[args...]", "arguments to pass through to the tool")
     .action(
       runAction(async (toolKey: string, args: string[]) => {
-        await launchTool(toolKey, args);
+        process.exit(await launchTool(toolKey, args));
       })
     );
 }

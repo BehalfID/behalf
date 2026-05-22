@@ -123,6 +123,21 @@ Denied actions failed closed; their executors did not run.
 
 The `enforceAction` helper throws on any denial. Any code after the throw in that block does not run. This is fail closed: on denial, the safe default is to not proceed.
 
+## Local MCP Coding-Agent Demo
+
+Use [docs/MCP_DEMO.md](MCP_DEMO.md) to wire a local project for Claude Code, Codex, or another MCP-compatible agent.
+
+```bash
+behalf config set base-url http://localhost:3000
+behalf config set agent-id agent_xxx
+behalf config set api-key bhf_sk_xxx
+behalf mcp init
+behalf doctor
+behalf claude   # or: behalf codex
+```
+
+This path writes `.behalf/context.md`, merges `.mcp.json`, exposes `get_permissions` and `verify_action` through MCP, and instructs the agent to fail closed on denied or unavailable verification.
+
 ## Sandbox
 
 `/sandbox` demonstrates the same enforcement pattern in the browser without real agents or API keys. The simulated scenarios show an allowed web browse, a denied purchase over the limit, a denied blocked action, a denied missing permission, an approval-required action, and a denied missing constrained resource. Denied and approval-required actions fail closed — the agent stops before reaching the code that would execute them.

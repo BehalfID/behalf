@@ -24,10 +24,16 @@ export function generateContextMd(detail: AgentDetail, updatedAt?: string): stri
     ``,
     `The \`behalfid\` MCP server is active in this session.`,
     ``,
-    `**ENFORCEMENT RULE: Before executing any action that touches an external service,`,
-    `you MUST call the \`verify_action\` tool from the \`behalfid\` MCP server.**`,
-    `If \`verify_action\` returns \`"allowed": false\`, stop immediately and tell the user`,
-    `why the action was blocked. Never bypass or skip this check.`,
+    `**ENFORCEMENT RULE: Before executing any risky, external, state-changing,`,
+    `permissioned, or potentially sensitive action, you MUST call the \`verify_action\``,
+    `tool from the \`behalfid\` MCP server.**`,
+    ``,
+    `Fail closed:`,
+    ``,
+    `- If \`verify_action\` returns \`"allowed": false\`, do not execute the action.`,
+    `- If \`verify_action\` is unavailable, errors, or cannot be reached, do not execute the action.`,
+    `- If the decision says approval is required, pause for human approval; do not execute automatically.`,
+    `- Never bypass, ignore, or replace the BehalfID check with a local guess.`,
     ``,
   ];
 
@@ -47,8 +53,26 @@ export function generateContextMd(detail: AgentDetail, updatedAt?: string): stri
         lines.push(`  - Blocked: ${p.blockedActions.map(a => `"${a}"`).join(", ")}`);
       }
       if (p.requiresApproval) {
-        lines.push(`  - ⚠ Requires human approval before proceeding`);
+        lines.push(`  - Approval required: pause for human approval before proceeding`);
       }
+    }
+    lines.push(``);
+  }
+
+  const blocked = active.filter(p => p.blockedActions?.length);
+  if (blocked.length > 0) {
+    lines.push(`### Blocked Actions`, ``);
+    for (const p of blocked) {
+      lines.push(`- **${p.action}**${p.resource ? ` on \`${p.resource}\`` : ""}: ${p.blockedActions?.map(a => `"${a}"`).join(", ")}`);
+    }
+    lines.push(``);
+  }
+
+  const approvalRequired = active.filter(p => p.requiresApproval);
+  if (approvalRequired.length > 0) {
+    lines.push(`### Approval-Required Actions`, ``);
+    for (const p of approvalRequired) {
+      lines.push(`- **${p.action}**${p.resource ? ` on \`${p.resource}\`` : ""}: call \`verify_action\`, then pause for human approval before execution.`);
     }
     lines.push(``);
   }

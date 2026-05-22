@@ -7,7 +7,7 @@ http://localhost:3000
 https://behalfid.com
 ```
 
-Protected public endpoints require:
+Agent protected public endpoints require:
 
 ```txt
 Authorization: Bearer bhf_sk_xxx
@@ -21,9 +21,41 @@ Errors use:
 }
 ```
 
+Plan and quota errors add stable fields without exposing Stripe IDs or internal billing state:
+
+```json
+{
+  "error": "Agent limit of 5 reached on the free plan.",
+  "code": "AGENT_LIMIT_REACHED",
+  "currentPlan": "free",
+  "limit": 5,
+  "upgradeHint": "Upgrade to Pro to add more agents."
+}
+```
+
 Protected public endpoints are rate limited by IP before authentication and by API key hash after authentication. Rate limiting uses Upstash Redis when `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are configured; otherwise it intentionally falls back to per-process memory mode.
 
 Developer portal routes under `/api/dashboard/*` use HTTP-only developer session cookies. Public documentation pages are available under `/docs`.
+
+Site Guard checks use the existing account-scoped developer API token header in this MVP:
+
+```txt
+x-developer-token: bhf_dev_xxx
+```
+
+## Plans and Quotas
+
+Current plan limits:
+
+| Plan | Agents | Verifications / month | Webhooks | Log retention |
+| --- | ---: | ---: | --- | ---: |
+| Free | 5 | 10,000 | Disabled | 7 days |
+| Pro | 50 | 250,000 | Enabled | 90 days |
+| Enterprise | Unlimited | Unlimited | Enabled | 365 days |
+
+Verification usage is tracked on `Account.verificationCount` with `verificationPeriodStart`. The current reset boundary is the UTC calendar month: stale or missing period data resets the count on the next metered verification and sets the period start to the first day of the current UTC month. Enterprise verification and agent quotas are treated as unlimited. Current missing `Account` or missing `accountId` behavior remains unmetered for compatibility.
+
+Free accounts cannot create or enable dashboard webhooks. If an account downgrades or a Stripe payment fails, webhook endpoints are disabled and paid limits are removed until billing is restored.
 
 ## Key Management
 
@@ -40,6 +72,7 @@ Error responses, webhook payloads, worker summaries, SDK errors, and CLI errors 
 - SDK path: use `@behalfid/sdk` inside your app and call `verify` before your code executes a tool action.
 - Action Gateway path: call `/api/actions/execute` when BehalfID should verify and execute a supported safe action in one request.
 - CLI/MCP path: use `behalf mcp init`, `behalf claude`, or `behalf codex` to add permission context and `verify_action` to local coding agents.
+- Site Guard path: call `/api/site-guard/check` from website middleware before serving protected routes.
 
 The CLI/MCP path is documented in [MCP_DEMO.md](MCP_DEMO.md). It does not change the core verify API: denied, approval-required, or unavailable verification must fail closed before execution.
 
@@ -203,9 +236,57 @@ Denial reasons include:
 - `Action is not included in allowedActions.`
 - `Permission requires approval before execution.`
 
+## POST /api/site-guard/check
+
+Checks whether a website route should be served to an AI agent or crawler signal. Site Guard is separate from `/api/verify`: it does not use agent API keys or passport permissions. The MVP requires an account-scoped developer API token in `x-developer-token`.
+
+Request:
+
+```json
+{
+  "siteId": "site_xxx",
+  "path": "/docs/api",
+  "userAgent": "ExampleBot/1.0",
+  "agentIdentifier": "crawler_example",
+  "metadata": {
+    "edge": "iad1"
+  }
+}
+```
+
+`domain` may be supplied instead of `siteId`. `path` must be an absolute path without query or fragment. `metadata` is optional, limited to an object under 2KB, redacted at input handling, and not stored in Site Guard logs in this MVP.
+
+```json
+{
+  "allowed": true,
+  "reason": "Path allowed by an active Site Guard rule.",
+  "requestId": "req_xxx",
+  "matchedRuleId": "sgr_xxx",
+  "siteId": "site_xxx"
+}
+```
+
+Denied decisions return the same shape with `allowed: false`. Site Guard denies when a site is disabled, a rule is disabled, no active rule matches the signal, no matching allowed path exists, an approval-gated rule matches, or an unexpected policy lookup error occurs. Missing sites are denied without creating a log because no owned site record exists.
+
+Active rules match either an exact `agentIdentifier` or a simple wildcard `userAgentPattern`. `allowedPaths` and `blockedPaths` support exact paths and `*` wildcards. Any matching blocked path wins before an allowed path, including when another active matching rule would allow it.
+
+Every allowed or denied decision for an existing site writes a Site Guard log with the site, matched rule when any, domain, path, user-agent signal, optional agent identifier, decision, reason, risk, and `requestId`. Site Guard logs do not store cookies, authorization headers, developer tokens, request bodies, page contents, query strings, or raw optional metadata.
+
 ## GET /api/logs/[agentId]
 
-Returns the 50 most recent verification logs for an agent. Requires that agent's API key.
+Returns verification logs for an agent. Requires that agent's API key. With no query string, the legacy response remains the 50 most recent logs as an array. When filters or pagination are supplied, the response includes `logs`, `summary`, and `pagination`.
+
+Supported query parameters:
+
+- `allowed=true|false`
+- `risk=low|medium|high`
+- `action=purchase`
+- `vendor=stripe.com` or `resource=stripe.com`
+- `requestId=req_xxx`
+- `from=2026-05-01T00:00:00.000Z`
+- `to=2026-05-31T23:59:59.999Z`
+- `limit=100`
+- `page=1`
 
 Response:
 
@@ -224,6 +305,45 @@ Response:
   }
 ]
 ```
+
+Filtered response:
+
+```json
+{
+  "logs": [
+    {
+      "requestId": "req_xxx",
+      "agentId": "agent_xxx",
+      "permissionId": "perm_xxx",
+      "action": "access_data",
+      "vendor": "gmail.com",
+      "allowed": true,
+      "reason": "Action allowed by active permission.",
+      "risk": "low",
+      "createdAt": "2026-05-01T23:59:59.000Z"
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "allowed": 1,
+    "denied": 0,
+    "highRisk": 0,
+    "approvalRequired": 0,
+    "topDeniedAction": null,
+    "topVendor": "gmail.com"
+  },
+  "pagination": {
+    "limit": 100,
+    "page": 1,
+    "total": 1,
+    "hasMore": false
+  }
+}
+```
+
+Dashboard and console log APIs support the same filters. Dashboard log reads are scoped to the authenticated developer user and retention window for the account plan. Console log reads are admin-only and scoped to the console account. `format=csv` exports the selected safe log fields as CSV. Raw API keys, bearer tokens, developer tokens, passport tokens, and webhook signing secrets are redacted from log API and export output.
+
+Verification logs store the decision fields needed for debugging: `requestId`, `agentId`, `permissionId`, `action`, `vendor`/resource, `amount`, `allowed`, `reason`, `risk`, and `createdAt`. Optional `metadata` is stored only when `BEHALFID_LOG_METADATA` is not `false`, and current list/export endpoints do not return metadata. Request IDs are stable across the verification response, audit log entry, and verification webhook payload, so they are the primary join key when debugging an agent action end to end.
 
 ## GET /api/passport/[agentId]
 
@@ -404,6 +524,8 @@ Failed deliveries retry after the configured backoff schedule and are not retrie
 
 Webhook receivers should verify `BehalfID-Signature` with the SDK `verifyWebhookSignature` helper, deduplicate by `BehalfID-Event-ID`, and avoid assuming exactly-once delivery. Delivery records store status, HTTP status when available, attempt count, retry time, and sanitized error summaries. They must not store webhook secrets, bearer tokens, cookies, or API keys.
 
+Dashboard webhook creation and enablement require Pro or Enterprise. Free-plan requests fail with `WEBHOOKS_REQUIRE_PRO`, `currentPlan`, `limit`, and an `upgradeHint`. Downgrades and failed payments disable endpoints instead of leaving delivery active on a free account.
+
 ## POST /api/agents/[agentId]/rotate-key
 
 Rotates an agent API key. Requires the current API key for the same agent. The old key stops working immediately and the new key is returned once.
@@ -495,6 +617,10 @@ The console uses cookie auth, not agent bearer keys:
 - `POST /api/console/agents/[agentId]/disable`
 - `POST /api/console/agents/[agentId]/enable`
 - `GET /api/console/logs`
+- `GET /api/console/sites`
+- `PATCH /api/console/sites/[siteId]`
+- `GET /api/console/site-guard/logs`
+- `PATCH /api/console/sites/[siteId]/rules/[ruleId]`
 - `GET /api/console/settings`
 - `GET /api/console/webhook-events`
 - `GET /api/console/webhook-events/[eventId]`
@@ -526,6 +652,10 @@ The developer dashboard uses these session-protected routes:
 - `POST /api/dashboard/agents/[agentId]/enable`
 - `GET|POST /api/dashboard/tokens`
 - `DELETE /api/dashboard/tokens/[tokenId]`
+- `GET|POST /api/dashboard/sites`
+- `GET|PATCH /api/dashboard/sites/[siteId]`
+- `POST /api/dashboard/sites/[siteId]/rules`
+- `PATCH /api/dashboard/sites/[siteId]/rules/[ruleId]`
 - `GET|POST /api/dashboard/webhooks`
 - `GET /api/dashboard/webhooks/[webhookId]`
 - `POST /api/dashboard/webhooks/[webhookId]/disable`
@@ -533,6 +663,27 @@ The developer dashboard uses these session-protected routes:
 - `POST /api/dashboard/webhooks/[webhookId]/rotate-secret`
 - `GET /api/dashboard/logs`
 - `GET /api/dashboard/settings`
+
+`GET /api/dashboard/summary` includes a redacted `usage` object for the dashboard billing surfaces:
+
+```json
+{
+  "usage": {
+    "plan": "free",
+    "agentCount": 1,
+    "agentLimit": 5,
+    "verificationCount": 42,
+    "verificationLimit": 10000,
+    "verificationPeriodStart": "2026-05-01T00:00:00.000Z",
+    "verificationPeriodResetAt": "2026-06-01T00:00:00.000Z",
+    "webhooksEnabled": false,
+    "logRetentionDays": 7,
+    "stripeSubscriptionStatus": null
+  }
+}
+```
+
+The summary response intentionally omits Stripe customer IDs, subscription IDs, price IDs, raw secrets, and internal database IDs.
 
 See [WEBHOOKS.md](WEBHOOKS.md) for event payloads and signature verification.
 

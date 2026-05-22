@@ -1,113 +1,63 @@
 import { CodeBlock, DocsShell } from "../content";
 
-const eventualRules = [
-  ["Allow public page reads", "Let agents read and summarize public content when they cite the source."],
-  ["Block sensitive workflows", "Deny form submissions, checkout paths, account creation, login attempts, or admin actions."],
-  ["Require verified agent identity", "For sensitive routes, require a future verifiable BehalfID agent credential instead of trusting User-Agent strings."],
-  ["Rate-limit AI traffic", "Apply site-owner rules to crawler-like traffic at middleware, worker, or gateway boundaries."],
-  ["Audit access attempts", "Record safe decision metadata without storing cookies, authorization headers, page content, or raw query strings."]
+const mvpRules = [
+  ["Deny by default", "A route stays denied until an active matching rule allows its path."],
+  ["Match simple signals", "Rules match an exact agent identifier or a wildcard User-Agent pattern."],
+  ["Block before allow", "A matching blocked path overrides any matching allowed path."],
+  ["Log decisions", "Existing-site checks record safe decision metadata and a request ID."]
 ];
 
 export default function SiteGuardDocsPage() {
   return (
     <DocsShell
       title="BehalfID Site Guard"
-      description="A planned AI access gateway for website owners. Define site rules, install an enforcement point, and fail closed before protected workflows run."
+      description="MVP website-route access checks for AI agent and crawler signals. Check before access, deny by default, and log the decision."
       previous={{ href: "/docs/webhooks", label: "Webhooks" }}
       next={{ href: "/docs/concepts", label: "Concepts" }}
     >
       <h2>What Site Guard is</h2>
       <p>
-        BehalfID Site Guard lets website owners define and enforce how AI agents access
-        their content, forms, and workflows. <code>llms.txt</code> can declare intent;
-        Site Guard is the enforcement layer when installed as middleware, a proxy, an edge
-        worker, or another controlled gateway.
+        Site Guard lets a website owner check a simple site rule before protected content
+        or workflows are served. Permission passports answer whether an agent may act for
+        a user; Site Guard answers whether an AI agent or crawler signal may access a
+        website route where the site installed the check.
       </p>
       <p>
-        For crawler and indexability background, see Google&apos;s guidance on{" "}
-        <a href="https://developers.google.com/search/docs/advanced/robots/create-robots-txt" target="_blank" rel="noopener noreferrer">robots.txt</a>
-        {" "}and{" "}
-        <a href="https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap" target="_blank" rel="noopener noreferrer">sitemaps</a>.
-        AI crawler operators also publish their own crawler documentation, including{" "}
-        <a href="https://platform.openai.com/docs/bots" target="_blank" rel="noopener noreferrer">OpenAI crawlers</a>
-        {" "}and{" "}
-        <a href="https://support.anthropic.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler" target="_blank" rel="noopener noreferrer">Anthropic crawler controls</a>.
+        This MVP is a policy endpoint, not a reverse proxy. It relies on your middleware,
+        worker, gateway, or route code to call BehalfID and honor denied decisions.
       </p>
       <p>
-        This is complementary to permission passports. Passports answer:{" "}
-        <strong>is this agent allowed to act for this user?</strong> Site Guard answers:{" "}
-        <strong>is this agent or automation allowed to access or act on this website?</strong>
+        Site Guard is not a replacement for application authentication. It is a pre-access
+        policy check for AI agents and crawlers. Your app still enforces user auth,
+        authorization, sessions, permissions, and route access controls.
       </p>
 
-      <h2>Enforcement point</h2>
-      <ol className="docs-steps">
-        <li><strong>Traffic reaches your site.</strong> An AI agent, crawler, browser automation, or app requests a route.</li>
-        <li><strong>Your middleware or worker calls BehalfID.</strong> It sends the site ID, route, method, intended action, declared purpose, and safe request signals.</li>
-        <li><strong>BehalfID evaluates site rules.</strong> The decision can allow, deny, rate-limit, or require verified agent identity.</li>
-        <li><strong>Your site fails closed.</strong> Denied checks return before the origin route, checkout, form handler, or workflow executes.</li>
-      </ol>
-
-      <h2>Important limitation</h2>
+      <h2>MVP endpoint</h2>
       <p>
-        Site Guard cannot stop all AI traffic globally by itself. It only enforces rules where
-        the website installs a middleware, proxy, worker, or gateway that calls BehalfID and
-        respects the decision. User-Agent detection is a weak signal; verified agent identity
-        requires a signed credential in a future iteration.
+        Site Guard checks use an account-scoped developer token in <code>x-developer-token</code>.
+        Keep it server-side. A separate site-key credential is a later hardening step.
       </p>
-
-      <h2>Future policy check endpoint</h2>
-      <p>
-        The first backend milestone should add a separate site-key authenticated endpoint.
-        It should not reuse agent API keys, passport tokens, or dashboard cookies.
-      </p>
-      <CodeBlock label="planned request">{`POST /api/site-guard/check
-Authorization: Bearer bhf_site_xxx
+      <CodeBlock label="request">{`POST /api/site-guard/check
+x-developer-token: bhf_dev_xxx
 Content-Type: application/json
 
 {
   "siteId": "site_xxx",
-  "method": "POST",
-  "path": "/checkout",
-  "action": "checkout",
-  "declaredPurpose": "compare products",
-  "agentId": "agent_xxx"
+  "path": "/docs/api",
+  "userAgent": "ExampleBot/1.0",
+  "agentIdentifier": "crawler_example"
 }`}</CodeBlock>
-      <CodeBlock label="planned response">{`{
-  "allowed": false,
-  "decision": "denied",
-  "reason": "This site blocks AI checkout actions.",
-  "siteId": "site_xxx",
-  "ruleId": "rule_xxx"
+      <CodeBlock label="response">{`{
+  "allowed": true,
+  "reason": "Path allowed by an active Site Guard rule.",
+  "requestId": "req_xxx",
+  "matchedRuleId": "sgr_xxx",
+  "siteId": "site_xxx"
 }`}</CodeBlock>
 
-      <h2>Middleware sketch</h2>
-      <p>
-        This is the intended developer experience, not a shipped package yet. A future
-        <code> @behalfid/site-guard</code> package or Cloudflare Worker template should wrap
-        this pattern without exposing site secrets to browsers.
-      </p>
-      <CodeBlock label="middleware.ts">{`const decision = await fetch("https://behalfid.com/api/site-guard/check", {
-  method: "POST",
-  headers: {
-    "Authorization": \`Bearer \${process.env.BEHALFID_SITE_KEY}\`,
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    siteId: process.env.BEHALFID_SITE_ID,
-    method: request.method,
-    path: new URL(request.url).pathname,
-    action: "submit_form",
-    declaredPurpose: request.headers.get("BehalfID-Purpose")
-  })
-}).then((response) => response.json());
-
-if (!decision.allowed) {
-  return new Response(decision.reason, { status: 403 });
-}`}</CodeBlock>
-
-      <h2>Rules Site Guard should support</h2>
+      <h2>Rule behavior</h2>
       <div className="endpoint-list">
-        {eventualRules.map(([title, body]) => (
+        {mvpRules.map(([title, body]) => (
           <div className="endpoint-card" key={title}>
             <span>Rule</span>
             <code>{title}</code>
@@ -115,13 +65,37 @@ if (!decision.allowed) {
           </div>
         ))}
       </div>
+      <p>
+        Path patterns support exact paths and <code>*</code> wildcards, such as{" "}
+        <code>/docs/api</code> or <code>/docs/*</code>. User-Agent is a weak signal and
+        is not proof of provider identity.
+      </p>
 
-      <h2>Deferred by design</h2>
+      <h2>Middleware sketch</h2>
+      <CodeBlock label="middleware.ts">{`const decision = await fetch(\`\${process.env.BEHALFID_BASE_URL}/api/site-guard/check\`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "x-developer-token": process.env.BEHALFID_DEVELOPER_TOKEN!
+  },
+  body: JSON.stringify({
+    siteId: process.env.BEHALFID_SITE_ID,
+    path: new URL(request.url).pathname,
+    userAgent: request.headers.get("user-agent") ?? "unknown",
+    agentIdentifier: request.headers.get("behalfid-agent") ?? undefined
+  })
+}).then((response) => response.json());
+
+if (!decision.allowed) {
+  return new Response(decision.reason, { status: 403 });
+}`}</CodeBlock>
+
+      <h2>Logs and limits</h2>
       <ul className="docs-list">
-        <li>No full reverse proxy or CDN in the first Site Guard milestone.</li>
-        <li>No claims that User-Agent or self-declared headers prove agent identity.</li>
-        <li>No arbitrary URL forwarding to BehalfID or raw proxying through the app.</li>
-        <li>No SDK behavior changes until the site-key policy endpoint exists.</li>
+        <li>Existing-site checks log the request ID, site, matched rule when any, path, signals, result, reason, risk, and timestamp.</li>
+        <li>Logs do not store cookies, auth headers, tokens, query strings, page content, request bodies, or optional metadata.</li>
+        <li>The MVP has no crawler registry, provider-native identity, OAuth, billing, or advanced policy language.</li>
+        <li>Site Guard cannot block uninstrumented website traffic.</li>
       </ul>
     </DocsShell>
   );

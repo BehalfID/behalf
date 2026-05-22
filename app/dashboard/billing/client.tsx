@@ -14,6 +14,20 @@ type BillingProps = {
   verificationPeriodStart: string;
 };
 
+function formatLimit(limit: number) {
+  return isFinite(limit) ? limit.toLocaleString() : "Unlimited";
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" }).format(new Date(value));
+}
+
+function nextResetDate(periodStart: string) {
+  const start = new Date(periodStart);
+  if (Number.isNaN(start.getTime())) return new Date();
+  return new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1));
+}
+
 function UsageBar({ used, limit, label }: { used: number; limit: number; label: string }) {
   const isUnlimited = !isFinite(limit);
   const pct = isUnlimited ? 0 : Math.min(100, Math.round((used / limit) * 100));
@@ -43,10 +57,12 @@ export function BillingClient({
   plan,
   stripeSubscriptionStatus,
   agentCount,
-  verificationCount
+  verificationCount,
+  verificationPeriodStart
 }: BillingProps) {
   const [loading, setLoading] = useState<"checkout" | "portal" | null>(null);
   const quotas = PLAN_QUOTAS[plan];
+  const resetDate = nextResetDate(verificationPeriodStart);
 
   const handleCheckout = useCallback(async () => {
     setLoading("checkout");
@@ -76,7 +92,7 @@ export function BillingClient({
 
       {stripeSubscriptionStatus === "past_due" && (
         <div className="billing-alert" role="alert">
-          Payment failed — your subscription is past due. Update your payment method to avoid service interruption.
+          Payment failed. Paid limits and webhook delivery are disabled until billing is updated.
         </div>
       )}
 
@@ -136,6 +152,34 @@ export function BillingClient({
           </div>
         </Card>
       </div>
+
+      <section className="dashboard-panel billing-limit-grid">
+        <div>
+          <span>Agents</span>
+          <strong>{agentCount.toLocaleString()} / {formatLimit(quotas.maxAgents)}</strong>
+          <small>{isFinite(quotas.maxAgents) ? "New agents are blocked at this limit." : "No enforced agent limit."}</small>
+        </div>
+        <div>
+          <span>Monthly verifications</span>
+          <strong>{verificationCount.toLocaleString()} / {formatLimit(quotas.verificationsPerMonth)}</strong>
+          <small>Resets {formatDate(resetDate.toISOString())}.</small>
+        </div>
+        <div>
+          <span>Webhooks</span>
+          <strong>{quotas.webhooksEnabled ? "Enabled" : "Requires Pro"}</strong>
+          <small>{quotas.webhooksEnabled ? "Webhook endpoints can receive verification events." : "Existing endpoints stay disabled until the plan is upgraded."}</small>
+        </div>
+        <div>
+          <span>Log retention</span>
+          <strong>{quotas.logRetentionDays} days</strong>
+          <small>Dashboard logs are filtered to this retention window.</small>
+        </div>
+        <div>
+          <span>Billing period</span>
+          <strong>{formatDate(verificationPeriodStart)}</strong>
+          <small>Verification usage is tracked by UTC calendar month.</small>
+        </div>
+      </section>
     </DashboardShellLayout>
   );
 }

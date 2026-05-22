@@ -19,9 +19,7 @@ export default async function BillingPage() {
     : null;
 
   const [agentCount] = await Promise.all([
-    account
-      ? Agent.countDocuments({ accountId: account.accountId })
-      : 0
+    Agent.countDocuments({ developerUserId: user.userId })
   ]);
 
   return (

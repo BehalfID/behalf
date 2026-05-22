@@ -1,28 +1,52 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import { retentionSince } from "@/lib/quota";
+import {
+  buildVerificationLogQuery,
+  calculateVerificationLogSummary,
+  logsToCsv,
+  parseLogListParams,
+  withAgentNames,
+  type VerificationLogListItem
+} from "@/lib/verificationLogs";
 import VerificationLog from "@/models/VerificationLog";
 
 export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
-  const agentId = request.nextUrl.searchParams.get("agentId")?.trim();
-  const allowed = request.nextUrl.searchParams.get("allowed");
-  const risk = request.nextUrl.searchParams.get("risk")?.trim();
-  const query: Record<string, unknown> = {
-    developerUserId: auth.user.userId,
-    createdAt: { $gte: retentionSince(auth.account?.plan) }
-  };
-  if (agentId) query.agentId = agentId;
-  if (allowed === "true") query.allowed = true;
-  if (allowed === "false") query.allowed = false;
-  if (risk && ["low", "medium", "high"].includes(risk)) query.risk = risk;
+  const { limit, page, skip, format } = parseLogListParams(request.nextUrl.searchParams);
+  const query = buildVerificationLogQuery(
+    request.nextUrl.searchParams,
+    { developerUserId: auth.user.userId },
+    { retentionStart: retentionSince(auth.account?.plan) }
+  );
 
-  const logs = await VerificationLog.find(query)
-    .sort({ createdAt: -1 })
-    .limit(100)
-    .select("-_id requestId agentId permissionId action amount vendor allowed reason risk createdAt")
-    .lean();
+  const [rawLogs, total, summaryLogs] = await Promise.all([
+    VerificationLog.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .select("-_id requestId agentId permissionId action amount vendor allowed reason risk createdAt")
+      .lean<VerificationLogListItem[]>(),
+    VerificationLog.countDocuments(query),
+    VerificationLog.find(query)
+      .sort({ createdAt: -1 })
+      .limit(1000)
+      .select("-_id requestId agentId permissionId action amount vendor allowed reason risk createdAt")
+      .lean<VerificationLogListItem[]>()
+  ]);
+  const logs = await withAgentNames(rawLogs, { developerUserId: auth.user.userId });
+  const summary = calculateVerificationLogSummary(summaryLogs);
+  const pagination = { limit, page, total, hasMore: skip + logs.length < total };
 
-  return NextResponse.json({ logs });
+  if (format === "csv") {
+    return new NextResponse(logsToCsv(logs), {
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": "attachment; filename=\"behalfid-verification-logs.csv\""
+      }
+    });
+  }
+
+  return NextResponse.json({ logs, summary, pagination });
 }

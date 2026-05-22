@@ -534,6 +534,7 @@ textarea.ui-input,
 
 .console-status--active,
 .console-status--allowed,
+.console-status--low,
 .console-status--completed,
 .console-status--success {
   color: var(--text);
@@ -541,9 +542,16 @@ textarea.ui-input,
   background: rgba(99, 102, 241, 0.15);
 }
 
+.console-status--medium {
+  color: #fcd34d;
+  border-color: rgba(252, 211, 77, 0.34);
+  background: rgba(252, 211, 77, 0.08);
+}
+
 .console-status--disabled,
 .console-status--revoked,
 .console-status--denied,
+.console-status--high,
 .console-status--error,
 .console-status--failed,
 .console-status--pending,
@@ -574,7 +582,8 @@ textarea.ui-input,
 }
 
 .form-error,
-.console-error {
+.console-error,
+.billing-alert {
   margin: 0;
   border: 1px solid rgba(99, 102, 241, 0.38);
   border-radius: 10px;
@@ -1141,6 +1150,7 @@ textarea.ui-input,
 .connected-agent-grid,
 .faq-grid,
 .metric-grid,
+.dashboard-metrics,
 .console-metrics {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -3503,6 +3513,7 @@ html[data-theme="light"] .ob-plan--featured:hover {
 
 /* Dashboard and console workspace */
 .metric-grid,
+.dashboard-metrics,
 .console-metrics {
   padding: 0;
   margin-bottom: 22px;
@@ -3566,6 +3577,112 @@ html[data-theme="light"] .ob-plan--featured:hover {
 
 .dashboard-usecase-strip p {
   margin: 7px 0 0;
+}
+
+.plan-usage-grid,
+.billing-limit-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.plan-usage-grid div,
+.billing-limit-grid div {
+  display: grid;
+  gap: 6px;
+  min-height: 94px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.34);
+}
+
+.plan-usage-grid span,
+.billing-limit-grid span,
+.billing-usage-labels span:first-child {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 720;
+}
+
+.plan-usage-grid strong,
+.billing-limit-grid strong {
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.billing-limit-grid small {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.billing-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.billing-plan-header,
+.billing-usage-labels {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.billing-plan-title,
+.billing-usage-title {
+  margin: 0 0 10px;
+  color: var(--text);
+}
+
+.billing-plan-actions {
+  flex-shrink: 0;
+}
+
+.billing-pro-features {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  line-height: 1.75;
+}
+
+.billing-usage-list {
+  display: grid;
+  gap: 18px;
+}
+
+.billing-usage-row {
+  display: grid;
+  gap: 8px;
+}
+
+.billing-usage-count {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.billing-usage-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.billing-usage-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.billing-usage-fill--warn {
+  background: var(--warn);
+}
+
+.billing-alert {
+  margin-bottom: 18px;
 }
 
 .quickstart-steps {
@@ -4011,6 +4128,11 @@ html[data-theme="light"] .ob-plan--featured:hover {
   grid-template-columns: minmax(0, 1fr) auto auto 170px;
 }
 
+.dashboard-log-list > div,
+.console-log-list .console-list__item {
+  grid-template-columns: minmax(0, 1fr) auto auto 128px;
+}
+
 .dashboard-list > a:hover,
 .dashboard-list > div:hover,
 .console-row:hover,
@@ -4218,6 +4340,8 @@ html[data-theme="light"] .ob-plan--featured:hover {
   .connected-agent-grid,
   .faq-grid,
   .metric-grid,
+  .plan-usage-grid,
+  .billing-limit-grid,
   .console-metrics,
   .security-grid,
   .stops-grid,
@@ -4239,6 +4363,7 @@ html[data-theme="light"] .ob-plan--featured:hover {
   .permission-template-grid,
   .onboarding-result-grid,
   .onboarding-result-grid--native,
+  .billing-grid,
   .passport-grid {
     grid-template-columns: 1fr;
   }
@@ -4452,6 +4577,8 @@ html[data-theme="light"] .ob-plan--featured:hover {
   .connected-agent-grid,
   .faq-grid,
   .metric-grid,
+  .plan-usage-grid,
+  .billing-limit-grid,
   .console-metrics,
   .security-grid,
   .security-grid--2col,

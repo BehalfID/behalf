@@ -40,6 +40,7 @@ function stripeRequest() {
 
 describe("POST /api/billing/webhook", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.stubEnv("STRIPE_WEBHOOK_SECRET", "whsec_test");
     billingMocks.connectToDatabase.mockResolvedValue(undefined);
     billingMocks.stripeEventCreate.mockResolvedValue({});
@@ -102,5 +103,67 @@ describe("POST /api/billing/webhook", () => {
 
     expect(response.status).toBe(204);
     expect(billingMocks.accountUpdateOne).not.toHaveBeenCalled();
+  });
+
+  it("does not mutate accounts when checkout sessions are missing account references", async () => {
+    billingMocks.constructEvent.mockReturnValue({
+      id: "evt_checkout_missing",
+      type: "checkout.session.completed",
+      data: { object: { customer: "cus_test", subscription: "sub_test" } }
+    });
+    const { POST } = await import("@/app/api/billing/webhook/route");
+
+    const response = await POST(stripeRequest());
+
+    expect(response.status).toBe(204);
+    expect(billingMocks.accountUpdateOne).not.toHaveBeenCalled();
+    expect(billingMocks.webhookUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("disables webhooks when subscription updates downgrade an account", async () => {
+    billingMocks.constructEvent.mockReturnValue({
+      id: "evt_sub_past_due",
+      type: "customer.subscription.updated",
+      data: { object: { id: "sub_test", customer: "cus_test", status: "past_due" } }
+    });
+    const { POST } = await import("@/app/api/billing/webhook/route");
+
+    const response = await POST(stripeRequest());
+
+    expect(response.status).toBe(204);
+    expect(billingMocks.accountUpdateOne).toHaveBeenCalledWith(
+      { stripeCustomerId: "cus_test" },
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          plan: "free",
+          stripeSubscriptionStatus: "past_due"
+        })
+      })
+    );
+    expect(billingMocks.webhookUpdateMany).toHaveBeenCalledWith(
+      { developerUserId: "dev_test", status: "active" },
+      { $set: { status: "disabled" } }
+    );
+  });
+
+  it("failed payments disable paid limits and webhooks", async () => {
+    billingMocks.constructEvent.mockReturnValue({
+      id: "evt_invoice_failed",
+      type: "invoice.payment_failed",
+      data: { object: { customer: "cus_test" } }
+    });
+    const { POST } = await import("@/app/api/billing/webhook/route");
+
+    const response = await POST(stripeRequest());
+
+    expect(response.status).toBe(204);
+    expect(billingMocks.accountUpdateOne).toHaveBeenCalledWith(
+      { stripeCustomerId: "cus_test" },
+      { $set: { plan: "free", stripeSubscriptionStatus: "past_due" } }
+    );
+    expect(billingMocks.webhookUpdateMany).toHaveBeenCalledWith(
+      { developerUserId: "dev_test", status: "active" },
+      { $set: { status: "disabled" } }
+    );
   });
 });

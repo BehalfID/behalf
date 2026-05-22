@@ -1,6 +1,6 @@
 # Production Deployment Checklist
 
-This checklist is for deploying the current BehalfID product safely. It does not include Site Guard, teams/org roles, or provider-native integrations.
+This checklist is for deploying the current BehalfID product safely. It includes the minimal Site Guard policy check, but not teams/org roles or provider-native integrations.
 
 ## Required Environment Variables
 
@@ -34,6 +34,23 @@ Production startup validation fails loudly when required variables are missing o
 - Successful agent-key and developer-token authentication update `lastUsedAt` on a best-effort basis. Failed metadata writes must not fail the authenticated request.
 - Invalid, missing, malformed, or previously rotated keys must not update `lastUsedAt`.
 - Logs, webhook payloads, CLI errors, SDK errors, worker summaries, and route errors must not include raw bearer tokens, API keys, developer tokens, passport tokens, setup tokens, Stripe secrets, or webhook signing secrets.
+
+## Verification Logs and Retention
+
+- Every authenticated `/api/verify` decision writes a verification log with `requestId`, `agentId`, `permissionId` when matched, `action`, `vendor`/resource, `amount` when supplied, `allowed`, `reason`, `risk`, and `createdAt`.
+- Optional request `metadata` is only persisted when `BEHALFID_LOG_METADATA` is not `false`. List and export endpoints intentionally omit metadata today.
+- Dashboard log reads are scoped to the authenticated developer user and account retention window. Console log reads are admin-only and scoped to the console account.
+- Log endpoints support filters for agent, action, vendor/resource, allowed/denied, risk, request ID, date range, limit, and page. CSV export uses the same filters and safe selected fields.
+- `requestId` is the debugging join key across the verify response, dashboard/console log entry, CLI logs, and verification webhook payload.
+- Verification webhook events are derived from the decision result. Webhook delivery events and attempts are separate operational records and should be debugged by webhook event ID plus the verification `requestId` in the payload.
+
+## Site Guard MVP
+
+- Install Site Guard at a website-owned server boundary. `POST /api/site-guard/check` returns a decision; it does not proxy the site route or block uninstrumented traffic.
+- The MVP check uses `x-developer-token: bhf_dev_xxx`. Keep developer tokens server-side and do not expose them to browsers, crawlers, or protected content.
+- Site Guard denies by default. Active rules need a matching agent identifier or User-Agent pattern and a matching `allowedPaths` entry; `blockedPaths` override allowed paths.
+- Site Guard logs existing-site decisions with domain, path, User-Agent signal, optional agent identifier, matched rule ID when any, reason, risk, and request ID. It does not log cookies, auth headers, developer tokens, query strings, page content, request bodies, or optional metadata.
+- User-Agent patterns are weak caller signals, not provider-native identity proof. Treat sensitive routes as denied until a stronger future identity layer exists.
 
 ## Optional Environment Variables
 
@@ -99,6 +116,28 @@ https://behalfid.com/api/billing/webhook
 6. Store the endpoint signing secret in `STRIPE_WEBHOOK_SECRET`.
 
 Stripe webhook events are verified with Stripe signatures and processed idempotently by Stripe event ID.
+
+Billing state drives quota enforcement:
+
+- Free: 5 agents, 10,000 verifications/month, no dashboard webhooks, 7-day log retention.
+- Pro: 50 agents, 250,000 verifications/month, dashboard webhooks, 90-day log retention.
+- Enterprise: unlimited agents and verifications, dashboard webhooks, 365-day log retention.
+- `checkout.session.completed` upgrades the account to Pro and re-enables previously disabled webhooks.
+- `customer.subscription.updated` keeps Pro only for `active` or `trialing`; other statuses downgrade to Free and disable webhooks.
+- `customer.subscription.deleted` downgrades to Free and disables webhooks.
+- `invoice.payment_failed` marks the subscription `past_due`, downgrades to Free, and disables webhooks so paid limits are not left active by accident.
+
+Verification usage resets by UTC calendar month from `verificationPeriodStart`. If the stored period is stale, the next metered verification sets the count to 1 and moves the period start to the first day of the current UTC month. Missing account state is currently unmetered for compatibility and should be monitored before changing to fail-closed behavior.
+
+Local Stripe testing can use the Stripe CLI when billing env vars are configured:
+
+```bash
+stripe listen --forward-to localhost:3000/api/billing/webhook
+stripe trigger checkout.session.completed
+stripe trigger customer.subscription.updated
+stripe trigger customer.subscription.deleted
+stripe trigger invoice.payment_failed
+```
 
 ## Webhook Worker Cron
 

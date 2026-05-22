@@ -9,7 +9,7 @@ import { parseAgentMetadata } from "@/lib/agents";
 import { connectToDatabase } from "@/lib/db";
 import { authenticateDeveloperToken } from "@/lib/developerToken";
 import { createApiKey, createPublicId } from "@/lib/ids";
-import { checkAgentLimit } from "@/lib/quota";
+import { checkAgentLimit, quotaErrorDetails } from "@/lib/quota";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
 
   const agentQuota = await checkAgentLimit(accountId);
   if (!agentQuota.allowed) {
-    return jsonError(agentQuota.reason ?? "Agent limit reached.", 402);
+    return jsonError(agentQuota.reason ?? "Agent limit reached.", 402, quotaErrorDetails(agentQuota));
   }
 
   const apiKey = createApiKey();

@@ -40,12 +40,68 @@ type Permission = {
   template?: PermissionTemplate;
   constraints?: { maxAmount?: number; allowedVendors?: string[]; expiresAt?: string };
 };
-type Log = { requestId: string; agentId: string; action: string; allowed: boolean; reason: string; risk: string; createdAt?: string };
+type Log = {
+  requestId: string;
+  agentId: string;
+  agentName?: string | null;
+  action: string;
+  amount?: number;
+  vendor?: string | null;
+  allowed: boolean;
+  reason: string;
+  risk: "low" | "medium" | "high";
+  createdAt?: string;
+};
+type LogSummary = {
+  total: number;
+  allowed: number;
+  denied: number;
+  highRisk: number;
+  approvalRequired: number;
+  topDeniedAction: string | null;
+  topVendor: string | null;
+};
 type Webhook = { webhookId: string; url: string; events: string[]; status: string; secretPreview: string; lastTriggeredAt?: string | null };
 type Delivery = { deliveryId: string; eventType: string; eventId: string; status: string; error?: string; attempt: number; maxAttempts?: number; createdAt?: string };
 type DeveloperToken = { tokenId: string; name: string; tokenPreview?: string | null; createdAt?: string; lastUsedAt?: string | null };
+type Site = { siteId: string; name: string; domain: string; status: "active" | "disabled"; createdAt?: string };
+type SiteRule = {
+  ruleId: string;
+  name: string;
+  status: "active" | "disabled";
+  agentIdentifier?: string | null;
+  userAgentPattern?: string | null;
+  allowedPaths: string[];
+  blockedPaths: string[];
+  requiresApproval: boolean;
+  notes?: string | null;
+};
+type SiteLog = {
+  requestId: string;
+  ruleId?: string | null;
+  path: string;
+  userAgent: string;
+  agentIdentifier?: string | null;
+  allowed: boolean;
+  reason: string;
+  risk: "low" | "medium" | "high";
+  createdAt?: string;
+};
 type AgentProvider = "custom" | "ollie" | "chatgpt" | "claude" | "gemini" | "zapier" | "make" | "langchain" | "openai" | "other";
 type ProviderSelection = AgentProvider | "";
+type Plan = "free" | "pro" | "enterprise";
+type UsageSummary = {
+  plan: Plan;
+  agentCount: number;
+  agentLimit: number;
+  verificationCount: number;
+  verificationLimit: number;
+  verificationPeriodStart: string;
+  verificationPeriodResetAt: string;
+  webhooksEnabled: boolean;
+  logRetentionDays: number;
+  stripeSubscriptionStatus: string | null;
+};
 type OnboardingUserPath = "developer" | "regular" | null;
 type OnboardingUseCase = "personal" | "website" | "sdk";
 type AuthMe = {
@@ -187,8 +243,9 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { Accept: "application/json", ...(init?.body ? { "Content-Type": "application/json" } : {}), ...init?.headers }
   });
   if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(body?.error ?? `Request failed with ${response.status}`);
+    const body = (await response.json().catch(() => null)) as { error?: string; upgradeHint?: string } | null;
+    const hint = body?.upgradeHint ? ` ${body.upgradeHint}` : "";
+    throw new Error(`${body?.error ?? `Request failed with ${response.status}`}${hint}`);
   }
   return response.json() as Promise<T>;
 }
@@ -227,13 +284,14 @@ function date(value?: string | null) {
   return value ? new Intl.DateTimeFormat("en", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value)) : "Never";
 }
 
-export function DashboardShell({ view, id }: { view: "home" | "onboarding" | "agents" | "agent" | "webhooks" | "webhook" | "logs" | "docs" | "settings"; id?: string }) {
+export function DashboardShell({ view, id }: { view: "home" | "onboarding" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "docs" | "settings"; id?: string }) {
   return (
     <DashboardShellLayout>
         {view === "home" ? <HomeView /> : null}
         {view === "onboarding" ? <OnboardingView /> : null}
         {view === "agents" ? <AgentsView /> : null}
         {view === "agent" && id ? <AgentView agentId={id} /> : null}
+        {view === "sites" ? <SitesView /> : null}
         {view === "webhooks" ? <WebhooksView /> : null}
         {view === "webhook" && id ? <WebhookView webhookId={id} /> : null}
         {view === "logs" ? <LogsView /> : null}
@@ -244,7 +302,7 @@ export function DashboardShell({ view, id }: { view: "home" | "onboarding" | "ag
 }
 
 function HomeView() {
-  const summary = useResource<{ totalAgents: number; activePermissions: number; logsToday: number; pendingEvents: number; failedEvents: number }>("/api/dashboard/summary");
+  const summary = useResource<{ totalAgents: number; activePermissions: number; logsToday: number; pendingEvents: number; failedEvents: number; usage: UsageSummary }>("/api/dashboard/summary");
   const me = useResource<AuthMe>("/api/auth/me");
   const useCase = me.data?.user.onboardingUseCase ?? "sdk";
   const content = dashboardUseCaseContent[useCase];
@@ -276,6 +334,7 @@ function HomeView() {
         <Metric label="Logs today" value={summary.data?.logsToday ?? 0} />
         <Metric label="Webhook issues" value={summary.data?.failedEvents ?? 0} />
       </div>
+      {summary.data?.usage ? <PlanUsagePanel usage={summary.data.usage} /> : null}
       <Card className="dashboard-panel">
         <div className="dashboard-section-header">
           <div>
@@ -297,6 +356,39 @@ function HomeView() {
         </div>
       </Card>
     </>
+  );
+}
+
+function formatUsageLimit(limit: number) {
+  return isFinite(limit) ? limit.toLocaleString() : "Unlimited";
+}
+
+function formatUsageDate(value: string) {
+  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(value));
+}
+
+function PlanUsagePanel({ usage }: { usage: UsageSummary }) {
+  return (
+    <section className="dashboard-panel plan-usage-panel">
+      <div className="dashboard-section-header">
+        <div>
+          <p className="section-kicker">Plan and usage</p>
+          <h2>{usage.plan} plan</h2>
+          <p>Current limits, reset timing, webhook access, and log retention.</p>
+        </div>
+        <ButtonLink href="/dashboard/billing">{usage.plan === "free" ? "Upgrade" : "Manage billing"}</ButtonLink>
+      </div>
+      {usage.stripeSubscriptionStatus === "past_due" ? (
+        <p className="form-error">Payment failed. Paid limits and webhook delivery are disabled until billing is updated.</p>
+      ) : null}
+      <div className="plan-usage-grid">
+        <div><span>Agents</span><strong>{usage.agentCount.toLocaleString()} / {formatUsageLimit(usage.agentLimit)}</strong></div>
+        <div><span>Verifications</span><strong>{usage.verificationCount.toLocaleString()} / {formatUsageLimit(usage.verificationLimit)}</strong></div>
+        <div><span>Reset</span><strong>{formatUsageDate(usage.verificationPeriodResetAt)}</strong></div>
+        <div><span>Webhooks</span><strong>{usage.webhooksEnabled ? "Enabled" : "Requires Pro"}</strong></div>
+        <div><span>Log retention</span><strong>{usage.logRetentionDays} days</strong></div>
+      </div>
+    </section>
   );
 }
 
@@ -323,6 +415,171 @@ function AgentsView() {
       ) : null}
       <Rows items={agents} href={(agent) => `/dashboard/agents/${agent.agentId}`} title={(agent) => agent.name} meta={(agent) => `${agent.agentType} / ${agent.provider} / ${agent.status}`} />
     </>
+  );
+}
+
+function sitePaths(value: string) {
+  return value
+    .split(/\n|,/)
+    .map((path) => path.trim())
+    .filter(Boolean);
+}
+
+function SitesView() {
+  const resource = useResource<{ sites: Site[] }>("/api/dashboard/sites");
+  const sites = resource.data?.sites ?? [];
+  const [siteId, setSiteId] = useState("");
+  const [name, setName] = useState("");
+  const [domain, setDomain] = useState("");
+  const [siteError, setSiteError] = useState("");
+  const selectedSiteId = siteId || sites[0]?.siteId || "";
+
+  const createSite = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    try {
+      setSiteError("");
+      const result = await api<{ site: Site }>("/api/dashboard/sites", {
+        method: "POST",
+        body: JSON.stringify({ name, domain })
+      });
+      setName("");
+      setDomain("");
+      setSiteId(result.site.siteId);
+      await resource.reload();
+    } catch (requestError) {
+      setSiteError(requestError instanceof Error ? requestError.message : "Site creation failed.");
+    }
+  };
+
+  return (
+    <>
+      <Header title="Site Guard" action={<ButtonLink href="/docs/site-guard">Integration docs</ButtonLink>} />
+      {resource.error ? <p className="form-error">{resource.error}</p> : null}
+      {siteError ? <p className="form-error">{siteError}</p> : null}
+      <div className="dashboard-grid">
+        <Card className="dashboard-panel">
+          <div className="dashboard-section-header">
+            <div>
+              <h2>Sites</h2>
+              <p>Site Guard checks are deny by default until an active rule allows a path.</p>
+            </div>
+          </div>
+          <div className="dashboard-list">
+            {sites.map((site) => (
+              <button className="dashboard-list-row" key={site.siteId} onClick={() => setSiteId(site.siteId)} type="button">
+                <strong>{site.name}</strong>
+                <small>{site.domain} / {site.status} / {site.siteId}</small>
+              </button>
+            ))}
+          </div>
+          {!sites.length && resource.data ? <EmptyState className="dashboard-empty">No Site Guard sites yet.</EmptyState> : null}
+        </Card>
+        <form className="dashboard-panel" onSubmit={createSite}>
+          <h2>Create site</h2>
+          <label><span>Name</span><input onChange={(event) => setName(event.target.value)} placeholder="Docs site" required value={name} /></label>
+          <label><span>Domain</span><input onChange={(event) => setDomain(event.target.value)} placeholder="docs.example.com" required value={domain} /></label>
+          <Button variant="primary" type="submit">Create</Button>
+        </form>
+      </div>
+      {selectedSiteId ? <SiteDetailView siteId={selectedSiteId} onChanged={resource.reload} /> : null}
+    </>
+  );
+}
+
+function SiteDetailView({ siteId, onChanged }: { siteId: string; onChanged: () => Promise<void> }) {
+  const detail = useResource<{ site: Site; rules: SiteRule[]; logs: SiteLog[] }>(`/api/dashboard/sites/${siteId}`);
+  const [name, setName] = useState("");
+  const [signal, setSignal] = useState("");
+  const [pattern, setPattern] = useState("");
+  const [allowedPaths, setAllowedPaths] = useState("/docs/*");
+  const [blockedPaths, setBlockedPaths] = useState("/admin/*");
+  const [requiresApproval, setRequiresApproval] = useState(false);
+  const [detailError, setDetailError] = useState("");
+
+  const createRule = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    try {
+      setDetailError("");
+      await api(`/api/dashboard/sites/${siteId}/rules`, {
+        method: "POST",
+        body: JSON.stringify({
+          name,
+          agentIdentifier: signal || undefined,
+          userAgentPattern: pattern || undefined,
+          allowedPaths: sitePaths(allowedPaths),
+          blockedPaths: sitePaths(blockedPaths),
+          requiresApproval
+        })
+      });
+      setName("");
+      await detail.reload();
+    } catch (requestError) {
+      setDetailError(requestError instanceof Error ? requestError.message : "Rule creation failed.");
+    }
+  };
+
+  const setSiteStatus = async (status: Site["status"]) => {
+    await api(`/api/dashboard/sites/${siteId}`, { method: "PATCH", body: JSON.stringify({ status }) });
+    await Promise.all([detail.reload(), onChanged()]);
+  };
+
+  const setRuleStatus = async (rule: SiteRule) => {
+    await api(`/api/dashboard/sites/${siteId}/rules/${rule.ruleId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: rule.status === "active" ? "disabled" : "active" })
+    });
+    await detail.reload();
+  };
+
+  if (detail.error) return <p className="form-error">{detail.error}</p>;
+  const site = detail.data?.site;
+  if (!site) return null;
+
+  return (
+    <section className="dashboard-grid">
+      <Card className="dashboard-panel">
+        <div className="dashboard-section-header">
+          <div>
+            <p className="section-kicker">{site.siteId}</p>
+            <h2>{site.name}</h2>
+            <p>{site.domain} / {site.status}</p>
+          </div>
+          <Button onClick={() => void setSiteStatus(site.status === "active" ? "disabled" : "active")}>
+            {site.status === "active" ? "Disable" : "Enable"}
+          </Button>
+        </div>
+        <h3>Rules</h3>
+        <div className="dashboard-list">
+          {detail.data?.rules.map((rule) => (
+            <div className="dashboard-list-row" key={rule.ruleId}>
+              <strong>{rule.name} <Badge>{rule.status}</Badge></strong>
+              <small>{rule.agentIdentifier || rule.userAgentPattern} / allow {rule.allowedPaths.join(", ") || "none"} / block {rule.blockedPaths.join(", ") || "none"}</small>
+              <Button onClick={() => void setRuleStatus(rule)}>{rule.status === "active" ? "Disable" : "Enable"}</Button>
+            </div>
+          ))}
+        </div>
+        <h3>Recent checks</h3>
+        <div className="dashboard-list">
+          {detail.data?.logs.map((log) => (
+            <div className="dashboard-list-row" key={log.requestId}>
+              <strong>{log.allowed ? "Allowed" : "Denied"} {log.path}</strong>
+              <small>{log.reason} / {log.requestId} / {date(log.createdAt)}</small>
+            </div>
+          ))}
+        </div>
+      </Card>
+      <form className="dashboard-panel" onSubmit={createRule}>
+        <h2>Add rule</h2>
+        {detailError ? <p className="form-error">{detailError}</p> : null}
+        <label><span>Name</span><input onChange={(event) => setName(event.target.value)} required value={name} /></label>
+        <label><span>Agent identifier</span><input onChange={(event) => setSignal(event.target.value)} placeholder="crawler_alpha" value={signal} /></label>
+        <label><span>User-Agent pattern</span><input onChange={(event) => setPattern(event.target.value)} placeholder="ExampleBot/*" value={pattern} /></label>
+        <label><span>Allowed paths</span><textarea onChange={(event) => setAllowedPaths(event.target.value)} rows={3} value={allowedPaths} /></label>
+        <label><span>Blocked paths</span><textarea onChange={(event) => setBlockedPaths(event.target.value)} rows={3} value={blockedPaths} /></label>
+        <label><span><input checked={requiresApproval} onChange={(event) => setRequiresApproval(event.target.checked)} type="checkbox" /> Require approval</span></label>
+        <Button variant="primary" type="submit">Add rule</Button>
+      </form>
+    </section>
   );
 }
 
@@ -1424,27 +1681,47 @@ function AgentView({ agentId }: { agentId: string }) {
 }
 
 function WebhooksView() {
-  const resource = useResource<{ webhooks: Webhook[]; eventTypes: string[] }>("/api/dashboard/webhooks");
+  const resource = useResource<{ webhooks: Webhook[]; eventTypes: string[]; plan: Plan; webhooksEnabled: boolean; upgradeHint: string | null }>("/api/dashboard/webhooks");
   const [url, setUrl] = useState("");
   const [secret, setSecret] = useState("");
+  const [webhookError, setWebhookError] = useState("");
   const events = useMemo(() => ["verification.allowed", "verification.denied", "agent.key_rotated", "permission.revoked"], []);
   const create = async (event: FormEvent) => {
     event.preventDefault();
-    const result = await api<{ secret: string }>("/api/dashboard/webhooks", { method: "POST", body: JSON.stringify({ url, events }) });
-    setSecret(result.secret);
-    setUrl("");
-    await resource.reload();
+    setWebhookError("");
+    try {
+      const result = await api<{ secret: string }>("/api/dashboard/webhooks", { method: "POST", body: JSON.stringify({ url, events }) });
+      setSecret(result.secret);
+      setUrl("");
+      await resource.reload();
+    } catch (err) {
+      setWebhookError(err instanceof Error ? err.message : "Webhook creation failed.");
+    }
   };
+  const webhooksEnabled = resource.data?.webhooksEnabled ?? false;
   return (
     <>
-      <Header title="Webhooks" />
+      <Header title="Webhooks" action={<ButtonLink href="/dashboard/billing">{webhooksEnabled ? "Manage billing" : "Upgrade"}</ButtonLink>} />
+      {resource.error ? <p className="form-error">{resource.error}</p> : null}
+      {!webhooksEnabled ? (
+        <Card className="dashboard-panel">
+          <div className="agent-passport__header">
+            <Badge>Free plan</Badge>
+            <Badge>Webhooks disabled</Badge>
+          </div>
+          <h2>Webhooks require Pro.</h2>
+          <p>Free accounts can create agents and call verify, but webhook delivery is disabled until the account upgrades. Existing endpoints stay disabled after downgrade so verification still fails closed without silent delivery.</p>
+          <ButtonLink href="/dashboard/billing">View plan limits</ButtonLink>
+        </Card>
+      ) : null}
       <form className="dashboard-panel inline-form" onSubmit={create}>
         <label>
           <span>Endpoint URL</span>
-          <input onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com/webhooks/behalfid" required value={url} />
+          <input disabled={!webhooksEnabled} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com/webhooks/behalfid" required value={url} />
         </label>
-        <Button variant="primary">Create webhook</Button>
+        <Button disabled={!webhooksEnabled} variant="primary">Create webhook</Button>
       </form>
+      {webhookError ? <p className="form-error">{webhookError}</p> : null}
       {secret ? <Secret value={secret} label="Signing secret" /> : null}
       <Rows items={resource.data?.webhooks ?? []} href={(w) => `/dashboard/webhooks/${w.webhookId}`} title={(w) => w.url} meta={(w) => `${w.status} / ${w.events.join(", ")}`} />
     </>
@@ -1468,8 +1745,43 @@ function WebhookView({ webhookId }: { webhookId: string }) {
 }
 
 function LogsView() {
-  const logs = useResource<{ logs: Log[] }>("/api/dashboard/logs");
-  return <><Header title="Logs" /><LogList logs={logs.data?.logs ?? []} /></>;
+  const [agentId, setAgentId] = useState("");
+  const [allowed, setAllowed] = useState("");
+  const [action, setAction] = useState("");
+  const [risk, setRisk] = useState("");
+  const path = useMemo(() => {
+    const params = new URLSearchParams();
+    if (agentId) params.set("agentId", agentId.trim());
+    if (allowed) params.set("allowed", allowed);
+    if (action) params.set("action", action.trim());
+    if (risk) params.set("risk", risk);
+    return `/api/dashboard/logs${params.size ? `?${params.toString()}` : ""}`;
+  }, [action, agentId, allowed, risk]);
+  const logs = useResource<{ logs: Log[]; summary: LogSummary }>(path);
+  const exportHref = `${path}${path.includes("?") ? "&" : "?"}format=csv`;
+  return (
+    <>
+      <Header title="Logs" action={<ButtonLink href={exportHref}>Export CSV</ButtonLink>} />
+      <div className="console-toolbar">
+        <input aria-label="Filter by agent ID" onChange={(event) => setAgentId(event.target.value)} placeholder="agent_xxx" value={agentId} />
+        <select aria-label="Allowed filter" onChange={(event) => setAllowed(event.target.value)} value={allowed}>
+          <option value="">All decisions</option>
+          <option value="true">Allowed</option>
+          <option value="false">Denied</option>
+        </select>
+        <input aria-label="Filter by action" onChange={(event) => setAction(event.target.value)} placeholder="action" value={action} />
+        <select aria-label="Risk filter" onChange={(event) => setRisk(event.target.value)} value={risk}>
+          <option value="">All risk</option>
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+        </select>
+        <Button onClick={logs.reload} type="button">Refresh</Button>
+      </div>
+      {logs.data?.summary ? <LogSummaryStrip summary={logs.data.summary} /> : null}
+      <LogList logs={logs.data?.logs ?? []} />
+    </>
+  );
 }
 
 function SettingsView() {
@@ -1534,7 +1846,7 @@ function Header({ title, action }: { title: string; action?: React.ReactNode }) 
   return <PageHeader eyebrow="Developer portal" title={title} action={action} className="dashboard-header" />;
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
+function Metric({ label, value }: { label: string; value: number | string }) {
   return <StatCard label={label} value={value} />;
 }
 
@@ -1545,7 +1857,36 @@ function Rows<T>({ items, href, title, meta }: { items: T[]; href: (item: T) => 
 
 function LogList({ logs }: { logs: Log[] }) {
   if (!logs.length) return <EmptyState className="dashboard-empty">No logs yet.</EmptyState>;
-  return <div className="dashboard-list">{logs.map((log) => <div key={log.requestId}><span><strong>{log.action}</strong><small>{log.agentId} / {log.reason}</small></span><Badge>{log.allowed ? "allowed" : "denied"}</Badge><span>{date(log.createdAt)}</span></div>)}</div>;
+  return (
+    <div className="dashboard-list dashboard-log-list">
+      {logs.map((log) => (
+        <div key={log.requestId}>
+          <span>
+            <strong>{log.action}</strong>
+            <small>{log.agentName || log.agentId} / {log.vendor || "no resource"}{typeof log.amount === "number" ? ` / $${log.amount}` : ""}</small>
+            <small>{log.reason}</small>
+            <small>{log.requestId}</small>
+          </span>
+          <span className={log.allowed ? "console-status console-status--allowed" : "console-status console-status--denied"}>{log.allowed ? "allowed" : "denied"}</span>
+          <span className={`console-status console-status--${log.risk}`}>{log.risk}</span>
+          <span>{date(log.createdAt)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function LogSummaryStrip({ summary }: { summary: LogSummary }) {
+  return (
+    <section className="dashboard-metrics dashboard-log-summary" aria-label="Log summary">
+      <Metric label="Total" value={summary.total} />
+      <Metric label="Allowed" value={summary.allowed} />
+      <Metric label="Denied" value={summary.denied} />
+      <Metric label="High risk" value={summary.highRisk} />
+      <Metric label="Approval required" value={summary.approvalRequired} />
+      <Metric label="Top denied" value={summary.topDeniedAction ?? "None"} />
+    </section>
+  );
 }
 
 function Secret({ label, value }: { label: string; value: string }) {

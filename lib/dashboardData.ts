@@ -1,6 +1,8 @@
 import { hashApiKey } from "@/lib/auth";
 import { normalizeAgentMetadata, type AgentProvider, type AgentType, type ConnectionStatus } from "@/lib/agents";
 import { createApiKey, createPublicId } from "@/lib/ids";
+import { getQuotas, verificationPeriodStart, type Plan } from "@/lib/plans";
+import type { AccountDocument } from "@/models/Account";
 import Agent from "@/models/Agent";
 import Permission from "@/models/Permission";
 import VerificationLog from "@/models/VerificationLog";
@@ -43,6 +45,7 @@ export function serializeAgent(agent: {
 
 export async function createDeveloperAgent(
   userId: string,
+  accountId: string | undefined,
   input: {
     name: string;
     agentType?: AgentType;
@@ -56,6 +59,7 @@ export async function createDeveloperAgent(
   const apiKey = createApiKey();
   const agent = await Agent.create({
     agentId: createPublicId("agent"),
+    ...(accountId ? { accountId } : {}),
     developerUserId: userId,
     name: input.name,
     agentType: input.agentType ?? "native",
@@ -69,6 +73,12 @@ export async function createDeveloperAgent(
   });
 
   return { agent: serializeAgent(agent), apiKey };
+}
+
+function nextVerificationReset(periodStart?: Date | null) {
+  const start = periodStart ? new Date(periodStart) : verificationPeriodStart();
+  if (Number.isNaN(start.getTime())) return verificationPeriodStart();
+  return new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1));
 }
 
 export async function getDeveloperAgentDetail(userId: string, agentId: string) {
@@ -91,7 +101,7 @@ export async function getDeveloperAgentDetail(userId: string, agentId: string) {
   return { agent: serializeAgent(agent), permissions, logs };
 }
 
-export async function getDashboardSummary(userId: string) {
+export async function getDashboardSummary(userId: string, account?: AccountDocument | null) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const [totalAgents, activePermissions, logsToday, pendingEvents, failedEvents] = await Promise.all([
@@ -102,7 +112,28 @@ export async function getDashboardSummary(userId: string) {
     WebhookEvent.countDocuments({ developerUserId: userId, deadLetter: true })
   ]);
 
-  return { totalAgents, activePermissions, logsToday, pendingEvents, failedEvents };
+  const plan = (account?.plan ?? "free") as Plan;
+  const quotas = getQuotas(plan);
+
+  return {
+    totalAgents,
+    activePermissions,
+    logsToday,
+    pendingEvents,
+    failedEvents,
+    usage: {
+      plan,
+      agentCount: totalAgents,
+      agentLimit: quotas.maxAgents,
+      verificationCount: account?.verificationCount ?? 0,
+      verificationLimit: quotas.verificationsPerMonth,
+      verificationPeriodStart: (account?.verificationPeriodStart ?? verificationPeriodStart()).toISOString(),
+      verificationPeriodResetAt: nextVerificationReset(account?.verificationPeriodStart).toISOString(),
+      webhooksEnabled: quotas.webhooksEnabled,
+      logRetentionDays: quotas.logRetentionDays,
+      stripeSubscriptionStatus: account?.stripeSubscriptionStatus ?? null
+    }
+  };
 }
 
 export async function getDeveloperWebhookDetail(userId: string, webhookId: string) {

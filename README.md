@@ -15,7 +15,7 @@ This prototype includes the public permission API, a public docs site, a develop
 - Manage native and connected agents, permissions, logs, key rotation, and disable/enable state in `/console`.
 - Sign up for a developer portal account and manage owned resources, developer tokens, and key metadata in `/dashboard`.
 - Read public integration pages at `/docs`.
-- Explore the planned BehalfID Site Guard pattern for website-owner AI access enforcement.
+- Create Site Guard sites and path rules for website-owner AI access checks.
 
 ## Local Setup
 
@@ -97,6 +97,7 @@ BehalfID has three developer adoption paths:
 - SDK path: use `@behalfid/sdk` inside your app and verify before your code executes a tool action.
 - Action Gateway path: call BehalfID to verify and execute a supported safe action in one request.
 - CLI/MCP path: add permission context and `verify_action` to Claude Code, Codex, and MCP-compatible local agents.
+- Site Guard path: call `/api/site-guard/check` from site middleware before protected routes are served.
 
 Agents can be `native` or `connected`. Native agents are BehalfID-created identities for custom integrations. Connected agents manually represent external agents people already use; provider fields are metadata and are not authentication.
 
@@ -143,11 +144,11 @@ behalf claude   # or: behalf codex
 
 `behalf mcp init` creates `.behalf/context.md` and merges a BehalfID server entry into `.mcp.json`. Denied verification results, approval-required results, and unavailable verification all fail closed: the agent must not execute the action. See [docs/MCP_DEMO.md](docs/MCP_DEMO.md).
 
-## Site Guard Preview
+## Site Guard MVP
 
-BehalfID Site Guard is the planned AI access gateway for website owners. `llms.txt`-style files can declare intent, but Site Guard is designed to enforce rules when installed as middleware, a worker, proxy, or gateway before protected site workflows run.
+BehalfID Site Guard is an MVP policy check for website owners. Create sites and simple access rules under `/dashboard/sites`, then call `POST /api/site-guard/check` from server-side middleware, a worker, or a gateway before protected routes are served. The check uses an account-scoped developer token in `x-developer-token`, denies when no active rule allows the path, and logs allowed and denied decisions with a `requestId`.
 
-Site Guard is not a full reverse proxy/CDN yet and does not claim reliable AI identity from User-Agent strings. See `/docs/site-guard` and [docs/SITE_GUARD.md](docs/SITE_GUARD.md) for the design.
+Site Guard rules match either a caller-supplied `agentIdentifier` or a simple User-Agent wildcard pattern. Path allow rules use exact paths or `*` wildcards, and matching blocked paths override allows. User-Agent is only a weak signal: Site Guard is not a full reverse proxy/CDN, crawler registry, or provider-native identity system. See `/docs/site-guard`, [docs/SITE_GUARD.md](docs/SITE_GUARD.md), and `examples/site-guard-demo`.
 
 ### Reference enforcement demo
 

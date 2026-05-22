@@ -1,21 +1,13 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { Command } from "commander";
 import { resolveApiKey, resolveBaseUrl } from "../lib/client.js";
 import { readConfig } from "../lib/config.js";
-import { generateContextMd, generateMcpJson } from "../lib/context-generator.js";
+import { generateContextMd } from "../lib/context-generator.js";
 import { fetchAndCacheDetail, readCachedDetail } from "../lib/passport-cache.js";
 import { isJsonMode, printJson, printKv, runAction } from "../lib/output.js";
 import { confirm } from "../lib/prompt.js";
-
-function readJsonFile(path: string): Record<string, unknown> | null {
-  if (!existsSync(path)) return null;
-  try {
-    return JSON.parse(readFileSync(path, "utf-8")) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
+import { readJsonFile, writeProjectSetup } from "../lib/mcp-setup.js";
 
 export function mcpCommand() {
   const cmd = new Command("mcp").description("BehalfID MCP server — real-time agent enforcement");
@@ -57,11 +49,17 @@ export function mcpCommand() {
       runAction(async (opts: { refresh?: boolean; inject?: boolean; dryRun?: boolean }) => {
         const config = readConfig();
         const agentId = config.agentId ?? process.env.BEHALFID_AGENT_ID;
+        const apiKey = resolveApiKey();
         const baseUrl = resolveBaseUrl();
 
         if (!agentId) {
           throw new Error(
             "Agent ID not configured. Run `behalf config set agent-id <agentId>` first."
+          );
+        }
+        if (!apiKey && !isJsonMode()) {
+          console.warn(
+            "Warning: API key is not configured. MCP startup will fail until you run `behalf config set api-key <bhf_sk_xxx>`."
           );
         }
 
@@ -78,31 +76,32 @@ export function mcpCommand() {
         }
 
         const cwd = process.cwd();
-        const behalfDir = join(cwd, ".behalf");
-        const contextFile = join(behalfDir, "context.md");
-        const mcpJsonFile = join(cwd, ".mcp.json");
-
-        const contextMd = generateContextMd(detail);
-        const existingMcp = readJsonFile(mcpJsonFile);
-        const mcpJson = generateMcpJson(existingMcp ?? undefined);
-
         if (opts.dryRun) {
+          const setup = writeProjectSetup(detail, { cwd, dryRun: true });
           if (isJsonMode()) {
-            printJson({ wouldWrite: [contextFile, mcpJsonFile] });
+            printJson({
+              initialized: false,
+              dryRun: true,
+              agentId,
+              wouldChange: setup.changed,
+              wouldPreserve: setup.preserved,
+              warnings: apiKey ? [] : ["API key is not configured; MCP startup will fail until one is set."],
+            });
           } else {
-            console.log(`Would write:\n  ${contextFile}\n  ${mcpJsonFile}`);
+            console.log("Dry run. No files were written.\n");
+            console.log("Would change:");
+            for (const file of setup.changed) console.log(`  ${file}`);
+            if (setup.preserved.length) {
+              console.log("\nPreserved existing config:");
+              for (const file of setup.preserved) console.log(`  ${file}`);
+            }
             console.log("\n--- .behalf/context.md ---\n");
-            console.log(contextMd);
+            console.log(generateContextMd(detail));
           }
           return;
         }
 
-        // Write .behalf/context.md
-        if (!existsSync(behalfDir)) mkdirSync(behalfDir, { recursive: true });
-        writeFileSync(contextFile, contextMd);
-
-        // Write / merge .mcp.json
-        writeFileSync(mcpJsonFile, mcpJson);
+        const setup = writeProjectSetup(detail, { cwd });
 
         // Inject into CLAUDE.md if present or if user confirms
         if (opts.inject !== false) {
@@ -127,17 +126,35 @@ export function mcpCommand() {
         }
 
         if (isJsonMode()) {
-          printJson({ initialized: true, agentId, contextFile, mcpJsonFile });
+          printJson({
+            initialized: true,
+            agentId,
+            changed: setup.changed,
+            preserved: setup.preserved,
+            warnings: apiKey ? [] : ["API key is not configured; MCP startup will fail until one is set."],
+          });
           return;
         }
 
-        console.log("");
+        console.log("\nChanged:");
+        for (const file of setup.changed) console.log(`  ${file}`);
+        if (setup.preserved.length) {
+          console.log("\nPreserved existing config:");
+          for (const file of setup.preserved) console.log(`  ${file}`);
+        }
+        console.log("\nCurrent setup:");
         printKv({
-          "context file": resolve(contextFile),
-          "mcp config": resolve(mcpJsonFile),
+          "context file": resolve(setup.contextFile),
+          "mcp config": resolve(setup.mcpJsonFile),
+          "api key": apiKey ? "configured" : "missing - run `behalf config set api-key <bhf_sk_xxx>`",
           permissions: `${detail.permissions.filter(p => p.status === "active").length} active`,
         });
-        console.log(`\nBehalfID enforcement is active. Launch your AI tool normally — or run \`behalf claude\` to start Claude Code.\n`);
+        console.log(
+          "\nNext commands:\n" +
+          "  behalf doctor\n" +
+          "  behalf mcp status\n" +
+          "  behalf claude   # or: behalf codex\n"
+        );
       })
     );
 
@@ -154,7 +171,7 @@ export function mcpCommand() {
         const contextPath = join(cwd, ".behalf/context.md");
 
         const mcpJson = readJsonFile(mcpJsonPath);
-        const hasMcp = !!(mcpJson?.mcpServers as Record<string, unknown> | undefined)?.behalfid;
+        const hasMcp = mcpJson.ok && !!(mcpJson.data?.mcpServers as Record<string, unknown> | undefined)?.behalfid;
         const hasContext = existsSync(contextPath);
         const cached = agentId ? readCachedDetail(agentId) : null;
 

@@ -4,6 +4,13 @@ import { authenticateAgent } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/db";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { jsonError } from "@/lib/responses";
+import {
+  buildVerificationLogQuery,
+  calculateVerificationLogSummary,
+  parseLogListParams,
+  sanitizeVerificationLog,
+  type VerificationLogListItem
+} from "@/lib/verificationLogs";
 import VerificationLog from "@/models/VerificationLog";
 
 type RouteContext = {
@@ -33,13 +40,36 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return rateLimitError();
   }
 
-  const logs = await VerificationLog.find({ agentId })
-    .sort({ createdAt: -1 })
-    .limit(50)
-    .select(
-      "-_id requestId agentId permissionId action amount vendor allowed reason risk createdAt"
-    )
-    .lean();
+  const { limit: pageLimit, page, skip } = parseLogListParams(request.nextUrl.searchParams);
+  const query = buildVerificationLogQuery(request.nextUrl.searchParams, { agentId });
+  const [rawLogs, total, summaryLogs] = await Promise.all([
+    VerificationLog.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(pageLimit)
+      .select(
+        "-_id requestId agentId permissionId action amount vendor allowed reason risk createdAt"
+      )
+      .lean<VerificationLogListItem[]>(),
+    VerificationLog.countDocuments(query),
+    VerificationLog.find(query)
+      .sort({ createdAt: -1 })
+      .limit(1000)
+      .select(
+        "-_id requestId agentId permissionId action amount vendor allowed reason risk createdAt"
+      )
+      .lean<VerificationLogListItem[]>()
+  ]);
+  const logs = rawLogs.map(sanitizeVerificationLog);
+  const legacy = request.nextUrl.searchParams.size === 0;
 
-  return NextResponse.json(logs);
+  if (legacy) {
+    return NextResponse.json(logs.slice(0, 50));
+  }
+
+  return NextResponse.json({
+    logs,
+    summary: calculateVerificationLogSummary(summaryLogs),
+    pagination: { limit: pageLimit, page, total, hasMore: skip + logs.length < total }
+  });
 }

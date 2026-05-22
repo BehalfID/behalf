@@ -1,16 +1,124 @@
 import { Command } from "commander";
 import { apiRequest, resolveApiKey, resolveBaseUrl } from "../lib/client.js";
 import { readConfig, readSession, CONFIG_DIR_PATH, CONFIG_FILE_PATH } from "../lib/config.js";
+import { getProjectSetupStatus } from "../lib/mcp-setup.js";
 import { isJsonMode, printJson, runAction } from "../lib/output.js";
 
 type Check = {
   name: string;
   status: "ok" | "warn" | "error";
   detail: string;
+  fix?: string;
 };
 
 function icon(status: Check["status"]) {
   return status === "ok" ? "✓" : status === "warn" ? "!" : "✗";
+}
+
+function looksLikeApiKey(apiKey: string | undefined): boolean {
+  return !!apiKey && /^bhf_sk_[A-Za-z0-9._-]{8,}$/.test(apiKey);
+}
+
+function looksLikeAgentId(agentId: string | undefined): boolean {
+  return !!agentId && /^agent_[A-Za-z0-9_-]+$/.test(agentId);
+}
+
+export async function runDoctorChecks(cwd = process.cwd()): Promise<Check[]> {
+  const checks: Check[] = [];
+  const { existsSync } = await import("node:fs");
+
+  checks.push({
+    name: "Config directory",
+    status: existsSync(CONFIG_DIR_PATH) ? "ok" : "warn",
+    detail: existsSync(CONFIG_DIR_PATH)
+      ? CONFIG_DIR_PATH
+      : `Not found (expected: ${CONFIG_DIR_PATH})`,
+    fix: "Run `behalf init` or `behalf config set ...` to create it.",
+  });
+
+  const session = readSession();
+  checks.push({
+    name: "Session",
+    status: session ? "ok" : "warn",
+    detail: session ? "Active session found" : "Not logged in",
+    fix: "Run `behalf login` if you need dashboard-scoped commands.",
+  });
+
+  const config = readConfig();
+  checks.push({
+    name: "Config file",
+    status: existsSync(CONFIG_FILE_PATH) ? "ok" : "warn",
+    detail: existsSync(CONFIG_FILE_PATH) ? CONFIG_FILE_PATH : "Not found",
+    fix: "Run `behalf config set api-key <bhf_sk_xxx>` and `behalf config set agent-id <agent_xxx>`.",
+  });
+
+  const agentId = config.agentId ?? process.env.BEHALFID_AGENT_ID;
+  checks.push({
+    name: "Agent ID",
+    status: agentId ? (looksLikeAgentId(agentId) ? "ok" : "warn") : "warn",
+    detail: agentId ? (looksLikeAgentId(agentId) ? agentId : `${agentId} (unexpected format)`) : "Not set",
+    fix: "Run `behalf config set agent-id <agent_xxx>`.",
+  });
+
+  const apiKey = resolveApiKey();
+  checks.push({
+    name: "API key",
+    status: apiKey ? (looksLikeApiKey(apiKey) ? "ok" : "warn") : "warn",
+    detail: apiKey ? "Configured (redacted)" : "Not set",
+    fix: "Run `behalf config set api-key <bhf_sk_xxx>` with the one-time key from agent creation.",
+  });
+
+  const baseUrl = resolveBaseUrl();
+  let parsedBaseUrl: URL | null = null;
+  try {
+    parsedBaseUrl = new URL(baseUrl);
+  } catch {
+    parsedBaseUrl = null;
+  }
+  checks.push({
+    name: "Base URL",
+    status: parsedBaseUrl && ["http:", "https:"].includes(parsedBaseUrl.protocol) ? "ok" : "error",
+    detail: baseUrl,
+    fix: "Run `behalf config set base-url https://behalfid.com` or your local app URL.",
+  });
+
+  if (parsedBaseUrl) {
+    try {
+      await apiRequest("/api/health", { baseUrl, skipAuth: true });
+      checks.push({ name: "API health", status: "ok", detail: `${baseUrl}/api/health` });
+    } catch (err) {
+      checks.push({
+        name: "API health",
+        status: "error",
+        detail: err instanceof Error ? err.message : "Connection failed",
+        fix: "Check the base URL, network, and whether the BehalfID app is running.",
+      });
+    }
+  }
+
+  const project = getProjectSetupStatus(cwd);
+  checks.push({
+    name: "MCP config",
+    status: project.mcpJsonExists ? (project.mcpJsonValid ? "ok" : "error") : "warn",
+    detail: project.mcpJsonExists
+      ? project.mcpJsonValid ? project.mcpJsonFile : `.mcp.json is invalid JSON: ${project.mcpJsonError}`
+      : "Missing .mcp.json",
+    fix: "Run `behalf mcp init` from the project directory.",
+  });
+  checks.push({
+    name: "MCP server entry",
+    status: project.hasBehalfServer ? "ok" : "warn",
+    detail: project.hasBehalfServer ? "behalfid server configured" : "No behalfid server entry in .mcp.json",
+    fix: "Run `behalf mcp init`; existing .mcp.json entries will be preserved.",
+  });
+  checks.push({
+    name: "Context file",
+    status: project.contextExists ? "ok" : "warn",
+    detail: project.contextExists ? project.contextFile : "Missing .behalf/context.md",
+    fix: "Run `behalf mcp init --refresh` to generate current permission context.",
+  });
+
+  return checks;
 }
 
 export function doctorCommand() {
@@ -18,87 +126,7 @@ export function doctorCommand() {
     .description("check your BehalfID CLI configuration and connectivity")
     .action(
       runAction(async () => {
-        const checks: Check[] = [];
-
-        // Config dir
-        const { existsSync } = await import("node:fs");
-        checks.push({
-          name: "Config directory",
-          status: existsSync(CONFIG_DIR_PATH) ? "ok" : "warn",
-          detail: existsSync(CONFIG_DIR_PATH)
-            ? CONFIG_DIR_PATH
-            : `Not found — will be created on first login (expected: ${CONFIG_DIR_PATH})`,
-        });
-
-        // Session
-        const session = readSession();
-        checks.push({
-          name: "Session",
-          status: session ? "ok" : "warn",
-          detail: session ? "Active session found" : "Not logged in — run `behalfid login`",
-        });
-
-        // Config file
-        const config = readConfig();
-        checks.push({
-          name: "Config file",
-          status: existsSync(CONFIG_FILE_PATH) ? "ok" : "warn",
-          detail: existsSync(CONFIG_FILE_PATH) ? CONFIG_FILE_PATH : "Not found",
-        });
-
-        // Agent ID
-        const agentId = config.agentId ?? process.env.BEHALFID_AGENT_ID;
-        checks.push({
-          name: "Agent ID",
-          status: agentId ? "ok" : "warn",
-          detail: agentId ? agentId : "Not set — run `behalfid config set agent-id <id>`",
-        });
-
-        // API key
-        const apiKey = resolveApiKey();
-        checks.push({
-          name: "API key",
-          status: apiKey ? "ok" : "warn",
-          detail: apiKey ? `${apiKey.slice(0, 12)}…` : "Not set — run `behalfid config set api-key <key>`",
-        });
-
-        // Base URL
-        const baseUrl = resolveBaseUrl();
-        checks.push({
-          name: "Base URL",
-          status: "ok",
-          detail: baseUrl,
-        });
-
-        // API connectivity
-        try {
-          await apiRequest("/api/health", { baseUrl, skipAuth: true });
-          checks.push({ name: "API reachable", status: "ok", detail: baseUrl });
-        } catch (err) {
-          checks.push({
-            name: "API reachable",
-            status: "error",
-            detail: err instanceof Error ? err.message : "Connection failed",
-          });
-        }
-
-        // Auth check (if logged in)
-        if (session) {
-          try {
-            const me = await apiRequest<{ user: { email: string } }>("/api/auth/me", { baseUrl });
-            checks.push({
-              name: "Auth valid",
-              status: "ok",
-              detail: (me as { user?: { email?: string } }).user?.email ?? "Authenticated",
-            });
-          } catch {
-            checks.push({
-              name: "Auth valid",
-              status: "error",
-              detail: "Session appears expired — run `behalfid login`",
-            });
-          }
-        }
+        const checks = await runDoctorChecks();
 
         if (isJsonMode()) {
           printJson(checks);
@@ -115,6 +143,9 @@ export function doctorCommand() {
           const reset = "\x1b[0m";
           const label = c.name.padEnd(18);
           console.log(`  ${color}${prefix}${reset}  ${label}  ${c.detail}`);
+          if (c.status !== "ok" && c.fix) {
+            console.log(`      fix: ${c.fix}`);
+          }
         }
         console.log();
 
@@ -122,6 +153,7 @@ export function doctorCommand() {
         const warns = checks.filter(c => c.status === "warn");
         if (errors.length) {
           console.log(`  ${errors.length} error(s) found. Fix them before using the CLI.`);
+          process.exitCode = 1;
         } else if (warns.length) {
           console.log(`  ${warns.length} warning(s). Some features may not work.`);
         } else {

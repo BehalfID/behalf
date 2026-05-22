@@ -1,131 +1,113 @@
 # BehalfID Site Guard
 
-BehalfID Site Guard is a planned AI access gateway for website owners.
+BehalfID Site Guard is an MVP policy check for website owners.
 
-Current BehalfID permission passports answer:
+Permission passports answer:
 
 ```txt
 Is this agent allowed to act for this user?
 ```
 
-Site Guard should answer:
+Site Guard answers:
 
 ```txt
-Is this AI agent, crawler, or automation allowed to access or act on this website?
+Is this AI agent or crawler signal allowed to access this website route?
 ```
 
-`llms.txt`-style files can declare a site owner’s intent. Site Guard should enforce access rules only when the website installs an enforcement point: middleware, proxy, worker, gateway, or app route code that calls BehalfID before protected workflows execute.
+The check is separate from `/api/verify`. It runs only where a website installs an enforcement point such as app middleware, an edge worker, a gateway, or protected route code.
 
-## Product model
+Site Guard is not a replacement for normal application authentication. It is a pre-access policy check for AI agents and crawlers. The application still owns user authentication, authorization, sessions, permissions, and any route-level access controls that apply after or alongside the Site Guard decision.
 
-- **Passports** define what agents may do.
-- **Gateway enforcement** ensures denied actions fail closed before code runs.
-- **Site Guard** applies the same fail-closed model to website-owned routes and workflows.
-
-Site Guard should be separate from the existing agent permission API at first. Do not change `/api/verify` or passport token behavior to support Site Guard.
-
-## Recommended MVP
-
-Build a small site-key authenticated policy check system:
+## MVP flow
 
 ```txt
-website middleware / worker
+website middleware
   -> POST /api/site-guard/check
-  -> allow / deny / rate-limit / require verified agent
-  -> website origin route or blocked response
+  -> allow or deny
+  -> origin route only after allow
 ```
 
-### Models
-
-```ts
-Site {
-  siteId: string;
-  developerUserId: string;
-  domain: string;
-  status: "active" | "disabled";
-  siteKeyHash: string;
-  siteKeyPreview: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-SiteAccessRule {
-  ruleId: string;
-  siteId: string;
-  routePattern: string;
-  action: "read_public_page" | "summarize_page" | "crawl_bulk" | "submit_form" | "create_account" | "login" | "checkout" | "call_api" | "read_docs" | "custom";
-  effect: "allow" | "deny" | "require_verified_agent" | "rate_limit";
-  aiTrafficOnly: boolean;
-  allowedPurposes: string[];
-  blockedPurposes: string[];
-  requireCitation: boolean;
-  maxRequestsPerWindow?: number;
-  notes?: string;
-  status: "active" | "disabled";
-}
-
-SiteAccessLog {
-  logId: string;
-  siteId: string;
-  route: string;
-  method: string;
-  userAgent?: string;
-  detectedAiAgent?: string;
-  verifiedAgentId?: string;
-  declaredPurpose?: string;
-  action: string;
-  decision: "allowed" | "denied" | "rate_limited" | "requires_verified_agent";
-  reason: string;
-  createdAt: Date;
-}
-```
-
-### Policy endpoint
+In this MVP, policy checks use the existing account-scoped developer token:
 
 ```txt
-POST /api/site-guard/check
-Authorization: Bearer bhf_site_xxx
+x-developer-token: bhf_dev_xxx
 ```
+
+Keep that token server-side. The MVP does not mint separate site keys yet.
+
+## Rules
+
+- Rules are active or disabled.
+- Each rule matches either an exact `agentIdentifier` or a simple wildcard `userAgentPattern`.
+- `allowedPaths` and `blockedPaths` accept absolute paths with exact or `*` wildcard matching.
+- A path is denied unless an active matching rule explicitly allows it.
+- A matching blocked path overrides an allowed path, including allows from other active matching rules.
+- `requiresApproval` denies access in this MVP because Site Guard does not provide an approval workflow yet.
+
+## Check endpoint
 
 ```json
 {
-  "siteId": "site_123",
-  "method": "GET",
+  "siteId": "site_xxx",
   "path": "/docs/api",
-  "userAgent": "example-agent",
-  "declaredPurpose": "summarize_public_page",
-  "agentId": "agent_123",
-  "action": "read_public_page"
+  "userAgent": "ExampleBot/1.0",
+  "agentIdentifier": "crawler_example",
+  "metadata": {
+    "edge": "iad1"
+  }
 }
 ```
+
+`domain` can replace `siteId`. `path` cannot contain a query string or fragment. Optional `metadata` must be an object under 2KB; secret-looking keys are redacted at input handling and metadata is not persisted in Site Guard logs today.
 
 ```json
 {
   "allowed": true,
-  "decision": "allowed",
-  "reason": "Public page reads are allowed for this route.",
-  "siteId": "site_123",
-  "ruleId": "rule_123"
+  "reason": "Path allowed by an active Site Guard rule.",
+  "requestId": "req_xxx",
+  "matchedRuleId": "sgr_xxx",
+  "siteId": "site_xxx"
 }
 ```
 
-## Security requirements
+Unexpected policy errors fail closed.
 
-- Require a site key for every policy check.
-- Store only hashed site keys and show raw keys once.
-- Do not trust User-Agent, IP, or self-declared provider headers as identity.
-- Treat User-Agent AI detection as a weak signal only.
-- Do not log cookies, authorization headers, raw query strings, page content, prompts, or request bodies by default.
-- Add request body size limits and timeouts.
-- Use Redis/Upstash-backed rate limiting for production traffic.
-- Do not forward arbitrary URLs or proxy raw requests through BehalfID.
-- Never claim Site Guard blocks all AI traffic globally; it only enforces where installed.
+## Integration sketch
 
-## Deferred
+```ts
+const response = await fetch(`${process.env.BEHALFID_BASE_URL}/api/site-guard/check`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "x-developer-token": process.env.BEHALFID_DEVELOPER_TOKEN!
+  },
+  body: JSON.stringify({
+    siteId: process.env.BEHALFID_SITE_ID,
+    path: new URL(request.url).pathname,
+    userAgent: request.headers.get("user-agent") ?? "unknown",
+    agentIdentifier: request.headers.get("behalfid-agent") ?? undefined
+  })
+});
 
-- Full reverse proxy/CDN.
-- Provider-native agent identity.
-- Signed BehalfID agent access credentials.
-- Importing or generating `llms.txt`.
-- Complex policy language.
-- SDK package changes or a separate `@behalfid/site-guard` package.
+const decision = await response.json();
+if (!response.ok || !decision.allowed) {
+  return new Response(decision.reason ?? "Denied by Site Guard.", { status: 403 });
+}
+```
+
+See `examples/site-guard-demo` for a small helper and allowed/denied requests.
+
+## Logs
+
+For an existing site, Site Guard logs allowed and denied decisions with the `requestId`, owner identifiers, matched rule ID when one exists, domain, path, User-Agent signal, optional agent identifier, result, reason, risk, and timestamp.
+
+It does not log cookies, authorization headers, developer tokens, query strings, page contents, prompts, request bodies, or optional metadata.
+
+## Limitations
+
+- No full reverse proxy or CDN.
+- No separate site key yet; the MVP uses developer tokens.
+- No provider-native identity, crawler registry, OAuth, or signed crawler identity.
+- No billing or advanced policy language.
+- User-Agent and caller-supplied agent identifiers are weak signals.
+- Site Guard cannot block traffic where the site does not install and honor the check.

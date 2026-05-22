@@ -21,7 +21,18 @@ vi.mock("@/lib/developerToken", () => ({
   authenticateDeveloperToken: routeMocks.authenticateDeveloperToken
 }));
 vi.mock("@/lib/quota", () => ({
-  checkAndIncrementVerifications: routeMocks.checkAndIncrementVerifications
+  checkAndIncrementVerifications: routeMocks.checkAndIncrementVerifications,
+  quotaErrorDetails: (result: {
+    code?: string;
+    plan?: string;
+    limit?: number;
+    upgradeHint?: string;
+  }) => ({
+    code: result.code,
+    currentPlan: result.plan,
+    limit: result.limit,
+    upgradeHint: result.upgradeHint
+  })
 }));
 vi.mock("@/lib/rateLimit", () => ({
   checkRateLimit: routeMocks.checkRateLimit,
@@ -150,13 +161,25 @@ describe("POST /api/verify route", () => {
   it("does not verify or emit webhooks when quota enforcement denies", async () => {
     routeMocks.checkAndIncrementVerifications.mockResolvedValue({
       allowed: false,
-      reason: "Monthly verification limit reached."
+      code: "VERIFICATION_LIMIT_REACHED",
+      plan: "free",
+      limit: 10_000,
+      reason: "Monthly verification limit reached.",
+      upgradeHint: "Upgrade to Pro to continue."
     });
     const { POST } = await import("@/app/api/verify/route");
 
     const response = await POST(verifyRequest({ agentId: "agent_test", action: "purchase" }));
+    const json = await response.json();
 
     expect(response.status).toBe(429);
+    expect(json).toEqual({
+      error: "Monthly verification limit reached.",
+      code: "VERIFICATION_LIMIT_REACHED",
+      currentPlan: "free",
+      limit: 10_000,
+      upgradeHint: "Upgrade to Pro to continue."
+    });
     expect(routeMocks.verifyAction).not.toHaveBeenCalled();
     expect(routeMocks.emitWebhookEvent).not.toHaveBeenCalled();
   });

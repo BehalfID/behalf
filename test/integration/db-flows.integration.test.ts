@@ -5,6 +5,7 @@ import { authenticateAgent, hashApiKey } from "@/lib/auth";
 import { authenticateDeveloperToken, hashDeveloperToken } from "@/lib/developerToken";
 import { getQuotas, verificationPeriodStart } from "@/lib/plans";
 import { checkAgentLimit, checkAndIncrementVerifications } from "@/lib/quota";
+import { checkSiteAccess } from "@/lib/siteGuard";
 import { verifyAction } from "@/lib/verify";
 import { WEBHOOK_MAX_ATTEMPTS } from "@/lib/webhooks";
 import { processWebhookEvents } from "@/lib/webhookWorker";
@@ -13,6 +14,9 @@ import Agent from "@/models/Agent";
 import DeveloperApiToken from "@/models/DeveloperApiToken";
 import DeveloperUser from "@/models/DeveloperUser";
 import Permission from "@/models/Permission";
+import Site from "@/models/Site";
+import SiteAccessLog from "@/models/SiteAccessLog";
+import SiteAccessRule from "@/models/SiteAccessRule";
 import StripeWebhookEvent from "@/models/StripeWebhookEvent";
 import VerificationLog from "@/models/VerificationLog";
 import WebhookDelivery from "@/models/WebhookDelivery";
@@ -78,6 +82,17 @@ function dashboardTokenRequest(method: string, body?: unknown) {
     method,
     headers: body === undefined ? undefined : { "content-type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body)
+  }) as never;
+}
+
+function siteGuardCheckRequest(token: string, body: unknown) {
+  return new Request("http://localhost/api/site-guard/check", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-developer-token": token
+    },
+    body: JSON.stringify(body)
   }) as never;
 }
 
@@ -348,6 +363,112 @@ describe("MongoDB-backed verification flows", () => {
     });
     const agent = await Agent.findOne({ agentId: "agent_integration" }).lean();
     expect(agent?.lastUsedAt).toBeUndefined();
+  });
+});
+
+describe("MongoDB-backed Site Guard flow", () => {
+  it("checks real Site and Rule records and writes a SiteAccessLog", async () => {
+    await Site.create({
+      siteId: "site_integration",
+      accountId: "acct_site",
+      developerUserId: "dev_site",
+      name: "Docs",
+      domain: "docs.example.com",
+      status: "active"
+    });
+    await SiteAccessRule.create({
+      ruleId: "sgr_integration",
+      siteId: "site_integration",
+      accountId: "acct_site",
+      developerUserId: "dev_site",
+      name: "Docs bot",
+      userAgentPattern: "ExampleBot/*",
+      allowedPaths: ["/docs/*"],
+      blockedPaths: ["/docs/private/*"],
+      status: "active"
+    });
+
+    const allowed = await checkSiteAccess({
+      accountId: "acct_site",
+      developerUserId: "dev_site",
+      siteId: "site_integration",
+      path: "/docs/api",
+      userAgent: "ExampleBot/1.0"
+    });
+    const denied = await checkSiteAccess({
+      accountId: "acct_site",
+      developerUserId: "dev_site",
+      siteId: "site_integration",
+      path: "/docs/private/key",
+      userAgent: "ExampleBot/1.0"
+    });
+
+    expect(allowed).toEqual(expect.objectContaining({ allowed: true, matchedRuleId: "sgr_integration" }));
+    expect(denied).toEqual(expect.objectContaining({
+      allowed: false,
+      reason: "Path is blocked by an active Site Guard rule."
+    }));
+    await expect(SiteAccessLog.find({ siteId: "site_integration" }).sort({ createdAt: 1 }).lean()).resolves.toEqual([
+      expect.objectContaining({ requestId: allowed.requestId, allowed: true, ruleId: "sgr_integration" }),
+      expect.objectContaining({ requestId: denied.requestId, allowed: false, ruleId: "sgr_integration" })
+    ]);
+  });
+
+  it("does not evaluate another developer's Site Guard site through a same-account developer token", async () => {
+    const developerAToken = "bhf_dev_site_a_abcdefghijklmnopqrstuvwxyz123456";
+    await DeveloperApiToken.create({
+      tokenId: "tok_site_a",
+      userId: "dev_site_a",
+      accountId: "acct_site_shared",
+      name: "Site A token",
+      tokenHash: hashDeveloperToken(developerAToken)
+    });
+    await Site.create({
+      siteId: "site_dev_b",
+      accountId: "acct_site_shared",
+      developerUserId: "dev_site_b",
+      name: "Developer B Docs",
+      domain: "b-docs.example.com",
+      status: "active"
+    });
+    await SiteAccessRule.create({
+      ruleId: "sgr_dev_b",
+      siteId: "site_dev_b",
+      accountId: "acct_site_shared",
+      developerUserId: "dev_site_b",
+      name: "Developer B allow",
+      userAgentPattern: "ExampleBot/*",
+      allowedPaths: ["/docs/*"],
+      blockedPaths: [],
+      status: "active"
+    });
+
+    const { POST } = await import("@/app/api/site-guard/check/route");
+    const bySiteId = await POST(siteGuardCheckRequest(developerAToken, {
+      siteId: "site_dev_b",
+      path: "/docs/api",
+      userAgent: "ExampleBot/1.0"
+    }));
+    const byDomain = await POST(siteGuardCheckRequest(developerAToken, {
+      domain: "b-docs.example.com",
+      path: "/docs/api",
+      userAgent: "ExampleBot/1.0"
+    }));
+
+    expect(bySiteId.status).toBe(200);
+    await expect(bySiteId.json()).resolves.toEqual(expect.objectContaining({
+      allowed: false,
+      matchedRuleId: null,
+      reason: "Site not found.",
+      siteId: null
+    }));
+    await expect(byDomain.json()).resolves.toEqual(expect.objectContaining({
+      allowed: false,
+      matchedRuleId: null,
+      reason: "Site not found.",
+      siteId: null
+    }));
+    await expect(SiteAccessLog.countDocuments({ siteId: "site_dev_b" })).resolves.toBe(0);
   });
 });
 
