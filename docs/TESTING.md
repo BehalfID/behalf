@@ -4,6 +4,8 @@ BehalfID uses Vitest for security and enforcement regression tests.
 
 ```bash
 npm test
+npm run test:unit
+npm run test:integration
 npm run test:watch
 npm run test:coverage
 ```
@@ -37,10 +39,27 @@ Current coverage includes:
 - API key hashing, real bearer-token parsing for missing/malformed/wrong-scheme/invalid-prefix formats, valid-looking key lookup, matching against hashed keys, successful-use `lastUsedAt` updates, no `lastUsedAt` updates for invalid or previously rotated keys, rotation invalidating the old hash condition, one-time raw key response, and non-persistence of raw rotated keys.
 - Developer API token list/create/revoke behavior, one-time raw token response, hashed token storage with safe preview metadata, developer-token `lastUsedAt` updates, and token list redaction after creation.
 - Secret redaction for best-effort last-used update failures and CLI error output.
+- Verification log filtering, date-range retention floor behavior, summary counts, dashboard developer scoping, console account scoping, pagination metadata, CSV export redaction, and CLI log filter/output redaction.
+
+## MongoDB integration coverage
+
+`npm test` and `npm run test:unit` keep the existing fast mocked-model suite. `npm run test:integration` runs the opt-in real Mongoose coverage from `test/integration` through `vitest.integration.config.ts`.
+
+The integration setup starts `mongodb-memory-server`, points `MONGODB_URI` at its isolated database, connects through the real `connectToDatabase()` path, clears collections after each integration test, and disconnects/stops the server after the run. Teardown also clears the test process copy of the global Mongoose connection cache before a later integration run can reconnect. It does not require MongoDB Atlas, Docker, Stripe, Upstash, Vercel, or production environment variables.
+
+Current real-DB coverage proves:
+
+- Account, Agent, Permission, and VerificationLog persistence for allowed and denied verification decisions.
+- Revoked, expired, approval-required, narrowed `allowedActions`, comma-separated resource matching, comma-separated `constraints.allowedVendors` matching, last-used, and rotated-key verification behavior against real records.
+- Order-independent `blockedActions` precedence where an older active block still overrides a newer active allow.
+- Free and Pro agent limits, Free and Pro monthly verification limits, Free verification-period reset, Enterprise quota bypass, and current missing-account quota behavior against real Account and Agent records.
+- Webhook event claiming/completion, retry scheduling, dead-lettering, endpoint event/status/account filtering, and delivery-record writes against real WebhookEvent, WebhookEndpoint, and WebhookDelivery records.
+- Stripe webhook idempotency and plan/webhook status mutations against real StripeWebhookEvent, Account, DeveloperUser, and WebhookEndpoint records.
+- Developer token create/list/auth/delete behavior against real DeveloperApiToken records, including hash storage, preview-only listing, and last-used updates.
 
 ## What is mocked
 
-Tests mock MongoDB/Mongoose models at the model boundary and do not open a database connection. This keeps the suite fast and stable while still exercising the real decision functions and route handlers.
+Unit tests mock MongoDB/Mongoose models at the model boundary and do not open a database connection. This keeps the default suite fast and stable while still exercising the real decision functions and route handlers.
 
 Network calls are mocked. Action Gateway tests mock DNS and `http`/`https` clients so SSRF and redirect behavior is tested without reaching external URLs. Webhook worker tests also mock DNS and `http`/`https` clients while exercising the real processing loop, endpoint filtering, retry/dead-letter transitions, delivery record writes, and sanitized error handling.
 
@@ -48,13 +67,15 @@ Rate limiting and quota checks are mocked in route tests where they are not the 
 
 `/api/verify` route tests still mock `authenticateAgent`; those tests cover route response shape when auth fails. Direct API key tests cover the real bearer parsing and hashed-key lookup behavior.
 
+The real-DB integration suite still mocks outbound webhook DNS/HTTP delivery, Stripe event signature construction, and dashboard developer-session authorization. Those mocks isolate persistence and business transitions from live third-party systems and browser/session setup.
+
 ## Remaining gaps
 
-The suite does not yet run against a real MongoDB test database. A later integration layer should create real accounts, agents, permissions, logs, and webhook events in an isolated database and call the HTTP routes end to end.
+The real-DB integration suite is library-and-route focused. It does not start a Next.js server, establish real dashboard cookies, or run browser flows end to end.
 
-Webhook worker route auth, summary behavior, safe error response, delivery loop state transitions, endpoint filtering, retry/dead-letter handling, and replay route behavior are covered with mocked model and network boundaries.
+Webhook worker route auth, summary behavior, safe error response, and replay route behavior remain covered by the default mocked-boundary route tests. The integration suite covers the worker persistence transitions with mocked outbound delivery.
 
-Dashboard and console routes have separate auth/session behavior and are not fully covered here.
+Dashboard and console auth/session establishment is not fully covered here, but log route tests cover their scoped query behavior at the route dependency boundary.
 
 Missing `accountId` or missing `Account` records currently remain unmetered for verification and agent-count quota checks. Tests document this current behavior without implying paid or enterprise status. Product/security should revisit whether this should fail closed.
 
@@ -73,3 +94,13 @@ Use `permissionFixture()` and `verificationRequestFixture()` from `test/fixtures
 - whether `VerificationLog.create` was called with the expected decision
 
 For route behavior, add tests to `test/api-verify-route.test.ts` and mock only the dependencies outside the behavior being tested.
+
+## Memory Mongo troubleshooting
+
+`mongodb-memory-server` downloads a MongoDB binary the first time it runs and reuses the cached binary later. The first `npm run test:integration` can therefore take longer or fail on a restricted network.
+
+If the binary download is blocked:
+
+- Re-run on a network that can reach the MongoDB download host or provide the memory-server download cache expected by your environment.
+- Check memory-server environment overrides such as `MONGOMS_DOWNLOAD_DIR` when a shared binary cache is required.
+- Keep using `npm test` for the normal mocked suite while the local memory-server binary issue is resolved.

@@ -5,6 +5,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "test:unit": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "build:sdk": "npm --prefix packages/sdk run build",
@@ -34,6 +36,7 @@
     "@vitest/coverage-v8": "^4.1.6",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.4",
+    "mongodb-memory-server": "^10.4.3",
     "typescript": "^6.0.3",
     "vitest": "^4.1.6"
   },

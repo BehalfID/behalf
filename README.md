@@ -51,6 +51,22 @@ The developer portal uses MongoDB-backed email/password accounts and HTTP-only s
 
 Use MongoDB Atlas or a local MongoDB server. For Atlas, create a database user with least-privilege access to the BehalfID database and allow the deployment environment to connect.
 
+## Tests
+
+The normal Vitest regression suite stays database-mocked:
+
+```bash
+npm test
+```
+
+Run the opt-in MongoDB/Mongoose integration coverage separately. It starts an isolated `mongodb-memory-server` database and does not use Atlas or production environment variables:
+
+```bash
+npm run test:integration
+```
+
+See [docs/TESTING.md](docs/TESTING.md) for covered flows and memory-server troubleshooting.
+
 ## Console Usage
 
 1. Visit `/console/login`.
@@ -172,16 +188,34 @@ audit logs -> requestIds are present
 
 Denied actions fail closed. See `examples/enforcement-demo/README.md` for setup and expected output.
 
+## Verification Logs
+
+Verification logs show what an agent attempted, whether the decision was allowed or denied, the risk level, the reason, the agent, the resource/vendor, the amount when supplied, and the stable `requestId`. Dashboard and console log views support filters for decision, agent, action, risk, request ID, date range, and limit/page. CSV export uses the same safe selected fields.
+
+Use `requestId` to connect a verify response to the dashboard/console log entry, CLI output, and any verification webhook payload. Optional verification `metadata` is persisted only when `BEHALFID_LOG_METADATA` is not `false`; list and export views omit metadata today. Raw bearer tokens, API keys, developer tokens, passport tokens, and webhook signing secrets are redacted from log responses and exports.
+
 ## Webhooks
 
 BehalfID can send signed events for verification decisions, agent changes, and permission changes.
 
-- Manage endpoints in `/dashboard/webhooks` or `/console/webhooks`.
+- Manage endpoints in `/dashboard/webhooks` or `/console/webhooks`. Dashboard webhooks require Pro or Enterprise; Free accounts see a plan-gated error and disabled creation controls.
 - Verify signatures with `verifyWebhookSignature` from `@behalfid/sdk`.
 - Process queued deliveries with setup-token protected `/api/webhooks/process`, usually from Vercel cron.
 - Run the example receiver in `examples/webhook-receiver`.
 
 Webhook delivery uses an outbox with at-least-once retries. Receivers should deduplicate by event ID.
+
+## Plans and Usage
+
+The dashboard billing view shows current plan, agent usage, monthly verification usage, webhook access, log retention, and the UTC monthly reset date.
+
+| Plan | Agents | Verifications / month | Webhooks | Log retention |
+| --- | ---: | ---: | --- | ---: |
+| Free | 5 | 10,000 | Disabled | 7 days |
+| Pro | 50 | 250,000 | Enabled | 90 days |
+| Enterprise | Unlimited | Unlimited | Enabled | 365 days |
+
+Quota failures return stable error codes such as `AGENT_LIMIT_REACHED`, `VERIFICATION_LIMIT_REACHED`, and `WEBHOOKS_REQUIRE_PRO`, plus the current plan, relevant limit, and a safe upgrade hint. Downgrades and failed payments disable dashboard webhooks and remove paid limits until billing is restored.
 
 See [docs/WEBHOOKS.md](docs/WEBHOOKS.md).
 
