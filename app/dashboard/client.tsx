@@ -318,7 +318,7 @@ function HomeView() {
   const hasAgents = (summary.data?.totalAgents ?? 0) > 0;
   return (
     <>
-      <Header title="Dashboard" description="Overview of your agents, usage, and verification activity." action={<ButtonLink variant="primary" href={content.actionHref}>{content.actionLabel}</ButtonLink>} />
+      <Header title="Dashboard" description="Overview of your agents, usage, and verification activity." action={hasAgents ? <ButtonLink variant="primary" href={content.actionHref}>{content.actionLabel}</ButtonLink> : undefined} />
       {summary.error ? <p className="form-error">{summary.error}</p> : null}
       {me.error ? <p className="form-error">{me.error}</p> : null}
       {!hasAgents ? (
@@ -351,7 +351,6 @@ function HomeView() {
             <h2>Quickstart</h2>
             <p>Next actions are tailored to the use case selected during signup.</p>
           </div>
-          <ButtonLink href={content.actionHref}>{content.actionLabel}</ButtonLink>
         </div>
         <div className="quickstart-steps">
           {content.steps.map((item, index) => (
@@ -383,7 +382,7 @@ function PlanUsagePanel({ usage }: { usage: UsageSummary }) {
       <div className="dashboard-section-header">
         <div>
           <p className="section-kicker">Plan and usage</p>
-          <h2>{usage.plan} plan</h2>
+          <h2>{usage.plan.charAt(0).toUpperCase() + usage.plan.slice(1)} plan</h2>
           <p>Current limits, reset timing, webhook access, and log retention.</p>
         </div>
         <ButtonLink href="/dashboard/billing">{usage.plan === "free" ? "Upgrade" : "Manage billing"}</ButtonLink>
@@ -1778,10 +1777,10 @@ function WebhooksView() {
   const webhooksEnabled = resource.data?.webhooksEnabled ?? false;
   return (
     <>
-      <Header title="Webhooks" description="Manage event delivery endpoints and signing secrets." action={<ButtonLink variant={webhooksEnabled ? "secondary" : "primary"} href="/dashboard/billing">{webhooksEnabled ? "Manage billing" : "Upgrade to Pro"}</ButtonLink>} />
+      <Header title="Webhooks" description="Manage event delivery endpoints and signing secrets." action={webhooksEnabled ? <ButtonLink variant="secondary" href="/dashboard/billing">Manage billing</ButtonLink> : undefined} />
       {resource.error ? <p className="form-error">{resource.error}</p> : null}
       {!webhooksEnabled ? (
-        <Card className="dashboard-panel">
+        <Card className="dashboard-panel webhook-gate-card">
           <div className="dashboard-section-header">
             <div>
               <div className="agent-passport__header">
@@ -1870,25 +1869,25 @@ function LogsView() {
   return (
     <>
       <Header title="Logs" description="Search and export verification decisions." action={<ButtonLink href={exportHref}>Export CSV</ButtonLink>} />
-      <div className="console-toolbar">
-        <label style={{ flex: "1 1 160px" }}>
-          <span style={{ display: "block", fontSize: "0.78rem", color: "var(--muted)", marginBottom: 4 }}>Agent ID</span>
+      <div className="console-toolbar logs-toolbar">
+        <label className="logs-toolbar__filter logs-toolbar__filter--lg">
+          <span className="logs-toolbar__label">Agent ID</span>
           <input aria-label="Filter by agent ID" onChange={(event) => setAgentId(event.target.value)} placeholder="agent_xxx" value={agentId} />
         </label>
-        <label style={{ flex: "1 1 130px" }}>
-          <span style={{ display: "block", fontSize: "0.78rem", color: "var(--muted)", marginBottom: 4 }}>Decision</span>
+        <label className="logs-toolbar__filter">
+          <span className="logs-toolbar__label">Decision</span>
           <select aria-label="Allowed filter" onChange={(event) => setAllowed(event.target.value)} value={allowed}>
             <option value="">All decisions</option>
             <option value="true">Allowed</option>
             <option value="false">Denied</option>
           </select>
         </label>
-        <label style={{ flex: "1 1 130px" }}>
-          <span style={{ display: "block", fontSize: "0.78rem", color: "var(--muted)", marginBottom: 4 }}>Action</span>
+        <label className="logs-toolbar__filter">
+          <span className="logs-toolbar__label">Action</span>
           <input aria-label="Filter by action" onChange={(event) => setAction(event.target.value)} placeholder="access_data" value={action} />
         </label>
-        <label style={{ flex: "1 1 120px" }}>
-          <span style={{ display: "block", fontSize: "0.78rem", color: "var(--muted)", marginBottom: 4 }}>Risk</span>
+        <label className="logs-toolbar__filter">
+          <span className="logs-toolbar__label">Risk</span>
           <select aria-label="Risk filter" onChange={(event) => setRisk(event.target.value)} value={risk}>
             <option value="">All risk</option>
             <option value="low">Low</option>
@@ -1896,7 +1895,7 @@ function LogsView() {
             <option value="high">High</option>
           </select>
         </label>
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 8 }}>
+        <div className="logs-toolbar__actions">
           <Button onClick={logs.reload} type="button">Refresh</Button>
         </div>
       </div>

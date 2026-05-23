@@ -36,7 +36,7 @@ export default function SiteGuardDocsPage() {
       <p>
         Create a site key (<code>bhf_site_...</code>) from the site detail page in your
         dashboard. Site keys are scoped to a single site — the key cannot check a different
-        site, even with a valid credential. Use <code>Authorization: Bearer</code> and omit
+        site, even with a valid credential. Use <code>Authorization: Bearer</code> and omit{" "}
         <code>siteId</code> from the request body.
       </p>
       <CodeBlock label="request">{`POST /api/site-guard/check
