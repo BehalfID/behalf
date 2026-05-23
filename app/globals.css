@@ -8243,3 +8243,234 @@ html[data-theme="light"] .app-sidebar__footer {
   width: 14px;
   height: 14px;
 }
+
+/* ─────────────────────────────────────────────────────────────────
+   Visual polish pass — 2026-05-22
+   Targeted fixes: nav separator, docs overflow, billing spacing,
+   log toolbar, log summary grid, docs readability, empty state.
+   ───────────────────────────────────────────────────────────────── */
+
+/* ── 1. Public nav: visual separator before icon cluster ── */
+.public-nav__links .social-links--nav {
+  border-left: 1px solid var(--border-strong);
+  padding-left: 10px;
+  margin-left: 4px;
+}
+
+/* ── 2. Docs: prevent grid-cell overflow on tablet ──────── */
+.docs-article {
+  min-width: 0;
+}
+
+.docs-article__inner {
+  min-width: 0;
+  max-width: 860px; /* tighten max-width for readability */
+}
+
+/* Constrain code shells inside docs so they scroll internally */
+.docs-article .ui-code-shell {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.docs-article .ui-code {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+/* ── 3. Docs readability: body paragraphs + list items ──── */
+/* Slightly soften body text so pure-white headings pop.
+   Keeps section-kicker (accent purple) and docs-lede untouched. */
+.docs-article__inner p:not(.section-kicker):not(.docs-lede):not(.field-help),
+.docs-article__inner li {
+  color: rgba(255, 255, 255, 0.80);
+  line-height: 1.72;
+}
+
+/* Docs h2 — a touch more margin-top for cleaner section rhythm */
+.docs-article h2 {
+  margin-top: 40px;
+}
+
+/* docs-lede already has its own color; just ensure line-height */
+.docs-lede {
+  line-height: 1.62;
+}
+
+/* ── 4. Billing: plan-header spacing ───────────────────── */
+.billing-plan-header {
+  gap: 20px;
+  margin-bottom: 18px;
+}
+
+.billing-plan-title {
+  margin-bottom: 8px; /* a touch more air below title */
+}
+
+/* ── 5. Billing: Usage this month card header ───────────── */
+.billing-usage-title {
+  margin-bottom: 18px;
+}
+
+/* ── 6. Billing limit-grid: consistent card height ──────── */
+.billing-limit-grid {
+  margin-top: 0; /* section has its own padding */
+}
+
+.billing-limit-grid div {
+  min-height: 108px; /* slightly taller so small text breathes */
+}
+
+/* ── 7. Dashboard log summary: 6-column grid ────────────── */
+.dashboard-log-summary {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+@media (max-width: 1200px) {
+  .dashboard-log-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .dashboard-log-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ── 8. Logs toolbar: consistent filter label styling ────── */
+.logs-toolbar {
+  align-items: flex-end; /* bottom-align the refresh button */
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(10, 10, 10, 0.5);
+  margin-bottom: 20px;
+}
+
+.logs-toolbar__filter {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1 1 130px;
+  min-width: 0;
+}
+
+.logs-toolbar__filter--lg {
+  flex-basis: 160px;
+}
+
+.logs-toolbar__label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: var(--muted);
+}
+
+.logs-toolbar__actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ── 9. Dashboard empty state: cap width so it doesn't feel huge */
+.onboarding-callout {
+  max-width: 760px;
+}
+
+/* ── 10. Dashboard plan usage panel: capitalize plan name ──
+   (handled in JSX; this ensures the section header h2 matches) */
+.plan-usage-panel .dashboard-section-header h2 {
+  font-size: 1.15rem;
+}
+
+/* ── 11. Webhook gate card: tighten header spacing ──────── */
+.webhook-gate-card .dashboard-section-header {
+  flex-wrap: wrap;
+  gap: 18px;
+}
+
+/* ── 12. Docs landing card grid: consistent min-height ──── */
+.docs-links a {
+  min-height: 140px;
+}
+
+/* ── 13. Site Guard rule cards: consistent spacing ─────── */
+.endpoint-list {
+  margin: 20px 0;
+}
+
+.endpoint-card {
+  gap: 10px 16px;
+}
+
+.endpoint-card p {
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+/* ── 14. Sidebar active link: clearer accent indicator ───── */
+.docs-sidebar nav a[aria-current="page"],
+.dashboard-sidebar nav a[aria-current="page"],
+.app-sidebar nav a[aria-current="page"] {
+  color: var(--text);
+  background: rgba(99, 102, 241, 0.12);
+  border-left: 2px solid var(--accent);
+  padding-left: 9px; /* compensate for border */
+}
+
+/* ── 15. Mobile: logs toolbar filters stack cleanly ──────── */
+@media (max-width: 620px) {
+  .logs-toolbar {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .logs-toolbar__filter {
+    flex-basis: auto;
+    width: 100%;
+  }
+
+  .logs-toolbar__actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+/* ── 16. Nav links: consistent hover transition ─────────── */
+.public-nav__links a:not(.ui-button):not([class*="split-cta"]) {
+  transition: color 120ms ease;
+}
+
+/* ── 17. Docs-links active arrow: ensure always visible on touch ── */
+@media (hover: none) {
+  .docs-links a::after {
+    opacity: 0.6;
+    transform: translateX(0);
+  }
+}
+
+/* ── 18. Dashboard billing: align Free plan label ──────── */
+.billing-plan-header > div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ── 19. Onboarding callout not too large vs metric grid ─── */
+.onboarding-callout h2 {
+  font-size: clamp(1.2rem, 2.5vw, 1.55rem);
+  line-height: 1.3;
+}
+
+/* ── 20. Consistent section h3 spacing inside dashboard panels */
+.dashboard-panel > h3 {
+  margin-top: 24px;
+  margin-bottom: 4px;
+  font-size: 0.9rem;
+  font-weight: 720;
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
