@@ -8375,9 +8375,9 @@ html[data-theme="light"] .app-sidebar__footer {
   flex-shrink: 0;
 }
 
-/* ── 9. Dashboard empty state: cap width so it doesn't feel huge */
+/* ── 9. Dashboard empty state: fill container like other panels */
 .onboarding-callout {
-  max-width: 760px;
+  /* no max-width — matches full page-content width like metric-grid */
 }
 
 /* ── 10. Dashboard plan usage panel: capitalize plan name ──
@@ -8473,4 +8473,203 @@ html[data-theme="light"] .app-sidebar__footer {
   font-weight: 720;
   color: var(--text);
   letter-spacing: 0.01em;
+}
+
+/* ── 21. Dashboard list button-rows (Sites list uses <button> per row) */
+.dashboard-list > button {
+  min-height: 72px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  color: var(--text);
+  background: rgba(10, 10, 10, 0.62);
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.dashboard-list > button:hover {
+  border-color: var(--border-strong);
+  background: rgba(10, 10, 10, 0.9);
+}
+
+.dashboard-list > button strong {
+  display: block;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.dashboard-list > button small {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+/* ── 22. Billing top cards: add padding (Card has no padding by default) */
+.billing-grid .ui-card {
+  padding: 22px;
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+/* ── 23. Billing grid: balanced two-column layout */
+.billing-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* ================================================================
+   LIGHT MODE — Dashboard panel and UI component overrides
+   All rgba(10,10,10,x) and rgba(0,0,0,0.3+) backgrounds replaced
+   with surface tokens so light-mode is not dark-gray-on-white.
+   ================================================================ */
+
+/* Empty / no-content states */
+html[data-theme="light"] .ui-empty,
+html[data-theme="light"] .console-empty,
+html[data-theme="light"] .dashboard-empty {
+  background: rgba(0, 0, 0, 0.025);
+}
+
+/* Dashboard list rows — divs and links */
+html[data-theme="light"] .dashboard-list > a,
+html[data-theme="light"] .dashboard-list > div,
+html[data-theme="light"] .console-row,
+html[data-theme="light"] .console-list__item {
+  background: var(--surface-soft);
+}
+
+html[data-theme="light"] .dashboard-list > a:hover,
+html[data-theme="light"] .dashboard-list > div:hover,
+html[data-theme="light"] .console-row:hover,
+html[data-theme="light"] .console-list__item:hover {
+  background: var(--surface-elev);
+  border-color: var(--border-strong);
+}
+
+/* Dashboard list rows — buttons (Sites list) */
+html[data-theme="light"] .dashboard-list > button {
+  background: var(--surface-soft);
+}
+
+html[data-theme="light"] .dashboard-list > button:hover {
+  background: var(--surface-elev);
+  border-color: var(--border-strong);
+}
+
+/* Permission template example cards (agents, onboarding) */
+html[data-theme="light"] .permission-template {
+  background: rgba(0, 0, 0, 0.025);
+}
+
+html[data-theme="light"] .permission-template:hover,
+html[data-theme="light"] .permission-template--active {
+  background: rgba(99, 102, 241, 0.07);
+}
+
+/* Plan / billing limit grid cells */
+html[data-theme="light"] .plan-usage-grid div,
+html[data-theme="light"] .billing-limit-grid div {
+  background: rgba(0, 0, 0, 0.025);
+}
+
+/* Quickstart step cards */
+html[data-theme="light"] .quickstart-step {
+  background: rgba(0, 0, 0, 0.025);
+}
+
+html[data-theme="light"] .quickstart-step:hover {
+  background: rgba(99, 102, 241, 0.07);
+}
+
+/* Usage progress bar track (was white/8% — invisible on light bg) */
+html[data-theme="light"] .billing-usage-track {
+  background: rgba(0, 0, 0, 0.10);
+}
+
+/* Logs filter toolbar */
+html[data-theme="light"] .logs-toolbar {
+  background: rgba(0, 0, 0, 0.025);
+  border-color: var(--border-strong);
+}
+
+html[data-theme="light"] .logs-toolbar input,
+html[data-theme="light"] .logs-toolbar select {
+  background: #ffffff;
+  border-color: var(--border-strong);
+}
+
+/* Dashboard usecase strip (SDK/website/personal mode banner) */
+html[data-theme="light"] .dashboard-usecase-strip {
+  background:
+    linear-gradient(90deg, rgba(99, 102, 241, 0.06), transparent),
+    rgba(0, 0, 0, 0.025);
+}
+
+/* Agent/content guidelines list items */
+html[data-theme="light"] .guidelines-list li {
+  background: rgba(0, 0, 0, 0.025);
+}
+
+/* Integration docs card hover */
+html[data-theme="light"] .dashboard-doc-card:hover {
+  background: var(--surface-elev);
+}
+
+/* Marketing section-note callout boxes */
+html[data-theme="light"] .section-note {
+  background: rgba(0, 0, 0, 0.025);
+}
+
+/* Homepage native-connected feature cards */
+html[data-theme="light"] .native-connected > div {
+  background: rgba(0, 0, 0, 0.025);
+}
+
+/* Homepage constraint-list cells */
+html[data-theme="light"] .constraint-list div {
+  background: rgba(0, 0, 0, 0.025);
+}
+
+/* Homepage hero badges */
+html[data-theme="light"] .hero__badge,
+html[data-theme="light"] .hero__badges span {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+/* Homepage system pipeline */
+html[data-theme="light"] .system-pipeline {
+  background:
+    linear-gradient(90deg, rgba(99, 102, 241, 0.10), transparent 42%),
+    rgba(0, 0, 0, 0.025);
+}
+
+html[data-theme="light"] .system-pipeline__step {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+/* Docs search box */
+html[data-theme="light"] .docs-search {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+/* Sidebar active link: accent indicator stays in light mode */
+html[data-theme="light"] .docs-sidebar nav a[aria-current="page"],
+html[data-theme="light"] .dashboard-sidebar nav a[aria-current="page"],
+html[data-theme="light"] .app-sidebar nav a[aria-current="page"] {
+  background: rgba(99, 102, 241, 0.10);
+  border-left-color: var(--accent);
+  color: var(--text);
+}
+
+/* Billing limit grid cells: stronger borders in light mode */
+html[data-theme="light"] .billing-limit-grid div {
+  border-color: var(--border-strong);
 }

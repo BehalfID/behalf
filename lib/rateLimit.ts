@@ -16,14 +16,28 @@ type RateLimitEntry = {
   resetAt: number;
 };
 
+// Milliseconds to wait for a Redis response before giving up and falling back to
+// in-process memory limiting.  Keeps individual dashboard API requests fast even
+// when the Upstash endpoint is temporarily unreachable.
+const REDIS_TIMEOUT_MS = 2000;
+
 const globalForRateLimit = globalThis as typeof globalThis & {
   behalfRateLimitStore?: Map<string, RateLimitEntry>;
   behalfRateLimitLastPruneAt?: number;
   behalfRateLimitWarningEmitted?: boolean;
+  behalfRedisErrorWarningEmitted?: boolean;
 };
 
 const store = globalForRateLimit.behalfRateLimitStore ?? new Map<string, RateLimitEntry>();
 globalForRateLimit.behalfRateLimitStore = store;
+
+function warnRedisErrorOnce() {
+  if (globalForRateLimit.behalfRedisErrorWarningEmitted) return;
+  globalForRateLimit.behalfRedisErrorWarningEmitted = true;
+  console.warn(
+    "[behalfid] Redis rate limiter is unreachable or timed out; falling back to in-process memory limiting for this instance."
+  );
+}
 
 function warnProductionMemoryRateLimitOnce() {
   if (
@@ -80,7 +94,11 @@ async function redisCommand<T>(command: string[]) {
     headers: {
       Authorization: `Bearer ${token}`
     },
-    cache: "no-store"
+    cache: "no-store",
+    // Short timeout so a slow/unreachable Redis endpoint does not hang the
+    // entire request for tens of seconds.  AbortSignal.timeout is available
+    // in Node 17.3+ / Node 18 LTS.
+    signal: AbortSignal.timeout(REDIS_TIMEOUT_MS)
   });
 
   if (!response.ok) {
@@ -107,7 +125,10 @@ async function checkRedisRateLimit(key: string, maxRequests = MAX_REQUESTS, wind
 
     return { limited: count > maxRequests };
   } catch {
-    return { limited: true };
+    // Redis is unreachable or timed out.  Fall back to in-process memory
+    // limiting rather than blocking every request with a 429.
+    warnRedisErrorOnce();
+    return checkMemoryRateLimit(key, maxRequests, windowMs);
   }
 }
 

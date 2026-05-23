@@ -3,7 +3,7 @@ import { requireDeveloperApi } from "@/lib/developerAuth";
 import { createPublicId } from "@/lib/ids";
 import { checkWebhooksEnabled, quotaErrorDetails } from "@/lib/quota";
 import { readJsonObject } from "@/lib/request";
-import { jsonError } from "@/lib/responses";
+import { jsonError, noCacheJson } from "@/lib/responses";
 import { rejectUnknownFields } from "@/lib/validation";
 import {
   createSigningSecret,
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     .sort({ createdAt: -1 })
     .select("-_id webhookId url secretPreview events status lastTriggeredAt createdAt updatedAt")
     .lean();
-  return NextResponse.json({
+  return noCacheJson({
     webhooks,
     eventTypes: WEBHOOK_EVENT_TYPES,
     plan,

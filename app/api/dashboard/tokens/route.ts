@@ -1,10 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { connectToDatabase } from "@/lib/db";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import { hashDeveloperToken, previewDeveloperToken } from "@/lib/developerToken";
 import { createDeveloperToken, createPublicId } from "@/lib/ids";
 import { readJsonObject } from "@/lib/request";
-import { jsonError } from "@/lib/responses";
+import { jsonError, noCacheJson } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
 import DeveloperApiToken from "@/models/DeveloperApiToken";
 
@@ -12,13 +11,12 @@ export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
 
-  await connectToDatabase();
-
+  // requireDeveloperApi already calls connectToDatabase — no extra call needed.
   const tokens = await DeveloperApiToken.find({ userId: auth.user.userId })
     .select("-_id tokenId name accountId tokenPreview lastUsedAt createdAt")
     .lean();
 
-  return NextResponse.json({ tokens });
+  return noCacheJson({ tokens });
 }
 
 export async function POST(request: NextRequest) {
@@ -38,8 +36,7 @@ export async function POST(request: NextRequest) {
   if (!name) return jsonError("name is required.");
   if (name.length > 120) return jsonError("name must be 120 characters or fewer.");
 
-  await connectToDatabase();
-
+  // requireDeveloperApi already calls connectToDatabase — no extra call needed.
   const existing = await DeveloperApiToken.countDocuments({ userId: auth.user.userId });
   if (existing >= 10) {
     return jsonError("Maximum of 10 developer API tokens allowed. Revoke one to create another.", 402);

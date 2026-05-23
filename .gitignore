@@ -38,3 +38,6 @@ stripeapikeys.txt
 
 # Destructive maintenance backups
 /tmp/cleanup-backups/
+
+# Bluesky DID verification — deploy locally, do not commit
+/public/.well-known/atproto-did

@@ -26,6 +26,8 @@ const WebhookEventSchema = new Schema(
 WebhookEventSchema.index({ status: 1, nextAttemptAt: 1, createdAt: 1 });
 WebhookEventSchema.index({ accountId: 1, deadLetter: 1, createdAt: -1 });
 WebhookEventSchema.index({ developerUserId: 1, deadLetter: 1, createdAt: -1 });
+// Supports pending-event count in getDashboardSummary.
+WebhookEventSchema.index({ developerUserId: 1, status: 1 });
 
 export type WebhookEventDocument = InferSchemaType<typeof WebhookEventSchema> & {
   _id: mongoose.Types.ObjectId;

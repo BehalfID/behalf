@@ -113,13 +113,6 @@ type UsageSummary = {
 };
 type OnboardingUserPath = "developer" | "regular" | null;
 type OnboardingUseCase = "personal" | "website" | "sdk";
-type AuthMe = {
-  user: {
-    userId: string;
-    email: string;
-    onboardingUseCase?: OnboardingUseCase;
-  };
-};
 type DraftConstraints = {
   maxAmount?: number;
   allowedVendors?: string[];
@@ -311,16 +304,16 @@ export function DashboardShell({ view, id }: { view: "home" | "onboarding" | "ag
 }
 
 function HomeView() {
-  const summary = useResource<{ totalAgents: number; activePermissions: number; logsToday: number; pendingEvents: number; failedEvents: number; usage: UsageSummary }>("/api/dashboard/summary");
-  const me = useResource<AuthMe>("/api/auth/me");
-  const useCase = me.data?.user.onboardingUseCase ?? "sdk";
+  // onboardingUseCase is now included in the summary response so we avoid a
+  // separate /api/auth/me round trip on every dashboard home load.
+  const summary = useResource<{ totalAgents: number; activePermissions: number; logsToday: number; pendingEvents: number; failedEvents: number; onboardingUseCase?: OnboardingUseCase | null; usage: UsageSummary }>("/api/dashboard/summary");
+  const useCase = summary.data?.onboardingUseCase ?? "sdk";
   const content = dashboardUseCaseContent[useCase];
   const hasAgents = (summary.data?.totalAgents ?? 0) > 0;
   return (
     <>
       <Header title="Dashboard" description="Overview of your agents, usage, and verification activity." action={hasAgents ? <ButtonLink variant="primary" href={content.actionHref}>{content.actionLabel}</ButtonLink> : undefined} />
       {summary.error ? <p className="form-error">{summary.error}</p> : null}
-      {me.error ? <p className="form-error">{me.error}</p> : null}
       {!hasAgents ? (
         <Card className="dashboard-panel onboarding-callout">
           <p className="section-kicker">{content.kicker}</p>

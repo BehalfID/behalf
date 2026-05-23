@@ -21,7 +21,13 @@ vi.mock("@/lib/consoleData", () => ({
 vi.mock("@/models/VerificationLog", () => ({
   default: {
     find: routeMocks.logFind,
-    countDocuments: routeMocks.logCountDocuments
+    countDocuments: routeMocks.logCountDocuments,
+    // Aggregation pipeline used by getVerificationLogSummaryAgg in the dashboard logs route.
+    aggregate: vi.fn().mockResolvedValue([{
+      stats: [{ total: 2, allowed: 0, denied: 2, highRisk: 1, approvalRequired: 1 }],
+      deniedActions: [{ _id: "purchase", count: 1 }],
+      topVendors: [{ _id: "stripe.com", count: 2 }]
+    }])
   }
 }));
 vi.mock("@/models/Agent", () => ({
@@ -158,9 +164,8 @@ describe("dashboard verification log route", () => {
   });
 
   it("filters denied dashboard logs without crossing developer scope", async () => {
-    routeMocks.logFind
-      .mockReturnValueOnce(findChain([logs[0]]))
-      .mockReturnValueOnce(findChain(logs));
+    // Only one logFind call — the summary now uses VerificationLog.aggregate.
+    routeMocks.logFind.mockReturnValueOnce(findChain([logs[0]]));
     const { GET } = await import("@/app/api/dashboard/logs/route");
 
     const response = await GET(request("/api/dashboard/logs?allowed=false&agentId=agent_test&action=purchase&risk=high&from=2026-05-01&to=2026-05-31&limit=1&page=2"));
@@ -184,9 +189,8 @@ describe("dashboard verification log route", () => {
   });
 
   it("exports CSV without raw secrets", async () => {
-    routeMocks.logFind
-      .mockReturnValueOnce(findChain([{ ...logs[0], reason: "Bearer bhf_sk_super_secret_value" }]))
-      .mockReturnValueOnce(findChain(logs));
+    // Only one logFind call — the summary now uses VerificationLog.aggregate.
+    routeMocks.logFind.mockReturnValueOnce(findChain([{ ...logs[0], reason: "Bearer bhf_sk_super_secret_value" }]));
     const { GET } = await import("@/app/api/dashboard/logs/route");
 
     const response = await GET(request("/api/dashboard/logs?format=csv"));

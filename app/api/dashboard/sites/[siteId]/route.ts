@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import { readJsonObject } from "@/lib/request";
-import { jsonError } from "@/lib/responses";
+import { jsonError, noCacheJson } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
 import Site from "@/models/Site";
 import SiteAccessLog from "@/models/SiteAccessLog";
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       .lean()
   ]);
 
-  return NextResponse.json({ site, rules, logs, keys });
+  return noCacheJson({ site, rules, logs, keys });
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {

@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import { createPublicId } from "@/lib/ids";
 import { readJsonObject } from "@/lib/request";
-import { jsonError } from "@/lib/responses";
+import { jsonError, noCacheJson } from "@/lib/responses";
 import { normalizeSiteDomain } from "@/lib/siteGuard";
 import { readString, rejectUnknownFields } from "@/lib/validation";
 import Site from "@/models/Site";
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     .select("-_id siteId name domain status createdAt updatedAt")
     .lean();
 
-  return NextResponse.json({ sites });
+  return noCacheJson({ sites });
 }
 
 export async function POST(request: NextRequest) {

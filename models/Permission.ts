@@ -37,6 +37,8 @@ const PermissionSchema = new Schema(
 
 PermissionSchema.index({ accountId: 1, agentId: 1, action: 1, status: 1 });
 PermissionSchema.index({ developerUserId: 1, agentId: 1, action: 1, status: 1 });
+// Supports active-permission count in getDashboardSummary (no agentId filter).
+PermissionSchema.index({ developerUserId: 1, status: 1 });
 
 export type PermissionDocument = InferSchemaType<typeof PermissionSchema> & {
   _id: mongoose.Types.ObjectId;

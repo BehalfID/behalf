@@ -21,6 +21,9 @@ const VerificationLogSchema = new Schema(
 
 VerificationLogSchema.index({ accountId: 1, agentId: 1, createdAt: -1 });
 VerificationLogSchema.index({ developerUserId: 1, agentId: 1, createdAt: -1 });
+// Supports today's log count in getDashboardSummary and general log listing
+// without an agentId filter (when no agentId is in the query).
+VerificationLogSchema.index({ developerUserId: 1, createdAt: -1 });
 
 export type VerificationLogDocument = InferSchemaType<typeof VerificationLogSchema> & {
   _id: mongoose.Types.ObjectId;

@@ -4,7 +4,7 @@ import { createDeveloperAgent, serializeAgent } from "@/lib/dashboardData";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import { checkAgentLimit, quotaErrorDetails } from "@/lib/quota";
 import { readJsonObject } from "@/lib/request";
-import { jsonError } from "@/lib/responses";
+import { jsonError, noCacheJson } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
 import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
 import Agent from "@/models/Agent";
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     .select("-_id agentId name status agentType provider externalAgentId externalAgentLabel connectionStatus description lastUsedAt keyRotatedAt createdAt updatedAt")
     .lean();
 
-  return NextResponse.json({ agents: agents.map(serializeAgent) });
+  return noCacheJson({ agents: agents.map(serializeAgent) });
 }
 
 export async function POST(request: NextRequest) {
