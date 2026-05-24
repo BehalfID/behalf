@@ -6777,7 +6777,11 @@ html[data-theme="light"] .ob-plan--featured:hover {
   font-size: clamp(1rem, 1.4vw, 1.2rem);
   line-height: 1.65;
   max-width: 520px;
-  margin: 0 0 40px;
+  margin: 0 0 56px;
+}
+
+.home-hero .home-code__links {
+  margin-bottom: 48px;
 }
 
 .home-actions {
@@ -7500,9 +7504,9 @@ html[data-theme="light"] {
   --muted-2: #9a9a9a;
   --source:  #525252;
 
-  --border:        rgba(0, 0, 0, 0.09);
-  --border-strong: rgba(0, 0, 0, 0.16);
-  --hairline:      rgba(0, 0, 0, 0.05);
+  --border:        rgba(0, 0, 0, 0.10);
+  --border-strong: rgba(0, 0, 0, 0.24);
+  --hairline:      rgba(0, 0, 0, 0.06);
 
   --shadow:      0 24px 80px rgba(0, 0, 0, 0.08);
   --shadow-sm:   0 1px 0 rgba(0, 0, 0, 0.04) inset;
@@ -7569,7 +7573,7 @@ html[data-theme="light"] .console-ghost-button,
 html[data-theme="light"] .console-danger-button,
 html[data-theme="light"] .dashboard-actions button,
 html[data-theme="light"] .dashboard-list button {
-  background: rgba(0, 0, 0, 0.04);
+  background: rgba(0, 0, 0, 0.05);
 }
 
 html[data-theme="light"] .ui-button:hover,
@@ -7580,8 +7584,54 @@ html[data-theme="light"] .console-ghost-button:hover,
 html[data-theme="light"] .console-danger-button:hover,
 html[data-theme="light"] .dashboard-actions button:hover,
 html[data-theme="light"] .dashboard-list button:hover {
-  border-color: rgba(0, 0, 0, 0.20);
-  background: rgba(0, 0, 0, 0.07);
+  border-color: rgba(0, 0, 0, 0.28);
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* Primary button — use white text in light mode for contrast on accent bg */
+html[data-theme="light"] .ui-button--primary,
+html[data-theme="light"] .console-primary-button {
+  color: #ffffff;
+}
+
+/* Split CTA ghost — white-tint bg is invisible on light bg */
+html[data-theme="light"] .split-cta--ghost .split-cta__half {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--text);
+}
+
+html[data-theme="light"] .split-cta--ghost .split-cta__half:hover {
+  background: rgba(0, 0, 0, 0.10);
+}
+
+/* Badge + status chip — white-tint bg invisible on light */
+html[data-theme="light"] .ui-badge,
+html[data-theme="light"] .console-status {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* Code copy button — white-tint bg invisible on light */
+html[data-theme="light"] .ui-code-copy {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.14);
+  color: var(--muted);
+}
+
+html[data-theme="light"] .ui-code-copy:hover {
+  background: rgba(0, 0, 0, 0.09);
+  border-color: rgba(0, 0, 0, 0.24);
+  color: var(--text);
+}
+
+/* Demo tabs — default border is very faint on white */
+html[data-theme="light"] .home-demo__tab {
+  border-color: rgba(0, 0, 0, 0.16);
+  color: var(--text-2);
+}
+
+html[data-theme="light"] .home-demo__tab:hover {
+  border-color: rgba(0, 0, 0, 0.28);
+  color: var(--text);
 }
 
 /* Inputs — opaque dark bg → white */
