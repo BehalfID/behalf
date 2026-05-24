@@ -6,6 +6,12 @@ import { DashboardShellLayout } from "@/components/layout/DashboardShell";
 import { Badge, Button, ButtonLink, Card, CodeBlock, EmptyState, PageHeader, StatCard } from "@/components/ui";
 import { SCOPE_TEMPLATES } from "@/lib/scopeTemplates";
 import { PASSPORT_PRESETS, buildPresetPermissions, type PassportPreset } from "@/lib/passportPresets";
+import {
+  buildSiteGuardCurlSnippet,
+  buildSiteGuardEnvSnippet,
+  buildSiteGuardExpressSnippet,
+  buildSiteGuardNextjsSnippet,
+} from "@/lib/siteGuardSnippets";
 
 type Agent = {
   agentId: string;
@@ -568,86 +574,172 @@ function SiteDetailView({ siteId, onChanged }: { siteId: string; onChanged: () =
   const site = detail.data?.site;
   if (!site) return null;
 
+  const hasKeys = (detail.data?.keys ?? []).some((k) => k.status === "active");
+
   return (
-    <section className="dashboard-grid">
-      <Card className="dashboard-panel">
-        <div className="dashboard-section-header">
-          <div>
-            <p className="section-kicker">{site.siteId}</p>
-            <h2>{site.name}</h2>
-            <p>{site.domain} · <Badge>{site.status}</Badge></p>
+    <>
+      <section className="dashboard-grid">
+        <Card className="dashboard-panel">
+          <div className="dashboard-section-header">
+            <div>
+              <p className="section-kicker">{site.siteId}</p>
+              <h2>{site.name}</h2>
+              <p>{site.domain} · <Badge>{site.status}</Badge></p>
+            </div>
+            <Button onClick={() => void setSiteStatus(site.status === "active" ? "disabled" : "active")}>
+              {site.status === "active" ? "Disable" : "Enable"}
+            </Button>
           </div>
-          <Button onClick={() => void setSiteStatus(site.status === "active" ? "disabled" : "active")}>
-            {site.status === "active" ? "Disable" : "Enable"}
-          </Button>
-        </div>
-        <h3>Site keys</h3>
-        <p>Use a site key (<code>bhf_site_...</code>) in <code>Authorization: Bearer</code> to scope requests to this site only. Keys are narrower than developer tokens.</p>
-        {newKeyData ? (
-          <div className="secret-panel">
-            <strong>Key created — copy now, it will not be shown again.</strong>
-            <code>{newKeyData.rawKey}</code>
-            <Button onClick={() => setNewKeyData(null)}>Dismiss</Button>
+          <h3>Site keys</h3>
+          <p>Use a site key (<code>bhf_site_...</code>) in <code>Authorization: Bearer</code> to scope requests to this site only. Keys are narrower than developer tokens.</p>
+          {newKeyData ? (
+            <div className="secret-panel">
+              <strong>Key created — copy now, it will not be shown again.</strong>
+              <code>{newKeyData.rawKey}</code>
+              <Button onClick={() => setNewKeyData(null)}>Dismiss</Button>
+            </div>
+          ) : null}
+          <div className="dashboard-list">
+            {(detail.data?.keys ?? []).map((key) => (
+              <div key={key.keyId}>
+                <span>
+                  <strong>{key.name} <Badge>{key.status}</Badge></strong>
+                  <small>{key.keyPreview} / {key.status === "active" && key.lastUsedAt ? `last used ${date(key.lastUsedAt)}` : "never used"}</small>
+                </span>
+                {key.status === "active" ? <Button onClick={() => void revokeKey(key.keyId)}>Revoke</Button> : null}
+              </div>
+            ))}
           </div>
-        ) : null}
-        <div className="dashboard-list">
-          {(detail.data?.keys ?? []).map((key) => (
-            <div key={key.keyId}>
-              <span>
-                <strong>{key.name} <Badge>{key.status}</Badge></strong>
-                <small>{key.keyPreview} / {key.status === "active" && key.lastUsedAt ? `last used ${date(key.lastUsedAt)}` : "never used"}</small>
-              </span>
-              {key.status === "active" ? <Button onClick={() => void revokeKey(key.keyId)}>Revoke</Button> : null}
-            </div>
-          ))}
+          {!(detail.data?.keys ?? []).length && detail.data ? <EmptyState className="dashboard-empty">No site keys yet.</EmptyState> : null}
+          <h3>Rules</h3>
+          <div className="dashboard-list">
+            {detail.data?.rules.map((rule) => (
+              <div key={rule.ruleId}>
+                <span>
+                  <strong>{rule.name} <Badge>{rule.status}</Badge></strong>
+                  <small>{rule.agentIdentifier || rule.userAgentPattern} / allow {rule.allowedPaths.join(", ") || "none"} / block {rule.blockedPaths.join(", ") || "none"}</small>
+                </span>
+                <Button onClick={() => void setRuleStatus(rule)}>{rule.status === "active" ? "Disable" : "Enable"}</Button>
+              </div>
+            ))}
+          </div>
+          {!(detail.data?.rules ?? []).length && detail.data ? <EmptyState className="dashboard-empty">No rules yet. Add a rule to allow specific paths.</EmptyState> : null}
+          <h3>Recent checks</h3>
+          <div className="dashboard-list">
+            {detail.data?.logs.map((log) => (
+              <div key={log.requestId}>
+                <span>
+                  <strong>{log.allowed ? "Allowed" : "Denied"} {log.path}</strong>
+                  <small>{log.reason} · {log.requestId} · {date(log.createdAt)}</small>
+                </span>
+                <Badge>{log.risk} risk</Badge>
+              </div>
+            ))}
+          </div>
+          {!(detail.data?.logs ?? []).length && detail.data ? <EmptyState className="dashboard-empty">No recent checks.</EmptyState> : null}
+        </Card>
+        <div className="dashboard-side-forms">
+          <form className="dashboard-panel dashboard-form-card" onSubmit={createKey}>
+            <h2>Create site key</h2>
+            {keyError ? <p className="form-error">{keyError}</p> : null}
+            <label><span>Name</span><input onChange={(event) => setKeyName(event.target.value)} placeholder="Middleware key" required value={keyName} /></label>
+            <div><Button variant="primary" type="submit">Create key</Button></div>
+          </form>
+          <form className="dashboard-panel dashboard-form-card" onSubmit={createRule}>
+            <h2>Add rule</h2>
+            {detailError ? <p className="form-error">{detailError}</p> : null}
+            <label><span>Name</span><input onChange={(event) => setName(event.target.value)} required value={name} /></label>
+            <label><span>Agent identifier</span><input onChange={(event) => setSignal(event.target.value)} placeholder="crawler_alpha" value={signal} /></label>
+            <label><span>User-Agent pattern</span><input onChange={(event) => setPattern(event.target.value)} placeholder="ExampleBot/*" value={pattern} /></label>
+            <label><span>Allowed paths</span><textarea onChange={(event) => setAllowedPaths(event.target.value)} rows={3} value={allowedPaths} /></label>
+            <label><span>Blocked paths</span><textarea onChange={(event) => setBlockedPaths(event.target.value)} rows={3} value={blockedPaths} /></label>
+            <label><span><input checked={requiresApproval} onChange={(event) => setRequiresApproval(event.target.checked)} type="checkbox" /> Require approval</span></label>
+            <div><Button variant="primary" type="submit">Add rule</Button></div>
+          </form>
         </div>
-        {!(detail.data?.keys ?? []).length && detail.data ? <EmptyState className="dashboard-empty">No site keys yet.</EmptyState> : null}
-        <h3>Rules</h3>
-        <div className="dashboard-list">
-          {detail.data?.rules.map((rule) => (
-            <div key={rule.ruleId}>
-              <span>
-                <strong>{rule.name} <Badge>{rule.status}</Badge></strong>
-                <small>{rule.agentIdentifier || rule.userAgentPattern} / allow {rule.allowedPaths.join(", ") || "none"} / block {rule.blockedPaths.join(", ") || "none"}</small>
-              </span>
-              <Button onClick={() => void setRuleStatus(rule)}>{rule.status === "active" ? "Disable" : "Enable"}</Button>
-            </div>
-          ))}
+      </section>
+      <SiteGuardIntegrationPanel
+        site={site}
+        hasKeys={hasKeys}
+        rawKey={newKeyData?.rawKey}
+      />
+    </>
+  );
+}
+
+function SiteGuardIntegrationPanel({ site, hasKeys, rawKey }: {
+  site: Site;
+  hasKeys: boolean;
+  rawKey?: string;
+}) {
+  const envSnippet = buildSiteGuardEnvSnippet(rawKey);
+  const curlSnippet = buildSiteGuardCurlSnippet();
+  const nextjsSnippet = buildSiteGuardNextjsSnippet();
+  const expressSnippet = buildSiteGuardExpressSnippet();
+
+  return (
+    <section className="dashboard-panel">
+      <div className="dashboard-section-header">
+        <div>
+          <p className="section-kicker">{site.name} · {site.domain}</p>
+          <h2>Use this site</h2>
+          <p>Use a site key server-side before serving protected routes.</p>
         </div>
-        {!(detail.data?.rules ?? []).length && detail.data ? <EmptyState className="dashboard-empty">No rules yet. Add a rule to allow specific paths.</EmptyState> : null}
-        <h3>Recent checks</h3>
-        <div className="dashboard-list">
-          {detail.data?.logs.map((log) => (
-            <div key={log.requestId}>
-              <span>
-                <strong>{log.allowed ? "Allowed" : "Denied"} {log.path}</strong>
-                <small>{log.reason} · {log.requestId} · {date(log.createdAt)}</small>
-              </span>
-              <Badge>{log.risk} risk</Badge>
-            </div>
-          ))}
-        </div>
-        {!(detail.data?.logs ?? []).length && detail.data ? <EmptyState className="dashboard-empty">No recent checks.</EmptyState> : null}
-      </Card>
-      <div className="dashboard-side-forms">
-        <form className="dashboard-panel dashboard-form-card" onSubmit={createKey}>
-          <h2>Create site key</h2>
-          {keyError ? <p className="form-error">{keyError}</p> : null}
-          <label><span>Name</span><input onChange={(event) => setKeyName(event.target.value)} placeholder="Middleware key" required value={keyName} /></label>
-          <div><Button variant="primary" type="submit">Create key</Button></div>
-        </form>
-        <form className="dashboard-panel dashboard-form-card" onSubmit={createRule}>
-          <h2>Add rule</h2>
-          {detailError ? <p className="form-error">{detailError}</p> : null}
-          <label><span>Name</span><input onChange={(event) => setName(event.target.value)} required value={name} /></label>
-          <label><span>Agent identifier</span><input onChange={(event) => setSignal(event.target.value)} placeholder="crawler_alpha" value={signal} /></label>
-          <label><span>User-Agent pattern</span><input onChange={(event) => setPattern(event.target.value)} placeholder="ExampleBot/*" value={pattern} /></label>
-          <label><span>Allowed paths</span><textarea onChange={(event) => setAllowedPaths(event.target.value)} rows={3} value={allowedPaths} /></label>
-          <label><span>Blocked paths</span><textarea onChange={(event) => setBlockedPaths(event.target.value)} rows={3} value={blockedPaths} /></label>
-          <label><span><input checked={requiresApproval} onChange={(event) => setRequiresApproval(event.target.checked)} type="checkbox" /> Require approval</span></label>
-          <div><Button variant="primary" type="submit">Add rule</Button></div>
-        </form>
+        <ButtonLink href="/docs/site-guard">Docs</ButtonLink>
       </div>
+
+      <div className="review-notice review-notice--warning">
+        <strong>Never expose <code>SITE_GUARD_KEY</code> in browser or client code.</strong>
+        {" "}Site keys are server-side only. Do not include them in client bundles, environment
+        variables visible to the browser, or any response sent to end users or crawlers.
+      </div>
+
+      {!hasKeys ? (
+        <div className="review-notice">
+          <strong>Create a site key to use these snippets.</strong>
+          <p className="field-help">
+            Create a key using the form above. Copy it immediately after creation — it will not
+            be shown again. Store it as <code>SITE_GUARD_KEY</code> in your server environment or
+            secret manager.
+          </p>
+        </div>
+      ) : null}
+
+      <h3>1. Add to your environment</h3>
+      <p className="field-help">
+        {rawKey
+          ? "Your new key is shown below. Copy it now — it will not be shown again after you dismiss the banner above."
+          : "Create a site key above, copy it immediately, then add it to your server environment."}
+      </p>
+      <CodeBlock label=".env">{envSnippet}</CodeBlock>
+
+      <h3>2. Test with curl</h3>
+      <p className="field-help">
+        Confirm the key works from a terminal before adding it to your middleware.
+        Set <code>SITE_GUARD_KEY</code> in your shell, then run:
+      </p>
+      <CodeBlock label="terminal">{curlSnippet}</CodeBlock>
+
+      <h3>3a. Next.js middleware</h3>
+      <p className="field-help">
+        Place <code>middleware.ts</code> at the project root (same level as <code>app/</code>).
+        It runs server-side before any route handler.{" "}
+        See <code>examples/site-guard-nextjs/</code> for the full example with a reusable helper.
+      </p>
+      <CodeBlock label="middleware.ts">{nextjsSnippet}</CodeBlock>
+
+      <h3>3b. Express middleware</h3>
+      <p className="field-help">
+        Wrap your routes with <code>siteGuard()</code> before the handler.{" "}
+        See <code>examples/site-guard-express/</code> for the full example.
+      </p>
+      <CodeBlock label="src/siteGuard.ts">{expressSnippet}</CodeBlock>
+
+      <p className="field-help" style={{ marginTop: 16 }}>
+        <Link href="/docs/site-guard">Site Guard docs</Link>
+        {" · "}
+        Full examples: <code>examples/site-guard-nextjs</code>, <code>examples/site-guard-express</code>
+      </p>
     </section>
   );
 }

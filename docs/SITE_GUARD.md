@@ -105,6 +105,23 @@ The `siteId` and `domain` fields are ignored when a site key is used. The key's 
 
 Unexpected policy errors fail closed.
 
+## Dashboard integration panel
+
+When you select a site at `/dashboard/sites`, the **Use this site** panel provides
+copy-pasteable snippets for that site:
+
+- **Environment** — `.env` entry pre-filled with your key (shown only immediately after
+  creation) or the `bhf_site_REPLACE_ME` placeholder otherwise.
+- **curl** — test the key from a terminal before deploying.
+- **Next.js middleware** — drop-in `middleware.ts` ready to paste.
+- **Express middleware** — `siteGuard()` factory ready to paste.
+
+Site-key snippets never include `siteId` — the key already encodes the site scope.
+`SITE_GUARD_KEY` is server-side only; the panel includes a prominent warning not to
+expose it in browser code or client-visible responses.
+
+If no active site keys exist, the panel shows a callout to create one first.
+
 ## Integration examples
 
 Full, copy-ready examples live in the `examples/` directory:

@@ -32,6 +32,16 @@ export default function SiteGuardDocsPage() {
         authorization, sessions, permissions, and route access controls.
       </p>
 
+      <h2>Dashboard snippets</h2>
+      <p>
+        The fastest way to get started is the{" "}
+        <a href="/dashboard/sites">Site Guard dashboard</a>. Select a site to open the
+        <strong> Use this site</strong> panel, which provides ready-to-copy curl, Next.js,
+        and Express snippets scoped to that site. Site-key snippets omit <code>siteId</code>{" "}
+        — the key already encodes the site. <code>SITE_GUARD_KEY</code> is server-side only;
+        never expose it in browser code.
+      </p>
+
       <h2>Site keys (recommended)</h2>
       <p>
         Create a site key (<code>bhf_site_...</code>) from the site detail page in your
