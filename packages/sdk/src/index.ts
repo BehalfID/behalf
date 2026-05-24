@@ -13,6 +13,8 @@ export type {
   PermissionConstraints,
   RiskLevel,
   RotateKeyResult,
+  SiteGuardCheckInput,
+  SiteGuardCheckResult,
   VerificationLog,
   VerifyInput,
   VerifyResult,

@@ -31,6 +31,80 @@ if (!result.allowed) {
 // proceed only after BehalfID allows the action
 ```
 
+## Site Guard
+
+Use a `bhf_site_...` key to check whether a path may be served.  The site key
+is scoped to a single site, so you do **not** include `siteId` in the body.
+
+```ts
+import { BehalfID } from "@behalfid/sdk";
+import type { SiteGuardCheckInput, SiteGuardCheckResult } from "@behalfid/sdk";
+
+const behalf = new BehalfID({
+  apiKey: process.env.SITE_GUARD_KEY!,   // bhf_site_... — server-side only
+});
+
+const decision = await behalf.siteGuard.check({
+  path: "/docs/getting-started",
+  userAgent: req.headers.get("user-agent") ?? undefined,
+  agentIdentifier: "crawler_alpha",
+});
+
+if (!decision.allowed) {
+  return new Response("Blocked", { status: 403 });
+}
+```
+
+**Fail-closed rules:**
+
+| Event | Required behavior |
+|---|---|
+| `SITE_GUARD_KEY` not set | Respond `403` — do not serve the route |
+| This call throws (network error) | Respond `403` — do not serve the route |
+| `decision.allowed === false` | Respond `403` — do not serve the route |
+| `decision.allowed === true` | Serve the route |
+
+`SITE_GUARD_KEY` must remain **server-side only**. Never include it in browser
+code or client-visible responses.
+
+### Next.js middleware example
+
+```ts
+// middleware.ts
+import { NextResponse, type NextRequest } from "next/server";
+import { BehalfID } from "@behalfid/sdk";
+
+const behalf = new BehalfID({ apiKey: process.env.SITE_GUARD_KEY! });
+const GUARDED_PREFIXES = ["/docs", "/admin"];
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  if (pathname.startsWith("/_next/")) return NextResponse.next();
+  if (!GUARDED_PREFIXES.some((p) => pathname.startsWith(p))) {
+    return NextResponse.next();
+  }
+
+  let decision;
+  try {
+    decision = await behalf.siteGuard.check({
+      path: pathname,
+      userAgent: request.headers.get("user-agent") ?? undefined,
+      agentIdentifier: request.headers.get("behalfid-agent") ?? undefined,
+    });
+  } catch {
+    // Fail closed on network error.
+    return new NextResponse("Site Guard unavailable.", { status: 403 });
+  }
+
+  if (!decision.allowed) {
+    return new NextResponse(decision.reason ?? "Denied.", { status: 403 });
+  }
+  return NextResponse.next();
+}
+
+export const config = { matcher: ["/docs/:path*", "/admin/:path*"] };
+```
+
 ## Methods
 
 - `verify(input)`
@@ -39,6 +113,7 @@ if (!result.allowed) {
 - `createPermission(input)`
 - `rotateKey(agentId)`
 - `getLogs(agentId)`
+- `siteGuard.check(input)` — check a path with a site key (`bhf_site_...`)
 - `verifyWebhookSignature(input)`
 
 `createAgent` uses the configured `apiKey` as a bearer token. When public agent creation is disabled, pass a server-side `BEHALFID_SETUP_TOKEN` as the SDK `apiKey` for provisioning.

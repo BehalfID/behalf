@@ -1,14 +1,22 @@
+import { SiteGuardNamespace } from "./site-guard.js";
 const DEFAULT_BASE_URL = "https://behalfid.com";
 export class BehalfID {
     apiKey;
     developerToken;
     baseUrl;
+    /**
+     * Site Guard namespace. Use a `bhf_site_...` key as `apiKey` and call
+     * `behalf.siteGuard.check({ path, userAgent, agentIdentifier })`.
+     *
+     * @see https://behalfid.com/docs/site-guard
+     */
+    siteGuard;
     constructor({ apiKey, developerToken, baseUrl = DEFAULT_BASE_URL, allowInsecureHttp = false }) {
         if (!apiKey || typeof apiKey !== "string") {
             throw new Error("BehalfID: apiKey is required.");
         }
-        if (!apiKey.startsWith("bhf_sk_")) {
-            throw new Error("BehalfID: apiKey must be a valid agent key (bhf_sk_...).");
+        if (!apiKey.startsWith("bhf_sk_") && !apiKey.startsWith("bhf_site_")) {
+            throw new Error("BehalfID: apiKey must be a valid agent key (bhf_sk_...) or site key (bhf_site_...).");
         }
         if (developerToken !== undefined) {
             if (typeof developerToken !== "string" || !developerToken.startsWith("bhf_dev_")) {
@@ -32,6 +40,7 @@ export class BehalfID {
         this.apiKey = apiKey;
         this.developerToken = developerToken;
         this.baseUrl = normalizedBaseUrl;
+        this.siteGuard = new SiteGuardNamespace(this.request.bind(this));
     }
     verify(input) {
         return this.request("/api/verify", {
@@ -115,6 +124,7 @@ function extractErrorMessage(body) {
 function redactSecrets(message) {
     return message
         .replace(/bhf_sk_[A-Za-z0-9_-]+/g, "bhf_sk_[redacted]")
+        .replace(/bhf_site_[A-Za-z0-9_-]+/g, "bhf_site_[redacted]")
         .replace(/bhf_dev_[A-Za-z0-9_-]+/g, "bhf_dev_[redacted]")
         .replace(/bhf_pass_[A-Za-z0-9_-]+/g, "bhf_pass_[redacted]")
         .replace(/whsec_[A-Za-z0-9_-]+/g, "whsec_[redacted]")

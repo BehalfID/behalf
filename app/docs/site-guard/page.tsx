@@ -42,6 +42,39 @@ export default function SiteGuardDocsPage() {
         never expose it in browser code.
       </p>
 
+      <h2>SDK (@behalfid/sdk)</h2>
+      <p>
+        Install the SDK and pass a <code>bhf_site_...</code> key as{" "}
+        <code>apiKey</code>. No <code>siteId</code> is required — the key already
+        encodes the site scope.
+      </p>
+      <CodeBlock label="install">{`npm install @behalfid/sdk`}</CodeBlock>
+      <CodeBlock label="usage">{`import { BehalfID } from "@behalfid/sdk";
+import type { SiteGuardCheckInput, SiteGuardCheckResult } from "@behalfid/sdk";
+
+const behalf = new BehalfID({
+  apiKey: process.env.SITE_GUARD_KEY!,  // bhf_site_... — server-side only
+});
+
+const decision = await behalf.siteGuard.check({
+  path: "/docs/getting-started",
+  userAgent: req.headers.get("user-agent") ?? undefined,
+  agentIdentifier: "crawler_alpha",
+});
+
+if (!decision.allowed) {
+  return new Response("Blocked", { status: 403 });
+}`}</CodeBlock>
+      <p>
+        <code>siteGuard.check()</code> throws on network failure — wrap it in{" "}
+        <code>try/catch</code> and fail closed (respond <code>403</code>) if it
+        throws. See the <strong>Fail-closed rules</strong> table below.
+      </p>
+      <p>
+        Exported types: <code>SiteGuardCheckInput</code>,{" "}
+        <code>SiteGuardCheckResult</code>.
+      </p>
+
       <h2>Site keys (recommended)</h2>
       <p>
         Create a site key (<code>bhf_site_...</code>) from the site detail page in your

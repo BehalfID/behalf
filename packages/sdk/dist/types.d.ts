@@ -100,3 +100,38 @@ export type VerificationLog = {
     createdAt: string;
 };
 export type { VerifyWebhookSignatureInput } from "./webhooks.js";
+/**
+ * Input for {@link SiteGuardNamespace.check}.
+ *
+ * When using a site key (`bhf_site_...`) you do **not** need to include
+ * `siteId` or `domain` — the key already encodes the site scope.
+ */
+export type SiteGuardCheckInput = {
+    /** Absolute request path, e.g. `/docs/getting-started`. No query string. */
+    path: string;
+    /** Raw `User-Agent` header from the incoming request, if available. */
+    userAgent?: string;
+    /** Caller-supplied agent identifier (e.g. `"crawler_alpha"`). Weak signal. */
+    agentIdentifier?: string;
+    /** Optional metadata object (must be under 2 KB). Secret-looking keys are
+     *  redacted before storage. Metadata is not persisted in Site Guard logs. */
+    metadata?: Record<string, unknown>;
+};
+/**
+ * Typed response from `POST /api/site-guard/check`.
+ *
+ * Always check `allowed` before serving the route. Fail closed when
+ * `allowed` is `false` or when the call throws.
+ */
+export type SiteGuardCheckResult = {
+    /** `true` means serve the route; `false` means block it. */
+    allowed: boolean;
+    /** Human-readable explanation of the decision. */
+    reason: string;
+    /** Unique request ID for this check. */
+    requestId: string;
+    /** The Site Guard rule that matched, or `null` when no rule matched. */
+    matchedRuleId: string | null;
+    /** The site scope resolved by the API. */
+    siteId: string | null;
+};

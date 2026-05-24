@@ -122,6 +122,41 @@ expose it in browser code or client-visible responses.
 
 If no active site keys exist, the panel shows a callout to create one first.
 
+## SDK (`@behalfid/sdk`)
+
+Install the SDK and pass a `bhf_site_...` key as `apiKey`. No `siteId` is
+required in the call body — the key already encodes the site scope.
+
+```bash
+npm install @behalfid/sdk
+```
+
+```ts
+import { BehalfID } from "@behalfid/sdk";
+import type { SiteGuardCheckInput, SiteGuardCheckResult } from "@behalfid/sdk";
+
+const behalf = new BehalfID({
+  apiKey: process.env.SITE_GUARD_KEY!,  // bhf_site_... — server-side only
+});
+
+const decision = await behalf.siteGuard.check({
+  path: "/docs/getting-started",
+  userAgent: req.headers.get("user-agent") ?? undefined,
+  agentIdentifier: "crawler_alpha",
+});
+
+if (!decision.allowed) {
+  return new Response("Blocked", { status: 403 });
+}
+```
+
+`siteGuard.check()` throws on network failure — wrap in try/catch and fail
+closed (respond `403`) if it throws.
+
+Exported types: `SiteGuardCheckInput`, `SiteGuardCheckResult`.
+
+See the SDK README (`packages/sdk/README.md`) for middleware examples.
+
 ## Integration examples
 
 Full, copy-ready examples live in the `examples/` directory:
