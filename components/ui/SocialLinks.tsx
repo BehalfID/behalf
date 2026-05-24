@@ -38,7 +38,7 @@ export function SocialLinks({ className }: SocialLinksProps) {
       </Link>
 
       <Link
-        href="https://bsky.app/profile/behalfid.com"
+        href="https://bsky.app/profile/official.behalfid.com"
         target="_blank"
         rel="noopener noreferrer"
         aria-label="BehalfID on Bluesky"
