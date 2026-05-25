@@ -45,7 +45,7 @@ export function ConsoleShellLayout({
           </button>
         </div>
       </aside>
-      <section className="console-workspace app-main">{children}</section>
+      <section id="main-content" className="console-workspace app-main" tabIndex={-1}>{children}</section>
     </main>
   );
 }

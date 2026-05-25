@@ -35,7 +35,7 @@ const jsonLd = {
 
 export default function Home() {
   return (
-    <main className="marketing public-site">
+    <main id="main-content" className="marketing public-site" tabIndex={-1}>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

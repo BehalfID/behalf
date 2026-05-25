@@ -9,7 +9,7 @@ export const metadata = {
 
 export default function SandboxPage() {
   return (
-    <main className="marketing">
+    <main id="main-content" className="marketing" tabIndex={-1}>
       <PublicNav />
       <SandboxClient />
       <PublicFooter />

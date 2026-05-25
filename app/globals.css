@@ -13,7 +13,7 @@
   /* Ink */
   --text:    #fafafa;
   --text-2:  #a1a1a1;
-  --muted:   #707070;
+  --muted:   #767676; /* raised from #707070 — meets WCAG AA 4.5:1 on #000 */
   --muted-2: #525252;
   --source:  #a1a1a1;
 
@@ -115,6 +115,46 @@ select {
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
+}
+
+/* ── Skip navigation link ────────────────────────────── */
+.skip-link {
+  position: fixed;
+  top: -100vh;
+  left: 8px;
+  z-index: 10000;
+  padding: 12px 20px;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  border-radius: 0 0 8px 8px;
+  text-decoration: none;
+  transition: top 0.12s ease;
+}
+
+.skip-link:focus {
+  top: 0;
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* Skip-link targets: suppress visible focus ring on non-interactive landmarks */
+#main-content:focus {
+  outline: none;
+}
+
+/* ── Screen-reader-only utility ──────────────────────── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
 }
 
 ::selection {
@@ -8722,4 +8762,24 @@ html[data-theme="light"] .app-sidebar nav a[aria-current="page"] {
 /* Billing limit grid cells: stronger borders in light mode */
 html[data-theme="light"] .billing-limit-grid div {
   border-color: var(--border-strong);
+}
+
+/* ── Reduced-motion accessibility ───────────────────────
+   Respects prefers-reduced-motion for users with vestibular
+   disorders, epilepsy, or motion sensitivity (WCAG 2.3.3). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Keep visibility transitions so content doesn't flash invisibly */
+  .skip-link {
+    transition: none;
+  }
 }

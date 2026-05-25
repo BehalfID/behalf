@@ -147,7 +147,7 @@ export function OnboardingClient() {
   if (step === "hello") {
     const letters = "Hello ".split("");
     return (
-      <main className="ob-page ob-page--dark">
+      <main id="main-content" className="ob-page ob-page--dark" tabIndex={-1}>
         <div className={cls("ob-hello-wrap")}>
           <p className="ob-hello" aria-label="Hello 👋">
             {letters.map((ch, i) => (

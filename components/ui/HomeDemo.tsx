@@ -85,9 +85,11 @@ export function HomeDemo() {
         {scenarios.map((s) => (
           <button
             key={s.id}
+            id={`demo-tab-${s.id}`}
             role="tab"
             type="button"
             aria-selected={s.id === activeId}
+            aria-controls="demo-panel"
             className={[
               "home-demo__tab",
               s.id === activeId ? "home-demo__tab--active" : "",
@@ -100,9 +102,11 @@ export function HomeDemo() {
       </div>
 
       <div
-        className={["home-demo__console", checking ? "home-demo__console--checking" : ""].filter(Boolean).join(" ")}
+        id="demo-panel"
+        role="tabpanel"
+        aria-labelledby={`demo-tab-${activeId}`}
         aria-live="polite"
-        aria-label="Decision trace"
+        className={["home-demo__console", checking ? "home-demo__console--checking" : ""].filter(Boolean).join(" ")}
       >
         {/* Request panel */}
         <div className="home-demo__request">

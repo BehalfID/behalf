@@ -34,7 +34,7 @@ export default async function BlogPostPage({
   if (!post) notFound();
 
   return (
-    <main className="marketing">
+    <main id="main-content" className="marketing" tabIndex={-1}>
       <PublicNav />
 
       <div className="blog-post-page">

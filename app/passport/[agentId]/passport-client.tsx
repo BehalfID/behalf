@@ -269,7 +269,7 @@ ${passportHref}`;
     : "";
 
   return (
-    <main className="passport-page">
+    <main id="main-content" className="passport-page" tabIndex={-1}>
       <section className="passport-shell">
         <div className="passport-header">
           <Logo />
@@ -491,7 +491,7 @@ ${passportHref}`;
                 Manual preview does not control the external agent unless the provider or app
                 integrates BehalfID.
               </p>
-              {verifyError ? <p className="form-error">{verifyError}</p> : null}
+              {verifyError ? <p className="form-error" role="alert">{verifyError}</p> : null}
               {decision ? (
                 <div className="passport-result">
                   <strong>{decision.allowed ? "Allowed" : "Denied"}</strong>

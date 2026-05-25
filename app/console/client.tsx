@@ -281,7 +281,7 @@ function useApiResource<T>(path: string) {
 export function LoginPage() {
   const router = useRouter();
   return (
-    <main className="console-login-page">
+    <main id="main-content" className="console-login-page" tabIndex={-1}>
       <LoginPanel onSuccess={() => router.push("/console")} />
     </main>
   );
@@ -391,7 +391,7 @@ function LoginPanel({ onSuccess }: { onSuccess: () => void }) {
             value={password}
           />
         </label>
-        {error ? <p className="console-error">{error}</p> : null}
+        {error ? <p className="console-error" role="alert">{error}</p> : null}
         <Button variant="primary" disabled={submitting} type="submit">
           {submitting ? "Signing in" : "Sign in"}
         </Button>
@@ -531,8 +531,8 @@ function SiteGuardView() {
   return (
     <>
       <Header title="Site Guard" />
-      {sites.error ? <p className="form-error">{sites.error.message}</p> : null}
-      {logs.error ? <p className="form-error">{logs.error.message}</p> : null}
+      {sites.error ? <p className="form-error" role="alert">{sites.error.message}</p> : null}
+      {logs.error ? <p className="form-error" role="alert">{logs.error.message}</p> : null}
       <section className="console-grid">
         <div className="console-panel">
           <SectionTitle title="Sites" />

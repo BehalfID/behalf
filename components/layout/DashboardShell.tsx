@@ -41,7 +41,7 @@ export function DashboardShellLayout({ children }: { children: React.ReactNode }
           </a>
         </div>
       </aside>
-      <section className="dashboard-main app-main">{children}</section>
+      <section id="main-content" className="dashboard-main app-main" tabIndex={-1}>{children}</section>
     </main>
   );
 }

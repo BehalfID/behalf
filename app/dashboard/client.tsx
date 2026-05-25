@@ -319,7 +319,7 @@ function HomeView() {
   return (
     <>
       <Header title="Dashboard" description="Overview of your agents, usage, and verification activity." action={hasAgents ? <ButtonLink variant="primary" href={content.actionHref}>{content.actionLabel}</ButtonLink> : undefined} />
-      {summary.error ? <p className="form-error">{summary.error}</p> : null}
+      {summary.error ? <p className="form-error" role="alert">{summary.error}</p> : null}
       {!hasAgents ? (
         <Card className="dashboard-panel onboarding-callout">
           <p className="section-kicker">{content.kicker}</p>
@@ -387,7 +387,7 @@ function PlanUsagePanel({ usage }: { usage: UsageSummary }) {
         <ButtonLink href="/dashboard/billing">{usage.plan === "free" ? "Upgrade" : "Manage billing"}</ButtonLink>
       </div>
       {usage.stripeSubscriptionStatus === "past_due" ? (
-        <p className="form-error">Payment failed. Paid limits and webhook delivery are disabled until billing is updated.</p>
+        <p className="form-error" role="alert">Payment failed. Paid limits and webhook delivery are disabled until billing is updated.</p>
       ) : null}
       <div className="plan-usage-grid">
         <div><span>Agents</span><strong>{usage.agentCount.toLocaleString()} / {formatUsageLimit(usage.agentLimit)}</strong></div>
@@ -464,8 +464,8 @@ function SitesView() {
   return (
     <>
       <Header title="Site Guard" description="Block or allow AI agents from accessing your website paths." action={<ButtonLink href="/docs/site-guard">Integration docs</ButtonLink>} />
-      {resource.error ? <p className="form-error">{resource.error}</p> : null}
-      {siteError ? <p className="form-error">{siteError}</p> : null}
+      {resource.error ? <p className="form-error" role="alert">{resource.error}</p> : null}
+      {siteError ? <p className="form-error" role="alert">{siteError}</p> : null}
       <div className="dashboard-grid">
         <Card className="dashboard-panel">
           <div className="dashboard-section-header">
@@ -570,7 +570,7 @@ function SiteDetailView({ siteId, onChanged }: { siteId: string; onChanged: () =
     await detail.reload();
   };
 
-  if (detail.error) return <p className="form-error">{detail.error}</p>;
+  if (detail.error) return <p className="form-error" role="alert">{detail.error}</p>;
   const site = detail.data?.site;
   if (!site) return null;
 
@@ -641,13 +641,13 @@ function SiteDetailView({ siteId, onChanged }: { siteId: string; onChanged: () =
         <div className="dashboard-side-forms">
           <form className="dashboard-panel dashboard-form-card" onSubmit={createKey}>
             <h2>Create site key</h2>
-            {keyError ? <p className="form-error">{keyError}</p> : null}
+            {keyError ? <p className="form-error" role="alert">{keyError}</p> : null}
             <label><span>Name</span><input onChange={(event) => setKeyName(event.target.value)} placeholder="Middleware key" required value={keyName} /></label>
             <div><Button variant="primary" type="submit">Create key</Button></div>
           </form>
           <form className="dashboard-panel dashboard-form-card" onSubmit={createRule}>
             <h2>Add rule</h2>
-            {detailError ? <p className="form-error">{detailError}</p> : null}
+            {detailError ? <p className="form-error" role="alert">{detailError}</p> : null}
             <label><span>Name</span><input onChange={(event) => setName(event.target.value)} required value={name} /></label>
             <label><span>Agent identifier</span><input onChange={(event) => setSignal(event.target.value)} placeholder="crawler_alpha" value={signal} /></label>
             <label><span>User-Agent pattern</span><input onChange={(event) => setPattern(event.target.value)} placeholder="ExampleBot/*" value={pattern} /></label>
@@ -1171,7 +1171,7 @@ ${regularPassportUrl || "[passport link]"}`;
                 </button>
               ))}
             </div>
-            {draftError ? <p className="form-error">{draftError}</p> : null}
+            {draftError ? <p className="form-error" role="alert">{draftError}</p> : null}
             <Button
               variant="primary"
               type="button"
@@ -1215,7 +1215,7 @@ ${regularPassportUrl || "[passport link]"}`;
             </div>
             {draftError ? (
               <div>
-                <p className="form-error">{draftError}</p>
+                <p className="form-error" role="alert">{draftError}</p>
                 {draftDetails ? <p className="field-help">{draftDetails}</p> : null}
                 {draftErrorCode === "LOCALHOST_IN_PRODUCTION" ? (
                   <p className="field-help">Production cannot use localhost for Ollama. Test this flow locally with <code>npm run dev</code>, or configure a secure Ollama proxy.</p>
@@ -1316,7 +1316,7 @@ ${regularPassportUrl || "[passport link]"}`;
 
             {draftError ? (
               <div>
-                <p className="form-error">{draftError}</p>
+                <p className="form-error" role="alert">{draftError}</p>
                 {draftDetails ? <p className="field-help">{draftDetails}</p> : null}
               </div>
             ) : null}
@@ -1374,7 +1374,7 @@ ${regularPassportUrl || "[passport link]"}`;
           <p>This creates a native BehalfID agent with an API key for SDK/API enforcement.</p>
           <label><span>Agent name</span><input placeholder="e.g. Checkout agent, Support workflow agent" value={agentForm.name} onChange={(event) => setAgentForm({ ...agentForm, name: event.target.value })} required /></label>
           <label><span>Description</span><textarea placeholder="Optional: what this agent is used for" rows={3} value={agentForm.description} onChange={(event) => setAgentForm({ ...agentForm, description: event.target.value })} /></label>
-          {onboardingError ? <p className="form-error">{onboardingError}</p> : null}
+          {onboardingError ? <p className="form-error" role="alert">{onboardingError}</p> : null}
           <Button variant="primary" type="submit">Create agent</Button>
         </form>
       ) : null}
@@ -1446,7 +1446,7 @@ ${regularPassportUrl || "[passport link]"}`;
             </>
           ) : null}
           <p className="field-help">BehalfID enforces action, blocked actions, allowed actions, approval requirements, expiration, and simple resource/vendor/amount constraints. Your integration still needs to call verify before the tool runs.</p>
-          {onboardingError ? <p className="form-error">{onboardingError}</p> : null}
+          {onboardingError ? <p className="form-error" role="alert">{onboardingError}</p> : null}
           <Button variant="primary" type="submit">Create permission</Button>
         </form>
       ) : null}
@@ -1863,7 +1863,7 @@ function WebhooksView() {
   return (
     <>
       <Header title="Webhooks" description="Manage event delivery endpoints and signing secrets." action={webhooksEnabled ? <ButtonLink variant="secondary" href="/dashboard/billing">Manage billing</ButtonLink> : undefined} />
-      {resource.error ? <p className="form-error">{resource.error}</p> : null}
+      {resource.error ? <p className="form-error" role="alert">{resource.error}</p> : null}
       {!webhooksEnabled ? (
         <Card className="dashboard-panel webhook-gate-card">
           <div className="dashboard-section-header">
@@ -1888,7 +1888,7 @@ function WebhooksView() {
           </label>
           <Button disabled={!webhooksEnabled} variant="primary">Create</Button>
         </form>
-        {webhookError ? <p className="form-error">{webhookError}</p> : null}
+        {webhookError ? <p className="form-error" role="alert">{webhookError}</p> : null}
         {secret ? <Secret value={secret} label="Signing secret" /> : null}
       </Card>
       <Rows items={resource.data?.webhooks ?? []} href={(w) => `/dashboard/webhooks/${w.webhookId}`} title={(w) => w.url} meta={(w) => `${w.status} / ${w.events.join(", ")}`} />

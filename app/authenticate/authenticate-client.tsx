@@ -39,7 +39,7 @@ export function AuthenticateClient({ prefillCode, email }: Props) {
   };
 
   return (
-    <main className="auth-page">
+    <main id="main-content" className="auth-page" tabIndex={-1}>
       <section className="auth-shell">
         <div className="auth-context">
           <Logo />
@@ -94,7 +94,7 @@ export function AuthenticateClient({ prefillCode, email }: Props) {
                   value={code}
                 />
               </label>
-              {error ? <p className="form-error">{error}</p> : null}
+              {error ? <p className="form-error" role="alert">{error}</p> : null}
               <Button disabled={status === "loading" || code.replace("-", "").length < 8} type="submit" variant="primary">
                 {status === "loading" ? "Authorizing…" : "Authorize"}
               </Button>

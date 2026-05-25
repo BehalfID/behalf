@@ -29,7 +29,7 @@ export function AuthPage({ mode }: { mode: "login" | "signup" }) {
   };
 
   return (
-    <main className="auth-page">
+    <main id="main-content" className="auth-page" tabIndex={-1}>
       <section className="auth-shell">
         <div className="auth-context">
           <Logo />
@@ -57,7 +57,7 @@ export function AuthPage({ mode }: { mode: "login" | "signup" }) {
             <span>Password</span>
             <input autoComplete={mode === "signup" ? "new-password" : "current-password"} minLength={10} onChange={(event) => setPassword(event.target.value)} required type="password" value={password} />
           </label>
-          {error ? <p className="form-error">{error}</p> : null}
+          {error ? <p className="form-error" role="alert" aria-live="assertive">{error}</p> : null}
           <Button variant="primary" type="submit">{mode === "signup" ? "Create account" : "Log in"}</Button>
           {mode === "signup" && (
             <p className="auth-legal">

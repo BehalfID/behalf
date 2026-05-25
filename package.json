@@ -16,7 +16,8 @@
     "x:post": "node scripts/x-autoposter.js",
     "x:post:once": "node scripts/x-autoposter.js --once",
     "x:post:dry": "node scripts/x-autoposter.js --dry-run --once",
-    "build:cli": "npm --prefix packages/cli run build"
+    "build:cli": "npm --prefix packages/cli run build",
+    "test:sdk:pack": "bash scripts/test-sdk-pack.sh"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",

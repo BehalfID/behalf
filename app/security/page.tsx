@@ -28,7 +28,7 @@ const revocationItems = [
 
 export default function SecurityPage() {
   return (
-    <main className="marketing">
+    <main id="main-content" className="marketing" tabIndex={-1}>
       <PublicNav />
 
       <div className="security-page">

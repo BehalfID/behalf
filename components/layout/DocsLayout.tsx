@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Logo, ThemeToggle } from "@/components/ui";
@@ -66,13 +66,26 @@ export function DocsLayout({ children }: { children: React.ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const sidebar = useSearch();
   const drawer  = useSearch();
+  const toggleRef = useRef<HTMLButtonElement>(null);
 
   const currentLabel = docsNav.find(n => n.href === pathname)?.label ?? "Docs";
 
-  const closeDrawer = () => {
+  const closeDrawer = useCallback(() => {
     setDrawerOpen(false);
     drawer.setQuery("");
-  };
+    // Return focus to the toggle button
+    requestAnimationFrame(() => toggleRef.current?.focus());
+  }, [drawer]);
+
+  // Close drawer on Escape
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeDrawer();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [drawerOpen, closeDrawer]);
 
   return (
     <main className="docs-page">
@@ -82,10 +95,12 @@ export function DocsLayout({ children }: { children: React.ReactNode }) {
         <Logo />
         <span className="docs-mobile-header__page">{currentLabel}</span>
         <button
+          ref={toggleRef}
           className="docs-mobile-header__toggle"
           onClick={() => setDrawerOpen(o => !o)}
           aria-label={drawerOpen ? "Close navigation" : "Open navigation"}
           aria-expanded={drawerOpen}
+          aria-controls="docs-mobile-drawer"
         >
           {drawerOpen ? <CloseIcon /> : <HamburgerIcon />}
         </button>
@@ -93,28 +108,37 @@ export function DocsLayout({ children }: { children: React.ReactNode }) {
 
       {/* ── Mobile drawer ─────────────────────────────────────── */}
       {drawerOpen && (
-        <div className="docs-mobile-drawer">
-          <label className="docs-search">
+        <div
+          id="docs-mobile-drawer"
+          className="docs-mobile-drawer"
+          role="dialog"
+          aria-label="Documentation navigation"
+          aria-modal="true"
+        >
+          {/* eslint-disable-next-line jsx-a11y/no-redundant-roles */}
+          <label className="docs-search" htmlFor="docs-search-drawer">
             <SearchIcon />
             <input
+              id="docs-search-drawer"
               autoFocus
               type="search"
               className="docs-search__input"
               placeholder="Search docs…"
+              aria-label="Search documentation"
               value={drawer.query}
               onChange={e => drawer.setQuery(e.target.value)}
             />
           </label>
 
           {drawer.results !== null ? (
-            <div className="docs-search__results">
+            <div className="docs-search__results" role="listbox" aria-label="Search results">
               {drawer.results.length > 0 ? drawer.results.map(r => (
                 <Link key={r.href} href={r.href} className="docs-search__result" onClick={closeDrawer}>
                   <strong>{r.title}</strong>
                   <span>{r.body}</span>
                 </Link>
               )) : (
-                <p className="docs-search__empty">No results for &ldquo;{drawer.query}&rdquo;</p>
+                <p className="docs-search__empty" role="status">No results for &ldquo;{drawer.query}&rdquo;</p>
               )}
             </div>
           ) : (
@@ -133,7 +157,7 @@ export function DocsLayout({ children }: { children: React.ReactNode }) {
           )}
 
           <div className="docs-mobile-drawer__footer">
-            <span>Theme</span>
+            <span id="theme-label">Theme</span>
             <ThemeToggle />
           </div>
         </div>
@@ -144,17 +168,19 @@ export function DocsLayout({ children }: { children: React.ReactNode }) {
         <Logo />
         <p className="sidebar-label">Developer docs</p>
 
-        <label className="docs-search docs-search--sidebar">
+        <label className="docs-search docs-search--sidebar" htmlFor="docs-search-sidebar">
           <SearchIcon />
           <input
+            id="docs-search-sidebar"
             type="search"
             className="docs-search__input"
             placeholder="Search docs…"
+            aria-label="Search documentation"
             value={sidebar.query}
             onChange={e => sidebar.setQuery(e.target.value)}
           />
           {sidebar.results !== null && sidebar.results.length > 0 && (
-            <div className="docs-search__results docs-search__results--popup">
+            <div className="docs-search__results docs-search__results--popup" role="listbox" aria-label="Search results">
               {sidebar.results.map(r => (
                 <Link
                   key={r.href}
@@ -169,7 +195,7 @@ export function DocsLayout({ children }: { children: React.ReactNode }) {
             </div>
           )}
           {sidebar.results !== null && sidebar.results.length === 0 && (
-            <p className="docs-search__empty docs-search__empty--inline">No results</p>
+            <p className="docs-search__empty docs-search__empty--inline" role="status">No results</p>
           )}
         </label>
 
@@ -190,7 +216,7 @@ export function DocsLayout({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <article className="docs-article">{children}</article>
+      <article id="main-content" className="docs-article" tabIndex={-1}>{children}</article>
     </main>
   );
 }

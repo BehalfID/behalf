@@ -1,6 +1,6 @@
 {
   "name": "@behalfid/sdk",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "BehalfID SDK — runtime permission verification for AI agents. Define what agents may do, verify before execution, fail closed.",
   "keywords": [
     "ai-agent",
@@ -25,7 +25,8 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist",

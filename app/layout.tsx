@@ -56,6 +56,7 @@ export default async function RootLayout({
         <script nonce={nonce} dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body>
+        <a href="#main-content" className="skip-link">Skip to main content</a>
         {children}
         <CookieBanner />
         <Analytics />
