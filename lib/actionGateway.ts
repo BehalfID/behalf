@@ -1,7 +1,6 @@
-import dns from "dns/promises";
 import http, { type IncomingMessage } from "http";
 import https from "https";
-import { isPrivateIpAddress } from "@/lib/webhooks";
+import { validatePublicUrl } from "@/lib/ssrf";
 
 const GATEWAY_TIMEOUT_MS = 5_000;
 const GATEWAY_MAX_RESPONSE_BYTES = 64 * 1024;
@@ -62,52 +61,27 @@ export async function fetchPublicWebRead(rawUrl: string): Promise<GatewayFetchRe
 }
 
 async function validatePublicHttpUrl(value: string) {
+  // Thin wrapper around the shared SSRF guard in lib/ssrf.ts.
+  // Error messages are remapped to the "Gateway URL" / "input.url" prefix
+  // that the action gateway API has always exposed to callers.
   if (typeof value !== "string" || !value.trim()) {
     throw new Error("input.url is required.");
   }
 
-  let url: URL;
   try {
-    url = new URL(value.trim());
-  } catch {
-    throw new Error("input.url must be a valid URL.");
+    return await validatePublicUrl(value, { requireHttpsInProd: true });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("valid absolute URL")) throw new Error("input.url must be a valid URL.");
+    if (msg.includes("http:// or https://")) throw new Error("Gateway only supports http:// and https:// URLs.");
+    if (msg.includes("https:// in production")) throw new Error("Gateway requires https:// URLs in production.");
+    if (msg.includes("not include credentials")) throw new Error("Gateway URLs must not include credentials.");
+    if (msg.includes("host is not public")) throw new Error("Gateway URL host is not public.");
+    if (msg.includes("IP address is not public")) throw new Error("Gateway URL IP address is not public.");
+    if (msg.includes("could not be resolved")) throw new Error("Gateway URL host could not be resolved.");
+    if (msg.includes("non-public address")) throw new Error("Gateway URL resolves to a non-public address.");
+    throw err; // passthrough for unexpected errors
   }
-
-  if (url.protocol !== "https:" && url.protocol !== "http:") {
-    throw new Error("Gateway only supports http:// and https:// URLs.");
-  }
-
-  // In production, reject plain HTTP to prevent MITM interception of fetched content.
-  if (process.env.NODE_ENV === "production" && url.protocol === "http:") {
-    throw new Error("Gateway requires https:// URLs in production.");
-  }
-
-  if (url.username || url.password) {
-    throw new Error("Gateway URLs must not include credentials.");
-  }
-
-  const hostname = normalizeHostname(url.hostname);
-  if (isInternalHostname(hostname)) {
-    throw new Error("Gateway URL host is not public.");
-  }
-
-  if (isPrivateIpAddress(hostname)) {
-    throw new Error("Gateway URL IP address is not public.");
-  }
-
-  const addresses = await dns.lookup(hostname, { all: true, verbatim: true }).catch(() => []);
-  if (!addresses.length) {
-    throw new Error("Gateway URL host could not be resolved.");
-  }
-
-  if (addresses.some((address) => isPrivateIpAddress(address.address))) {
-    throw new Error("Gateway URL resolves to a non-public address.");
-  }
-
-  url.hash = "";
-  url.username = "";
-  url.password = "";
-  return { url, addresses };
 }
 
 type ValidatedTarget = Awaited<ReturnType<typeof validatePublicHttpUrl>>;
@@ -151,23 +125,6 @@ async function getPublicUrl(target: ValidatedTarget) {
     });
     request.end();
   });
-}
-
-function normalizeHostname(hostname: string) {
-  return hostname.toLowerCase().replace(/^\[|\]$/g, "");
-}
-
-function isInternalHostname(hostname: string) {
-  return (
-    hostname === "localhost" ||
-    hostname === "metadata" ||
-    hostname === "metadata.google.internal" ||
-    hostname.endsWith(".localhost") ||
-    hostname.endsWith(".local") ||
-    hostname.endsWith(".internal") ||
-    hostname.endsWith(".lan") ||
-    !hostname.includes(".")
-  );
 }
 
 function isRedirectStatus(status: number) {

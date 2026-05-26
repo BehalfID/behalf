@@ -5,13 +5,17 @@ const REQUIRED_PRODUCTION_ENV = [
   "NEXT_PUBLIC_APP_URL",
   "STRIPE_SECRET_KEY",
   "STRIPE_WEBHOOK_SECRET",
-  "STRIPE_PRO_PRICE_ID"
+  "STRIPE_PRO_PRICE_ID",
+  // Redis is required in production so rate limits are shared across all
+  // server instances.  Without it, each Vercel function instance has its own
+  // independent counter, allowing an attacker to exceed the intended cap by
+  // distributing requests across instances (M-2).
+  "UPSTASH_REDIS_REST_URL",
+  "UPSTASH_REDIS_REST_TOKEN"
 ] as const;
 
 const OPTIONAL_PRODUCTION_ENV = [
-  "BEHALFID_WEBHOOK_SIGNING_PEPPER",
-  "UPSTASH_REDIS_REST_URL",
-  "UPSTASH_REDIS_REST_TOKEN"
+  "BEHALFID_WEBHOOK_SIGNING_PEPPER"
 ] as const;
 
 const UNSAFE_ADMIN_PASSWORDS = new Set(["change-me", "changeme", "password", "admin", "replace-this-password"]);
@@ -74,17 +78,6 @@ export function validateProductionEnv(): EnvValidationResult {
   }
 
   validateHttpsUrl("NEXT_PUBLIC_APP_URL", result);
-
-  const hasRedisUrl = hasValue("UPSTASH_REDIS_REST_URL");
-  const hasRedisToken = hasValue("UPSTASH_REDIS_REST_TOKEN");
-  if (hasRedisUrl !== hasRedisToken) {
-    result.invalid.push("UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN must be configured together.");
-  }
-  if (!hasRedisUrl && !hasRedisToken) {
-    result.warnings.push(
-      "Upstash Redis is not configured; production rate limits will use per-process memory fallback."
-    );
-  }
 
   const hasStripeKey = hasValue("STRIPE_SECRET_KEY");
   const hasStripeWebhookSecret = hasValue("STRIPE_WEBHOOK_SECRET");

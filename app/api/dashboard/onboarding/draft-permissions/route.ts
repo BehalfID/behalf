@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
+import { validatePublicUrl } from "@/lib/ssrf";
 import { isRecord, readString } from "@/lib/validation";
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -800,13 +801,30 @@ export async function POST(request: NextRequest) {
   const OLLAMA_BASE_URL = rawBaseUrl;
   const OLLAMA_MODEL = rawModel;
 
-  // ── B: Localhost in production ───────────────────────────────────────────
-  const isLocalhost = /localhost|127\.0\.0\.1/.test(OLLAMA_BASE_URL);
-  if (process.env.NODE_ENV === "production" && isLocalhost) {
-    return diagError(503, "LOCALHOST_IN_PRODUCTION",
-      "Ollama is configured as localhost in production.",
-      "In production, localhost points to the Vercel server, not your Mac. Use local development (npm run dev), or configure a secure reachable Ollama proxy."
-    );
+  // ── B: SSRF guard for production ────────────────────────────────────────
+  // In development, operators legitimately run Ollama on localhost — skip the
+  // DNS-based check so local development still works.  In production, validate
+  // the configured endpoint against the same SSRF guard used by the action
+  // gateway: reject private/loopback/link-local addresses and any hostname
+  // that DNS-resolves to one.
+  if (process.env.NODE_ENV === "production") {
+    const isLocalhost = /localhost|127\.0\.0\.1/.test(OLLAMA_BASE_URL);
+    if (isLocalhost) {
+      return diagError(503, "LOCALHOST_IN_PRODUCTION",
+        "Ollama is configured as localhost in production.",
+        "In production, localhost points to the Vercel server, not your Mac. Use local development (npm run dev), or configure a secure reachable Ollama proxy."
+      );
+    }
+
+    try {
+      await validatePublicUrl(OLLAMA_BASE_URL, { requireHttpsInProd: true });
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : "URL is not allowed.";
+      return diagError(503, "UNREACHABLE",
+        "Ollama endpoint is not allowed.",
+        `The configured Ollama endpoint failed validation: ${reason} Check OLLAMA_BASE_URL in your environment.`
+      );
+    }
   }
 
   const userMessage = [
