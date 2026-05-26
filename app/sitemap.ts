@@ -30,8 +30,10 @@ const routes: Array<{
   { path: "/docs/webhooks", changeFrequency: "monthly", priority: 0.78 },
   { path: "/docs/site-guard", changeFrequency: "monthly", priority: 0.76 },
   { path: "/docs/concepts", changeFrequency: "monthly", priority: 0.8 },
+  { path: "/legal", changeFrequency: "monthly", priority: 0.5 },
   { path: "/terms", changeFrequency: "monthly", priority: 0.4 },
   { path: "/privacy", changeFrequency: "monthly", priority: 0.4 },
+  { path: "/compliance", changeFrequency: "monthly", priority: 0.6 },
   { path: "/login", changeFrequency: "yearly", priority: 0.35 },
   { path: "/signup", changeFrequency: "monthly", priority: 0.65 }
 ];

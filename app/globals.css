@@ -8256,6 +8256,223 @@ html[data-theme="light"] .app-sidebar__footer {
   color: var(--text-2);
 }
 
+/* Legal — table of contents */
+.legal-toc {
+  background: var(--surface-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--s-5) var(--s-6);
+  margin-bottom: var(--s-9);
+}
+
+.legal-toc__heading {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 var(--s-3);
+}
+
+.legal-toc__list {
+  margin: 0;
+  padding-left: var(--s-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+}
+
+.legal-toc__list li {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+.legal-toc__list a {
+  color: var(--text-2);
+  text-decoration: none;
+}
+
+.legal-toc__list a:hover {
+  color: var(--accent);
+}
+
+/* Legal — misc helpers */
+.legal-breadcrumb {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.legal-breadcrumb:hover {
+  color: var(--text);
+}
+
+.legal-meta--wide {
+  max-width: 540px;
+}
+
+.legal-note {
+  background: var(--surface-elev);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  padding: var(--s-4) var(--s-5);
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.6;
+  margin-top: var(--s-4);
+}
+
+.legal-also {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: var(--s-4) !important;
+}
+
+.legal-also a {
+  color: var(--muted) !important;
+  text-decoration: none;
+}
+
+.legal-also a:hover {
+  color: var(--accent) !important;
+}
+
+/* Legal hub page */
+.legal-page--hub .legal-hero {
+  margin-bottom: var(--s-7);
+}
+
+.legal-hub {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  margin-bottom: var(--s-9);
+}
+
+.legal-hub__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  text-decoration: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.legal-hub__card:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-elev);
+}
+
+.legal-hub__card-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-4);
+  flex-wrap: wrap;
+}
+
+.legal-hub__card-title {
+  font-size: 16px;
+  font-weight: 680;
+  color: var(--text);
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.legal-hub__card-meta {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.legal-hub__card-desc {
+  font-size: 14px;
+  color: var(--text-2);
+  line-height: 1.65;
+  margin: 0;
+}
+
+.legal-hub__card-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+.legal-hub__card-list li {
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--surface-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 2px 10px;
+}
+
+.legal-hub__card-cta {
+  font-size: 13px;
+  color: var(--accent);
+  margin-top: var(--s-1);
+}
+
+.legal-hub__contact {
+  margin-top: 0;
+}
+
+/* Compliance framework status badges */
+.compliance-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-size: 12px;
+  font-weight: 600;
+  padding: var(--s-1) var(--s-3);
+  border-radius: var(--radius-pill);
+  margin-bottom: var(--s-4);
+}
+
+.compliance-badge::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.compliance-badge--active {
+  background: var(--ok-bg);
+  border: 1px solid var(--ok-border);
+  color: var(--ok);
+}
+
+.compliance-badge--active::before {
+  background: var(--ok);
+}
+
+.compliance-badge--planned {
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  color: var(--warn);
+}
+
+.compliance-badge--planned::before {
+  background: var(--warn);
+}
+
+.compliance-badge--conditional {
+  background: var(--accent-soft);
+  border: 1px solid rgba(99, 102, 241, 0.32);
+  color: var(--accent);
+}
+
+.compliance-badge--conditional::before {
+  background: var(--accent);
+}
+
 /* Public footer (blog, security, sandbox, legal pages) */
 .public-footer {
   border-top: 1px solid var(--border);

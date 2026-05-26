@@ -106,12 +106,12 @@ const SELECTION_ORDER: SelectionKey[] = [
   "stripeWebhookEvents"
 ];
 
-config({ path: path.resolve(".env.local") });
+config({ path: path.resolve(".env") });
 
 async function main() {
   const options = parseCleanupArgs(process.argv.slice(2));
   if (!process.env.MONGODB_URI) {
-    throw new Error("Missing MONGODB_URI after loading .env.local.");
+    throw new Error("Missing MONGODB_URI after loading .env.");
   }
 
   if (options.execute && !isDestructiveModeAllowed(options)) {

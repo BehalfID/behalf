@@ -1,7 +1,7 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { PublicNav } from "@/components/layout/PublicNav";
 import { PublicFooter } from "@/components/layout/PublicFooter";
-import { ButtonLink } from "@/components/ui";
 
 export const metadata: Metadata = {
   title: "Terms of Service — BehalfID",
@@ -9,38 +9,65 @@ export const metadata: Metadata = {
   alternates: { canonical: "/terms" }
 };
 
-const EFFECTIVE_DATE = "May 13, 2026";
+const EFFECTIVE_DATE = "May 26, 2026";
 const CONTACT_EMAIL = "legal@behalfid.com";
+
+const TOC = [
+  { id: "acceptance",       label: "1. Acceptance of Terms" },
+  { id: "description",      label: "2. Description of Service" },
+  { id: "accounts",         label: "3. Accounts and Eligibility" },
+  { id: "api-keys",         label: "4. API Keys and Secrets" },
+  { id: "acceptable-use",   label: "5. Acceptable Use" },
+  { id: "developer",        label: "6. Developer Responsibilities" },
+  { id: "billing",          label: "7. Billing and Payments" },
+  { id: "ip",               label: "8. Intellectual Property" },
+  { id: "availability",     label: "9. Service Availability and Modifications" },
+  { id: "warranties",       label: "10. Disclaimer of Warranties" },
+  { id: "liability",        label: "11. Limitation of Liability" },
+  { id: "indemnification",  label: "12. Indemnification" },
+  { id: "termination",      label: "13. Termination" },
+  { id: "governing-law",    label: "14. Governing Law and Disputes" },
+  { id: "contact",          label: "15. Contact" },
+];
 
 export default function TermsPage() {
   return (
     <main id="main-content" className="marketing" tabIndex={-1}>
       <PublicNav />
 
-      <div className="security-page">
-        <header className="security-hero">
-          <p className="section-kicker">Legal</p>
-          <h1>Terms of Service</h1>
-          <p className="security-lede">
-            These Terms of Service govern your use of BehalfID and its API, SDK, developer portal,
-            and related services. By creating an account or using BehalfID, you agree to these
-            terms.
+      <div className="legal-page">
+        <header className="legal-hero">
+          <p className="section-kicker">
+            <Link href="/legal" className="legal-breadcrumb">Legal</Link>
+            {" / "}Terms of Service
           </p>
-          <p className="security-lede" style={{ fontSize: "0.85rem", opacity: 0.6 }}>
-            Effective date: {EFFECTIVE_DATE}
+          <h1>Terms of Service</h1>
+          <p className="legal-meta">
+            Effective {EFFECTIVE_DATE}. By creating an account or using BehalfID, you agree
+            to these terms.
           </p>
         </header>
 
-        <section className="security-section">
-          <div className="security-section__label">
-            <span>01</span>
-            <h2>Acceptance of Terms</h2>
-          </div>
-          <div className="security-section__body">
+        {/* Table of contents */}
+        <nav className="legal-toc" aria-label="Table of contents">
+          <p className="legal-toc__heading">On this page</p>
+          <ol className="legal-toc__list">
+            {TOC.map(({ id, label }) => (
+              <li key={id}>
+                <a href={`#${id}`}>{label}</a>
+              </li>
+            ))}
+          </ol>
+        </nav>
+
+        <div className="legal-body">
+
+          <section className="legal-section" id="acceptance">
+            <h2>1. Acceptance of Terms</h2>
             <p>
               By registering for an account, accessing the API, or using any BehalfID service, you
               agree to be bound by these Terms of Service and our{" "}
-              <a href="/privacy">Privacy Policy</a>. If you are using BehalfID on behalf of an
+              <Link href="/privacy">Privacy Policy</Link>. If you are using BehalfID on behalf of an
               organization, you represent that you have authority to bind that organization to these
               terms.
             </p>
@@ -48,15 +75,10 @@ export default function TermsPage() {
               If you do not agree to these terms, you must not create an account or use any
               BehalfID service.
             </p>
-          </div>
-        </section>
+          </section>
 
-        <section className="security-section">
-          <div className="security-section__label">
-            <span>02</span>
-            <h2>Description of Service</h2>
-          </div>
-          <div className="security-section__body">
+          <section className="legal-section" id="description">
+            <h2>2. Description of Service</h2>
             <p>
               BehalfID is a developer-facing permission infrastructure platform. It provides
               tooling to define agent permissions, verify actions before AI agents execute them,
@@ -66,7 +88,7 @@ export default function TermsPage() {
               BehalfID is currently offered as a prototype and early-access developer tool.
               The service includes:
             </p>
-            <ul className="security-list">
+            <ul>
               <li>A developer portal for managing agents, permissions, API keys, and webhooks.</li>
               <li>A REST verification API (<code>POST /api/verify</code>) for pre-action enforcement.</li>
               <li>An Action Gateway for executing controlled, permission-gated operations.</li>
@@ -75,25 +97,20 @@ export default function TermsPage() {
               <li>Webhook delivery with HMAC-SHA256 signing for downstream consumers.</li>
               <li>Audit logs scoped to your account and agents.</li>
             </ul>
-            <div className="security-note">
+            <div className="legal-note">
               BehalfID is a pre-action verification layer, not a replacement for application-level
               authorization. Your application is responsible for its own auth, input validation, and
               access control.
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section className="security-section">
-          <div className="security-section__label">
-            <span>03</span>
-            <h2>Accounts and Eligibility</h2>
-          </div>
-          <div className="security-section__body">
+          <section className="legal-section" id="accounts">
+            <h2>3. Accounts and Eligibility</h2>
             <p>
               You must be at least 18 years old and capable of forming a binding contract to use
               BehalfID. You are responsible for:
             </p>
-            <ul className="security-list">
+            <ul>
               <li>Providing accurate registration information (email address and password).</li>
               <li>Maintaining the confidentiality of your account credentials.</li>
               <li>All activity that occurs under your account.</li>
@@ -103,43 +120,37 @@ export default function TermsPage() {
               BehalfID reserves the right to refuse service, terminate accounts, or remove content
               at its sole discretion.
             </p>
-          </div>
-        </section>
+          </section>
 
-        <section className="security-section">
-          <div className="security-section__label">
-            <span>04</span>
-            <h2>API Keys and Secrets</h2>
-          </div>
-          <div className="security-section__body">
+          <section className="legal-section" id="api-keys">
+            <h2>4. API Keys and Secrets</h2>
             <p>
               API keys, passport tokens, and webhook signing secrets are your responsibility once
               issued. You must:
             </p>
-            <ul className="security-list">
+            <ul>
               <li>Store API keys securely and never expose them in client-side code or public repositories.</li>
               <li>Rotate compromised keys immediately using the developer portal.</li>
-              <li>Treat passport tokens as secrets — anyone holding a passport token can read the
-                active permission scopes for that agent.</li>
-              <li>Verify webhook signatures with <code>verifyWebhookSignature</code> before
-                processing events.</li>
+              <li>
+                Treat passport tokens as secrets — anyone holding a passport token can read the
+                active permission scopes for that agent.
+              </li>
+              <li>
+                Verify webhook signatures with <code>verifyWebhookSignature</code> before
+                processing events.
+              </li>
             </ul>
             <p>
               BehalfID stores only hashed representations of API keys, passport tokens, and webhook
               secrets. Lost keys cannot be recovered and must be rotated to obtain new ones. We are
               not liable for any damages arising from compromised or improperly stored credentials.
             </p>
-          </div>
-        </section>
+          </section>
 
-        <section className="security-section">
-          <div className="security-section__label">
-            <span>05</span>
-            <h2>Acceptable Use</h2>
-          </div>
-          <div className="security-section__body">
+          <section className="legal-section" id="acceptable-use">
+            <h2>5. Acceptable Use</h2>
             <p>You agree not to use BehalfID to:</p>
-            <ul className="security-list">
+            <ul>
               <li>Violate any applicable law, regulation, or third-party rights.</li>
               <li>Send abusive, illegal, or fraudulent requests through the verification API or Action Gateway.</li>
               <li>Reverse-engineer, decompile, or attempt to extract source code from the service.</li>
@@ -149,19 +160,14 @@ export default function TermsPage() {
               <li>Introduce malicious code, overload infrastructure, or interfere with other users of the service.</li>
               <li>Use the Action Gateway to access private networks, internal systems, or any resource you do not have authorization to access.</li>
             </ul>
-          </div>
-        </section>
+          </section>
 
-        <section className="security-section">
-          <div className="security-section__label">
-            <span>06</span>
-            <h2>Developer Responsibilities</h2>
-          </div>
-          <div className="security-section__body">
+          <section className="legal-section" id="developer">
+            <h2>6. Developer Responsibilities</h2>
             <p>
               You, as the developer integrating BehalfID, are solely responsible for:
             </p>
-            <ul className="security-list">
+            <ul>
               <li>
                 <strong>Your integration.</strong> BehalfID cannot enforce any decision unless your
                 code calls the verify endpoint before executing an agent action and fails closed on
@@ -187,15 +193,47 @@ export default function TermsPage() {
                 processing webhook events, including deduplication by <code>eventId</code>.
               </li>
             </ul>
-          </div>
-        </section>
+          </section>
 
-        <section className="security-section">
-          <div className="security-section__label">
-            <span>07</span>
-            <h2>Intellectual Property</h2>
-          </div>
-          <div className="security-section__body">
+          <section className="legal-section" id="billing">
+            <h2>7. Billing and Payments</h2>
+            <p>
+              BehalfID offers a free tier and paid plans. Paid plans are billed on a recurring
+              subscription basis. By subscribing to a paid plan you authorize BehalfID to charge
+              the payment method you provide via Stripe.
+            </p>
+            <ul>
+              <li>
+                <strong>Pricing.</strong> Current plan pricing is shown on the billing page in
+                the developer portal. We may change prices with at least 30 days&apos; notice.
+              </li>
+              <li>
+                <strong>Renewals.</strong> Subscriptions renew automatically unless cancelled
+                before the end of the billing period.
+              </li>
+              <li>
+                <strong>Cancellations.</strong> You may cancel at any time through the developer
+                portal. Access continues until the end of the paid billing period; no partial
+                refunds are issued for unused time unless required by law.
+              </li>
+              <li>
+                <strong>Payment processing.</strong> Payments are processed by Stripe. Your
+                payment card details are held exclusively by Stripe and are not stored by
+                BehalfID. See Stripe&apos;s{" "}
+                <a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer">
+                  privacy policy
+                </a>
+                {" "}for details on how they handle your data.
+              </li>
+              <li>
+                <strong>Taxes.</strong> Prices are exclusive of applicable taxes. You are
+                responsible for any sales, use, VAT, GST, or similar taxes where applicable.
+              </li>
+            </ul>
+          </section>
+
+          <section className="legal-section" id="ip">
+            <h2>8. Intellectual Property</h2>
             <p>
               BehalfID and its logo, design, API structure, SDK, and documentation are the
               intellectual property of BehalfID and its owners. These terms do not grant you any
@@ -206,23 +244,18 @@ export default function TermsPage() {
               you create within the platform. By using BehalfID, you grant us a limited license to
               store and process that data solely to provide the service.
             </p>
-          </div>
-        </section>
+          </section>
 
-        <section className="security-section">
-          <div className="security-section__label">
-            <span>08</span>
-            <h2>Service Availability and Modifications</h2>
-          </div>
-          <div className="security-section__body">
+          <section className="legal-section" id="availability">
+            <h2>9. Service Availability and Modifications</h2>
             <p>
               BehalfID is provided on an as-is, as-available basis. We do not guarantee
               uninterrupted or error-free operation of the service. We reserve the right to:
             </p>
-            <ul className="security-list">
+            <ul>
               <li>Modify, suspend, or discontinue any part of the service at any time with or without notice.</li>
               <li>Update or change these Terms of Service. Continued use of the service after changes constitutes acceptance of the new terms.</li>
-              <li>Change pricing (if and when pricing is introduced), with reasonable advance notice.</li>
+              <li>Change pricing with reasonable advance notice as described in Section 7.</li>
             </ul>
             <p>
               Because BehalfID is currently a prototype, the service may have outages, breaking
@@ -230,15 +263,10 @@ export default function TermsPage() {
               authorization mechanism for production systems handling sensitive data or irreversible
               financial transactions.
             </p>
-          </div>
-        </section>
+          </section>
 
-        <section className="security-section">
-          <div className="security-section__label">
-            <span>09</span>
-            <h2>Disclaimer of Warranties</h2>
-          </div>
-          <div className="security-section__body">
+          <section className="legal-section" id="warranties">
+            <h2>10. Disclaimer of Warranties</h2>
             <p>
               <strong>
                 TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, BEHALFID AND ITS OWNERS,
@@ -253,15 +281,10 @@ export default function TermsPage() {
               results obtained from use of the service will be accurate or reliable; (d) any
               errors in the service will be corrected.
             </p>
-          </div>
-        </section>
+          </section>
 
-        <section className="security-section">
-          <div className="security-section__label">
-            <span>10</span>
-            <h2>Limitation of Liability</h2>
-          </div>
-          <div className="security-section__body">
+          <section className="legal-section" id="liability">
+            <h2>11. Limitation of Liability</h2>
             <p>
               <strong>
                 TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL BEHALFID,
@@ -284,37 +307,27 @@ export default function TermsPage() {
               of liability for certain types of damages, so some of the above limitations may not
               apply to you.
             </p>
-          </div>
-        </section>
+          </section>
 
-        <section className="security-section">
-          <div className="security-section__label">
-            <span>11</span>
-            <h2>Indemnification</h2>
-          </div>
-          <div className="security-section__body">
+          <section className="legal-section" id="indemnification">
+            <h2>12. Indemnification</h2>
             <p>
               You agree to indemnify, defend, and hold harmless BehalfID and its owners, officers,
               employees, and agents from and against any and all claims, damages, obligations,
               losses, liabilities, costs, and expenses (including reasonable legal fees) arising
               from:
             </p>
-            <ul className="security-list">
+            <ul>
               <li>Your use of or access to the service.</li>
               <li>Your violation of these Terms of Service.</li>
               <li>Your violation of any third-party right, including any intellectual property or privacy right.</li>
               <li>Any actions taken by AI agents you register, integrate, or operate through BehalfID.</li>
               <li>Any claim that your use of the service caused damage to a third party.</li>
             </ul>
-          </div>
-        </section>
+          </section>
 
-        <section className="security-section">
-          <div className="security-section__label">
-            <span>12</span>
-            <h2>Termination</h2>
-          </div>
-          <div className="security-section__body">
+          <section className="legal-section" id="termination">
+            <h2>13. Termination</h2>
             <p>
               Either party may terminate this agreement at any time. You may delete your account
               through the developer portal or by contacting us. BehalfID may suspend or terminate
@@ -322,23 +335,18 @@ export default function TermsPage() {
             </p>
             <p>
               Upon termination: (a) your access to the service will cease immediately; (b) your
-              API keys and passport tokens will be invalidated; (c) we may retain your data for
-              a reasonable period as required by applicable law or our internal policies, after
-              which it will be deleted.
+              API keys and passport tokens will be invalidated; (c) active paid subscriptions will
+              not be automatically refunded; (d) we may retain your data for a reasonable period
+              as required by applicable law or our internal policies, after which it will be deleted.
             </p>
             <p>
-              Sections 9 (Disclaimer of Warranties), 10 (Limitation of Liability), 11
-              (Indemnification), and 13 (Governing Law) survive termination.
+              Sections 10 (Disclaimer of Warranties), 11 (Limitation of Liability), 12
+              (Indemnification), and 14 (Governing Law) survive termination.
             </p>
-          </div>
-        </section>
+          </section>
 
-        <section className="security-section">
-          <div className="security-section__label">
-            <span>13</span>
-            <h2>Governing Law and Disputes</h2>
-          </div>
-          <div className="security-section__body">
+          <section className="legal-section" id="governing-law">
+            <h2>14. Governing Law and Disputes</h2>
             <p>
               These Terms of Service are governed by and construed in accordance with the laws of
               the United States, without regard to its conflict-of-law provisions. Any dispute
@@ -349,29 +357,21 @@ export default function TermsPage() {
               You waive any right to participate in a class action lawsuit or class-wide arbitration
               against BehalfID.
             </p>
-          </div>
-        </section>
+          </section>
 
-        <section className="security-section security-section--last">
-          <div className="security-section__label">
-            <span>14</span>
-            <h2>Contact</h2>
-          </div>
-          <div className="security-section__body">
+          <section className="legal-section legal-section--last" id="contact">
+            <h2>15. Contact</h2>
             <p>
               For questions about these Terms of Service, contact us at{" "}
               <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
             </p>
-            <p>
-              See also our <a href="/privacy">Privacy Policy</a> and{" "}
-              <a href="/security">Security and Trust</a> page.
+            <p className="legal-also">
+              See also: <Link href="/privacy">Privacy Policy</Link>{" · "}
+              <Link href="/security">Security and Trust</Link>
             </p>
-            <div className="hero__actions">
-              <ButtonLink href="/signup">Start building</ButtonLink>
-              <ButtonLink href="/docs">Docs</ButtonLink>
-            </div>
-          </div>
-        </section>
+          </section>
+
+        </div>
       </div>
 
       <PublicFooter />

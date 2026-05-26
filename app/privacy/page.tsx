@@ -9,8 +9,22 @@ export const metadata: Metadata = {
   alternates: { canonical: "/privacy" }
 };
 
-const EFFECTIVE = "13 May 2026";
+const EFFECTIVE = "26 May 2026";
 const CONTACT   = "legal@behalfid.com";
+
+const TOC = [
+  { id: "who-we-are",          label: "1. Who we are" },
+  { id: "data-we-collect",     label: "2. Data we collect" },
+  { id: "cookies",             label: "3. Cookies and local storage" },
+  { id: "how-we-use",          label: "4. How we use your data" },
+  { id: "analytics",           label: "5. Analytics" },
+  { id: "data-retention",      label: "6. Data retention" },
+  { id: "third-parties",       label: "7. Third-party processors" },
+  { id: "your-rights",         label: "8. Your rights" },
+  { id: "security",            label: "9. Security" },
+  { id: "changes",             label: "10. Changes to this policy" },
+  { id: "contact",             label: "11. Contact" },
+];
 
 export default function PrivacyPage() {
   return (
@@ -19,14 +33,29 @@ export default function PrivacyPage() {
 
       <div className="legal-page">
         <header className="legal-hero">
-          <p className="section-kicker">Legal</p>
+          <p className="section-kicker">
+            <Link href="/legal" className="legal-breadcrumb">Legal</Link>
+            {" / "}Privacy policy
+          </p>
           <h1>Privacy policy</h1>
           <p className="legal-meta">Effective {EFFECTIVE}</p>
         </header>
 
+        {/* Table of contents */}
+        <nav className="legal-toc" aria-label="Table of contents">
+          <p className="legal-toc__heading">On this page</p>
+          <ol className="legal-toc__list">
+            {TOC.map(({ id, label }) => (
+              <li key={id}>
+                <a href={`#${id}`}>{label}</a>
+              </li>
+            ))}
+          </ol>
+        </nav>
+
         <div className="legal-body">
 
-          <section className="legal-section">
+          <section className="legal-section" id="who-we-are">
             <h2>1. Who we are</h2>
             <p>
               BehalfID (&ldquo;we&rdquo;, &ldquo;us&rdquo;, &ldquo;our&rdquo;) operates
@@ -36,7 +65,7 @@ export default function PrivacyPage() {
             </p>
           </section>
 
-          <section className="legal-section">
+          <section className="legal-section" id="data-we-collect">
             <h2>2. Data we collect</h2>
 
             <h3>Account data</h3>
@@ -64,17 +93,21 @@ export default function PrivacyPage() {
             <h3>Technical and usage data</h3>
             <p>
               We collect IP addresses for rate-limiting and abuse prevention. These are not
-              linked to user accounts for analytics or profiling purposes.
+              linked to user accounts for analytics or profiling purposes. Cookie-consent
+              choices are also logged server-side (state only, no personal data) for
+              product-integrity purposes.
             </p>
 
             <h3>Billing data</h3>
             <p>
-              BehalfID does not currently process payments. No payment card or billing data
-              is collected or stored.
+              When you subscribe to a paid plan, billing is processed by Stripe. BehalfID
+              stores your Stripe customer ID and subscription status but does not store your
+              payment card details — those are held exclusively by Stripe. Billing data is
+              used only to enforce plan limits and process your subscription.
             </p>
           </section>
 
-          <section className="legal-section">
+          <section className="legal-section" id="cookies">
             <h2>3. Cookies and local storage</h2>
 
             <h3>Authentication cookie</h3>
@@ -94,17 +127,24 @@ export default function PrivacyPage() {
             <h3>Cookie consent</h3>
             <p>
               Your cookie-consent choice is stored in <code>localStorage</code> under the key{' '}
-              <code>behalf_cookie_consent</code>. It is not transmitted to our servers.
+              <code>behalf_cookie_consent</code>. A minimal log entry (consent state only — no
+              personal data) is also written server-side for product-integrity purposes.
+            </p>
+
+            <p>
+              <strong>No third-party or advertising cookies are used.</strong> BehalfID does
+              not load tracking pixels, fingerprinting scripts, or analytics SDKs.
             </p>
 
           </section>
 
-          <section className="legal-section">
+          <section className="legal-section" id="how-we-use">
             <h2>4. How we use your data</h2>
             <ul>
               <li>To authenticate and operate your developer account.</li>
               <li>To execute, log, and deliver webhook events for verification requests.</li>
               <li>To enforce rate limits and detect abuse.</li>
+              <li>To process billing and enforce plan limits via Stripe.</li>
               <li>To respond to support or security enquiries.</li>
             </ul>
             <p>
@@ -116,13 +156,13 @@ export default function PrivacyPage() {
           <section className="legal-section" id="analytics">
             <h2>5. Analytics</h2>
             <p>
-              BehalfID does not currently use third-party analytics, advertising networks, or
+              BehalfID does not use third-party analytics, advertising networks, or
               cross-site tracking. No tracking cookies or fingerprinting scripts are loaded on
               any page of the service.
             </p>
           </section>
 
-          <section className="legal-section">
+          <section className="legal-section" id="data-retention">
             <h2>6. Data retention</h2>
             <ul>
               <li>
@@ -137,13 +177,17 @@ export default function PrivacyPage() {
                 Deleted within 30 days of a verified deletion request.
               </li>
               <li>
+                <strong>Billing data</strong> — retained for as long as required by applicable
+                tax and accounting law (typically 7 years), even after account deletion.
+              </li>
+              <li>
                 <strong>IP addresses used for rate limiting</strong> — stored in memory only;
                 not persisted to disk.
               </li>
             </ul>
           </section>
 
-          <section className="legal-section">
+          <section className="legal-section" id="third-parties">
             <h2>7. Third-party processors</h2>
             <table className="legal-table">
               <thead>
@@ -164,11 +208,16 @@ export default function PrivacyPage() {
                   <td>Hosting and edge delivery</td>
                   <td>Request metadata (IP, path) for routing and abuse prevention</td>
                 </tr>
+                <tr>
+                  <td>Stripe</td>
+                  <td>Payment processing and subscription management</td>
+                  <td>Email address, billing name, payment card details (held by Stripe only), subscription events</td>
+                </tr>
               </tbody>
             </table>
           </section>
 
-          <section className="legal-section">
+          <section className="legal-section" id="your-rights">
             <h2>8. Your rights</h2>
             <p>
               Depending on your jurisdiction you may have the right to access, correct, delete,
@@ -182,7 +231,7 @@ export default function PrivacyPage() {
             </p>
           </section>
 
-          <section className="legal-section">
+          <section className="legal-section" id="security">
             <h2>9. Security</h2>
             <p>
               All data is transmitted over TLS. API keys are stored as SHA-256 hashes.
@@ -192,7 +241,7 @@ export default function PrivacyPage() {
             </p>
           </section>
 
-          <section className="legal-section">
+          <section className="legal-section" id="changes">
             <h2>10. Changes to this policy</h2>
             <p>
               We may update this policy to reflect product changes or legal requirements. The
@@ -202,11 +251,15 @@ export default function PrivacyPage() {
             </p>
           </section>
 
-          <section className="legal-section legal-section--last">
+          <section className="legal-section legal-section--last" id="contact">
             <h2>11. Contact</h2>
             <p>
               Data controller: BehalfID<br />
               Email: <a href={`mailto:${CONTACT}`}>{CONTACT}</a>
+            </p>
+            <p className="legal-also">
+              See also: <Link href="/terms">Terms of Service</Link>{" · "}
+              <Link href="/security">Security and Trust</Link>
             </p>
           </section>
 

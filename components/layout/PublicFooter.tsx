@@ -7,9 +7,11 @@ export function PublicFooter() {
       <div className="public-footer__inner">
         <span className="public-footer__copy">© {new Date().getFullYear()} BehalfID</span>
         <nav className="public-footer__links" aria-label="Legal">
-          <Link href="/terms">Terms of Service</Link>
-          <Link href="/privacy">Privacy Policy</Link>
+          <Link href="/legal">Legal</Link>
+          <Link href="/terms">Terms</Link>
+          <Link href="/privacy">Privacy</Link>
           <Link href="/security">Security</Link>
+          <Link href="/compliance">Compliance</Link>
         </nav>
         <SocialLinks className="social-links--footer" />
       </div>

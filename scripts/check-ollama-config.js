@@ -27,10 +27,9 @@ function parseEnvFile(filename) {
   return vars;
 }
 
-// .env.local overrides .env; process.env overrides both (already exported vars win)
+// .env holds all local vars; process.env overrides (already exported vars win)
 const envBase = parseEnvFile(".env");
-const envLocal = parseEnvFile(".env.local");
-const env = { ...envBase, ...envLocal, ...process.env };
+const env = { ...envBase, ...process.env };
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -63,7 +62,7 @@ async function main() {
     ok(`OLLAMA_BASE_URL: ${BASE_URL}`);
   } else {
     fail("OLLAMA_BASE_URL is not set");
-    info("Add it to .env.local: OLLAMA_BASE_URL=http://localhost:11434");
+    info("Add it to .env: OLLAMA_BASE_URL=http://localhost:11434");
   }
 
   if (MODEL) {

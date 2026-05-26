@@ -57,7 +57,7 @@ export function CookieBanner() {
     <div className="site-consent" role="dialog" aria-label="Site preferences" aria-modal="false">
       <div className="site-consent__inner">
         <p className="site-consent__text">
-          We use cookies to keep you signed in and measure site usage anonymously.{" "}
+          We use a session cookie to keep you signed in. No analytics or tracking cookies are used.{" "}
           <Link href="/privacy" className="site-consent__link">Privacy policy</Link>
         </p>
         <div className="site-consent__actions">

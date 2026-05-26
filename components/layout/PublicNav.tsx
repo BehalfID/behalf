@@ -126,6 +126,7 @@ export function PublicNav() {
           <Link href="/docs" onClick={close}>Docs</Link>
           <Link href="/blog" onClick={close}>Blog</Link>
           <Link href="/security" onClick={close}>Security</Link>
+          <Link href="/compliance" onClick={close}>Compliance</Link>
           <Link href="/login" onClick={close}>Log in</Link>
           <div className="public-nav__drawer-row">
             <span>Theme</span>
