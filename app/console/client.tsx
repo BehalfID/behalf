@@ -73,6 +73,19 @@ type Summary = {
   activePermissions: number;
   logsToday: number;
   lastVerification: VerificationLog | null;
+  totalUsers: number;
+  newUsersToday: number;
+  pendingApprovals: number;
+  highRiskToday: number;
+};
+
+type TodoPriority = "high" | "medium" | "low";
+type TodoItem = {
+  id: string;
+  text: string;
+  done: boolean;
+  priority: TodoPriority;
+  createdAt: string;
 };
 
 type AgentDetail = {
@@ -431,22 +444,301 @@ function DashboardView() {
               </ButtonLink>
             }
           />
+
+          {/* Health strip */}
+          <HealthStrip data={data} />
+
+          {/* Security alerts */}
+          {(data.pendingApprovals > 0 || data.highRiskToday > 0) && (
+            <div className="console-alert" role="alert">
+              <span className="console-alert__icon">⚠</span>
+              <div>
+                <strong>Attention required</strong>
+                <ul>
+                  {data.pendingApprovals > 0 && (
+                    <li>{data.pendingApprovals} approval{data.pendingApprovals !== 1 ? "s" : ""} pending review</li>
+                  )}
+                  {data.highRiskToday > 0 && (
+                    <li>{data.highRiskToday} high-risk verification{data.highRiskToday !== 1 ? "s" : ""} flagged today</li>
+                  )}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {/* Stat cards */}
           <section className="console-metrics">
             <StatCard label="Total agents" value={data.totalAgents} />
             <StatCard label="Active permissions" value={data.activePermissions} />
             <StatCard label="Logs today" value={data.logsToday} />
+            <StatCard label="Total users" value={data.totalUsers} />
+            <StatCard label="New users today" value={data.newUsersToday} />
             <Metric
               label="Last result"
               value={data.lastVerification ? (data.lastVerification.allowed ? "Allowed" : "Denied") : "None"}
             />
           </section>
+
+          {/* Quick actions */}
           <section>
-            <SectionTitle title="Last verification" />
-            {data.lastVerification ? <LogList logs={[data.lastVerification]} /> : <EmptyState className="console-empty">No verification logs yet.</EmptyState>}
+            <SectionTitle title="Quick actions" />
+            <QuickActions />
           </section>
+
+          {/* Main bottom zone: last verification + todo */}
+          <div className="console-dashboard-bottom">
+            <section>
+              <SectionTitle title="Last verification" />
+              {data.lastVerification ? (
+                <LogList logs={[data.lastVerification]} />
+              ) : (
+                <EmptyState className="console-empty">No verification logs yet.</EmptyState>
+              )}
+            </section>
+            <section>
+              <SectionTitle title="Admin to-do" />
+              <TodoList />
+            </section>
+          </div>
         </>
       )}
     </ResourceState>
+  );
+}
+
+function HealthStrip({ data }: { data: Summary }) {
+  const dbOk = true; // If we're rendering, DB responded
+  const hasHighRisk = data.highRiskToday > 0;
+  const hasPending = data.pendingApprovals > 0;
+
+  return (
+    <div className="console-health" style={{ marginBottom: 20 }}>
+      <div className="console-health__item">
+        <span className={`console-health__dot console-health__dot--ok`} />
+        <span><strong>API</strong> operational</span>
+      </div>
+      <div className="console-health__sep" />
+      <div className="console-health__item">
+        <span className={`console-health__dot ${dbOk ? "console-health__dot--ok" : "console-health__dot--err"}`} />
+        <span><strong>DB</strong> {dbOk ? "connected" : "unreachable"}</span>
+      </div>
+      <div className="console-health__sep" />
+      <div className="console-health__item">
+        <span className={`console-health__dot ${hasPending ? "console-health__dot--warn" : "console-health__dot--ok"}`} />
+        <span><strong>Approvals</strong> {data.pendingApprovals === 0 ? "clear" : `${data.pendingApprovals} pending`}</span>
+      </div>
+      <div className="console-health__sep" />
+      <div className="console-health__item">
+        <span className={`console-health__dot ${hasHighRisk ? "console-health__dot--warn" : "console-health__dot--ok"}`} />
+        <span><strong>Risk</strong> {data.highRiskToday === 0 ? "no high-risk today" : `${data.highRiskToday} high-risk today`}</span>
+      </div>
+    </div>
+  );
+}
+
+const QUICK_ACTIONS = [
+  { label: "View logs", href: "/console/logs", icon: "📋" },
+  { label: "Manage agents", href: "/console/agents", icon: "🤖" },
+  { label: "Webhooks", href: "/console/webhooks", icon: "🔗" },
+  { label: "Event queue", href: "/console/webhook-events", icon: "📨" },
+  { label: "Site Guard", href: "/console/site-guard", icon: "🛡" },
+  { label: "Settings", href: "/console/settings", icon: "⚙️" },
+];
+
+function QuickActions() {
+  return (
+    <div className="console-quick-actions" style={{ marginBottom: 28 }}>
+      {QUICK_ACTIONS.map((action) => (
+        <a className="console-quick-action" href={action.href} key={action.href}>
+          <span className="console-quick-action__icon">{action.icon}</span>
+          {action.label}
+        </a>
+      ))}
+    </div>
+  );
+}
+
+const TODO_STORAGE_KEY = "behalf-console-todos";
+
+function loadTodos(): TodoItem[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(TODO_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as TodoItem[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveTodos(items: TodoItem[]) {
+  try {
+    window.localStorage.setItem(TODO_STORAGE_KEY, JSON.stringify(items));
+  } catch {
+    // storage unavailable — silent fail
+  }
+}
+
+function TodoList() {
+  const [items, setItems] = useState<TodoItem[]>([]);
+  const [newText, setNewText] = useState("");
+  const [newPriority, setNewPriority] = useState<TodoPriority>("medium");
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    setItems(loadTodos());
+  }, []);
+
+  const persist = (next: TodoItem[]) => {
+    setItems(next);
+    saveTodos(next);
+  };
+
+  const addItem = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const text = newText.trim();
+    if (!text) return;
+    const item: TodoItem = {
+      id: `todo-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      text,
+      done: false,
+      priority: newPriority,
+      createdAt: new Date().toISOString()
+    };
+    persist([item, ...items]);
+    setNewText("");
+  };
+
+  const toggleDone = (id: string) => {
+    persist(items.map((item) => (item.id === id ? { ...item, done: !item.done } : item)));
+  };
+
+  const updateText = (id: string, text: string) => {
+    persist(items.map((item) => (item.id === id ? { ...item, text } : item)));
+  };
+
+  const deleteItem = (id: string) => {
+    persist(items.filter((item) => item.id !== id));
+  };
+
+  const clearDone = () => {
+    persist(items.filter((item) => !item.done));
+  };
+
+  const pending = items.filter((i) => !i.done).length;
+  const sorted = [...items].sort((a, b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    const order = { high: 0, medium: 1, low: 2 };
+    return order[a.priority] - order[b.priority];
+  });
+
+  return (
+    <div className="console-todo">
+      <div className="console-todo__header">
+        <h2>
+          To-do
+          {pending > 0 && <span className="console-todo__count" style={{ marginLeft: 8 }}>{pending}</span>}
+        </h2>
+        {items.some((i) => i.done) && (
+          <button className="ui-button" onClick={clearDone} type="button" style={{ fontSize: "0.78rem", minHeight: 28, padding: "0 10px" }}>
+            Clear done
+          </button>
+        )}
+      </div>
+
+      <form className="console-todo__add" onSubmit={addItem}>
+        <input
+          aria-label="New to-do item"
+          onChange={(e) => setNewText(e.target.value)}
+          placeholder="Add a task…"
+          value={newText}
+        />
+        <select
+          aria-label="Priority"
+          onChange={(e) => setNewPriority(e.target.value as TodoPriority)}
+          value={newPriority}
+        >
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+        <button className="ui-button ui-button--primary" type="submit" style={{ flex: "0 0 auto", fontSize: "0.82rem" }}>
+          Add
+        </button>
+      </form>
+
+      <div className="console-todo__list">
+        {sorted.length === 0 ? (
+          <p className="console-todo__empty">No tasks yet — add one above.</p>
+        ) : (
+          sorted.map((item) => (
+            <TodoRow
+              key={item.id}
+              item={item}
+              onToggle={() => toggleDone(item.id)}
+              onTextChange={(text) => updateText(item.id, text)}
+              onDelete={() => deleteItem(item.id)}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TodoRow({
+  item,
+  onToggle,
+  onTextChange,
+  onDelete
+}: {
+  item: TodoItem;
+  onToggle: () => void;
+  onTextChange: (text: string) => void;
+  onDelete: () => void;
+}) {
+  const dateStr = useMemo(() => {
+    const d = new Date(item.createdAt);
+    return new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(d);
+  }, [item.createdAt]);
+
+  return (
+    <div className={`console-todo__item${item.done ? " console-todo__item--done" : ""}`}>
+      <button
+        aria-label={item.done ? "Mark incomplete" : "Mark complete"}
+        className={`console-todo__check${item.done ? " console-todo__check--checked" : ""}`}
+        onClick={onToggle}
+        type="button"
+      />
+      <div className="console-todo__body">
+        <textarea
+          aria-label="Task text"
+          className="console-todo__text"
+          onChange={(e) => onTextChange(e.target.value)}
+          rows={1}
+          style={{ minHeight: "unset", overflowY: "hidden" }}
+          value={item.text}
+          onInput={(e) => {
+            const el = e.currentTarget;
+            el.style.height = "auto";
+            el.style.height = `${el.scrollHeight}px`;
+          }}
+        />
+        <div className="console-todo__meta">
+          <span className={`console-todo__priority console-todo__priority--${item.priority}`}>
+            {item.priority}
+          </span>
+          <span className="console-todo__date">{dateStr}</span>
+        </div>
+      </div>
+      <button
+        aria-label="Delete task"
+        className="console-todo__del"
+        onClick={onDelete}
+        type="button"
+      >
+        ×
+      </button>
+    </div>
   );
 }
 
