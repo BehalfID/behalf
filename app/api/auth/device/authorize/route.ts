@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/db";
-import { createDeveloperSession, requireDeveloperApi } from "@/lib/developerAuth";
+import { requireDeveloperApi } from "@/lib/developerAuth";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import DeviceCode from "@/models/DeviceCode";
@@ -24,10 +24,12 @@ export async function POST(request: NextRequest) {
   if (!record) return jsonError("Invalid or expired code.", 404);
   if (new Date() > new Date(record.expiresAt)) return jsonError("Code has expired.", 410);
 
-  const { token } = await createDeveloperSession(auth.user.userId);
+  // Store only the userId — never store a plaintext session token in the database.
+  // The session token is created later (at poll time) so it follows the same
+  // hash-before-store invariant as every other secret in this codebase.
   record.status = "authorized";
   record.userId = auth.user.userId;
-  record.sessionToken = token;
+  record.sessionToken = null;
   await record.save();
 
   return NextResponse.json({ authorized: true });

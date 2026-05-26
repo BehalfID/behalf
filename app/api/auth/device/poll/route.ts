@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/db";
+import { createDeveloperSession } from "@/lib/developerAuth";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
@@ -17,6 +18,8 @@ export async function POST(request: NextRequest) {
   if (!deviceCode) return jsonError("deviceCode is required.");
 
   await connectToDatabase();
+
+  // Fast-path for non-authorized states: read without deleting.
   const record = await DeviceCode.findOne({ deviceCode }).lean();
 
   if (!record || new Date() > new Date(record.expiresAt)) {
@@ -26,11 +29,18 @@ export async function POST(request: NextRequest) {
   if (record.status === "denied") return NextResponse.json({ status: "denied" });
   if (record.status === "pending") return NextResponse.json({ status: "pending" });
 
-  // status === "authorized": retrieve the token then immediately delete the
-  // record so the plaintext session token no longer lives in the database.
-  // The TTL index would eventually remove it, but deleting on first retrieval
-  // closes the window between authorization and natural expiry.
-  await DeviceCode.deleteOne({ deviceCode });
+  // status === "authorized": atomically claim the record with findOneAndDelete so
+  // concurrent polls cannot both succeed.  If null is returned, another request
+  // already claimed it — treat as expired from the caller's perspective.
+  //
+  // The session token is created here (not at authorize-time) so that no plaintext
+  // secret is ever written to the DeviceCode collection; only a hash is stored in
+  // DeveloperSession, matching the invariant used everywhere else in this codebase.
+  const claimed = await DeviceCode.findOneAndDelete({ deviceCode, status: "authorized" });
+  if (!claimed?.userId) {
+    return NextResponse.json({ status: "expired" });
+  }
 
-  return NextResponse.json({ status: "authorized", token: record.sessionToken });
+  const { token } = await createDeveloperSession(claimed.userId as string);
+  return NextResponse.json({ status: "authorized", token });
 }

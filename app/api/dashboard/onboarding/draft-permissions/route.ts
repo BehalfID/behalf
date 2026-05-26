@@ -893,9 +893,9 @@ export async function POST(request: NextRequest) {
       // ── C: Unreachable ─────────────────────────────────────────────────
       ollamaError = diagError(503, "UNREACHABLE",
         "Ollama is not reachable.",
-        `The BehalfID server cannot reach ${OLLAMA_BASE_URL}. ` +
+        `The BehalfID server cannot reach the configured Ollama endpoint. ` +
         `If testing locally, make sure Ollama is running (ollama serve) and restart Next.js after editing .env. ` +
-        `If using Vercel, Ollama must be reachable through a secure proxy.`
+        `If using Vercel, Ollama must be reachable through a secure proxy (check OLLAMA_BASE_URL in your environment).`
       );
     } else {
       ollamaError = diagError(503, "UNREACHABLE", "Ollama request failed.", msg);
