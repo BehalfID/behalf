@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { PublicNav } from "@/components/layout/PublicNav";
-import { ButtonLink, CodeBlock, HomeDemo, SplitCTAButton } from "@/components/ui";
+import { ButtonLink, CodeBlock, HomeDemo, SocialLinks, SplitCTAButton } from "@/components/ui";
 
 export const metadata: Metadata = {
   title: "BehalfID — Permission infrastructure for AI agents",
@@ -297,6 +297,7 @@ Approve at: https://behalfid.com/dashboard/approvals`}</CodeBlock>
               Permission infrastructure<br />for AI agents.
             </p>
             <p className="site-footer__copy">© 2026 BehalfID</p>
+            <SocialLinks className="social-links--footer" />
           </div>
           <nav className="site-footer__cols" aria-label="Footer navigation">
             <div>
