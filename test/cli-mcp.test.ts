@@ -215,6 +215,7 @@ describe("MCP server metadata and verify behavior", () => {
       vi.fn(async () => new Response(JSON.stringify({
         requestId: "req_denied",
         allowed: false,
+        approvalRequired: false,
         reason: "Action is blocked by this permission.",
         risk: "high"
       }), { status: 200 }))
@@ -230,5 +231,56 @@ describe("MCP server metadata and verify behavior", () => {
     expect(text).toContain('"allowed": false');
     expect(text).toContain("Action is blocked by this permission.");
     expect(result).not.toHaveProperty("isError");
+  });
+
+  it("formats approval-required responses with instructions and dashboard URL", async () => {
+    const home = tempDir("behalf-home-");
+    const { mcpServer } = await loadCliModules(home);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({
+        requestId: "req_apr_test",
+        allowed: false,
+        approvalRequired: true,
+        approvalId: "apr_Def456uvw",
+        reason: "Permission requires approval before execution.",
+        risk: "medium"
+      }), { status: 200 }))
+    );
+
+    const result = await mcpServer.callMcpTool(
+      { agentId: "agent_test123", apiKey: "bhf_sk_testsecret12345", baseUrl: "http://localhost:3000" },
+      "verify_action",
+      { action: "deploy_production", vendor: "vercel.com" }
+    );
+
+    const text = result?.content[0].text ?? "";
+    // Must include all critical fields for the agent to relay to the user
+    expect(text).toContain("APPROVAL REQUIRED");
+    expect(text).toContain("do not execute");
+    expect(text).toContain("req_apr_test");
+    expect(text).toContain("apr_Def456uvw");
+    expect(text).toContain("dashboard/approvals");
+    // Must tell the agent to retry with verify_action (text uses "verify_action again" phrasing)
+    expect(text).toContain("verify_action again");
+    // Must not claim the action is allowed
+    expect(text).not.toContain('"allowed": true');
+    // Must not be flagged as a tool error (the agent needs to read the content, not throw)
+    expect(result).not.toHaveProperty("isError", true);
+  });
+
+  it("context.md instructs the agent on the full approval retry protocol", async () => {
+    const home = tempDir("behalf-home-");
+    const { context } = await loadCliModules(home);
+    const md = context.generateContextMd(agentDetail);
+
+    // The approval protocol must be explicit
+    expect(md).toContain("approvalRequired");
+    expect(md).toContain("Do NOT execute the action");
+    expect(md).toContain("approvalId");
+    // context.md uses backtick-quoted verify_action, so match flexibly
+    expect(md).toMatch(/verify_action.{0,5}again/);
+    // Response shape examples must appear
+    expect(md).toContain("apr_xxx");
   });
 });

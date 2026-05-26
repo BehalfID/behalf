@@ -16,6 +16,253 @@ export type Post = PostMeta & {
 
 export const posts: Post[] = [
   {
+    slug: "authorization-is-broken-for-ai-agents",
+    title: "Authorization is broken for AI agents",
+    date: "2026-05-22",
+    dateLabel: "May 22, 2026",
+    readingTime: "7 min read",
+    excerpt:
+      "API keys and OAuth were designed for humans making API calls. AI agents that act autonomously — buying, deploying, emailing, deleting — need something different: a per-action checkpoint that fails closed before the tool runs.",
+    tags: ["authorization", "architecture", "ai-agents"],
+    content: (
+      <>
+        <p>
+          Authorization for software systems is a solved problem. OAuth, RBAC,
+          API keys with scoped tokens — these systems work well and are widely
+          deployed. So why do developers building AI agents keep running into the
+          same class of problem: the agent did something it shouldn&apos;t have?
+        </p>
+        <p>
+          The answer is that those authorization systems were designed for
+          a different kind of principal. They assume a human developer making
+          deliberate API calls, reading error messages, and being accountable for
+          their actions. An AI agent that runs autonomously across dozens of
+          services is a different category of caller. The same tools don&apos;t fit.
+        </p>
+
+        <div className="blog-section-label">
+          <span>01</span>
+          <h2>The authenticate-once problem</h2>
+        </div>
+        <p>
+          The dominant authorization model for software is authenticate-once,
+          then run. You get a token, and the token is good until it expires.
+          Within that window, you can do anything the token&apos;s scope allows.
+        </p>
+        <p>
+          For a human developer, this is fine. They&apos;re present. They make one
+          call, read the response, decide what to do next. The scope is wide
+          because a human is making each individual decision.
+        </p>
+        <p>
+          For an autonomous agent, the same model creates a different risk surface.
+          The agent authenticates once — usually with a key or token provisioned
+          by the developer — and then operates continuously, potentially across
+          hundreds of tool calls, without supervision. The token that was
+          appropriate for a human making deliberate calls is now authorizing
+          autonomous behavior at scale.
+        </p>
+        <div className="blog-note">
+          API keys identify the agent. They don&apos;t answer whether the agent is
+          permitted to take this specific action right now, for this amount,
+          against this resource.
+        </div>
+
+        <div className="blog-section-label">
+          <span>02</span>
+          <h2>What scope actually means for agents</h2>
+        </div>
+        <p>
+          OAuth scopes are better than API keys in that they express capability
+          boundaries. A scope like <code>commerce:write</code> says the integration
+          can write commerce data. But it applies at the integration level, not
+          the action level.
+        </p>
+        <p>
+          If you grant <code>commerce:write</code> to an agent, the agent can
+          make any commerce write your API allows — regardless of amount, vendor,
+          time of day, or whether a human would approve of this specific
+          transaction. The scope doesn&apos;t distinguish between adding an item to a
+          cart and charging $4,000 to a corporate card.
+        </p>
+        <p>
+          This works for humans because humans apply judgment. An agent applying
+          that same token autonomously is not constrained by judgment — it&apos;s
+          constrained only by whatever logic the developer put in the agent&apos;s
+          system prompt and code. Those constraints live inside the model&apos;s
+          reasoning, not at an enforcement boundary. They can be reasoned around.
+        </p>
+
+        <div className="blog-section-label">
+          <span>03</span>
+          <h2>Where things actually go wrong</h2>
+        </div>
+        <p>
+          In practice, agent authorization failures don&apos;t usually look like
+          &ldquo;the agent bypassed security.&rdquo; They look like:
+        </p>
+        <ul className="blog-prose__list">
+          <li>
+            The agent was told not to deploy to production, but the instruction
+            was in a system prompt that a later message effectively overrode.
+          </li>
+          <li>
+            The agent was supposed to check before buying anything over $100, but
+            the check was implemented as a conditional in the agent&apos;s tool-use
+            logic — not at the API boundary — and a reasoning path skipped it.
+          </li>
+          <li>
+            A deploy that should have required a human review happened automatically
+            because the staging and production deploy commands were both accessible
+            with the same credentials and the agent didn&apos;t distinguish between them.
+          </li>
+          <li>
+            An agent that was authorized for &ldquo;email management&rdquo; sent an external
+            communication that should have been reviewed first, because the scope
+            included sends and the agent believed the action was within scope.
+          </li>
+        </ul>
+        <p>
+          In each case, the authorization system worked as designed. The problem
+          was that the design didn&apos;t account for autonomous execution.
+        </p>
+
+        <div className="blog-section-label">
+          <span>04</span>
+          <h2>What enforcement actually requires</h2>
+        </div>
+        <p>
+          For autonomous agents, authorization needs a pre-execution checkpoint.
+          Before the tool runs, something outside the model&apos;s reasoning evaluates
+          whether this specific action is permitted. The check fails closed — if
+          it returns denied, the action does not happen.
+        </p>
+        <p>
+          This is different from putting constraints in the system prompt.
+          System-prompt constraints are instructions to the model. They influence
+          behavior. They are not enforced. A model that reasons its way to a
+          different conclusion, or that receives a later message that conflicts,
+          may not follow them.
+        </p>
+        <p>
+          An enforcement boundary that lives in code — a <code>verify()</code>
+          call before the executor — cannot be reasoned around by the model.
+          The model decides to call the tool. The tool calls <code>verify()</code>.{" "}
+          <code>verify()</code> returns denied. The tool throws. The action
+          doesn&apos;t happen. The model&apos;s intent is irrelevant at that point.
+        </p>
+        <div className="blog-note">
+          This works where the integration is wired. An agent that bypasses
+          the tool boundary entirely — calling an API directly, for example —
+          would not be caught by this check. The enforcement lives at the
+          integration boundary you control, not everywhere the agent could act.
+        </div>
+
+        <div className="blog-section-label">
+          <span>05</span>
+          <h2>The approval gate</h2>
+        </div>
+        <p>
+          Not every action that needs human oversight should be permanently blocked.
+          Production deploys, large purchases, external communications, access
+          grants — these are legitimate actions that an agent might be authorized
+          to do, but not autonomously. They need a checkpoint, not a wall.
+        </p>
+        <p>
+          The pattern is: the agent calls <code>verify()</code> for the action,
+          gets back <code>approvalRequired: true</code>, pauses, surfaces the
+          request to a human, and waits. The human approves. The agent retries.
+          The second call finds the active grant, returns <code>allowed: true</code>,
+          and the action proceeds.
+        </p>
+        <CodeBlock label="what this looks like in practice">{`// Agent attempts production deploy
+verify_action("deploy_production", "vercel.com")
+
+// First response — agent pauses
+{
+  "allowed": false,
+  "approvalRequired": true,
+  "approvalId": "apr_xxx",
+  "reason": "Permission requires approval before execution."
+}
+
+// → Human approves in dashboard
+// → Agent retries
+
+// Second response — deploy runs
+{
+  "allowed": true,
+  "approvalRequired": false,
+  "reason": "Action allowed by approved permission grant."
+}`}</CodeBlock>
+        <p>
+          The agent doesn&apos;t proceed autonomously. The human doesn&apos;t have to
+          manually intervene in the deployment pipeline. The grant is single-use
+          and expires after 30 minutes. Every step — the block, the approval, the
+          allow — is logged with stable IDs for the audit trail.
+        </p>
+
+        <div className="blog-section-label">
+          <span>06</span>
+          <h2>What&apos;s actually hard to fix</h2>
+        </div>
+        <p>
+          The enforcement model described here requires that every action goes
+          through a verify call before it runs. That&apos;s an integration
+          requirement. It means:
+        </p>
+        <ul className="blog-prose__list">
+          <li>
+            For agents you build and control — SDK or MCP — you can wire this
+            yourself. The check is a few lines and fails closed.
+          </li>
+          <li>
+            For third-party agents — consumer AI products, no-code tools,
+            external workflows — you cannot inject a verify call. At best, you
+            can publish constraints and hope the agent respects them. That&apos;s
+            best-effort, not enforcement.
+          </li>
+          <li>
+            For agents that run on infrastructure you don&apos;t control, there&apos;s no
+            technical mechanism available today that makes enforcement automatic.
+            The problem requires either vendor support or architectural
+            constraints in how those agents can reach APIs.
+          </li>
+        </ul>
+        <p>
+          The part that&apos;s solvable today is the part you build. If your
+          team is building an agent that uses tool calls — a coding agent, a
+          workflow runner, an automation — you control the execution path and
+          you can add the check. That&apos;s the current wedge.
+        </p>
+
+        <div className="blog-section-label">
+          <span>07</span>
+          <h2>The concrete starting point</h2>
+        </div>
+        <p>
+          The first workflow worth wiring for most teams building with Claude
+          Code, Codex, or Cursor is deploy authorization. The agent can deploy
+          to staging freely. Production requires a human to approve before the
+          tool call goes through.
+        </p>
+        <p>
+          It takes about five minutes to set up via MCP. The agent gets a
+          structured response when blocked, knows to pause, and reports the
+          approval ID to the user. The dashboard shows the pending request.
+          One click approves it. The agent retries.
+        </p>
+        <p>
+          That&apos;s the shape of authorization that works for agents. Not a
+          policy engine that rules on broad categories. Not a prompt instruction
+          that the model might override. A fail-closed check before the tool
+          runs, with a human in the loop for the decisions that warrant it.
+        </p>
+      </>
+    )
+  },
+
+  {
     slug: "the-decision-packet",
     title: "The decision packet: BehalfID's verification primitive",
     date: "2026-05-06",

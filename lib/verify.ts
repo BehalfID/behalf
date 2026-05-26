@@ -1,5 +1,6 @@
 import { createPublicId } from "@/lib/ids";
 import { recordAgentKeyUse } from "@/lib/auth";
+import ApprovalRequest, { APPROVAL_GRANT_TTL_MS } from "@/models/ApprovalRequest";
 import Permission, { type PermissionDocument } from "@/models/Permission";
 import VerificationLog from "@/models/VerificationLog";
 
@@ -18,9 +19,12 @@ type VerifyInput = {
 type VerificationDecision = {
   requestId: string;
   allowed: boolean;
+  approvalRequired?: boolean;
   reason: string;
   risk: "low" | "medium" | "high";
 };
+
+type RawDecision = Omit<VerificationDecision, "requestId">;
 
 function isExpired(permission: PermissionDocument) {
   const expiresAt = permission.constraints?.expiresAt;
@@ -52,124 +56,71 @@ function isActiveCandidate(permission: PermissionDocument) {
   return permission.status === "active" && !isExpired(permission);
 }
 
-function evaluatePermission(permission: PermissionDocument | null, input: VerifyInput) {
+function evaluatePermission(permission: PermissionDocument | null, input: VerifyInput): RawDecision {
   if (input.agentStatus === "disabled") {
-    return {
-      allowed: false,
-      reason: "Agent is disabled.",
-      risk: "high"
-    } satisfies Omit<VerificationDecision, "requestId">;
+    return { allowed: false, reason: "Agent is disabled.", risk: "high" };
   }
 
   if (!permission) {
-    return {
-      allowed: false,
-      reason: "No active permission exists for this action.",
-      risk: "high"
-    } satisfies Omit<VerificationDecision, "requestId">;
+    return { allowed: false, reason: "No active permission exists for this action.", risk: "high" };
   }
 
   if (!permissionMatchesInput(permission, input)) {
-    return {
-      allowed: false,
-      reason: "No active permission exists for this action.",
-      risk: "high"
-    } satisfies Omit<VerificationDecision, "requestId">;
+    return { allowed: false, reason: "No active permission exists for this action.", risk: "high" };
   }
 
   if (permission.status === "revoked") {
-    return {
-      allowed: false,
-      reason: "Permission has been revoked.",
-      risk: "high"
-    } satisfies Omit<VerificationDecision, "requestId">;
+    return { allowed: false, reason: "Permission has been revoked.", risk: "high" };
   }
 
   if (listIncludes(permission.blockedActions, input.action)) {
-    return {
-      allowed: false,
-      reason: "Action is blocked by this permission.",
-      risk: "high"
-    } satisfies Omit<VerificationDecision, "requestId">;
+    return { allowed: false, reason: "Action is blocked by this permission.", risk: "high" };
   }
 
   const allowedActions = permission.allowedActions ?? [];
-  if (
-    allowedActions.length > 0 &&
-    !allowedActions.includes(input.action)
-  ) {
-    return {
-      allowed: false,
-      reason: "Action is not included in allowedActions.",
-      risk: "high"
-    } satisfies Omit<VerificationDecision, "requestId">;
+  if (allowedActions.length > 0 && !allowedActions.includes(input.action)) {
+    return { allowed: false, reason: "Action is not included in allowedActions.", risk: "high" };
   }
 
   if (permission.resource && !listValueMatches([permission.resource], input.vendor)) {
-    return {
-      allowed: false,
-      reason: "Resource does not match permission resource.",
-      risk: "high"
-    } satisfies Omit<VerificationDecision, "requestId">;
+    return { allowed: false, reason: "Resource does not match permission resource.", risk: "high" };
   }
 
   if (isExpired(permission)) {
-    return {
-      allowed: false,
-      reason: "Permission has expired.",
-      risk: "high"
-    } satisfies Omit<VerificationDecision, "requestId">;
+    return { allowed: false, reason: "Permission has expired.", risk: "high" };
   }
 
   if (permission.requiresApproval) {
     return {
       allowed: false,
+      approvalRequired: true,
       reason: "Permission requires approval before execution.",
       risk: "medium"
-    } satisfies Omit<VerificationDecision, "requestId">;
+    };
   }
 
   const maxAmount = permission.constraints?.maxAmount;
   if (typeof maxAmount === "number" && input.amount === undefined) {
-    return {
-      allowed: false,
-      reason: "amount is required for permissions with a maxAmount constraint.",
-      risk: "high"
-    } satisfies Omit<VerificationDecision, "requestId">;
+    return { allowed: false, reason: "amount is required for permissions with a maxAmount constraint.", risk: "high" };
   }
 
   if (typeof maxAmount === "number" && input.amount !== undefined && input.amount > maxAmount) {
-    return {
-      allowed: false,
-      reason: "Amount exceeds maxAmount constraint.",
-      risk: "high"
-    } satisfies Omit<VerificationDecision, "requestId">;
+    return { allowed: false, reason: "Amount exceeds maxAmount constraint.", risk: "high" };
   }
 
   const allowedVendors = permission.constraints?.allowedVendors ?? [];
   if (allowedVendors.length > 0) {
     if (!listValueMatches(allowedVendors, input.vendor)) {
-      return {
-        allowed: false,
-        reason: "Vendor is not included in allowedVendors constraint.",
-        risk: "high"
-      } satisfies Omit<VerificationDecision, "requestId">;
+      return { allowed: false, reason: "Vendor is not included in allowedVendors constraint.", risk: "high" };
     }
   }
 
-  return {
-    allowed: true,
-    reason: "Action allowed by active permission.",
-    risk: "low"
-  } satisfies Omit<VerificationDecision, "requestId">;
+  return { allowed: true, reason: "Action allowed by active permission.", risk: "low" };
 }
 
 function evaluatePermissions(permissions: PermissionDocument[], input: VerifyInput) {
   if (input.agentStatus === "disabled") {
-    return {
-      permission: null,
-      decision: evaluatePermission(null, input)
-    };
+    return { permission: null, decision: evaluatePermission(null, input) };
   }
 
   const matchingPermissions = permissions.filter((permission) =>
@@ -181,10 +132,7 @@ function evaluatePermissions(permissions: PermissionDocument[], input: VerifyInp
     listIncludes(permission.blockedActions, input.action)
   );
   if (blockingPermission) {
-    return {
-      permission: blockingPermission,
-      decision: evaluatePermission(blockingPermission, input)
-    };
+    return { permission: blockingPermission, decision: evaluatePermission(blockingPermission, input) };
   }
 
   for (const permission of activePermissions) {
@@ -196,17 +144,11 @@ function evaluatePermissions(permissions: PermissionDocument[], input: VerifyInp
 
   const deniedActivePermission = activePermissions[0] ?? null;
   if (deniedActivePermission) {
-    return {
-      permission: deniedActivePermission,
-      decision: evaluatePermission(deniedActivePermission, input)
-    };
+    return { permission: deniedActivePermission, decision: evaluatePermission(deniedActivePermission, input) };
   }
 
   const inactivePermission = matchingPermissions[0] ?? null;
-  return {
-    permission: inactivePermission,
-    decision: evaluatePermission(inactivePermission, input)
-  };
+  return { permission: inactivePermission, decision: evaluatePermission(inactivePermission, input) };
 }
 
 async function findMatchingPermissions(input: VerifyInput) {
@@ -221,10 +163,63 @@ async function findMatchingPermissions(input: VerifyInput) {
   }).sort({ createdAt: -1 });
 }
 
+/**
+ * If there is an approved, non-expired grant for (agentId, permissionId), mark it as
+ * used and return true (allow the action).
+ * Otherwise upsert a pending ApprovalRequest and return false (keep denying).
+ */
+async function resolveApprovalGate(
+  requestId: string,
+  input: VerifyInput,
+  permissionId: string
+): Promise<{ granted: boolean; approvalId?: string }> {
+  const now = new Date();
+
+  // 1. Check for an approved, non-expired grant
+  const grant = await ApprovalRequest.findOne({
+    agentId: input.agentId,
+    permissionId,
+    status: "approved",
+    grantExpiresAt: { $gt: now }
+  });
+
+  if (grant) {
+    // Mark the grant as used so it cannot be reused for another action
+    await ApprovalRequest.updateOne(
+      { approvalId: grant.approvalId },
+      { $set: { status: "used", resolvedAt: now } }
+    );
+    return { granted: true };
+  }
+
+  // 2. Upsert a pending ApprovalRequest (idempotent — only creates if one doesn't exist).
+  // new: true returns the document whether it was inserted or already existed,
+  // so we always get back the stable approvalId for this (agentId, permissionId) pair.
+  const pending = await ApprovalRequest.findOneAndUpdate(
+    { agentId: input.agentId, permissionId, status: "pending" },
+    {
+      $setOnInsert: {
+        approvalId: createPublicId("apr"),
+        requestId,
+        accountId: input.accountId,
+        developerUserId: input.developerUserId,
+        agentId: input.agentId,
+        permissionId,
+        action: input.action,
+        vendor: input.vendor ?? null,
+        amount: input.amount ?? null
+      }
+    },
+    { upsert: true, new: true }
+  );
+
+  return { granted: false, approvalId: (pending?.approvalId as string | undefined) };
+}
+
 export async function verifyAction(input: VerifyInput) {
   const requestId = createPublicId("req");
   let permission: PermissionDocument | null = null;
-  let decision: Omit<VerificationDecision, "requestId">;
+  let decision: RawDecision;
 
   try {
     const permissions = await findMatchingPermissions(input);
@@ -239,14 +234,27 @@ export async function verifyAction(input: VerifyInput) {
     };
   }
 
+  // Resolve approval gate: if the permission requires approval, check for a
+  // granted approval or upsert a pending request.
+  let approvalId: string | null = null;
+  if (decision.approvalRequired && permission) {
+    try {
+      const gate = await resolveApprovalGate(requestId, input, permission.permissionId);
+      if (gate.granted) {
+        decision = { allowed: true, reason: "Action allowed by approved permission grant.", risk: "low" };
+      } else {
+        approvalId = gate.approvalId ?? null;
+      }
+    } catch {
+      // Fail closed: if approval resolution fails, keep the denied decision
+    }
+  }
+
   const finalDecision =
     decision.allowed && input.enforcementDenyReason
-      ? ({
-          allowed: false,
-          reason: input.enforcementDenyReason,
-          risk: "high"
-        } satisfies Omit<VerificationDecision, "requestId">)
+      ? ({ allowed: false, reason: input.enforcementDenyReason, risk: "high" } satisfies RawDecision)
       : decision;
+
   const now = new Date();
 
   recordAgentKeyUse(input.agentId);
@@ -272,12 +280,21 @@ export async function verifyAction(input: VerifyInput) {
     amount: input.amount,
     vendor: input.vendor,
     allowed: finalDecision.allowed,
+    approvalRequired: finalDecision.approvalRequired ?? false,
     reason: finalDecision.reason,
     risk: finalDecision.risk,
     metadata: logMetadata
   });
 
-  return { requestId, permissionId: permission?.permissionId ?? null, ...finalDecision };
+  return {
+    requestId,
+    permissionId: permission?.permissionId ?? null,
+    allowed: finalDecision.allowed,
+    approvalRequired: finalDecision.approvalRequired ?? false,
+    approvalId,
+    reason: finalDecision.reason,
+    risk: finalDecision.risk
+  };
 }
 
 export async function previewVerification(input: VerifyInput) {
@@ -287,5 +304,12 @@ export async function previewVerification(input: VerifyInput) {
   const permission = result.permission;
   const decision = result.decision;
 
-  return { requestId, permissionId: permission?.permissionId ?? null, ...decision };
+  return {
+    requestId,
+    permissionId: permission?.permissionId ?? null,
+    allowed: decision.allowed,
+    approvalRequired: decision.approvalRequired ?? false,
+    reason: decision.reason,
+    risk: decision.risk
+  };
 }

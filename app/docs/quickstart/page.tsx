@@ -15,18 +15,18 @@ export default function QuickstartPage() {
       </p>
       <ol className="docs-steps">
         <li><strong>Create an agent.</strong> Use <code>/dashboard/onboarding</code> or <code>behalf agents create</code>. Store the one-time <code>bhf_sk_...</code> API key as <code>BEHALFID_API_KEY</code>.</li>
-        <li><strong>Create a permission.</strong> Start with one clear rule, such as <code>browse_web</code> on <code>web</code>, <code>read_calendar</code> on <code>google-calendar</code>, or <code>purchase</code> on <code>amazon.com</code> with <code>maxAmount: 25</code>.</li>
+        <li><strong>Create a permission.</strong> Start with one clear rule — for a coding agent: <code>deploy</code> on <code>vercel.com</code> with <code>requiresApproval: true</code> for production. For other agents: <code>browse_web</code> on <code>web</code>, or <code>purchase</code> on <code>amazon.com</code> with <code>maxAmount: 25</code>.</li>
         <li><strong>Install the SDK.</strong> Add the published Node SDK to the app that owns the tool execution.</li>
         <li><strong>Call verify before the action.</strong> The SDK requires <code>agentId</code>, <code>action</code>, and the API key. Pass <code>vendor</code> or <code>resource</code> when a permission is scoped to a service.</li>
         <li><strong>Show an allowed request.</strong> Call <code>verify</code> with an action and resource covered by an active permission.</li>
-        <li><strong>Show a denied request.</strong> Try a blocked action, a missing permission, a missing constrained vendor/resource, or an amount over the limit.</li>
+        <li><strong>Show a denied or approval-required request.</strong> Try a blocked action, a missing permission, or a permission with <code>requiresApproval: true</code>.</li>
         <li><strong>Fail closed.</strong> Throw or return before the executor. Never run the tool when <code>decision.allowed</code> is false.</li>
       </ol>
 
       <CodeBlock label="terminal">{`npm install @behalfid/sdk`}</CodeBlock>
 
       <h2>Copy-paste executor pattern</h2>
-      <CodeBlock label="purchase.ts">{`import { BehalfID } from "@behalfid/sdk";
+      <CodeBlock label="deploy.ts">{`import { BehalfID } from "@behalfid/sdk";
 
 const behalf = new BehalfID({
   apiKey: process.env.BEHALFID_API_KEY!,
@@ -34,34 +34,34 @@ const behalf = new BehalfID({
 
 const agentId = process.env.BEHALFID_AGENT_ID!;
 
-async function purchase(vendor: string, amount: number) {
+async function deployToProduction(vendor: string) {
   const decision = await behalf.verify({
     agentId,
-    action: "purchase",
+    action: "deploy_production",
     vendor,
-    amount,
   });
 
   if (!decision.allowed) {
+    // Blocked or approval required — reason and requestId are logged
     throw new Error(\`Blocked by BehalfID: \${decision.reason}\`);
   }
 
-  return runPurchase({ vendor, amount });
+  return runDeploy({ vendor, env: "production" });
 }`}</CodeBlock>
 
       <h2>Allowed request</h2>
       <p>
-        This succeeds when the agent has an active <code>browse_web</code> permission
-        for <code>web</code> and no matching blocked action.
+        This succeeds when the agent has an active <code>deploy</code> permission
+        for <code>vercel.com</code> without a blocking rule or approval requirement.
       </p>
       <CodeBlock label="allowed.ts">{`const decision = await behalf.verify({
   agentId: process.env.BEHALFID_AGENT_ID!,
-  action: "browse_web",
-  resource: "web",
+  action: "deploy",
+  vendor: "vercel.com",
 });
 
 if (decision.allowed) {
-  await runBrowserRead("https://example.com");
+  await runStagingDeploy();
 }`}</CodeBlock>
       <CodeBlock label="allowed response">{`{
   "requestId": "req_xxx",
@@ -70,11 +70,34 @@ if (decision.allowed) {
   "risk": "low"
 }`}</CodeBlock>
 
+      <h2>Approval-required request</h2>
+      <p>
+        When a permission has <code>requiresApproval: true</code>, BehalfID returns{" "}
+        <code>allowed: false</code> with a reason that signals human approval is needed.
+        The agent should pause and surface the <code>requestId</code>. After you approve
+        in the dashboard, the agent retries and the action is allowed.
+      </p>
+      <CodeBlock label="approval-required.ts">{`const decision = await behalf.verify({
+  agentId: process.env.BEHALFID_AGENT_ID!,
+  action: "deploy_production",
+  vendor: "vercel.com",
+});
+
+if (!decision.allowed) {
+  // Surface this to the engineer — do not auto-retry
+  throw new Error(\`BehalfID: \${decision.reason} (ref: \${decision.requestId})\`);
+}`}</CodeBlock>
+      <CodeBlock label="approval-required response">{`{
+  "requestId": "req_xxx",
+  "allowed": false,
+  "reason": "Permission requires approval before execution.",
+  "risk": "medium"
+}`}</CodeBlock>
+
       <h2>Denied request</h2>
       <p>
-        This fails closed when the purchase permission is missing, the vendor does not
-        match, <code>blockedActions</code> includes <code>purchase</code>, approval is
-        required, or the amount exceeds the permission limit.
+        This fails closed when a permission is missing, the vendor does not
+        match, or a <code>blockedAction</code> covers the requested action.
       </p>
       <CodeBlock label="denied.ts">{`const decision = await behalf.verify({
   agentId: process.env.BEHALFID_AGENT_ID!,
@@ -98,15 +121,11 @@ await runCheckout(); // not reached when denied`}</CodeBlock>
       <h2>Create permission with the SDK</h2>
       <CodeBlock label="permission.ts">{`await behalf.createPermission({
   agentId: process.env.BEHALFID_AGENT_ID!,
-  action: "purchase",
-  resource: "shop.example",
-  allowedActions: ["purchase"],
-  blockedActions: ["checkout without approval"],
-  requiresApproval: false,
-  constraints: {
-    maxAmount: 25,
-    allowedVendors: ["shop.example"],
-  },
+  action: "deploy_production",
+  resource: "vercel.com",
+  allowedActions: ["promote staging to production"],
+  blockedActions: ["rollback without approval", "delete deployment"],
+  requiresApproval: true,
 });`}</CodeBlock>
 
       <h2>Manual mode vs enforcement</h2>

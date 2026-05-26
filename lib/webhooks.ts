@@ -6,6 +6,7 @@ import WebhookEventModel from "@/models/WebhookEvent";
 export const WEBHOOK_EVENT_TYPES = [
   "verification.allowed",
   "verification.denied",
+  "verification.approval_required",
   "agent.created",
   "agent.disabled",
   "agent.enabled",

@@ -28,11 +28,18 @@ export function generateContextMd(detail: AgentDetail, updatedAt?: string): stri
     `permissioned, or potentially sensitive action, you MUST call the \`verify_action\``,
     `tool from the \`behalfid\` MCP server.**`,
     ``,
-    `Fail closed:`,
+    `Fail closed — follow these rules exactly:`,
     ``,
-    `- If \`verify_action\` returns \`"allowed": false\`, do not execute the action.`,
+    `- If \`verify_action\` returns \`"allowed": false\` and \`"approvalRequired": false\`,`,
+    `  do not execute the action. Explain the denial reason to the user.`,
     `- If \`verify_action\` is unavailable, errors, or cannot be reached, do not execute the action.`,
-    `- If the decision says approval is required, pause for human approval; do not execute automatically.`,
+    `- If \`verify_action\` returns \`"approvalRequired": true\`:`,
+    `  1. Do NOT execute the action under any circumstances.`,
+    `  2. Tell the user the action requires approval and provide the \`approvalId\` and \`requestId\`.`,
+    `  3. Direct them to the BehalfID Approvals dashboard to approve the request.`,
+    `  4. Wait for the user to confirm they have approved.`,
+    `  5. Call \`verify_action\` again with the same arguments.`,
+    `  6. If it returns \`"allowed": true\`, proceed. If still \`"approvalRequired": true\`, wait longer.`,
     `- Never bypass, ignore, or replace the BehalfID check with a local guess.`,
     ``,
   ];
@@ -71,8 +78,9 @@ export function generateContextMd(detail: AgentDetail, updatedAt?: string): stri
   const approvalRequired = active.filter(p => p.requiresApproval);
   if (approvalRequired.length > 0) {
     lines.push(`### Approval-Required Actions`, ``);
+    lines.push(`These actions require a human to approve before execution. When \`verify_action\` returns`, `\`"approvalRequired": true\`, stop and follow the approval protocol above.`, ``);
     for (const p of approvalRequired) {
-      lines.push(`- **${p.action}**${p.resource ? ` on \`${p.resource}\`` : ""}: call \`verify_action\`, then pause for human approval before execution.`);
+      lines.push(`- **${p.action}**${p.resource ? ` on \`${p.resource}\`` : ""}: requires human approval via BehalfID dashboard before execution.`);
     }
     lines.push(``);
   }
@@ -90,9 +98,23 @@ export function generateContextMd(detail: AgentDetail, updatedAt?: string): stri
     ``,
     `\`\`\``,
     `verify_action(action: string, vendor?: string, amount?: number)`,
-    `// action: "purchase" | "access_data" | "browse_web" | "schedule" | "create_content" | ...`,
-    `// vendor: the service or domain being accessed (e.g. "amazon.com", "gmail.com")`,
+    `// action: "deploy_production" | "purchase" | "access_data" | "browse_web" | ...`,
+    `// vendor: the service or domain (e.g. "vercel.com", "amazon.com", "github.com")`,
     `// amount: only for purchase actions`,
+    `\`\`\``,
+    ``,
+    `Possible responses:`,
+    ``,
+    `\`\`\`json`,
+    `// Allowed`,
+    `{ "allowed": true, "approvalRequired": false, "reason": "...", "risk": "low" }`,
+    ``,
+    `// Denied`,
+    `{ "allowed": false, "approvalRequired": false, "reason": "...", "risk": "high" }`,
+    ``,
+    `// Approval required — STOP and follow the approval protocol`,
+    `{ "allowed": false, "approvalRequired": true, "approvalId": "apr_xxx", "requestId": "req_xxx",`,
+    `  "reason": "Permission requires approval before execution.", "risk": "medium" }`,
     `\`\`\``,
     ``,
     `---`,

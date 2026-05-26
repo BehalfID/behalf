@@ -8,12 +8,13 @@ const dashboardNav = [
   { href: "/dashboard", label: "Overview" },
   { href: "/dashboard/onboarding", label: "Add agent" },
   { href: "/dashboard/agents", label: "Agents" },
-  { href: "/dashboard/sites", label: "Site Guard" },
   { href: "/dashboard/webhooks", label: "Webhooks" },
   { href: "/dashboard/logs", label: "Logs" },
+  { href: "/dashboard/approvals", label: "Approvals" },
   { href: "/dashboard/docs", label: "Docs" },
   { href: "/dashboard/settings", label: "Settings" },
-  { href: "/dashboard/billing", label: "Billing" }
+  { href: "/dashboard/billing", label: "Billing" },
+  { href: "/dashboard/sites", label: "Site Guard" },
 ];
 
 export function DashboardShellLayout({ children }: { children: React.ReactNode }) {

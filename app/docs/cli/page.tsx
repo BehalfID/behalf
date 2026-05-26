@@ -130,6 +130,68 @@ behalf claude --resume     # pass extra flags straight through to the tool`}</Co
         see <code>docs/MCP_DEMO.md</code>.
       </p>
 
+      <h2>Deploy approval workflow</h2>
+      <p>
+        The most common first use case: an AI coding agent (Claude Code, Codex, Cursor) that
+        can deploy to staging autonomously but must pause for human approval before touching
+        production.
+      </p>
+
+      <h3>1. Set up permissions</h3>
+      <p>
+        Create two permissions for your coding agent — one that allows staging deploys
+        without approval, and one that requires approval for production.
+      </p>
+      <CodeBlock label="terminal">{`# Allow staging deploys — no approval required
+behalf permissions create agent_xxx \\
+  --action deploy \\
+  --resource vercel.com \\
+  --allowed "deploy to staging, create preview deployment" \\
+  --blocked "deploy to production, promote to production"
+
+# Production deploy requires human approval
+behalf permissions create agent_xxx \\
+  --action deploy_production \\
+  --resource vercel.com \\
+  --allowed "promote staging to production" \\
+  --requires-approval`}</CodeBlock>
+
+      <h3>2. Launch your AI tool with enforcement active</h3>
+      <CodeBlock label="terminal">{`behalf config set agent-id agent_xxx
+behalf config set api-key bhf_sk_xxx
+behalf mcp init
+behalf claude       # or: behalf codex`}</CodeBlock>
+
+      <h3>3. The approval flow in practice</h3>
+      <p>
+        When the agent attempts a production deploy, the MCP server calls{" "}
+        <code>verify_action(action: "deploy_production", vendor: "vercel.com")</code>.
+        BehalfID returns <code>{`"allowed": false, "reason": "Permission requires approval before execution."`}</code>.
+        The agent pauses and reports the <code>requestId</code>. You approve in the dashboard
+        or via webhook, then the agent retries — now allowed.
+      </p>
+      <CodeBlock label="what the agent sees">{`verify_action("deploy_production", "vercel.com")
+
+{
+  "requestId": "req_Abc123xyz",
+  "allowed": false,
+  "reason": "Permission requires approval before execution.",
+  "risk": "medium"
+}
+
+→ Agent pauses: "Deployment to production requires approval (req_Abc123xyz)."
+→ Webhook fires to your configured endpoint (Slack, PagerDuty, etc.)
+→ You approve in the BehalfID dashboard
+→ Agent calls verify_action again → allowed → deploy runs`}</CodeBlock>
+
+      <h3>4. Audit the decisions</h3>
+      <p>
+        Every verify call — allowed, denied, and approval-required — is logged with a stable{" "}
+        <code>requestId</code>. Filter by decision type in the{" "}
+        <a href="/dashboard/logs">Logs view</a> or export as CSV for post-mortems.
+      </p>
+      <CodeBlock label="terminal">{`behalf logs agent_xxx          # tail recent verification decisions`}</CodeBlock>
+
       <h2>Config</h2>
       <CodeBlock label="terminal">{`behalf config set api-key bhf_sk_xxx
 behalf config set agent-id agent_xxx

@@ -54,9 +54,9 @@ export default function Home() {
           before the tool runs. Denied actions fail closed.
         </p>
         <div className="home-code__links" aria-label="Permission examples">
-          <span>Allow browsing, deny purchases over $25.</span>
-          <span>Allow calendar reads, deny sending emails.</span>
+          <span>Allow staging deploys, require approval for production.</span>
           <span>Allow GitHub issue reads, deny production deploys.</span>
+          <span>Allow browsing, deny purchases over $25.</span>
         </div>
         <div className="home-actions">
           <SplitCTAButton leftLabel="Build" leftHref="/signup" rightLabel="Try It" rightHref="/sandbox" className="split-cta--ghost" />
@@ -79,17 +79,17 @@ export default function Home() {
               <span className="home-step__num">01</span>
               <h3 className="home-step__title">Action request</h3>
               <p className="home-step__body">
-                Before your executor runs, the agent packages the action — who is acting,
-                what action, which vendor, and any parameters like amount or resource path.
+                Before your agent runs a tool, it packages the action — who is acting,
+                what action, which vendor, and any parameters like environment or resource path.
               </p>
             </div>
             <div className="home-step__visual" aria-hidden="true">
               <span className="sv-label">ACTION REQUEST</span>
               <div className="sv-rows">
-                <div><span>agent</span><code>agent_ollie</code></div>
-                <div><span>action</span><code>purchase</code></div>
-                <div><span>vendor</span><code>coachella.com</code></div>
-                <div><span>amount</span><code>$742.00</code></div>
+                <div><span>agent</span><code>agent_claude_code</code></div>
+                <div><span>action</span><code>deploy</code></div>
+                <div><span>vendor</span><code>vercel.com</code></div>
+                <div><span>env</span><code>production</code></div>
               </div>
             </div>
           </li>
@@ -100,16 +100,16 @@ export default function Home() {
               <h3 className="home-step__title">BehalfID verify</h3>
               <p className="home-step__body">
                 BehalfID evaluates the request against active permissions, blocked actions,
-                allowed actions, resource or vendor constraints, amount limits, approval
+                allowed actions, resource or vendor constraints, approval
                 requirements, and expiry before the executor is called.
               </p>
             </div>
             <div className="home-step__visual home-step__visual--accent" aria-hidden="true">
               <span className="sv-label sv-label--accent">BEHALFID · DECISION BOUNDARY</span>
               <div className="sv-rows">
-                <div><span>passport</span><code>passport_ollie</code></div>
+                <div><span>passport</span><code>passport_claude</code></div>
                 <div><span>active</span><code>3 permissions</code></div>
-                <div><span>purchase</span><code className="sv-muted">no scope configured</code></div>
+                <div><span>deploy prod</span><code className="sv-muted">requires approval</code></div>
               </div>
             </div>
           </li>
@@ -128,7 +128,7 @@ export default function Home() {
             <div className="home-step__visual home-step__visual--deny" aria-hidden="true">
               <span className="sv-label">DECISION</span>
               <strong className="sv-verdict sv-verdict--deny">denied</strong>
-              <code className="sv-reason">No active purchase permission.</code>
+              <code className="sv-reason">Permission requires approval before execution.</code>
               <div className="sv-rows sv-rows--sm">
                 <div><span>execution</span><code className="sv-muted">false</code></div>
                 <div><span>requestId</span><code>req_Abc123xyz</code></div>
@@ -179,17 +179,93 @@ export default function Home() {
         </div>
         <div className="home-code__block">
           <CodeBlock label="enforce.ts">{`const decision = await behalf.verify({
-  agentId: "agent_ollie",
-  action:  "purchase",
-  vendor:  "coachella.com",
-  amount:  742,
+  agentId: "agent_claude_code",
+  action:  "deploy",
+  vendor:  "vercel.com",
 });
 
 if (!decision.allowed) {
+  // Blocked — reason logged, webhook fired
   throw new Error(decision.reason);
 }
 
-// Executor only runs when decision.allowed === true`}</CodeBlock>
+// Deploy only runs when decision.allowed === true`}</CodeBlock>
+        </div>
+      </section>
+
+      {/* ── Deploy approval workflow ──────────────────────── */}
+      <section className="home-deploy" aria-labelledby="deploy-heading">
+        <div className="home-deploy__intro">
+          <p className="section-kicker">Deploy approvals</p>
+          <h2 id="deploy-heading" className="home-deploy__h2">
+            From zero to enforced<br />in five minutes.
+          </h2>
+          <p className="home-deploy__body">
+            The first thing most teams wire up: a coding agent that can deploy to staging
+            freely, but must pause for human approval before touching production.
+            BehalfID enforces this at the MCP boundary — where the tool call is made,
+            not inside the model&apos;s memory.
+          </p>
+        </div>
+
+        <ol className="home-deploy__steps">
+          <li>
+            <span className="home-deploy__num">01</span>
+            <div>
+              <h3>Set up two permissions</h3>
+              <p>Staging allowed automatically. Production requires approval.</p>
+              <CodeBlock label="terminal">{`behalf permissions create agent_xxx \\
+  --action deploy --resource vercel.com \\
+  --blocked "deploy to production"
+
+behalf permissions create agent_xxx \\
+  --action deploy_production --resource vercel.com \\
+  --requires-approval`}</CodeBlock>
+            </div>
+          </li>
+
+          <li>
+            <span className="home-deploy__num">02</span>
+            <div>
+              <h3>Wire up MCP enforcement</h3>
+              <p>One command writes <code>.mcp.json</code> and the agent context file.</p>
+              <CodeBlock label="terminal">{`behalf mcp init && behalf claude`}</CodeBlock>
+            </div>
+          </li>
+
+          <li>
+            <span className="home-deploy__num">03</span>
+            <div>
+              <h3>Agent attempts production deploy — blocked</h3>
+              <p>
+                The MCP server calls <code>verify_action</code>. BehalfID returns{" "}
+                <code>approvalRequired: true</code>. The agent pauses and reports the{" "}
+                <code>approvalId</code> back to you.
+              </p>
+              <CodeBlock label="what the agent sees">{`APPROVAL REQUIRED — do not execute this action.
+
+Action:      deploy_production on vercel.com
+Approval ID: apr_Def456uvw
+
+Approve at: https://behalfid.com/dashboard/approvals`}</CodeBlock>
+            </div>
+          </li>
+
+          <li>
+            <span className="home-deploy__num">04</span>
+            <div>
+              <h3>You approve — agent retries and deploys</h3>
+              <p>
+                One click in the dashboard opens a 30-minute grant window.
+                The agent calls <code>verify_action</code> again — now <code>allowed: true</code>.
+                The deploy runs. Every step is in the audit log.
+              </p>
+            </div>
+          </li>
+        </ol>
+
+        <div className="home-deploy__cta">
+          <ButtonLink href="/docs/deploy-approvals">Read the full demo guide →</ButtonLink>
         </div>
       </section>
 
@@ -201,12 +277,12 @@ if (!decision.allowed) {
         <p className="section-kicker">Ready</p>
         <h2 id="cta-heading" className="home-cta__h2">Add the permission check.</h2>
         <p className="home-cta__body">
-          Integrated enforcement fails closed. Manual mode is best-effort for testing
-          with existing agents before you integrate.
+          Enforcement is fail-closed where you integrate it — via SDK or MCP.
+          Manual passport mode is best-effort for testing with existing agents before you build the integration.
         </p>
         <div className="home-actions home-actions--center">
           <SplitCTAButton leftLabel="Build" leftHref="/signup" rightLabel="Try It" rightHref="/sandbox" className="split-cta--ghost" />
-          <ButtonLink href="/docs/quickstart">Read quickstart</ButtonLink>
+          <ButtonLink href="/docs/deploy-approvals">Try deploy approvals</ButtonLink>
         </div>
       </section>
 
@@ -227,6 +303,7 @@ if (!decision.allowed) {
               <h5>Product</h5>
               <ul>
                 <li><Link href="/sandbox">Sandbox</Link></li>
+                <li><Link href="/design-partners">Design partners</Link></li>
                 <li><Link href="/security">Security</Link></li>
                 <li><Link href="/blog">Blog</Link></li>
                 <li><Link href="/signup">Start building</Link></li>
@@ -236,10 +313,10 @@ if (!decision.allowed) {
               <h5>Docs</h5>
               <ul>
                 <li><Link href="/docs/quickstart">Quickstart</Link></li>
+                <li><Link href="/docs/deploy-approvals">Deploy approvals</Link></li>
+                <li><Link href="/docs/cli">CLI &amp; MCP</Link></li>
                 <li><Link href="/docs/api">API reference</Link></li>
                 <li><Link href="/docs/sdk">SDK</Link></li>
-                <li><Link href="/docs/concepts">Concepts</Link></li>
-                <li><Link href="/docs/action-gateway">Action Gateway</Link></li>
               </ul>
             </div>
             <div>

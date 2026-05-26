@@ -102,6 +102,21 @@ type SiteGuardKey = {
   lastUsedAt?: string | null;
   createdAt?: string;
 };
+type ApprovalRequest = {
+  approvalId: string;
+  requestId: string;
+  agentId: string;
+  agentName?: string | null;
+  permissionId: string;
+  action: string;
+  vendor?: string | null;
+  amount?: number | null;
+  status: "pending" | "approved" | "denied" | "used";
+  resolvedBy?: string | null;
+  resolvedAt?: string | null;
+  grantExpiresAt?: string | null;
+  createdAt?: string;
+};
 type AgentProvider = "custom" | "ollie" | "chatgpt" | "claude" | "gemini" | "zapier" | "make" | "langchain" | "openai" | "other";
 type ProviderSelection = AgentProvider | "";
 type Plan = "free" | "pro" | "enterprise";
@@ -183,9 +198,9 @@ const DESCRIPTION_EXAMPLES = [
 ];
 
 const FIRST_AGENT_EXAMPLES = [
+  { title: "Coding agent", body: "Allow staging deploys. Require approval before production. Deny secret access and destructive repo actions." },
   { title: "Research agent", body: "Allow web research and public page reads. Deny checkout, forms, and account access." },
-  { title: "Shopping agent", body: "Allow product comparison. Allow purchases only under $25 from approved vendors." },
-  { title: "Coding agent", body: "Allow GitHub issue reads. Deny production deploys, secret access, and destructive repo actions." }
+  { title: "Shopping agent", body: "Allow product comparison. Allow purchases only under $25 from approved vendors." }
 ];
 
 const FIRST_PERMISSION_EXAMPLES = [
@@ -292,7 +307,7 @@ function date(value?: string | null) {
   return value ? new Intl.DateTimeFormat("en", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value)) : "Never";
 }
 
-export function DashboardShell({ view, id }: { view: "home" | "onboarding" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "docs" | "settings"; id?: string }) {
+export function DashboardShell({ view, id }: { view: "home" | "onboarding" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "docs" | "settings"; id?: string }) {
   return (
     <DashboardShellLayout>
         {view === "home" ? <HomeView /> : null}
@@ -303,6 +318,7 @@ export function DashboardShell({ view, id }: { view: "home" | "onboarding" | "ag
         {view === "webhooks" ? <WebhooksView /> : null}
         {view === "webhook" && id ? <WebhookView webhookId={id} /> : null}
         {view === "logs" ? <LogsView /> : null}
+        {view === "approvals" ? <ApprovalsView /> : null}
         {view === "docs" ? <DashboardDocs /> : null}
         {view === "settings" ? <SettingsView /> : null}
     </DashboardShellLayout>
@@ -422,7 +438,7 @@ function AgentsView() {
         </Card>
       ) : null}
       {agents.length > 0 ? (
-        <Rows items={agents} href={(agent) => `/dashboard/agents/${agent.agentId}`} title={(agent) => agent.name} meta={(agent) => `${agent.agentType} / ${agent.provider} / ${agent.status}`} />
+        <Rows items={agents} href={(agent) => `/dashboard/agents/${agent.agentId}`} title={(agent) => agent.name} meta={(agent) => `${agent.provider} / ${agent.status}`} />
       ) : null}
     </>
   );
@@ -1944,7 +1960,9 @@ function LogsView() {
   const path = useMemo(() => {
     const params = new URLSearchParams();
     if (agentId) params.set("agentId", agentId.trim());
-    if (allowed) params.set("allowed", allowed);
+    // "approval" is a client-side filter: send allowed=false and filter by reason client-side
+    if (allowed && allowed !== "approval") params.set("allowed", allowed);
+    if (allowed === "approval") params.set("allowed", "false");
     if (action) params.set("action", action.trim());
     if (risk) params.set("risk", risk);
     return `/api/dashboard/logs${params.size ? `?${params.toString()}` : ""}`;
@@ -1965,6 +1983,7 @@ function LogsView() {
             <option value="">All decisions</option>
             <option value="true">Allowed</option>
             <option value="false">Denied</option>
+            <option value="approval">Approval required</option>
           </select>
         </label>
         <label className="logs-toolbar__filter">
@@ -1985,7 +2004,99 @@ function LogsView() {
         </div>
       </div>
       {logs.data?.summary ? <LogSummaryStrip summary={logs.data.summary} /> : null}
-      <LogList logs={logs.data?.logs ?? []} />
+      <LogList logs={logs.data?.logs ?? []} approvalFilter={allowed === "approval"} />
+    </>
+  );
+}
+
+function approvalActionLabel(action: string, vendor?: string | null) {
+  const base = action.replace(/_/g, " ");
+  return vendor ? `${base} → ${vendor}` : base;
+}
+
+function ApprovalsView() {
+  const approvals = useResource<{ approvals: ApprovalRequest[] }>("/api/dashboard/approvals");
+  const [working, setWorking] = useState<string | null>(null);
+
+  const resolve = async (approvalId: string, action: "approve" | "deny") => {
+    setWorking(approvalId);
+    try {
+      await api(`/api/dashboard/approvals/${approvalId}/${action}`, { method: "POST" });
+      await approvals.reload();
+    } finally {
+      setWorking(null);
+    }
+  };
+
+  const list = approvals.data?.approvals ?? [];
+  const pendingCount = list.filter((r) => r.status === "pending").length;
+
+  return (
+    <>
+      <Header
+        title="Approvals"
+        description="When an agent hits an approval-required permission, it pauses here. Approve to let it proceed; deny to block it."
+        action={<Button onClick={approvals.reload} type="button">Refresh</Button>}
+      />
+      {pendingCount > 0 ? (
+        <div className="console-status console-status--approval" style={{ display: "inline-flex", marginBottom: "1rem", padding: "0.25rem 0.75rem", borderRadius: "4px" }}>
+          {pendingCount} pending {pendingCount === 1 ? "request" : "requests"} waiting for your approval
+        </div>
+      ) : null}
+      {list.length === 0 ? (
+        <EmptyState className="dashboard-empty">
+          No pending approval requests. When an agent attempts a restricted action (like a production deploy), it will pause here.
+        </EmptyState>
+      ) : (
+        <div className="dashboard-list dashboard-approval-list">
+          {list.map((req) => (
+            <div key={req.approvalId}>
+              <span>
+                <strong>{approvalActionLabel(req.action, req.vendor)}</strong>
+                <small>
+                  {req.agentName ? `${req.agentName} (${req.agentId})` : req.agentId}
+                  {typeof req.amount === "number" ? ` · $${req.amount}` : ""}
+                </small>
+                <small className="approval-ids">
+                  <code>{req.approvalId}</code>
+                  {" · "}
+                  <span className="approval-ids__label">req</span> <code>{req.requestId}</code>
+                </small>
+                <small>Requested {date(req.createdAt)}</small>
+              </span>
+              <span className={`console-status console-status--${req.status === "pending" ? "approval" : req.status === "approved" ? "allowed" : "denied"}`}>
+                {req.status}
+              </span>
+              {req.status === "pending" ? (
+                <span className="approval-actions">
+                  <Button
+                    variant="primary"
+                    type="button"
+                    onClick={() => resolve(req.approvalId, "approve")}
+                    disabled={working === req.approvalId}
+                  >
+                    Approve
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => resolve(req.approvalId, "deny")}
+                    disabled={working === req.approvalId}
+                  >
+                    Deny
+                  </Button>
+                </span>
+              ) : req.status === "approved" && req.grantExpiresAt ? (
+                <span>
+                  <small className="approval-grant-expiry">
+                    Approved · grant valid until {date(req.grantExpiresAt)}
+                    {" · "}agent will be allowed on next verify call
+                  </small>
+                </span>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      )}
     </>
   );
 }
@@ -2073,12 +2184,12 @@ function SettingsView() {
 }
 
 const DOC_CARDS = [
-  { title: "Quickstart", description: "Get your first agent running in under 10 minutes.", href: "/docs/quickstart" },
-  { title: "API reference", description: "Full HTTP API documentation for verify, agents, and permissions.", href: "/docs/api" },
-  { title: "SDK", description: "Node.js SDK for calling verify() before tool execution.", href: "/docs/sdk" },
-  { title: "Webhooks", description: "Receive real-time events for allowed, denied, and failed decisions.", href: "/docs/webhooks" },
+  { title: "Quickstart", description: "Create an agent, add a permission, call verify(), and prove allowed and denied actions.", href: "/docs/quickstart" },
+  { title: "CLI & MCP", description: "Install the CLI, wire up the MCP server, and launch Claude Code or Codex with enforcement active.", href: "/docs/cli" },
+  { title: "Deploy approvals", description: "Full demo: agent hits approval gate → you approve in this dashboard → agent retries and deploys.", href: "/docs/deploy-approvals" },
+  { title: "SDK", description: "Node.js SDK for calling verify() before tool execution from any agent framework.", href: "/docs/sdk" },
+  { title: "Webhooks", description: "Receive real-time signed events for allowed, denied, and approval-required decisions.", href: "/docs/webhooks" },
   { title: "Site Guard", description: "Block or allow AI agents and crawlers from accessing your website paths.", href: "/docs/site-guard" },
-  { title: "CLI & MCP", description: "Configure agents and connect Claude Code or Codex to BehalfID.", href: "/docs/cli" },
 ];
 
 function DashboardDocs() {
@@ -2110,23 +2221,35 @@ function Rows<T>({ items, href, title, meta }: { items: T[]; href: (item: T) => 
   return <div className="dashboard-list">{items.map((item) => <Link href={href(item)} key={href(item)}><span><strong>{title(item)}</strong><small>{meta(item)}</small></span></Link>)}</div>;
 }
 
-function LogList({ logs }: { logs: Log[] }) {
-  if (!logs.length) return <EmptyState className="dashboard-empty">No logs yet.</EmptyState>;
+const APPROVAL_REQUIRED_REASON = "Permission requires approval before execution.";
+
+function isApprovalRequired(log: Log) {
+  return !log.allowed && log.reason === APPROVAL_REQUIRED_REASON;
+}
+
+function LogList({ logs, approvalFilter }: { logs: Log[]; approvalFilter?: boolean }) {
+  const filtered = approvalFilter ? logs.filter(isApprovalRequired) : logs;
+  if (!filtered.length) return <EmptyState className="dashboard-empty">{approvalFilter ? "No approval-required decisions found." : "No logs yet."}</EmptyState>;
   return (
     <div className="dashboard-list dashboard-log-list">
-      {logs.map((log) => (
-        <div key={log.requestId}>
-          <span>
-            <strong>{log.action}</strong>
-            <small>{log.agentName || log.agentId} / {log.vendor || "no resource"}{typeof log.amount === "number" ? ` / $${log.amount}` : ""}</small>
-            <small>{log.reason}</small>
-            <small>{log.requestId}</small>
-          </span>
-          <span className={log.allowed ? "console-status console-status--allowed" : "console-status console-status--denied"}>{log.allowed ? "allowed" : "denied"}</span>
-          <span className={`console-status console-status--${log.risk}`}>{log.risk}</span>
-          <span>{date(log.createdAt)}</span>
-        </div>
-      ))}
+      {filtered.map((log) => {
+        const approvalReq = isApprovalRequired(log);
+        return (
+          <div key={log.requestId}>
+            <span>
+              <strong>{log.action}</strong>
+              <small>{log.agentName || log.agentId} / {log.vendor || "no resource"}{typeof log.amount === "number" ? ` / $${log.amount}` : ""}</small>
+              <small>{log.reason}</small>
+              <small>{log.requestId}</small>
+            </span>
+            {approvalReq
+              ? <span className="console-status console-status--approval">approval required</span>
+              : <span className={log.allowed ? "console-status console-status--allowed" : "console-status console-status--denied"}>{log.allowed ? "allowed" : "denied"}</span>}
+            <span className={`console-status console-status--${log.risk}`}>{log.risk}</span>
+            <span>{date(log.createdAt)}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }

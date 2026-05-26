@@ -81,6 +81,39 @@ export async function callMcpTool(config: {
       skipAuth: false,
     });
 
+    // When approval is required, return a structured instructional block instead of
+    // raw JSON so the agent understands exactly what to tell the user and what to do next.
+    if (result.approvalRequired === true) {
+      const dashboardBase = config.baseUrl.replace(/\/$/, "");
+      const approvalUrl = `${dashboardBase}/dashboard/approvals`;
+      const approvalId = typeof result.approvalId === "string" ? result.approvalId : null;
+      const requestId = typeof result.requestId === "string" ? result.requestId : null;
+      const action = typeof args.action === "string" ? args.action : "unknown";
+      const vendor = typeof args.vendor === "string" ? args.vendor : null;
+
+      const lines = [
+        "APPROVAL REQUIRED — do not execute this action.",
+        "",
+        `Action:     ${action}${vendor ? ` on ${vendor}` : ""}`,
+        `Request ID: ${requestId ?? "(unavailable)"}`,
+        ...(approvalId ? [`Approval ID: ${approvalId}`] : []),
+        "",
+        "A human must approve this request before the action can proceed.",
+        `Approve at: ${approvalUrl}`,
+        "",
+        "Instructions:",
+        "1. Tell the user: \"I need approval to run this action. Please visit the BehalfID Approvals",
+        `   dashboard at ${approvalUrl} and approve the pending request${approvalId ? ` (${approvalId})` : ""}.\"`,
+        "2. Do not execute the action.",
+        "3. After the user confirms they have approved, call verify_action again with the same arguments.",
+        "4. If verify_action returns allowed: true, proceed. If it still returns approvalRequired, wait.",
+      ];
+
+      return {
+        content: [{ type: "text", text: lines.join("\n") }],
+      };
+    }
+
     return {
       content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
     };

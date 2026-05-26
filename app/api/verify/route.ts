@@ -105,15 +105,23 @@ export async function POST(request: NextRequest) {
     return jsonError("Verification failed closed.", 503);
   }
 
+  const webhookEventType = decision.allowed
+    ? "verification.allowed"
+    : decision.approvalRequired
+    ? "verification.approval_required"
+    : "verification.denied";
+
   await emitWebhookEvent(
     createWebhookEvent(
       auth.agent.accountId,
-      decision.allowed ? "verification.allowed" : "verification.denied",
+      webhookEventType,
       {
         requestId: decision.requestId,
         agentId,
         action,
         allowed: decision.allowed,
+        approvalRequired: decision.approvalRequired ?? false,
+        ...(decision.approvalId ? { approvalId: decision.approvalId } : {}),
         risk: decision.risk,
         permissionId: decision.permissionId
       },
@@ -124,6 +132,8 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     requestId: decision.requestId,
     allowed: decision.allowed,
+    approvalRequired: decision.approvalRequired ?? false,
+    ...(decision.approvalId ? { approvalId: decision.approvalId } : {}),
     reason: decision.reason,
     risk: decision.risk
   });

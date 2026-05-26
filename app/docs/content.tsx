@@ -6,10 +6,12 @@ export const docsNav = [
   { href: "/docs", label: "Overview" },
   { href: "/docs/quickstart", label: "Quickstart" },
   { href: "/docs/cli", label: "CLI" },
+  { href: "/docs/deploy-approvals", label: "Deploy approvals" },
+  { href: "/docs/demo-script", label: "Demo script" },
   { href: "/docs/api", label: "API" },
   { href: "/docs/sdk", label: "SDK" },
-  { href: "/docs/action-gateway", label: "Action Gateway" },
   { href: "/docs/webhooks", label: "Webhooks" },
+  { href: "/docs/action-gateway", label: "Action Gateway" },
   { href: "/docs/site-guard", label: "Site Guard" },
   { href: "/docs/concepts", label: "Concepts" },
   { href: "/security", label: "Security" }

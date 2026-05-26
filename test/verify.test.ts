@@ -5,7 +5,10 @@ const modelMocks = vi.hoisted(() => ({
   permissionFind: vi.fn(),
   permissionUpdateOne: vi.fn(),
   agentUpdateOne: vi.fn(),
-  verificationLogCreate: vi.fn()
+  verificationLogCreate: vi.fn(),
+  approvalRequestFindOne: vi.fn(),
+  approvalRequestFindOneAndUpdate: vi.fn(),
+  approvalRequestUpdateOne: vi.fn()
 }));
 
 vi.mock("@/models/Permission", () => ({
@@ -27,6 +30,15 @@ vi.mock("@/models/VerificationLog", () => ({
   }
 }));
 
+vi.mock("@/models/ApprovalRequest", () => ({
+  default: {
+    findOne: modelMocks.approvalRequestFindOne,
+    findOneAndUpdate: modelMocks.approvalRequestFindOneAndUpdate,
+    updateOne: modelMocks.approvalRequestUpdateOne
+  },
+  APPROVAL_GRANT_TTL_MS: 30 * 60 * 1_000
+}));
+
 function mockPermissions(permissions: unknown[]) {
   modelMocks.permissionFind.mockReturnValue({
     sort: vi.fn().mockResolvedValue(permissions)
@@ -39,6 +51,10 @@ describe("verifyAction permission decisions", () => {
     modelMocks.agentUpdateOne.mockResolvedValue({ matchedCount: 1 });
     modelMocks.permissionUpdateOne.mockResolvedValue({ matchedCount: 1 });
     modelMocks.verificationLogCreate.mockResolvedValue({});
+    // Default: no approved grant exists; pending upsert succeeds
+    modelMocks.approvalRequestFindOne.mockResolvedValue(null);
+    modelMocks.approvalRequestFindOneAndUpdate.mockResolvedValue(null);
+    modelMocks.approvalRequestUpdateOne.mockResolvedValue({ matchedCount: 1 });
   });
 
   it("allows an active matching permission and writes a verification log", async () => {
@@ -346,9 +362,47 @@ describe("verifyAction permission decisions", () => {
 
     expect(decision).toEqual(expect.objectContaining({
       allowed: false,
+      approvalRequired: true,
       reason: "Permission requires approval before execution.",
       risk: "medium"
     }));
+    expect(modelMocks.verificationLogCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ allowed: false, approvalRequired: true })
+    );
+    // Should have upserted a pending ApprovalRequest
+    expect(modelMocks.approvalRequestFindOneAndUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ agentId: "agent_test", status: "pending" }),
+      expect.objectContaining({ $setOnInsert: expect.objectContaining({ action: "purchase" }) }),
+      { upsert: true, new: true }
+    );
+  });
+
+  it("allows execution when an approved grant exists for the permission", async () => {
+    const now = new Date();
+    const grantExpiresAt = new Date(now.getTime() + 25 * 60 * 1_000);
+    mockPermissions([permissionFixture({ requiresApproval: true })]);
+    modelMocks.approvalRequestFindOne.mockResolvedValue({
+      approvalId: "apr_test",
+      agentId: "agent_test",
+      permissionId: "perm_test",
+      status: "approved",
+      grantExpiresAt
+    });
+    const { verifyAction } = await import("@/lib/verify");
+
+    const decision = await verifyAction(verificationRequestFixture());
+
+    expect(decision).toEqual(expect.objectContaining({
+      allowed: true,
+      approvalRequired: false,
+      reason: "Action allowed by approved permission grant.",
+      risk: "low"
+    }));
+    // Grant should be marked as used
+    expect(modelMocks.approvalRequestUpdateOne).toHaveBeenCalledWith(
+      { approvalId: "apr_test" },
+      { $set: { status: "used", resolvedAt: expect.any(Date) } }
+    );
   });
 
   it("fails closed when permission lookup throws", async () => {

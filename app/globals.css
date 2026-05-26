@@ -602,6 +602,12 @@ textarea.ui-input,
   background: rgba(255, 255, 255, 0.045);
 }
 
+.console-status--approval {
+  color: #fcd34d;
+  border-color: rgba(252, 211, 77, 0.5);
+  background: rgba(252, 211, 77, 0.12);
+}
+
 /* Decision badge variants (design system status semantics) */
 .ui-badge--allow {
   border-color: var(--ok-border);

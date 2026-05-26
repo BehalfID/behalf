@@ -66,6 +66,7 @@ describe("POST /api/verify route", () => {
       requestId: "req_test",
       permissionId: "perm_test",
       allowed: true,
+      approvalRequired: false,
       reason: "Action allowed by active permission.",
       risk: "low"
     });
@@ -94,6 +95,7 @@ describe("POST /api/verify route", () => {
       requestId: "req_denied",
       permissionId: null,
       allowed: false,
+      approvalRequired: false,
       reason: "No active permission exists for this action.",
       risk: "high"
     });
@@ -107,6 +109,7 @@ describe("POST /api/verify route", () => {
     expect(json).toEqual({
       requestId: "req_denied",
       allowed: false,
+      approvalRequired: false,
       reason: "No active permission exists for this action.",
       risk: "high"
     });

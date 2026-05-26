@@ -14,6 +14,7 @@ export type VerificationLogListItem = {
   amount?: number;
   vendor?: string | null;
   allowed: boolean;
+  approvalRequired?: boolean;
   reason: string;
   risk: LogRisk;
   createdAt?: Date | string;
@@ -102,6 +103,7 @@ export function buildVerificationLogQuery(
   if (requestId) query.requestId = requestId;
   if (allowed === "true") query.allowed = true;
   if (allowed === "false") query.allowed = false;
+  if (allowed === "approval") { query.allowed = false; query.approvalRequired = true; }
   if (risk && RISKS.has(risk)) query.risk = risk;
   if (gte || to) query.createdAt = {
     ...(gte ? { $gte: gte } : {}),
@@ -131,7 +133,7 @@ export function calculateVerificationLogSummary(logs: VerificationLogListItem[])
       deniedByAction.set(log.action, (deniedByAction.get(log.action) ?? 0) + 1);
     }
     if (log.risk === "high") summary.highRisk += 1;
-    if (/requires approval|approval required|approval before execution/i.test(log.reason)) {
+    if (log.approvalRequired || /requires approval|approval required|approval before execution/i.test(log.reason)) {
       summary.approvalRequired += 1;
     }
     if (log.vendor) byVendor.set(log.vendor, (byVendor.get(log.vendor) ?? 0) + 1);
@@ -197,11 +199,16 @@ export async function getVerificationLogSummaryAgg(
                     $sum: {
                       $cond: [
                         {
-                          $regexMatch: {
-                            input: { $ifNull: ["$reason", ""] },
-                            regex: "requires approval|approval required|approval before execution",
-                            options: "i"
-                          }
+                          $or: [
+                            { $eq: ["$approvalRequired", true] },
+                            {
+                              $regexMatch: {
+                                input: { $ifNull: ["$reason", ""] },
+                                regex: "requires approval|approval required|approval before execution",
+                                options: "i"
+                              }
+                            }
+                          ]
                         },
                         1,
                         0
@@ -288,6 +295,7 @@ export function logsToCsv(logs: VerificationLogListItem[]) {
   const headers = [
     "createdAt",
     "decision",
+    "approvalRequired",
     "risk",
     "agentId",
     "agentName",
@@ -300,6 +308,7 @@ export function logsToCsv(logs: VerificationLogListItem[]) {
   const rows = logs.map((log) => [
     stringifyDate(log.createdAt),
     log.allowed ? "allowed" : "denied",
+    log.approvalRequired ? "true" : "false",
     log.risk,
     log.agentId,
     log.agentName ?? "",

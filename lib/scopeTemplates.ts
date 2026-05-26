@@ -219,6 +219,28 @@ export const SCOPE_TEMPLATES: ScopeTemplate[] = [
     exampleResource: "github.com"
   },
   {
+    id: "deploy_staging",
+    label: "Deploy to staging",
+    category: "admin",
+    description: "Allow the agent to deploy to staging and preview environments without approval.",
+    defaultAction: "deploy",
+    defaultAllowedActions: ["deploy to staging", "create preview deployment", "update environment variables on staging"],
+    defaultBlockedActions: ["deploy to production", "promote to production", "delete production deployment", "modify production env vars"],
+    requiresApprovalDefault: false,
+    exampleResource: "vercel.com"
+  },
+  {
+    id: "deploy_production",
+    label: "Deploy to production (approval required)",
+    category: "admin",
+    description: "Require human approval before the agent can promote a build to production.",
+    defaultAction: "deploy_production",
+    defaultAllowedActions: ["promote staging to production"],
+    defaultBlockedActions: ["rollback without approval", "delete production deployment", "modify production env vars"],
+    requiresApprovalDefault: true,
+    exampleResource: "vercel.com"
+  },
+  {
     id: "read_finance",
     label: "Read financial data",
     category: "data_access",
