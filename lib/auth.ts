@@ -1,21 +1,13 @@
 import crypto from "crypto";
 import type { NextRequest } from "next/server";
+import { timingSafeEqualString } from "@/lib/crypto";
 import { logger } from "@/lib/logger";
 import Agent, { type AgentDocument } from "@/models/Agent";
 
+export { timingSafeEqualString };
+
 export function hashApiKey(apiKey: string) {
   return crypto.createHash("sha256").update(apiKey).digest("hex");
-}
-
-export function timingSafeEqualString(a: string, b: string) {
-  const aBuffer = Buffer.from(a);
-  const bBuffer = Buffer.from(b);
-
-  if (aBuffer.length !== bBuffer.length) {
-    return false;
-  }
-
-  return crypto.timingSafeEqual(aBuffer, bBuffer);
 }
 
 export function getBearerToken(request: NextRequest) {

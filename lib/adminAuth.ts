@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { cookies } from "next/headers";
 import type { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqualString } from "@/lib/crypto";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { jsonError } from "@/lib/responses";
 
@@ -24,17 +25,6 @@ export function isPublicAgentCreationEnabled() {
 
 export function isSetupTokenConfigured() {
   return Boolean(process.env.BEHALFID_SETUP_TOKEN?.trim());
-}
-
-function timingSafeEqualString(a: string, b: string) {
-  const aBuffer = Buffer.from(a);
-  const bBuffer = Buffer.from(b);
-
-  if (aBuffer.length !== bBuffer.length) {
-    return false;
-  }
-
-  return crypto.timingSafeEqual(aBuffer, bBuffer);
 }
 
 function signSession(issuedAt: number, nonce: string, password: string) {

@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import { createPublicId, createSiteGuardKey } from "@/lib/ids";
 import { readJsonObject } from "@/lib/request";
-import { jsonError } from "@/lib/responses";
+import { jsonError, noCacheJson } from "@/lib/responses";
 import { hashSiteGuardKey, previewSiteGuardKey } from "@/lib/siteGuardKey";
 import { readString, rejectUnknownFields } from "@/lib/validation";
 import Site from "@/models/Site";
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     .select("-_id keyId siteId name keyPreview status lastUsedAt createdAt updatedAt")
     .lean();
 
-  return NextResponse.json({ keys });
+  return noCacheJson({ keys });
 }
 
 export async function POST(request: NextRequest, context: RouteContext) {

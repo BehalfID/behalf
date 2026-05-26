@@ -793,7 +793,7 @@ export async function POST(request: NextRequest) {
   if (!rawBaseUrl || !rawModel) {
     return diagError(503, "NOT_CONFIGURED",
       "AI-assisted drafting is not configured.",
-      "Set OLLAMA_BASE_URL and OLLAMA_MODEL in .env.local, then restart the Next.js server or redeploy Vercel."
+      "Set OLLAMA_BASE_URL and OLLAMA_MODEL in .env, then restart the Next.js server or redeploy Vercel."
     );
   }
 
@@ -887,14 +887,14 @@ export async function POST(request: NextRequest) {
       // ── Timeout — try deterministic fallback before returning error ─────
       ollamaError = diagError(503, "TIMEOUT",
         "Ollama timed out.",
-        `Ollama did not respond within ${timeoutMs / 1000}s. Increase OLLAMA_TIMEOUT_MS in .env.local — if you are running the secure proxy, restart it so it picks up the new value (the proxy also reads OLLAMA_TIMEOUT_MS as its timeout).`
+        `Ollama did not respond within ${timeoutMs / 1000}s. Increase OLLAMA_TIMEOUT_MS in .env — if you are running the secure proxy, restart it so it picks up the new value (the proxy also reads OLLAMA_TIMEOUT_MS as its timeout).`
       );
     } else if (isRefused) {
       // ── C: Unreachable ─────────────────────────────────────────────────
       ollamaError = diagError(503, "UNREACHABLE",
         "Ollama is not reachable.",
         `The BehalfID server cannot reach ${OLLAMA_BASE_URL}. ` +
-        `If testing locally, make sure Ollama is running (ollama serve) and restart Next.js after editing .env.local. ` +
+        `If testing locally, make sure Ollama is running (ollama serve) and restart Next.js after editing .env. ` +
         `If using Vercel, Ollama must be reachable through a secure proxy.`
       );
     } else {

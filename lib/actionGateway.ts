@@ -77,6 +77,11 @@ async function validatePublicHttpUrl(value: string) {
     throw new Error("Gateway only supports http:// and https:// URLs.");
   }
 
+  // In production, reject plain HTTP to prevent MITM interception of fetched content.
+  if (process.env.NODE_ENV === "production" && url.protocol === "http:") {
+    throw new Error("Gateway requires https:// URLs in production.");
+  }
+
   if (url.username || url.password) {
     throw new Error("Gateway URLs must not include credentials.");
   }

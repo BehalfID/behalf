@@ -73,7 +73,7 @@ The real-DB integration suite still mocks outbound webhook DNS/HTTP delivery, St
 
 ## Demo data cleanup
 
-`npm run cleanup:demo` loads `.env.local`, connects to that MongoDB database, and prints a dry-run summary of the Site Guard demo records selected for cleanup:
+`npm run cleanup:demo` loads `.env`, connects to that MongoDB database, and prints a dry-run summary of the Site Guard demo records selected for cleanup:
 
 ```bash
 npm run cleanup:demo

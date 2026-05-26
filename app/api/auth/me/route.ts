@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { requireDeveloperApi } from "@/lib/developerAuth";
-import { jsonError } from "@/lib/responses";
+import { jsonError, noCacheJson } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
 import { readJsonObject } from "@/lib/request";
 import DeveloperUser from "@/models/DeveloperUser";
@@ -11,7 +11,7 @@ const VALID_USE_CASES = ["personal", "website", "sdk"] as const;
 export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
-  return NextResponse.json({ user: auth.user });
+  return noCacheJson({ user: auth.user });
 }
 
 export async function PATCH(request: NextRequest) {

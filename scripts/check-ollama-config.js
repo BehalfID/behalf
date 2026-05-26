@@ -69,7 +69,7 @@ async function main() {
     ok(`OLLAMA_MODEL:    ${MODEL}`);
   } else {
     fail("OLLAMA_MODEL is not set");
-    info("Add it to .env.local: OLLAMA_MODEL=llama3.1:8b");
+    info("Add it to .env: OLLAMA_MODEL=llama3.1:8b");
   }
 
   if (PROXY_TOKEN) {
@@ -179,7 +179,7 @@ function printResult(success) {
   if (success) {
     console.log(`${GREEN}${BOLD}Result:${RESET}`);
     console.log(`${GREEN}Ollama is ready for local BehalfID drafting.${RESET}`);
-    console.log(`\nRestart Next.js if you just changed .env.local: Ctrl+C then npm run dev\n`);
+    console.log(`\nRestart Next.js if you just changed .env: Ctrl+C then npm run dev\n`);
   } else {
     console.log(`${RED}${BOLD}Result:${RESET}`);
     console.log(`${RED}The BehalfID server cannot reach this Ollama URL.${RESET}`);

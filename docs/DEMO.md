@@ -22,7 +22,7 @@ The script checks `/api/health`, checks `/api/health/db` when a setup token is p
 
 ## Console Demo
 
-1. Set `BEHALFID_ADMIN_PASSWORD` in `.env.local`.
+1. Set `BEHALFID_ADMIN_PASSWORD` in `.env`.
 2. Run `npm run dev`.
 3. Open `http://localhost:3000/console`.
 4. Login with the admin password.

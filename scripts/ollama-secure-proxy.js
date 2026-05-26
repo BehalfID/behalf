@@ -34,7 +34,7 @@ function parseEnvFile(filename) {
   return vars;
 }
 
-const env = { ...parseEnvFile(".env"), ...parseEnvFile(".env.local"), ...process.env };
+const env = { ...parseEnvFile(".env"), ...process.env };
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -201,7 +201,7 @@ function startup() {
   if (!PROXY_TOKEN) {
     log("ERROR", "OLLAMA_PROXY_TOKEN is not set. Refusing to start without a token.");
     log("ERROR", "Generate one with: openssl rand -hex 32");
-    log("ERROR", "Add it to .env.local or export it before running npm run ollama:proxy.");
+    log("ERROR", "Add it to .env or export it before running npm run ollama:proxy.");
     process.exit(1);
   }
 

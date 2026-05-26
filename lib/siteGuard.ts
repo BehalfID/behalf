@@ -31,8 +31,48 @@ type DecisionWithoutRequest = Omit<SiteGuardDecision, "requestId" | "siteId">;
 
 const REDACTED_METADATA_KEY = /(authorization|cookie|password|secret|token|api.?key)/i;
 
-function escapeRegExp(value: string) {
-  return value.replace(/[|\\{}()[\]^$+?.]/g, "\\$&");
+/**
+ * Linear-time glob matcher for path and signal patterns.
+ *
+ * Supports `*` as a wildcard that matches any sequence of characters
+ * (including `/`). Matching is iterative — not regex-based — so patterns
+ * with multiple wildcards cannot cause catastrophic backtracking.
+ *
+ * @param pattern  Glob pattern (e.g. `/admin/*`, `*bot*`)
+ * @param value    String to test
+ * @param caseInsensitive  When true, both sides are lowercased before matching
+ */
+function globMatches(pattern: string, value: string, caseInsensitive = false): boolean {
+  const p = caseInsensitive ? pattern.toLowerCase() : pattern;
+  const v = caseInsensitive ? value.toLowerCase() : value;
+
+  // Fast path: no wildcard
+  if (!p.includes("*")) return p === v;
+
+  const parts = p.split("*");
+  let pos = 0;
+
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    if (part === "") continue;
+
+    if (i === 0) {
+      // First segment must be a prefix
+      if (!v.startsWith(part)) return false;
+      pos = part.length;
+    } else if (i === parts.length - 1) {
+      // Last segment must be a suffix and must not overlap already-consumed chars
+      if (!v.endsWith(part)) return false;
+      if (pos > v.length - part.length) return false;
+    } else {
+      // Middle segments must appear in order after the current position
+      const idx = v.indexOf(part, pos);
+      if (idx === -1) return false;
+      pos = idx + part.length;
+    }
+  }
+
+  return true;
 }
 
 function trimSignal(value: string | undefined, max: number) {
@@ -62,14 +102,13 @@ export function sitePathMatches(pattern: string, path: string) {
   const normalizedPattern = normalizeSitePath(pattern);
   const normalizedPath = normalizeSitePath(path);
   if (!normalizedPattern || !normalizedPath) return false;
-  const matcher = `^${escapeRegExp(normalizedPattern).replaceAll("*", ".*")}$`;
-  return new RegExp(matcher).test(normalizedPath);
+  return globMatches(normalizedPattern, normalizedPath);
 }
 
 function signalPatternMatches(pattern: string | null | undefined, value: string | undefined) {
   if (!pattern || !value) return false;
-  const matcher = `^${escapeRegExp(pattern.trim()).replaceAll("*", ".*")}$`;
-  return new RegExp(matcher, "i").test(value.trim());
+  // Case-insensitive match for user-agent and identifier patterns.
+  return globMatches(pattern.trim(), value.trim(), true);
 }
 
 function ruleMatchesSignal(rule: SiteAccessRuleDocument, input: SiteGuardInput) {

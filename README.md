@@ -21,11 +21,11 @@ This prototype includes the public permission API, a public docs site, a develop
 
 ```bash
 npm install
-cp .env.example .env.local
+cp .env.example .env
 npm run dev
 ```
 
-Set these values in `.env.local`:
+Set these values in `.env`:
 
 ```env
 MONGODB_URI=mongodb://127.0.0.1:27017/behalfid

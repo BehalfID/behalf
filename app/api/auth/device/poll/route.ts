@@ -26,5 +26,11 @@ export async function POST(request: NextRequest) {
   if (record.status === "denied") return NextResponse.json({ status: "denied" });
   if (record.status === "pending") return NextResponse.json({ status: "pending" });
 
+  // status === "authorized": retrieve the token then immediately delete the
+  // record so the plaintext session token no longer lives in the database.
+  // The TTL index would eventually remove it, but deleting on first retrieval
+  // closes the window between authorization and natural expiry.
+  await DeviceCode.deleteOne({ deviceCode });
+
   return NextResponse.json({ status: "authorized", token: record.sessionToken });
 }

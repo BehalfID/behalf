@@ -36,9 +36,9 @@ ollama pull qwen2.5:1.5b     # very fast, less capable
 ollama pull qwen2.5:0.5b     # fastest, use for quick tests
 ```
 
-### 3. Add env vars to `.env.local`
+### 3. Add env vars to `.env`
 
-Create or edit `.env.local` in the project root:
+Create or edit `.env` in the project root:
 
 ```env
 # Local AI-assisted permission drafting.
@@ -55,7 +55,7 @@ OLLAMA_TIMEOUT_MS=30000
 npm run dev
 ```
 
-Next.js reads `.env.local` at startup. Changes to env files are not picked up without a restart.
+Next.js reads `.env` at startup. Changes to env files are not picked up without a restart.
 
 ### 5. Verify the setup
 
@@ -179,7 +179,7 @@ Keep this value — you'll need it in step 3 and step 6.
 # One-time (development/test)
 OLLAMA_PROXY_TOKEN=<your-token> npm run ollama:proxy
 
-# Or add to .env.local and run:
+# Or add to .env and run:
 npm run ollama:proxy
 ```
 
@@ -219,7 +219,7 @@ cloudflared tunnel run --url http://localhost:8787 ollama-proxy
 ### 5. Verify connectivity
 
 ```bash
-# With OLLAMA_PROXY_TOKEN set in .env.local:
+# With OLLAMA_PROXY_TOKEN set in .env:
 npm run check:ollama
 ```
 
@@ -270,7 +270,7 @@ pm2 save
 
 | Error | Cause | Fix |
 |---|---|---|
-| `AI-assisted drafting is not configured.` | `OLLAMA_BASE_URL` or `OLLAMA_MODEL` not set | Add both to `.env.local` and restart Next.js |
+| `AI-assisted drafting is not configured.` | `OLLAMA_BASE_URL` or `OLLAMA_MODEL` not set | Add both to `.env` and restart Next.js |
 | `Ollama is configured as localhost in production.` | Running on Vercel with `localhost` URL | Use `npm run dev` locally, or set up a proxy |
 | `Ollama is not reachable.` | Ollama not running, wrong URL, or firewall | Run `npm run check:ollama` to diagnose |
 | `Ollama proxy rejected the request.` | `OLLAMA_PROXY_TOKEN` mismatch between BehalfID and proxy | Ensure both sides use the same token value |

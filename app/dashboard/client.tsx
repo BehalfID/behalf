@@ -1237,16 +1237,16 @@ ${regularPassportUrl || "[passport link]"}`;
                   <p className="field-help">Production cannot use localhost for Ollama. Test this flow locally with <code>npm run dev</code>, or configure a secure Ollama proxy.</p>
                 ) : null}
                 {draftErrorCode === "NOT_CONFIGURED" ? (
-                  <p className="field-help">Run <code>npm run check:ollama</code> locally to verify your Ollama setup, then add the env vars to .env.local.</p>
+                  <p className="field-help">Run <code>npm run check:ollama</code> locally to verify your Ollama setup, then add the env vars to .env.</p>
                 ) : null}
                 {draftErrorCode === "MODEL_NOT_FOUND" ? (
                   <p className="field-help">Run <code>npm run check:ollama</code> to see which models are installed.</p>
                 ) : null}
                 {draftErrorCode === "TIMEOUT" ? (
-                  <p className="field-help">Ollama took too long. Increase <code>OLLAMA_TIMEOUT_MS</code> in .env.local, then restart both the dev server (<code>npm run dev</code>) and the secure proxy (<code>npm run ollama:proxy</code>) so they both pick up the new value.</p>
+                  <p className="field-help">Ollama took too long. Increase <code>OLLAMA_TIMEOUT_MS</code> in .env, then restart both the dev server (<code>npm run dev</code>) and the secure proxy (<code>npm run ollama:proxy</code>) so they both pick up the new value.</p>
                 ) : null}
                 {draftErrorCode === "UNREACHABLE" ? (
-                  <p className="field-help">Could not connect to Ollama. Make sure Ollama is running (<code>ollama serve</code>) and restart the dev server after editing .env.local. If your description matches a known pattern, BehalfID will generate a rule-based draft automatically.</p>
+                  <p className="field-help">Could not connect to Ollama. Make sure Ollama is running (<code>ollama serve</code>) and restart the dev server after editing .env. If your description matches a known pattern, BehalfID will generate a rule-based draft automatically.</p>
                 ) : null}
               </div>
             ) : null}

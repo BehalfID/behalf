@@ -29,7 +29,10 @@ function buildCsp(nonce: string, isDev: boolean) {
     "connect-src 'self'",
     "frame-ancestors 'none'",
     "base-uri 'self'",
-    "form-action 'self'"
+    "form-action 'self'",
+    // Collect violations server-side so injection attempts are visible in logs.
+    // Omitted in dev to avoid noise from hot-reload and eval.
+    ...(isDev ? [] : ["report-uri /api/csp-report"])
   ].join("; ");
 }
 
@@ -44,6 +47,7 @@ export function shouldBypassProxy(pathname: string) {
   return (
     pathname === "/api/health" ||
     pathname === "/api/health/db" ||
+    pathname === "/api/csp-report" ||
     pathname === "/robots.txt" ||
     pathname === "/sitemap.xml" ||
     pathname.startsWith("/_next/") ||

@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "behalfid": {
+      "type": "stdio",
+      "command": "behalf",
+      "args": [
+        "mcp",
+        "start"
+      ]
+    }
+  }
+}

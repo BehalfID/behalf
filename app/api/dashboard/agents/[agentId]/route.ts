@@ -3,7 +3,7 @@ import { parseAgentMetadata } from "@/lib/agents";
 import { getDeveloperAgentDetail, serializeAgent } from "@/lib/dashboardData";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import { readJsonObject } from "@/lib/request";
-import { jsonError } from "@/lib/responses";
+import { jsonError, noCacheJson } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
 import Agent from "@/models/Agent";
 
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const { agentId } = await context.params;
   const detail = await getDeveloperAgentDetail(auth.user.userId, agentId);
   if (!detail) return jsonError("Agent not found.", 404);
-  return NextResponse.json(detail);
+  return noCacheJson(detail);
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
