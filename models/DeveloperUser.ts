@@ -11,7 +11,9 @@ const DeveloperUserSchema = new Schema(
       default: "sdk",
       index: true
     },
-    primaryAccountId: { type: String, index: true, sparse: true }
+    primaryAccountId: { type: String, index: true, sparse: true },
+    /** ISO date string (YYYY-MM-DD). Stored server-side for COPPA compliance; never returned in public responses. */
+    dateOfBirth: { type: String, select: false }
   },
   { timestamps: true }
 );

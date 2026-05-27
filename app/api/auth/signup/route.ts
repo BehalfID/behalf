@@ -28,14 +28,23 @@ export async function POST(request: NextRequest) {
   if (error) return error;
   if (!body) return jsonError("Request body must be a JSON object.");
 
-  const unknownError = rejectUnknownFields(body, ["email", "password"]);
+  const unknownError = rejectUnknownFields(body, ["email", "password", "dateOfBirth"]);
   if (unknownError) return jsonError(unknownError);
 
   const email = normalizeEmail(readString(body.email));
   const password = typeof body.password === "string" ? body.password : "";
+  const dateOfBirth = typeof body.dateOfBirth === "string" ? body.dateOfBirth.trim() : "";
 
   if (!isValidEmail(email)) return jsonError("A valid email is required.");
   if (!isValidPassword(password)) return jsonError("Password must be between 10 and 200 characters.");
+
+  // COPPA: must be at least 13 years old. Validate server-side regardless of client-side checks.
+  if (!dateOfBirth) return jsonError("Date of birth is required.");
+  const dobDate = new Date(dateOfBirth);
+  if (isNaN(dobDate.getTime())) return jsonError("Date of birth is invalid.");
+  const minAgeDate = new Date();
+  minAgeDate.setFullYear(minAgeDate.getFullYear() - 13);
+  if (dobDate > minAgeDate) return jsonError("You must be at least 13 years old to create an account.");
 
   // Per-email rate limit to slow automated account probing
   const authLimit = await checkAuthRateLimit(email);
@@ -53,7 +62,8 @@ export async function POST(request: NextRequest) {
     user = await DeveloperUser.create({
       userId: createPublicId("user"),
       email,
-      passwordHash: await hashPassword(password)
+      passwordHash: await hashPassword(password),
+      dateOfBirth
     });
   } catch (error) {
     if (

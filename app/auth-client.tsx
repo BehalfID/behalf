@@ -5,20 +5,43 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { Button, Logo } from "@/components/ui";
 
+/** Returns the latest date of birth that satisfies the minimum age (YYYY-MM-DD). */
+function maxDateOfBirth(minAge: number): string {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - minAge);
+  return d.toISOString().split("T")[0];
+}
+
 export function AuthPage({ mode }: { mode: "login" | "signup" }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
   const [error, setError] = useState("");
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError("");
+
+    if (mode === "signup") {
+      if (!dateOfBirth) {
+        setError("Date of birth is required.");
+        return;
+      }
+      const dob = new Date(dateOfBirth);
+      const ageLimitDate = new Date();
+      ageLimitDate.setFullYear(ageLimitDate.getFullYear() - 13);
+      if (dob > ageLimitDate) {
+        setError("You must be at least 13 years old to create an account.");
+        return;
+      }
+    }
+
     const response = await fetch(`/api/auth/${mode}`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify(mode === "signup" ? { email, password, dateOfBirth } : { email, password })
     });
     if (!response.ok) {
       const body = (await response.json().catch(() => null)) as { error?: string } | null;
@@ -57,6 +80,19 @@ export function AuthPage({ mode }: { mode: "login" | "signup" }) {
             <span>Password</span>
             <input autoComplete={mode === "signup" ? "new-password" : "current-password"} minLength={10} onChange={(event) => setPassword(event.target.value)} required type="password" value={password} />
           </label>
+          {mode === "signup" && (
+            <label>
+              <span>Date of birth</span>
+              <input
+                autoComplete="bday"
+                max={maxDateOfBirth(13)}
+                onChange={(event) => setDateOfBirth(event.target.value)}
+                required
+                type="date"
+                value={dateOfBirth}
+              />
+            </label>
+          )}
           {error ? <p className="form-error" role="alert" aria-live="assertive">{error}</p> : null}
           <Button variant="primary" type="submit">{mode === "signup" ? "Create account" : "Log in"}</Button>
           {mode === "signup" && (
