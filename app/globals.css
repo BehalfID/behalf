@@ -9838,6 +9838,22 @@ html[data-theme="light"] .billing-limit-grid div {
   gap: var(--s-4);
 }
 
+.console-section-header__actions {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+}
+
+.console-seed-result {
+  font-size: 0.84rem;
+  color: var(--ok);
+  margin: 0;
+  padding: var(--s-2) var(--s-3);
+  background: rgba(110, 231, 183, 0.07);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(110, 231, 183, 0.2);
+}
+
 .console-section-title {
   font-size: 0.92rem;
   font-weight: 640;

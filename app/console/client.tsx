@@ -1574,6 +1574,25 @@ function StatusView() {
 
   const [activeTab, setActiveTab] = useState<"components" | "incidents">("components");
 
+  // Seed state
+  const [seeding, setSeeding] = useState(false);
+  const [seedResult, setSeedResult] = useState<{ created: number; skipped: number } | null>(null);
+
+  const handleSeed = useCallback(async () => {
+    if (!confirm("Populate the status page with default BehalfID service components? Existing components are not overwritten.")) return;
+    setSeeding(true);
+    setSeedResult(null);
+    try {
+      const result = await apiFetch<{ created: number; skipped: number }>("/api/console/status/seed", { method: "POST" });
+      setSeedResult(result);
+      void reloadComps();
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setSeeding(false);
+    }
+  }, [reloadComps]);
+
   // Component form state
   const [showCompForm, setShowCompForm] = useState(false);
   const [compForm, setCompForm] = useState({ name: "", description: "", group: "", sortOrder: "0", status: "operational" as ComponentStatus });
@@ -1769,10 +1788,20 @@ function StatusView() {
         <div className="console-tab-panel" role="tabpanel">
           <div className="console-section-header">
             <h2 className="console-section-title">Service Components</h2>
-            <Button type="button" onClick={() => { setEditingComp(null); setCompForm({ name: "", description: "", group: "", sortOrder: "0", status: "operational" }); setCompFormError(null); setShowCompForm(true); }}>
-              Add Component
-            </Button>
+            <div className="console-section-header__actions">
+              <Button type="button" onClick={() => void handleSeed()} disabled={seeding}>
+                {seeding ? "Seeding…" : "Seed defaults"}
+              </Button>
+              <Button type="button" onClick={() => { setEditingComp(null); setCompForm({ name: "", description: "", group: "", sortOrder: "0", status: "operational" }); setCompFormError(null); setShowCompForm(true); }}>
+                Add Component
+              </Button>
+            </div>
           </div>
+          {seedResult && (
+            <p className="console-seed-result">
+              ✓ Seeded: {seedResult.created} created, {seedResult.skipped} already existed.
+            </p>
+          )}
 
           {showCompForm && (
             <form className="console-form" onSubmit={handleSaveComponent}>
