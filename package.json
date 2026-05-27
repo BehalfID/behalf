@@ -11,6 +11,7 @@
     "test:coverage": "vitest run --coverage",
     "build:sdk": "npm --prefix packages/sdk run build",
     "cleanup:demo": "tsx scripts/cleanup-demo-data.ts",
+    "seed:status": "tsx scripts/seed-status.ts",
     "check:ollama": "node scripts/check-ollama-config.js",
     "ollama:proxy": "node scripts/ollama-secure-proxy.js",
     "x:post": "node scripts/x-autoposter.js",

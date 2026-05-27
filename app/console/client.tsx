@@ -300,7 +300,7 @@ export function LoginPage() {
   );
 }
 
-export function ConsolePage({ view }: { view: "dashboard" | "agents" | "site-guard" | "webhooks" | "webhook-events" | "logs" | "settings" }) {
+export function ConsolePage({ view }: { view: "dashboard" | "agents" | "site-guard" | "webhooks" | "webhook-events" | "logs" | "settings" | "status" }) {
   return (
     <ConsoleFrame>
       {view === "dashboard" ? <DashboardView /> : null}
@@ -310,6 +310,7 @@ export function ConsolePage({ view }: { view: "dashboard" | "agents" | "site-gua
       {view === "webhook-events" ? <WebhookEventsView /> : null}
       {view === "logs" ? <LogsView /> : null}
       {view === "settings" ? <SettingsView /> : null}
+      {view === "status" ? <StatusView /> : null}
     </ConsoleFrame>
   );
 }
@@ -1472,4 +1473,582 @@ function permissionSummary(permission: Permission) {
   ].filter(Boolean);
 
   return parts.length ? parts.join(" / ") : permission.notes || permission.description || permission.permissionId;
+}
+
+// ─── Status Page Management ────────────────────────────────────────────────────
+
+type ComponentStatus = "operational" | "performance_issues" | "partial_outage" | "major_outage";
+type IncidentStatus = "investigating" | "identified" | "watching" | "fixed";
+type IncidentSeverity = "minor" | "major" | "critical";
+
+type StatusComponent = {
+  componentId: string;
+  name: string;
+  description?: string | null;
+  group?: string | null;
+  sortOrder: number;
+  status: ComponentStatus;
+  enabled: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+type IncidentUpdate = {
+  _id?: string;
+  body: string;
+  status: IncidentStatus;
+  createdAt?: string;
+};
+
+type StatusIncident = {
+  incidentId: string;
+  title: string;
+  message?: string | null;
+  status: IncidentStatus;
+  severity: IncidentSeverity;
+  componentIds: string[];
+  updates: IncidentUpdate[];
+  resolvedAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+type StatusComponentsResponse = { components: StatusComponent[] };
+type StatusIncidentsResponse = { incidents: StatusIncident[] };
+
+const COMPONENT_STATUS_OPTIONS: [ComponentStatus, string][] = [
+  ["operational", "Operational"],
+  ["performance_issues", "Performance Issues"],
+  ["partial_outage", "Partial Outage"],
+  ["major_outage", "Major Outage"]
+];
+
+const INCIDENT_STATUS_OPTIONS: [IncidentStatus, string][] = [
+  ["investigating", "Investigating"],
+  ["identified", "Identified"],
+  ["watching", "Monitoring"],
+  ["fixed", "Resolved"]
+];
+
+const SEVERITY_OPTIONS: [IncidentSeverity, string][] = [
+  ["minor", "Minor"],
+  ["major", "Major"],
+  ["critical", "Critical"]
+];
+
+function componentStatusLabel(status: ComponentStatus): string {
+  return COMPONENT_STATUS_OPTIONS.find(([v]) => v === status)?.[1] ?? status;
+}
+
+function incidentStatusLabel(status: IncidentStatus): string {
+  return INCIDENT_STATUS_OPTIONS.find(([v]) => v === status)?.[1] ?? status;
+}
+
+function severityLabel(severity: IncidentSeverity): string {
+  return SEVERITY_OPTIONS.find(([v]) => v === severity)?.[1] ?? severity;
+}
+
+function componentStatusCls(status: ComponentStatus): string {
+  switch (status) {
+    case "operational": return "console-status console-status--active";
+    case "performance_issues": return "console-status console-status--medium";
+    case "partial_outage": return "console-status console-status--approval";
+    case "major_outage": return "console-status console-status--denied";
+  }
+}
+
+function incidentStatusCls(status: IncidentStatus): string {
+  switch (status) {
+    case "investigating": return "console-status console-status--denied";
+    case "identified": return "console-status console-status--approval";
+    case "watching": return "console-status console-status--medium";
+    case "fixed": return "console-status console-status--active";
+  }
+}
+
+function StatusView() {
+  const { data: compData, loading: compLoading, error: compError, reload: reloadComps } =
+    useApiResource<StatusComponentsResponse>("/api/console/status/components");
+  const { data: incData, loading: incLoading, error: incError, reload: reloadIncs } =
+    useApiResource<StatusIncidentsResponse>("/api/console/status/incidents");
+
+  const [activeTab, setActiveTab] = useState<"components" | "incidents">("components");
+
+  // Seed state
+  const [seeding, setSeeding] = useState(false);
+  const [seedResult, setSeedResult] = useState<{ created: number; skipped: number } | null>(null);
+
+  const handleSeed = useCallback(async () => {
+    if (!confirm("Populate the status page with default BehalfID service components? Existing components are not overwritten.")) return;
+    setSeeding(true);
+    setSeedResult(null);
+    try {
+      const result = await apiFetch<{ created: number; skipped: number }>("/api/console/status/seed", { method: "POST" });
+      setSeedResult(result);
+      void reloadComps();
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setSeeding(false);
+    }
+  }, [reloadComps]);
+
+  // Component form state
+  const [showCompForm, setShowCompForm] = useState(false);
+  const [compForm, setCompForm] = useState({ name: "", description: "", group: "", sortOrder: "0", status: "operational" as ComponentStatus });
+  const [compSubmitting, setCompSubmitting] = useState(false);
+  const [compFormError, setCompFormError] = useState<string | null>(null);
+  const [editingComp, setEditingComp] = useState<StatusComponent | null>(null);
+
+  // Incident form state
+  const [showIncForm, setShowIncForm] = useState(false);
+  const [incForm, setIncForm] = useState({ title: "", message: "", status: "investigating" as IncidentStatus, severity: "minor" as IncidentSeverity, componentIds: "" });
+  const [incSubmitting, setIncSubmitting] = useState(false);
+  const [incFormError, setIncFormError] = useState<string | null>(null);
+  const [editingInc, setEditingInc] = useState<StatusIncident | null>(null);
+
+  // Update form state
+  const [updatingInc, setUpdatingInc] = useState<StatusIncident | null>(null);
+  const [updateBody, setUpdateBody] = useState("");
+  const [updateStatus, setUpdateStatus] = useState<IncidentStatus>("watching");
+  const [updateSubmitting, setUpdateSubmitting] = useState(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+
+  const handleSaveComponent = useCallback(async (e: FormEvent) => {
+    e.preventDefault();
+    setCompSubmitting(true);
+    setCompFormError(null);
+    try {
+      const payload = {
+        name: compForm.name,
+        description: compForm.description || undefined,
+        group: compForm.group || undefined,
+        sortOrder: parseInt(compForm.sortOrder) || 0,
+        status: compForm.status
+      };
+      if (editingComp) {
+        await apiFetch(`/api/console/status/components/${editingComp.componentId}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload)
+        });
+      } else {
+        await apiFetch("/api/console/status/components", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+      }
+      setShowCompForm(false);
+      setEditingComp(null);
+      setCompForm({ name: "", description: "", group: "", sortOrder: "0", status: "operational" });
+      void reloadComps();
+    } catch (err) {
+      setCompFormError((err as Error).message);
+    } finally {
+      setCompSubmitting(false);
+    }
+  }, [compForm, editingComp, reloadComps]);
+
+  const handleDeleteComponent = useCallback(async (componentId: string) => {
+    if (!confirm("Delete this component? This cannot be undone.")) return;
+    try {
+      await apiFetch(`/api/console/status/components/${componentId}`, { method: "DELETE" });
+      void reloadComps();
+    } catch (err) {
+      alert((err as Error).message);
+    }
+  }, [reloadComps]);
+
+  const startEditComponent = useCallback((comp: StatusComponent) => {
+    setEditingComp(comp);
+    setCompForm({
+      name: comp.name,
+      description: comp.description ?? "",
+      group: comp.group ?? "",
+      sortOrder: String(comp.sortOrder),
+      status: comp.status
+    });
+    setCompFormError(null);
+    setShowCompForm(true);
+  }, []);
+
+  const handleSaveIncident = useCallback(async (e: FormEvent) => {
+    e.preventDefault();
+    setIncSubmitting(true);
+    setIncFormError(null);
+    try {
+      const componentIds = incForm.componentIds
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const payload = {
+        title: incForm.title,
+        message: incForm.message || undefined,
+        status: incForm.status,
+        severity: incForm.severity,
+        componentIds
+      };
+      if (editingInc) {
+        await apiFetch(`/api/console/status/incidents/${editingInc.incidentId}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload)
+        });
+      } else {
+        await apiFetch("/api/console/status/incidents", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+      }
+      setShowIncForm(false);
+      setEditingInc(null);
+      setIncForm({ title: "", message: "", status: "investigating", severity: "minor", componentIds: "" });
+      void reloadIncs();
+    } catch (err) {
+      setIncFormError((err as Error).message);
+    } finally {
+      setIncSubmitting(false);
+    }
+  }, [incForm, editingInc, reloadIncs]);
+
+  const handleDeleteIncident = useCallback(async (incidentId: string) => {
+    if (!confirm("Delete this incident? This cannot be undone.")) return;
+    try {
+      await apiFetch(`/api/console/status/incidents/${incidentId}`, { method: "DELETE" });
+      void reloadIncs();
+    } catch (err) {
+      alert((err as Error).message);
+    }
+  }, [reloadIncs]);
+
+  const startEditIncident = useCallback((inc: StatusIncident) => {
+    setEditingInc(inc);
+    setIncForm({
+      title: inc.title,
+      message: inc.message ?? "",
+      status: inc.status,
+      severity: inc.severity,
+      componentIds: inc.componentIds.join(", ")
+    });
+    setIncFormError(null);
+    setShowIncForm(true);
+  }, []);
+
+  const handlePostUpdate = useCallback(async (e: FormEvent) => {
+    e.preventDefault();
+    if (!updatingInc) return;
+    setUpdateSubmitting(true);
+    setUpdateError(null);
+    try {
+      await apiFetch(`/api/console/status/incidents/${updatingInc.incidentId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: updateStatus, updateBody })
+      });
+      setUpdatingInc(null);
+      setUpdateBody("");
+      void reloadIncs();
+    } catch (err) {
+      setUpdateError((err as Error).message);
+    } finally {
+      setUpdateSubmitting(false);
+    }
+  }, [updatingInc, updateStatus, updateBody, reloadIncs]);
+
+  const components = compData?.components ?? [];
+  const incidents = incData?.incidents ?? [];
+
+  return (
+    <div className="console-view">
+      <PageHeader
+        title="Status Page"
+        action={<a href="/status" target="_blank" rel="noreferrer" className="ui-button ui-button--secondary">View public page ↗</a>}
+      />
+
+      <div className="console-tabs" role="tablist" aria-label="Status management">
+        <button
+          role="tab"
+          aria-selected={activeTab === "components"}
+          className={`console-tab${activeTab === "components" ? " console-tab--active" : ""}`}
+          onClick={() => setActiveTab("components")}
+          type="button"
+        >
+          Components
+        </button>
+        <button
+          role="tab"
+          aria-selected={activeTab === "incidents"}
+          className={`console-tab${activeTab === "incidents" ? " console-tab--active" : ""}`}
+          onClick={() => setActiveTab("incidents")}
+          type="button"
+        >
+          Incidents
+        </button>
+      </div>
+
+      {/* Components Tab */}
+      {activeTab === "components" && (
+        <div className="console-tab-panel" role="tabpanel">
+          <div className="console-section-header">
+            <h2 className="console-section-title">Service Components</h2>
+            <div className="console-section-header__actions">
+              <Button type="button" onClick={() => void handleSeed()} disabled={seeding}>
+                {seeding ? "Seeding…" : "Seed defaults"}
+              </Button>
+              <Button type="button" onClick={() => { setEditingComp(null); setCompForm({ name: "", description: "", group: "", sortOrder: "0", status: "operational" }); setCompFormError(null); setShowCompForm(true); }}>
+                Add Component
+              </Button>
+            </div>
+          </div>
+          {seedResult && (
+            <p className="console-seed-result">
+              ✓ Seeded: {seedResult.created} created, {seedResult.skipped} already existed.
+            </p>
+          )}
+
+          {showCompForm && (
+            <form className="console-form" onSubmit={handleSaveComponent}>
+              <h3 className="console-form__title">{editingComp ? "Edit Component" : "New Component"}</h3>
+              {compFormError && <p className="console-form__error">{compFormError}</p>}
+              <label className="console-form__label">
+                Name <span aria-hidden="true">*</span>
+                <input
+                  className="ui-input"
+                  value={compForm.name}
+                  onChange={(e) => setCompForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder="e.g. API Gateway"
+                  maxLength={120}
+                  required
+                />
+              </label>
+              <label className="console-form__label">
+                Description
+                <input
+                  className="ui-input"
+                  value={compForm.description}
+                  onChange={(e) => setCompForm((f) => ({ ...f, description: e.target.value }))}
+                  placeholder="Optional short description"
+                  maxLength={500}
+                />
+              </label>
+              <label className="console-form__label">
+                Group
+                <input
+                  className="ui-input"
+                  value={compForm.group}
+                  onChange={(e) => setCompForm((f) => ({ ...f, group: e.target.value }))}
+                  placeholder="e.g. Core Services"
+                  maxLength={80}
+                />
+              </label>
+              <label className="console-form__label">
+                Sort Order
+                <input
+                  className="ui-input"
+                  type="number"
+                  value={compForm.sortOrder}
+                  onChange={(e) => setCompForm((f) => ({ ...f, sortOrder: e.target.value }))}
+                  min={0}
+                  max={9999}
+                />
+              </label>
+              <label className="console-form__label">
+                Status
+                <select
+                  className="ui-input"
+                  value={compForm.status}
+                  onChange={(e) => setCompForm((f) => ({ ...f, status: e.target.value as ComponentStatus }))}
+                >
+                  {COMPONENT_STATUS_OPTIONS.map(([val, label]) => (
+                    <option key={val} value={val}>{label}</option>
+                  ))}
+                </select>
+              </label>
+              <div className="console-form__actions">
+                <Button type="submit" disabled={compSubmitting}>
+                  {compSubmitting ? "Saving…" : (editingComp ? "Save Changes" : "Create Component")}
+                </Button>
+                <Button type="button" onClick={() => { setShowCompForm(false); setEditingComp(null); }}>
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {compLoading && <p className="console-loading">Loading components…</p>}
+          {compError && <p className="console-error">Error: {compError.message}</p>}
+          {!compLoading && !compError && components.length === 0 && (
+            <EmptyState className="console-empty">No components yet. Add one above.</EmptyState>
+          )}
+          {!compLoading && components.length > 0 && (
+            <div className="console-list">
+              {components.map((comp) => (
+                <div className="console-list__item" key={comp.componentId}>
+                  <span>
+                    <strong>{comp.name}</strong>
+                    {comp.group && <small>Group: {comp.group}</small>}
+                    {comp.description && <small>{comp.description}</small>}
+                    <small>Sort order: {comp.sortOrder} · {comp.enabled ? "Enabled" : "Disabled"}</small>
+                  </span>
+                  <span className={componentStatusCls(comp.status)}>{componentStatusLabel(comp.status)}</span>
+                  <span className="console-list__actions">
+                    <button className="ui-button ui-button--ghost" type="button" onClick={() => startEditComponent(comp)}>Edit</button>
+                    <button className="ui-button ui-button--ghost" type="button" onClick={() => void handleDeleteComponent(comp.componentId)}>Delete</button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Incidents Tab */}
+      {activeTab === "incidents" && (
+        <div className="console-tab-panel" role="tabpanel">
+          <div className="console-section-header">
+            <h2 className="console-section-title">Incidents</h2>
+            <Button type="button" onClick={() => { setEditingInc(null); setIncForm({ title: "", message: "", status: "investigating", severity: "minor", componentIds: "" }); setIncFormError(null); setShowIncForm(true); }}>
+              Create Incident
+            </Button>
+          </div>
+
+          {showIncForm && (
+            <form className="console-form" onSubmit={handleSaveIncident}>
+              <h3 className="console-form__title">{editingInc ? "Edit Incident" : "New Incident"}</h3>
+              {incFormError && <p className="console-form__error">{incFormError}</p>}
+              <label className="console-form__label">
+                Title <span aria-hidden="true">*</span>
+                <input
+                  className="ui-input"
+                  value={incForm.title}
+                  onChange={(e) => setIncForm((f) => ({ ...f, title: e.target.value }))}
+                  placeholder="e.g. Elevated error rates on API"
+                  maxLength={200}
+                  required
+                />
+              </label>
+              <label className="console-form__label">
+                Initial message
+                <textarea
+                  className="ui-input"
+                  value={incForm.message}
+                  onChange={(e) => setIncForm((f) => ({ ...f, message: e.target.value }))}
+                  placeholder="Describe what is happening…"
+                  maxLength={2000}
+                  rows={3}
+                />
+              </label>
+              <label className="console-form__label">
+                Status
+                <select
+                  className="ui-input"
+                  value={incForm.status}
+                  onChange={(e) => setIncForm((f) => ({ ...f, status: e.target.value as IncidentStatus }))}
+                >
+                  {INCIDENT_STATUS_OPTIONS.map(([val, label]) => (
+                    <option key={val} value={val}>{label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="console-form__label">
+                Severity
+                <select
+                  className="ui-input"
+                  value={incForm.severity}
+                  onChange={(e) => setIncForm((f) => ({ ...f, severity: e.target.value as IncidentSeverity }))}
+                >
+                  {SEVERITY_OPTIONS.map(([val, label]) => (
+                    <option key={val} value={val}>{label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="console-form__label">
+                Affected component IDs (comma-separated)
+                <input
+                  className="ui-input"
+                  value={incForm.componentIds}
+                  onChange={(e) => setIncForm((f) => ({ ...f, componentIds: e.target.value }))}
+                  placeholder="componentId1, componentId2"
+                />
+              </label>
+              <div className="console-form__actions">
+                <Button type="submit" disabled={incSubmitting}>
+                  {incSubmitting ? "Saving…" : (editingInc ? "Save Changes" : "Create Incident")}
+                </Button>
+                <Button type="button" onClick={() => { setShowIncForm(false); setEditingInc(null); }}>
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {/* Post Update form */}
+          {updatingInc && (
+            <form className="console-form" onSubmit={handlePostUpdate}>
+              <h3 className="console-form__title">Post Update — {updatingInc.title}</h3>
+              {updateError && <p className="console-form__error">{updateError}</p>}
+              <label className="console-form__label">
+                Update message <span aria-hidden="true">*</span>
+                <textarea
+                  className="ui-input"
+                  value={updateBody}
+                  onChange={(e) => setUpdateBody(e.target.value)}
+                  placeholder="Describe the latest status…"
+                  maxLength={2000}
+                  rows={3}
+                  required
+                />
+              </label>
+              <label className="console-form__label">
+                New status
+                <select
+                  className="ui-input"
+                  value={updateStatus}
+                  onChange={(e) => setUpdateStatus(e.target.value as IncidentStatus)}
+                >
+                  {INCIDENT_STATUS_OPTIONS.map(([val, label]) => (
+                    <option key={val} value={val}>{label}</option>
+                  ))}
+                </select>
+              </label>
+              <div className="console-form__actions">
+                <Button type="submit" disabled={updateSubmitting}>
+                  {updateSubmitting ? "Posting…" : "Post Update"}
+                </Button>
+                <Button type="button" onClick={() => setUpdatingInc(null)}>
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {incLoading && <p className="console-loading">Loading incidents…</p>}
+          {incError && <p className="console-error">Error: {incError.message}</p>}
+          {!incLoading && !incError && incidents.length === 0 && (
+            <EmptyState className="console-empty">No incidents yet.</EmptyState>
+          )}
+          {!incLoading && incidents.length > 0 && (
+            <div className="console-list">
+              {incidents.map((inc) => (
+                <div className="console-list__item" key={inc.incidentId}>
+                  <span>
+                    <strong>{inc.title}</strong>
+                    <small>{formatDate(inc.createdAt)}</small>
+                    <small>{inc.updates.length} update{inc.updates.length !== 1 ? "s" : ""}</small>
+                    {inc.resolvedAt && <small>Resolved {formatDate(inc.resolvedAt)}</small>}
+                  </span>
+                  <span className={incidentStatusCls(inc.status)}>{incidentStatusLabel(inc.status)}</span>
+                  <span className="console-status console-status--medium">{severityLabel(inc.severity)}</span>
+                  <span className="console-list__actions">
+                    <button className="ui-button ui-button--ghost" type="button" onClick={() => { setUpdatingInc(inc); setUpdateBody(""); setUpdateStatus(inc.status); setUpdateError(null); }}>
+                      Post Update
+                    </button>
+                    <button className="ui-button ui-button--ghost" type="button" onClick={() => startEditIncident(inc)}>Edit</button>
+                    <button className="ui-button ui-button--ghost" type="button" onClick={() => void handleDeleteIncident(inc.incidentId)}>Delete</button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
