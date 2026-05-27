@@ -11,6 +11,7 @@ const consoleNav = [
   { href: "/console/webhooks", label: "Webhooks" },
   { href: "/console/webhook-events", label: "Events" },
   { href: "/console/logs", label: "Logs" },
+  { href: "/console/status", label: "Status Page" },
   { href: "/console/settings", label: "Settings" }
 ];
 

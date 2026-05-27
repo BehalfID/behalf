@@ -91,6 +91,7 @@ export function PublicNav() {
           <Link href="/docs">Docs</Link>
           <Link href="/blog">Blog</Link>
           <Link href="/security">Security</Link>
+          <Link href="/status">Status</Link>
           <SocialLinks className="social-links--nav" />
           <ThemeToggle />
           <SplitCTAButton
@@ -126,6 +127,7 @@ export function PublicNav() {
           <Link href="/docs" onClick={close}>Docs</Link>
           <Link href="/blog" onClick={close}>Blog</Link>
           <Link href="/security" onClick={close}>Security</Link>
+          <Link href="/status" onClick={close}>Status</Link>
           <Link href="/compliance" onClick={close}>Compliance</Link>
           <Link href="/login" onClick={close}>Log in</Link>
           <div className="public-nav__drawer-row">
