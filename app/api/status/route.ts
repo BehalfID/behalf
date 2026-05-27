@@ -4,7 +4,14 @@ import StatusComponent from "@/models/StatusComponent";
 import StatusIncident from "@/models/StatusIncident";
 
 export async function GET() {
-  await connectToDatabase();
+  try {
+    await connectToDatabase();
+  } catch {
+    return NextResponse.json(
+      { overall: "operational", groupedComponents: [], incidents: [] },
+      { status: 200 }
+    );
+  }
 
   const [components, incidents] = await Promise.all([
     StatusComponent.find({ enabled: true })

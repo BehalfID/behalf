@@ -104,37 +104,47 @@ function formatDateShort(value: Date | string | undefined | null): string {
 }
 
 async function getStatusData() {
-  await connectToDatabase();
+  try {
+    await connectToDatabase();
 
-  const [components, incidents] = await Promise.all([
-    StatusComponent.find({ enabled: true })
-      .sort({ sortOrder: 1, name: 1 })
-      .lean(),
-    StatusIncident.find({})
-      .sort({ createdAt: -1 })
-      .limit(20)
-      .lean()
-  ]);
+    const [components, incidents] = await Promise.all([
+      StatusComponent.find({ enabled: true })
+        .sort({ sortOrder: 1, name: 1 })
+        .lean(),
+      StatusIncident.find({})
+        .sort({ createdAt: -1 })
+        .limit(20)
+        .lean()
+    ]);
 
-  const allStatuses = components.map((c) => c.status as ComponentStatus);
-  let overall: ComponentStatus = "operational";
-  if (allStatuses.includes("major_outage")) overall = "major_outage";
-  else if (allStatuses.includes("partial_outage")) overall = "partial_outage";
-  else if (allStatuses.includes("performance_issues")) overall = "performance_issues";
+    const allStatuses = components.map((c) => c.status as ComponentStatus);
+    let overall: ComponentStatus = "operational";
+    if (allStatuses.includes("major_outage")) overall = "major_outage";
+    else if (allStatuses.includes("partial_outage")) overall = "partial_outage";
+    else if (allStatuses.includes("performance_issues")) overall = "performance_issues";
 
-  // Group components
-  const groupMap = new Map<string, typeof components>();
-  for (const c of components) {
-    const key = c.group ?? "";
-    if (!groupMap.has(key)) groupMap.set(key, []);
-    groupMap.get(key)!.push(c);
+    // Group components
+    const groupMap = new Map<string, typeof components>();
+    for (const c of components) {
+      const key = c.group ?? "";
+      if (!groupMap.has(key)) groupMap.set(key, []);
+      groupMap.get(key)!.push(c);
+    }
+    const groups = Array.from(groupMap.entries()).map(([group, items]) => ({ group, items }));
+
+    const activeIncidents = incidents.filter((i) => i.status !== "fixed");
+    const resolvedIncidents = incidents.filter((i) => i.status === "fixed");
+
+    return { overall, groups, activeIncidents, resolvedIncidents };
+  } catch {
+    // Graceful fallback: if DB is unavailable, show an empty operational state
+    return {
+      overall: "operational" as ComponentStatus,
+      groups: [],
+      activeIncidents: [],
+      resolvedIncidents: []
+    };
   }
-  const groups = Array.from(groupMap.entries()).map(([group, items]) => ({ group, items }));
-
-  const activeIncidents = incidents.filter((i) => i.status !== "fixed");
-  const resolvedIncidents = incidents.filter((i) => i.status === "fixed");
-
-  return { overall, groups, activeIncidents, resolvedIncidents };
 }
 
 export default async function StatusPage() {
