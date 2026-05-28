@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import { CodeBlock, DocsShell } from "../content";
+
+export const metadata: Metadata = {
+  title: "JavaScript SDK — BehalfID",
+  description: "Install @behalfid/sdk and call behalf.verify() before tool execution from Node 18+. Uses fetch with no extra dependencies.",
+  alternates: { canonical: "/docs/sdk" }
+};
 
 export default function SdkDocsPage() {
   return (
@@ -6,7 +13,7 @@ export default function SdkDocsPage() {
       title="JavaScript SDK"
       description="The SDK is published as @behalfid/sdk and uses fetch, so it works in Node 18+ without extra dependencies."
       previous={{ href: "/docs/api", label: "API reference" }}
-      next={{ href: "/docs/webhooks", label: "Webhooks" }}
+      next={{ href: "/docs/action-gateway", label: "Action Gateway" }}
     >
       <h2>Install</h2>
       <CodeBlock label="terminal">{`npm install @behalfid/sdk`}</CodeBlock>

@@ -155,6 +155,7 @@ export default async function StatusPage() {
       <PublicNav />
 
       <div className="status-page">
+        <h1 className="sr-only">System Status</h1>
 
         {/* Overall status banner */}
         <div className={overallBannerClass(overall)}>

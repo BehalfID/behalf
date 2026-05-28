@@ -43,6 +43,7 @@ export const metadata: Metadata = {
 };
 
 const themeScript = `(function(){try{var t=localStorage.getItem('theme')||(window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t)}catch(e){}})();`;
+const modeScript  = `(function(){try{var m=localStorage.getItem('mode');document.documentElement.setAttribute('data-mode',m==='simple'?'simple':'advanced')}catch(e){}})();`;
 
 export default async function RootLayout({
   children
@@ -54,6 +55,7 @@ export default async function RootLayout({
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
       <head>
         <script nonce={nonce} dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: modeScript }} />
       </head>
       <body>
         <a href="#main-content" className="skip-link">Skip to main content</a>

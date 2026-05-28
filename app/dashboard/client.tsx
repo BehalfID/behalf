@@ -409,7 +409,7 @@ function PlanUsagePanel({ usage }: { usage: UsageSummary }) {
         <div><span>Agents</span><strong>{usage.agentCount.toLocaleString()} / {formatUsageLimit(usage.agentLimit)}</strong></div>
         <div><span>Verifications</span><strong>{usage.verificationCount.toLocaleString()} / {formatUsageLimit(usage.verificationLimit)}</strong></div>
         <div><span>Reset</span><strong>{formatUsageDate(usage.verificationPeriodResetAt)}</strong></div>
-        <div><span>Webhooks</span><strong>{usage.webhooksEnabled ? "Enabled" : "Requires Pro"}</strong></div>
+        <div><span>Webhooks</span><strong>{usage.webhooksEnabled ? "Enabled" : "Available"}</strong></div>
         <div><span>Log retention</span><strong>{usage.logRetentionDays} days</strong></div>
       </div>
     </section>
@@ -806,6 +806,11 @@ function OnboardingView() {
   const [draftErrorCode, setDraftErrorCode] = useState("");
   const [regularAgent, setRegularAgent] = useState<Agent | null>(null);
   const [regularPassportUrl, setRegularPassportUrl] = useState("");
+  // Preset flow: holds the chosen preset while the user picks a provider for it
+  const [pendingPreset, setPendingPreset] = useState<PassportPreset | null>(null);
+  const [pendingPresetProvider, setPendingPresetProvider] = useState<AgentProvider | "">("");
+  // True when the current draft was generated from a preset (so "back" on review goes to step 1 not step 2)
+  const [arrivedViaPreset, setArrivedViaPreset] = useState(false);
 
   const selectedAction = permissionForm.template === "custom" ? permissionForm.customAction : permissionForm.actionChoice;
 
@@ -975,11 +980,23 @@ function OnboardingView() {
     setDraftError("");
     setDraftDetails("");
     setDraftErrorCode("");
-    const permissions = buildPresetPermissions(preset);
-    setRegularProvider(preset.provider);
-    setRegularDescription(preset.agentDescription);
+    // Store the preset and ask the user to choose a provider before generating the draft
+    setPendingPreset(preset);
+    // Pre-select the preset's default provider but let the user change it
+    setPendingPresetProvider(preset.provider);
+    setRegularStep(2);
+  };
+
+  const confirmPresetWithProvider = () => {
+    if (!pendingPreset) return;
+    if (!pendingPresetProvider) { setDraftError("Select a provider to continue."); return; }
+    setDraftError("");
+    const provider = pendingPresetProvider;
+    const permissions = buildPresetPermissions(pendingPreset);
+    setRegularProvider(provider);
+    setRegularDescription(pendingPreset.agentDescription);
     setDraftResponse({
-      agentDraft: { provider: preset.provider, description: preset.agentDescription },
+      agentDraft: { provider, description: pendingPreset.agentDescription },
       permissions,
       needsClarification: [],
       warnings: [],
@@ -987,6 +1004,8 @@ function OnboardingView() {
         "This passport was generated from a preset. Review and adjust the permissions to fit your specific needs."
       ]
     });
+    setPendingPreset(null);
+    setArrivedViaPreset(true);
     setRegularStep(3);
   };
 
@@ -1012,6 +1031,7 @@ function OnboardingView() {
         return;
       }
       setDraftResponse(body as PermissionDraftResponse);
+      setArrivedViaPreset(false);
       setRegularStep(3);
     } catch (err) {
       setDraftError(err instanceof Error ? err.message : "Failed to reach the server.");
@@ -1095,7 +1115,7 @@ ${regularPassportUrl || "[passport link]"}`;
     return (
       <>
         <Header title="Add agent" description="Choose how you want to integrate BehalfID — as a developer or as an existing AI assistant user." />
-        <section className="agent-create-grid">
+        <section className="agent-create-grid ob-step--enter">
           <button
             className="dashboard-panel onboarding-choice"
             onClick={() => {
@@ -1121,6 +1141,9 @@ ${regularPassportUrl || "[passport link]"}`;
               setRegularDescription("");
               setDraftResponse(null);
               setDraftError("");
+              setPendingPreset(null);
+              setPendingPresetProvider("");
+              setArrivedViaPreset(false);
             }}
             type="button"
           >
@@ -1138,17 +1161,21 @@ ${regularPassportUrl || "[passport link]"}`;
   if (userPath === "regular") {
     return (
       <>
-        <Header title="Create a permission passport" action={<Button onClick={() => { setUserPath(null); setRegularStep(1); }} type="button">Back</Button>} />
+        <Header title="Create a permission passport" action={<Button onClick={() => { setUserPath(null); setRegularStep(1); setPendingPreset(null); setPendingPresetProvider(""); setArrivedViaPreset(false); }} type="button">Back</Button>} />
         <Card className="dashboard-panel onboarding-callout">
           <p className="section-kicker">Choose provider / describe what you want / review draft / confirm</p>
           <h2>Describe what you want the assistant to do. AI will draft the permissions. You review and confirm.</h2>
         </Card>
-        <div className="onboarding-steps">
-          {[1, 2, 3, 4].map((item) => (
-            <span className={item === regularStep ? "console-status console-status--active" : "console-status"} key={item}>Step {item}</span>
-          ))}
-        </div>
+        {/* Step indicator: hide on preset provider-picker step to avoid a broken/skipped Step 2 pill */}
+        {!pendingPreset ? (
+          <div className="onboarding-steps">
+            {[1, 2, 3, 4].map((item) => (
+              <span className={item === regularStep ? "console-status console-status--active" : "console-status"} key={item}>Step {item}</span>
+            ))}
+          </div>
+        ) : null}
 
+        <div key={`regular-${regularStep}-${pendingPreset?.id ?? ""}`} className="ob-step--enter">
         {regularStep === 1 ? (
           <section className="onboarding-form dashboard-panel">
             <h2>Start from a preset or choose a provider</h2>
@@ -1202,7 +1229,32 @@ ${regularPassportUrl || "[passport link]"}`;
           </section>
         ) : null}
 
-        {regularStep === 2 ? (
+        {regularStep === 2 && pendingPreset ? (
+          <section className="onboarding-form dashboard-panel">
+            <h2>Which assistant are you using?</h2>
+            <p>You chose the <strong>{pendingPreset.label}</strong> preset. Pick the assistant you want to create this passport for — the agent will be named accordingly.</p>
+            <div className="agent-create-grid">
+              {regularProviderOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  className={pendingPresetProvider === opt.value ? "dashboard-panel onboarding-choice onboarding-choice--selected" : "dashboard-panel onboarding-choice"}
+                  onClick={() => { setDraftError(""); setPendingPresetProvider(opt.value); }}
+                  type="button"
+                >
+                  <strong>{opt.label}</strong>
+                  <span>{opt.description}</span>
+                </button>
+              ))}
+            </div>
+            {draftError ? <p className="form-error" role="alert">{draftError}</p> : null}
+            <div className="form-actions">
+              <Button type="button" onClick={() => { setDraftError(""); setPendingPreset(null); setPendingPresetProvider(""); setRegularStep(1); }}>Back</Button>
+              <Button variant="primary" type="button" onClick={confirmPresetWithProvider}>Continue to review</Button>
+            </div>
+          </section>
+        ) : null}
+
+        {regularStep === 2 && !pendingPreset ? (
           <section className="dashboard-panel onboarding-form">
             <h2>What do you want this assistant to do?</h2>
             <p>Include what it <strong>can</strong> do, what it <strong>must not</strong> do, and any limits (e.g. dollar amounts, specific services). The more specific you are, the better the draft.</p>
@@ -1337,7 +1389,7 @@ ${regularPassportUrl || "[passport link]"}`;
               </div>
             ) : null}
             <div className="form-actions">
-              <Button type="button" onClick={() => { setDraftError(""); setDraftDetails(""); setDraftErrorCode(""); setRegularStep(2); }}>Edit description</Button>
+              <Button type="button" onClick={() => { setDraftError(""); setDraftDetails(""); setDraftErrorCode(""); setRegularStep(arrivedViaPreset ? 1 : 2); setArrivedViaPreset(false); }}>{arrivedViaPreset ? "Back to presets" : "Edit description"}</Button>
               {draftResponse.needsClarification.length > 0 ? (
                 <Button type="button" disabled>
                   Clarify before creating passport
@@ -1369,6 +1421,7 @@ ${regularPassportUrl || "[passport link]"}`;
             </Card>
           </section>
         ) : null}
+        </div>
       </>
     );
   }
@@ -1384,6 +1437,7 @@ ${regularPassportUrl || "[passport link]"}`;
       <div className="onboarding-steps">
         {[2, 3, 4, 5].map((item) => <span className={item === step ? "console-status console-status--active" : "console-status"} key={item}>Step {item - 1}</span>)}
       </div>
+      <div key={step} className="ob-step--enter">
       {step === 2 ? (
         <form className="dashboard-panel onboarding-form" noValidate onSubmit={createAgent}>
           <h2>Agent setup</h2>
@@ -1542,6 +1596,7 @@ const result = await behalf.verify({
           </Card>
         </section>
       ) : null}
+      </div>
       {apiKey && step < 5 ? <Secret value={apiKey} label="Agent API key" /> : null}
     </>
   );
@@ -1691,11 +1746,19 @@ function AgentView({ agentId }: { agentId: string }) {
             {agent.agentType === "connected" ? <p className="field-help">Some agents cannot fetch passport links directly (e.g. Gemini memory, ChatGPT system prompts). If the agent cannot read the link, open the passport page and paste the Agent memory block into the agent instead.</p> : null}
             {agent.publicPassportTokenPreview ? <p>Current passport token: <code>{agent.publicPassportTokenPreview}</code></p> : null}
           </Card>
-          <Card className="dashboard-panel">
-            <h2>{agent.agentType === "connected" ? "Developer integration" : "Manual testing"}</h2>
-            <p>{agent.agentType === "connected" ? "When your app or provider can call BehalfID, use the SDK/API for automatic enforcement." : "Native agents can also use a passport link for manual allow/deny testing."}</p>
-            <CodeBlock label="verify.ts">{buildVerifySnippet(agent.agentId, detail.data?.permissions)}</CodeBlock>
-          </Card>
+          {agent.agentType === "connected" ? (
+            <details className="dashboard-panel developer-integration-details">
+              <summary className="developer-integration-summary">For developers — SDK integration</summary>
+              <p>When your app or provider can call BehalfID, use the SDK/API for automatic enforcement.</p>
+              <CodeBlock label="verify.ts">{buildVerifySnippet(agent.agentId, detail.data?.permissions)}</CodeBlock>
+            </details>
+          ) : (
+            <Card className="dashboard-panel">
+              <h2>Manual testing</h2>
+              <p>Native agents can also use a passport link for manual allow/deny testing.</p>
+              <CodeBlock label="verify.ts">{buildVerifySnippet(agent.agentId, detail.data?.permissions)}</CodeBlock>
+            </Card>
+          )}
         </section>
       ) : null}
       <section className="dashboard-panel">
@@ -1844,7 +1907,7 @@ function AgentView({ agentId }: { agentId: string }) {
               <h2>Try a verification</h2>
               <p>Use the sandbox or the snippet below to confirm that allowed actions pass and denied actions stop before execution.</p>
             </div>
-            <ButtonLink href="/sandbox">Open sandbox</ButtonLink>
+            <ButtonLink href="/sandbox" target="_blank" rel="noopener noreferrer">Open sandbox</ButtonLink>
           </div>
           <CodeBlock label="verify.ts">{buildVerifySnippet(agentId, permissions)}</CodeBlock>
         </section>
@@ -2146,7 +2209,7 @@ function SettingsView() {
             </div>
             <div className="account-details__row">
               <span className="account-details__label">Danger zone</span>
-              <span className="account-details__value">{settings.data.dangerZone}</span>
+              <span className="account-details__value">To delete your account, contact <a href="mailto:support@behalfid.com">support@behalfid.com</a></span>
             </div>
           </div>
         ) : null}

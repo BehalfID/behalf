@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import { CodeBlock, DocsShell } from "../content";
+
+export const metadata: Metadata = {
+  title: "Demo Script — BehalfID",
+  description: "A terminal-first script for recording a short demo of the coding-agent deploy approval workflow. Pre-setup takes ~5 minutes; the recording is 60–90 seconds.",
+  alternates: { canonical: "/docs/demo-script" }
+};
 
 export default function DemoScriptPage() {
   return (

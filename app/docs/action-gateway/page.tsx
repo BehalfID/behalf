@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import { CodeBlock, DocsShell } from "../content";
+
+export const metadata: Metadata = {
+  title: "Action Gateway — BehalfID",
+  description: "Route safe public web reads through BehalfID so denied actions fail before execution. Proxy HTTP requests with permission enforcement built in.",
+  alternates: { canonical: "/docs/action-gateway" }
+};
 
 export default function ActionGatewayDocsPage() {
   return (

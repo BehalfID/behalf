@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import { CodeBlock, DocsShell } from "../content";
+
+export const metadata: Metadata = {
+  title: "CLI — BehalfID",
+  description: "Install the BehalfID CLI to manage agents, verify actions, enforce permissions via MCP, and launch AI tools with enforcement active.",
+  alternates: { canonical: "/docs/cli" }
+};
 
 export default function CliDocsPage() {
   return (
@@ -6,7 +13,7 @@ export default function CliDocsPage() {
       title="behalf CLI"
       description="Install the BehalfID CLI to manage agents, verify actions, enforce permissions via MCP, and launch AI tools with enforcement active."
       previous={{ href: "/docs/quickstart", label: "Quickstart" }}
-      next={{ href: "/docs/api", label: "API reference" }}
+      next={{ href: "/docs/deploy-approvals", label: "Deploy approvals" }}
     >
       <h2>Install</h2>
       <p>The CLI ships as a self-contained binary. No Node.js required after install.</p>

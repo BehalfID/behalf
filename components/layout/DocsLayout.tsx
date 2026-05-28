@@ -3,32 +3,34 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Logo, ThemeToggle } from "@/components/ui";
+import { Logo, ThemeToggle, ModeToggle } from "@/components/ui";
 
 export const docsNav = [
-  { href: "/docs",                 label: "Overview"       },
-  { href: "/docs/quickstart",      label: "Quickstart"     },
-  { href: "/docs/cli",             label: "CLI"            },
-  { href: "/docs/api",             label: "API"            },
-  { href: "/docs/sdk",             label: "SDK"            },
-  { href: "/docs/action-gateway",  label: "Action Gateway" },
-  { href: "/docs/webhooks",        label: "Webhooks"       },
-  { href: "/docs/site-guard",      label: "Site Guard"     },
-  { href: "/docs/concepts",        label: "Concepts"       },
-  { href: "/security",             label: "Security"       },
+  { href: "/docs",                   label: "Overview"          },
+  { href: "/docs/quickstart",        label: "Quickstart"        },
+  { href: "/docs/cli",               label: "CLI"               },
+  { href: "/docs/deploy-approvals",  label: "Deploy approvals"  },
+  { href: "/docs/api",               label: "API"               },
+  { href: "/docs/sdk",               label: "SDK"               },
+  { href: "/docs/action-gateway",    label: "Action Gateway"    },
+  { href: "/docs/webhooks",          label: "Webhooks"          },
+  { href: "/docs/site-guard",        label: "Site Guard"        },
+  { href: "/docs/concepts",          label: "Concepts"          },
+  { href: "/security",               label: "Security"          },
 ];
 
 const searchIndex = [
-  { href: "/docs",                 title: "Overview",        body: "BehalfID connects external agents and native custom agents to scoped permissions, verification decisions, audit logs, and signed webhook events." },
-  { href: "/docs/quickstart",      title: "Quickstart",      body: "Create an agent, add a permission, install the SDK, call verify before execution, show allowed and denied requests, and fail closed." },
-  { href: "/docs/cli",             title: "CLI",             body: "Install the behalf CLI to manage agents, permissions, and enforcement from the terminal. Includes MCP server setup, AI tool launchers, context generation, and key management." },
-  { href: "/docs/api",             title: "API Reference",   body: "Use public REST endpoints for connected agents, permissions, verification, logs, and key rotation. Requires an API key. POST verify, GET agents, PATCH permissions." },
-  { href: "/docs/sdk",             title: "SDK",             body: "Install the JavaScript SDK from npm and call BehalfID from Node 18+. Import BehalfID, call verify, and fail closed before running your executor." },
-  { href: "/docs/action-gateway",  title: "Action Gateway",  body: "Route safe public web reads through BehalfID so denied actions fail before execution. Proxy HTTP requests with permission enforcement built in." },
-  { href: "/docs/webhooks",        title: "Webhooks",        body: "Receive signed verification events through an outbox-backed delivery system. HMAC signatures, retries, payload structure, and endpoint configuration." },
-  { href: "/docs/site-guard",      title: "Site Guard",      body: "Design website middleware, workers, or gateways that enforce AI access rules before protected workflows run. Block or challenge agent requests at the edge." },
-  { href: "/docs/concepts",        title: "Concepts",        body: "Understand native agents, connected agents, permission passports, providers, and audit logs. Fail-closed enforcement, agent types, scope templates, and constraints." },
-  { href: "/security",             title: "Security",        body: "How BehalfID handles secrets, tokens, fail-closed enforcement, audit logs, and current limitations. Key hashing, one-time display, and SSRF protections." },
+  { href: "/docs",                   title: "Overview",          body: "BehalfID connects external agents and native custom agents to scoped permissions, verification decisions, audit logs, and signed webhook events." },
+  { href: "/docs/quickstart",        title: "Quickstart",        body: "Create an agent, add a permission, install the SDK, call verify before execution, show allowed and denied requests, and fail closed." },
+  { href: "/docs/cli",               title: "CLI",               body: "Install the behalf CLI to manage agents, permissions, and enforcement from the terminal. Includes MCP server setup, AI tool launchers, context generation, and key management." },
+  { href: "/docs/deploy-approvals",  title: "Deploy approvals",  body: "Step-by-step demo: Claude Code or Codex attempts a production deploy, BehalfID blocks it, you approve in the dashboard, the agent retries and succeeds." },
+  { href: "/docs/api",               title: "API Reference",     body: "Use public REST endpoints for connected agents, permissions, verification, logs, and key rotation. Requires an API key. POST verify, GET agents, PATCH permissions." },
+  { href: "/docs/sdk",               title: "SDK",               body: "Install the JavaScript SDK from npm and call BehalfID from Node 18+. Import BehalfID, call verify, and fail closed before running your executor." },
+  { href: "/docs/action-gateway",    title: "Action Gateway",    body: "Route safe public web reads through BehalfID so denied actions fail before execution. Proxy HTTP requests with permission enforcement built in." },
+  { href: "/docs/webhooks",          title: "Webhooks",          body: "Receive signed verification events through an outbox-backed delivery system. HMAC signatures, retries, payload structure, and endpoint configuration." },
+  { href: "/docs/site-guard",        title: "Site Guard",        body: "Design website middleware, workers, or gateways that enforce AI access rules before protected workflows run. Block or challenge agent requests at the edge." },
+  { href: "/docs/concepts",          title: "Concepts",          body: "Understand native agents, connected agents, permission passports, providers, and audit logs. Fail-closed enforcement, agent types, scope templates, and constraints." },
+  { href: "/security",               title: "Security",          body: "How BehalfID handles secrets, tokens, fail-closed enforcement, audit logs, and current limitations. Key hashing, one-time display, and SSRF protections." },
 ];
 
 const SearchIcon = () => (
@@ -212,11 +214,25 @@ export function DocsLayout({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="app-sidebar__footer">
+          <ModeToggle />
           <ThemeToggle />
         </div>
       </aside>
 
-      <article id="main-content" className="docs-article" tabIndex={-1}>{children}</article>
+      <article id="main-content" className="docs-article" tabIndex={-1}>
+        {/* Simple mode banner — visible only when data-mode="simple" via CSS */}
+        <div className="simple-mode-banner" role="note" aria-label="Simple mode is active">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
+            <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.4" />
+            <path d="M8 7v4M8 5v.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+          </svg>
+          <span>
+            <strong>Simple mode on</strong> — some technical details are condensed.{" "}
+            Switch to <strong>Dev</strong> in the nav for full API reference.
+          </span>
+        </div>
+        {children}
+      </article>
     </main>
   );
 }

@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import { CodeBlock, DocsShell } from "../content";
+
+export const metadata: Metadata = {
+  title: "API Reference — BehalfID",
+  description: "Use public REST endpoints for agents, permissions, verification, logs, and key rotation. Requires an API key.",
+  alternates: { canonical: "/docs/api" }
+};
 
 const endpoints = [
   ["POST", "/api/agents", "Add a native or connected agent and return the API key once."],
@@ -18,7 +25,7 @@ export default function ApiDocsPage() {
     <DocsShell
       title="API reference"
       description="Agent API keys use Authorization: Bearer bhf_sk_xxx. Dashboard routes use developer session cookies."
-      previous={{ href: "/docs/cli", label: "CLI" }}
+      previous={{ href: "/docs/deploy-approvals", label: "Deploy approvals" }}
       next={{ href: "/docs/sdk", label: "JavaScript SDK" }}
     >
       <div className="endpoint-list">

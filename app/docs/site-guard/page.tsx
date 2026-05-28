@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import { CodeBlock, DocsShell } from "../content";
+
+export const metadata: Metadata = {
+  title: "Site Guard — BehalfID",
+  description: "Design website middleware, workers, or gateways that enforce AI access rules before protected routes run. Block or challenge agent requests at the edge.",
+  alternates: { canonical: "/docs/site-guard" }
+};
 
 const mvpRules = [
   ["Deny by default", "A route stays denied until an active matching rule allows its path."],

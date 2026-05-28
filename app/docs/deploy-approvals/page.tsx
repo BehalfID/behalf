@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import { CodeBlock, DocsShell } from "../content";
+
+export const metadata: Metadata = {
+  title: "Deploy Approvals — BehalfID",
+  description: "Step-by-step demo: Claude Code or Codex attempts a production deploy, BehalfID blocks it, you approve in the dashboard, the agent retries and succeeds.",
+  alternates: { canonical: "/docs/deploy-approvals" }
+};
 
 export default function DeployApprovalsPage() {
   return (
@@ -6,7 +13,7 @@ export default function DeployApprovalsPage() {
       title="Coding-agent deploy approvals"
       description="Step-by-step demo: Claude Code or Codex attempts a production deploy, BehalfID blocks it, you approve in the dashboard, the agent retries and succeeds."
       previous={{ href: "/docs/cli", label: "CLI & MCP" }}
-      next={{ href: "/docs/webhooks", label: "Webhooks" }}
+      next={{ href: "/docs/api", label: "API reference" }}
     >
       <h2>Overview</h2>
       <p>

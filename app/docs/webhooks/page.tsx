@@ -1,11 +1,18 @@
+import type { Metadata } from "next";
 import { CodeBlock, DocsShell } from "../content";
+
+export const metadata: Metadata = {
+  title: "Webhooks — BehalfID",
+  description: "Subscribe to verification, agent, and permission events. BehalfID signs each event and delivers through a durable outbox with retries.",
+  alternates: { canonical: "/docs/webhooks" }
+};
 
 export default function WebhookDocsPage() {
   return (
     <DocsShell
       title="Webhooks"
       description="Subscribe to verification, agent, and permission events. BehalfID signs each event and delivers through a durable outbox."
-      previous={{ href: "/docs/sdk", label: "JavaScript SDK" }}
+      previous={{ href: "/docs/action-gateway", label: "Action Gateway" }}
       next={{ href: "/docs/site-guard", label: "Site Guard" }}
     >
       <h2>Event types</h2>

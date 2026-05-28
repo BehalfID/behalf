@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PublicNav } from "@/components/layout/PublicNav";
+import { PublicFooter } from "@/components/layout/PublicFooter";
 import { ButtonLink, SplitCTAButton } from "@/components/ui";
 import { getPost, posts } from "../posts";
 
@@ -75,6 +76,8 @@ export default async function BlogPostPage({
           </div>
         </div>
       </div>
+
+      <PublicFooter />
     </main>
   );
 }

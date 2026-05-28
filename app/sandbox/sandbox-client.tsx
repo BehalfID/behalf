@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ButtonLink, SplitCTAButton } from "@/components/ui";
+import { useMode } from "@/lib/useMode";
 
 const LAB_STYLES = `
 .lab-agent-role{color:rgba(255,255,255,.54);font-size:.84rem}
@@ -256,10 +257,18 @@ export function SandboxClient() {
   const [activeActionId, setActiveActionId] = useState(actions[0].id);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [running, setRunning] = useState(false);
+  const { mode } = useMode();
+  const isSimple = mode === "simple";
   const activeAction = actions.find((a) => a.id === activeActionId) ?? actions[0];
 
   const primaryActions = actions.filter((a) => a.isPrimary);
   const advancedActions = actions.filter((a) => !a.isPrimary);
+
+  // In simple mode, if the currently selected action is advanced, switch to first primary
+  const visibleActiveAction =
+    isSimple && !activeAction.isPrimary
+      ? (actions.find((a) => a.isPrimary) ?? activeAction)
+      : activeAction;
 
   const runTrace = async () => {
     setRunning(true);
@@ -284,13 +293,13 @@ export function SandboxClient() {
 
         <section className="sandbox-focus" aria-label="Simulated BehalfID decision">
           <section
-            className={`decision-console sandbox-trace sandbox-trace--${activeAction.decision}`}
+            className={`decision-console sandbox-trace sandbox-trace--${visibleActiveAction.decision}`}
             aria-live="polite"
           >
             <div className="sandbox-trace__header">
               <div>
-                <span className="lab-agent-role">{activeAction.agentRole}</span>
-                <h2>{activeAction.actionDescription}</h2>
+                <span className="lab-agent-role">{visibleActiveAction.agentRole}</span>
+                <h2>{visibleActiveAction.actionDescription}</h2>
               </div>
               <button
                 className="sandbox-action__btn"
@@ -304,45 +313,56 @@ export function SandboxClient() {
 
             <div className="lab-decision-columns">
               <div className="lab-decision-col">
-                <span>Agent request</span>
-                <dl className="lab-request-fields">
-                  {requestFields(activeAction).map(([key, value]) => (
-                    <div key={key}>
-                      <dt>{key}</dt>
-                      <dd>{value}</dd>
-                    </div>
-                  ))}
-                </dl>
+                <span>{isSimple ? "What the agent tried" : "Agent request"}</span>
+                {isSimple ? (
+                  <p className="lab-passport-rule" style={{ fontSize: "0.9rem" }}>
+                    {visibleActiveAction.actionDescription}
+                  </p>
+                ) : (
+                  <dl className="lab-request-fields">
+                    {requestFields(visibleActiveAction).map(([key, value]) => (
+                      <div key={key}>
+                        <dt>{key}</dt>
+                        <dd>{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
               </div>
 
               <div className="lab-decision-col">
-                <span>Matching rule</span>
-                <strong className="lab-passport-rule">{activeAction.passportRule}</strong>
-                <p className="lab-passport-detail">{activeAction.passportDetail}</p>
+                <span>{isSimple ? "What the rule says" : "Matching rule"}</span>
+                <strong className="lab-passport-rule">{visibleActiveAction.passportRule}</strong>
+                <p className="lab-passport-detail">{visibleActiveAction.passportDetail}</p>
               </div>
 
               <div className="lab-decision-col">
-                <span>Decision</span>
-                <em className={`lab-verdict lab-verdict--${activeAction.decision}`}>
-                  {decisionLabel(activeAction.decision)}
+                <span>{isSimple ? "What happened" : "Decision"}</span>
+                <em className={`lab-verdict lab-verdict--${visibleActiveAction.decision}`}>
+                  {isSimple
+                    ? (visibleActiveAction.decision === "allowed"       ? "Approved ✓"
+                       : visibleActiveAction.decision === "denied"      ? "Blocked ✗"
+                                                                        : "Ask me first ⚠")
+                    : decisionLabel(visibleActiveAction.decision)
+                  }
                 </em>
-                <p className="lab-verdict-headline">{activeAction.decisionHeadline}</p>
-                <p className="lab-verdict-sub">{activeAction.decisionSub}</p>
+                <p className="lab-verdict-headline">{visibleActiveAction.decisionHeadline}</p>
+                <p className="lab-verdict-sub">{visibleActiveAction.decisionSub}</p>
               </div>
             </div>
 
             <div className="lab-result-row">
               <div className="lab-result-col">
-                <span>Execution</span>
-                <p>{activeAction.executed ? "Tool ran." : "Tool did not run."}</p>
+                <span>{isSimple ? "Did the tool run?" : "Execution"}</span>
+                <p>{visibleActiveAction.executed ? "Yes — the tool ran." : "No — the tool did not run."}</p>
               </div>
               <div className="lab-result-col">
-                <span>Audit log</span>
+                <span>{isSimple ? "Audit record" : "Audit log"}</span>
                 <p>
-                  {activeAction.auditSummary}{" "}
-                  <code className="lab-audit-code">{activeAction.auditEvent}</code>
+                  {visibleActiveAction.auditSummary}{" "}
+                  {!isSimple && <code className="lab-audit-code">{visibleActiveAction.auditEvent}</code>}
                 </p>
-                {activeAction.note ? <p className="lab-note">{activeAction.note}</p> : null}
+                {visibleActiveAction.note ? <p className="lab-note">{visibleActiveAction.note}</p> : null}
               </div>
             </div>
           </section>
@@ -358,7 +378,7 @@ export function SandboxClient() {
                   <button
                     className={[
                       "sandbox-action-card",
-                      activeAction.id === action.id ? "sandbox-action-card--active" : "",
+                      visibleActiveAction.id === action.id ? "sandbox-action-card--active" : "",
                       `sandbox-action-card--${action.decision}`
                     ].filter(Boolean).join(" ")}
                     onClick={() => setActiveActionId(action.id)}
@@ -366,45 +386,55 @@ export function SandboxClient() {
                   >
                     <strong>{action.label}</strong>
                     <small>{action.agentRole}</small>
-                    <em>{decisionLabel(action.decision)}</em>
+                    <em>
+                      {isSimple
+                        ? (action.decision === "allowed"       ? "Approved ✓"
+                           : action.decision === "denied"      ? "Blocked ✗"
+                                                               : "Ask me first ⚠")
+                        : decisionLabel(action.decision)
+                      }
+                    </em>
                   </button>
                 </div>
               ))}
             </div>
 
-            <div className="lab-advanced">
-              <button
-                className="lab-advanced-toggle"
-                onClick={() => setShowAdvanced(!showAdvanced)}
-                type="button"
-                aria-expanded={showAdvanced}
-              >
-                <span>Advanced examples</span>
-                <span aria-hidden="true">{showAdvanced ? "↑" : "↓"}</span>
-              </button>
-              {showAdvanced && (
-                <div className="sandbox-action-grid lab-advanced-grid">
-                  {advancedActions.map((action) => (
-                    <div className="sandbox-action-item" key={action.id}>
-                      <button
-                        className={[
-                          "sandbox-action-card",
-                          activeAction.id === action.id ? "sandbox-action-card--active" : "",
-                          `sandbox-action-card--${action.decision}`
-                        ].filter(Boolean).join(" ")}
-                        onClick={() => setActiveActionId(action.id)}
-                        type="button"
-                      >
-                        {action.isPreview ? <em className="lab-coming-soon">Preview</em> : null}
-                        <strong>{action.label}</strong>
-                        <small>{action.agentRole}</small>
-                        <em>{decisionLabel(action.decision)}</em>
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            {/* Advanced examples — hidden in simple mode */}
+            {!isSimple && (
+              <div className="lab-advanced">
+                <button
+                  className="lab-advanced-toggle"
+                  onClick={() => setShowAdvanced(!showAdvanced)}
+                  type="button"
+                  aria-expanded={showAdvanced}
+                >
+                  <span>Advanced examples</span>
+                  <span aria-hidden="true">{showAdvanced ? "↑" : "↓"}</span>
+                </button>
+                {showAdvanced && (
+                  <div className="sandbox-action-grid lab-advanced-grid">
+                    {advancedActions.map((action) => (
+                      <div className="sandbox-action-item" key={action.id}>
+                        <button
+                          className={[
+                            "sandbox-action-card",
+                            visibleActiveAction.id === action.id ? "sandbox-action-card--active" : "",
+                            `sandbox-action-card--${action.decision}`
+                          ].filter(Boolean).join(" ")}
+                          onClick={() => setActiveActionId(action.id)}
+                          type="button"
+                        >
+                          {action.isPreview ? <em className="lab-coming-soon">Preview</em> : null}
+                          <strong>{action.label}</strong>
+                          <small>{action.agentRole}</small>
+                          <em>{decisionLabel(action.decision)}</em>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </aside>
         </section>
 

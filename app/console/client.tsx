@@ -750,14 +750,22 @@ function AgentsView() {
   const [provider, setProvider] = useState("custom");
   const [oneTimeKey, setOneTimeKey] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [agentSearch, setAgentSearch] = useState("");
+  const [createError, setCreateError] = useState("");
 
   const createAgent = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setCreateError("");
+    const trimmed = name.trim();
+    if (agents.data?.agents.some((a) => a.name.toLowerCase() === trimmed.toLowerCase())) {
+      setCreateError(`An agent named "${trimmed}" already exists.`);
+      return;
+    }
     setSubmitting(true);
     try {
       const result = await apiFetch<{ agent: Agent; apiKey: string }>("/api/console/agents", {
         method: "POST",
-        body: JSON.stringify({ name, agentType, provider })
+        body: JSON.stringify({ name: trimmed, agentType, provider })
       });
       setOneTimeKey(result.apiKey);
       setName("");
@@ -771,13 +779,47 @@ function AgentsView() {
 
   return (
     <ResourceState resource={agents}>
-      {(data) => (
+      {(data) => {
+        const nameCounts = data.agents.reduce<Record<string, number>>((acc, a) => {
+          const key = a.name.toLowerCase();
+          acc[key] = (acc[key] ?? 0) + 1;
+          return acc;
+        }, {});
+        const duplicateNames = Object.entries(nameCounts)
+          .filter(([, count]) => count > 1)
+          .map(([n]) => n);
+        const filtered = agentSearch
+          ? data.agents.filter((a) =>
+              a.name.toLowerCase().includes(agentSearch.toLowerCase()) ||
+              a.agentId.toLowerCase().includes(agentSearch.toLowerCase()) ||
+              a.provider.toLowerCase().includes(agentSearch.toLowerCase())
+            )
+          : data.agents;
+        return (
         <>
           <Header title="Agents" />
+          {duplicateNames.length > 0 && (
+            <div className="console-alert" role="alert">
+              <span className="console-alert__icon">⚠</span>
+              <div>
+                <strong>Duplicate agent names detected</strong>
+                <p>Multiple agents share the same name: {duplicateNames.join(", ")}. Consider consolidating or renaming to avoid confusion.</p>
+              </div>
+            </div>
+          )}
           <section className="console-split">
             <div>
               <SectionTitle title="Agents" />
-              <AgentTable agents={data.agents} />
+              <div className="console-toolbar" style={{ marginBottom: 12 }}>
+                <input
+                  aria-label="Search agents"
+                  onChange={(e) => setAgentSearch(e.target.value)}
+                  placeholder="Search by name, ID, or provider…"
+                  value={agentSearch}
+                  style={{ flex: 1 }}
+                />
+              </div>
+              <AgentTable agents={filtered} />
             </div>
             <form className="console-panel" onSubmit={createAgent}>
               <SectionTitle title="Add agent" />
@@ -798,6 +840,7 @@ function AgentsView() {
                   {consoleProviderOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
               </label>
+              {createError ? <p className="console-error" role="alert">{createError}</p> : null}
               <Button variant="primary" disabled={submitting} type="submit">
                 {submitting ? "Adding" : "Add agent"}
               </Button>
@@ -805,7 +848,8 @@ function AgentsView() {
             </form>
           </section>
         </>
-      )}
+        );
+      }}
     </ResourceState>
   );
 }
@@ -830,7 +874,13 @@ function SiteGuardView() {
         <div className="console-panel">
           <SectionTitle title="Sites" />
           <div className="console-list">
-            {(sites.data?.sites ?? []).map((site) => (
+            {(sites.data?.sites ?? []).length === 0 ? (
+              <div className="console-empty-state">
+                <strong>No protected sites yet</strong>
+                <p>Site Guard lets you control which domains can make verification requests to BehalfID. Register your app&apos;s domain to restrict API access to known origins.</p>
+                <p>Use the <code>POST /api/sites</code> endpoint or the BehalfID SDK to register a site. Once registered it will appear here and you can enable or disable it.</p>
+              </div>
+            ) : (sites.data?.sites ?? []).map((site) => (
               <div className="console-list-row" key={site.siteId}>
                 <strong>{site.name}</strong>
                 <small>{site.domain} / {site.status} / {site.siteId}</small>
@@ -1225,7 +1275,7 @@ function WebhookEventDetailView({ eventId }: { eventId: string }) {
           <Header
             title="Webhook event"
             action={
-              data.event.deadLetter ? (
+              data.event.status !== "completed" ? (
                 <Button variant="primary" onClick={replay} type="button">Replay</Button>
               ) : null
             }
@@ -1265,6 +1315,15 @@ function SettingsView() {
       {(data) => (
         <>
           <Header title="Settings" />
+          {data.rateLimitMode === "memory" && data.environment !== "development" && (
+            <div className="console-alert" role="alert">
+              <span className="console-alert__icon">⚠</span>
+              <div>
+                <strong>Rate limiting is process-local</strong>
+                <p>Rate limits reset on every server restart and do not apply across multiple processes. Configure Upstash Redis before exposing this instance publicly.</p>
+              </div>
+            </div>
+          )}
           <section className="console-settings">
             <dl className="console-definition">
               <div><dt>App URL</dt><dd>{data.appUrl}</dd></div>
@@ -1571,8 +1630,16 @@ function StatusView() {
     useApiResource<StatusComponentsResponse>("/api/console/status/components");
   const { data: incData, loading: incLoading, error: incError, reload: reloadIncs } =
     useApiResource<StatusIncidentsResponse>("/api/console/status/incidents");
+  const { data: eventsData } =
+    useApiResource<WebhookEventsResponse>("/api/console/webhook-events?status=pending");
 
   const [activeTab, setActiveTab] = useState<"components" | "incidents">("components");
+
+  const staleEvents = useMemo(() => {
+    if (!eventsData?.events.length) return 0;
+    const oneHourAgo = Date.now() - 60 * 60 * 1000;
+    return eventsData.events.filter((e) => e.createdAt && new Date(e.createdAt).getTime() < oneHourAgo).length;
+  }, [eventsData]);
 
   // Seed state
   const [seeding, setSeeding] = useState(false);
@@ -1757,10 +1824,20 @@ function StatusView() {
 
   return (
     <div className="console-view">
-      <PageHeader
+      <Header
         title="Status Page"
         action={<a href="/status" target="_blank" rel="noreferrer" className="ui-button ui-button--secondary">View public page ↗</a>}
       />
+
+      {staleEvents > 0 && (
+        <div className="console-alert" role="alert">
+          <span className="console-alert__icon">⚠</span>
+          <div>
+            <strong>Webhook delivery may be degraded</strong>
+            <p>{staleEvents} event{staleEvents !== 1 ? "s" : ""} have been stuck in Pending for over an hour. The Webhook Delivery component status may not reflect reality — consider updating it to Partial Outage or Major Outage and creating an incident. <a href="/console/webhook-events">View event queue →</a></p>
+          </div>
+        </div>
+      )}
 
       <div className="console-tabs" role="tablist" aria-label="Status management">
         <button

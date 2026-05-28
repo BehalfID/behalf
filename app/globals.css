@@ -3239,6 +3239,157 @@ html[data-theme="light"] .ob-plan--featured:hover {
   margin-top: auto;
 }
 
+/* ── Dashboard / App shell — mobile drawer ───────────────
+   Desktop layout (>860px) is completely unchanged.
+   On mobile the sidebar becomes a slide-in drawer.
+─────────────────────────────────────────────────────── */
+
+/* Mobile top bar: hamburger + logo strip */
+.app-mobile-topbar {
+  display: none;
+}
+
+/* Hamburger button */
+.app-mobile-hamburger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text);
+  flex-shrink: 0;
+  transition: background 120ms ease;
+}
+
+.app-mobile-hamburger:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* Close button inside the drawer (mobile only) */
+.app-drawer-close {
+  display: none;
+  align-self: flex-end;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text);
+  flex-shrink: 0;
+  transition: background 120ms ease;
+}
+
+.app-drawer-close:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* Backdrop overlay */
+.app-drawer-backdrop {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  /* Switch shell from 2-col grid to single column */
+  .dashboard-shell,
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  /* Remove sidebar from grid flow entirely on mobile */
+  .docs-sidebar,
+  .dashboard-sidebar,
+  .console-sidebar,
+  .app-sidebar {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    height: 100dvh;
+    width: min(320px, 88vw);
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1);
+    grid-row: unset;
+    grid-column: unset;
+  }
+
+  /* Mobile top bar: always visible on mobile */
+  .app-mobile-topbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(10, 10, 10, 0.72);
+    backdrop-filter: blur(14px);
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    /* Span the full width of the single-column grid */
+    grid-column: 1 / -1;
+  }
+
+  /* Show hamburger button */
+  .app-mobile-hamburger {
+    display: flex;
+  }
+
+  /* Hide the Logo inside the sidebar on mobile (shown in top bar instead) */
+  .app-sidebar > a:first-of-type,
+  .app-sidebar .logo:first-child {
+    display: none;
+  }
+
+  /* Sidebar: off-canvas by default */
+  .dashboard-sidebar,
+  .app-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100dvh;
+    width: min(320px, 88vw);
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1);
+    /* Keep the sticky/height rules from desktop overridden */
+    border-right: 1px solid var(--border);
+  }
+
+  /* Drawer open state */
+  .app-sidebar--open {
+    transform: translateX(0);
+  }
+
+  /* Show close button inside drawer */
+  .app-drawer-close {
+    display: flex;
+  }
+
+  /* Backdrop */
+  .app-drawer-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 49;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(2px);
+  }
+
+  /* Main content takes full width */
+  .dashboard-main,
+  .app-main {
+    padding: 28px 20px;
+  }
+}
+
 .docs-article,
 .dashboard-main,
 .console-workspace,
@@ -4405,6 +4556,40 @@ html[data-theme="light"] .ob-plan--featured:hover {
 .dashboard-panel > h2:first-child,
 .dashboard-panel > h3 {
   margin-top: 0;
+}
+
+/* ── Developer integration collapsible panel ─────────── */
+.developer-integration-details {
+  padding: 20px 24px;
+}
+
+.developer-integration-summary {
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary, #888);
+  list-style: none;
+  user-select: none;
+}
+
+.developer-integration-summary::-webkit-details-marker {
+  display: none;
+}
+
+.developer-integration-summary::before {
+  content: "▶ ";
+  font-size: 0.7em;
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+
+.developer-integration-details[open] .developer-integration-summary::before {
+  transform: rotate(90deg);
+}
+
+.developer-integration-details p,
+.developer-integration-details .code-block {
+  margin-top: 16px;
 }
 
 /* ── Account details list ───────────────────────────── */
@@ -9374,6 +9559,44 @@ html[data-theme="light"] .billing-limit-grid div {
   line-height: 1.8;
 }
 
+.console-alert p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.console-alert a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.console-empty-state {
+  padding: 20px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.console-empty-state strong {
+  display: block;
+  color: var(--text);
+  font-size: 0.92rem;
+  margin-bottom: 6px;
+}
+
+.console-empty-state p {
+  margin: 0 0 6px;
+}
+
+.console-empty-state code {
+  background: var(--surface2);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.82rem;
+}
+
 /* console dashboard two-column bottom zone */
 .console-dashboard-bottom {
   display: grid;
@@ -9970,3 +10193,627 @@ html[data-theme="light"] .status-dot--operational { background: #10b981; box-sha
 html[data-theme="light"] .status-dot--performance { background: #d97706; box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.18); }
 html[data-theme="light"] .status-dot--partial     { background: #ea580c; box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.18); }
 html[data-theme="light"] .status-dot--major       { background: #dc2626; box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.18); }
+
+/* ═══════════════════════════════════════════════════════════════════
+   SCROLL ANIMATIONS
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Hero load animations (above fold — staggered on paint) ───────── */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes hero-fade-up {
+    from { opacity: 0; transform: translateY(22px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .home-hero .section-kicker {
+    animation: hero-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: 0.05s;
+  }
+  .home-hero .home-h1 {
+    animation: hero-fade-up 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: 0.15s;
+  }
+  .home-hero .home-sub {
+    animation: hero-fade-up 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: 0.28s;
+  }
+  .home-hero .home-code__links {
+    animation: hero-fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: 0.38s;
+  }
+  .home-hero .home-actions {
+    animation: hero-fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: 0.46s;
+  }
+}
+
+/* ── IntersectionObserver fallback ([data-reveal]) ────────────────── */
+/* Only active in browsers that don't support animation-timeline: view() */
+/* so it doesn't conflict with the @supports block above.               */
+@supports not (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    [data-reveal] {
+      opacity: 0;
+      transform: translateY(26px);
+      transition: opacity 0.65s cubic-bezier(0.22, 1, 0.36, 1), transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    [data-reveal].is-revealed {
+      opacity: 1;
+      transform: none;
+    }
+
+    /* Stagger siblings when the parent carries data-reveal-group */
+    [data-reveal-group] > [data-reveal]:nth-child(2) { transition-delay: 0.08s; }
+    [data-reveal-group] > [data-reveal]:nth-child(3) { transition-delay: 0.16s; }
+    [data-reveal-group] > [data-reveal]:nth-child(4) { transition-delay: 0.24s; }
+  }
+}
+
+/* ── Scroll-driven reveals (extends existing home-step pattern) ───── */
+@supports (animation-timeline: view()) {
+  @keyframes scroll-fade-up {
+    from { opacity: 0; transform: translateY(28px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .home-steps__intro {
+      opacity: 0;
+      animation: scroll-fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 40%;
+    }
+
+    .home-code__text {
+      opacity: 0;
+      animation: scroll-fade-up 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 45%;
+    }
+
+    .home-code__block {
+      opacity: 0;
+      animation: scroll-fade-up 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+      animation-delay: 0.1s;
+      animation-timeline: view();
+      animation-range: entry 0% entry 45%;
+    }
+
+    .home-deploy__intro {
+      opacity: 0;
+      animation: scroll-fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 40%;
+    }
+
+    .home-deploy__steps > li {
+      opacity: 0;
+      animation: scroll-fade-up 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 42%;
+    }
+
+    .home-deploy__steps > li:nth-child(2) { animation-delay: 0.06s; }
+    .home-deploy__steps > li:nth-child(3) { animation-delay: 0.12s; }
+    .home-deploy__steps > li:nth-child(4) { animation-delay: 0.18s; }
+
+    .home-demo__head {
+      opacity: 0;
+      animation: scroll-fade-up 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 42%;
+    }
+
+    .home-cta > * {
+      opacity: 0;
+      animation: scroll-fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 45%;
+    }
+
+    .home-cta > *:nth-child(2) { animation-delay: 0.08s; }
+    .home-cta > *:nth-child(3) { animation-delay: 0.16s; }
+    .home-cta > *:nth-child(4) { animation-delay: 0.22s; }
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   MODE TOGGLE  (Simple / Advanced)
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Prevent flash before JS hydrates */
+.mode-toggle-placeholder {
+  display: inline-block;
+  width: 96px;
+  height: 28px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-elev);
+  vertical-align: middle;
+}
+
+.mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface-elev);
+  padding: 2px;
+  gap: 2px;
+}
+
+.mode-toggle__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  padding: 0 10px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 640;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+  white-space: nowrap;
+}
+
+.mode-toggle__btn:hover {
+  color: var(--text);
+}
+
+.mode-toggle__btn--active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.mode-toggle__btn--active:hover {
+  background: var(--accent-hover);
+}
+
+/* Light theme */
+html[data-theme="light"] .mode-toggle {
+  border-color: rgba(0, 0, 0, 0.16);
+  background: #f3f3f5;
+}
+
+html[data-theme="light"] .mode-toggle__btn {
+  color: rgba(0, 0, 0, 0.48);
+}
+
+html[data-theme="light"] .mode-toggle__btn:hover {
+  color: rgba(0, 0, 0, 0.88);
+}
+
+/* ── Mode visibility utilities ────────────────────────────────────── */
+.mode-simple-only  { display: none !important; }
+.mode-advanced-only { display: block; }
+
+html[data-mode="simple"] .mode-simple-only  { display: block !important; }
+html[data-mode="simple"] .mode-advanced-only { display: none !important; }
+
+/* For flex children that shouldn't become block */
+.mode-simple-only--flex  { display: none !important; }
+html[data-mode="simple"] .mode-simple-only--flex { display: flex !important; }
+
+/* ── Simple mode docs banner ──────────────────────────────────────── */
+.simple-mode-banner {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.22);
+  border-radius: var(--radius-lg);
+  margin-bottom: 28px;
+  font-size: 0.86rem;
+  color: var(--text-2);
+}
+
+html[data-mode="simple"] .simple-mode-banner { display: flex; }
+
+.simple-mode-banner strong {
+  color: var(--accent);
+}
+
+.simple-mode-banner a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   SIMPLE MODE CONTENT VARIANTS (homepage)
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Hero subtitle swap ────────────────────────────────────────────── */
+.home-sub--simple { display: none; }
+html[data-mode="simple"] .home-sub--simple  { display: block; }
+html[data-mode="simple"] .home-sub--advanced { display: none; }
+
+/* ── Visual flow diagram (replaces CodeBlock in integration section) */
+.home-flow-diagram {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  overflow: hidden;
+  min-height: 220px;
+}
+
+.home-flow-node {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 28px 16px;
+  text-align: center;
+}
+
+.home-flow-node + .home-flow-node {
+  border-left: 1px solid var(--border);
+}
+
+.home-flow-node__icon {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.home-flow-node__label {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
+
+.home-flow-node__sub {
+  font-size: 0.76rem;
+  color: var(--muted);
+  line-height: 1.5;
+  max-width: 120px;
+}
+
+.home-flow-node--center {
+  background: rgba(99, 102, 241, 0.05);
+  border-left: 2px solid var(--accent) !important;
+}
+
+.home-flow-outcomes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+}
+
+.home-flow-outcome {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.76rem;
+  font-weight: 660;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+
+.home-flow-outcome--ok   { color: var(--ok);   background: var(--ok-bg);   border: 1px solid var(--ok-border); }
+.home-flow-outcome--deny { color: var(--deny); background: var(--deny-bg); border: 1px solid var(--deny-border); }
+.home-flow-outcome--warn { color: var(--warn); background: var(--warn-bg); border: 1px solid var(--warn-border); }
+
+@media (max-width: 540px) {
+  .home-flow-diagram { flex-direction: column; }
+  .home-flow-node + .home-flow-node { border-left: none; border-top: 1px solid var(--border); }
+  .home-flow-node--center { border-left: none !important; border-top: 2px solid var(--accent) !important; }
+}
+
+/* ── Simple deploy checklist (replaces code in deploy section) ────── */
+.home-deploy-simple {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.home-deploy-simple__card {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.home-deploy-simple__num {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft);
+  border: 1px solid rgba(99, 102, 241, 0.22);
+  border-radius: 50%;
+  font-size: 0.72rem;
+  font-weight: 760;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.home-deploy-simple__text strong {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 660;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.home-deploy-simple__text p {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   TOUR BUTTON ("How it works")
+   ═══════════════════════════════════════════════════════════════════ */
+
+.home-tour-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 0.875rem;
+  font-weight: 560;
+  cursor: pointer;
+  transition: border-color 140ms ease, color 140ms ease, background 140ms ease;
+}
+
+.home-tour-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+  background: var(--accent-soft);
+}
+
+.home-tour-btn__icon {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   TUTORIAL OVERLAY  (guided spotlight tour)
+   ═══════════════════════════════════════════════════════════════════ */
+
+.tour-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9990;
+  background: transparent;
+  cursor: default;
+}
+
+.tour-spotlight {
+  position: fixed;
+  z-index: 9995;
+  border-radius: var(--radius-xl);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.72);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.28s ease, top 0.32s cubic-bezier(0.22, 1, 0.36, 1), left 0.32s cubic-bezier(0.22, 1, 0.36, 1), width 0.32s cubic-bezier(0.22, 1, 0.36, 1), height 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  /* Accent ring on spotlight edge */
+  outline: 2px solid rgba(99, 102, 241, 0.5);
+  outline-offset: 2px;
+}
+
+.tour-spotlight--visible {
+  opacity: 1;
+}
+
+.tour-card {
+  position: fixed;
+  z-index: 10000; /* above spotlight (9998) and backdrop (9990) */
+  width: min(340px, calc(100vw - 32px));
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(99, 102, 241, 0.18);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: all;
+  /* Ensure scrolling never hides the card */
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+}
+
+.tour-card--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.tour-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.tour-card__step {
+  font: 600 0.7rem/1 var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.tour-card__close {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
+  flex-shrink: 0;
+}
+
+.tour-card__close:hover {
+  border-color: var(--deny-border);
+  color: var(--deny);
+  background: var(--deny-bg);
+}
+
+.tour-card__title {
+  font-size: 1.02rem;
+  font-weight: 700;
+  letter-spacing: -0.018em;
+  color: var(--text);
+  margin: 0 0 8px;
+  line-height: 1.3;
+}
+
+.tour-card__body {
+  font-size: 0.875rem;
+  color: var(--text-2);
+  line-height: 1.65;
+  margin: 0 0 16px;
+}
+
+/* Dot indicators */
+.tour-dots {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.tour-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  background: var(--border-strong);
+  cursor: pointer;
+  transition: background 160ms ease, width 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.tour-dot--active {
+  width: 18px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
+
+/* Navigation row */
+.tour-card__nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tour-nav-btn {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 0.8rem;
+  font-weight: 580;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.tour-nav-btn:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+
+.tour-nav-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.tour-nav-btn--next,
+.tour-nav-btn--finish {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.tour-nav-btn--next:hover:not(:disabled),
+.tour-nav-btn--finish:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: #fff;
+}
+
+/* Light theme overrides */
+html[data-theme="light"] .tour-card {
+  background: #ffffff;
+  border-color: var(--accent);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(99, 102, 241, 0.15);
+}
+
+html[data-theme="light"] .tour-card__body {
+  color: rgba(0, 0, 0, 0.64);
+}
+
+html[data-theme="light"] .tour-dot {
+  background: rgba(0, 0, 0, 0.18);
+}
+
+html[data-theme="light"] .tour-nav-btn {
+  color: rgba(0, 0, 0, 0.64);
+  border-color: rgba(0, 0, 0, 0.16);
+}
+
+html[data-theme="light"] .tour-nav-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(0, 0, 0, 0.88);
+}
+
+html[data-theme="light"] .tour-spotlight {
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.54);
+}
+
+/* ── HomeDemo simple mode overrides ──────────────────────────────── */
+.home-demo__verdict-simple {
+  display: none;
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.home-demo__verdict-simple--allowed       { color: var(--ok); }
+.home-demo__verdict-simple--denied        { color: var(--deny); }
+.home-demo__verdict-simple--needs_approval { color: var(--warn); }
+
+html[data-mode="simple"] .home-demo__verdict-simple { display: block; }
+html[data-mode="simple"] .home-demo__verdict         { display: none; }
+html[data-mode="simple"] .home-demo__reason          { display: none; }
+html[data-mode="simple"] .home-demo__rows > div > span { display: none; }

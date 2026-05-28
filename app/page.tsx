@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { PublicNav } from "@/components/layout/PublicNav";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { ButtonLink, CodeBlock, HomeDemo, SplitCTAButton } from "@/components/ui";
+import { HomeTour } from "@/components/ui/HomeTour";
 
 export const metadata: Metadata = {
   title: "BehalfID — Permission infrastructure for AI agents",
@@ -49,10 +50,17 @@ export default function Home() {
         <h1 className="home-h1">
           Permission checks<br />before AI agents act.
         </h1>
-        <p className="home-sub">
+        {/* Advanced subtitle (default) */}
+        <p className="home-sub home-sub--advanced">
           AI agents are starting to buy, email, book, edit, browse, and access data.
           API keys identify the agent. BehalfID verifies what the agent is allowed to do
           before the tool runs. Denied actions fail closed.
+        </p>
+        {/* Simple subtitle */}
+        <p className="home-sub home-sub--simple">
+          Your AI assistant can now take real actions — send emails, make purchases,
+          deploy code. BehalfID lets you decide exactly which ones are okay, and blocks
+          everything else before it runs.
         </p>
         <div className="home-code__links" aria-label="Permission examples">
           <span>Allow staging deploys, require approval for production.</span>
@@ -61,12 +69,13 @@ export default function Home() {
         </div>
         <div className="home-actions">
           <SplitCTAButton leftLabel="Build" leftHref="/signup" rightLabel="Try It" rightHref="/sandbox" className="split-cta--ghost" />
+          <HomeTour />
         </div>
       </section>
 
       {/* ── How it works ──────────────────────────────────── */}
       <section className="home-steps" aria-labelledby="steps-heading">
-        <div className="home-steps__intro">
+        <div className="home-steps__intro" data-reveal>
           <p className="section-kicker">How it works</p>
           <h2 id="steps-heading" className="home-steps__h2">
             Verify first.<br />Execute second.
@@ -163,22 +172,31 @@ export default function Home() {
 
       {/* ── Integration ───────────────────────────────────── */}
       <section className="home-code" aria-labelledby="code-heading">
-        <div className="home-code__text">
+        <div className="home-code__text" data-reveal>
           <p className="section-kicker">Integration</p>
           <h2 id="code-heading" className="home-code__h2">
             Three lines between<br />request and execution.
           </h2>
-          <p className="home-code__body">
+          {/* Advanced body */}
+          <p className="home-code__body mode-advanced-only">
             Install the SDK, call <code className="hi-code">behalf.verify()</code> before your
             executor, and throw on denial. Works with any agent framework because the
             fail-closed check lives in your code, not in the model&apos;s memory.
+          </p>
+          {/* Simple body */}
+          <p className="home-code__body mode-simple-only">
+            No matter what tool your AI agent tries to use — browse, buy, deploy, email —
+            it asks BehalfID first. You define the rules once. BehalfID enforces them
+            automatically, every time.
           </p>
           <div className="home-code__links">
             <Link href="/docs/quickstart">Quickstart →</Link>
             <Link href="/docs/sdk">SDK reference →</Link>
           </div>
         </div>
-        <div className="home-code__block">
+
+        {/* Advanced: TypeScript code snippet */}
+        <div className="home-code__block mode-advanced-only" data-reveal>
           <CodeBlock label="enforce.ts">{`const decision = await behalf.verify({
   agentId: "agent_claude_code",
   action:  "deploy",
@@ -192,20 +210,48 @@ if (!decision.allowed) {
 
 // Deploy only runs when decision.allowed === true`}</CodeBlock>
         </div>
+
+        {/* Simple: visual flow diagram */}
+        <div className="home-flow-diagram mode-simple-only" aria-label="BehalfID verification flow" data-reveal>
+          <div className="home-flow-node">
+            <span className="home-flow-node__icon" aria-hidden="true">🤖</span>
+            <span className="home-flow-node__label">AI Agent</span>
+            <span className="home-flow-node__sub">wants to take an action</span>
+          </div>
+          <div className="home-flow-node home-flow-node--center">
+            <span className="home-flow-node__icon" aria-hidden="true">🛡️</span>
+            <span className="home-flow-node__label">BehalfID</span>
+            <span className="home-flow-node__sub">checks your rules first</span>
+          </div>
+          <div className="home-flow-node">
+            <div className="home-flow-outcomes">
+              <span className="home-flow-outcome home-flow-outcome--ok">✓ Go ahead</span>
+              <span className="home-flow-outcome home-flow-outcome--deny">✗ Blocked</span>
+              <span className="home-flow-outcome home-flow-outcome--warn">⚠ Ask me first</span>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* ── Deploy approval workflow ──────────────────────── */}
       <section className="home-deploy" aria-labelledby="deploy-heading">
-        <div className="home-deploy__intro">
+        <div className="home-deploy__intro" data-reveal>
           <p className="section-kicker">Deploy approvals</p>
           <h2 id="deploy-heading" className="home-deploy__h2">
             From zero to enforced<br />in five minutes.
           </h2>
-          <p className="home-deploy__body">
+          {/* Advanced body */}
+          <p className="home-deploy__body mode-advanced-only">
             The first thing most teams wire up: a coding agent that can deploy to staging
             freely, but must pause for human approval before touching production.
             BehalfID enforces this at the MCP boundary — where the tool call is made,
             not inside the model&apos;s memory.
+          </p>
+          {/* Simple body */}
+          <p className="home-deploy__body mode-simple-only">
+            The most common setup: your AI coding helper can update the test environment
+            any time, but touching the live site requires your go-ahead first. Four
+            steps, set up in under five minutes.
           </p>
         </div>
 
@@ -215,13 +261,33 @@ if (!decision.allowed) {
             <div>
               <h3>Set up two permissions</h3>
               <p>Staging allowed automatically. Production requires approval.</p>
-              <CodeBlock label="terminal">{`behalf permissions create agent_xxx \\
+              {/* Advanced: code */}
+              <div className="mode-advanced-only">
+                <CodeBlock label="terminal">{`behalf permissions create agent_xxx \\
   --action deploy --resource vercel.com \\
   --blocked "deploy to production"
 
 behalf permissions create agent_xxx \\
   --action deploy_production --resource vercel.com \\
   --requires-approval`}</CodeBlock>
+              </div>
+              {/* Simple: plain card */}
+              <div className="home-deploy-simple mode-simple-only">
+                <div className="home-deploy-simple__card">
+                  <span className="home-deploy-simple__num">A</span>
+                  <div className="home-deploy-simple__text">
+                    <strong>Staging — always allowed</strong>
+                    <p>Your agent can push to the test environment freely, any time.</p>
+                  </div>
+                </div>
+                <div className="home-deploy-simple__card">
+                  <span className="home-deploy-simple__num">B</span>
+                  <div className="home-deploy-simple__text">
+                    <strong>Production — ask me first</strong>
+                    <p>Production deploys pause until you approve them in the dashboard.</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </li>
 
@@ -229,8 +295,16 @@ behalf permissions create agent_xxx \\
             <span className="home-deploy__num">02</span>
             <div>
               <h3>Wire up MCP enforcement</h3>
-              <p>One command writes <code>.mcp.json</code> and the agent context file.</p>
-              <CodeBlock label="terminal">{`behalf mcp init && behalf claude`}</CodeBlock>
+              {/* Advanced */}
+              <p className="mode-advanced-only">One command writes <code>.mcp.json</code> and the agent context file.</p>
+              <div className="mode-advanced-only">
+                <CodeBlock label="terminal">{`behalf mcp init && behalf claude`}</CodeBlock>
+              </div>
+              {/* Simple */}
+              <p className="mode-simple-only">
+                One terminal command connects BehalfID to your AI agent&apos;s tools.
+                No code changes to your agent needed.
+              </p>
             </div>
           </li>
 
@@ -239,9 +313,12 @@ behalf permissions create agent_xxx \\
             <div>
               <h3>Agent attempts production deploy — blocked</h3>
               <p>
-                The MCP server calls <code>verify_action</code>. BehalfID returns{" "}
-                <code>approvalRequired: true</code>. The agent pauses and reports the{" "}
-                <code>approvalId</code> back to you.
+                The MCP server calls <code className="mode-advanced-only">verify_action</code>
+                <span className="mode-simple-only">BehalfID</span>
+                {". "}BehalfID returns{" "}
+                <code className="mode-advanced-only">approvalRequired: true</code>
+                <span className="mode-simple-only">Approval Required</span>
+                {". "}The agent pauses and reports back to you.
               </p>
               <CodeBlock label="what the agent sees">{`APPROVAL REQUIRED — do not execute this action.
 
@@ -256,10 +333,17 @@ Approve at: https://behalfid.com/dashboard/approvals`}</CodeBlock>
             <span className="home-deploy__num">04</span>
             <div>
               <h3>You approve — agent retries and deploys</h3>
-              <p>
+              {/* Advanced */}
+              <p className="mode-advanced-only">
                 One click in the dashboard opens a 30-minute grant window.
                 The agent calls <code>verify_action</code> again — now <code>allowed: true</code>.
                 The deploy runs. Every step is in the audit log.
+              </p>
+              {/* Simple */}
+              <p className="mode-simple-only">
+                Click Approve in your dashboard. The agent retries automatically and
+                the deploy goes through. Every step — the block, the approval, the
+                deploy — is recorded in the audit log.
               </p>
             </div>
           </li>

@@ -171,8 +171,8 @@ export function BillingClient({
         </div>
         <div>
           <span>Webhooks</span>
-          <strong>{quotas.webhooksEnabled ? "Enabled" : "Requires Pro"}</strong>
-          <small>{quotas.webhooksEnabled ? "Webhook endpoints can receive verification events." : "Existing endpoints stay disabled until the plan is upgraded."}</small>
+          <strong>{quotas.webhooksEnabled ? "Enabled" : "Available"}</strong>
+          <small>{quotas.webhooksEnabled ? "Webhook endpoints can receive verification events." : "Set up webhook endpoints to receive verification events."}</small>
         </div>
         <div>
           <span>Log retention</span>

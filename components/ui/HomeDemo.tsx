@@ -134,8 +134,15 @@ export function HomeDemo() {
         {/* Decision panel */}
         <div className={`home-demo__decision home-demo__decision--${scenario.outcome}`}>
           <span className="sv-label">DECISION</span>
+          {/* Advanced: monospace verdict */}
           <strong className={`home-demo__verdict home-demo__verdict--${scenario.outcome}`}>
             {outcomeLabel(scenario.outcome)}
+          </strong>
+          {/* Simple: friendly verdict */}
+          <strong className={`home-demo__verdict-simple home-demo__verdict-simple--${scenario.outcome}`}>
+            {scenario.outcome === "allowed"       ? "Approved ✓" :
+             scenario.outcome === "denied"        ? "Blocked ✗" :
+                                                   "Ask me first ⚠"}
           </strong>
           <code className="home-demo__reason">{scenario.reason}</code>
           <div className="home-demo__exec-row">

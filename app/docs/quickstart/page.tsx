@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import { CodeBlock, DocsShell } from "../content";
+
+export const metadata: Metadata = {
+  title: "Quickstart — BehalfID",
+  description: "Create an agent, add one permission, verify before execution, and prove both allowed and denied actions in about five minutes.",
+  alternates: { canonical: "/docs/quickstart" }
+};
 
 export default function QuickstartPage() {
   return (

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Logo, SplitCTAButton, ThemeToggle, SocialLinks } from "@/components/ui";
+import { Logo, SplitCTAButton, ThemeToggle, ModeToggle, SocialLinks } from "@/components/ui";
 
 export function PublicNav() {
   const [open, setOpen] = useState(false);
@@ -93,6 +93,7 @@ export function PublicNav() {
           <Link href="/security">Security</Link>
           <Link href="/status">Status</Link>
           <SocialLinks className="social-links--nav" />
+          <ModeToggle />
           <ThemeToggle />
           <SplitCTAButton
             leftLabel="Build"
@@ -130,6 +131,10 @@ export function PublicNav() {
           <Link href="/status" onClick={close}>Status</Link>
           <Link href="/compliance" onClick={close}>Compliance</Link>
           <Link href="/login" onClick={close}>Log in</Link>
+          <div className="public-nav__drawer-row">
+            <span>Mode</span>
+            <ModeToggle />
+          </div>
           <div className="public-nav__drawer-row">
             <span>Theme</span>
             <ThemeToggle />

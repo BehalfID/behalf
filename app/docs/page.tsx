@@ -1,5 +1,12 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { DocsShell } from "./content";
+
+export const metadata: Metadata = {
+  title: "Docs — BehalfID",
+  description: "BehalfID verifies every agent action against a permission passport before it runs. Define boundaries, fail closed on denial, require approval before high-risk actions, and audit every decision.",
+  alternates: { canonical: "/docs" }
+};
 
 const cards = [
   { href: "/docs/quickstart", title: "Quickstart", body: "Create an agent, add a permission, install the SDK, verify before execution, and test allowed and denied requests." },

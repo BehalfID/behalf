@@ -1,5 +1,12 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { DocsShell } from "../content";
+
+export const metadata: Metadata = {
+  title: "Concepts — BehalfID",
+  description: "Understand permission passports, fail-closed enforcement, approval-required flows, audit logs, and MCP enforcement.",
+  alternates: { canonical: "/docs/concepts" }
+};
 
 export default function ConceptsPage() {
   const concepts = [
