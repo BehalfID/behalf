@@ -64,7 +64,8 @@ function useSearch() {
 }
 
 export function DocsLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
+  const rawPathname = usePathname();
+  const pathname = rawPathname.replace(/^\/(de|es|fr)/, "");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const sidebar = useSearch();
   const drawer  = useSearch();

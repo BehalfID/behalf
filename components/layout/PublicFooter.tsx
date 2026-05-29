@@ -1,7 +1,9 @@
-import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import { SocialLinks } from "@/components/ui";
 
 export function PublicFooter() {
+  const t = useTranslations("footer");
   return (
     <footer className="site-footer">
       <div className="site-footer__inner">
@@ -10,48 +12,50 @@ export function PublicFooter() {
             Behalf<span>ID</span>
           </Link>
           <p className="site-footer__tagline">
-            Permission infrastructure<br />for AI agents.
+            {t("tagline").split("\n").map((line, i) => (
+              <span key={i}>{line}{i === 0 && <br />}</span>
+            ))}
           </p>
           <p className="site-footer__copy">© {new Date().getFullYear()} BehalfID</p>
           <SocialLinks className="social-links--footer" />
         </div>
         <nav className="site-footer__cols" aria-label="Footer navigation">
           <div>
-            <h5>Product</h5>
+            <h5>{t("product")}</h5>
             <ul>
-              <li><Link href="/sandbox">Sandbox</Link></li>
-              <li><Link href="/design-partners">Design partners</Link></li>
-              <li><Link href="/security">Security</Link></li>
-              <li><Link href="/blog">Blog</Link></li>
-              <li><Link href="/signup">Start building</Link></li>
+              <li><Link href="/sandbox">{t("sandbox")}</Link></li>
+              <li><Link href="/design-partners">{t("designPartners")}</Link></li>
+              <li><Link href="/security">{t("security")}</Link></li>
+              <li><Link href="/blog">{t("blog")}</Link></li>
+              <li><Link href="/signup">{t("startBuilding")}</Link></li>
             </ul>
           </div>
           <div>
-            <h5>Docs</h5>
+            <h5>{t("docs")}</h5>
             <ul>
-              <li><Link href="/docs/quickstart">Quickstart</Link></li>
-              <li><Link href="/docs/deploy-approvals">Deploy approvals</Link></li>
-              <li><Link href="/docs/cli">CLI &amp; MCP</Link></li>
-              <li><Link href="/docs/api">API reference</Link></li>
-              <li><Link href="/docs/sdk">SDK</Link></li>
+              <li><Link href="/docs/quickstart">{t("quickstart")}</Link></li>
+              <li><Link href="/docs/deploy-approvals">{t("deployApprovals")}</Link></li>
+              <li><Link href="/docs/cli">{t("cliMcp")}</Link></li>
+              <li><Link href="/docs/api">{t("apiRef")}</Link></li>
+              <li><Link href="/docs/sdk">{t("sdk")}</Link></li>
             </ul>
           </div>
           <div>
-            <h5>Company</h5>
+            <h5>{t("company")}</h5>
             <ul>
-              <li><Link href="/design-system">Design system</Link></li>
-              <li><Link href="/status">Status</Link></li>
-              <li><Link href="/design-partners">Design partners</Link></li>
+              <li><Link href="/design-system">{t("designSystem")}</Link></li>
+              <li><Link href="/status">{t("status")}</Link></li>
+              <li><Link href="/design-partners">{t("designPartners")}</Link></li>
             </ul>
           </div>
           <div>
-            <h5>Legal</h5>
+            <h5>{t("legal")}</h5>
             <ul>
-              <li><Link href="/legal">Legal hub</Link></li>
-              <li><Link href="/terms">Terms of Service</Link></li>
-              <li><Link href="/privacy">Privacy policy</Link></li>
-              <li><Link href="/security">Security</Link></li>
-              <li><Link href="/compliance">Compliance</Link></li>
+              <li><Link href="/legal">{t("legalHub")}</Link></li>
+              <li><Link href="/terms">{t("terms")}</Link></li>
+              <li><Link href="/privacy">{t("privacy")}</Link></li>
+              <li><Link href="/security">{t("security")}</Link></li>
+              <li><Link href="/compliance">{t("compliance")}</Link></li>
             </ul>
           </div>
         </nav>

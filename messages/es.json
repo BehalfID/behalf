@@ -1,0 +1,765 @@
+{
+  "common": {
+    "skipToContent": "Saltar al contenido principal"
+  },
+  "language": {
+    "select": "Seleccionar idioma",
+    "en": "Inglés",
+    "de": "Alemán",
+    "es": "Español",
+    "fr": "Francés"
+  },
+  "nav": {
+    "docs": "Docs",
+    "blog": "Blog",
+    "security": "Seguridad",
+    "status": "Estado",
+    "compliance": "Cumplimiento",
+    "login": "Iniciar sesión",
+    "build": "Crear",
+    "tryIt": "Probar",
+    "openMenu": "Abrir menú",
+    "closeMenu": "Cerrar menú",
+    "navigationMenu": "Menú de navegación",
+    "mode": "Modo",
+    "theme": "Tema",
+    "language": "Idioma"
+  },
+  "footer": {
+    "tagline": "Infraestructura de permisos\npara agentes de IA.",
+    "product": "Producto",
+    "docs": "Docs",
+    "company": "Empresa",
+    "legal": "Legal",
+    "sandbox": "Sandbox",
+    "designPartners": "Socios de diseño",
+    "security": "Seguridad",
+    "blog": "Blog",
+    "startBuilding": "Empezar a construir",
+    "quickstart": "Inicio rápido",
+    "deployApprovals": "Aprobaciones de despliegue",
+    "cliMcp": "CLI y MCP",
+    "apiRef": "Referencia API",
+    "sdk": "SDK",
+    "designSystem": "Sistema de diseño",
+    "status": "Estado",
+    "legalHub": "Centro legal",
+    "terms": "Términos de servicio",
+    "privacy": "Política de privacidad",
+    "compliance": "Cumplimiento"
+  },
+  "home": {
+    "meta": {
+      "title": "BehalfID — Infraestructura de permisos para agentes de IA",
+      "description": "BehalfID verifica cada acción de agente contra un pasaporte de permisos antes de ejecutarse. Define límites, falla en denegación, audita cada decisión."
+    },
+    "hero": {
+      "kicker": "Infraestructura de permisos para agentes de IA",
+      "h1Line1": "Verificación de permisos",
+      "h1Line2": "antes de que actúen los agentes de IA.",
+      "subAdvanced": "Los agentes de IA están empezando a comprar, enviar correos, reservar, editar, navegar y acceder a datos. Las claves API identifican al agente. BehalfID verifica qué puede hacer el agente antes de ejecutar la herramienta. Las acciones denegadas fallan de forma cerrada.",
+      "subSimple": "Tu asistente de IA ahora puede realizar acciones reales: enviar correos, hacer compras, desplegar código. BehalfID te permite decidir exactamente cuáles están bien y bloquea todo lo demás antes de que se ejecute.",
+      "example1": "Permitir despliegues en staging, requerir aprobación para producción.",
+      "example2": "Permitir lectura de issues de GitHub, denegar despliegues en producción.",
+      "example3": "Permitir navegación, denegar compras superiores a 25 €.",
+      "permissionExamples": "Ejemplos de permisos"
+    },
+    "steps": {
+      "kicker": "Cómo funciona",
+      "h2Line1": "Verificar primero.",
+      "h2Line2": "Ejecutar después.",
+      "step1Title": "Solicitud de acción",
+      "step1Body": "Antes de que el agente ejecute una herramienta, empaqueta la acción: quién actúa, qué acción, qué proveedor y parámetros como entorno o ruta de recurso.",
+      "step2Title": "Verificación BehalfID",
+      "step2Body": "BehalfID evalúa la solicitud contra permisos activos, acciones bloqueadas, acciones permitidas, restricciones de recursos o proveedores, requisitos de aprobación y vencimiento antes de llamar al ejecutor.",
+      "step3Title": "Decisión",
+      "step3Body1": "Se devuelve un paquete de decisión: ",
+      "step3Body2": ", o aprobación requerida. La herramienta se ejecuta solo cuando ",
+      "step3Body3": " es verdadero.",
+      "step4Title": "Ejecutar y auditar",
+      "step4Body": "Las acciones permitidas pueden continuar hacia tu herramienta. Las acciones denegadas se detienen antes de ejecutarse. Cada decisión verificada se registra con un ID de solicitud estable y se entrega mediante webhook firmado."
+    },
+    "code": {
+      "kicker": "Integración",
+      "h2Line1": "Tres líneas entre",
+      "h2Line2": "solicitud y ejecución.",
+      "bodyAdvanced": "Instala el SDK, llama a <code>behalf.verify()</code> antes de tu ejecutor y lanza en caso de denegación. Funciona con cualquier framework de agente porque la verificación fail-closed vive en tu código, no en la memoria del modelo.",
+      "bodySimple": "Sin importar qué herramienta intente usar tu agente de IA — navegar, comprar, desplegar, enviar correos — primero pregunta a BehalfID. Defines las reglas una vez. BehalfID las aplica automáticamente, cada vez.",
+      "quickstart": "Inicio rápido →",
+      "sdkRef": "Referencia SDK →",
+      "aiAgent": "Agente de IA",
+      "wantsToAct": "quiere realizar una acción",
+      "checksRules": "verifica tus reglas primero",
+      "goAhead": "✓ Adelante",
+      "blocked": "✗ Bloqueado",
+      "askFirst": "⚠ Preguntar primero",
+      "verificationFlow": "Flujo de verificación BehalfID"
+    },
+    "deploy": {
+      "kicker": "Aprobaciones de despliegue",
+      "h2Line1": "De cero a aplicado",
+      "h2Line2": "en cinco minutos.",
+      "bodyAdvanced": "Lo primero que configura la mayoría de los equipos: un agente de codificación que puede desplegar libremente en staging, pero debe pausar para aprobación humana antes de tocar producción. BehalfID aplica esto en el límite MCP — donde se realiza la llamada a la herramienta, no dentro de la memoria del modelo.",
+      "bodySimple": "La configuración más común: tu asistente de codificación IA puede actualizar el entorno de prueba en cualquier momento, pero tocar el sitio en vivo requiere tu aprobación primero. Cuatro pasos, configurados en menos de cinco minutos.",
+      "step1Title": "Configurar dos permisos",
+      "step1Body": "Staging permitido automáticamente. Producción requiere aprobación.",
+      "step1SimpleATitle": "Staging — siempre permitido",
+      "step1SimpleABody": "Tu agente puede hacer push al entorno de prueba libremente, en cualquier momento.",
+      "step1SimpleBTitle": "Producción — preguntar primero",
+      "step1SimpleBBody": "Los despliegues en producción se pausan hasta que los apruebes en el panel de control.",
+      "step2Title": "Conectar el cumplimiento MCP",
+      "step2BodyAdvanced": "Un comando escribe <code>.mcp.json</code> y el archivo de contexto del agente.",
+      "step2BodySimple": "Un comando de terminal conecta BehalfID con las herramientas de tu agente de IA. No se necesitan cambios de código en tu agente.",
+      "step3Title": "El agente intenta desplegar en producción — bloqueado",
+      "step3BodyAdvanced": "El servidor MCP llama a <verifyCode>verify_action</verifyCode>. BehalfID devuelve <approvalCode>approvalRequired: true</approvalCode>. El agente se pausa y te informa.",
+      "step3BodySimple": "BehalfID devuelve Aprobación requerida. El agente se pausa y te informa.",
+      "step4Title": "Apruebas — el agente reintenta y despliega",
+      "step4BodyAdvanced": "Un clic en el panel de control abre una ventana de concesión de 30 minutos. El agente llama a <code>verify_action</code> de nuevo — ahora <code>allowed: true</code>. El despliegue se ejecuta. Cada paso está en el registro de auditoría.",
+      "step4BodySimple": "Haz clic en Aprobar en tu panel de control. El agente reintenta automáticamente y el despliegue se realiza. Cada paso — el bloqueo, la aprobación, el despliegue — se registra en el registro de auditoría.",
+      "readGuide": "Leer la guía de demostración completa →"
+    },
+    "cta": {
+      "kicker": "Listo",
+      "h2": "Agrega la verificación de permisos.",
+      "body": "La aplicación es fail-closed donde la integras — mediante SDK o MCP. El modo de pasaporte manual es de mejor esfuerzo para pruebas con agentes existentes antes de construir la integración.",
+      "tryDeploy": "Probar aprobaciones de despliegue"
+    }
+  },
+  "privacy": {
+    "meta": {
+      "title": "Política de privacidad — BehalfID",
+      "description": "Cómo BehalfID recopila, usa y protege tus datos."
+    },
+    "breadcrumb": "Legal",
+    "kicker": "Política de privacidad",
+    "title": "Política de privacidad",
+    "effective": "En vigor desde el {date}",
+    "effectiveDate": "26 de mayo de 2026",
+    "toc": {
+      "heading": "En esta página",
+      "item1": "1. Quiénes somos",
+      "item2": "2. Datos que recopilamos",
+      "item3": "3. Cookies y almacenamiento local",
+      "item4": "4. Cómo usamos tus datos",
+      "item5": "5. Análisis",
+      "item6": "6. Retención de datos",
+      "item7": "7. Procesadores de terceros",
+      "item8": "8. Tus derechos",
+      "item9": "9. Seguridad",
+      "item10": "10. Cambios en esta política",
+      "item11": "11. Contacto"
+    },
+    "s1": {
+      "heading": "1. Quiénes somos",
+      "body": "BehalfID (\"nosotros\", \"nos\", \"nuestro\") opera behalfid.com y proporciona infraestructura de verificación de permisos para agentes de IA. Las preguntas sobre esta política pueden dirigirse a <email>legal@behalfid.com</email>."
+    },
+    "s2": {
+      "heading": "2. Datos que recopilamos",
+      "accountH": "Datos de cuenta",
+      "accountBody": "Cuando creas una cuenta de desarrollador, recopilamos tu dirección de correo electrónico y una contraseña cifrada. No almacenamos tu contraseña en texto plano en ningún momento.",
+      "agentH": "Datos de agentes y permisos",
+      "agentBody": "Los nombres de agentes, configuraciones de permisos, definiciones de alcance y fechas de vencimiento que creas en el panel de control se almacenan y asocian con tu cuenta. Las claves API se almacenan solo como hashes SHA-256 y se te muestran una vez al crearlas.",
+      "verifyH": "Datos de solicitudes de verificación",
+      "verifyBody": "Cuando tu integración llama a <code>POST /api/verify</code>, registramos el ID del agente, la acción, el proveedor o recurso, el importe opcional, el resultado de la decisión, el nivel de riesgo y un ID de solicitud estable. No registramos tu clave API; solo se almacena su hash. Los campos de metadatos sin procesar solo se registran cuando <code>BEHALFID_LOG_METADATA</code> está habilitado. Los registros de verificación solo son accesibles para la cuenta propietaria del agente.",
+      "techH": "Datos técnicos y de uso",
+      "techBody": "Recopilamos direcciones IP para limitación de velocidad y prevención de abusos. Estas no se vinculan a cuentas de usuario para fines de análisis o creación de perfiles. Las opciones de consentimiento de cookies también se registran en el servidor (solo estado, sin datos personales) para fines de integridad del producto.",
+      "billingH": "Datos de facturación",
+      "billingBody": "Cuando te suscribes a un plan de pago, la facturación es procesada por Stripe. BehalfID almacena tu ID de cliente de Stripe y el estado de suscripción, pero no almacena los detalles de tu tarjeta de pago — estos los conserva exclusivamente Stripe. Los datos de facturación se usan solo para aplicar límites del plan y procesar tu suscripción."
+    },
+    "s3": {
+      "heading": "3. Cookies y almacenamiento local",
+      "authH": "Cookie de autenticación",
+      "authBody": "Se establece una cookie de sesión (<code>bhf_dev_session</code>) cuando inicias sesión en el panel de control del desarrollador. Es solo HTTP, limitada a este dominio, y expira cuando tu sesión termina o después de 30 días de inactividad. Esta cookie es estrictamente necesaria — el panel de control no puede funcionar sin ella.",
+      "prefsH": "Preferencias",
+      "prefsBody": "La preferencia de tema (claro / oscuro) se almacena en <code>localStorage</code> y nunca se transmite a nuestros servidores.",
+      "consentH": "Consentimiento de cookies",
+      "consentBody": "Tu elección de consentimiento de cookies se almacena en <code>localStorage</code> bajo la clave <code>behalf_cookie_consent</code>. También se escribe una entrada de registro mínima (solo estado de consentimiento — sin datos personales) en el servidor para fines de integridad del producto.",
+      "noThirdParty": "No se usan cookies de terceros ni de publicidad. BehalfID no carga píxeles de seguimiento, scripts de fingerprinting ni SDKs de análisis."
+    },
+    "s4": {
+      "heading": "4. Cómo usamos tus datos",
+      "item1": "Para autenticar y operar tu cuenta de desarrollador.",
+      "item2": "Para ejecutar, registrar y entregar eventos de webhook para solicitudes de verificación.",
+      "item3": "Para aplicar límites de velocidad y detectar abusos.",
+      "item4": "Para procesar la facturación y aplicar límites del plan mediante Stripe.",
+      "item5": "Para responder a consultas de soporte o seguridad.",
+      "noSell": "No vendemos tus datos personales. No usamos los datos de tus solicitudes de verificación para entrenar modelos de aprendizaje automático."
+    },
+    "s5": {
+      "heading": "5. Análisis",
+      "body": "BehalfID no usa análisis de terceros, redes publicitarias ni seguimiento entre sitios. No se cargan cookies de seguimiento ni scripts de fingerprinting en ninguna página del servicio."
+    },
+    "s6": {
+      "heading": "6. Retención de datos",
+      "item1Strong": "Registros de verificación",
+      "item1": " — conservados durante 90 días, luego eliminados automáticamente.",
+      "item2Strong": "Registros de entrega de webhooks",
+      "item2": " — conservados durante 30 días.",
+      "item3Strong": "Datos de cuenta",
+      "item3": " — conservados durante la vigencia de la cuenta. Eliminados en un plazo de 30 días tras una solicitud de eliminación verificada.",
+      "item4Strong": "Datos de facturación",
+      "item4": " — conservados durante el tiempo requerido por la legislación fiscal y contable aplicable (normalmente 7 años), incluso después de la eliminación de la cuenta.",
+      "item5Strong": "Direcciones IP usadas para limitación de velocidad",
+      "item5": " — almacenadas solo en memoria; no persistidas en disco."
+    },
+    "s7": {
+      "heading": "7. Procesadores de terceros",
+      "colProcessor": "Procesador",
+      "colPurpose": "Propósito",
+      "colData": "Datos compartidos",
+      "row1Proc": "MongoDB Atlas",
+      "row1Purpose": "Alojamiento de base de datos",
+      "row1Data": "Todos los datos de cuenta, agente y registro almacenados",
+      "row2Proc": "Vercel",
+      "row2Purpose": "Alojamiento y entrega en el edge",
+      "row2Data": "Metadatos de solicitud (IP, ruta) para enrutamiento y prevención de abusos",
+      "row3Proc": "Stripe",
+      "row3Purpose": "Procesamiento de pagos y gestión de suscripciones",
+      "row3Data": "Dirección de correo, nombre de facturación, detalles de tarjeta de pago (conservados solo por Stripe), eventos de suscripción"
+    },
+    "s8": {
+      "heading": "8. Tus derechos",
+      "body1": "Dependiendo de tu jurisdicción, puedes tener derecho a acceder, corregir, eliminar o portar tus datos personales, y a objetar o restringir cierto procesamiento.",
+      "body2": "Para ejercer cualquiera de estos derechos, envía un correo a <email>legal@behalfid.com</email>. Responderemos en 30 días. Los registros de verificación también se pueden eliminar inmediatamente desde la <logsLink>página de registros del panel de control</logsLink>."
+    },
+    "s9": {
+      "heading": "9. Seguridad",
+      "body": "Todos los datos se transmiten mediante TLS. Las claves API se almacenan como hashes SHA-256. Las contraseñas de desarrolladores se cifran con scrypt. Las sesiones usan cookies solo HTTP. Consulta nuestra <securityLink>página de seguridad</securityLink> para un desglose detallado del modelo de aplicación, el manejo de secretos y las limitaciones conocidas."
+    },
+    "s10": {
+      "heading": "10. Cambios en esta política",
+      "body": "Podemos actualizar esta política para reflejar cambios en el producto o requisitos legales. La fecha de vigencia en la parte superior de esta página se actualiza cada vez que se realiza un cambio material. El uso continuado de BehalfID después de un cambio constituye la aceptación de la política revisada."
+    },
+    "s11": {
+      "heading": "11. Contacto",
+      "controller": "Responsable del tratamiento: BehalfID",
+      "email": "Correo: <email>legal@behalfid.com</email>",
+      "seeAlso": "Ver también: <termsLink>Términos de servicio</termsLink> · <securityLink>Seguridad y confianza</securityLink>"
+    }
+  },
+  "terms": {
+    "meta": {
+      "title": "Términos de servicio — BehalfID",
+      "description": "Términos de servicio de BehalfID, la capa de infraestructura de permisos para agentes de IA."
+    },
+    "breadcrumb": "Legal",
+    "kicker": "Términos de servicio",
+    "title": "Términos de servicio",
+    "effective": "En vigor desde el {date}. Al crear una cuenta o usar BehalfID, aceptas estos términos.",
+    "effectiveDate": "26 de mayo de 2026",
+    "toc": {
+      "heading": "En esta página",
+      "item1": "1. Aceptación de los términos",
+      "item2": "2. Descripción del servicio",
+      "item3": "3. Cuentas y elegibilidad",
+      "item4": "4. Claves API y secretos",
+      "item5": "5. Uso aceptable",
+      "item6": "6. Responsabilidades del desarrollador",
+      "item7": "7. Facturación y pagos",
+      "item8": "8. Propiedad intelectual",
+      "item9": "9. Disponibilidad del servicio y modificaciones",
+      "item10": "10. Exclusión de garantías",
+      "item11": "11. Limitación de responsabilidad",
+      "item12": "12. Indemnización",
+      "item13": "13. Terminación",
+      "item14": "14. Ley aplicable y disputas",
+      "item15": "15. Contacto"
+    },
+    "s1": {
+      "heading": "1. Aceptación de los términos",
+      "body1": "Al registrar una cuenta, acceder a la API o usar cualquier servicio de BehalfID, aceptas quedar vinculado por estos Términos de servicio y nuestra <privacyLink>Política de privacidad</privacyLink>. Si usas BehalfID en nombre de una organización, declaras que tienes autoridad para vincular a esa organización con estos términos.",
+      "body2": "Si no aceptas estos términos, no debes crear una cuenta ni usar ningún servicio de BehalfID."
+    },
+    "s2": {
+      "heading": "2. Descripción del servicio",
+      "body1": "BehalfID es una plataforma de infraestructura de permisos orientada a desarrolladores. Proporciona herramientas para definir permisos de agentes, verificar acciones antes de que los agentes de IA las ejecuten, registrar registros de auditoría de decisiones y entregar eventos de webhook firmados para esas decisiones.",
+      "body2": "BehalfID se ofrece actualmente como prototipo y herramienta de acceso anticipado para desarrolladores. El servicio incluye:",
+      "item1": "Un portal de desarrollador para gestionar agentes, permisos, claves API y webhooks.",
+      "item2": "Una API REST de verificación (<code>POST /api/verify</code>) para aplicación previa a la acción.",
+      "item3": "Un Action Gateway para ejecutar operaciones controladas y con permisos.",
+      "item4": "Un SDK (<code>@behalfid/sdk</code>) para integración en tu aplicación o plataforma.",
+      "item5": "Pasaportes de permisos públicos para compartir alcances manualmente con asistentes de IA.",
+      "item6": "Entrega de webhooks con firma HMAC-SHA256 para consumidores posteriores.",
+      "item7": "Registros de auditoría limitados a tu cuenta y agentes.",
+      "note": "BehalfID es una capa de verificación previa a la acción, no un reemplazo para la autorización a nivel de aplicación. Tu aplicación sigue siendo responsable de su propia autenticación, validación de entrada y control de acceso."
+    },
+    "s3": {
+      "heading": "3. Cuentas y elegibilidad",
+      "body": "Debes tener al menos 18 años y ser capaz de celebrar un contrato vinculante para usar BehalfID. Eres responsable de:",
+      "item1": "Proporcionar información de registro precisa (dirección de correo y contraseña).",
+      "item2": "Mantener la confidencialidad de las credenciales de tu cuenta.",
+      "item3": "Toda la actividad que ocurra bajo tu cuenta.",
+      "item4": "Notificarnos inmediatamente sobre cualquier acceso no autorizado a tu cuenta.",
+      "footer": "BehalfID se reserva el derecho de rechazar el servicio, terminar cuentas o eliminar contenido a su sola discreción."
+    },
+    "s4": {
+      "heading": "4. Claves API y secretos",
+      "body": "Las claves API, tokens de pasaporte y secretos de firma de webhooks son tu responsabilidad una vez emitidos. Debes:",
+      "item1": "Almacenar las claves API de forma segura y nunca exponerlas en código del lado del cliente o repositorios públicos.",
+      "item2": "Rotar las claves comprometidas inmediatamente usando el portal del desarrollador.",
+      "item3": "Tratar los tokens de pasaporte como secretos — cualquier persona que tenga un token de pasaporte puede leer los alcances de permisos activos de ese agente.",
+      "item4": "Verificar las firmas de webhooks con <code>verifyWebhookSignature</code> antes de procesar eventos.",
+      "footer": "BehalfID almacena solo representaciones hash de claves API, tokens de pasaporte y secretos de webhooks. Las claves perdidas no se pueden recuperar y deben rotarse para obtener nuevas. No somos responsables de daños derivados de credenciales comprometidas o almacenadas incorrectamente."
+    },
+    "s5": {
+      "heading": "5. Uso aceptable",
+      "body": "Aceptas no usar BehalfID para:",
+      "item1": "Violar cualquier ley, regulación o derechos de terceros aplicables.",
+      "item2": "Enviar solicitudes abusivas, ilegales o fraudulentas a través de la API de verificación o el Action Gateway.",
+      "item3": "Realizar ingeniería inversa, descompilar o intentar extraer código fuente del servicio.",
+      "item4": "Usar el servicio para permitir que los agentes de IA realicen acciones que sean dañinas, engañosas o no autorizadas por los usuarios a los que sirven esos agentes.",
+      "item5": "Eludir o sortear los mecanismos de aplicación de permisos proporcionados por BehalfID.",
+      "item6": "Revender, sublicenciar o hacer disponible la API de BehalfID a terceros como producto independiente sin consentimiento previo por escrito.",
+      "item7": "Introducir código malicioso, sobrecargar la infraestructura o interferir con otros usuarios del servicio.",
+      "item8": "Usar el Action Gateway para acceder a redes privadas, sistemas internos o cualquier recurso para el que no tengas autorización."
+    },
+    "s6": {
+      "heading": "6. Responsabilidades del desarrollador",
+      "body": "Tú, como desarrollador que integra BehalfID, eres el único responsable de:",
+      "item1Strong": "Tu integración.",
+      "item1": " BehalfID no puede aplicar ninguna decisión a menos que tu código llame al endpoint de verificación antes de ejecutar una acción del agente y falle de forma cerrada en caso de denegación. La plataforma solo aplica lo que tú construyes a su alrededor.",
+      "item2Strong": "Tus agentes y sus acciones.",
+      "item2": " Eres responsable del comportamiento de cualquier agente de IA que registres, sus integraciones y cualquier acción que realicen, permitida o no.",
+      "item3Strong": "Datos del usuario final.",
+      "item3": " Si tu integración pasa datos personales del usuario final como metadatos en llamadas de verificación, eres responsable de asegurarte de tener la base legal adecuada para hacerlo.",
+      "item4Strong": "Limitaciones del modo manual.",
+      "item4": " Los enlaces de pasaporte y los bloques de memoria del agente son herramientas de orientación de mejor esfuerzo. BehalfID no puede controlar el comportamiento de proveedores de IA de terceros. El modo manual no es un límite de aplicación.",
+      "item5Strong": "Receptores de webhooks.",
+      "item5": " Eres responsable de asegurar y procesar correctamente los eventos de webhook, incluida la deduplicación por <code>eventId</code>."
+    },
+    "s7": {
+      "heading": "7. Facturación y pagos",
+      "body": "BehalfID ofrece un nivel gratuito y planes de pago. Los planes de pago se facturan en base a suscripción recurrente. Al suscribirte a un plan de pago, autorizas a BehalfID a cobrar el método de pago que proporcionas mediante Stripe.",
+      "item1Strong": "Precios.",
+      "item1": " Los precios actuales del plan se muestran en la página de facturación en el portal del desarrollador. Podemos cambiar los precios con al menos 30 días de aviso.",
+      "item2Strong": "Renovaciones.",
+      "item2": " Las suscripciones se renuevan automáticamente a menos que se cancelen antes del final del período de facturación.",
+      "item3Strong": "Cancelaciones.",
+      "item3": " Puedes cancelar en cualquier momento a través del portal del desarrollador. El acceso continúa hasta el final del período de facturación pagado; no se emiten reembolsos parciales por tiempo no utilizado a menos que lo exija la ley.",
+      "item4Strong": "Procesamiento de pagos.",
+      "item4": " Los pagos son procesados por Stripe. Los detalles de tu tarjeta de pago los conserva exclusivamente Stripe y no los almacena BehalfID. Consulta la <stripeLink>política de privacidad</stripeLink> de Stripe para obtener detalles sobre cómo manejan tus datos.",
+      "item5Strong": "Impuestos.",
+      "item5": " Los precios no incluyen los impuestos aplicables. Eres responsable de cualquier impuesto sobre ventas, uso, IVA, GST o similares donde corresponda."
+    },
+    "s8": {
+      "heading": "8. Propiedad intelectual",
+      "body1": "BehalfID y su logo, diseño, estructura de API, SDK y documentación son propiedad intelectual de BehalfID y sus propietarios. Estos términos no te otorgan ningún derecho, título o interés en ninguna propiedad intelectual de BehalfID.",
+      "body2": "Conservas la propiedad de cualquier configuración de permisos, descripciones de agentes y datos que crees dentro de la plataforma. Al usar BehalfID, nos otorgas una licencia limitada para almacenar y procesar esos datos únicamente para proporcionar el servicio."
+    },
+    "s9": {
+      "heading": "9. Disponibilidad del servicio y modificaciones",
+      "body": "BehalfID se proporciona tal cual y según disponibilidad. No garantizamos la operación ininterrumpida o sin errores del servicio. Nos reservamos el derecho de:",
+      "item1": "Modificar, suspender o discontinuar cualquier parte del servicio en cualquier momento con o sin aviso.",
+      "item2": "Actualizar o cambiar estos Términos de servicio. El uso continuado del servicio después de los cambios constituye la aceptación de los nuevos términos.",
+      "item3": "Cambiar los precios con aviso previo razonable como se describe en la Sección 7.",
+      "footer": "Dado que BehalfID es actualmente un prototipo, el servicio puede tener interrupciones, cambios de API incompatibles o pérdida de datos. No relies en BehalfID como el único mecanismo de aplicación o autorización para sistemas de producción que manejen datos sensibles o transacciones financieras irreversibles."
+    },
+    "s10": {
+      "heading": "10. Exclusión de garantías",
+      "body1": "EN LA MÁXIMA MEDIDA PERMITIDA POR LA LEY APLICABLE, BEHALFID Y SUS PROPIETARIOS, DIRECTIVOS Y AGENTES RENUNCIAN A TODAS LAS GARANTÍAS, EXPRESAS O IMPLÍCITAS, INCLUYENDO PERO NO LIMITADO A GARANTÍAS DE COMERCIABILIDAD, IDONEIDAD PARA UN PROPÓSITO PARTICULAR, TÍTULO Y NO INFRACCIÓN.",
+      "body2": "No garantizamos que: (a) el servicio satisfará tus requisitos específicos; (b) el servicio será ininterrumpido, oportuno, seguro o libre de errores; (c) los resultados obtenidos del uso del servicio serán precisos o confiables; (d) se corregirán los errores en el servicio."
+    },
+    "s11": {
+      "heading": "11. Limitación de responsabilidad",
+      "body1": "EN LA MÁXIMA MEDIDA PERMITIDA POR LA LEY APLICABLE, EN NINGÚN CASO BEHALFID, SUS PROPIETARIOS, DIRECTIVOS, EMPLEADOS O AGENTES SERÁN RESPONSABLES DE DAÑOS INDIRECTOS, INCIDENTALES, ESPECIALES, EJEMPLARES, CONSECUENTES O PUNITIVOS, INCLUYENDO PÉRDIDA DE GANANCIAS, DATOS, FONDO DE COMERCIO O INTERRUPCIÓN DEL NEGOCIO.",
+      "body2": "En ningún caso la responsabilidad total acumulativa de BehalfID hacia ti por todas las reclamaciones relacionadas con estos términos o el servicio superará el mayor de (a) los montos que hayas pagado a BehalfID en los doce meses anteriores a la reclamación, o (b) cien dólares estadounidenses ($100).",
+      "body3": "Algunas jurisdicciones no permiten la exclusión de ciertas garantías o la limitación de responsabilidad por ciertos tipos de daños, por lo que algunas de las limitaciones anteriores pueden no aplicarse a ti."
+    },
+    "s12": {
+      "heading": "12. Indemnización",
+      "body": "Aceptas indemnizar, defender y eximir de responsabilidad a BehalfID y sus propietarios, directivos, empleados y agentes frente a todas las reclamaciones, daños, obligaciones, pérdidas, responsabilidades, costos y gastos (incluidos honorarios legales razonables) que surjan de:",
+      "item1": "Tu uso del servicio o acceso a él.",
+      "item2": "Tu violación de estos Términos de servicio.",
+      "item3": "Tu violación de cualquier derecho de terceros, incluidos los derechos de propiedad intelectual o privacidad.",
+      "item4": "Cualquier acción realizada por agentes de IA que registres, integres u operes a través de BehalfID.",
+      "item5": "Cualquier reclamación de que tu uso del servicio causó daño a un tercero."
+    },
+    "s13": {
+      "heading": "13. Terminación",
+      "body1": "Cualquiera de las partes puede terminar este acuerdo en cualquier momento. Puedes eliminar tu cuenta a través del portal del desarrollador o poniéndote en contacto con nosotros. BehalfID puede suspender o terminar tu cuenta en cualquier momento, con o sin causa y con o sin aviso.",
+      "body2": "Tras la terminación: (a) tu acceso al servicio cesará inmediatamente; (b) tus claves API y tokens de pasaporte quedarán invalidados; (c) las suscripciones de pago activas no se reembolsarán automáticamente; (d) podemos retener tus datos por un período razonable según lo requiera la ley aplicable o nuestras políticas internas, tras lo cual se eliminarán.",
+      "body3": "Las Secciones 10 (Exclusión de garantías), 11 (Limitación de responsabilidad), 12 (Indemnización) y 14 (Ley aplicable) sobreviven a la terminación."
+    },
+    "s14": {
+      "heading": "14. Ley aplicable y disputas",
+      "body1": "Estos Términos de servicio se rigen e interpretan de acuerdo con las leyes de los Estados Unidos, sin tener en cuenta sus disposiciones sobre conflictos de leyes. Cualquier disputa que surja bajo o en relación con estos términos se resolverá mediante arbitraje vinculante o en los tribunales de jurisdicción competente, a la sola elección de BehalfID.",
+      "body2": "Renuncias a cualquier derecho de participar en una demanda colectiva o arbitraje colectivo contra BehalfID."
+    },
+    "s15": {
+      "heading": "15. Contacto",
+      "body": "Para preguntas sobre estos Términos de servicio, contáctanos en <email>legal@behalfid.com</email>.",
+      "seeAlso": "Ver también: <privacyLink>Política de privacidad</privacyLink> · <securityLink>Seguridad y confianza</securityLink>"
+    }
+  },
+  "legal": {
+    "meta": {
+      "title": "Legal — BehalfID",
+      "description": "Documentos legales de BehalfID: Términos de servicio, Política de privacidad y página de Seguridad y confianza."
+    },
+    "kicker": "Legal",
+    "title": "Legal",
+    "subtitle": "Todos los documentos legales de BehalfID en un solo lugar. Última actualización: {date}. ¿Preguntas? Escribe a <email>legal@behalfid.com</email>.",
+    "updatedDate": "26 de mayo de 2026",
+    "docs": {
+      "terms": {
+        "title": "Términos de servicio",
+        "desc": "Las reglas que rigen tu uso de BehalfID — cuentas, claves API, uso aceptable, facturación, responsabilidad y cómo se resuelven las disputas.",
+        "s1": "Aceptación de los términos",
+        "s2": "Descripción del servicio",
+        "s3": "Cuentas y elegibilidad",
+        "s4": "Claves API y secretos",
+        "s5": "Uso aceptable",
+        "s6": "Responsabilidades del desarrollador",
+        "s7": "Facturación y pagos",
+        "s8": "Propiedad intelectual",
+        "s9": "Exenciones de responsabilidad y limitación"
+      },
+      "privacy": {
+        "title": "Política de privacidad",
+        "desc": "Qué datos recopila BehalfID, cómo se usan, con quién se comparten, cuánto tiempo se retienen y cómo ejercer tus derechos.",
+        "s1": "Datos que recopilamos",
+        "s2": "Cookies y almacenamiento local",
+        "s3": "Cómo usamos tus datos",
+        "s4": "Análisis (ninguno)",
+        "s5": "Programas de retención de datos",
+        "s6": "Procesadores de terceros",
+        "s7": "Tus derechos (acceso, eliminación, portabilidad)"
+      },
+      "security": {
+        "title": "Seguridad y confianza",
+        "desc": "El modelo de aplicación técnica, cómo se almacenan los secretos, el diseño fail-closed y las limitaciones conocidas actuales de la plataforma.",
+        "s1": "Modelo de aplicación",
+        "s2": "Almacenamiento de secretos",
+        "s3": "Diseño fail-closed",
+        "s4": "Revocación y rotación",
+        "s5": "Limitaciones conocidas"
+      }
+    },
+    "lastUpdated": "Actualizado el {date}",
+    "readDoc": "Leer documento →",
+    "continuouslyUpdated": "Actualizado continuamente",
+    "contactHeading": "Contacto",
+    "contactBody": "Para consultas legales, solicitudes de personas afectadas o preguntas sobre estos documentos, envíenos un correo a <email>legal@behalfid.com</email>. Respondemos en un plazo de 30 días."
+  },
+  "security": {
+    "meta": {
+      "title": "Seguridad y confianza — BehalfID",
+      "description": "Cómo BehalfID maneja secretos, tokens, aplicación fail-closed, registros de auditoría, webhooks y limitaciones actuales."
+    },
+    "kicker": "Seguridad y confianza",
+    "title": "Seguridad y confianza",
+    "lede1": "BehalfID está diseñado para verificar las acciones de los agentes antes de que ocurran, mantener los secretos fuera de las vistas públicas y hacer que las acciones denegadas fallen de forma cerrada cuando se integran.",
+    "lede2": "Esta página explica el modelo de aplicación, qué secretos se almacenan y cómo, el diseño de pasaporte público y las limitaciones conocidas actuales.",
+    "s1": {
+      "label": "01",
+      "heading": "Modelo de aplicación",
+      "body1": "BehalfID no controla mágicamente a un agente por sí solo. La aplicación o el proveedor debe llamar a BehalfID antes de actuar. Si se deniega la acción, la integración debe fallar de forma cerrada y no ejecutar la acción.",
+      "body2": "Fail-closed significa que el agente lanza un error en caso de denegación y el código que ejecutaría la acción nunca se ejecuta. Lo contrario — fail-open — permitiría al agente continuar si la verificación falla o no está disponible. El patrón de aplicación recomendado de BehalfID es siempre fail-closed.",
+      "body3": "La aplicación solo funciona cuando la integración llama a BehalfID antes de actuar y respeta la respuesta. Consulta el <sandboxLink>sandbox en vivo</sandboxLink> para una demostración basada en navegador.",
+      "note": "BehalfID Site Guard extiende este patrón a los sitios web: tu middleware, worker, proxy o gateway llama a BehalfID antes de que se ejecuten rutas protegidas como pago, formularios, inicio de sesión, cambios de cuenta, exportación de datos o flujos de trabajo de administración."
+    },
+    "s2": {
+      "label": "02",
+      "heading": "Limitaciones del modo manual",
+      "body1": "El modo manual es para probar con agentes existentes — Ollie, ChatGPT, Claude, Zapier, Make u otros — sin requerir que el proveedor integre BehalfID.",
+      "body2": "Un enlace de pasaporte comparte alcances de permisos activos en un formato estructurado que cualquier IA puede leer. Un bloque de memoria de agente es un fragmento de texto que se puede pegar en un prompt de sistema. Ninguno constituye aplicación — son entradas de orientación.",
+      "body3": "Dado que BehalfID no puede interceptar solicitudes a proveedores de terceros, el modo manual depende completamente de que el modelo externo lea y respete los permisos listados.",
+      "note": "Si necesitas aplicación real, tu código debe llamar a <code>POST /api/verify</code> antes de ejecutar la herramienta y fallar de forma cerrada en caso de denegación."
+    },
+    "s3": {
+      "label": "03",
+      "heading": "Almacenamiento de secretos y tokens",
+      "body1": "BehalfID almacena las siguientes credenciales:",
+      "item1": "<strong>Claves API (<code>bhf_sk_…</code>)</strong> — almacenadas como hashes SHA-256. Una clave se te muestra exactamente una vez al crearla. Si se pierde, no se puede recuperar; rótala para obtener una nueva.",
+      "item2": "<strong>Tokens de pasaporte (<code>bhf_pt_…</code>)</strong> — almacenados como hashes SHA-256. Cualquier persona que obtenga un token de pasaporte puede leer los alcances de permisos activos de ese agente. Trata los tokens de pasaporte como secretos.",
+      "item3": "<strong>Secretos de firma de webhooks</strong> — almacenados como hashes SHA-256. Verifica las firmas de webhooks entrantes con <code>verifyWebhookSignature</code> antes de procesarlos.",
+      "item4": "<strong>Contraseñas de desarrollador</strong> — cifradas con scrypt. Las contraseñas en texto plano nunca se almacenan.",
+      "body2": "BehalfID nunca transmite credenciales en texto plano en las respuestas de la API. Las claves se muestran una vez y luego se descartan."
+    },
+    "s4": {
+      "label": "04",
+      "heading": "Seguridad del pasaporte público",
+      "body1": "Una URL de pasaporte público (<code>behalfid.com/passport/[agentId]</code>) está diseñada para ser compartible. Solo muestra lo que un asistente de IA necesita saber sobre su alcance de permisos actual.",
+      "body2": "La página del pasaporte no expone:",
+      "item1": "Claves API o hashes de claves",
+      "item2": "Secretos de webhooks o claves de firma",
+      "item3": "Correo del propietario de la cuenta o datos personales",
+      "item4": "IDs de agente internos (más allá de lo visible en la URL)"
+    },
+    "s5": {
+      "label": "05",
+      "heading": "Registros de auditoría",
+      "body1": "Cada solicitud de verificación produce una entrada de registro de auditoría inmutable. Las entradas incluyen:",
+      "item1": "ID de solicitud (estable, para correlación entre sistemas)",
+      "item2": "ID de agente y acción",
+      "item3": "Decisión (permitido / denegado / aprobación requerida)",
+      "item4": "Nivel de riesgo y motivo de denegación",
+      "item5": "Marca de tiempo",
+      "body2": "Los registros están limitados a tu cuenta y son visibles en el portal del desarrollador. Los registros de verificación se conservan durante 90 días. Puedes eliminar entradas individuales o todos los registros desde la página de registros."
+    },
+    "s6": {
+      "label": "06",
+      "heading": "Webhooks y firma",
+      "body1": "BehalfID firma cada payload de webhook con HMAC-SHA256. La firma está en el encabezado <code>X-BehalfID-Signature</code>.",
+      "body2": "Siempre verifica las firmas antes de procesar eventos. El SDK exporta un helper <code>verifyWebhookSignature(secret, rawBody, signature)</code>. Los registros de entrega de webhooks se conservan durante 30 días."
+    },
+    "s7": {
+      "label": "07",
+      "heading": "Revocación",
+      "tableAction": "Acción",
+      "tableEffect": "Efecto",
+      "row1Action": "Revocar un permiso",
+      "row1Effect": "La próxima llamada de verificación para esa acción devuelve denegado inmediatamente.",
+      "row2Action": "Deshabilitar un agente",
+      "row2Effect": "Todas las llamadas de verificación para ese agente se deniegan mientras está deshabilitado.",
+      "row3Action": "Rotar una clave API",
+      "row3Effect": "La clave antigua deja de funcionar en la próxima solicitud. Se muestra una nueva clave una vez.",
+      "row4Action": "Regenerar un enlace de pasaporte",
+      "row4Effect": "El token de pasaporte antiguo queda inválido. Cualquier persona con el enlace antiguo ya no puede leer alcances ni ejecutar vistas previas."
+    },
+    "s8": {
+      "label": "08",
+      "heading": "Limitaciones conocidas",
+      "intro": "BehalfID tiene las siguientes limitaciones conocidas. Lee estas cuidadosamente antes de usar la plataforma para cargas de trabajo sensibles o de producción.",
+      "item1": "Aún no hay integraciones nativas del proveedor. Los agentes conectados se representan manualmente dentro de BehalfID — BehalfID no llama a las APIs de Ollie, ChatGPT, Claude o Zapier en tu nombre.",
+      "item2": "El modo manual depende de la cooperación del usuario y del agente. El agente externo debe leer el pasaporte y respetar las restricciones listadas; BehalfID no puede imponer comportamiento dentro de proveedores de terceros.",
+      "item3": "Site Guard es un patrón de aplicación planeado para propietarios de sitios web, no un bloqueador global de rastreadores. Solo protege rutas o flujos de trabajo donde el sitio web instala middleware, proxy, worker o gateway que llama a BehalfID y respeta la decisión.",
+      "item4": "Aún no hay SSO empresarial ni roles de equipo. La consola de administración usa una contraseña compartida. El portal de desarrolladores tiene cuentas individuales pero no organizaciones.",
+      "item5": "Aún no hay auditoría de seguridad externa formal. BehalfID es adecuado para despliegues restringidos y demos, no para uso multi-tenant público abierto sin mayor fortalecimiento.",
+      "item6": "No es un reemplazo para la autorización a nivel de aplicación. BehalfID es una capa de verificación previa a la acción. Tu app aún necesita su propio auth, validación de entradas y control de acceso.",
+      "item7": "La limitación de velocidad recurre a la memoria de proceso sin Upstash Redis. En entornos sin servidor, los contadores en memoria no se comparten entre instancias."
+    }
+  },
+  "compliance": {
+    "meta": {
+      "title": "Cumplimiento — BehalfID",
+      "description": "Postura de cumplimiento de BehalfID: controles y estado de SOC 2, ISO 27001, HIPAA, RGPD y CCPA."
+    },
+    "breadcrumb": "Legal",
+    "kicker": "Cumplimiento",
+    "title": "Cumplimiento",
+    "subtitle": "BehalfID está comprometido con prácticas sólidas de seguridad y privacidad. Esta página documenta nuestra postura frente a los marcos de cumplimiento más comunes y qué controles están vigentes hoy. Para preguntas o un cuestionario de cumplimiento, escribe a <email>legal@behalfid.com</email>.",
+    "toc": {
+      "heading": "En esta página",
+      "soc2": "SOC 2",
+      "iso": "ISO 27001",
+      "hipaa": "HIPAA",
+      "gdpr": "RGPD",
+      "ccpa": "CCPA / CPRA",
+      "controls": "Controles técnicos",
+      "contact": "Contacto"
+    },
+    "statusInProgress": "Certificación en curso",
+    "statusNotCertified": "No certificado",
+    "statusNotApplicable": "No aplicable",
+    "statusImplemented": "Implementado",
+    "statusPartial": "Cumplimiento parcial",
+    "soc2": {
+      "heading": "SOC 2",
+      "statusHeading": "Estado",
+      "body1": "BehalfID aún no ha completado una auditoría SOC 2 Tipo II. Actualmente estamos implementando los controles organizativos y técnicos necesarios para lograr la certificación SOC 2 Tipo II en los criterios de servicios de confianza de Seguridad, Disponibilidad y Confidencialidad.",
+      "controlsHeading": "Controles vigentes hoy",
+      "roadmapHeading": "Hoja de ruta",
+      "roadmapBody": "Tenemos la intención de contratar a una firma de CPA certificada para una auditoría SOC 2 Tipo II una vez que hayamos implementado los controles organizativos restantes. Objetivo: 2026."
+    },
+    "iso": {
+      "heading": "ISO 27001",
+      "statusHeading": "Estado",
+      "body": "BehalfID aún no ha obtenido la certificación ISO 27001. Los controles técnicos requeridos por el Anexo A de ISO 27001 están sustancialmente implementados (ver Controles técnicos a continuación). La certificación formal requiere un SGSI documentado, un registro de riesgos y una auditoría de terceros."
+    },
+    "hipaa": {
+      "heading": "HIPAA",
+      "statusHeading": "Estado",
+      "body1": "BehalfID no está actualmente certificado por HIPAA. El servicio no está destinado para su uso en flujos de trabajo que procesen Información de Salud Protegida (PHI) según lo define HIPAA.",
+      "body2": "Si estás construyendo una aplicación relacionada con la salud y necesitas enrutar decisiones de verificación a través de BehalfID, contáctanos para discutir si un Acuerdo de Asociado de Negocios (BAA) es apropiado para tu caso de uso."
+    },
+    "gdpr": {
+      "heading": "RGPD",
+      "statusHeading": "Estado",
+      "body1": "BehalfID procesa datos personales de residentes de la UE/EEE donde los desarrolladores (responsables del tratamiento) usan el servicio. Como encargado del tratamiento, BehalfID:",
+      "item1": "Procesa datos personales solo según las instrucciones del responsable del tratamiento (el desarrollador que usa BehalfID).",
+      "item2": "No transfiere datos personales de la UE fuera del EEE/Reino Unido sin salvaguardias adecuadas.",
+      "item3": "Proporciona mecanismos para los derechos de los interesados (acceso, eliminación, portabilidad) a través del portal del desarrollador y mediante solicitud a legal@behalfid.com.",
+      "item4": "Mantiene un registro de actividades de tratamiento.",
+      "item5": "Notifica a los responsables del tratamiento afectados dentro de las 72 horas tras descubrir una violación de datos.",
+      "body2": "Los desarrolladores que usan BehalfID y procesan datos personales de la UE en llamadas de verificación deben asegurarse de tener la base legal adecuada y que esté vigente un Acuerdo de Procesamiento de Datos (DPA). Escribe a legal@behalfid.com para solicitar un DPA."
+    },
+    "ccpa": {
+      "heading": "CCPA / CPRA",
+      "statusHeading": "Estado",
+      "body1": "BehalfID no vende información personal de residentes de California. BehalfID no usa datos personales recopilados a través del servicio para publicidad o seguimiento conductual entre contextos.",
+      "body2": "Los residentes de California tienen derecho a:",
+      "item1": "Saber qué información personal recopila BehalfID y cómo se usa.",
+      "item2": "Eliminar la información personal en poder de BehalfID.",
+      "item3": "Corregir información personal inexacta.",
+      "item4": "Optar por no participar en la venta o el intercambio de información personal (BehalfID no vende ni comparte datos personales).",
+      "body3": "Para ejercer estos derechos, escribe a legal@behalfid.com."
+    },
+    "controls": {
+      "heading": "Controles técnicos",
+      "body": "Los siguientes controles técnicos están implementados en todos los entornos de BehalfID:",
+      "item1": "Todos los datos en tránsito cifrados con TLS 1.2+",
+      "item2": "Claves API almacenadas solo como hashes SHA-256 — nunca en texto plano",
+      "item3": "Contraseñas de desarrollador hasheadas con scrypt",
+      "item4": "Las cookies de sesión son HTTP-only, SameSite-strict y expiran después de 30 días de inactividad",
+      "item5": "Payloads de webhook firmados con HMAC-SHA256; firmas verificadas antes del procesamiento",
+      "item6": "Registros de verificación retenidos 90 días, registros de entrega de webhook 30 días",
+      "item7": "Limitación de velocidad en todos los endpoints públicos para prevenir abusos",
+      "item8": "Rastro de auditoría de cada decisión de permisos (ID de agente, acción, resultado, marca de tiempo)",
+      "item9": "Direcciones IP usadas solo para limitación de velocidad; no persistidas ni vinculadas a cuentas",
+      "item10": "Sin análisis de terceros, rastreadores de publicidad ni scripts de seguimiento entre sitios"
+    },
+    "contact": {
+      "heading": "Contacto",
+      "body": "Para cuestionarios de cumplimiento, Acuerdos de Procesamiento de Datos o preguntas de seguridad, contacta a <email>legal@behalfid.com</email> o <secEmail>security@behalfid.com</secEmail>."
+    }
+  },
+  "blog": {
+    "meta": {
+      "title": "Blog — BehalfID",
+      "description": "Escritos sobre infraestructura de permisos para agentes, aplicación fail-closed, límites de decisión y el diseño de autorización de IA."
+    },
+    "kicker": "Blog",
+    "title": "Escritos sobre infraestructura de permisos para agentes.",
+    "lede": "Modelos de aplicación, límites de decisión, diseño de pasaportes y el costo real de las integraciones fail-open.",
+    "readingTime": "{time} de lectura",
+    "backToBlog": "← Volver al blog"
+  },
+  "status": {
+    "meta": {
+      "title": "Estado del sistema — BehalfID",
+      "description": "Estado en tiempo real de los servicios, componentes e incidentes recientes de BehalfID."
+    },
+    "kicker": "Estado del sistema",
+    "title": "Estado del sistema",
+    "allOperational": "Todos los sistemas operativos",
+    "performanceIssues": "Algunos sistemas experimentan rendimiento degradado",
+    "partialOutage": "Interrupción parcial del servicio en curso",
+    "majorOutage": "Interrupción importante del servicio — nuestro equipo está trabajando en ello",
+    "components": "Componentes",
+    "operational": "Operativo",
+    "performanceIssuesLabel": "Problemas de rendimiento",
+    "partialOutageLabel": "Interrupción parcial",
+    "majorOutageLabel": "Interrupción importante",
+    "incidents": "Incidentes recientes",
+    "noIncidents": "Sin incidentes en los últimos 30 días.",
+    "incidentStatusInvestigating": "Investigando",
+    "incidentStatusIdentified": "Identificado",
+    "incidentStatusWatching": "Monitoreando",
+    "incidentStatusFixed": "Resuelto",
+    "severityMinor": "Menor",
+    "severityMajor": "Mayor",
+    "severityCritical": "Crítico",
+    "updates": "Actualizaciones",
+    "noUpdates": "Sin actualizaciones aún."
+  },
+  "sandbox": {
+    "meta": {
+      "title": "Sandbox — BehalfID",
+      "description": "Prueba BehalfID en vivo en tu navegador. No se necesita cuenta."
+    },
+    "kicker": "Sandbox",
+    "title": "Pruébalo en vivo."
+  },
+  "designPartners": {
+    "meta": {
+      "title": "Socios de diseño — BehalfID",
+      "description": "Socios de diseño de acceso anticipado para BehalfID: autorización de acciones en tiempo de ejecución para agentes de codificación."
+    },
+    "kicker": "Socios de diseño",
+    "title": "Ayúdanos a construir la capa de permisos para agentes de codificación.",
+    "lede": "Buscamos un pequeño número de equipos que estén construyendo activamente con Claude Code, Codex o Cursor y quieran un humano en el ciclo antes de que sus agentes toquen la infraestructura de producción.",
+    "whatBuilding": "Qué estamos construyendo",
+    "whoLookingFor": "A quién buscamos",
+    "whatYouGet": "Qué obtienes",
+    "whatWeNeed": "Qué necesitamos de ti",
+    "getInTouch": "Contactar",
+    "wontPromise": "Lo que no prometemos",
+    "createAccount": "Crear cuenta",
+    "readGuide": "Leer guía demo",
+    "contactEmail": "design-partners@behalfid.com"
+  },
+  "auth": {
+    "signupMeta": {
+      "title": "Registrarse — BehalfID",
+      "description": "Crea un espacio de trabajo para desarrolladores para gestionar identidades de agentes de IA, permisos con alcance, registros de auditoría y eventos de webhook."
+    },
+    "loginMeta": {
+      "title": "Iniciar sesión — BehalfID",
+      "description": "Inicia sesión para gestionar tus agentes de IA, permisos, registros de auditoría y entrega de webhooks."
+    },
+    "contextKicker": "Infraestructura de permisos para agentes de IA",
+    "contextHeading": "Verifica acciones antes de que actúen los agentes.",
+    "contextBody": "Usa BehalfID para gestionar identidades de agentes, permisos con alcance, registros de auditoría y eventos de webhook firmados desde un portal para desarrolladores.",
+    "feature1": "Verificar acciones de agentes",
+    "feature2": "Gestionar claves API",
+    "feature3": "Auditar decisiones",
+    "feature4": "Recibir webhooks firmados",
+    "signupKicker": "Crear cuenta",
+    "signupH1": "Empieza a verificar acciones de agentes.",
+    "signupBody": "Crea un espacio de trabajo para desarrolladores para agentes, permisos, registros y eventos de webhook firmados.",
+    "loginKicker": "Inicio de sesión de desarrollador",
+    "loginH1": "Bienvenido de nuevo.",
+    "loginBody": "Inicia sesión para gestionar agentes, permisos, registros y entrega de webhooks.",
+    "emailLabel": "Correo electrónico",
+    "passwordLabel": "Contraseña",
+    "dobLabel": "Fecha de nacimiento",
+    "createAccount": "Crear cuenta",
+    "logIn": "Iniciar sesión",
+    "dobRequired": "La fecha de nacimiento es obligatoria.",
+    "ageError": "Debes tener al menos 13 años para crear una cuenta.",
+    "authFailed": "La autenticación falló.",
+    "agreePrefix": "Al crear una cuenta, aceptas los ",
+    "terms": "Términos de servicio",
+    "and": " y la ",
+    "privacy": "Política de privacidad",
+    "agreeSuffix": ".",
+    "haveAccount": "¿Ya tienes una cuenta? ",
+    "signIn": "Iniciar sesión",
+    "noAccount": "¿No tienes cuenta? ",
+    "signUp": "Registrarse"
+  },
+  "cookies": {
+    "body": "Usamos una cookie de sesión para mantenerte conectado. No se usan cookies de análisis ni de seguimiento.",
+    "privacyLink": "Política de privacidad",
+    "essentialOnly": "Solo esencial",
+    "acceptAll": "Aceptar todo",
+    "dialogLabel": "Preferencias del sitio"
+  },
+  "docs": {
+    "kicker": "Documentación",
+    "previous": "Anterior",
+    "next": "Siguiente",
+    "searchPlaceholder": "Buscar en los docs…",
+    "searchLabel": "Buscar documentación",
+    "searchResults": "Resultados de búsqueda",
+    "noResults": "Sin resultados para \"{query}\"",
+    "developerDocs": "Documentación para desarrolladores",
+    "openNav": "Abrir navegación",
+    "closeNav": "Cerrar navegación",
+    "docsNav": "Documentación",
+    "simpleModeOn": "Modo simple activado",
+    "simpleModeBody": "— algunos detalles técnicos están condensados. Cambia a ",
+    "simpleModeSwitch": "Desarrollador",
+    "simpleModeSuffix": " en la navegación para la referencia API completa.",
+    "overview": "Descripción general",
+    "quickstart": "Inicio rápido",
+    "cli": "CLI",
+    "deployApprovals": "Aprobaciones de despliegue",
+    "api": "API",
+    "sdk": "SDK",
+    "actionGateway": "Action Gateway",
+    "webhooks": "Webhooks",
+    "siteGuard": "Site Guard",
+    "concepts": "Conceptos",
+    "security": "Seguridad",
+    "index": {
+      "meta": {
+        "title": "Docs — BehalfID",
+        "description": "BehalfID verifica cada acción de agente contra un pasaporte de permisos. Define límites, falla en denegación, requiere aprobación para acciones de riesgo y audita cada decisión."
+      },
+      "title": "Autorización de acciones en tiempo de ejecución para agentes de IA.",
+      "description": "BehalfID verifica cada acción de agente contra un pasaporte de permisos antes de ejecutarse. Define límites, falla en denegación, requiere aprobación para acciones de riesgo y audita cada decisión."
+    }
+  }
+}
