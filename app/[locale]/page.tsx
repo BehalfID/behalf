@@ -209,14 +209,17 @@ if (!decision.allowed) {
 
         <div className="home-flow-diagram mode-simple-only" aria-label={tc("verificationFlow")} data-reveal>
           <div className="home-flow-node">
-            <span className="home-flow-node__label">{tc("aiAgent")}</span>
+            <span className="sv-label">Action request</span>
+            <strong className="home-flow-node__name">{tc("aiAgent")}</strong>
             <span className="home-flow-node__sub">{tc("wantsToAct")}</span>
           </div>
           <div className="home-flow-node home-flow-node--center">
-            <span className="home-flow-node__label">BehalfID</span>
+            <span className="sv-label sv-label--accent">BehalfID · verify</span>
+            <strong className="home-flow-node__name">BehalfID</strong>
             <span className="home-flow-node__sub">{tc("checksRules")}</span>
           </div>
-          <div className="home-flow-node">
+          <div className="home-flow-node home-flow-node--decision">
+            <span className="sv-label">Decision</span>
             <div className="home-flow-outcomes">
               <span className="home-flow-outcome home-flow-outcome--ok">{tc("goAhead")}</span>
               <span className="home-flow-outcome home-flow-outcome--deny">{tc("blocked")}</span>

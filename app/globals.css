@@ -8815,10 +8815,15 @@ html[data-theme="light"] .app-sidebar__footer {
   margin-top: 4px;
 }
 
-/* Footer: slightly smaller icons */
+/* Footer: margin from copyright line, standard icon size */
+.social-links--footer {
+  margin-top: 18px;
+  gap: 16px;
+}
+
 .social-links--footer .social-links__icon svg {
-  width: 14px;
-  height: 14px;
+  width: 15px;
+  height: 15px;
 }
 
 /* npm icons: icon + small monospace label side-by-side */
@@ -10523,66 +10528,63 @@ html[data-mode="simple"] .home-sub--advanced { display: none; }
   gap: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  background: var(--surface);
+  background: var(--panel);
   overflow: hidden;
-  min-height: 220px;
+  min-height: 200px;
 }
 
 .home-flow-node {
   flex: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-start;
   gap: 10px;
-  padding: 28px 16px;
-  text-align: center;
+  padding: clamp(18px, 2.5vw, 26px);
 }
 
 .home-flow-node + .home-flow-node {
   border-left: 1px solid var(--border);
 }
 
-.home-flow-node__icon {
-  font-size: 1.8rem;
-  line-height: 1;
-}
-
-.home-flow-node__label {
-  font-size: 0.88rem;
+.home-flow-node__name {
+  font-size: 0.9rem;
   font-weight: 700;
   color: var(--text);
-  letter-spacing: 0.01em;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
 }
 
 .home-flow-node__sub {
-  font-size: 0.76rem;
+  font-size: 0.75rem;
   color: var(--muted);
-  line-height: 1.5;
-  max-width: 120px;
+  line-height: 1.55;
 }
 
 .home-flow-node--center {
-  background: rgba(99, 102, 241, 0.05);
+  background: rgba(99, 102, 241, 0.06);
   border-left: 2px solid var(--accent) !important;
+}
+
+.home-flow-node--decision {
+  background: rgba(255, 255, 255, 0.015);
 }
 
 .home-flow-outcomes {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .home-flow-outcome {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 0.76rem;
-  font-weight: 660;
-  padding: 3px 9px;
+  font: 600 0.72rem/1 var(--font-mono);
+  padding: 4px 10px;
   border-radius: var(--radius-pill);
   white-space: nowrap;
+  letter-spacing: 0.02em;
 }
 
 .home-flow-outcome--ok   { color: var(--ok);   background: var(--ok-bg);   border: 1px solid var(--ok-border); }
