@@ -84,13 +84,27 @@ export function proxy(request: NextRequest) {
     const intlResponse = intlMiddleware(request);
 
     // If next-intl issued a redirect (locale prefix missing or wrong), honour it.
-    if (intlResponse.status !== 200) {
+    if (intlResponse.status >= 300 && intlResponse.status < 400) {
       intlResponse.headers.set("Content-Security-Policy", buildCsp(nonce, isDev));
       return intlResponse;
     }
 
-    // Pass-through: replace with our nonce-injected response and carry over any
-    // cookies next-intl set (e.g. the locale-preference cookie).
+    // If next-intl issued an internal rewrite (e.g. / → /en for the default
+    // locale with localePrefix:'as-needed'), recreate the rewrite so Next.js
+    // routes to app/[locale]/page.tsx instead of app/page.tsx, while still
+    // injecting the nonce into the request headers.
+    const rewriteUrl = intlResponse.headers.get("x-middleware-rewrite");
+    if (rewriteUrl) {
+      const response = NextResponse.rewrite(new URL(rewriteUrl), {
+        request: { headers: requestHeaders }
+      });
+      intlResponse.cookies.getAll().forEach(c => response.cookies.set(c.name, c.value, c));
+      response.headers.set("Content-Security-Policy", buildCsp(nonce, isDev));
+      return response;
+    }
+
+    // Pure pass-through: replace with our nonce-injected response and carry over
+    // any cookies next-intl set (e.g. the locale-preference cookie).
     const response = NextResponse.next({ request: { headers: requestHeaders } });
     intlResponse.cookies.getAll().forEach(c => response.cookies.set(c.name, c.value, c));
     response.headers.set("Content-Security-Policy", buildCsp(nonce, isDev));
