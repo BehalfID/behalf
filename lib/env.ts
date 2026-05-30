@@ -37,6 +37,12 @@ function hasValue(name: string) {
 }
 
 function isProduction() {
+  // VERCEL_ENV distinguishes real production from preview deployments.
+  // Both run with NODE_ENV=production, but only production has the full
+  // required env var set. Fall back to NODE_ENV for non-Vercel hosts.
+  if (process.env.VERCEL_ENV) {
+    return process.env.VERCEL_ENV === "production";
+  }
   return process.env.NODE_ENV === "production";
 }
 

@@ -1,34 +1,32 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import Link from "next/link";
-import { Logo, SplitCTAButton, ThemeToggle, ModeToggle, SocialLinks } from "@/components/ui";
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
+import { Logo, SplitCTAButton, ThemeToggle, ModeToggle, SocialLinks, LanguageSwitcher } from "@/components/ui";
 
 export function PublicNav() {
+  const t = useTranslations("nav");
   const [open, setOpen] = useState(false);
   const hamburgerRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
 
   const close = useCallback(() => {
     setOpen(false);
-    // Return focus to the hamburger button when drawer closes
     requestAnimationFrame(() => hamburgerRef.current?.focus());
   }, []);
 
-  // Close on Escape key and implement focus trap while open
   useEffect(() => {
     if (!open) return;
 
     const el = drawerRef.current;
 
-    // Close on Escape
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         close();
         return;
       }
 
-      // Focus trap: keep Tab cycling within the drawer
       if (e.key !== "Tab" || !el) return;
       const focusable = Array.from(
         el.querySelectorAll<HTMLElement>(
@@ -54,7 +52,6 @@ export function PublicNav() {
 
     document.addEventListener("keydown", handleKeyDown);
 
-    // Move focus into the drawer on open
     const firstFocusable = el?.querySelector<HTMLElement>(
       'a[href], button:not([disabled])'
     );
@@ -70,7 +67,7 @@ export function PublicNav() {
           ref={hamburgerRef}
           className="public-nav__hamburger"
           onClick={() => setOpen((o) => !o)}
-          aria-label={open ? "Close menu" : "Open menu"}
+          aria-label={open ? t("closeMenu") : t("openMenu")}
           aria-expanded={open}
           aria-controls="public-nav-drawer"
         >
@@ -88,17 +85,18 @@ export function PublicNav() {
         <Logo />
 
         <div className="public-nav__links">
-          <Link href="/docs">Docs</Link>
-          <Link href="/blog">Blog</Link>
-          <Link href="/security">Security</Link>
-          <Link href="/status">Status</Link>
+          <Link href="/docs">{t("docs")}</Link>
+          <Link href="/blog">{t("blog")}</Link>
+          <Link href="/security">{t("security")}</Link>
+          <Link href="/status">{t("status")}</Link>
           <SocialLinks className="social-links--nav" />
+          <LanguageSwitcher />
           <ModeToggle />
           <ThemeToggle />
           <SplitCTAButton
-            leftLabel="Build"
+            leftLabel={t("build")}
             leftHref="/signup"
-            rightLabel="Log In"
+            rightLabel={t("login")}
             rightHref="/login"
             className="split-cta--nav"
           />
@@ -107,9 +105,9 @@ export function PublicNav() {
         {/* Mobile-only CTA: shown when public-nav__links is hidden */}
         <div className="public-nav__mobile-cta">
           <SplitCTAButton
-            leftLabel="Build"
+            leftLabel={t("build")}
             leftHref="/signup"
-            rightLabel="Log In"
+            rightLabel={t("login")}
             rightHref="/login"
             className="split-cta--nav"
           />
@@ -122,22 +120,26 @@ export function PublicNav() {
           ref={drawerRef}
           className="public-nav__drawer"
           role="dialog"
-          aria-label="Navigation menu"
+          aria-label={t("navigationMenu")}
           aria-modal="true"
         >
-          <Link href="/docs" onClick={close}>Docs</Link>
-          <Link href="/blog" onClick={close}>Blog</Link>
-          <Link href="/security" onClick={close}>Security</Link>
-          <Link href="/status" onClick={close}>Status</Link>
-          <Link href="/compliance" onClick={close}>Compliance</Link>
-          <Link href="/login" onClick={close}>Log in</Link>
+          <Link href="/docs" onClick={close}>{t("docs")}</Link>
+          <Link href="/blog" onClick={close}>{t("blog")}</Link>
+          <Link href="/security" onClick={close}>{t("security")}</Link>
+          <Link href="/status" onClick={close}>{t("status")}</Link>
+          <Link href="/compliance" onClick={close}>{t("compliance")}</Link>
+          <Link href="/login" onClick={close}>{t("login")}</Link>
           <div className="public-nav__drawer-row">
-            <span>Mode</span>
+            <span>{t("mode")}</span>
             <ModeToggle />
           </div>
           <div className="public-nav__drawer-row">
-            <span>Theme</span>
+            <span>{t("theme")}</span>
             <ThemeToggle />
+          </div>
+          <div className="public-nav__drawer-row">
+            <span>{t("language")}</span>
+            <LanguageSwitcher />
           </div>
           <SocialLinks className="social-links--drawer" />
         </div>

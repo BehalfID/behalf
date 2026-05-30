@@ -1,4 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
+import createMiddleware from "next-intl/middleware";
+import { routing } from "./i18n/routing";
+
+const intlMiddleware = createMiddleware(routing);
+
+// Paths that skip locale routing (console, dashboard, auth helpers, etc.)
+const intlBypassPattern = /^\/(api|dashboard|console|passport|authenticate|logout|onboarding|design-system)(\/|$)/;
 
 // 'unsafe-inline' is retained for style-src only — React/Next.js inline styles
 // require it. For script-src, 'unsafe-inline' is dropped in favour of a per-request
@@ -56,7 +63,9 @@ export function shouldBypassProxy(pathname: string) {
 }
 
 export function proxy(request: NextRequest) {
-  if (shouldBypassProxy(request.nextUrl.pathname)) {
+  const { pathname } = request.nextUrl;
+
+  if (shouldBypassProxy(pathname)) {
     return NextResponse.next();
   }
 
@@ -69,6 +78,38 @@ export function proxy(request: NextRequest) {
   // (and the RSC streaming runtime) can read it via headers().get("x-nonce").
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
+
+  // Run next-intl locale routing for public pages.
+  if (!intlBypassPattern.test(pathname)) {
+    const intlResponse = intlMiddleware(request);
+
+    // If next-intl issued a redirect (locale prefix missing or wrong), honour it.
+    if (intlResponse.status >= 300 && intlResponse.status < 400) {
+      intlResponse.headers.set("Content-Security-Policy", buildCsp(nonce, isDev));
+      return intlResponse;
+    }
+
+    // If next-intl issued an internal rewrite (e.g. / → /en for the default
+    // locale with localePrefix:'as-needed'), recreate the rewrite so Next.js
+    // routes to app/[locale]/page.tsx instead of app/page.tsx, while still
+    // injecting the nonce into the request headers.
+    const rewriteUrl = intlResponse.headers.get("x-middleware-rewrite");
+    if (rewriteUrl) {
+      const response = NextResponse.rewrite(new URL(rewriteUrl), {
+        request: { headers: requestHeaders }
+      });
+      intlResponse.cookies.getAll().forEach(c => response.cookies.set(c.name, c.value, c));
+      response.headers.set("Content-Security-Policy", buildCsp(nonce, isDev));
+      return response;
+    }
+
+    // Pure pass-through: replace with our nonce-injected response and carry over
+    // any cookies next-intl set (e.g. the locale-preference cookie).
+    const response = NextResponse.next({ request: { headers: requestHeaders } });
+    intlResponse.cookies.getAll().forEach(c => response.cookies.set(c.name, c.value, c));
+    response.headers.set("Content-Security-Policy", buildCsp(nonce, isDev));
+    return response;
+  }
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("Content-Security-Policy", buildCsp(nonce, isDev));
