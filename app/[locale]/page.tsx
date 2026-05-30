@@ -84,7 +84,7 @@ export default async function Home({
           <span>{th("example3")}</span>
         </div>
         <div className="home-actions">
-          <SplitCTAButton leftLabel={th("build" as "kicker")} leftHref="/signup" rightLabel={th("tryIt" as "kicker")} rightHref="/sandbox" className="split-cta--ghost" />
+          <SplitCTAButton leftLabel={th("build")} leftHref="/signup" rightLabel={th("tryIt")} rightHref="/sandbox" className="split-cta--ghost" />
           <HomeTour />
         </div>
       </section>
@@ -326,7 +326,7 @@ Approve at: https://behalfid.com/dashboard/approvals`}</CodeBlock>
         <h2 id="cta-heading" className="home-cta__h2">{tct("h2")}</h2>
         <p className="home-cta__body">{tct("body")}</p>
         <div className="home-actions home-actions--center">
-          <SplitCTAButton leftLabel={th("build" as "kicker")} leftHref="/signup" rightLabel={th("tryIt" as "kicker")} rightHref="/sandbox" className="split-cta--ghost" />
+          <SplitCTAButton leftLabel={th("build")} leftHref="/signup" rightLabel={th("tryIt")} rightHref="/sandbox" className="split-cta--ghost" />
           <ButtonLink href="/docs/deploy-approvals">{tct("tryDeploy")}</ButtonLink>
         </div>
       </section>

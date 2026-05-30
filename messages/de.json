@@ -62,7 +62,9 @@
       "example1": "Staging-Deploys erlauben, für Produktion Genehmigung erfordern.",
       "example2": "GitHub-Issues lesen erlauben, Produktions-Deploys ablehnen.",
       "example3": "Browsen erlauben, Käufe über 25 € ablehnen.",
-      "permissionExamples": "Berechtigungsbeispiele"
+      "permissionExamples": "Berechtigungsbeispiele",
+      "build": "Loslegen",
+      "tryIt": "Ausprobieren"
     },
     "steps": {
       "kicker": "So funktioniert es",

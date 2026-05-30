@@ -62,7 +62,9 @@
       "example1": "Permitir despliegues en staging, requerir aprobación para producción.",
       "example2": "Permitir lectura de issues de GitHub, denegar despliegues en producción.",
       "example3": "Permitir navegación, denegar compras superiores a 25 €.",
-      "permissionExamples": "Ejemplos de permisos"
+      "permissionExamples": "Ejemplos de permisos",
+      "build": "Empezar",
+      "tryIt": "Probar"
     },
     "steps": {
       "kicker": "Cómo funciona",

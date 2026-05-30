@@ -62,7 +62,9 @@
       "example1": "Allow staging deploys, require approval for production.",
       "example2": "Allow GitHub issue reads, deny production deploys.",
       "example3": "Allow browsing, deny purchases over $25.",
-      "permissionExamples": "Permission examples"
+      "permissionExamples": "Permission examples",
+      "build": "Build",
+      "tryIt": "Try It"
     },
     "steps": {
       "kicker": "How it works",

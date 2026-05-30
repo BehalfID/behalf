@@ -62,7 +62,9 @@
       "example1": "Autoriser les déploiements en staging, exiger une approbation pour la production.",
       "example2": "Autoriser la lecture des issues GitHub, refuser les déploiements en production.",
       "example3": "Autoriser la navigation, refuser les achats supérieurs à 25 €.",
-      "permissionExamples": "Exemples de permissions"
+      "permissionExamples": "Exemples de permissions",
+      "build": "Commencer",
+      "tryIt": "Essayer"
     },
     "steps": {
       "kicker": "Comment ça marche",
