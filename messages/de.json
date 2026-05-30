@@ -94,7 +94,7 @@
       "checksRules": "prüft zuerst Ihre Regeln",
       "goAhead": "✓ Weiter",
       "blocked": "✗ Blockiert",
-      "askFirst": "⚠ Zuerst fragen",
+      "askFirst": "Zuerst fragen",
       "verificationFlow": "BehalfID-Verifizierungsablauf"
     },
     "deploy": {

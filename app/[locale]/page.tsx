@@ -209,12 +209,10 @@ if (!decision.allowed) {
 
         <div className="home-flow-diagram mode-simple-only" aria-label={tc("verificationFlow")} data-reveal>
           <div className="home-flow-node">
-            <span className="home-flow-node__icon" aria-hidden="true">🤖</span>
             <span className="home-flow-node__label">{tc("aiAgent")}</span>
             <span className="home-flow-node__sub">{tc("wantsToAct")}</span>
           </div>
           <div className="home-flow-node home-flow-node--center">
-            <span className="home-flow-node__icon" aria-hidden="true">🛡️</span>
             <span className="home-flow-node__label">BehalfID</span>
             <span className="home-flow-node__sub">{tc("checksRules")}</span>
           </div>

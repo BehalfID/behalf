@@ -4901,6 +4901,7 @@ html[data-theme="light"] .ob-plan--featured:hover {
   .home-hero,
   .home-steps,
   .home-code,
+  .home-deploy,
   .home-cta,
   .marketing-section,
   .sandbox-page,
@@ -4934,10 +4935,13 @@ html[data-theme="light"] .ob-plan--featured:hover {
 @media (max-width: 620px) {
   .public-nav {
     padding-inline: 22px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
   }
 
   .public-nav__hamburger {
     display: flex;
+    justify-self: start;
   }
 
   .public-nav__links {
@@ -4947,6 +4951,7 @@ html[data-theme="light"] .ob-plan--featured:hover {
   .public-nav__mobile-cta {
     display: flex;
     align-items: center;
+    justify-self: end;
   }
 
   .hero {
@@ -7327,6 +7332,80 @@ html[data-theme="light"] .ob-plan--featured:hover {
 
 .home-code__links a:hover {
   text-decoration: underline;
+}
+
+/* ── Deploy approval section ───────────────────────────────── */
+.home-deploy {
+  padding-block: clamp(80px, 10vw, 140px);
+  border-top: 1px solid var(--border);
+}
+
+.home-deploy__intro {
+  max-width: 660px;
+  margin-bottom: 64px;
+}
+
+.home-deploy__h2 {
+  font-size: clamp(2.2rem, 5vw, 4rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 0.96;
+  color: var(--text);
+  margin: 12px 0 20px;
+}
+
+.home-deploy__body {
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.7;
+  margin: 0;
+  max-width: 560px;
+}
+
+.home-deploy__steps {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.home-deploy__steps > li {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: clamp(24px, 4vw, 48px);
+  align-items: start;
+  padding-block: clamp(40px, 6vw, 64px);
+  border-top: 1px solid var(--border);
+}
+
+.home-deploy__steps > li h3 {
+  font-size: clamp(1.25rem, 2.2vw, 1.6rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--text);
+  margin: 0 0 14px;
+}
+
+.home-deploy__steps > li > div > p {
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.7;
+  margin: 0 0 20px;
+  max-width: 560px;
+}
+
+.home-deploy__num {
+  display: block;
+  font: 700 0.72rem/1 var(--font-mono);
+  color: var(--accent);
+  letter-spacing: 0.14em;
+  padding-top: 8px;
+}
+
+.home-deploy__cta {
+  margin-top: clamp(40px, 6vw, 64px);
 }
 
 /* ── Interactive demo section ──────────────────────────────── */
