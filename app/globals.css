@@ -7789,6 +7789,27 @@ html[data-theme="light"] .ob-plan--featured:hover {
   }
 }
 
+@media (max-width: 540px) {
+  /* Collapse number + content side-by-side to stacked on small phones */
+  .home-deploy__steps > li {
+    grid-template-columns: 1fr;
+    gap: 0;
+    padding-block: clamp(28px, 5vw, 44px);
+  }
+
+  .home-deploy__num {
+    padding-top: 0;
+    margin-bottom: 12px;
+  }
+
+  /* Allow the code block text to wrap so long lines (URLs) don't force
+     horizontal scroll inside a narrow column */
+  .home-deploy__steps .ui-code {
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+}
+
 @media (max-width: 480px) {
   .site-footer__cols {
     grid-template-columns: 1fr;
