@@ -94,7 +94,7 @@
       "checksRules": "vérifie vos règles en premier",
       "goAhead": "✓ Autorisé",
       "blocked": "✗ Bloqué",
-      "askFirst": "⚠ Demander d'abord",
+      "askFirst": "Demander d'abord",
       "verificationFlow": "Flux de vérification BehalfID"
     },
     "deploy": {

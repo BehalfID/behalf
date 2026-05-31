@@ -6,6 +6,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:unit": "vitest run",
+    "test:e2e": "node test/e2e/layout.test.js",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -41,6 +42,7 @@
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.4",
     "mongodb-memory-server": "^10.4.3",
+    "puppeteer": "^25.1.0",
     "tsx": "^4.22.3",
     "typescript": "^6.0.3",
     "vitest": "^4.1.6"

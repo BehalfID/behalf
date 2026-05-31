@@ -94,7 +94,7 @@
       "checksRules": "checks your rules first",
       "goAhead": "✓ Go ahead",
       "blocked": "✗ Blocked",
-      "askFirst": "⚠ Ask me first",
+      "askFirst": "Ask me first",
       "verificationFlow": "BehalfID verification flow"
     },
     "deploy": {
