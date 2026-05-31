@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireDeveloperApi } from "@/lib/developerAuth";
+import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { jsonError } from "@/lib/responses";
 import { getStripe } from "@/lib/stripe";
 import Account from "@/models/Account";
@@ -26,30 +27,40 @@ export async function POST(request: NextRequest) {
     return jsonError("Billing is not configured.", 503);
   }
 
+  const ipLimit = await checkRateLimit(request);
+  if (ipLimit.limited) {
+    return rateLimitError();
+  }
+
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? request.nextUrl.origin;
   const billingUrl = `${appUrl}/dashboard/billing`;
 
   let customerId = auth.account.stripeCustomerId;
-  if (!customerId) {
-    const customer = await stripe.customers.create({
-      email: auth.user.email,
-      metadata: { accountId: auth.account.accountId }
+
+  try {
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: auth.user.email,
+        metadata: { accountId: auth.account.accountId }
+      });
+      customerId = customer.id;
+      await Account.updateOne(
+        { accountId: auth.account.accountId },
+        { $set: { stripeCustomerId: customerId } }
+      );
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      customer: customerId,
+      client_reference_id: auth.account.accountId,
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: `${billingUrl}?success=1`,
+      cancel_url: `${billingUrl}?canceled=1`
     });
-    customerId = customer.id;
-    await Account.updateOne(
-      { accountId: auth.account.accountId },
-      { $set: { stripeCustomerId: customerId } }
-    );
+
+    return NextResponse.json({ url: session.url });
+  } catch {
+    return jsonError("Failed to create checkout session. Please try again.", 502);
   }
-
-  const session = await stripe.checkout.sessions.create({
-    mode: "subscription",
-    customer: customerId,
-    client_reference_id: auth.account.accountId,
-    line_items: [{ price: priceId, quantity: 1 }],
-    success_url: `${billingUrl}?success=1`,
-    cancel_url: `${billingUrl}?canceled=1`
-  });
-
-  return NextResponse.json({ url: session.url });
 }

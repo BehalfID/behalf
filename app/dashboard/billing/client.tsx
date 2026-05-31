@@ -61,15 +61,23 @@ export function BillingClient({
   verificationPeriodStart
 }: BillingProps) {
   const [loading, setLoading] = useState<"checkout" | "portal" | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const quotas = PLAN_QUOTAS[plan];
   const resetDate = nextResetDate(verificationPeriodStart);
 
   const handleCheckout = useCallback(async () => {
     setLoading("checkout");
+    setError(null);
     try {
       const res = await fetch("/api/billing/checkout", { method: "POST" });
       const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Something went wrong. Please try again.");
+        return;
+      }
       if (data.url) window.location.href = data.url;
+    } catch {
+      setError("Something went wrong. Please try again.");
     } finally {
       setLoading(null);
     }
@@ -77,10 +85,17 @@ export function BillingClient({
 
   const handlePortal = useCallback(async () => {
     setLoading("portal");
+    setError(null);
     try {
       const res = await fetch("/api/billing/portal", { method: "POST" });
       const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Something went wrong. Please try again.");
+        return;
+      }
       if (data.url) window.location.href = data.url;
+    } catch {
+      setError("Something went wrong. Please try again.");
     } finally {
       setLoading(null);
     }
@@ -98,6 +113,12 @@ export function BillingClient({
       {stripeSubscriptionStatus === "past_due" && (
         <div className="billing-alert" role="alert">
           Payment failed. Paid limits and webhook delivery are disabled until billing is updated.
+        </div>
+      )}
+
+      {error && (
+        <div className="billing-alert" role="alert">
+          {error}
         </div>
       )}
 
