@@ -89,7 +89,6 @@ export function PublicNav() {
           <Link href="/blog">{t("blog")}</Link>
           <Link href="/security">{t("security")}</Link>
           <Link href="/status">{t("status")}</Link>
-          <SocialLinks className="social-links--nav" />
           <LanguageSwitcher />
           <ModeToggle />
           <ThemeToggle />
