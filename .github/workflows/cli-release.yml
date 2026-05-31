@@ -97,7 +97,7 @@ jobs:
           VERSION=${{ steps.version.outputs.version }}
           ARM64_SHA=$(sha256sum packages/cli/bin/behalf-darwin-arm64.tar.gz | cut -d' ' -f1)
           X64_SHA=$(sha256sum packages/cli/bin/behalf-darwin-x64.tar.gz | cut -d' ' -f1)
-          git clone https://x-access-token:${TAP_TOKEN}@github.com/potatobeyonddefeat/homebrew-tap.git tap
+          git clone https://x-access-token:${TAP_TOKEN}@github.com/behalfid/homebrew-tap.git tap
           cd tap
           sed -i "s/version \".*\"/version \"${VERSION}\"/" Formula/behalf.rb
           sed -i "/darwin-arm64/ { n; s/sha256 \".*\"/sha256 \"${ARM64_SHA}\"/ }" Formula/behalf.rb

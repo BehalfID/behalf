@@ -39,7 +39,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/potatobeyonddefeat/behalf.git",
+    "url": "git+https://github.com/behalfid/behalf.git",
     "directory": "packages/sdk"
   },
   "engines": {
