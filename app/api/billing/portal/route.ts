@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireDeveloperApi } from "@/lib/developerAuth";
+import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { jsonError } from "@/lib/responses";
 import { getStripe } from "@/lib/stripe";
 
@@ -16,12 +17,21 @@ export async function POST(request: NextRequest) {
     return jsonError("Billing is not configured.", 503);
   }
 
+  const ipLimit = await checkRateLimit(request);
+  if (ipLimit.limited) {
+    return rateLimitError();
+  }
+
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? request.nextUrl.origin;
 
-  const session = await stripe.billingPortal.sessions.create({
-    customer: auth.account.stripeCustomerId,
-    return_url: `${appUrl}/dashboard/billing`
-  });
+  try {
+    const session = await stripe.billingPortal.sessions.create({
+      customer: auth.account.stripeCustomerId,
+      return_url: `${appUrl}/dashboard/billing`
+    });
 
-  return NextResponse.json({ url: session.url });
+    return NextResponse.json({ url: session.url });
+  } catch {
+    return jsonError("Failed to open billing portal. Please try again.", 502);
+  }
 }
