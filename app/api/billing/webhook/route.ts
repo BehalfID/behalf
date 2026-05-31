@@ -105,7 +105,8 @@ export async function POST(request: NextRequest) {
           $set: {
             plan: isActive ? "pro" : "free",
             stripeSubscriptionId: sub.id,
-            stripeSubscriptionStatus: sub.status
+            stripeSubscriptionStatus: sub.status,
+            stripeTrialEnd: typeof sub.trial_end === "number" ? new Date(sub.trial_end * 1000) : null,
           }
         }
       );
@@ -124,7 +125,8 @@ export async function POST(request: NextRequest) {
           $set: {
             plan: "free",
             stripeSubscriptionStatus: "canceled",
-            stripeSubscriptionId: null
+            stripeSubscriptionId: null,
+            stripeTrialEnd: null,
           }
         }
       );
@@ -139,7 +141,7 @@ export async function POST(request: NextRequest) {
       const account = await Account.findOne({ stripeCustomerId: customerId });
       await Account.updateOne(
         { stripeCustomerId: customerId },
-        { $set: { plan: "free", stripeSubscriptionStatus: "past_due" } }
+        { $set: { plan: "free", stripeSubscriptionStatus: "past_due", stripeTrialEnd: null } }
       );
       if (account) await setAccountWebhookStatus(account.accountId, "disabled");
       break;

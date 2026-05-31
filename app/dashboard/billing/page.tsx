@@ -26,6 +26,7 @@ export default async function BillingPage() {
     <BillingClient
       plan={(account?.plan ?? "free") as Plan}
       stripeSubscriptionStatus={account?.stripeSubscriptionStatus ?? null}
+      stripeTrialEnd={account?.stripeTrialEnd ? new Date(account.stripeTrialEnd).toISOString() : null}
       agentCount={agentCount}
       verificationCount={account?.verificationCount ?? 0}
       verificationPeriodStart={(account?.verificationPeriodStart ?? new Date()).toISOString()}

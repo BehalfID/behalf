@@ -9,6 +9,7 @@ import { PLAN_QUOTAS } from "@/lib/plans";
 type BillingProps = {
   plan: Plan;
   stripeSubscriptionStatus: string | null;
+  stripeTrialEnd: string | null;
   agentCount: number;
   verificationCount: number;
   verificationPeriodStart: string;
@@ -20,6 +21,11 @@ function formatLimit(limit: number) {
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" }).format(new Date(value));
+}
+
+function trialDaysLeft(trialEnd: string) {
+  const ms = new Date(trialEnd).getTime() - Date.now();
+  return Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
 }
 
 function nextResetDate(periodStart: string) {
@@ -56,6 +62,7 @@ function UsageBar({ used, limit, label }: { used: number; limit: number; label: 
 export function BillingClient({
   plan,
   stripeSubscriptionStatus,
+  stripeTrialEnd,
   agentCount,
   verificationCount,
   verificationPeriodStart
@@ -116,6 +123,13 @@ export function BillingClient({
         </div>
       )}
 
+      {stripeSubscriptionStatus === "trialing" && stripeTrialEnd && (
+        <div className="billing-alert" role="status">
+          Free trial active — ends {formatDate(stripeTrialEnd)} ({trialDaysLeft(stripeTrialEnd)} {trialDaysLeft(stripeTrialEnd) === 1 ? "day" : "days"} left).
+          {" "}Cancel via <strong>Manage subscription</strong> before then and you won't be charged.
+        </div>
+      )}
+
       {error && (
         <div className="billing-alert" role="alert">
           {error}
@@ -138,27 +152,35 @@ export function BillingClient({
                   onClick={handleCheckout}
                   disabled={loading !== null}
                 >
-                  {loading === "checkout" ? "Redirecting…" : "Upgrade to Pro"}
+                  {loading === "checkout" ? "Redirecting…" : "Start free trial"}
                 </Button>
               ) : (
-                <Button
-                  variant="secondary"
-                  onClick={handlePortal}
-                  disabled={loading !== null}
-                >
-                  {loading === "portal" ? "Redirecting…" : "Manage subscription"}
-                </Button>
+                <div>
+                  <Button
+                    variant="secondary"
+                    onClick={handlePortal}
+                    disabled={loading !== null}
+                  >
+                    {loading === "portal" ? "Redirecting…" : "Manage subscription"}
+                  </Button>
+                  {stripeSubscriptionStatus === "trialing" && stripeTrialEnd && (
+                    <p className="billing-trial-note">Cancel before {formatDate(stripeTrialEnd)} — no charge.</p>
+                  )}
+                </div>
               )}
             </div>
           </div>
 
           {plan === "free" && (
-            <ul className="billing-pro-features">
-              <li>Up to 50 agents (free: 5)</li>
-              <li>250,000 verifications/month (free: 10,000)</li>
-              <li>Webhook delivery</li>
-              <li>90-day log retention (free: 7 days)</li>
-            </ul>
+            <>
+              <ul className="billing-pro-features">
+                <li>Up to 50 agents (free: 5)</li>
+                <li>250,000 verifications/month (free: 10,000)</li>
+                <li>Webhook delivery</li>
+                <li>90-day log retention (free: 7 days)</li>
+              </ul>
+              <p className="billing-trial-note">7-day free trial. Cancel any time before it ends — no charge.</p>
+            </>
           )}
         </Card>
 
