@@ -183,7 +183,7 @@ export default async function Home({
             {tc("h2Line1")}<br />{tc("h2Line2")}
           </h2>
           <p className="home-code__body mode-advanced-only">
-            {tc("bodyAdvanced").replace(/<[^>]+>/g, "")}
+            {tc.rich("bodyAdvanced", { code: (chunks) => <code className="hi-code">{chunks}</code> })}
           </p>
           <p className="home-code__body mode-simple-only">{tc("bodySimple")}</p>
           <div className="home-code__links">
@@ -278,7 +278,7 @@ behalf permissions create agent_xxx \\
             <span className="home-deploy__num">02</span>
             <div>
               <h3>{td("step2Title")}</h3>
-              <p className="mode-advanced-only">{td("step2BodyAdvanced").replace(/<[^>]+>/g, "")}</p>
+              <p className="mode-advanced-only">{td.rich("step2BodyAdvanced", { code: (chunks) => <code className="hi-code">{chunks}</code> })}</p>
               <div className="mode-advanced-only">
                 <CodeBlock label="terminal">{`behalf mcp init && behalf claude`}</CodeBlock>
               </div>
@@ -307,7 +307,7 @@ Approve at: https://behalfid.com/dashboard/approvals`}</CodeBlock>
             <span className="home-deploy__num">04</span>
             <div>
               <h3>{td("step4Title")}</h3>
-              <p className="mode-advanced-only">{td("step4BodyAdvanced").replace(/<[^>]+>/g, "")}</p>
+              <p className="mode-advanced-only">{td.rich("step4BodyAdvanced", { code: (chunks) => <code className="hi-code">{chunks}</code> })}</p>
               <p className="mode-simple-only">{td("step4BodySimple")}</p>
             </div>
           </li>
