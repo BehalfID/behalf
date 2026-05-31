@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
       customer: customerId,
       client_reference_id: auth.account.accountId,
       line_items: [{ price: priceId, quantity: 1 }],
+      subscription_data: { trial_period_days: 7 },
       success_url: `${billingUrl}?success=1`,
       cancel_url: `${billingUrl}?canceled=1`
     });

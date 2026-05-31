@@ -283,7 +283,7 @@ export default function DesignSystemPage() {
                   <Link href="/design-system/components">Component library</Link>
                 </li>
                 <li>
-                  <Link href="https://github.com/potatobeyonddefeat/behalf" target="_blank" rel="noopener noreferrer">
+                  <Link href="https://github.com/behalfid/behalf" target="_blank" rel="noopener noreferrer">
                     Reference source
                   </Link>
                 </li>
@@ -330,7 +330,7 @@ export default function DesignSystemPage() {
                 <h5>Source</h5>
                 <ul>
                   <li>
-                    <Link href="https://github.com/potatobeyonddefeat/behalf" target="_blank" rel="noopener noreferrer">
+                    <Link href="https://github.com/behalfid/behalf" target="_blank" rel="noopener noreferrer">
                       GitHub
                     </Link>
                   </li>

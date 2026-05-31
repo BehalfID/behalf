@@ -3845,6 +3845,13 @@ html[data-theme="light"] .ob-plan--featured:hover {
   line-height: 1.75;
 }
 
+.billing-trial-note {
+  margin: 8px 0 0;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
 .billing-usage-list {
   display: grid;
   gap: 18px;

@@ -18,7 +18,7 @@ export default function CliDocsPage() {
       <h2>Install</h2>
       <p>The CLI ships as a self-contained binary. No Node.js required after install.</p>
       <CodeBlock label="curl (macOS / Linux)">{`curl -fsSL https://behalfid.com/install.sh | sh`}</CodeBlock>
-      <CodeBlock label="Homebrew">{`brew install potatobeyonddefeat/tap/behalf`}</CodeBlock>
+      <CodeBlock label="Homebrew">{`brew install behalfid/tap/behalf`}</CodeBlock>
       <CodeBlock label="npm">{`npm install -g @behalfid/cli`}</CodeBlock>
       <p>Verify the install:</p>
       <CodeBlock label="terminal">{`behalf --version`}</CodeBlock>

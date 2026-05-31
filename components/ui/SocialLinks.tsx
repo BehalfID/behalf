@@ -54,7 +54,7 @@ export function SocialLinks({ className }: SocialLinksProps) {
 
       {/* GitHub — main repo */}
       <Link
-        href="https://github.com/potatobeyonddefeat/behalf"
+        href="https://github.com/behalfid/behalf"
         target="_blank"
         rel="noopener noreferrer"
         aria-label="BehalfID on GitHub"

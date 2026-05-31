@@ -159,7 +159,7 @@ describe("POST /api/billing/webhook", () => {
     expect(response.status).toBe(204);
     expect(billingMocks.accountUpdateOne).toHaveBeenCalledWith(
       { stripeCustomerId: "cus_test" },
-      { $set: { plan: "free", stripeSubscriptionStatus: "past_due" } }
+      { $set: { plan: "free", stripeSubscriptionStatus: "past_due", stripeTrialEnd: null } }
     );
     expect(billingMocks.webhookUpdateMany).toHaveBeenCalledWith(
       { developerUserId: "dev_test", status: "active" },
