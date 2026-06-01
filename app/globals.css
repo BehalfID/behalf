@@ -1,61 +1,61 @@
-/* Design system tokens — BehalfID v2 */
+/* Design system tokens — BehalfID v3 */
 
 :root {
   color-scheme: dark;
 
-  /* Surfaces — pure black canvas */
-  --bg:            #000000;
-  --panel:         #0a0a0a;
-  --surface:       #0a0a0a;
-  --surface-soft:  #050505;
-  --surface-elev:  #0f0f0f;
+  /* Surfaces — dark navy canvas, not pure black */
+  --bg:            #05080E;
+  --panel:         #0B1018;
+  --surface:       #0D1420;
+  --surface-soft:  #040608;
+  --surface-elev:  #121B28;
 
   /* Ink */
-  --text:    #fafafa;
-  --text-2:  #a1a1a1;
-  --muted:   #767676; /* raised from #707070 — meets WCAG AA 4.5:1 on #000 */
-  --muted-2: #525252;
-  --source:  #a1a1a1;
+  --text:    #EEF2F6;
+  --text-2:  #9BA8B5;
+  --muted:   #6B7B8C;
+  --muted-2: #4A5668;
+  --source:  #9BA8B5;
 
   /* Borders */
   --border:        rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.16);
-  --hairline:      rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --hairline:      rgba(255, 255, 255, 0.05);
 
   /* Brand accent */
-  --accent: #6366F1;
-  --accent-hover: #5558e6;
-  --accent-soft: rgba(99, 102, 241, 0.12);
-  --accent-glow: rgba(99, 102, 241, 0.18);
+  --accent:      #6366F1;
+  --accent-hover: #5558E6;
+  --accent-soft: rgba(99, 102, 241, 0.10);
+  --accent-glow: rgba(99, 102, 241, 0.14);
 
   /* Status — decision outcomes only */
   --ok:          #6ee7b7;
-  --ok-border:   rgba(16, 185, 129, 0.32);
-  --ok-bg:       rgba(16, 185, 129, 0.08);
+  --ok-border:   rgba(16, 185, 129, 0.28);
+  --ok-bg:       rgba(16, 185, 129, 0.07);
   --deny:        #fca5a5;
-  --deny-border: rgba(239, 68, 68, 0.32);
-  --deny-bg:     rgba(239, 68, 68, 0.08);
+  --deny-border: rgba(239, 68, 68, 0.28);
+  --deny-bg:     rgba(239, 68, 68, 0.07);
   --warn:        #fcd34d;
-  --warn-border: rgba(234, 179, 8, 0.32);
-  --warn-bg:     rgba(234, 179, 8, 0.06);
+  --warn-border: rgba(234, 179, 8, 0.28);
+  --warn-bg:     rgba(234, 179, 8, 0.05);
 
   /* Typography */
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono: var(--font-jetbrains), "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --font-sans: var(--font-inter), "SF Pro Display", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: var(--font-jetbrains), "SF Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 
   /* Radius */
-  --radius-sm:   4px;
-  --radius-md:   6px;
+  --radius-sm:   3px;
+  --radius-md:   5px;
   --radius-lg:   8px;
   --radius-xl:   10px;
   --radius-2xl:  12px;
   --radius-pill: 999px;
 
   /* Shadow */
-  --shadow:      0 24px 80px rgba(0, 0, 0, 0.28);
-  --shadow-sm:   0 1px 0 rgba(255, 255, 255, 0.04) inset;
-  --shadow-md:   0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-hero: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 30px 60px rgba(0, 0, 0, 0.5);
+  --shadow:      0 24px 80px rgba(0, 0, 0, 0.36);
+  --shadow-sm:   0 1px 0 rgba(255, 255, 255, 0.03) inset;
+  --shadow-md:   0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-hero: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 32px 72px rgba(0, 0, 0, 0.6);
 
   /* Spacing (4px base) */
   --s-1: 4px;  --s-2: 8px;   --s-3: 12px;  --s-4: 16px;
@@ -86,8 +86,8 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 1.6;
+  font-size: 16px;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -7948,21 +7948,21 @@ html[data-theme="light"] .ob-plan--featured:hover {
 html[data-theme="light"] {
   color-scheme: light;
 
-  --bg:            #ffffff;
-  --panel:         #f5f5f6;
-  --surface:       #f5f5f6;
-  --surface-soft:  #fafafa;
-  --surface-elev:  #efefef;
+  --bg:            #FAFBFC;
+  --panel:         #F0F2F5;
+  --surface:       #F0F2F5;
+  --surface-soft:  #FAFBFC;
+  --surface-elev:  #E8EBF0;
 
-  --text:    #0a0a0a;
-  --text-2:  #3a3a3a;
-  --muted:   #6b6b6b;
-  --muted-2: #9a9a9a;
-  --source:  #525252;
+  --text:    #0D1420;
+  --text-2:  #3A4450;
+  --muted:   #6B7B8C;
+  --muted-2: #9BA8B5;
+  --source:  #4A5668;
 
-  --border:        rgba(0, 0, 0, 0.10);
-  --border-strong: rgba(0, 0, 0, 0.24);
-  --hairline:      rgba(0, 0, 0, 0.06);
+  --border:        rgba(0, 0, 0, 0.09);
+  --border-strong: rgba(0, 0, 0, 0.18);
+  --hairline:      rgba(0, 0, 0, 0.05);
 
   --shadow:      0 24px 80px rgba(0, 0, 0, 0.08);
   --shadow-sm:   0 1px 0 rgba(0, 0, 0, 0.04) inset;
@@ -11161,6 +11161,541 @@ html[data-theme="light"] .lang-switcher__dropdown {
 html[data-theme="light"] .lang-switcher__option:hover {
   background: rgba(0, 0, 0, 0.05);
 }
+
+/* ==========================================================
+   Design System v3 — Comprehensive visual overhaul
+   Palantir-grade: precise, clean, enterprise-professional.
+   All overrides here supersede earlier rule blocks.
+   ========================================================== */
+
+/* ── 1. Page backgrounds ────────────────────────────────── */
+
+/* Remove grid lines / radial glows from all page backgrounds */
+.marketing {
+  background: var(--bg);
+}
+
+.public-site {
+  background: var(--bg);
+}
+
+.docs-page,
+.dashboard-shell,
+.console-shell,
+.app-shell {
+  background: var(--bg);
+}
+
+/* ── 2. Hero ─────────────────────────────────────────────── */
+
+/* Remove glow entirely — let typography do the work */
+.home-hero::before,
+.boundary-hero::before {
+  display: none;
+}
+
+/* Hero subtitle: slightly larger, better color */
+.home-sub {
+  color: var(--text-2);
+  font-size: clamp(1.05rem, 1.5vw, 1.2rem);
+  line-height: 1.6;
+  max-width: 560px;
+  margin: 0 0 48px;
+}
+
+/* Permission example pills: clean mono list */
+.home-hero .home-code__links {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 48px;
+}
+
+.home-hero .home-code__links span {
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.home-hero .home-code__links span::before {
+  content: "—";
+  color: var(--muted-2);
+  flex-shrink: 0;
+}
+
+/* ── 3. Section layout ──────────────────────────────────── */
+
+/* Consistent section rhythm across all marketing sections */
+.home-steps,
+.home-code,
+.home-deploy,
+.home-demo,
+.home-cta,
+.marketing-section,
+.use-case,
+.developer-section,
+.native-connected,
+.final-cta {
+  padding-top: clamp(80px, 10vw, 120px);
+  padding-bottom: clamp(80px, 10vw, 120px);
+}
+
+/* Section dividers: hairline, no gradients */
+.home-steps,
+.home-code,
+.home-deploy,
+.home-demo,
+.home-cta,
+.marketing-section,
+.use-case,
+.developer-section,
+.native-connected {
+  border-top: 1px solid var(--border);
+}
+
+/* Section heading scale: large, tight, white */
+.marketing-section h2,
+.use-case h2,
+.developer-section h2,
+.native-connected h2,
+.final-cta h2 {
+  font-size: clamp(2.2rem, 5vw, 4.8rem);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  color: var(--text);
+  margin: 12px 0 0;
+}
+
+.home-steps__h2 {
+  font-size: clamp(2.2rem, 5vw, 4.2rem);
+  letter-spacing: -0.04em;
+}
+
+/* Kicker labels: muted, not accent — saves accent for real emphasis */
+.ui-kicker,
+.section-kicker,
+.console-kicker {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin: 0 0 12px;
+}
+
+/* Section body text: use text-2 for better contrast against navy bg */
+.section-lede,
+.marketing-section p:not(.section-kicker),
+.use-case p,
+.developer-section p {
+  color: var(--text-2);
+  line-height: 1.65;
+}
+
+/* ── 4. Card surfaces: flat, no decorative gradients ────── */
+
+/* Solution cards */
+.solution-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2xl);
+}
+
+.solution-card::before {
+  display: none;
+}
+
+.solution-card:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-elev);
+  transform: none;
+  box-shadow: none;
+}
+
+/* Card visuals: remove grid lines, clean dark bg */
+.solution-card__visual,
+.surface-panel .solution-card__visual {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+}
+
+/* Card CTAs: no translateY */
+.solution-card__cta a:hover {
+  transform: none;
+}
+
+/* Feature/flow grid cards */
+.flow-grid div,
+.feature-grid div,
+.connected-agent-grid div,
+.faq-grid section,
+.metric,
+.ui-stat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+/* Remove gradient from connected-agent-grid items */
+.connected-agent-grid div {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+
+/* Sandbox panels */
+.sandbox-header__panel,
+.sandbox-layer,
+.sandbox-scenarios,
+.sandbox-demo,
+.sandbox-trace {
+  background: var(--surface);
+}
+
+.sandbox-passport-card {
+  background: var(--surface);
+}
+
+/* Native connected panels */
+.native-connected > div {
+  background: var(--surface);
+}
+
+/* Constraint list */
+.constraint-list div {
+  background: var(--surface);
+}
+
+/* Stops grid */
+.stops-grid div {
+  background: transparent;
+}
+
+/* Sandbox scenario: no translateY */
+.sandbox-scenario:hover,
+.sandbox-scenario--active {
+  border-color: rgba(99, 102, 241, 0.4);
+  background: var(--accent-soft);
+  transform: none;
+}
+
+/* Surface panels */
+.surface-panel:hover {
+  background: rgba(255, 255, 255, 0.03);
+  transform: none;
+}
+
+/* System diagram: clean */
+.system-diagram {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+/* ── 5. Code blocks ─────────────────────────────────────── */
+
+.ui-card,
+.hero__visual,
+.use-case pre,
+.developer-section pre,
+.ui-code,
+.docs-code,
+.dashboard-panel,
+.auth-panel,
+.secret-panel,
+.metric,
+.ui-stat,
+.flow-grid div,
+.feature-grid div,
+.console-table,
+.console-list,
+.console-panel,
+.console-settings,
+.console-login__panel,
+.console-secret {
+  background: var(--surface);
+}
+
+.ui-code-shell {
+  background: var(--surface);
+}
+
+/* ── 6. Typography: headings ───────────────────────────── */
+
+/* Docs article h1: proportional to sidebar context */
+.docs-article h1 {
+  font-size: clamp(1.8rem, 3.5vw, 2.8rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  color: var(--text);
+  margin: 8px 0 0;
+}
+
+/* Docs h2: clear hierarchy separator */
+.docs-article h2 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  margin: 48px 0 14px;
+  padding-top: 36px;
+  border-top: 1px solid var(--hairline);
+}
+
+/* Docs lede */
+.docs-lede {
+  color: var(--text-2);
+  font-size: 1rem;
+  line-height: 1.65;
+  margin: 14px 0 32px;
+  max-width: 660px;
+}
+
+/* ── 7. Navigation ─────────────────────────────────────── */
+
+/* Sticky nav: dark navy, not pure black */
+.public-nav,
+.marketing-nav {
+  background: rgba(5, 8, 14, 0.92);
+}
+
+/* ── 8. Sidebar ────────────────────────────────────────── */
+
+.docs-sidebar,
+.dashboard-sidebar,
+.console-sidebar,
+.app-sidebar {
+  background: rgba(8, 12, 20, 0.96);
+}
+
+/* ── 9. Footer ──────────────────────────────────────────── */
+
+.site-footer {
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+}
+
+/* ── 10. Buttons: purposeful, no decorative lifts ──────── */
+
+/* Remove ALL translateY hover lifts sitewide */
+*:hover {
+  /* intentionally left empty — individual rules below */
+}
+
+.solution-card__cta a,
+.docs-links a,
+.docs-next,
+.endpoint-card,
+.concept-grid section,
+.flow-grid div,
+.feature-grid div {
+  transition: border-color 140ms ease, background 140ms ease;
+}
+
+/* Primary buttons: solid indigo, white text */
+.ui-button--primary,
+.nav-cta,
+.primary-button,
+.console-primary-button,
+.home-cta-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+.ui-button--primary:hover,
+.nav-cta:hover,
+.primary-button:hover,
+.console-primary-button:hover,
+.home-cta-primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  transform: none;
+  color: #ffffff;
+}
+
+/* Ghost buttons */
+.ui-button:not(.ui-button--primary):not(.ui-button--danger):hover,
+.secondary-button:hover,
+.console-ghost-button:hover,
+.home-cta-secondary:hover,
+.dashboard-actions button:hover,
+.dashboard-list button:hover {
+  transform: none;
+}
+
+/* ── 11. Security cards: cleaner borders ──────────────── */
+
+.security-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 2px solid rgba(99, 102, 241, 0.25);
+}
+
+.security-card:hover {
+  background: var(--surface-elev);
+  border-top-color: rgba(99, 102, 241, 0.5);
+}
+
+/* ── 12. Home step visuals: clean flat cards ──────────── */
+
+.home-step__visual {
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.home-step__visual--accent {
+  background: var(--surface);
+  border-color: var(--border);
+  border-left: 2px solid var(--accent);
+}
+
+.home-step__visual--deny {
+  background: var(--surface);
+  border-color: var(--border);
+  border-left: 2px solid var(--deny);
+}
+
+.home-step__visual--ok {
+  background: var(--surface);
+  border-color: var(--border);
+  border-left: 2px solid var(--ok);
+}
+
+/* ── 13. Docs link cards ─────────────────────────────── */
+
+.docs-links a {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  transition: border-color 140ms ease, background 140ms ease;
+}
+
+.docs-links a:hover {
+  background: var(--surface-elev);
+  border-color: var(--border-strong);
+  box-shadow: none;
+}
+
+/* ── 14. Home demo console ───────────────────────────── */
+
+.home-demo__console {
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.home-demo__decision--allowed,
+.home-demo__decision--denied,
+.home-demo__decision--needs_approval {
+  background: var(--surface);
+}
+
+/* ── 15. Misc: remove remaining gradient backgrounds ──── */
+
+/* Hero visual (marketing section hero card) */
+.hero__visual {
+  background: var(--surface);
+  box-shadow: var(--shadow-hero);
+}
+
+/* Decision packet */
+.decision-packet {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+}
+
+/* Flow grid icon color: use text-2 not accent */
+.flow-grid span {
+  color: var(--text-2);
+  font-weight: 700;
+}
+
+/* ── 16. Light mode: update for navy palette ─────────── */
+
+html[data-theme="light"] {
+  --bg:            #FAFBFC;
+  --panel:         #F0F2F5;
+  --surface:       #F0F2F5;
+  --surface-soft:  #FAFBFC;
+  --surface-elev:  #E8EBF0;
+  --text:          #0D1420;
+  --text-2:        #3A4450;
+  --muted:         #6B7B8C;
+  --muted-2:       #9BA8B5;
+  --border:        rgba(0, 0, 0, 0.09);
+  --border-strong: rgba(0, 0, 0, 0.18);
+  --hairline:      rgba(0, 0, 0, 0.05);
+}
+
+html[data-theme="light"] .public-nav,
+html[data-theme="light"] .marketing-nav {
+  background: rgba(250, 251, 252, 0.94);
+}
+
+html[data-theme="light"] .docs-sidebar,
+html[data-theme="light"] .dashboard-sidebar,
+html[data-theme="light"] .console-sidebar,
+html[data-theme="light"] .app-sidebar {
+  background: rgba(240, 242, 245, 0.98);
+}
+
+/* ── 17. Typographic refinements ──────────────────────── */
+
+/* Home h1: even tighter tracking at large sizes */
+.home-h1 {
+  letter-spacing: -0.045em;
+  font-weight: 800;
+}
+
+/* Heading utility classes */
+.docs-article h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 28px 0 10px;
+}
+
+/* Body paragraphs in docs: slightly larger */
+.docs-article p:not(.section-kicker):not(.docs-lede) {
+  color: var(--text-2);
+  line-height: 1.7;
+}
+
+/* ── 18. Spacing: marketing section container ─────────── */
+
+.marketing > section {
+  width: min(1280px, calc(100% - 64px));
+}
+
+/* ── 19. Home deploy section ──────────────────────────── */
+
+.home-deploy__steps > li {
+  border-top: 1px solid var(--border);
+}
+
+/* ── 20. Sandbox layers: flat ─────────────────────────── */
+
+.sandbox-layers {
+  background: var(--border);
+}
+
+/* ── 21. Consistent border-radius on all cards ────────── */
+
+.solution-card,
+.faq-grid section,
+.security-card,
+.docs-links a,
+.docs-next,
+.endpoint-card,
+.concept-grid section,
+.docs-steps li,
+.docs-anchor-section {
+  border-radius: var(--radius-2xl);
+}
+
+/* ── END design system v3 ─────────────────────────────── */
 
 html[data-theme="light"] .lang-switcher__option--active {
   background: rgba(0, 0, 0, 0.04);
