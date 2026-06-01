@@ -305,7 +305,6 @@ pre {
 .dashboard-list button:hover {
   border-color: rgba(255, 255, 255, 0.24);
   background: rgba(255, 255, 255, 0.075);
-  transform: translateY(-1px);
 }
 
 .ui-button:disabled,
@@ -321,7 +320,7 @@ pre {
 .nav-cta,
 .primary-button,
 .console-primary-button {
-  color: var(--text);
+  color: #ffffff;
   border-color: var(--accent);
   background: var(--accent);
 }
@@ -330,8 +329,9 @@ pre {
 .nav-cta:hover,
 .primary-button:hover,
 .console-primary-button:hover {
-  border-color: var(--accent);
-  background: var(--accent);
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+  transform: none;
 }
 
 .ui-button--danger,
@@ -418,10 +418,10 @@ textarea.ui-input,
 .section-kicker,
 .console-kicker {
   margin: 0 0 14px;
-  color: var(--accent);
-  font-size: 0.76rem;
-  font-weight: 780;
-  letter-spacing: 0.12em;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
@@ -642,11 +642,7 @@ textarea.ui-input,
 .marketing {
   min-height: 100svh;
   overflow-x: hidden;
-  background:
-    radial-gradient(circle at 72% 8%, rgba(99, 102, 241, 0.16), transparent 28rem),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(180deg, var(--bg) 0%, var(--panel) 54%, var(--bg) 100%);
-  background-size: auto, 92px 92px, auto;
+  background: var(--bg);
 }
 
 .marketing > section {
@@ -656,29 +652,82 @@ textarea.ui-input,
 
 .public-nav,
 .marketing-nav {
-  min-height: 76px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  min-height: 64px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding: 0 34px;
+  padding: 0 40px;
   border-bottom: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.82);
-  backdrop-filter: blur(16px);
+  background: rgba(0, 0, 0, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 .public-nav__links,
 .marketing-nav div {
   display: flex;
   align-items: center;
-  gap: 22px;
+  gap: 28px;
   color: var(--muted);
-  font-size: 0.94rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
 }
 
-.public-nav__links a:not(.ui-button):hover,
-.marketing-nav a:not(.ui-button):hover {
+.public-nav__links a:not(.nav-action):hover,
+.marketing-nav a:not(.nav-action):hover {
   color: var(--text);
+  transition: color 120ms ease;
+}
+
+/* ── Nav action buttons ──────────────────────────────────── */
+.public-nav__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 8px;
+}
+
+.nav-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  padding: 0 16px;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+  white-space: nowrap;
+}
+
+.nav-action--ghost {
+  color: var(--muted);
+  border: 1px solid transparent;
+  background: transparent;
+}
+
+.nav-action--ghost:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--border);
+}
+
+.nav-action--primary {
+  color: #ffffff;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+}
+
+.nav-action--primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 
 /* Hamburger button — desktop: hidden */
@@ -853,7 +902,7 @@ textarea.ui-input,
 .developer-section,
 .native-connected,
 .final-cta {
-  padding: 64px 0;
+  padding: clamp(72px, 9vw, 120px) 0;
 }
 
 .marketing-section,
@@ -996,10 +1045,8 @@ textarea.ui-input,
 }
 
 .solution-card:hover {
-  border-color: rgba(99, 102, 241, 0.46);
+  border-color: rgba(99, 102, 241, 0.38);
   background-color: rgba(10, 10, 10, 0.9);
-  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.26);
-  transform: translateY(-4px);
 }
 
 .solution-card:hover::before {
@@ -2084,13 +2131,6 @@ textarea.ui-input,
   color: var(--muted);
   font-size: 0.84rem;
   line-height: 1.55;
-}
-
-/* Public product polish */
-.marketing {
-  background:
-    radial-gradient(circle at 80% 4%, rgba(99, 102, 241, 0.12), transparent 30rem),
-    var(--bg);
 }
 
 .marketing > section {
@@ -3187,11 +3227,13 @@ html[data-theme="light"] .ob-plan--featured:hover {
   height: 100svh;
   display: flex;
   flex-direction: column;
-  gap: 28px;
-  padding: 22px 20px;
+  gap: 24px;
+  padding: 28px 16px;
   border-right: 1px solid var(--border);
-  background: rgba(10, 10, 10, 0.72);
-  backdrop-filter: blur(14px);
+  background: rgba(5, 5, 5, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  overflow-y: auto;
 }
 
 .docs-sidebar nav,
@@ -3215,24 +3257,31 @@ html[data-theme="light"] .ob-plan--featured:hover {
 .dashboard-sidebar nav a,
 .console-sidebar nav a,
 .app-sidebar nav a {
-  min-height: 38px;
+  min-height: 34px;
   display: flex;
   align-items: center;
-  border-radius: 8px;
-  padding: 0 11px;
+  border-radius: var(--radius-md);
+  padding: 0 10px;
   color: var(--muted);
+  font-size: 0.875rem;
+  transition: color 100ms ease, background 100ms ease;
 }
 
 .docs-sidebar nav a:hover,
 .dashboard-sidebar nav a:hover,
 .console-sidebar nav a:hover,
-.app-sidebar nav a:hover,
+.app-sidebar nav a:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+}
+
 .docs-sidebar nav a[aria-current="page"],
 .dashboard-sidebar nav a[aria-current="page"],
 .console-sidebar nav a[aria-current="page"],
 .app-sidebar nav a[aria-current="page"] {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.07);
+  font-weight: 600;
 }
 
 .app-sidebar__logout {
@@ -3395,7 +3444,7 @@ html[data-theme="light"] .ob-plan--featured:hover {
 .console-workspace,
 .app-main {
   width: min(1320px, 100%);
-  padding: 48px 56px;
+  padding: 56px 64px;
 }
 
 /* ── Docs mobile header (hidden on desktop) ──────────── */
@@ -3500,26 +3549,33 @@ html[data-theme="light"] .ob-plan--featured:hover {
 
 .docs-article__inner {
   min-width: 0;
-  max-width: 1080px;
+  max-width: 860px;
 }
 
 .docs-article h1 {
-  font-size: clamp(2.4rem, 5vw, 5rem);
-  line-height: 0.98;
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  line-height: 1;
   letter-spacing: -0.03em;
   font-weight: 800;
+  margin: 12px 0 0;
 }
 
 .docs-lede {
-  max-width: 780px;
-  margin: 18px 0 30px;
-  font-size: 1.08rem;
+  max-width: 700px;
+  margin: 16px 0 36px;
+  font-size: 1.05rem;
+  line-height: 1.65;
+  color: var(--muted);
 }
 
 .docs-article h2 {
-  margin: 34px 0 12px;
+  margin: 48px 0 14px;
   color: var(--text);
-  font-size: 1.2rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  border-top: 1px solid var(--hairline);
+  padding-top: 32px;
 }
 
 .docs-list,
@@ -5179,12 +5235,9 @@ html[data-theme="light"] .ob-plan--featured:hover {
   }
 }
 
-/* Public-site simplification */
+/* Public-site */
 .public-site {
-  background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px),
-    #000000;
-  background-size: 104px 104px, auto;
+  background: #000000;
 }
 
 .boundary-hero {
@@ -6981,22 +7034,22 @@ html[data-theme="light"] .ob-plan--featured:hover {
 
 /* ── Hero ──────────────────────────────────────────────────── */
 .home-hero {
-  min-height: 90vh;
+  min-height: 80vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding-block: clamp(80px, 12vw, 140px);
+  padding-block: clamp(96px, 12vw, 160px);
   position: relative;
 }
 
 .home-hero::before {
   content: "";
   position: absolute;
-  top: -10%;
-  left: -8%;
-  width: min(700px, 80vw);
-  height: min(700px, 80vw);
-  background: radial-gradient(circle, rgba(99, 102, 241, 0.13), transparent 62%);
+  top: -20%;
+  right: 0;
+  width: min(800px, 70vw);
+  height: min(800px, 70vw);
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.07), transparent 65%);
   pointer-events: none;
   z-index: 0;
 }
@@ -7025,12 +7078,30 @@ html[data-theme="light"] .ob-plan--featured:hover {
 }
 
 .home-hero .home-code__links {
-  margin-bottom: 48px;
+  margin-bottom: 40px;
+  gap: 8px;
+  flex-direction: column;
+}
+
+.home-hero .home-code__links span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.home-hero .home-code__links span::before {
+  content: "—";
+  color: var(--muted-2);
 }
 
 .home-actions {
   display: flex;
-  gap: 12px;
+  align-items: center;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
@@ -7119,6 +7190,52 @@ html[data-theme="light"] .ob-plan--featured:hover {
     padding: 8px 14px 8px 20px;
     font-size: 0.9375rem;
   }
+}
+
+/* ── CTA pair wrapper ──────────────────────────────────────── */
+.cta-pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── Hero CTA buttons ──────────────────────────────────────── */
+.home-cta-primary,
+.home-cta-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  padding: 0 24px;
+  border-radius: var(--radius-md);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+  white-space: nowrap;
+}
+
+.home-cta-primary {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: #ffffff;
+}
+
+.home-cta-primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.home-cta-secondary {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+}
+
+.home-cta-secondary:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.28);
 }
 
 /* ── Steps section ─────────────────────────────────────────── */
@@ -7682,9 +7799,9 @@ html[data-theme="light"] .ob-plan--featured:hover {
 
 /* ── Site footer ───────────────────────────────────────────── */
 .site-footer {
-  background: var(--panel);
+  background: var(--bg);
   border-top: 1px solid var(--border);
-  padding: 72px 34px 56px;
+  padding: 80px 40px 56px;
 }
 
 .site-footer__inner {
@@ -9070,7 +9187,7 @@ html[data-theme="light"] .app-sidebar__footer {
 }
 
 /* ── 16. Nav links: consistent hover transition ─────────── */
-.public-nav__links a:not(.ui-button):not([class*="split-cta"]) {
+.public-nav__links a:not(.nav-action) {
   transition: color 120ms ease;
 }
 

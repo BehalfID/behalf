@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { Logo, SplitCTAButton, ThemeToggle, ModeToggle, SocialLinks, LanguageSwitcher } from "@/components/ui";
+import { Logo, ThemeToggle, ModeToggle, SocialLinks, LanguageSwitcher } from "@/components/ui";
 
 export function PublicNav() {
   const t = useTranslations("nav");
@@ -92,24 +92,15 @@ export function PublicNav() {
           <LanguageSwitcher />
           <ModeToggle />
           <ThemeToggle />
-          <SplitCTAButton
-            leftLabel={t("build")}
-            leftHref="/signup"
-            rightLabel={t("login")}
-            rightHref="/login"
-            className="split-cta--nav"
-          />
+          <div className="public-nav__actions">
+            <Link href="/login" className="nav-action nav-action--ghost">{t("login")}</Link>
+            <Link href="/signup" className="nav-action nav-action--primary">{t("build")}</Link>
+          </div>
         </div>
 
         {/* Mobile-only CTA: shown when public-nav__links is hidden */}
         <div className="public-nav__mobile-cta">
-          <SplitCTAButton
-            leftLabel={t("build")}
-            leftHref="/signup"
-            rightLabel={t("login")}
-            rightHref="/login"
-            className="split-cta--nav"
-          />
+          <Link href="/signup" className="nav-action nav-action--primary">{t("build")}</Link>
         </div>
       </nav>
 

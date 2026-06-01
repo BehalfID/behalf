@@ -15,13 +15,19 @@ export function SplitCTAButton({
   rightHref,
   className,
 }: SplitCTAButtonProps) {
-  const cls = ["split-cta", className].filter(Boolean).join(" ");
+  const isGhost = className?.includes("ghost");
   return (
-    <div className={cls} role="group" aria-label="Primary actions">
-      <Link href={leftHref} className="split-cta__half split-cta__half--left">
+    <div className="cta-pair" role="group" aria-label="Primary actions">
+      <Link
+        href={leftHref}
+        className={isGhost ? "home-cta-secondary" : "home-cta-primary"}
+      >
         {leftLabel}
       </Link>
-      <Link href={rightHref} className="split-cta__half split-cta__half--right">
+      <Link
+        href={rightHref}
+        className="home-cta-secondary"
+      >
         {rightLabel}
       </Link>
     </div>
