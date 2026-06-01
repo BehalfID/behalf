@@ -36,8 +36,8 @@ describe("production environment validation", () => {
     vi.stubEnv("STRIPE_SECRET_KEY", "sk_live_test");
     vi.stubEnv("STRIPE_WEBHOOK_SECRET", "whsec_test");
     vi.stubEnv("STRIPE_PRO_PRICE_ID", "price_test");
-    vi.stubEnv("UPSTASH_REDIS_REST_URL", "https://redis.upstash.io");
-    vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "token_test");
+    vi.stubEnv("KV_REST_API_URL", "https://redis.upstash.io");
+    vi.stubEnv("KV_REST_API_TOKEN", "token_test");
     vi.stubEnv("BEHALFID_PUBLIC_AGENT_CREATION", "true");
 
     const { validateProductionEnv } = await import("@/lib/env");
@@ -58,6 +58,8 @@ describe("production environment validation", () => {
     vi.stubEnv("STRIPE_SECRET_KEY", "sk_live_test");
     vi.stubEnv("STRIPE_WEBHOOK_SECRET", "whsec_test");
     vi.stubEnv("STRIPE_PRO_PRICE_ID", "price_test");
+    vi.stubEnv("KV_REST_API_URL", "");
+    vi.stubEnv("KV_REST_API_TOKEN", "");
     vi.stubEnv("UPSTASH_REDIS_REST_URL", "");
     vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "");
 
@@ -66,8 +68,7 @@ describe("production environment validation", () => {
 
     expect(result.valid).toBe(false);
     expect(result.missingRequired).toEqual(expect.arrayContaining([
-      "UPSTASH_REDIS_REST_URL",
-      "UPSTASH_REDIS_REST_TOKEN"
+      "KV_REST_API_URL + KV_REST_API_TOKEN (or UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN)"
     ]));
   });
 });
