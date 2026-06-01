@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { PublicNav } from "@/components/layout/PublicNav";
 import { PublicFooter } from "@/components/layout/PublicFooter";
-import { ButtonLink, CodeBlock, HomeDemo, SplitCTAButton } from "@/components/ui";
+import { ButtonLink, CodeBlock, HomeDemo } from "@/components/ui";
 import { HomeTour } from "@/components/ui/HomeTour";
 
 export const metadata: Metadata = {
@@ -68,7 +68,8 @@ export default function Home() {
           <span>Allow browsing, deny purchases over $25.</span>
         </div>
         <div className="home-actions">
-          <SplitCTAButton leftLabel="Build" leftHref="/signup" rightLabel="Try It" rightHref="/sandbox" className="split-cta--ghost" />
+          <Link href="/signup" className="home-cta-primary">Get started</Link>
+          <Link href="/sandbox" className="home-cta-secondary">Try it live</Link>
           <HomeTour />
         </div>
       </section>
@@ -366,8 +367,9 @@ Approve at: https://behalfid.com/dashboard/approvals`}</CodeBlock>
           Manual passport mode is best-effort for testing with existing agents before you build the integration.
         </p>
         <div className="home-actions home-actions--center">
-          <SplitCTAButton leftLabel="Build" leftHref="/signup" rightLabel="Try It" rightHref="/sandbox" className="split-cta--ghost" />
-          <ButtonLink href="/docs/deploy-approvals">Try deploy approvals</ButtonLink>
+          <Link href="/signup" className="home-cta-primary">Get started</Link>
+          <Link href="/sandbox" className="home-cta-secondary">Try it live</Link>
+          <ButtonLink href="/docs/deploy-approvals">Deploy approvals →</ButtonLink>
         </div>
       </section>
 
