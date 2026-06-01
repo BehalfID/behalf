@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import Stripe from "stripe";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { jsonError } from "@/lib/responses";
@@ -67,7 +68,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ url: session.url });
   } catch (err) {
-    console.error("[billing/checkout] Stripe error:", err);
+    if (err instanceof Stripe.errors.StripeError) {
+      console.error("[billing/checkout] Stripe API error:", err.type, err.code, err.message);
+    } else {
+      console.error("[billing/checkout] Unexpected error:", err);
+    }
     return jsonError("Failed to create checkout session. Please try again.", 502);
   }
 }
