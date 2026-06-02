@@ -1,5 +1,7 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { getCurrentDeveloper } from "@/lib/developerAuth";
 import { AuthPage } from "../auth-client";
 import { routing } from "@/i18n/routing";
 
@@ -28,5 +30,7 @@ export default async function SignupPage({
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
+  const user = await getCurrentDeveloper();
+  if (user) redirect("/dashboard");
   return <AuthPage mode="signup" />;
 }
