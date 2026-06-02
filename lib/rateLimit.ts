@@ -75,16 +75,16 @@ export function getRateLimitKey(request: NextRequest, apiKeyHash?: string) {
 }
 
 export function getRateLimitMode() {
-  const hasUrl = Boolean(process.env.UPSTASH_REDIS_REST_URL?.trim());
-  const hasToken = Boolean(process.env.UPSTASH_REDIS_REST_TOKEN?.trim());
+  const hasUrl = Boolean((process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL)?.trim());
+  const hasToken = Boolean((process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN)?.trim());
   return hasUrl && hasToken
     ? "redis"
     : "memory";
 }
 
 async function redisCommand<T>(command: string[]) {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
 
   if (!url || !token) {
     return null;

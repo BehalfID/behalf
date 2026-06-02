@@ -5,14 +5,20 @@ const REQUIRED_PRODUCTION_ENV = [
   "NEXT_PUBLIC_APP_URL",
   "STRIPE_SECRET_KEY",
   "STRIPE_WEBHOOK_SECRET",
-  "STRIPE_PRO_PRICE_ID",
-  // Redis is required in production so rate limits are shared across all
-  // server instances.  Without it, each Vercel function instance has its own
-  // independent counter, allowing an attacker to exceed the intended cap by
-  // distributing requests across instances (M-2).
-  "UPSTASH_REDIS_REST_URL",
-  "UPSTASH_REDIS_REST_TOKEN"
+  "STRIPE_PRO_PRICE_ID"
 ] as const;
+
+// Vercel's Upstash integration injects KV_REST_API_URL / KV_REST_API_TOKEN.
+// Self-hosted deployments may use UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN.
+// Redis is required in production so rate limits are shared across all server
+// instances. Without it, each Vercel function has its own independent counter,
+// allowing an attacker to exceed the cap by distributing requests (M-2).
+function hasRedisConfig() {
+  return (
+    (Boolean(process.env.KV_REST_API_URL?.trim()) && Boolean(process.env.KV_REST_API_TOKEN?.trim())) ||
+    (Boolean(process.env.UPSTASH_REDIS_REST_URL?.trim()) && Boolean(process.env.UPSTASH_REDIS_REST_TOKEN?.trim()))
+  );
+}
 
 const OPTIONAL_PRODUCTION_ENV = [
   "BEHALFID_WEBHOOK_SIGNING_PEPPER"
@@ -76,6 +82,10 @@ export function validateProductionEnv(): EnvValidationResult {
     if (!hasValue(name)) {
       result.missingRequired.push(name);
     }
+  }
+
+  if (!hasRedisConfig()) {
+    result.missingRequired.push("KV_REST_API_URL + KV_REST_API_TOKEN (or UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN)");
   }
 
   const adminPassword = process.env.BEHALFID_ADMIN_PASSWORD?.trim().toLowerCase();
