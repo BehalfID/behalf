@@ -68,6 +68,13 @@ type LogSummary = {
   topVendor: string | null;
 };
 
+type DailyActivity = {
+  date: string;
+  total: number;
+  allowed: number;
+  denied: number;
+};
+
 type Summary = {
   totalAgents: number;
   activePermissions: number;
@@ -77,6 +84,11 @@ type Summary = {
   newUsersToday: number;
   pendingApprovals: number;
   highRiskToday: number;
+  totalAuditLogs: number;
+  errorRateToday: number;
+  totalCustomers: number;
+  paidCustomers: number;
+  dailyActivity: DailyActivity[];
 };
 
 type TodoPriority = "high" | "medium" | "low";
@@ -471,13 +483,23 @@ function DashboardView() {
           <section className="console-metrics">
             <StatCard label="Total agents" value={data.totalAgents} />
             <StatCard label="Active permissions" value={data.activePermissions} />
-            <StatCard label="Logs today" value={data.logsToday} />
+            <StatCard label="Total customers" value={data.totalCustomers} />
+            <StatCard label="Paid customers" value={data.paidCustomers} />
             <StatCard label="Total users" value={data.totalUsers} />
             <StatCard label="New users today" value={data.newUsersToday} />
+            <StatCard label="Total audit logs" value={data.totalAuditLogs} />
+            <StatCard label="Logs today" value={data.logsToday} />
+            <Metric label="Error rate today" value={`${data.errorRateToday}%`} />
             <Metric
               label="Last result"
               value={data.lastVerification ? (data.lastVerification.allowed ? "Allowed" : "Denied") : "None"}
             />
+          </section>
+
+          {/* Activity graph */}
+          <section>
+            <SectionTitle title="Verification activity (last 14 days)" />
+            <ActivityChart data={data.dailyActivity} />
           </section>
 
           {/* Quick actions */}
@@ -504,6 +526,81 @@ function DashboardView() {
         </>
       )}
     </ResourceState>
+  );
+}
+
+function ActivityChart({ data }: { data: DailyActivity[] }) {
+  const maxVal = Math.max(...data.map((d) => d.total), 1);
+  const chartH = 120;
+  const barW = 28;
+  const gap = 8;
+  const labelH = 28;
+  const totalW = data.length * (barW + gap) - gap;
+
+  return (
+    <div className="console-chart" aria-label="Verification activity chart">
+      <svg
+        width="100%"
+        viewBox={`0 0 ${totalW} ${chartH + labelH}`}
+        preserveAspectRatio="xMidYMid meet"
+        style={{ overflow: "visible" }}
+      >
+        {data.map((entry, i) => {
+          const x = i * (barW + gap);
+          const allowedH = Math.round((entry.allowed / maxVal) * chartH);
+          const deniedH = Math.round((entry.denied / maxVal) * chartH);
+          const totalH = allowedH + deniedH;
+          const shortLabel = entry.date.slice(5); // MM-DD
+          return (
+            <g key={entry.date}>
+              <title>{entry.date}: {entry.total} total ({entry.allowed} allowed, {entry.denied} denied)</title>
+              {/* denied portion (top, red) */}
+              {deniedH > 0 && (
+                <rect
+                  x={x}
+                  y={chartH - totalH}
+                  width={barW}
+                  height={deniedH}
+                  className="console-chart__bar--denied"
+                />
+              )}
+              {/* allowed portion (bottom, green) */}
+              {allowedH > 0 && (
+                <rect
+                  x={x}
+                  y={chartH - allowedH}
+                  width={barW}
+                  height={allowedH}
+                  className="console-chart__bar--allowed"
+                />
+              )}
+              {/* zero state */}
+              {entry.total === 0 && (
+                <rect
+                  x={x}
+                  y={chartH - 2}
+                  width={barW}
+                  height={2}
+                  className="console-chart__bar--empty"
+                />
+              )}
+              <text
+                x={x + barW / 2}
+                y={chartH + labelH - 4}
+                textAnchor="middle"
+                className="console-chart__label"
+              >
+                {shortLabel}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+      <div className="console-chart__legend">
+        <span className="console-chart__legend-item console-chart__legend-item--allowed">Allowed</span>
+        <span className="console-chart__legend-item console-chart__legend-item--denied">Denied</span>
+      </div>
+    </div>
   );
 }
 
