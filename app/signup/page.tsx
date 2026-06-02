@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { getCurrentDeveloper } from "@/lib/developerAuth";
 import { AuthPage } from "../auth-client";
 
 export const metadata: Metadata = {
@@ -7,6 +9,8 @@ export const metadata: Metadata = {
   alternates: { canonical: "/signup" }
 };
 
-export default function SignupPage() {
+export default async function SignupPage() {
+  const user = await getCurrentDeveloper();
+  if (user) redirect("/dashboard");
   return <AuthPage mode="signup" />;
 }
