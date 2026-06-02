@@ -11700,3 +11700,63 @@ html[data-theme="light"] .app-sidebar {
 html[data-theme="light"] .lang-switcher__option--active {
   background: rgba(0, 0, 0, 0.04);
 }
+
+/* console activity chart */
+.console-chart {
+  padding: 16px;
+  background: var(--surface-raised, rgba(255,255,255,0.03));
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 24px;
+  overflow-x: auto;
+}
+
+.console-chart__bar--allowed {
+  fill: #22c55e;
+  opacity: 0.85;
+}
+
+.console-chart__bar--denied {
+  fill: #ef4444;
+  opacity: 0.85;
+}
+
+.console-chart__bar--empty {
+  fill: var(--border);
+}
+
+.console-chart__label {
+  font-size: 9px;
+  fill: var(--text-muted, #888);
+  font-family: var(--font-mono, monospace);
+}
+
+.console-chart__legend {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+  font-size: 0.78rem;
+  color: var(--text-muted, #888);
+}
+
+.console-chart__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.console-chart__legend-item::before {
+  content: "";
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.console-chart__legend-item--allowed::before {
+  background: #22c55e;
+}
+
+.console-chart__legend-item--denied::before {
+  background: #ef4444;
+}
