@@ -1,3 +1,5 @@
+export const PRO_PLAN_PRICE_CENTS = 2000; // $20/month
+
 export const PLANS = ["free", "pro", "enterprise"] as const;
 export type Plan = (typeof PLANS)[number];
 

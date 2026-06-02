@@ -3833,6 +3833,75 @@ html[data-theme="light"] .ob-plan--featured:hover {
 }
 
 .plan-usage-grid,
+.billing-enterprise {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+  align-items: start;
+  margin-top: 28px;
+}
+
+@media (max-width: 720px) {
+  .billing-enterprise {
+    grid-template-columns: 1fr;
+  }
+}
+
+.billing-enterprise-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.billing-enterprise-desc {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  margin: 0 0 12px;
+}
+
+.billing-enterprise-features {
+  margin-top: 0;
+}
+
+.billing-enterprise-form-card {
+  padding: 20px;
+}
+
+.billing-enterprise-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.billing-enterprise-form-title {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+
+.billing-enterprise-success {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.billing-enterprise-success strong {
+  font-size: 1rem;
+}
+
+.billing-enterprise-success p {
+  color: var(--muted);
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.billing-optional {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
 .billing-limit-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -3892,6 +3961,25 @@ html[data-theme="light"] .ob-plan--featured:hover {
 
 .billing-plan-actions {
   flex-shrink: 0;
+}
+
+.billing-pro-price {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin: 12px 0 8px;
+}
+
+.billing-pro-price strong {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--foreground);
+  line-height: 1;
+}
+
+.billing-pro-price-period {
+  font-size: 0.875rem;
+  color: var(--muted);
 }
 
 .billing-pro-features {
