@@ -38,12 +38,16 @@ export const metadata: Metadata = {
     description: "Connect agents, define permissions, and verify actions before they happen."
   },
   icons: {
-    icon: "/behalf_symbols.png",
-    apple: "/behalf_symbols.png"
+    icon: [
+      { url: "/icon-dark.png", media: "(prefers-color-scheme: dark)" },
+      { url: "/icon-light.png", media: "(prefers-color-scheme: light)" }
+    ],
+    apple: "/icon-dark.png"
   }
 };
 
 const themeScript = `(function(){try{var t=localStorage.getItem('theme')||(window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t)}catch(e){}})();`;
+const faviconScript = `(function(){function setFavicon(t){var icons=document.querySelectorAll('link[rel~="icon"]');icons.forEach(function(el){el.href=t==='dark'?'/icon-dark.png':'/icon-light.png';});}try{var t=document.documentElement.getAttribute('data-theme')||'dark';setFavicon(t);new MutationObserver(function(){setFavicon(document.documentElement.getAttribute('data-theme')||'dark');}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});}catch(e){}})();`;
 const modeScript  = `(function(){try{var m=localStorage.getItem('mode');document.documentElement.setAttribute('data-mode',m==='simple'?'simple':'advanced')}catch(e){}})();`;
 
 export default async function RootLayout({
@@ -63,6 +67,7 @@ export default async function RootLayout({
       <head>
         <script nonce={nonce} dangerouslySetInnerHTML={{ __html: themeScript }} />
         <script nonce={nonce} dangerouslySetInnerHTML={{ __html: modeScript }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: faviconScript }} />
       </head>
       <body>
         <a href="#main-content" className="skip-link">Skip to main content</a>

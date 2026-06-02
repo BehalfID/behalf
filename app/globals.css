@@ -255,6 +255,18 @@ pre {
   object-fit: contain;
 }
 
+.site-logo__icon--light {
+  display: none;
+}
+
+[data-theme="light"] .site-logo__icon--dark {
+  display: none;
+}
+
+[data-theme="light"] .site-logo__icon--light {
+  display: block;
+}
+
 .site-logo strong,
 .site-logo small {
   display: block;
