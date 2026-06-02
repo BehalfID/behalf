@@ -70,6 +70,11 @@ export default function Home() {
             deploy code. BehalfID lets you decide exactly which ones are okay, and blocks
             everything else before it runs.
           </p>
+          <div className="home-code__links home-hero__examples" aria-label="Permission examples">
+            <span>Allow staging deploys, require approval for production.</span>
+            <span>Allow GitHub reads, deny production deploys.</span>
+            <span>Allow browsing, deny purchases over $25.</span>
+          </div>
           <div className="home-actions">
             <Link href="/signup" className="home-cta-primary">Start building free</Link>
             <Link href="/sandbox" className="home-cta-secondary">Live sandbox →</Link>

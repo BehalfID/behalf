@@ -83,7 +83,6 @@ export function PublicNav() {
         </button>
 
         <Logo />
-        <span className="public-nav__status-dot" title="All systems operational" aria-label="All systems operational" />
 
         <div className="public-nav__links">
           <Link href="/docs">{t("docs")}</Link>
