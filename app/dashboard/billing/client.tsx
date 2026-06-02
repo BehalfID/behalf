@@ -4,12 +4,13 @@ import { useCallback, useState } from "react";
 import { DashboardShellLayout } from "@/components/layout/DashboardShell";
 import { Badge, Button, Card, PageHeader } from "@/components/ui";
 import type { Plan } from "@/lib/plans";
-import { PLAN_QUOTAS } from "@/lib/plans";
+import { PLAN_QUOTAS, PRO_PLAN_PRICE_CENTS } from "@/lib/plans";
 
 type BillingProps = {
   plan: Plan;
   stripeSubscriptionStatus: string | null;
   stripeTrialEnd: string | null;
+  stripeCurrentPeriodEnd: string | null;
   agentCount: number;
   verificationCount: number;
   verificationPeriodStart: string;
@@ -63,6 +64,7 @@ export function BillingClient({
   plan,
   stripeSubscriptionStatus,
   stripeTrialEnd,
+  stripeCurrentPeriodEnd,
   agentCount,
   verificationCount,
   verificationPeriodStart
@@ -173,6 +175,10 @@ export function BillingClient({
 
           {plan === "free" && (
             <>
+              <p className="billing-pro-price">
+                <strong>${(PRO_PLAN_PRICE_CENTS / 100).toFixed(0)}</strong>
+                <span className="billing-pro-price-period">/month</span>
+              </p>
               <ul className="billing-pro-features">
                 <li>Up to 50 agents (free: 5)</li>
                 <li>250,000 verifications/month (free: 10,000)</li>
@@ -181,6 +187,12 @@ export function BillingClient({
               </ul>
               <p className="billing-trial-note">7-day free trial. Cancel any time before it ends — no charge.</p>
             </>
+          )}
+          {plan !== "free" && (
+            <p className="billing-pro-price">
+              <strong>${(PRO_PLAN_PRICE_CENTS / 100).toFixed(0)}</strong>
+              <span className="billing-pro-price-period">/month</span>
+            </p>
           )}
         </Card>
 
@@ -227,6 +239,13 @@ export function BillingClient({
           <strong>{formatDate(verificationPeriodStart)}</strong>
           <small>Verification usage is tracked by UTC calendar month.</small>
         </div>
+        {stripeCurrentPeriodEnd && (
+          <div>
+            <span>Next billing date</span>
+            <strong>{formatDate(stripeCurrentPeriodEnd)}</strong>
+            <small>Your subscription renews on this date.</small>
+          </div>
+        )}
       </section>
     </DashboardShellLayout>
   );

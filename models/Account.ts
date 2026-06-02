@@ -15,6 +15,7 @@ const AccountSchema = new Schema(
     stripeSubscriptionId: { type: String, trim: true },
     stripeSubscriptionStatus: { type: String, trim: true },
     stripeTrialEnd: { type: Date, default: null },
+    stripeCurrentPeriodEnd: { type: Date, default: null },
     verificationCount: { type: Number, default: 0, required: true },
     verificationPeriodStart: { type: Date, default: Date.now, required: true }
   },

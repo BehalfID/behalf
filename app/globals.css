@@ -3894,6 +3894,25 @@ html[data-theme="light"] .ob-plan--featured:hover {
   flex-shrink: 0;
 }
 
+.billing-pro-price {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin: 12px 0 8px;
+}
+
+.billing-pro-price strong {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--foreground);
+  line-height: 1;
+}
+
+.billing-pro-price-period {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
 .billing-pro-features {
   margin: 0;
   padding-left: 18px;
