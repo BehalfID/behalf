@@ -47,51 +47,113 @@ export default function Home() {
       {/* ── Announcement bar ─────────────────────────────── */}
       <a href="/docs/deploy-approvals" className="announcement-bar">
         <span className="announcement-bar__dot" />
-        <span><span className="announcement-bar__label">New —</span>Deploy approval workflows in 5 minutes</span>
+        <span><span className="announcement-bar__label">New —</span>Deploy approval workflows are live. Set up in 5 minutes.</span>
         <span className="announcement-bar__arrow">→</span>
       </a>
 
       {/* ── Hero ──────────────────────────────────────────── */}
       <section className="home-hero">
-        <p className="section-kicker">Agent permission infrastructure</p>
-        <h1 className="home-h1">
-          Permission checks<br />before AI agents act.
-        </h1>
-        {/* Advanced subtitle (default) */}
-        <p className="home-sub home-sub--advanced">
-          AI agents are starting to buy, email, book, edit, browse, and access data.
-          API keys identify the agent. BehalfID verifies what the agent is allowed to do
-          before the tool runs. Denied actions fail closed.
-        </p>
-        {/* Simple subtitle */}
-        <p className="home-sub home-sub--simple">
-          Your AI assistant can now take real actions — send emails, make purchases,
-          deploy code. BehalfID lets you decide exactly which ones are okay, and blocks
-          everything else before it runs.
-        </p>
-        <div className="home-code__links" aria-label="Permission examples">
-          <span>Allow staging deploys, require approval for production.</span>
-          <span>Allow GitHub issue reads, deny production deploys.</span>
-          <span>Allow browsing, deny purchases over $25.</span>
+        <div className="home-hero__content">
+          <p className="section-kicker">Agent permission infrastructure</p>
+          <h1 className="home-h1">
+            The permission<br />layer between<br />agents and action.
+          </h1>
+          {/* Advanced subtitle (default) */}
+          <p className="home-sub home-sub--advanced">
+            AI agents buy, deploy, email, and edit on your behalf.
+            BehalfID verifies every action against a permission passport
+            before execution. Denied actions fail closed. Every decision is logged.
+          </p>
+          {/* Simple subtitle */}
+          <p className="home-sub home-sub--simple">
+            Your AI assistant can now take real actions — send emails, make purchases,
+            deploy code. BehalfID lets you decide exactly which ones are okay, and blocks
+            everything else before it runs.
+          </p>
+          <div className="home-actions">
+            <Link href="/signup" className="home-cta-primary">Start building free</Link>
+            <Link href="/sandbox" className="home-cta-secondary">Live sandbox →</Link>
+          </div>
+          <div className="home-hero__stats" aria-label="Key metrics">
+            <div className="home-hero__stat">
+              <span className="home-hero__stat-val">&lt;50ms</span>
+              <span className="home-hero__stat-label">verify latency</span>
+            </div>
+            <div className="home-hero__stat">
+              <span className="home-hero__stat-val">fail-closed</span>
+              <span className="home-hero__stat-label">denial model</span>
+            </div>
+            <div className="home-hero__stat">
+              <span className="home-hero__stat-val">signed</span>
+              <span className="home-hero__stat-label">audit webhooks</span>
+            </div>
+          </div>
         </div>
-        <div className="home-actions">
-          <Link href="/signup" className="home-cta-primary">Get started</Link>
-          <Link href="/sandbox" className="home-cta-secondary">Try it live</Link>
-          <HomeTour />
-        </div>
-        <div className="home-hero__stats" aria-label="Key metrics">
-          <div className="home-hero__stat">
-            <span className="home-hero__stat-val">&lt;50ms</span>
-            <span className="home-hero__stat-label">verify latency</span>
+
+        {/* ── Hero terminal visual ───────────────────────── */}
+        <div className="home-hero__visual" aria-hidden="true">
+          <div className="hero-terminal">
+            <div className="hero-terminal__bar">
+              <div className="hero-terminal__dots">
+                <span /><span /><span />
+              </div>
+              <span className="hero-terminal__title">behalf · verify</span>
+              <span className="hero-terminal__badge hero-terminal__badge--live">LIVE</span>
+            </div>
+            <div className="hero-terminal__body">
+              <div className="hero-terminal__row">
+                <span className="hero-terminal__label">agent</span>
+                <code className="hero-terminal__val">agent_claude_code</code>
+              </div>
+              <div className="hero-terminal__row">
+                <span className="hero-terminal__label">action</span>
+                <code className="hero-terminal__val">deploy</code>
+              </div>
+              <div className="hero-terminal__row">
+                <span className="hero-terminal__label">vendor</span>
+                <code className="hero-terminal__val">vercel.com</code>
+              </div>
+              <div className="hero-terminal__row">
+                <span className="hero-terminal__label">env</span>
+                <code className="hero-terminal__val hero-terminal__val--warn">production</code>
+              </div>
+              <div className="hero-terminal__divider" />
+              <div className="hero-terminal__decision">
+                <span className="hero-terminal__decision-label">DECISION</span>
+                <strong className="hero-terminal__verdict hero-terminal__verdict--deny">denied</strong>
+              </div>
+              <div className="hero-terminal__row hero-terminal__row--sm">
+                <span className="hero-terminal__label">reason</span>
+                <code className="hero-terminal__val hero-terminal__val--muted">requires approval</code>
+              </div>
+              <div className="hero-terminal__row hero-terminal__row--sm">
+                <span className="hero-terminal__label">executed</span>
+                <code className="hero-terminal__val hero-terminal__val--deny">false</code>
+              </div>
+              <div className="hero-terminal__row hero-terminal__row--sm">
+                <span className="hero-terminal__label">requestId</span>
+                <code className="hero-terminal__val hero-terminal__val--muted">req_K9mXp2qR</code>
+              </div>
+            </div>
+            <div className="hero-terminal__footer">
+              <div className="hero-terminal__event">
+                <span className="hero-terminal__event-dot" />
+                <span>verification.denied</span>
+                <span className="hero-terminal__event-time">just now</span>
+              </div>
+              <div className="hero-terminal__event">
+                <span className="hero-terminal__event-dot hero-terminal__event-dot--ok" />
+                <span>verification.allowed</span>
+                <span className="hero-terminal__event-time">2s ago</span>
+              </div>
+              <div className="hero-terminal__event">
+                <span className="hero-terminal__event-dot hero-terminal__event-dot--ok" />
+                <span>verification.allowed</span>
+                <span className="hero-terminal__event-time">4s ago</span>
+              </div>
+            </div>
           </div>
-          <div className="home-hero__stat">
-            <span className="home-hero__stat-val">fail-closed</span>
-            <span className="home-hero__stat-label">denial model</span>
-          </div>
-          <div className="home-hero__stat">
-            <span className="home-hero__stat-val">signed</span>
-            <span className="home-hero__stat-label">audit webhooks</span>
-          </div>
+          <div className="home-hero__visual-glow" />
         </div>
       </section>
 
@@ -388,8 +450,8 @@ Approve at: https://behalfid.com/dashboard/approvals`}</CodeBlock>
           Manual passport mode is best-effort for testing with existing agents before you build the integration.
         </p>
         <div className="home-actions home-actions--center">
-          <Link href="/signup" className="home-cta-primary">Get started</Link>
-          <Link href="/sandbox" className="home-cta-secondary">Try it live</Link>
+          <Link href="/signup" className="home-cta-primary">Start building free</Link>
+          <Link href="/sandbox" className="home-cta-secondary">Live sandbox →</Link>
           <ButtonLink href="/docs/deploy-approvals">Deploy approvals →</ButtonLink>
         </div>
       </section>
