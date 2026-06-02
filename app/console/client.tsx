@@ -300,7 +300,7 @@ export function LoginPage() {
   );
 }
 
-export function ConsolePage({ view }: { view: "dashboard" | "agents" | "site-guard" | "webhooks" | "webhook-events" | "logs" | "settings" | "status" }) {
+export function ConsolePage({ view }: { view: "dashboard" | "agents" | "site-guard" | "webhooks" | "webhook-events" | "logs" | "settings" | "status" | "enterprise-inquiries" }) {
   return (
     <ConsoleFrame>
       {view === "dashboard" ? <DashboardView /> : null}
@@ -311,6 +311,7 @@ export function ConsolePage({ view }: { view: "dashboard" | "agents" | "site-gua
       {view === "logs" ? <LogsView /> : null}
       {view === "settings" ? <SettingsView /> : null}
       {view === "status" ? <StatusView /> : null}
+      {view === "enterprise-inquiries" ? <EnterpriseInquiriesView /> : null}
     </ConsoleFrame>
   );
 }
@@ -543,6 +544,7 @@ const QUICK_ACTIONS = [
   { label: "Webhooks", href: "/console/webhooks", icon: "🔗" },
   { label: "Event queue", href: "/console/webhook-events", icon: "📨" },
   { label: "Site Guard", href: "/console/site-guard", icon: "🛡" },
+  { label: "Enterprise", href: "/console/enterprise-inquiries", icon: "🏢" },
   { label: "Settings", href: "/console/settings", icon: "⚙️" },
 ];
 
@@ -1532,6 +1534,91 @@ function permissionSummary(permission: Permission) {
   ].filter(Boolean);
 
   return parts.length ? parts.join(" / ") : permission.notes || permission.description || permission.permissionId;
+}
+
+// ─── Enterprise Inquiries ──────────────────────────────────────────────────────
+
+type EnterpriseInquiry = {
+  inquiryId: string;
+  name: string;
+  email: string;
+  company: string;
+  message: string;
+  status: "new" | "reviewed";
+  createdAt?: string;
+};
+
+type EnterpriseInquiriesResponse = { inquiries: EnterpriseInquiry[] };
+
+function EnterpriseInquiriesView() {
+  const resource = useApiResource<EnterpriseInquiriesResponse>("/api/console/enterprise-inquiries");
+  const [updating, setUpdating] = useState<string | null>(null);
+
+  const markReviewed = async (inquiryId: string) => {
+    setUpdating(inquiryId);
+    try {
+      await apiFetch(`/api/console/enterprise-inquiries/${inquiryId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "reviewed" })
+      });
+      await resource.reload();
+    } finally {
+      setUpdating(null);
+    }
+  };
+
+  return (
+    <ResourceState resource={resource}>
+      {(data) => {
+        const newCount = data.inquiries.filter((i) => i.status === "new").length;
+        return (
+          <>
+            <Header
+              title="Enterprise Inquiries"
+              action={<Button onClick={resource.reload} type="button">Refresh</Button>}
+            />
+            {newCount > 0 && (
+              <div className="console-alert" role="status">
+                <span className="console-alert__icon">📬</span>
+                <div>
+                  <strong>{newCount} new {newCount === 1 ? "inquiry" : "inquiries"}</strong>
+                  <p>Review and mark each one as reviewed when actioned.</p>
+                </div>
+              </div>
+            )}
+            {data.inquiries.length === 0 ? (
+              <EmptyState className="console-empty">No enterprise inquiries yet.</EmptyState>
+            ) : (
+              <div className="console-list">
+                {data.inquiries.map((inquiry) => (
+                  <div className="console-list__item" key={inquiry.inquiryId}>
+                    <span>
+                      <strong>{inquiry.company} — {inquiry.name}</strong>
+                      <small>{inquiry.email}</small>
+                      {inquiry.message && <small>{inquiry.message}</small>}
+                      <small>{inquiry.inquiryId} · {formatDate(inquiry.createdAt)}</small>
+                    </span>
+                    <span className={statusClass(inquiry.status === "new" ? "active" : "disabled")}>
+                      {inquiry.status}
+                    </span>
+                    {inquiry.status === "new" && (
+                      <Button
+                        type="button"
+                        disabled={updating === inquiry.inquiryId}
+                        onClick={() => void markReviewed(inquiry.inquiryId)}
+                      >
+                        {updating === inquiry.inquiryId ? "Saving…" : "Mark reviewed"}
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        );
+      }}
+    </ResourceState>
+  );
 }
 
 // ─── Status Page Management ────────────────────────────────────────────────────

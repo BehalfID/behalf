@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, type FormEvent } from "react";
 import { DashboardShellLayout } from "@/components/layout/DashboardShell";
 import { Badge, Button, Card, PageHeader } from "@/components/ui";
 import type { Plan } from "@/lib/plans";
@@ -213,6 +213,8 @@ export function BillingClient({
         </Card>
       </div>
 
+      <EnterpriseSection />
+
       <section className="dashboard-panel billing-limit-grid">
         <div>
           <span>Agents</span>
@@ -248,5 +250,111 @@ export function BillingClient({
         )}
       </section>
     </DashboardShellLayout>
+  );
+}
+
+function EnterpriseSection() {
+  const [form, setForm] = useState({ name: "", email: "", company: "", message: "" });
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = useCallback(async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/billing/enterprise-inquiry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form)
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Something went wrong. Please try again.");
+        return;
+      }
+      setSuccess(true);
+      setForm({ name: "", email: "", company: "", message: "" });
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }, [form]);
+
+  return (
+    <section className="billing-enterprise">
+      <div className="billing-enterprise-info">
+        <h2 className="billing-enterprise-title">Enterprise</h2>
+        <p className="billing-enterprise-desc">Need unlimited agents, custom SLAs, dedicated support, or SSO? Talk to us about an enterprise plan tailored to your team.</p>
+        <ul className="billing-pro-features billing-enterprise-features">
+          <li>Unlimited agents and verifications</li>
+          <li>Custom SLA and uptime guarantees</li>
+          <li>Dedicated support and onboarding</li>
+          <li>SSO / SAML integration</li>
+          <li>365-day log retention</li>
+          <li>Custom contracts and invoicing</li>
+        </ul>
+      </div>
+
+      <Card className="billing-enterprise-form-card">
+        {success ? (
+          <div className="billing-enterprise-success">
+            <strong>We&apos;ll be in touch soon.</strong>
+            <p>Your inquiry has been received. Our team will reach out to {form.email || "you"} within 1–2 business days.</p>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="billing-enterprise-form">
+            <h3 className="billing-enterprise-form-title">Contact sales</h3>
+            {error && <p className="billing-alert" role="alert">{error}</p>}
+            <label>
+              <span>Name</span>
+              <input
+                required
+                maxLength={200}
+                placeholder="Your name"
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              />
+            </label>
+            <label>
+              <span>Work email</span>
+              <input
+                required
+                type="email"
+                maxLength={320}
+                placeholder="you@company.com"
+                value={form.email}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+              />
+            </label>
+            <label>
+              <span>Company</span>
+              <input
+                required
+                maxLength={200}
+                placeholder="Company name"
+                value={form.company}
+                onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))}
+              />
+            </label>
+            <label>
+              <span>How can we help? <span className="billing-optional">(optional)</span></span>
+              <textarea
+                rows={3}
+                maxLength={2000}
+                placeholder="Tell us about your use case, team size, or any specific requirements…"
+                value={form.message}
+                onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))}
+              />
+            </label>
+            <Button variant="primary" type="submit" disabled={submitting}>
+              {submitting ? "Sending…" : "Get in touch"}
+            </Button>
+          </form>
+        )}
+      </Card>
+    </section>
   );
 }
