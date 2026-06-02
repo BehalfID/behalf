@@ -39,15 +39,15 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/icon-dark.png", media: "(prefers-color-scheme: dark)" },
+      { url: "/behalf_favicon.png", media: "(prefers-color-scheme: dark)" },
       { url: "/icon-light.png", media: "(prefers-color-scheme: light)" }
     ],
-    apple: "/icon-dark.png"
+    apple: "/behalf_favicon.png"
   }
 };
 
 const themeScript = `(function(){try{var t=localStorage.getItem('theme')||(window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t)}catch(e){}})();`;
-const faviconScript = `(function(){function setFavicon(t){var icons=document.querySelectorAll('link[rel~="icon"]');icons.forEach(function(el){el.href=t==='dark'?'/icon-dark.png':'/icon-light.png';});}try{var t=document.documentElement.getAttribute('data-theme')||'dark';setFavicon(t);new MutationObserver(function(){setFavicon(document.documentElement.getAttribute('data-theme')||'dark');}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});}catch(e){}})();`;
+const faviconScript = `(function(){function setFavicon(t){var icons=document.querySelectorAll('link[rel~="icon"]');icons.forEach(function(el){el.href=t==='dark'?'/behalf_favicon.png':'/icon-light.png';});}try{var t=document.documentElement.getAttribute('data-theme')||'dark';setFavicon(t);new MutationObserver(function(){setFavicon(document.documentElement.getAttribute('data-theme')||'dark');}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});}catch(e){}})();`;
 const modeScript  = `(function(){try{var m=localStorage.getItem('mode');document.documentElement.setAttribute('data-mode',m==='simple'?'simple':'advanced')}catch(e){}})();`;
 
 export default async function RootLayout({
