@@ -430,11 +430,13 @@ textarea.ui-input,
 .section-kicker,
 .console-kicker {
   margin: 0 0 14px;
-  color: var(--muted);
-  font-size: 0.72rem;
+  color: var(--accent);
+  font-size: 0.68rem;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
+  border-left: 1.5px solid var(--accent);
+  padding-left: 10px;
 }
 
 .ui-page-header,
@@ -667,14 +669,14 @@ textarea.ui-input,
   position: sticky;
   top: 0;
   z-index: 100;
-  min-height: 64px;
+  min-height: 52px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding: 0 40px;
-  border-bottom: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.88);
+  padding: 0 32px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(5, 8, 14, 0.94);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
 }
@@ -7149,7 +7151,7 @@ html[data-theme="light"] .ob-plan--featured:hover {
   right: 0;
   width: min(800px, 70vw);
   height: min(800px, 70vw);
-  background: radial-gradient(circle, rgba(99, 102, 241, 0.07), transparent 65%);
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.14), transparent 70%);
   pointer-events: none;
   z-index: 0;
 }
@@ -7161,9 +7163,9 @@ html[data-theme="light"] .ob-plan--featured:hover {
 
 .home-h1 {
   font-size: clamp(3.2rem, 7.5vw, 7rem);
-  font-weight: 800;
-  line-height: 0.93;
-  letter-spacing: -0.04em;
+  font-weight: 860;
+  line-height: 0.92;
+  letter-spacing: -0.05em;
   color: var(--text);
   margin: 14px 0 28px;
   max-width: 14ch;
@@ -7320,6 +7322,8 @@ html[data-theme="light"] .ob-plan--featured:hover {
   background: var(--accent);
   border: 1px solid var(--accent);
   color: #ffffff;
+  letter-spacing: 0.02em;
+  font-size: 0.875rem;
 }
 
 .home-cta-primary:hover {
@@ -7421,9 +7425,11 @@ html[data-theme="light"] .ob-plan--featured:hover {
 /* ── Step visual cards ─────────────────────────────────────── */
 .home-step__visual {
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 8px;
   padding: clamp(20px, 3vw, 32px);
   background: var(--surface);
+  background-image: linear-gradient(rgba(255,255,255,0.022) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.022) 1px, transparent 1px);
+  background-size: 20px 20px;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -7694,11 +7700,12 @@ html[data-theme="light"] .ob-plan--featured:hover {
   display: grid;
   grid-template-columns: 1fr 148px 1fr;
   align-items: stretch;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 8px;
   background: var(--surface);
   overflow: hidden;
   transition: opacity 200ms ease;
+  box-shadow: 0 0 0 1px rgba(99,102,241,0.08), 0 24px 64px rgba(0,0,0,0.5);
 }
 
 .home-demo__console--checking {
@@ -7878,6 +7885,7 @@ html[data-theme="light"] .ob-plan--featured:hover {
   text-align: center;
   padding-block: clamp(80px, 10vw, 140px);
   border-top: 1px solid var(--border);
+  background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(99,102,241,0.07), transparent);
 }
 
 .home-cta__h2 {
@@ -11859,4 +11867,189 @@ html[data-theme="light"] .lang-switcher__option--active {
 
 .console-chart__legend-item--denied::before {
   background: #ef4444;
+}
+
+/* ── Hero dot-grid overlay ────────────────────────────────── */
+.home-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.055) 1px, transparent 1px);
+  background-size: 28px 28px;
+  pointer-events: none;
+  z-index: 0;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%);
+}
+
+/* ── Announcement bar ────────────────────────────────────── */
+.announcement-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 0 20px;
+  background: rgba(99,102,241,0.08);
+  border-bottom: 1px solid rgba(99,102,241,0.18);
+  font-size: 0.78rem;
+  color: var(--text-2);
+  letter-spacing: 0.01em;
+  text-decoration: none;
+}
+
+.announcement-bar__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+  animation: ann-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes ann-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.announcement-bar__label {
+  color: var(--accent);
+  font-weight: 700;
+  margin-right: 4px;
+}
+
+.announcement-bar__arrow {
+  color: var(--muted);
+  margin-left: 2px;
+  transition: transform 120ms ease;
+}
+
+.announcement-bar:hover .announcement-bar__arrow {
+  transform: translateX(3px);
+}
+
+/* ── Hero stat row ───────────────────────────────────────── */
+.home-hero__stats {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-top: 48px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  width: fit-content;
+  background: rgba(0,0,0,0.3);
+}
+
+.home-hero__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 24px;
+  border-right: 1px solid var(--border);
+}
+
+.home-hero__stat:last-child {
+  border-right: none;
+}
+
+.home-hero__stat-val {
+  font: 700 1.2rem/1 var(--font-mono);
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.home-hero__stat-label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ── Section divider lines (stronger than borders) ────────── */
+.home-steps,
+.home-code,
+.home-deploy,
+.home-demo,
+.home-cta {
+  position: relative;
+}
+
+/* ── Kicker entrance animation ───────────────────────────── */
+@keyframes kicker-in {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.home-hero .section-kicker {
+  animation: kicker-in 0.5s cubic-bezier(0.16,1,0.3,1) both;
+}
+
+.home-hero .home-h1 {
+  animation: kicker-in 0.5s 0.08s cubic-bezier(0.16,1,0.3,1) both;
+}
+
+.home-hero .home-sub {
+  animation: kicker-in 0.5s 0.16s cubic-bezier(0.16,1,0.3,1) both;
+}
+
+/* ── Nav accent indicator dot ────────────────────────────── */
+.public-nav__status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ok);
+  animation: ann-pulse 3s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+/* ── Footer upgrades ─────────────────────────────────────── */
+.site-footer {
+  background: linear-gradient(180deg, var(--bg), #020408);
+}
+
+.site-footer__cols h5 {
+  font-size: 0.68rem;
+  font-weight: 760;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  margin: 0 0 16px;
+}
+
+.site-footer__cols ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.site-footer__cols li a {
+  font-size: 0.875rem;
+  color: var(--muted);
+  transition: color 120ms ease;
+}
+
+.site-footer__cols li a:hover {
+  color: var(--text);
+}
+
+.site-footer__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  color: var(--ok);
+  margin-top: 12px;
+}
+
+.site-footer__status::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--ok);
+  flex-shrink: 0;
 }

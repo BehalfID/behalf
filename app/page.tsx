@@ -44,6 +44,13 @@ export default function Home() {
       />
       <PublicNav />
 
+      {/* ── Announcement bar ─────────────────────────────── */}
+      <a href="/docs/deploy-approvals" className="announcement-bar">
+        <span className="announcement-bar__dot" />
+        <span><span className="announcement-bar__label">New —</span>Deploy approval workflows in 5 minutes</span>
+        <span className="announcement-bar__arrow">→</span>
+      </a>
+
       {/* ── Hero ──────────────────────────────────────────── */}
       <section className="home-hero">
         <p className="section-kicker">Agent permission infrastructure</p>
@@ -71,6 +78,20 @@ export default function Home() {
           <Link href="/signup" className="home-cta-primary">Get started</Link>
           <Link href="/sandbox" className="home-cta-secondary">Try it live</Link>
           <HomeTour />
+        </div>
+        <div className="home-hero__stats" aria-label="Key metrics">
+          <div className="home-hero__stat">
+            <span className="home-hero__stat-val">&lt;50ms</span>
+            <span className="home-hero__stat-label">verify latency</span>
+          </div>
+          <div className="home-hero__stat">
+            <span className="home-hero__stat-val">fail-closed</span>
+            <span className="home-hero__stat-label">denial model</span>
+          </div>
+          <div className="home-hero__stat">
+            <span className="home-hero__stat-val">signed</span>
+            <span className="home-hero__stat-label">audit webhooks</span>
+          </div>
         </div>
       </section>
 

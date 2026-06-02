@@ -17,6 +17,7 @@ export function PublicFooter() {
             ))}
           </p>
           <p className="site-footer__copy">© {new Date().getFullYear()} BehalfID</p>
+          <p className="site-footer__status">All systems operational</p>
           <SocialLinks className="social-links--footer" />
         </div>
         <nav className="site-footer__cols" aria-label="Footer navigation">
