@@ -14,7 +14,7 @@ export function Logo({
     <Link aria-label="BehalfID home" className={`site-logo site-logo--${variant}`} href={href}>
       <span className="site-logo__mark" aria-hidden="true">
         <Image
-          src="/icon-dark.png"
+          src="/behalf_favicon.png"
           alt=""
           width={22}
           height={22}
