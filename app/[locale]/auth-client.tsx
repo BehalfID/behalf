@@ -94,7 +94,7 @@ export function AuthPage({ mode }: { mode: "login" | "signup" }) {
             </label>
           )}
           {error && <p className="auth-error" role="alert">{error}</p>}
-          <Button type="submit">
+          <Button type="submit" variant="primary">
             {mode === "signup" ? t("createAccount") : t("logIn")}
           </Button>
           {mode === "signup" && (

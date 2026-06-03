@@ -36,14 +36,14 @@ export default async function ConceptsPage({ params }: { params: Promise<{ local
       previous={{ href: "/docs/site-guard", label: t("siteGuard") }}
       next={{ href: "/security", label: t("security") }}
     >
-      <dl className="docs-concepts">
+      <div className="concept-grid">
         {concepts.map(([term, def]) => (
-          <div key={term}>
-            <dt>{term}</dt>
-            <dd>{def}</dd>
-          </div>
+          <section key={term}>
+            <h2>{term}</h2>
+            <p>{def}</p>
+          </section>
         ))}
-      </dl>
+      </div>
     </DocsShell>
   );
 }

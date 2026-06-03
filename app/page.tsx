@@ -3,7 +3,6 @@ import type { Metadata } from "next";
 import { PublicNav } from "@/components/layout/PublicNav";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { ButtonLink, CodeBlock, HomeDemo } from "@/components/ui";
-import { HomeTour } from "@/components/ui/HomeTour";
 
 export const metadata: Metadata = {
   title: "BehalfID — Permission infrastructure for AI agents",
@@ -45,11 +44,11 @@ export default function Home() {
       <PublicNav />
 
       {/* ── Announcement bar ─────────────────────────────── */}
-      <a href="/docs/deploy-approvals" className="announcement-bar">
+      <Link href="/docs/deploy-approvals" className="announcement-bar">
         <span className="announcement-bar__dot" />
         <span><span className="announcement-bar__label">New —</span>Deploy approval workflows are live. Set up in 5 minutes.</span>
         <span className="announcement-bar__arrow">→</span>
-      </a>
+      </Link>
 
       {/* ── Hero ──────────────────────────────────────────── */}
       <section className="home-hero">
@@ -76,7 +75,7 @@ export default function Home() {
             <span>Allow browsing, deny purchases over $25.</span>
           </div>
           <div className="home-actions">
-            <Link href="/signup" className="home-cta-primary">Start building free</Link>
+            <Link href="/signup" className="home-cta-primary">Start building free →</Link>
             <Link href="/sandbox" className="home-cta-secondary">Live sandbox →</Link>
           </div>
           <div className="home-hero__stats" aria-label="Key metrics">
@@ -162,6 +161,23 @@ export default function Home() {
         </div>
       </section>
 
+
+      {/* ── Video demo ─────────────────────────────────────── */}
+      <section className="marketing-section video-demo-section">
+        <div className="video-demo__inner">
+          <p className="section-kicker">SEE IT IN ACTION</p>
+          <h2 className="video-demo__heading">Watch BehalfID stop an unsafe AI action in real time.</h2>
+          <div className="video-demo__player">
+            <div className="video-demo__placeholder">
+              <svg className="video-demo__play-icon" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Play video">
+                <circle cx="32" cy="32" r="31" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5"/>
+                <path d="M26 20l22 12-22 12V20z" fill="white" fillOpacity="0.9"/>
+              </svg>
+              <p className="video-demo__caption">A payment agent tries to exceed its limit. BehalfID blocks it instantly.</p>
+            </div>
+          </div>
+        </div>
+      </section>
       {/* ── How it works ──────────────────────────────────── */}
       <section className="home-steps" aria-labelledby="steps-heading">
         <div className="home-steps__intro" data-reveal>

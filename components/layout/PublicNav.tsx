@@ -93,14 +93,14 @@ export function PublicNav() {
           <ModeToggle />
           <ThemeToggle />
           <div className="public-nav__actions">
-            <Link href="/login" className="nav-action nav-action--ghost">{t("login")}</Link>
-            <Link href="/signup" className="nav-action nav-action--primary">{t("build")}</Link>
+            <Link href="/signup" className="nav-action nav-action--primary">Get started →</Link>
+            <Link href="/login" className="nav-action nav-action--text">Sign in</Link>
           </div>
         </div>
 
         {/* Mobile-only CTA: shown when public-nav__links is hidden */}
         <div className="public-nav__mobile-cta">
-          <Link href="/signup" className="nav-action nav-action--primary">{t("build")}</Link>
+          <Link href="/signup" className="nav-action nav-action--primary">Get started →</Link>
         </div>
       </nav>
 

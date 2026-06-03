@@ -62,6 +62,25 @@
   --s-5: 20px; --s-6: 24px;  --s-7: 32px;  --s-8: 40px;
   --s-9: 56px; --s-10: 80px; --s-11: 120px; --s-12: 160px;
 
+  /* ── extended spacing scale ── */
+  --s-14: 56px;
+  --s-16: 64px;
+  --s-20: 80px;
+  --s-24: 96px;
+
+  /* ── typography tracking ── */
+  --tracking-display: -0.04em;
+  --tracking-heading: -0.02em;
+  --tracking-ui:      -0.01em;
+
+  /* ── leading ── */
+  --leading-display: 1.1;
+  --leading-tight:   1.2;
+  --leading-base:    1.5;
+
+  /* ── section spacing ── */
+  --section-padding: 96px;
+
   /* Layout */
   --container:     1200px;
   --container-doc: 1100px;
@@ -373,7 +392,7 @@ pre {
 .console-login__panel,
 .console-secret {
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 6px;
   background: var(--surface);
 }
 
@@ -424,6 +443,30 @@ textarea.ui-input,
 .console-panel textarea {
   padding-top: 10px;
   resize: vertical;
+}
+
+/* Bug 1 fix: keep the auth primary submit button indigo even if broad
+   .auth-panel button/input rules reset its appearance. */
+.auth-panel .ui-button--primary,
+.auth-panel .ui-button--primary:hover {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: #ffffff !important;
+}
+
+/* Bug 4 fix: normalize native date input chrome to match custom inputs. */
+.auth-panel input[type="date"] {
+  color-scheme: dark;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.auth-panel input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.6);
+  opacity: 0.5;
+  cursor: pointer;
+}
+.auth-panel input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+  color: var(--text);
 }
 
 .ui-kicker,
@@ -503,7 +546,7 @@ textarea.ui-input,
   max-width: 100%;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 6px;
   background: var(--panel);
   margin-bottom: 20px;
 }
@@ -565,7 +608,7 @@ textarea.ui-input,
   display: grid;
   place-items: center;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 6px;
   color: var(--muted);
   background: rgba(10, 10, 10, 0.56);
 }
@@ -645,11 +688,11 @@ textarea.ui-input,
 .console-error,
 .billing-alert {
   margin: 0;
-  border: 1px solid rgba(99, 102, 241, 0.38);
+  border: 1px solid rgba(239, 68, 68, 0.35);
   border-radius: 10px;
   padding: 10px 12px;
-  color: var(--text);
-  background: rgba(99, 102, 241, 0.1);
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.08);
 }
 
 /* Public marketing */
@@ -725,6 +768,18 @@ textarea.ui-input,
   color: var(--muted);
   border: 1px solid transparent;
   background: transparent;
+}
+
+.nav-action--text {
+  height: auto;
+  padding: 0;
+  color: var(--muted);
+  border: 0;
+  background: transparent;
+}
+
+.nav-action--text:hover {
+  color: var(--text);
 }
 
 .nav-action--ghost:hover {
@@ -817,9 +872,9 @@ textarea.ui-input,
   max-width: 760px;
   margin: 0;
   color: var(--text);
-  font-size: clamp(3rem, 7vw, 6.7rem);
-  line-height: 0.94;
-  letter-spacing: 0;
+  font-size: clamp(2.8rem, 5vw, 5.6rem);
+  line-height: var(--leading-display, 1.1);
+  letter-spacing: var(--tracking-display, -0.04em);
 }
 
 .hero__content > p:not(.section-kicker) {
@@ -1113,7 +1168,7 @@ textarea.ui-input,
   align-items: center;
   margin-top: auto;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 6px;
   padding: 16px;
   background:
     linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
@@ -1418,13 +1473,20 @@ textarea.ui-input,
 
 /* Security page */
 .security-page {
+  max-width: 860px;
   width: min(860px, calc(100% - 48px));
   margin-inline: auto;
   padding-bottom: 96px;
 }
 
+.security-page .prose,
+.security-page .content,
+.security-page > .marketing-section p {
+  max-width: 72ch;
+}
+
 .security-hero {
-  padding: 72px 0 56px;
+  padding: 96px 0;
   border-bottom: 1px solid var(--border);
   margin-bottom: 16px;
 }
@@ -1545,7 +1607,7 @@ textarea.ui-input,
   padding: 18px 20px;
   border: 1px solid var(--border);
   border-top: 2px solid rgba(99, 102, 241, 0.3);
-  border-radius: 12px;
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.03);
   display: flex;
   flex-direction: column;
@@ -1617,7 +1679,7 @@ textarea.ui-input,
   grid-template-columns: minmax(0, 1fr) 286px;
   gap: 32px;
   align-items: end;
-  padding: 72px 0 36px;
+  padding: 96px 0;
 }
 
 .sandbox-header h1 {
@@ -1798,7 +1860,7 @@ textarea.ui-input,
   gap: 8px;
   margin-top: 16px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 6px;
   padding: 16px;
   background:
     linear-gradient(135deg, rgba(99, 102, 241, 0.12), transparent 54%),
@@ -1871,7 +1933,7 @@ textarea.ui-input,
   align-content: start;
   gap: 8px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 6px;
   padding: 16px;
   text-align: left;
   color: inherit;
@@ -2031,7 +2093,7 @@ textarea.ui-input,
   overflow: hidden;
   margin-top: 12px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 6px;
   background: rgba(3, 7, 12, 0.74);
 }
 
@@ -2155,7 +2217,7 @@ textarea.ui-input,
   min-height: calc(92svh - 76px);
   grid-template-columns: minmax(0, 1.08fr) minmax(340px, 500px);
   gap: clamp(36px, 6vw, 92px);
-  padding: 72px 0 86px;
+  padding: 96px 0;
   position: relative;
 }
 
@@ -2706,11 +2768,11 @@ textarea.ui-input,
   grid-template-columns: minmax(0, 0.72fr) minmax(460px, 1fr);
   gap: clamp(32px, 7vw, 96px);
   margin-top: 64px;
-  padding: 72px 0;
+  padding: 96px 0;
 }
 
 .sandbox-ctas {
-  padding-top: 72px;
+  padding-top: 96px;
 }
 
 /* Auth */
@@ -2741,8 +2803,8 @@ textarea.ui-input,
 .auth-context {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 28px;
+  justify-content: flex-start;
+  gap: 32px;
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 28px;
@@ -2800,6 +2862,9 @@ textarea.ui-input,
   gap: 16px;
   padding: 28px;
   box-shadow: var(--shadow);
+  /* Bug 5 fix: ensure the auth panel keeps its surface background in its
+     own rule, not only via the shared card rule. */
+  background: var(--surface);
 }
 
 .console-login {
@@ -3458,7 +3523,7 @@ html[data-theme="light"] .ob-plan--featured:hover {
 .console-workspace,
 .app-main {
   width: min(1320px, 100%);
-  padding: 56px 64px;
+  padding: 48px 40px;
 }
 
 /* ── Docs mobile header (hidden on desktop) ──────────── */
@@ -3583,13 +3648,13 @@ html[data-theme="light"] .ob-plan--featured:hover {
 }
 
 .docs-article h2 {
-  margin: 48px 0 14px;
+  margin: 40px 0 12px;
   color: var(--text);
   font-size: 1.1rem;
   font-weight: 700;
   letter-spacing: -0.01em;
   border-top: 1px solid var(--hairline);
-  padding-top: 32px;
+  padding-top: 24px;
 }
 
 .docs-list,
@@ -3611,16 +3676,45 @@ html[data-theme="light"] .ob-plan--featured:hover {
   display: grid;
   gap: 12px;
   padding-left: 0;
-  list-style-position: inside;
+  list-style: none;
+  counter-reset: step-counter;
 }
 
 .docs-steps li,
 .concept-grid section,
 .endpoint-card {
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 6px;
   padding: 16px;
   background: var(--surface);
+}
+
+.docs-steps li {
+  counter-increment: step-counter;
+  position: relative;
+  padding-left: 52px;
+  list-style: none;
+  color: var(--text);
+}
+
+.docs-steps li::before {
+  content: counter(step-counter);
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  font-family: var(--font-mono);
 }
 
 .docs-links {
@@ -3633,7 +3727,7 @@ html[data-theme="light"] .ob-plan--featured:hover {
 .docs-links a,
 .docs-next {
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 6px;
   padding: 18px;
   color: var(--text);
   background: var(--surface);
@@ -3686,8 +3780,7 @@ html[data-theme="light"] .ob-plan--featured:hover {
   font-size: 0.9rem;
 }
 
-.endpoint-list,
-.concept-grid {
+.endpoint-list {
   display: grid;
   gap: 12px;
   margin: 26px 0;
@@ -3729,16 +3822,28 @@ html[data-theme="light"] .ob-plan--featured:hover {
 }
 
 .concept-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+  margin: 24px 0;
 }
 
 .concept-grid h2 {
   margin-top: 0;
 }
 
+.concept-grid section h2 {
+  border-top: none !important;
+  padding-top: 0;
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
 .concept-grid p {
   margin-bottom: 0;
-  color: var(--muted);
+  color: var(--text-2);
   line-height: 1.65;
 }
 
@@ -4480,7 +4585,7 @@ html[data-theme="light"] .ob-plan--featured:hover {
   gap: 16px;
   align-items: center;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 6px;
   padding: 16px;
   color: var(--text);
   background: rgba(10, 10, 10, 0.62);
@@ -4668,7 +4773,7 @@ html[data-theme="light"] .ob-plan--featured:hover {
   gap: 8px;
   min-height: 120px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 6px;
   padding: 20px;
   background: var(--surface);
   text-decoration: none;
@@ -5615,7 +5720,7 @@ html[data-theme="light"] .ob-plan--featured:hover {
 
 .sandbox-hero h1 {
   max-width: 900px;
-  font-size: clamp(3.2rem, 7vw, 7rem);
+  font-size: clamp(2.4rem, 4vw, 4.8rem);
 }
 
 .sandbox-focus {
@@ -5626,7 +5731,7 @@ html[data-theme="light"] .ob-plan--featured:hover {
 }
 
 .sandbox-focus .decision-console {
-  min-height: 620px;
+  min-height: 480px;
   border-radius: 16px;
   border-color: rgba(255, 255, 255, 0.15);
   background:
@@ -5654,7 +5759,10 @@ html[data-theme="light"] .ob-plan--featured:hover {
   position: sticky;
   top: 24px;
   min-width: 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.13);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0;
 }
 
 .action-switcher .sandbox-panel-heading {
@@ -6817,13 +6925,14 @@ html[data-theme="light"] .ob-plan--featured:hover {
 }
 
 .blog-hero {
-  padding: 72px 0 56px;
+  padding: 96px 0;
   border-bottom: 1px solid var(--border);
   margin-bottom: 40px;
 }
 
 .blog-hero h1 {
   margin: 8px 0 0;
+  max-width: 22ch;
   font-size: clamp(2.4rem, 5vw, 4rem);
   line-height: 1.02;
   letter-spacing: -0.03em;
@@ -6923,8 +7032,8 @@ html[data-theme="light"] .ob-plan--featured:hover {
   padding: 0 8px;
   border: 1px solid var(--border-strong);
   border-radius: 999px;
-  color: var(--muted);
-  font-size: 0.74rem;
+  color: var(--fg);
+  font-size: 0.8rem;
   font-weight: 680;
   letter-spacing: 0.04em;
   text-transform: lowercase;
@@ -8651,9 +8760,9 @@ html[data-theme="light"] .app-sidebar__footer {
 
 /* ── Legal / Privacy page ─────────────────────────── */
 .legal-page {
-  max-width: 720px;
+  max-width: 860px;
   margin: 0 auto;
-  padding: var(--s-10) var(--s-6) var(--s-11);
+  padding: 48px 24px 96px;
 }
 
 .legal-hero {
@@ -9274,7 +9383,7 @@ html[data-theme="light"] .app-sidebar__footer {
   color: var(--text);
   background: rgba(99, 102, 241, 0.12);
   border-left: 2px solid var(--accent);
-  padding-left: 9px; /* compensate for border */
+  padding-left: 8px; /* compensate for border */
 }
 
 /* ── 15. Mobile: logs toolbar filters stack cleanly ──────── */
@@ -9339,7 +9448,7 @@ html[data-theme="light"] .app-sidebar__footer {
   gap: 4px;
   align-items: center;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 6px;
   padding: 16px;
   color: var(--text);
   background: rgba(10, 10, 10, 0.62);
@@ -9533,7 +9642,7 @@ html[data-theme="light"] .billing-limit-grid div {
 /* ── Console todo widget ────────────────────────────────── */
 .console-todo {
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 6px;
   background: var(--surface);
   overflow: hidden;
 }
@@ -9975,7 +10084,7 @@ html[data-theme="light"] .billing-limit-grid div {
 .status-page {
   max-width: 760px;
   margin: 0 auto;
-  padding: var(--s-8) var(--s-5) var(--s-10);
+  padding: 40px 24px 56px;
   display: flex;
   flex-direction: column;
   gap: var(--s-8);
@@ -10053,15 +10162,17 @@ html[data-theme="light"] .billing-limit-grid div {
   display: flex;
   flex-direction: column;
   gap: var(--s-4);
+  margin-top: 48px;
 }
 
 .status-section__title {
-  font-size: 0.8rem;
-  font-weight: 700;
-  text-transform: uppercase;
+  font-size: 0.7rem;
+  font-weight: 600;
   letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--muted);
   margin: 0;
+  margin-bottom: 16px;
   padding-bottom: var(--s-2);
   border-bottom: 1px solid var(--border);
 }
@@ -10340,7 +10451,8 @@ html[data-theme="light"] .billing-limit-grid div {
 .status-empty {
   color: var(--muted);
   font-size: 0.9rem;
-  padding: var(--s-4) 0;
+  padding: 24px 0;
+  border-top: 1px solid var(--border);
 }
 
 .status-footer {
@@ -11768,7 +11880,7 @@ html[data-theme="light"] .app-sidebar {
 
 /* Body paragraphs in docs: slightly larger */
 .docs-article p:not(.section-kicker):not(.docs-lede) {
-  color: var(--text-2);
+  color: var(--text);
   line-height: 1.7;
 }
 
@@ -12279,3 +12391,65 @@ html[data-theme="light"] .lang-switcher__option--active {
   }
 }
 
+/* ── Video Demo Section ── */
+.marketing > .video-demo-section,
+.video-demo-section {
+  width: 100%;
+  max-width: none;
+  padding: 96px 0;
+}
+.video-demo__inner {
+  text-align: center;
+  max-width: min(960px, calc(100% - 48px));
+  margin-inline: auto;
+}
+.video-demo__heading {
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  margin: 12px 0 40px;
+  color: var(--text);
+}
+.video-demo__player {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: var(--panel);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+.video-demo__placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+.video-demo__play-icon {
+  width: 64px;
+  height: 64px;
+  opacity: 0.85;
+  transition: opacity 0.2s, transform 0.2s;
+}
+.video-demo__player:hover .video-demo__play-icon {
+  opacity: 1;
+  transform: scale(1.08);
+}
+.video-demo__caption {
+  font-size: 0.875rem;
+  color: var(--muted);
+  margin: 0;
+  letter-spacing: 0;
+}
+
+/* Override to keep auth panels at 12px since some grouped selectors were changed to 6px */
+.auth-panel,
+.console-login__panel,
+.auth-shell {
+  border-radius: 12px !important;
+}

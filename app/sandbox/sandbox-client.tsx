@@ -34,7 +34,7 @@ const LAB_STYLES = `
 .lab-advanced-toggle:hover{color:#fff}
 .lab-advanced-grid{padding-bottom:8px}
 .lab-coming-soon{width:max-content;display:inline-flex;align-items:center;border:1px solid rgba(234,179,8,.32);border-radius:999px;padding:2px 7px;color:#fde68a;background:rgba(234,179,8,.1);font-size:.64rem;font-weight:780;font-style:normal;letter-spacing:.06em;text-transform:uppercase}
-.lab-proves-strip{padding:clamp(40px,7vw,80px) 0;margin-top:clamp(40px,7vw,72px);border-top:1px solid rgba(255,255,255,.1)}
+.lab-proves-strip{padding:64px 0;margin-top:48px;border-top:1px solid rgba(255,255,255,.1)}
 .lab-proves-strip>h2{margin:0 0 clamp(20px,3vw,32px);color:#fff;font-size:clamp(1.6rem,2.6vw,2.6rem)}
 .lab-proves-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;overflow:hidden;border:1px solid rgba(255,255,255,.1);border-radius:14px;background:rgba(255,255,255,.1)}
 .lab-proves-card{min-height:160px;display:grid;align-content:start;gap:12px;padding:clamp(18px,2.5vw,28px);background:linear-gradient(180deg,rgba(255,255,255,.04),transparent 180px),rgba(10,10,10,.64)}
