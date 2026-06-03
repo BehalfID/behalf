@@ -149,7 +149,7 @@ export default async function Home({
         <div className="home-hero__stats" aria-hidden="true">
           <div className="home-hero__stat">
             <span className="home-hero__stat-val">&lt;2ms</span>
-            <span className="home-hero__stat-label">p99 verify latency</span>
+            <span className="home-hero__stat-label">p99 latency</span>
           </div>
           <div className="home-hero__stat">
             <span className="home-hero__stat-val">99.99%</span>
@@ -161,7 +161,7 @@ export default async function Home({
           </div>
           <div className="home-hero__stat">
             <span className="home-hero__stat-val">SOC 2</span>
-            <span className="home-hero__stat-label">type II in progress</span>
+            <span className="home-hero__stat-label">type II (in progress)</span>
           </div>
         </div>
       </section>

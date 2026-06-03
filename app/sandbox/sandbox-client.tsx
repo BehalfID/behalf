@@ -6,14 +6,14 @@ import { useMode } from "@/lib/useMode";
 
 const LAB_STYLES = `
 .lab-agent-role{color:rgba(255,255,255,.54);font-size:.84rem}
-.lab-decision-columns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:clamp(24px,3.5vw,38px);border:1px solid rgba(255,255,255,.1);border-radius:12px;overflow:hidden}
-.lab-decision-col{display:grid;align-content:start;gap:12px;padding:clamp(16px,2.2vw,22px);border-right:1px solid rgba(255,255,255,.09)}
+.lab-decision-columns{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.3fr) minmax(0,0.9fr);margin-bottom:clamp(24px,3.5vw,38px);border:1px solid rgba(255,255,255,.1);border-radius:12px;overflow:hidden}
+.lab-decision-col{display:grid;align-content:start;gap:10px;padding:clamp(14px,2vw,20px);border-right:1px solid rgba(255,255,255,.09)}
 .lab-decision-col:last-child{border-right:0}
 .lab-decision-col>span{color:rgba(255,255,255,.5);font-size:.68rem;font-weight:820;letter-spacing:.1em;text-transform:uppercase}
 .lab-request-fields{display:grid;gap:7px;margin:0}
-.lab-request-fields div{display:grid;grid-template-columns:68px minmax(0,1fr);gap:8px}
-.lab-request-fields dt{color:rgba(255,255,255,.42);font-family:var(--font-mono);font-size:.72rem;line-height:1.55}
-.lab-request-fields dd{margin:0;color:rgba(255,255,255,.86);font-family:var(--font-mono);font-size:.8rem;line-height:1.55;overflow-wrap:anywhere}
+.lab-request-fields div{display:grid;grid-template-columns:70px minmax(0,1fr);gap:6px}
+.lab-request-fields dt{color:rgba(255,255,255,.42);font-family:var(--font-mono);font-size:.68rem;line-height:1.55}
+.lab-request-fields dd{margin:0;color:rgba(255,255,255,.86);font-family:var(--font-mono);font-size:.74rem;line-height:1.55;word-break:break-all}
 .lab-passport-rule{display:block;color:#fff;font-size:.94rem;line-height:1.42}
 .lab-passport-detail{margin:0;color:rgba(255,255,255,.58);font-size:.82rem;line-height:1.56}
 .lab-verdict{width:max-content;display:inline-flex;align-items:center;border:1px solid;border-radius:999px;padding:5px 12px;font-size:.74rem;font-weight:760;font-style:normal;letter-spacing:.06em;text-transform:uppercase}
@@ -105,7 +105,7 @@ const actions: DemoAction[] = [
     action: "browse_web",
     vendor: "web",
     resource: "web",
-    route: "/docs/getting-started",
+    route: "/docs/quickstart",
     passportRule: "allow browse_web on web",
     passportDetail: "The active permission explicitly allows public web browsing. No checkout, form submit, or credentialed request is in scope.",
     decision: "allowed",
