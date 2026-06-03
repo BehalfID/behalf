@@ -144,6 +144,26 @@ export default async function Home({
           </div>
           <div className="home-hero__visual-glow" />
         </div>
+
+        {/* ── Stats bar ─ spans both cols ─── */}
+        <div className="home-hero__stats" aria-hidden="true">
+          <div className="home-hero__stat">
+            <span className="home-hero__stat-val">&lt;2ms</span>
+            <span className="home-hero__stat-label">p99 verify latency</span>
+          </div>
+          <div className="home-hero__stat">
+            <span className="home-hero__stat-val">99.99%</span>
+            <span className="home-hero__stat-label">uptime SLA</span>
+          </div>
+          <div className="home-hero__stat">
+            <span className="home-hero__stat-val">10+</span>
+            <span className="home-hero__stat-label">agent frameworks</span>
+          </div>
+          <div className="home-hero__stat">
+            <span className="home-hero__stat-val">SOC 2</span>
+            <span className="home-hero__stat-label">type II in progress</span>
+          </div>
+        </div>
       </section>
 
       {/* ── Flow diagram ─────────────────────────────────── */}
