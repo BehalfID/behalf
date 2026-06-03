@@ -708,6 +708,7 @@
     "dobLabel": "Fecha de nacimiento",
     "createAccount": "Crear cuenta",
     "logIn": "Iniciar sesión",
+    "forgotPassword": "¿Olvidaste tu contraseña?",
     "dobRequired": "La fecha de nacimiento es obligatoria.",
     "ageError": "Debes tener al menos 13 años para crear una cuenta.",
     "authFailed": "La autenticación falló.",
