@@ -3,6 +3,8 @@ import { createDeveloperAccount } from "@/lib/account";
 import { connectToDatabase } from "@/lib/db";
 import {
   createDeveloperSession,
+  generateSecureToken,
+  hashEmailToken,
   hashPassword,
   isValidEmail,
   isValidPassword,
@@ -10,12 +12,16 @@ import {
   requireDashboardMutationOrigin,
   setDeveloperSessionCookie
 } from "@/lib/developerAuth";
+import { sendEmail } from "@/lib/email";
+import { verifyEmailTemplate } from "@/lib/emailTemplates";
 import { createPublicId } from "@/lib/ids";
 import { checkAuthRateLimit, checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
 import DeveloperUser from "@/models/DeveloperUser";
+
+const VERIFICATION_TOKEN_TTL_MS = 1000 * 60 * 60 * 24; // 24 hours
 
 export async function POST(request: NextRequest) {
   const limit = await checkRateLimit(request);
@@ -57,13 +63,19 @@ export async function POST(request: NextRequest) {
     return jsonError("Unable to complete registration. If an account with this email exists, please sign in instead.", 409);
   }
 
+  const verificationToken = generateSecureToken();
+  const verificationTokenHash = hashEmailToken(verificationToken);
+
   let user;
   try {
     user = await DeveloperUser.create({
       userId: createPublicId("user"),
       email,
       passwordHash: await hashPassword(password),
-      dateOfBirth
+      dateOfBirth,
+      emailVerified: false,
+      emailVerificationTokenHash: verificationTokenHash,
+      emailVerificationTokenExpiresAt: new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS)
     });
   } catch (error) {
     if (
@@ -76,6 +88,7 @@ export async function POST(request: NextRequest) {
     }
     throw error;
   }
+
   // Best-effort: create a billing account for this developer. If it fails the user
   // is still signed up and the backfill script will create the account later.
   try {
@@ -84,8 +97,22 @@ export async function POST(request: NextRequest) {
     console.error("[behalfid] Failed to create developer account during signup for userId:", user.userId);
   }
 
+  // Best-effort: send verification email. Never block signup on email failure.
+  try {
+    const baseUrl = (process.env.APP_BASE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
+    const verificationUrl = `${baseUrl}/verify-email?token=${verificationToken}`;
+    const template = verifyEmailTemplate(verificationUrl);
+    template.to = email;
+    await sendEmail(template);
+  } catch {
+    console.error("[behalfid] Failed to send verification email for userId:", user.userId);
+  }
+
   const { token } = await createDeveloperSession(user.userId);
-  const response = NextResponse.json({ user: { userId: user.userId, email: user.email } }, { status: 201 });
+  const response = NextResponse.json(
+    { user: { userId: user.userId, email: user.email }, emailVerificationSent: true },
+    { status: 201 }
+  );
   setDeveloperSessionCookie(response, token);
   return response;
 }

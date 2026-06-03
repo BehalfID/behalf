@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const tokenMocks = vi.hoisted(() => ({
   requireDeveloperApi: vi.fn(),
+  requireVerifiedDeveloperApi: vi.fn(),
   connectToDatabase: vi.fn(),
   createDeveloperToken: vi.fn(),
   createPublicId: vi.fn(),
@@ -12,7 +13,8 @@ const tokenMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/developerAuth", () => ({
-  requireDeveloperApi: tokenMocks.requireDeveloperApi
+  requireDeveloperApi: tokenMocks.requireDeveloperApi,
+  requireVerifiedDeveloperApi: tokenMocks.requireVerifiedDeveloperApi
 }));
 vi.mock("@/lib/db", () => ({ connectToDatabase: tokenMocks.connectToDatabase }));
 vi.mock("@/lib/ids", async (importOriginal) => ({
@@ -39,11 +41,13 @@ function dashboardRequest(method: string, body?: unknown) {
 
 describe("dashboard developer token routes", () => {
   beforeEach(() => {
-    tokenMocks.requireDeveloperApi.mockResolvedValue({
+    const authValue = {
       user: { userId: "dev_test" },
       account: { accountId: "acct_test" },
       error: null
-    });
+    };
+    tokenMocks.requireDeveloperApi.mockResolvedValue(authValue);
+    tokenMocks.requireVerifiedDeveloperApi.mockResolvedValue(authValue);
     tokenMocks.connectToDatabase.mockResolvedValue(undefined);
     tokenMocks.createDeveloperToken.mockReturnValue("bhf_dev_super_secret_value");
     tokenMocks.createPublicId.mockReturnValue("tok_test");

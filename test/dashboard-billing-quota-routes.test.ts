@@ -3,6 +3,7 @@ import { accountFixture, developerUserFixture } from "./fixtures";
 
 const routeMocks = vi.hoisted(() => ({
   requireDeveloperApi: vi.fn(),
+  requireVerifiedDeveloperApi: vi.fn(),
   agentCountDocuments: vi.fn(),
   agentFind: vi.fn(),
   agentCreate: vi.fn(),
@@ -22,7 +23,8 @@ const routeMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/developerAuth", () => ({
-  requireDeveloperApi: routeMocks.requireDeveloperApi
+  requireDeveloperApi: routeMocks.requireDeveloperApi,
+  requireVerifiedDeveloperApi: routeMocks.requireVerifiedDeveloperApi
 }));
 vi.mock("@/lib/ids", () => ({
   createPublicId: routeMocks.createPublicId,
@@ -82,6 +84,7 @@ describe("dashboard billing and quota route UX", () => {
       verificationPeriodStart: new Date("2026-05-01T00:00:00.000Z")
     });
     routeMocks.requireDeveloperApi.mockResolvedValue({ user, account, error: null });
+    routeMocks.requireVerifiedDeveloperApi.mockResolvedValue({ user, account, error: null });
     routeMocks.accountFindOne.mockResolvedValue(account);
     routeMocks.agentCountDocuments.mockResolvedValue(0);
     routeMocks.permissionCountDocuments.mockResolvedValue(0);

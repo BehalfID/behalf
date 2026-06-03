@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireDeveloperApi } from "@/lib/developerAuth";
+import { requireDeveloperApi, requireVerifiedDeveloperApi } from "@/lib/developerAuth";
 import { hashDeveloperToken, previewDeveloperToken } from "@/lib/developerToken";
 import { createDeveloperToken, createPublicId } from "@/lib/ids";
 import { readJsonObject } from "@/lib/request";
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireDeveloperApi(request);
+  const auth = await requireVerifiedDeveloperApi(request);
   if (auth.error || !auth.user || !auth.account) {
     return auth.error ?? jsonError("No account associated with this developer.", 402);
   }
