@@ -78,14 +78,14 @@ const plans: Plan[] = [
     price: "$29",
     period: "/ mo",
     features: [
-      { text: "Unlimited agents", kind: "up", from: "5 on Free" },
-      { text: "5M verifications / mo", kind: "up", from: "50k on Free" },
-      { text: "1-year audit log", kind: "up", from: "30-day on Free" },
+      { text: "Up to 50 agents", kind: "up", from: "5 on Free" },
+      { text: "250,000 verifications / mo", kind: "up", from: "10k on Free" },
+      { text: "90-day audit log", kind: "up", from: "7 days on Free" },
       { text: "Signed webhooks", kind: "check" },
       { text: "Priority support + SLA", kind: "new" },
     ],
-    cta: "Coming soon",
-    available: false,
+    cta: "Start free trial",
+    available: true,
   },
 ];
 
@@ -127,7 +127,7 @@ export function OnboardingClient() {
     advance("plan");
   }
 
-  async function pickPlan() {
+  async function pickPlan(plan: "free" | "pro") {
     setSaving(true);
     try {
       await fetch("/api/auth/me", {
@@ -138,6 +138,18 @@ export function OnboardingClient() {
       });
     } catch {
       // best-effort — dashboard loads regardless
+    }
+    if (plan === "pro") {
+      try {
+        const res = await fetch("/api/billing/checkout", { method: "POST" });
+        const data = await res.json();
+        if (res.ok && data.url) {
+          window.location.href = data.url;
+          return;
+        }
+      } catch {
+        // fall through to dashboard if checkout fails
+      }
     }
     router.push("/dashboard");
   }
@@ -240,7 +252,7 @@ export function OnboardingClient() {
                 .join(" ")}
               disabled={!p.available || saving}
               key={p.value}
-              onClick={p.available ? () => pickPlan() : undefined}
+              onClick={p.available ? () => pickPlan(p.value as "free" | "pro") : undefined}
               type="button"
             >
               {!p.available && <span className="ob-plan__badge">Coming soon</span>}
@@ -265,7 +277,7 @@ export function OnboardingClient() {
                 ))}
               </ul>
               <span className={`ob-plan__cta${!p.available ? " ob-plan__cta--muted" : ""}`}>
-                {saving && p.value === "free" ? "Setting up…" : p.cta}
+                {saving ? "Setting up…" : p.cta}
               </span>
             </button>
           ))}
