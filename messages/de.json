@@ -708,6 +708,7 @@
     "dobLabel": "Geburtsdatum",
     "createAccount": "Konto erstellen",
     "logIn": "Anmelden",
+    "forgotPassword": "Passwort vergessen?",
     "dobRequired": "Geburtsdatum ist erforderlich.",
     "ageError": "Sie müssen mindestens 13 Jahre alt sein, um ein Konto zu erstellen.",
     "authFailed": "Authentifizierung fehlgeschlagen.",

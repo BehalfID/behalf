@@ -708,6 +708,7 @@
     "dobLabel": "Date of birth",
     "createAccount": "Create account",
     "logIn": "Log in",
+    "forgotPassword": "Forgot password?",
     "dobRequired": "Date of birth is required.",
     "ageError": "You must be at least 13 years old to create an account.",
     "authFailed": "Authentication failed.",

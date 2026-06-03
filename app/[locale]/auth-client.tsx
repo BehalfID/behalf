@@ -49,7 +49,7 @@ export function AuthPage({ mode }: { mode: "login" | "signup" }) {
       setError(body?.error ?? t("authFailed"));
       return;
     }
-    router.push(mode === "signup" ? "/onboarding" : "/dashboard");
+    router.push(mode === "signup" ? "/verify-email" : "/dashboard");
   };
 
   return (
@@ -94,6 +94,11 @@ export function AuthPage({ mode }: { mode: "login" | "signup" }) {
             </label>
           )}
           {error && <p className="auth-error" role="alert">{error}</p>}
+          {mode === "login" && (
+            <p className="auth-alt">
+              <Link href="/forgot-password">{t("forgotPassword")}</Link>
+            </p>
+          )}
           <Button type="submit" variant="primary">
             {mode === "signup" ? t("createAccount") : t("logIn")}
           </Button>
