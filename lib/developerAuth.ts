@@ -48,6 +48,25 @@ export function hashSessionToken(token: string) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
+/** Hash an email verification or password reset token for storage. Never log the raw token. */
+export function hashEmailToken(token: string) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+/** Generate a cryptographically secure URL-safe token. */
+export function generateSecureToken(bytes = 32) {
+  return crypto.randomBytes(bytes).toString("base64url");
+}
+
+/**
+ * Returns true if this user's email is considered verified.
+ * Accounts created before email verification was introduced (emailVerified === undefined/null)
+ * are treated as verified to avoid locking out existing users.
+ */
+export function isEmailVerified(emailVerified: boolean | null | undefined): boolean {
+  return emailVerified !== false;
+}
+
 export async function createDeveloperSession(userId: string) {
   const token = crypto.randomBytes(32).toString("base64url");
   const session = await DeveloperSession.create({
@@ -122,7 +141,7 @@ export async function getDeveloperFromToken(token?: string | null) {
 
   if (!session) return null;
   const user = await DeveloperUser.findOne({ userId: session.userId })
-    .select("-_id userId email onboardingUseCase primaryAccountId createdAt updatedAt")
+    .select("-_id userId email emailVerified onboardingUseCase primaryAccountId createdAt updatedAt")
     .lean();
 
   return user;
@@ -154,6 +173,20 @@ export async function requireDeveloperApi(request: NextRequest) {
     : null;
 
   return { user, account, error: null };
+}
+
+/** Like requireDeveloperApi but also requires emailVerified (or pre-verification account). */
+export async function requireVerifiedDeveloperApi(request: NextRequest) {
+  const auth = await requireDeveloperApi(request);
+  if (auth.error || !auth.user) return auth;
+  if (!isEmailVerified(auth.user.emailVerified)) {
+    return {
+      user: null,
+      account: null,
+      error: jsonError("Email verification required. Check your inbox or resend the verification email.", 403)
+    };
+  }
+  return auth;
 }
 
 export type DeveloperPublic = Pick<DeveloperUserDocument, "userId" | "email" | "createdAt" | "updatedAt">;

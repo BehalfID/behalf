@@ -18,6 +18,7 @@ export function AuthPage({ mode }: { mode: "login" | "signup" }) {
   const [password, setPassword] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [error, setError] = useState("");
+  const [signedUp, setSignedUp] = useState(false);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -48,8 +49,45 @@ export function AuthPage({ mode }: { mode: "login" | "signup" }) {
       setError(body?.error ?? "Authentication failed.");
       return;
     }
-    router.push(mode === "signup" ? "/onboarding" : "/dashboard");
+
+    if (mode === "signup") {
+      setSignedUp(true);
+      return;
+    }
+
+    router.push("/dashboard");
   };
+
+  if (mode === "signup" && signedUp) {
+    return (
+      <main id="main-content" className="auth-page" tabIndex={-1}>
+        <section className="auth-shell">
+          <div className="auth-context">
+            <Logo />
+            <div>
+              <p className="section-kicker">Account created</p>
+              <h2>Check your email.</h2>
+            </div>
+          </div>
+          <div className="auth-panel">
+            <p className="section-kicker">Email verification required</p>
+            <h1>Verify your email address.</h1>
+            <p>
+              A verification link has been sent to <strong>{email}</strong>.
+              Click it to activate your account and access the developer dashboard.
+            </p>
+            <p>The link expires in 24 hours. Check your spam folder if it does not arrive.</p>
+            <Link href="/verify-email">
+              <Button variant="primary">Go to verification page</Button>
+            </Link>
+            <p className="auth-alt" style={{ marginTop: "16px" }}>
+              <Link href="/dashboard">Skip for now</Link>
+            </p>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main id="main-content" className="auth-page" tabIndex={-1}>
@@ -95,6 +133,11 @@ export function AuthPage({ mode }: { mode: "login" | "signup" }) {
           )}
           {error ? <p className="form-error" role="alert" aria-live="assertive">{error}</p> : null}
           <Button variant="primary" type="submit">{mode === "signup" ? "Create account" : "Log in"}</Button>
+          {mode === "login" && (
+            <p className="auth-alt">
+              <Link href="/forgot-password">Forgot password?</Link>
+            </p>
+          )}
           {mode === "signup" && (
             <p className="auth-legal">
               By creating an account you agree to the{" "}

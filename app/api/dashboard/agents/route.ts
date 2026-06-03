@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { parseAgentMetadata } from "@/lib/agents";
 import { createDeveloperAgent, serializeAgent } from "@/lib/dashboardData";
-import { requireDeveloperApi } from "@/lib/developerAuth";
+import { requireDeveloperApi, requireVerifiedDeveloperApi } from "@/lib/developerAuth";
 import { checkAgentLimit, quotaErrorDetails } from "@/lib/quota";
 import { readJsonObject } from "@/lib/request";
 import { jsonError, noCacheJson } from "@/lib/responses";
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireDeveloperApi(request);
+  const auth = await requireVerifiedDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
 
   const { body, error } = await readJsonObject(request);
