@@ -132,12 +132,12 @@ export function AuthPage({ mode }: { mode: "login" | "signup" }) {
             </label>
           )}
           {error ? <p className="form-error" role="alert" aria-live="assertive">{error}</p> : null}
-          <Button variant="primary" type="submit">{mode === "signup" ? "Create account" : "Log in"}</Button>
           {mode === "login" && (
             <p className="auth-alt">
               <Link href="/forgot-password">Forgot password?</Link>
             </p>
           )}
+          <Button variant="primary" type="submit">{mode === "signup" ? "Create account" : "Log in"}</Button>
           {mode === "signup" && (
             <p className="auth-legal">
               By creating an account you agree to the{" "}
