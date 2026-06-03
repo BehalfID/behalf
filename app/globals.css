@@ -860,12 +860,12 @@ textarea.ui-input,
 }
 
 .hero {
-  min-height: calc(88svh - 76px);
+  min-height: auto;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(330px, 520px);
   gap: 48px;
-  align-items: center;
-  padding: 56px 0 64px;
+  align-items: start;
+  padding: 80px 0 64px;
 }
 
 .hero__content h1 {
@@ -2214,10 +2214,10 @@ textarea.ui-input,
 }
 
 .hero {
-  min-height: calc(92svh - 76px);
+  min-height: auto;
   grid-template-columns: minmax(0, 1.08fr) minmax(340px, 500px);
-  gap: clamp(36px, 6vw, 92px);
-  padding: 96px 0;
+  gap: clamp(36px, 6vw, 72px);
+  padding: 72px 0 80px;
   position: relative;
 }
 
@@ -7245,11 +7245,11 @@ html[data-theme="light"] .ob-plan--featured:hover {
 
 /* ── Hero ──────────────────────────────────────────────────── */
 .home-hero {
-  min-height: 80vh;
+  min-height: auto;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  padding-block: clamp(96px, 12vw, 160px);
+  justify-content: flex-start;
+  padding-block: 72px 80px;
   position: relative;
 }
 
