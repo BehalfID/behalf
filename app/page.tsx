@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { PublicNav } from "@/components/layout/PublicNav";
 import { PublicFooter } from "@/components/layout/PublicFooter";
-import { ButtonLink, CodeBlock, HomeDemo } from "@/components/ui";
+import { ButtonLink, CodeBlock, HomeDemo, FlowDiagram } from "@/components/ui";
 
 export const metadata: Metadata = {
   title: "BehalfID — Permission infrastructure for AI agents",
@@ -162,19 +162,18 @@ export default function Home() {
       </section>
 
 
-      {/* ── Video demo ─────────────────────────────────────── */}
-      <section className="marketing-section video-demo-section">
-        <div className="video-demo__inner">
-          <p className="section-kicker">SEE IT IN ACTION</p>
-          <h2 className="video-demo__heading">Watch BehalfID stop an unsafe AI action in real time.</h2>
-          <div className="video-demo__player">
-            <div className="video-demo__placeholder">
-              <svg className="video-demo__play-icon" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Play video">
-                <circle cx="32" cy="32" r="31" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5"/>
-                <path d="M26 20l22 12-22 12V20z" fill="white" fillOpacity="0.9"/>
-              </svg>
-              <p className="video-demo__caption">A payment agent tries to exceed its limit. BehalfID blocks it instantly.</p>
-            </div>
+      {/* ── Flow diagram ─────────────────────────────────── */}
+      <section className="home-flow-section">
+        <div className="home-flow-section__inner">
+          <p className="section-kicker">How BehalfID works</p>
+          <h2 className="home-flow-section__h2">Every agent action passes through the permission layer — before it runs.</h2>
+          <FlowDiagram />
+          <div className="home-flow-section__legend">
+            <span className="home-flow-legend__item home-flow-legend__item--deny">Denied — action never executes</span>
+            <span className="home-flow-legend__divider">·</span>
+            <span className="home-flow-legend__item home-flow-legend__item--allow">Allowed — passes through to your tool</span>
+            <span className="home-flow-legend__divider">·</span>
+            <span className="home-flow-legend__item">Every decision logged + signed webhook</span>
           </div>
         </div>
       </section>

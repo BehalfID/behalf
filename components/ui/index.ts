@@ -16,4 +16,5 @@ export * from "./CookieBanner";
 export * from "./HomeDemo";
 export * from "./SplitCTAButton";
 export * from "./SocialLinks";
+export * from "./FlowDiagram";
 export * from "./LanguageSwitcher";

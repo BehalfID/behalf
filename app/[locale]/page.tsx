@@ -4,7 +4,7 @@ import { Link } from "@/i18n/navigation";
 import type { Metadata } from "next";
 import { PublicNav } from "@/components/layout/PublicNav";
 import { PublicFooter } from "@/components/layout/PublicFooter";
-import { ButtonLink, CodeBlock, HomeDemo, SplitCTAButton } from "@/components/ui";
+import { ButtonLink, CodeBlock, HomeDemo, SplitCTAButton, FlowDiagram } from "@/components/ui";
 import { HomeTour } from "@/components/ui/HomeTour";
 import { routing } from "@/i18n/routing";
 
@@ -72,20 +72,93 @@ export default async function Home({
 
       {/* ── Hero ──────────────────────────────────────────── */}
       <section className="home-hero">
-        <p className="section-kicker">{th("kicker")}</p>
-        <h1 className="home-h1">
-          {th("h1Line1")}<br />{th("h1Line2")}
-        </h1>
-        <p className="home-sub home-sub--advanced">{th("subAdvanced")}</p>
-        <p className="home-sub home-sub--simple">{th("subSimple")}</p>
-        <div className="home-code__links" aria-label={th("permissionExamples")}>
-          <span>{th("example1")}</span>
-          <span>{th("example2")}</span>
-          <span>{th("example3")}</span>
+        <div className="home-hero__content">
+          <p className="section-kicker">{th("kicker")}</p>
+          <h1 className="home-h1">
+            {th("h1Line1")}<br />{th("h1Line2")}
+          </h1>
+          <p className="home-sub home-sub--advanced">{th("subAdvanced")}</p>
+          <p className="home-sub home-sub--simple">{th("subSimple")}</p>
+          <div className="home-code__links home-hero__examples" aria-label={th("permissionExamples")}>
+            <span>{th("example1")}</span>
+            <span>{th("example2")}</span>
+            <span>{th("example3")}</span>
+          </div>
+          <div className="home-actions">
+            <SplitCTAButton leftLabel={th("build")} leftHref="/signup" rightLabel={th("tryIt")} rightHref="/sandbox" className="split-cta--ghost" />
+            <HomeTour />
+          </div>
         </div>
-        <div className="home-actions">
-          <SplitCTAButton leftLabel={th("build")} leftHref="/signup" rightLabel={th("tryIt")} rightHref="/sandbox" className="split-cta--ghost" />
-          <HomeTour />
+
+        {/* ── Hero terminal visual ─────────────────────── */}
+        <div className="home-hero__visual" aria-hidden="true">
+          <div className="hero-terminal">
+            <div className="hero-terminal__bar">
+              <div className="hero-terminal__dots"><span /><span /><span /></div>
+              <span className="hero-terminal__title">behalf · verify</span>
+              <span className="hero-terminal__badge hero-terminal__badge--live">LIVE</span>
+            </div>
+            <div className="hero-terminal__body">
+              <div className="hero-terminal__row">
+                <span className="hero-terminal__label">agent</span>
+                <code className="hero-terminal__val">agent_claude_code</code>
+              </div>
+              <div className="hero-terminal__row">
+                <span className="hero-terminal__label">action</span>
+                <code className="hero-terminal__val">deploy</code>
+              </div>
+              <div className="hero-terminal__row">
+                <span className="hero-terminal__label">vendor</span>
+                <code className="hero-terminal__val">vercel.com</code>
+              </div>
+              <div className="hero-terminal__row">
+                <span className="hero-terminal__label">env</span>
+                <code className="hero-terminal__val hero-terminal__val--warn">production</code>
+              </div>
+              <div className="hero-terminal__divider" />
+              <div className="hero-terminal__decision">
+                <span className="hero-terminal__decision-label">DECISION</span>
+                <strong className="hero-terminal__verdict hero-terminal__verdict--deny">denied</strong>
+              </div>
+              <div className="hero-terminal__row hero-terminal__row--sm">
+                <span className="hero-terminal__label">reason</span>
+                <code className="hero-terminal__val hero-terminal__val--muted">requires approval</code>
+              </div>
+              <div className="hero-terminal__row hero-terminal__row--sm">
+                <span className="hero-terminal__label">executed</span>
+                <code className="hero-terminal__val hero-terminal__val--deny">false</code>
+              </div>
+            </div>
+            <div className="hero-terminal__footer">
+              <div className="hero-terminal__event">
+                <span className="hero-terminal__event-dot" />
+                <span>verification.denied</span>
+                <span className="hero-terminal__event-time">just now</span>
+              </div>
+              <div className="hero-terminal__event">
+                <span className="hero-terminal__event-dot hero-terminal__event-dot--ok" />
+                <span>verification.allowed</span>
+                <span className="hero-terminal__event-time">2s ago</span>
+              </div>
+            </div>
+          </div>
+          <div className="home-hero__visual-glow" />
+        </div>
+      </section>
+
+      {/* ── Flow diagram ─────────────────────────────────── */}
+      <section className="home-flow-section">
+        <div className="home-flow-section__inner">
+          <p className="section-kicker">How BehalfID works</p>
+          <h2 className="home-flow-section__h2">Every agent action passes through the permission layer — before it runs.</h2>
+          <FlowDiagram />
+          <div className="home-flow-section__legend">
+            <span className="home-flow-legend__item home-flow-legend__item--deny">Denied — action never executes</span>
+            <span className="home-flow-legend__divider">·</span>
+            <span className="home-flow-legend__item home-flow-legend__item--allow">Allowed — passes through to your tool</span>
+            <span className="home-flow-legend__divider">·</span>
+            <span className="home-flow-legend__item">Every decision logged + signed webhook</span>
+          </div>
         </div>
       </section>
 
