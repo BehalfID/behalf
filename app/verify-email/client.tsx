@@ -154,7 +154,7 @@ export function VerifyEmailClient({ token }: { token?: string }) {
           {state === "error" && (
             <>
               <h1>Verification failed.</h1>
-              <p className="form-error" role="alert">{message}</p>
+              <p className="form-error" role="alert" aria-live="assertive">{message}</p>
               <p>Your link may have expired. Request a new verification email below.</p>
               <Button variant="primary" onClick={resend}>Resend verification email</Button>
             </>
@@ -182,7 +182,7 @@ export function VerifyEmailClient({ token }: { token?: string }) {
                   />
                   <Button variant="primary" type="submit">Verify</Button>
                 </div>
-                {message && <p className="form-error" role="alert" style={{ marginTop: "8px" }}>{message}</p>}
+                {message && <p className="form-error" role="alert" aria-live="assertive" style={{ marginTop: "8px" }}>{message}</p>}
               </form>
               <p style={{ fontSize: "13px", color: "var(--color-muted, #71717a)" }}>Did not receive it? Check your spam folder, or <button className="link-btn" type="button" onClick={resend}>resend</button>.</p>
             </>

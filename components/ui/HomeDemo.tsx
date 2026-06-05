@@ -140,9 +140,9 @@ export function HomeDemo() {
           </strong>
           {/* Simple: friendly verdict */}
           <strong className={`home-demo__verdict-simple home-demo__verdict-simple--${scenario.outcome}`}>
-            {scenario.outcome === "allowed"       ? "Approved ✓" :
-             scenario.outcome === "denied"        ? "Blocked ✗" :
-                                                   "Ask me first ⚠"}
+            {scenario.outcome === "allowed"       ? "Approved" :
+             scenario.outcome === "denied"        ? "Blocked" :
+                                                   "Needs approval"}
           </strong>
           <code className="home-demo__reason">{scenario.reason}</code>
           <div className="home-demo__exec-row">

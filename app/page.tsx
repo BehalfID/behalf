@@ -318,20 +318,31 @@ if (!decision.allowed) {
         {/* Simple: visual flow diagram */}
         <div className="home-flow-diagram mode-simple-only" aria-label="BehalfID verification flow" data-reveal>
           <div className="home-flow-node">
-            <span className="home-flow-node__icon" aria-hidden="true">🤖</span>
-            <span className="home-flow-node__label">AI Agent</span>
+            <span className="home-flow-node__glyph" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="1" y="4" width="16" height="11" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+                <path d="M6 4V3a3 3 0 0 1 6 0v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <circle cx="9" cy="9.5" r="1.5" fill="currentColor"/>
+              </svg>
+            </span>
+            <span className="home-flow-node__name">AI Agent</span>
             <span className="home-flow-node__sub">wants to take an action</span>
           </div>
           <div className="home-flow-node home-flow-node--center">
-            <span className="home-flow-node__icon" aria-hidden="true">🛡️</span>
-            <span className="home-flow-node__label">BehalfID</span>
+            <span className="home-flow-node__glyph home-flow-node__glyph--accent" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9 1.5L2 5v4c0 4 3.1 7.4 7 8 3.9-.6 7-4 7-8V5L9 1.5z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+                <path d="M6 9l2 2 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </span>
+            <span className="home-flow-node__name">BehalfID</span>
             <span className="home-flow-node__sub">checks your rules first</span>
           </div>
           <div className="home-flow-node">
             <div className="home-flow-outcomes">
-              <span className="home-flow-outcome home-flow-outcome--ok">✓ Go ahead</span>
-              <span className="home-flow-outcome home-flow-outcome--deny">✗ Blocked</span>
-              <span className="home-flow-outcome home-flow-outcome--warn">⚠ Ask me first</span>
+              <span className="home-flow-outcome home-flow-outcome--ok">allowed</span>
+              <span className="home-flow-outcome home-flow-outcome--deny">denied</span>
+              <span className="home-flow-outcome home-flow-outcome--warn">needs approval</span>
             </div>
           </div>
         </div>

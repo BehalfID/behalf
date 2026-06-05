@@ -34,7 +34,7 @@ export default function SecurityPage() {
       <div className="security-page">
         <header className="security-hero">
           <p className="section-kicker">Security and trust</p>
-          <h1>Security and trust</h1>
+          <h1>Enforcement model,<br />trust posture, limitations.</h1>
           <p className="security-lede">
             BehalfID is designed to verify agent actions before they happen, keep secrets out of
             public views, and make denied actions fail closed when integrated.
