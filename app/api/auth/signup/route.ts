@@ -14,7 +14,7 @@ import {
 } from "@/lib/developerAuth";
 import { sendEmail } from "@/lib/email";
 import { verifyEmailTemplate } from "@/lib/emailTemplates";
-import { createPublicId } from "@/lib/ids";
+import { createPublicId, createUserCode } from "@/lib/ids";
 import { checkAuthRateLimit, checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
@@ -65,6 +65,8 @@ export async function POST(request: NextRequest) {
 
   const verificationToken = generateSecureToken();
   const verificationTokenHash = hashEmailToken(verificationToken);
+  const verificationCode = createUserCode();
+  const verificationCodeHash = hashEmailToken(verificationCode.replace("-", ""));
 
   let user;
   try {
@@ -75,7 +77,8 @@ export async function POST(request: NextRequest) {
       dateOfBirth,
       emailVerified: false,
       emailVerificationTokenHash: verificationTokenHash,
-      emailVerificationTokenExpiresAt: new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS)
+      emailVerificationTokenExpiresAt: new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS),
+      emailVerificationCodeHash: verificationCodeHash
     });
   } catch (error) {
     if (
@@ -101,7 +104,7 @@ export async function POST(request: NextRequest) {
   try {
     const baseUrl = (process.env.APP_BASE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
     const verificationUrl = `${baseUrl}/verify-email?token=${verificationToken}`;
-    const template = verifyEmailTemplate(verificationUrl);
+    const template = verifyEmailTemplate(verificationUrl, verificationCode);
     template.to = email;
     await sendEmail(template);
   } catch {

@@ -19,6 +19,8 @@ const DeveloperUserSchema = new Schema(
     /** SHA-256 hash of the pending email verification token. Never returned in API responses. */
     emailVerificationTokenHash: { type: String, select: false },
     emailVerificationTokenExpiresAt: { type: Date, select: false },
+    /** SHA-256 hash of the short verification code (e.g. XXXX-XXXX). Never returned in API responses. */
+    emailVerificationCodeHash: { type: String, select: false },
     /** SHA-256 hash of the pending password reset token. Never returned in API responses. */
     passwordResetTokenHash: { type: String, select: false },
     passwordResetTokenExpiresAt: { type: Date, select: false }
