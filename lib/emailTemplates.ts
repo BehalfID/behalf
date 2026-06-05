@@ -14,18 +14,18 @@ function wrapHtml(title: string, body: string): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${title}</title>
   <style>
-    body { margin: 0; padding: 0; background: #0a0a0a; color: #e5e5e5; font-family: "SF Mono", "Fira Code", "Consolas", monospace; font-size: 14px; line-height: 1.6; }
-    .wrapper { max-width: 560px; margin: 48px auto; padding: 0 24px; }
-    .header { border-bottom: 1px solid #222; padding-bottom: 20px; margin-bottom: 32px; }
-    .wordmark { font-size: 13px; font-weight: 600; letter-spacing: 0.08em; color: #fff; text-transform: uppercase; text-decoration: none; }
-    h1 { font-size: 18px; font-weight: 600; color: #fff; margin: 0 0 16px; line-height: 1.3; }
-    p { margin: 0 0 16px; color: #a3a3a3; }
+    body { margin: 0; padding: 0; background: #f4f4f5; color: #18181b; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 15px; line-height: 1.6; }
+    .wrapper { max-width: 560px; margin: 48px auto; background: #ffffff; border: 1px solid #e4e4e7; padding: 40px; }
+    .header { margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid #e4e4e7; }
+    .wordmark { font-size: 13px; font-weight: 700; letter-spacing: 0.1em; color: #18181b; text-transform: uppercase; text-decoration: none; }
+    h1 { font-size: 20px; font-weight: 600; color: #18181b; margin: 0 0 12px; line-height: 1.3; }
+    p { margin: 0 0 16px; color: #52525b; }
     .action-block { margin: 32px 0; }
-    .btn { display: inline-block; padding: 12px 24px; background: #fff; color: #0a0a0a; font-family: inherit; font-size: 13px; font-weight: 600; text-decoration: none; letter-spacing: 0.02em; }
-    .link-fallback { margin-top: 16px; font-size: 12px; color: #666; word-break: break-all; }
-    .link-fallback a { color: #888; }
-    .footer { border-top: 1px solid #222; padding-top: 20px; margin-top: 40px; font-size: 12px; color: #555; }
-    .expiry { display: inline-block; margin-top: 12px; padding: 8px 12px; background: #111; border: 1px solid #222; font-size: 12px; color: #888; }
+    .btn { display: inline-block; padding: 12px 24px; background: #18181b; color: #ffffff; font-family: inherit; font-size: 14px; font-weight: 600; text-decoration: none; }
+    .link-fallback { margin-top: 16px; font-size: 12px; color: #71717a; word-break: break-all; }
+    .link-fallback a { color: #52525b; }
+    .footer { border-top: 1px solid #e4e4e7; padding-top: 20px; margin-top: 40px; font-size: 12px; color: #a1a1aa; }
+    .expiry { display: inline-block; margin-top: 12px; padding: 8px 12px; background: #f4f4f5; border: 1px solid #e4e4e7; font-size: 12px; color: #71717a; }
   </style>
 </head>
 <body>
@@ -35,7 +35,7 @@ function wrapHtml(title: string, body: string): string {
     </div>
     ${body}
     <div class="footer">
-      <p>BehalfID · Agent permission infrastructure<br>If you did not request this, you can safely ignore this email.</p>
+      <p>BehalfID &middot; Agent permission infrastructure<br>If you did not request this, you can safely ignore this email.</p>
     </div>
   </div>
 </body>
@@ -98,7 +98,7 @@ export function resetPasswordTemplate(resetUrl: string): EmailMessage {
       <a class="btn" href="${resetUrl}">Reset password</a>
       <div class="link-fallback">Or copy this link: <a href="${resetUrl}">${resetUrl}</a></div>
     </div>
-    <span class="expiry">Expires in 60 minutes · Single use</span>
+    <span class="expiry">Expires in 60 minutes &middot; Single use</span>
     <p style="margin-top:24px">If you did not request this, your account is safe — this link will expire unused.</p>`
   );
 
@@ -125,7 +125,7 @@ export function passwordChangedTemplate(): EmailMessage {
     `<h1>Password changed</h1>
     <p>Your BehalfID account password was successfully changed.</p>
     <p>If you made this change, no further action is required.</p>
-    <p>If you did not change your password, contact us immediately at <a href="mailto:support@behalfid.com" style="color:#888">support@behalfid.com</a>.</p>`
+    <p>If you did not change your password, contact us immediately at <a href="mailto:support@behalfid.com" style="color:#52525b">support@behalfid.com</a>.</p>`
   );
 
   return { to: "", subject, text, html };
