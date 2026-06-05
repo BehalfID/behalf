@@ -4,7 +4,7 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { Button, Logo } from "@/components/ui";
 
-type State = "idle" | "submitting" | "success" | "error";
+type State = "idle" | "submitting" | "success" | "error" | "network-error";
 
 export function ResetPasswordClient({ token }: { token?: string }) {
   const [password, setPassword] = useState("");
@@ -71,12 +71,18 @@ export function ResetPasswordClient({ token }: { token?: string }) {
         setState("success");
       } else {
         const body = await res.json().catch(() => null) as { error?: string } | null;
-        setError(body?.error ?? "Password reset failed. The link may have expired.");
+        // If we previously had a network error and now get 400, the reset likely
+        // already succeeded server-side — token was consumed before the response arrived.
+        if (state === "network-error" && res.status === 400) {
+          setError("Your password may already have been updated. Try signing in — if it worked, you will be able to log in with your new password.");
+        } else {
+          setError(body?.error ?? "Password reset failed. The link may have expired.");
+        }
         setState("error");
       }
     } catch {
       setError("Network error. Please try again.");
-      setState("error");
+      setState("network-error");
     }
   };
 
@@ -117,7 +123,7 @@ export function ResetPasswordClient({ token }: { token?: string }) {
             />
           </label>
           {error ? <p className="form-error" role="alert" aria-live="assertive">{error}</p> : null}
-          <Button variant="primary" type="submit" disabled={state === "submitting"}>
+          <Button variant="primary" type="submit" disabled={state === "submitting" || state === "success"}>
             {state === "submitting" ? "Updating…" : "Set new password"}
           </Button>
           <p className="auth-alt">
