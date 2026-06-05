@@ -1,15 +1,48 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button, Logo } from "@/components/ui";
 
 type State = "idle" | "verifying" | "success" | "error" | "resending" | "resent";
 
+const POLL_INTERVAL_MS = 3000;
+
 export function VerifyEmailClient({ token }: { token?: string }) {
+  const router = useRouter();
   const [state, setState] = useState<State>(token ? "verifying" : "idle");
   const [message, setMessage] = useState("");
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // When no token in URL: poll for verification status so another device
+  // completing verification automatically redirects this tab to dashboard.
+  useEffect(() => {
+    if (token) return;
+
+    const poll = async () => {
+      try {
+        const res = await fetch("/api/auth/verification-status", {
+          credentials: "include"
+        });
+        if (res.ok) {
+          const body = await res.json() as { verified: boolean };
+          if (body.verified) {
+            clearInterval(pollRef.current!);
+            router.push("/dashboard");
+          }
+        }
+      } catch {
+        // Network error — keep polling
+      }
+    };
+
+    poll();
+    pollRef.current = setInterval(poll, POLL_INTERVAL_MS);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [token, router]);
+
+  // When token is present: verify it immediately.
   useEffect(() => {
     if (!token) return;
     let cancelled = false;
@@ -96,11 +129,10 @@ export function VerifyEmailClient({ token }: { token?: string }) {
           {state === "idle" && (
             <>
               <h1>Check your email.</h1>
-              <p>A verification link was sent to your email address when you signed up. Click it to activate your account.</p>
+              <p>A verification link was sent to your email address. Click it to activate your account.</p>
+              <p>This page will automatically redirect once your email is verified.</p>
               <p>Did not receive it? Check your spam folder, or resend below.</p>
-              {state === "idle" && (
-                <Button variant="primary" onClick={resend}>Resend verification email</Button>
-              )}
+              <Button variant="primary" onClick={resend}>Resend verification email</Button>
             </>
           )}
 
@@ -113,7 +145,7 @@ export function VerifyEmailClient({ token }: { token?: string }) {
           {state === "resent" && (
             <>
               <h1>Verification email sent.</h1>
-              <p>If an account with that email exists and is unverified, a new link has been sent. Check your inbox.</p>
+              <p>Check your inbox. This page will automatically redirect once your email is verified.</p>
             </>
           )}
 

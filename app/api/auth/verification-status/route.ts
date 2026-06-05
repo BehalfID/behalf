@@ -1,0 +1,20 @@
+import { type NextRequest } from "next/server";
+import { getDeveloperFromToken, isEmailVerified } from "@/lib/developerAuth";
+import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
+import { noCacheJson } from "@/lib/responses";
+
+const COOKIE_NAME = "behalfid_developer";
+
+export async function GET(request: NextRequest) {
+  const limit = await checkRateLimit(request);
+  if (limit.limited) return rateLimitError();
+
+  const cookieValue = request.cookies?.get?.(COOKIE_NAME)?.value;
+  const user = await getDeveloperFromToken(cookieValue);
+
+  if (!user) {
+    return noCacheJson({ verified: false });
+  }
+
+  return noCacheJson({ verified: isEmailVerified(user.emailVerified) });
+}
