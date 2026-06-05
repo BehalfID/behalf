@@ -9,6 +9,7 @@ import {
 } from "@/lib/developerAuth";
 import { sendEmail } from "@/lib/email";
 import { verifyEmailTemplate } from "@/lib/emailTemplates";
+import { createUserCode } from "@/lib/ids";
 import { checkAuthRateLimit, checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import DeveloperUser from "@/models/DeveloperUser";
 
@@ -25,7 +26,6 @@ export async function POST(request: NextRequest) {
   const cookieValue = request.cookies?.get?.(COOKIE_NAME)?.value;
   const user = await getDeveloperFromToken(cookieValue);
   if (!user) {
-    // Return success to avoid leaking session state
     return NextResponse.json({ ok: true });
   }
 
@@ -33,12 +33,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  // Per-email rate limit (reuse auth rate limit bucket)
   const authLimit = await checkAuthRateLimit(user.email);
   if (authLimit.limited) return rateLimitError();
 
   const verificationToken = generateSecureToken();
   const verificationTokenHash = hashEmailToken(verificationToken);
+  const verificationCode = createUserCode();
+  const verificationCodeHash = hashEmailToken(verificationCode.replace("-", ""));
 
   await connectToDatabase();
   await DeveloperUser.updateOne(
@@ -46,7 +47,8 @@ export async function POST(request: NextRequest) {
     {
       $set: {
         emailVerificationTokenHash: verificationTokenHash,
-        emailVerificationTokenExpiresAt: new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS)
+        emailVerificationTokenExpiresAt: new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS),
+        emailVerificationCodeHash: verificationCodeHash
       }
     }
   );
@@ -54,7 +56,7 @@ export async function POST(request: NextRequest) {
   try {
     const baseUrl = (process.env.APP_BASE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
     const verificationUrl = `${baseUrl}/verify-email?token=${verificationToken}`;
-    const template = verifyEmailTemplate(verificationUrl);
+    const template = verifyEmailTemplate(verificationUrl, verificationCode);
     template.to = user.email;
     await sendEmail(template);
   } catch {

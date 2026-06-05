@@ -42,7 +42,7 @@ function wrapHtml(title: string, body: string): string {
 </html>`;
 }
 
-export function verifyEmailTemplate(verificationUrl: string): EmailMessage {
+export function verifyEmailTemplate(verificationUrl: string, code: string): EmailMessage {
   const subject = "Verify your BehalfID email address";
 
   const text = [
@@ -50,9 +50,11 @@ export function verifyEmailTemplate(verificationUrl: string): EmailMessage {
     "",
     "Confirm your email to activate your developer account.",
     "",
-    `Verification link: ${verificationUrl}`,
+    `Verification code: ${code}`,
     "",
-    "This link expires in 24 hours.",
+    `Or use this link: ${verificationUrl}`,
+    "",
+    "Both options expire in 24 hours.",
     "",
     "If you did not create a BehalfID account, you can safely ignore this email.",
     "",
@@ -67,7 +69,11 @@ export function verifyEmailTemplate(verificationUrl: string): EmailMessage {
       <a class="btn" href="${verificationUrl}">Verify email address</a>
       <div class="link-fallback">Or copy this link: <a href="${verificationUrl}">${verificationUrl}</a></div>
     </div>
-    <span class="expiry">Expires in 24 hours</span>`
+    <div style="margin: 32px 0 0; padding: 20px; background: #f4f4f5; border: 1px solid #e4e4e7; text-align: center;">
+      <p style="margin: 0 0 8px; font-size: 12px; color: #71717a; text-transform: uppercase; letter-spacing: 0.08em;">Or enter this code</p>
+      <p style="margin: 0; font-size: 28px; font-weight: 700; letter-spacing: 0.15em; color: #18181b; font-family: 'SF Mono', 'Fira Code', monospace;">${code}</p>
+    </div>
+    <span class="expiry" style="margin-top: 16px;">Expires in 24 hours</span>`
   );
 
   return { to: "", subject, text, html };
