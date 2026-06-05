@@ -513,8 +513,8 @@ textarea.ui-input,
 .ui-page-header h1,
 .dashboard-header h1,
 .console-header h1 {
-  font-size: clamp(2.1rem, 4vw, 4.2rem);
-  line-height: 1;
+  font-size: 2rem;
+  line-height: 1.05;
 }
 
 .ui-page-header p,
@@ -537,14 +537,14 @@ textarea.ui-input,
   max-width: 100%;
   overflow: auto;
   margin: 0;
-  padding: 6px 16px 10px;
+  padding: 12px 16px 14px;
   color: var(--text);
   font-size: 0.82rem;
-  line-height: 1.5;
+  line-height: 1.55;
   white-space: pre;
   word-break: normal;
   border: 0;
-  border-radius: 0 0 10px 10px;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   position: relative;
   background: var(--panel);
 }
@@ -621,7 +621,7 @@ textarea.ui-input,
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--muted);
-  background: rgba(10, 10, 10, 0.56);
+  background: var(--panel);
 }
 
 .ui-empty strong,
@@ -1665,7 +1665,7 @@ textarea.ui-input,
 .security-card {
   padding: 18px 20px;
   border: 1px solid var(--border);
-  border-top: 2px solid rgba(99, 102, 241, 0.3);
+  border-top: 1px solid var(--border);
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.03);
   display: flex;
@@ -1675,7 +1675,7 @@ textarea.ui-input,
 }
 
 .security-card:hover {
-  border-top-color: rgba(99, 102, 241, 0.6);
+  border-color: var(--border-strong);
   background: rgba(255, 255, 255, 0.05);
 }
 
@@ -3947,7 +3947,7 @@ html[data-theme="light"] .ob-plan--featured:hover {
   scroll-margin-top: 28px;
   margin-top: 34px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   padding: 20px;
   background: var(--surface);
 }
@@ -3986,7 +3986,7 @@ html[data-theme="light"] .ob-plan--featured:hover {
   gap: 8px 12px;
   align-items: start;
   padding: 14px 16px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   border-left: 3px solid var(--border);
   background: var(--surface);
   margin: 20px 0;
@@ -4182,11 +4182,11 @@ html[data-theme="light"] .ob-plan--featured:hover {
 .billing-limit-grid div {
   display: grid;
   gap: 6px;
-  min-height: 94px;
-  padding: 14px;
+  min-height: 84px;
+  padding: 12px 14px;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.34);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
 }
 
 .plan-usage-grid span,
@@ -4728,25 +4728,28 @@ html[data-theme="light"] .ob-plan--featured:hover {
 .console-list,
 .console-table {
   display: grid;
-  gap: 10px;
+  gap: 0;
   background: transparent;
   border: 0;
+  border-top: 1px solid var(--hairline);
 }
 
+/* Row lists: hairline dividers, no card radius, no shadow */
 .dashboard-list > a,
 .dashboard-list > div,
 .console-row,
 .console-list__item {
-  min-height: 72px;
+  min-height: 52px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 16px;
   align-items: center;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 16px;
+  border: 0;
+  border-bottom: 1px solid var(--hairline);
+  border-radius: 0;
+  padding: 10px 14px;
   color: var(--text);
-  background: rgba(10, 10, 10, 0.62);
+  background: transparent;
 }
 
 .console-row {
@@ -4766,17 +4769,19 @@ html[data-theme="light"] .ob-plan--featured:hover {
 .dashboard-list > div:hover,
 .console-row:hover,
 .console-list__item:hover {
-  border-color: var(--border-strong);
-  background: rgba(10, 10, 10, 0.9);
+  background: rgba(255, 255, 255, 0.03);
 }
 
+/* Metadata text in rows: mono for machine values (requestIds, timestamps, actions) */
 .dashboard-list small,
 .console-row small,
 .console-list small {
   display: block;
-  margin-top: 4px;
+  margin-top: 3px;
   overflow-wrap: anywhere;
-  font-size: 0.82rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--muted);
 }
 
 .dashboard-panel strong,
@@ -5892,7 +5897,7 @@ html[data-theme="light"] .ob-plan--featured:hover {
 
 .sandbox-focus .decision-console {
   min-height: 480px;
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   border-color: rgba(255, 255, 255, 0.15);
   background:
     linear-gradient(180deg, rgba(239, 68, 68, 0.085), transparent 270px),
@@ -6246,7 +6251,7 @@ html[data-theme="light"] .ob-plan--featured:hover {
 
 .sandbox-focus .decision-console {
   min-height: 0;
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   padding: clamp(22px, 3.4vw, 40px);
   background: rgba(5, 9, 14, 0.9);
 }
@@ -7753,6 +7758,7 @@ html[data-theme="light"] .ob-plan--featured:hover {
   min-height: 180px;
 }
 
+/* semantic tint — always paired with the 2px left-border; never use one without the other */
 .home-step__visual--accent {
   border-left: 2px solid var(--accent);
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.07) 0%, var(--surface) 60%);
@@ -8099,6 +8105,7 @@ html[data-theme="light"] .ob-plan--featured:hover {
   transition: background 240ms ease, border-color 240ms ease;
 }
 
+/* semantic tint — always paired with the 2px left-border; never use one without the other */
 .home-demo__decision--allowed {
   border-left: 2px solid var(--ok);
   background: linear-gradient(135deg, rgba(16, 185, 129, 0.07) 0%, var(--surface) 60%);
@@ -8208,10 +8215,9 @@ html[data-theme="light"] .ob-plan--featured:hover {
 
 /* ── CTA section ───────────────────────────────────────────── */
 .home-cta {
-  text-align: center;
+  text-align: left;
   padding-block: clamp(80px, 10vw, 140px);
   border-top: 1px solid var(--border);
-  background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(99,102,241,0.07), transparent);
 }
 
 .home-cta__h2 {
@@ -8227,8 +8233,8 @@ html[data-theme="light"] .ob-plan--featured:hover {
   color: var(--muted);
   font-size: 1rem;
   line-height: 1.65;
-  max-width: 480px;
-  margin: 0 auto 40px;
+  max-width: 520px;
+  margin: 0 0 40px;
 }
 
 /* ── Site footer ───────────────────────────────────────────── */
@@ -8813,12 +8819,12 @@ html[data-theme="light"] .console-login-page {
 html[data-theme="light"] .security-card {
   background: rgba(0, 0, 0, 0.025);
   border-color: rgba(0, 0, 0, 0.09);
-  border-top-color: rgba(99, 102, 241, 0.28);
+  border-top-color: rgba(0, 0, 0, 0.09);
 }
 
 html[data-theme="light"] .security-card:hover {
   background: rgba(0, 0, 0, 0.04);
-  border-top-color: rgba(99, 102, 241, 0.5);
+  border-color: rgba(0, 0, 0, 0.16);
 }
 
 html[data-theme="light"] .home-step__visual--accent {
@@ -9539,7 +9545,7 @@ html[data-theme="light"] .app-sidebar__footer {
   padding: 16px;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: rgba(10, 10, 10, 0.5);
+  background: var(--surface);
   margin-bottom: 20px;
 }
 
@@ -10126,34 +10132,26 @@ html[data-theme="light"] .billing-limit-grid div {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 14px;
+  padding: 10px 14px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   color: var(--text);
-  background: rgba(255, 255, 255, 0.025);
+  background: transparent;
   text-decoration: none;
   font-size: 0.875rem;
   font-weight: 560;
   cursor: pointer;
-  transition: border-color 130ms ease, background 130ms ease, transform 130ms ease;
+  transition: border-color 140ms ease, background 140ms ease;
 }
 
 .console-quick-action:hover {
-  border-color: rgba(99, 102, 241, 0.46);
-  background: rgba(99, 102, 241, 0.07);
-  transform: translateY(-1px);
+  border-color: var(--border-strong);
+  background: rgba(255, 255, 255, 0.03);
 }
 
+/* Icon container suppressed — emoji icons removed from JSX; this is kept for structural fallback */
 .console-quick-action__icon {
-  width: 32px;
-  height: 32px;
-  display: grid;
-  place-items: center;
-  border-radius: 8px;
-  background: rgba(99, 102, 241, 0.12);
-  color: var(--accent);
-  flex-shrink: 0;
-  font-size: 0.85rem;
+  display: none;
 }
 
 /* console health strip */
@@ -10163,8 +10161,8 @@ html[data-theme="light"] .billing-limit-grid div {
   gap: 16px;
   padding: 10px 16px;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.025);
+  border-radius: var(--radius-lg);
+  background: transparent;
   font-size: 0.82rem;
   flex-wrap: wrap;
 }
@@ -10176,9 +10174,10 @@ html[data-theme="light"] .billing-limit-grid div {
   flex-shrink: 0;
 }
 
+/* Health dots use semantic colors: green=ok, not indigo */
 .console-health__dot--ok {
-  background: rgba(99, 102, 241, 0.9);
-  box-shadow: 0 0 6px rgba(99, 102, 241, 0.6);
+  background: var(--ok);
+  box-shadow: 0 0 5px rgba(110, 231, 183, 0.45);
 }
 
 .console-health__dot--warn {
@@ -10216,8 +10215,8 @@ html[data-theme="light"] .billing-limit-grid div {
   gap: 10px;
   padding: 12px 14px;
   border: 1px solid rgba(252, 211, 77, 0.28);
-  border-radius: 10px;
-  background: rgba(252, 211, 77, 0.06);
+  border-radius: var(--radius-lg);
+  background: rgba(252, 211, 77, 0.05);
   font-size: 0.84rem;
   color: var(--text);
   margin-bottom: 20px;
@@ -10251,11 +10250,11 @@ html[data-theme="light"] .billing-limit-grid div {
   min-height: 140px;
   padding: 24px 20px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   color: var(--muted);
   font-size: 0.88rem;
   line-height: 1.6;
-  background: rgba(10, 10, 10, 0.56);
+  background: var(--panel);
 }
 
 .console-empty-state strong {
@@ -11329,7 +11328,7 @@ html[data-mode="simple"] .home-sub--advanced { display: none; }
   width: min(340px, calc(100vw - 32px));
   background: var(--panel);
   border: 1px solid var(--accent);
-  border-radius: 14px;
+  border-radius: var(--radius-xl);
   padding: 20px;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(99, 102, 241, 0.18);
   opacity: 0;
@@ -12005,12 +12004,12 @@ html[data-theme="light"] .lang-switcher__option:hover {
 .security-card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-top: 2px solid rgba(99, 102, 241, 0.25);
+  border-top: 1px solid var(--border);
 }
 
 .security-card:hover {
   background: var(--surface-elev);
-  border-top-color: rgba(99, 102, 241, 0.5);
+  border-color: var(--border-strong);
 }
 
 /* ── 12. Home step visuals: clean flat cards ──────────── */
@@ -12507,7 +12506,7 @@ html[data-theme="light"] .lang-switcher__option--active {
   color: var(--ok);
   background: rgba(110,231,183,0.1);
   border: 1px solid rgba(110,231,183,0.2);
-  animation: live-pulse 2s ease-in-out infinite;
+  /* static liveness indicator — no infinite pulse (instrument, not casino). See AP-6. */
 }
 
 @keyframes live-pulse {
@@ -12717,7 +12716,9 @@ html[data-theme="light"] .lang-switcher__option--active {
 
 .home-flow-section {
   padding: 64px 0 64px;
-  background: linear-gradient(180deg, transparent 0%, rgba(99,102,241,0.03) 50%, transparent 100%);
+  background: none;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 
 .home-flow-section__inner {
@@ -12808,22 +12809,28 @@ html[data-theme="light"] .lang-switcher__option--active {
 /* ── Body ───────────────────────────────────────────────── */
 .fd-body {
   padding: 20px 24px 12px;
-  min-height: 0;
+  /* Fixed height: all 14 lines always occupy layout space (never causes reflow).
+     Invisible lines use opacity/transform only — no max-height changes.
+     Calculation: 14 lines × (0.82rem × 1.7 line-height × 16px) = 14 × 22.3px ≈ 312px
+     + 32px padding (20 top + 12 bottom) = 344px → 350px with 6px headroom. */
+  height: 350px;
+  overflow: hidden;
 }
 
 .fd-line {
   opacity: 0;
-  max-height: 0;
-  overflow: hidden;
   transform: translateY(4px);
-  transition: opacity 0.18s ease, transform 0.18s ease, max-height 0s;
+  transition: opacity 0.18s ease, transform 0.18s ease;
   line-height: 1.7;
 }
 .fd-line--visible {
   opacity: 1;
-  max-height: 80px;
   transform: translateY(0);
-  transition: opacity 0.18s ease, transform 0.18s ease, max-height 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fd-line { transition: none; }
+  .fd-line--visible { opacity: 1; transform: none; }
 }
 
 .fd-line pre {
@@ -12926,7 +12933,8 @@ html[data-theme="light"] .lang-switcher__option--active {
 
 /* ── Responsive ─────────────────────────────────────────── */
 @media (max-width: 600px) {
-  .fd-body { padding: 16px 16px 8px; }
+  /* Mobile: 14 lines × (0.72rem × 1.7 × 16px) = 14 × 19.6px ≈ 274px + 24px padding = 298px → 306px */
+  .fd-body { padding: 16px 16px 8px; height: 306px; }
   .fd-footer { padding: 8px 16px 10px; }
   .fd-line pre { font-size: 0.72rem; }
 }

@@ -480,7 +480,7 @@ Approve at: https://behalfid.com/dashboard/approvals`}</CodeBlock>
           Enforcement is fail-closed where you integrate it — via SDK or MCP.
           Manual passport mode is best-effort for testing with existing agents before you build the integration.
         </p>
-        <div className="home-actions home-actions--center">
+        <div className="home-actions">
           <Link href="/signup" className="home-cta-primary">Start building free</Link>
           <Link href="/sandbox" className="home-cta-secondary">Live sandbox →</Link>
           <ButtonLink href="/docs/deploy-approvals">Deploy approvals →</ButtonLink>
