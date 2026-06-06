@@ -41,3 +41,4 @@ stripeapikeys.txt
 
 # Bluesky DID verification
 /public/.well-known/atproto-did
+.aider*
