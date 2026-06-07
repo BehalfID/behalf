@@ -1,0 +1,45 @@
+name: 'BehalfID Verify'
+description: 'Gate CI/CD steps with BehalfID permission verification. Fails closed on denial or API error.'
+author: 'BehalfID'
+branding:
+  icon: 'shield'
+  color: 'purple'
+
+inputs:
+  api-key:
+    description: 'BehalfID agent API key (bhf_sk_...)'
+    required: true
+  agent-id:
+    description: 'BehalfID agent ID to verify on behalf of'
+    required: true
+  action:
+    description: 'Action being requested (e.g. deploy_production, run_migration)'
+    required: true
+  resource:
+    description: 'Resource target (e.g. vercel, aws, database, stripe)'
+    required: false
+    default: ''
+  risk:
+    description: 'Risk level hint included in metadata (low, medium, high)'
+    required: false
+    default: 'medium'
+  metadata:
+    description: 'Additional context as a JSON string (e.g. {"branch":"main","pr":"42"})'
+    required: false
+    default: '{}'
+  base-url:
+    description: 'Override BehalfID API base URL (for self-hosted or testing only)'
+    required: false
+    default: 'https://behalfid.com'
+
+outputs:
+  request-id:
+    description: 'Unique BehalfID request ID for audit trail'
+  reason:
+    description: 'Human-readable decision reason from BehalfID'
+  decision:
+    description: '"allowed" or "denied"'
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'

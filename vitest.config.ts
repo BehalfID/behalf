@@ -6,7 +6,7 @@ export default defineConfig({
     environment: "node",
     globals: false,
     setupFiles: ["./test/setup.ts"],
-    exclude: [...configDefaults.exclude, "test/integration/**", "test/e2e/**"],
+    exclude: [...configDefaults.exclude, "test/integration/**", "test/e2e/**", "test/runtime/**"],
     coverage: {
       reporter: ["text", "html"],
       include: ["lib/**/*.ts", "app/api/**/*.ts"],

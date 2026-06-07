@@ -5,9 +5,9 @@ import { PublicFooter } from "@/components/layout/PublicFooter";
 import { ButtonLink, CodeBlock, HomeDemo, FlowDiagram } from "@/components/ui";
 
 export const metadata: Metadata = {
-  title: "BehalfID — Permission infrastructure for AI agents",
+  title: "BehalfID — Approval gates for coding agents",
   description:
-    "BehalfID verifies every agent action against a permission passport before it runs. Define boundaries, fail closed on denial, audit every decision.",
+    "BehalfID stops Claude Code, Codex, and Cursor from deploying to production, running database migrations, deleting files, or calling billing APIs without your approval.",
   alternates: { canonical: "/" }
 };
 
@@ -19,14 +19,14 @@ const jsonLd = {
       "@id": "https://behalfid.com/#organization",
       name: "BehalfID",
       url: "https://behalfid.com",
-      description: "BehalfID builds permission infrastructure for AI agents."
+      description: "BehalfID stops coding agents from deploying, deleting, or spending without your approval."
     },
     {
       "@type": "WebSite",
       "@id": "https://behalfid.com/#website",
       name: "BehalfID",
       url: "https://behalfid.com",
-      description: "The permission layer between agents and action.",
+      description: "Approval gates for Claude Code, Codex, and Cursor.",
       publisher: { "@id": "https://behalfid.com/#organization" },
       datePublished: "2026-05-03",
       dateModified: "2026-05-18"
@@ -53,30 +53,30 @@ export default function Home() {
       {/* ── Hero ──────────────────────────────────────────── */}
       <section className="home-hero">
         <div className="home-hero__content">
-          <p className="section-kicker">Agent permission infrastructure</p>
+          <p className="section-kicker">For Claude Code · Codex · Cursor</p>
           <h1 className="home-h1">
-            The permission<br />layer between<br />agents and action.
+            Stop coding agents<br />from running<br />dangerous commands.
           </h1>
           {/* Advanced subtitle (default) */}
           <p className="home-sub home-sub--advanced">
-            AI agents buy, deploy, email, and edit on your behalf.
-            BehalfID verifies every action against a permission passport
-            before execution. Denied actions fail closed. Every decision is logged.
+            Claude Code, Codex, and Cursor can deploy to production, drop databases,
+            push to main, and call billing APIs. BehalfID intercepts those actions
+            before they run — blocking automatically or pausing for your approval.
           </p>
           {/* Simple subtitle */}
           <p className="home-sub home-sub--simple">
-            Your AI assistant can now take real actions — send emails, make purchases,
-            deploy code. BehalfID lets you decide exactly which ones are okay, and blocks
+            Your AI coding assistant can deploy code, delete files, and modify production.
+            BehalfID lets you define which actions require approval, and blocks
             everything else before it runs.
           </p>
           <div className="home-code__links home-hero__examples" aria-label="Permission examples">
             <span>Allow staging deploys, require approval for production.</span>
-            <span>Allow GitHub reads, deny production deploys.</span>
-            <span>Allow browsing, deny purchases over $25.</span>
+            <span>Block <code>git push origin main</code> without human sign-off.</span>
+            <span>Require approval before any database migration runs.</span>
           </div>
           <div className="home-actions">
             <Link href="/signup" className="home-cta-primary">Start building free →</Link>
-            <Link href="/sandbox" className="home-cta-secondary">Live sandbox →</Link>
+            <Link href="/docs/cli" className="home-cta-secondary">CLI setup →</Link>
           </div>
           <div className="home-hero__stats" aria-label="Key metrics">
             <div className="home-hero__stat">
@@ -166,7 +166,7 @@ export default function Home() {
       <section className="home-flow-section">
         <div className="home-flow-section__inner">
           <p className="section-kicker">How BehalfID works</p>
-          <h2 className="home-flow-section__h2">Every agent action passes through the permission layer — before it runs.</h2>
+          <h2 className="home-flow-section__h2">Every dangerous command passes through BehalfID — before it runs.</h2>
           <FlowDiagram />
           <div className="home-flow-section__legend">
             <span className="home-flow-legend__item home-flow-legend__item--deny">Denied — action never executes</span>
@@ -283,15 +283,15 @@ export default function Home() {
           </h2>
           {/* Advanced body */}
           <p className="home-code__body mode-advanced-only">
-            Install the SDK, call <code className="hi-code">behalf.verify()</code> before your
-            executor, and throw on denial. Works with any agent framework because the
-            fail-closed check lives in your code, not in the model&apos;s memory.
+            Call <code className="hi-code">behalf.verify()</code> before your executor and throw
+            on denial. Works with Claude Code, Codex, Cursor, or any custom agent because
+            the fail-closed check lives in your code — not in the model&apos;s memory.
           </p>
           {/* Simple body */}
           <p className="home-code__body mode-simple-only">
-            No matter what tool your AI agent tries to use — browse, buy, deploy, email —
-            it asks BehalfID first. You define the rules once. BehalfID enforces them
-            automatically, every time.
+            No matter which command your coding agent tries to run — deploy, delete, push,
+            migrate — it asks BehalfID first. You define the rules once.
+            BehalfID enforces them automatically, every time.
           </p>
           <div className="home-code__links">
             <Link href="/docs/quickstart">Quickstart →</Link>
@@ -463,15 +463,15 @@ Approve at: https://behalfid.com/dashboard/approvals`}</CodeBlock>
 
       {/* ── Final CTA ─────────────────────────────────────── */}
       <section className="home-cta" aria-labelledby="cta-heading">
-        <p className="section-kicker">Ready</p>
-        <h2 id="cta-heading" className="home-cta__h2">Add the permission check.</h2>
+        <p className="section-kicker">Get started</p>
+        <h2 id="cta-heading" className="home-cta__h2">Wire up your coding agent in five minutes.</h2>
         <p className="home-cta__body">
-          Enforcement is fail-closed where you integrate it — via SDK or MCP.
-          Manual passport mode is best-effort for testing with existing agents before you build the integration.
+          Enforcement works when you integrate it — via the CLI/MCP path for Claude Code and Codex,
+          or via the SDK for custom agents. BehalfID only enforces what you put in the execution path.
         </p>
         <div className="home-actions home-actions--center">
           <Link href="/signup" className="home-cta-primary">Start building free</Link>
-          <Link href="/sandbox" className="home-cta-secondary">Live sandbox →</Link>
+          <Link href="/docs/cli" className="home-cta-secondary">CLI &amp; MCP setup →</Link>
           <ButtonLink href="/docs/deploy-approvals">Deploy approvals →</ButtonLink>
         </div>
       </section>

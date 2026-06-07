@@ -15,11 +15,10 @@
     "seed:status": "tsx scripts/seed-status.ts",
     "check:ollama": "node scripts/check-ollama-config.js",
     "ollama:proxy": "node scripts/ollama-secure-proxy.js",
-    "x:post": "node scripts/x-autoposter.js",
-    "x:post:once": "node scripts/x-autoposter.js --once",
-    "x:post:dry": "node scripts/x-autoposter.js --dry-run --once",
     "build:cli": "npm --prefix packages/cli run build",
-    "test:sdk:pack": "bash scripts/test-sdk-pack.sh"
+    "test:sdk:pack": "bash scripts/test-sdk-pack.sh",
+    "test:live": "RUN_LIVE_TESTS=true vitest run --config vitest.live.config.ts",
+    "seed:live-test": "tsx scripts/seed-live-test-permission.ts"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
@@ -36,6 +35,7 @@
     "twitter-api-v2": "^1.19.0"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.99.0",
     "@types/node": "^25.6.0",
     "@types/nodemailer": "^8.0.0",
     "@types/react": "^19.2.14",
@@ -44,6 +44,7 @@
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.4",
     "mongodb-memory-server": "^10.4.3",
+    "openai": "^6.39.0",
     "playwright": "^1.60.0",
     "puppeteer": "^25.1.0",
     "tsx": "^4.22.3",

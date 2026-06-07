@@ -26,6 +26,30 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./adapters/openai": {
+      "types": "./dist/adapters/openai/index.d.ts",
+      "import": "./dist/adapters/openai/index.js"
+    },
+    "./adapters/anthropic": {
+      "types": "./dist/adapters/anthropic/index.d.ts",
+      "import": "./dist/adapters/anthropic/index.js"
+    },
+    "./adapters/langchain": {
+      "types": "./dist/adapters/langchain/index.d.ts",
+      "import": "./dist/adapters/langchain/index.js"
+    },
+    "./adapters/llamaindex": {
+      "types": "./dist/adapters/llamaindex/index.d.ts",
+      "import": "./dist/adapters/llamaindex/index.js"
+    },
+    "./adapters/stripe": {
+      "types": "./dist/adapters/stripe/index.d.ts",
+      "import": "./dist/adapters/stripe/index.js"
+    },
+    "./adapters/shared": {
+      "types": "./dist/adapters/shared/index.d.ts",
+      "import": "./dist/adapters/shared/index.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
