@@ -4,14 +4,14 @@ import { DocsShell } from "./content";
 
 export const metadata: Metadata = {
   title: "Docs — BehalfID",
-  description: "BehalfID verifies every agent action against a permission passport before it runs. Define boundaries, fail closed on denial, require approval before high-risk actions, and audit every decision.",
+  description: "Stop coding agents from deploying to production, running migrations, or deleting files without your approval. CLI/MCP setup for Claude Code and Codex, SDK for custom agents.",
   alternates: { canonical: "/docs" }
 };
 
 const cards = [
-  { href: "/docs/quickstart", title: "Quickstart", body: "Create an agent, add a permission, install the SDK, verify before execution, and test allowed and denied requests." },
-  { href: "/docs/cli", title: "CLI & MCP", body: "Install the behalf CLI, wire up the MCP server, and launch Claude Code or Codex with BehalfID enforcement active." },
-  { href: "/docs/deploy-approvals", title: "Deploy approvals", body: "Full demo: coding agent attempts production deploy → BehalfID blocks → you approve in the dashboard → agent retries → deploy runs." },
+  { href: "/docs/cli", title: "Coding agent quickstart (CLI/MCP)", body: "Install the behalf CLI, wire up the MCP server, and launch Claude Code or Codex with BehalfID enforcement active. Fastest path to blocking dangerous commands." },
+  { href: "/docs/deploy-approvals", title: "Deploy approvals", body: "Full walkthrough: coding agent attempts production deploy → BehalfID blocks → you approve in the dashboard → agent retries → deploy runs." },
+  { href: "/docs/quickstart", title: "SDK quickstart", body: "Create an agent, add a permission, install the SDK, call verify() before execution, and test allowed and denied requests from any Node.js app." },
   { href: "/docs/sdk", title: "SDK", body: "Install the JavaScript SDK from npm and call behalf.verify() before tool execution from Node 18+." },
   { href: "/docs/api", title: "API Reference", body: "Use public REST endpoints for agents, permissions, verification, logs, and key rotation." },
   { href: "/docs/webhooks", title: "Webhooks", body: "Receive signed events for allowed, denied, and approval-required decisions via an outbox-backed delivery system." },
@@ -24,9 +24,9 @@ const cards = [
 export default function DocsPage() {
   return (
     <DocsShell
-      title="Runtime action authorization for AI agents."
-      description="BehalfID verifies every agent action against a permission passport before it runs. Define boundaries, fail closed on denial, require approval before high-risk actions, and audit every decision."
-      next={{ href: "/docs/quickstart", label: "Quickstart" }}
+      title="Stop coding agents from running dangerous commands without approval."
+      description="BehalfID intercepts actions from Claude Code, Codex, and Cursor before they run. Block production deploys, database migrations, git pushes to main, file deletions, and billing changes — or require human approval before they execute."
+      next={{ href: "/docs/cli", label: "Coding agent quickstart" }}
     >
       <div className="docs-links">
         {cards.map((card) => (

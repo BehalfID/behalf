@@ -1,21 +1,27 @@
 # BehalfID
 
-BehalfID is a permission passport for AI agents. It lets developers connect the agents people already use, define what those agents are allowed to do, and verify actions before they happen.
+BehalfID stops coding agents from running dangerous commands without your approval.
 
-This prototype includes the public permission API, a public docs site, a developer portal at `/dashboard`, and the existing password-protected admin console at `/console`.
+Wire it into Claude Code, Codex, or Cursor via the CLI/MCP path, or into any custom agent via the SDK. Once integrated, BehalfID intercepts production deploys, database migrations, git pushes to main, file deletions, billing API calls, and any other action you flag. Denied actions fail closed before they execute. Every decision is logged.
+
+This project includes the CLI/MCP server, the JavaScript SDK, a public permission API, a developer portal at `/dashboard`, and the password-protected admin console at `/console`.
 
 ## What It Does
 
+**Coding agent enforcement (primary use case):**
+- Block production deploys, database migrations, `git push` to main, file deletions, and billing API calls.
+- Require human approval before high-risk actions and let the agent retry after you approve.
+- Wire into Claude Code, Codex, and Cursor via the CLI/MCP path — no code changes to the agent.
+
+**Core platform:**
 - Add native agents and connected agents with one-time API keys.
-- Store only hashed API keys and developer tokens.
-- Create and revoke permission rules.
+- Create and revoke permission rules with allowed actions, blocked actions, approval requirements, and amount/vendor constraints.
 - Verify action, resource/service, amount, expiration, revocation, and disabled-agent state.
 - Log each authenticated verification decision with a stable `requestId`.
 - Rotate agent API keys, invalidating the old key immediately.
-- Manage native and connected agents, permissions, logs, key rotation, and disable/enable state in `/console`.
+- Manage agents, permissions, logs, and key rotation in `/console`.
 - Sign up for a developer portal account and manage owned resources, developer tokens, and key metadata in `/dashboard`.
 - Read public integration pages at `/docs`.
-- Create Site Guard sites and path rules for website-owner AI access checks.
 
 ## Local Setup
 
@@ -92,12 +98,12 @@ API keys and developer tokens are shown only once. Store them in environment var
 
 Public API docs are available at `/docs` and in [docs/API.md](docs/API.md). Demo commands are in [docs/DEMO.md](docs/DEMO.md). The local coding-agent MCP workflow is in [docs/MCP_DEMO.md](docs/MCP_DEMO.md).
 
-BehalfID has three developer adoption paths:
+BehalfID has four developer adoption paths:
 
-- SDK path: use `@behalfid/sdk` inside your app and verify before your code executes a tool action.
-- Action Gateway path: call BehalfID to verify and execute a supported safe action in one request.
-- CLI/MCP path: add permission context and `verify_action` to Claude Code, Codex, and MCP-compatible local agents.
-- Site Guard path: call `/api/site-guard/check` from site middleware before protected routes are served.
+- **CLI/MCP path (coding agents):** wire `verify_action` into Claude Code, Codex, and Cursor with `behalf mcp init && behalf claude`. No code changes to the agent required.
+- **SDK path:** call `behalf.verify()` inside your app before a tool action executes. Works with any Node.js agent or automation.
+- **Action Gateway path:** call BehalfID to verify and execute a supported safe action in one request.
+- **Site Guard path:** call `/api/site-guard/check` from server-side middleware before protected routes are served.
 
 Agents can be `native` or `connected`. Native agents are BehalfID-created identities for custom integrations. Connected agents manually represent external agents people already use; provider fields are metadata and are not authentication.
 

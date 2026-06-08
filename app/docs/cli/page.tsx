@@ -2,17 +2,17 @@ import type { Metadata } from "next";
 import { CodeBlock, DocsShell } from "../content";
 
 export const metadata: Metadata = {
-  title: "CLI — BehalfID",
-  description: "Install the BehalfID CLI to manage agents, verify actions, enforce permissions via MCP, and launch AI tools with enforcement active.",
+  title: "Coding Agent Quickstart (CLI & MCP) — BehalfID",
+  description: "Stop Claude Code, Codex, and Cursor from running dangerous commands without approval. Install the behalf CLI, wire up the MCP server, and launch your coding agent with enforcement active.",
   alternates: { canonical: "/docs/cli" }
 };
 
 export default function CliDocsPage() {
   return (
     <DocsShell
-      title="behalf CLI"
-      description="Install the BehalfID CLI to manage agents, verify actions, enforce permissions via MCP, and launch AI tools with enforcement active."
-      previous={{ href: "/docs/quickstart", label: "Quickstart" }}
+      title="Coding agent quickstart (CLI & MCP)"
+      description="Stop Claude Code, Codex, and Cursor from deploying to production, deleting files, or pushing to main without your approval. Install the CLI, wire up MCP enforcement, and launch your agent — all in under five minutes."
+      previous={{ href: "/docs", label: "Overview" }}
       next={{ href: "/docs/deploy-approvals", label: "Deploy approvals" }}
     >
       <h2>Install</h2>

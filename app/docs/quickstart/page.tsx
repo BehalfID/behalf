@@ -2,22 +2,28 @@ import type { Metadata } from "next";
 import { CodeBlock, DocsShell } from "../content";
 
 export const metadata: Metadata = {
-  title: "Quickstart — BehalfID",
-  description: "Create an agent, add one permission, verify before execution, and prove both allowed and denied actions in about five minutes.",
+  title: "SDK Quickstart — BehalfID",
+  description: "Create an agent, add one permission, call verify() before execution, and prove both allowed and denied actions in about five minutes.",
   alternates: { canonical: "/docs/quickstart" }
 };
 
 export default function QuickstartPage() {
   return (
     <DocsShell
-      title="Quickstart"
-      description="Create an agent, add one permission, verify before execution, and prove both allowed and denied actions in about five minutes."
-      previous={{ href: "/docs", label: "Overview" }}
-      next={{ href: "/docs/cli", label: "CLI" }}
+      title="SDK Quickstart"
+      description="Create an agent, add one permission, call verify() before execution, and prove both allowed and denied actions in about five minutes."
+      previous={{ href: "/docs/cli", label: "Coding agent quickstart (CLI/MCP)" }}
+      next={{ href: "/docs/deploy-approvals", label: "Deploy approvals" }}
     >
+      <p>
+        <strong>Using Claude Code, Codex, or Cursor?</strong> The faster path is the{" "}
+        <a href="/docs/cli">CLI &amp; MCP setup</a> — it wires BehalfID directly into your
+        coding agent without any SDK code. This page covers the SDK path for custom Node.js
+        integrations.
+      </p>
       <h2>The five-minute model</h2>
       <p>
-        BehalfID sits between the AI agent and the tool it wants to run. Your code asks
+        BehalfID sits between the AI agent and the tool it wants to run. Your code calls
         BehalfID first. If the decision is not allowed, the executor does not run.
       </p>
       <ol className="docs-steps">

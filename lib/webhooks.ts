@@ -7,6 +7,7 @@ export const WEBHOOK_EVENT_TYPES = [
   "verification.allowed",
   "verification.denied",
   "verification.approval_required",
+  "verification.shadow",
   "agent.created",
   "agent.disabled",
   "agent.enabled",
