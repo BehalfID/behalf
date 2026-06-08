@@ -11,6 +11,11 @@ const AUTH_WINDOW_MS = 15 * 60_000;
 const AUTH_MAX_ATTEMPTS = 10;
 const AUTH_REDIS_PREFIX = "behalfid:auth-limit";
 
+// Public demo endpoint: 20 calls per minute per IP
+const DEMO_WINDOW_MS = 60_000;
+const DEMO_MAX_REQUESTS = 20;
+const DEMO_REDIS_PREFIX = "behalfid:demo-limit";
+
 type RateLimitEntry = {
   count: number;
   resetAt: number;
@@ -183,6 +188,20 @@ export async function checkAuthRateLimit(identifier: string) {
   }
 
   return checkMemoryRateLimit(key, AUTH_MAX_ATTEMPTS, AUTH_WINDOW_MS);
+}
+
+/**
+ * Stricter rate limit for the public demo endpoint.
+ * Keyed by IP (same derivation as checkRateLimit) but uses a separate bucket
+ * so demo traffic does not consume the general API quota.
+ */
+export async function checkDemoRateLimit(request: NextRequest) {
+  warnProductionMemoryRateLimitOnce();
+  const key = getRateLimitKey(request);
+  if (getRateLimitMode() === "redis") {
+    return checkRedisRateLimit(key, DEMO_MAX_REQUESTS, DEMO_WINDOW_MS, DEMO_REDIS_PREFIX);
+  }
+  return checkMemoryRateLimit(key, DEMO_MAX_REQUESTS, DEMO_WINDOW_MS);
 }
 
 export function rateLimitError() {

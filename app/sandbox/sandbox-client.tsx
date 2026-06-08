@@ -72,6 +72,15 @@ html[data-theme="light"] .lab-proves-card p{color:rgba(0,0,0,.54)}
 
 type Decision = "allowed" | "denied" | "needs_approval";
 
+type DemoResult = {
+  requestId: string;
+  allowed: boolean;
+  approvalRequired: boolean;
+  reason: string;
+  risk: "low" | "medium" | "high";
+  timestamp: string;
+};
+
 type DemoAction = {
   id: string;
   isPrimary: boolean;
@@ -257,6 +266,8 @@ export function SandboxClient() {
   const [activeActionId, setActiveActionId] = useState(actions[0].id);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<DemoResult | null>(null);
+  const [runError, setRunError] = useState<string | null>(null);
   const { mode } = useMode();
   const isSimple = mode === "simple";
   const activeAction = actions.find((a) => a.id === activeActionId) ?? actions[0];
@@ -270,10 +281,47 @@ export function SandboxClient() {
       ? (actions.find((a) => a.isPrimary) ?? activeAction)
       : activeAction;
 
+  const realDecision: Decision | null = result
+    ? result.allowed
+      ? "allowed"
+      : result.approvalRequired
+      ? "needs_approval"
+      : "denied"
+    : null;
+
+  const handleScenarioChange = (id: string) => {
+    setActiveActionId(id);
+    setResult(null);
+    setRunError(null);
+  };
+
   const runTrace = async () => {
     setRunning(true);
-    await new Promise((resolve) => setTimeout(resolve, 260));
-    setRunning(false);
+    setRunError(null);
+    try {
+      const response = await fetch("/api/demo/verify", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ scenarioId: visibleActiveAction.id })
+      });
+      const data = await response.json() as Record<string, unknown>;
+      if (!response.ok) {
+        setRunError(typeof data.error === "string" ? data.error : "Demo check failed.");
+      } else {
+        setResult({
+          requestId: data.requestId as string,
+          allowed: data.allowed as boolean,
+          approvalRequired: data.approvalRequired as boolean,
+          reason: data.reason as string,
+          risk: data.risk as "low" | "medium" | "high",
+          timestamp: data.timestamp as string
+        });
+      }
+    } catch {
+      setRunError("Network error — please try again.");
+    } finally {
+      setRunning(false);
+    }
   };
 
   return (
@@ -291,9 +339,9 @@ export function SandboxClient() {
           </div>
         </section>
 
-        <section className="sandbox-focus" aria-label="Simulated BehalfID decision">
+        <section className="sandbox-focus" aria-label="BehalfID policy decision">
           <section
-            className={`decision-console sandbox-trace sandbox-trace--${visibleActiveAction.decision}`}
+            className={`decision-console sandbox-trace sandbox-trace--${realDecision ?? visibleActiveAction.decision}`}
             aria-live="polite"
           >
             <div className="sandbox-trace__header">
@@ -307,7 +355,7 @@ export function SandboxClient() {
                 onClick={runTrace}
                 type="button"
               >
-                {running ? "Checking..." : "Run scenario"}
+                {running ? "Checking..." : result ? "Run again" : "Run scenario"}
               </button>
             </div>
 
@@ -338,16 +386,20 @@ export function SandboxClient() {
 
               <div className="lab-decision-col">
                 <span>{isSimple ? "What happened" : "Decision"}</span>
-                <em className={`lab-verdict lab-verdict--${visibleActiveAction.decision}`}>
+                <em className={`lab-verdict lab-verdict--${realDecision ?? visibleActiveAction.decision}`}>
                   {isSimple
-                    ? (visibleActiveAction.decision === "allowed"       ? "Approved ✓"
-                       : visibleActiveAction.decision === "denied"      ? "Blocked ✗"
-                                                                        : "Ask me first ⚠")
-                    : decisionLabel(visibleActiveAction.decision)
+                    ? ((realDecision ?? visibleActiveAction.decision) === "allowed"       ? "Approved ✓"
+                       : (realDecision ?? visibleActiveAction.decision) === "denied"      ? "Blocked ✗"
+                                                                                          : "Ask me first ⚠")
+                    : decisionLabel(realDecision ?? visibleActiveAction.decision)
                   }
                 </em>
-                <p className="lab-verdict-headline">{visibleActiveAction.decisionHeadline}</p>
-                <p className="lab-verdict-sub">{visibleActiveAction.decisionSub}</p>
+                <p className="lab-verdict-headline">
+                  {result ? (result.allowed ? "Allowed — real policy decision" : result.approvalRequired ? "Approval required" : "Blocked — real policy decision") : visibleActiveAction.decisionHeadline}
+                </p>
+                <p className="lab-verdict-sub">
+                  {result ? result.reason : visibleActiveAction.decisionSub}
+                </p>
               </div>
             </div>
 
@@ -365,6 +417,25 @@ export function SandboxClient() {
                 {visibleActiveAction.note ? <p className="lab-note">{visibleActiveAction.note}</p> : null}
               </div>
             </div>
+
+            {result && (
+              <div className="lab-result-row" style={{ marginTop: 0, borderTop: "1px solid rgba(255,255,255,.06)" }}>
+                <div className="lab-result-col">
+                  <span>Request ID</span>
+                  <p><code className="lab-audit-code">{result.requestId}</code></p>
+                </div>
+                <div className="lab-result-col">
+                  <span>Timestamp</span>
+                  <p style={{ fontFamily: "var(--font-mono)", fontSize: ".78rem" }}>
+                    {new Date(result.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {runError && (
+              <p style={{ margin: "12px 0 0", color: "#fca5a5", fontSize: ".82rem" }}>{runError}</p>
+            )}
           </section>
 
           <aside className="action-switcher" aria-label="Scenario selector">
@@ -381,7 +452,7 @@ export function SandboxClient() {
                       visibleActiveAction.id === action.id ? "sandbox-action-card--active" : "",
                       `sandbox-action-card--${action.decision}`
                     ].filter(Boolean).join(" ")}
-                    onClick={() => setActiveActionId(action.id)}
+                    onClick={() => handleScenarioChange(action.id)}
                     type="button"
                   >
                     <strong>{action.label}</strong>
@@ -421,7 +492,7 @@ export function SandboxClient() {
                             visibleActiveAction.id === action.id ? "sandbox-action-card--active" : "",
                             `sandbox-action-card--${action.decision}`
                           ].filter(Boolean).join(" ")}
-                          onClick={() => setActiveActionId(action.id)}
+                          onClick={() => handleScenarioChange(action.id)}
                           type="button"
                         >
                           {action.isPreview ? <em className="lab-coming-soon">Preview</em> : null}
@@ -435,6 +506,7 @@ export function SandboxClient() {
                 )}
               </div>
             )}
+
           </aside>
         </section>
 
@@ -458,7 +530,8 @@ export function SandboxClient() {
             <ButtonLink href="/docs/action-gateway">Action Gateway docs</ButtonLink>
           </div>
           <p className="sandbox-note">
-            This sandbox is simulated. No real backend permissions, network requests, or agent actions run here.
+            The decision above is a real policy decision — the same engine that powers production BehalfID.
+            No external agent action is executed; only the permission check runs.
           </p>
         </section>
       </div>

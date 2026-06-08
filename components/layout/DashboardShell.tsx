@@ -7,6 +7,7 @@ import { Logo, ThemeToggle } from "@/components/ui";
 
 const dashboardNav = [
   { href: "/dashboard", label: "Overview" },
+  { href: "/dashboard/inbox", label: "Action Inbox" },
   { href: "/dashboard/onboarding", label: "Add agent" },
   { href: "/dashboard/agents", label: "Agents" },
   { href: "/dashboard/webhooks", label: "Webhooks" },
@@ -15,7 +16,6 @@ const dashboardNav = [
   { href: "/dashboard/docs", label: "Docs" },
   { href: "/dashboard/settings", label: "Settings" },
   { href: "/dashboard/billing", label: "Billing" },
-  { href: "/dashboard/sites", label: "Site Guard" },
 ];
 
 export function DashboardShellLayout({ children }: { children: React.ReactNode }) {

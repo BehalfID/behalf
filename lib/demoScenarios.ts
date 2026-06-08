@@ -1,0 +1,184 @@
+import { createPublicId } from "@/lib/ids";
+
+export type DemoScenarioId =
+  | "allowed-read"
+  | "over-limit-purchase"
+  | "blocked-action"
+  | "missing-permission"
+  | "approval-purchase"
+  | "missing-resource"
+  | "manual-guidance";
+
+export const DEMO_SCENARIO_IDS = new Set<string>([
+  "allowed-read",
+  "over-limit-purchase",
+  "blocked-action",
+  "missing-permission",
+  "approval-purchase",
+  "missing-resource",
+  "manual-guidance"
+]);
+
+type DemoPermission = {
+  action: string;
+  allowedActions?: string[];
+  blockedActions?: string[];
+  resource?: string;
+  requiresApproval?: boolean;
+  constraints?: {
+    maxAmount?: number;
+    allowedVendors?: string[];
+  };
+  status: "active" | "revoked";
+};
+
+type DemoInput = {
+  action: string;
+  vendor?: string;
+  amount?: number;
+};
+
+type DemoDecision = {
+  allowed: boolean;
+  approvalRequired: boolean;
+  reason: string;
+  risk: "low" | "medium" | "high";
+};
+
+type DemoScenario = {
+  input: DemoInput;
+  permissions: DemoPermission[];
+};
+
+const SCENARIOS: Record<DemoScenarioId, DemoScenario> = {
+  "allowed-read": {
+    input: { action: "browse_web", vendor: "web" },
+    permissions: [{ action: "browse_web", resource: "web", status: "active" }]
+  },
+  "over-limit-purchase": {
+    input: { action: "purchase", vendor: "shop.example", amount: 742 },
+    permissions: [{
+      action: "purchase",
+      resource: "shop.example",
+      constraints: { maxAmount: 25 },
+      status: "active"
+    }]
+  },
+  "blocked-action": {
+    input: { action: "send_email", vendor: "gmail.com" },
+    permissions: [{
+      action: "read_email",
+      allowedActions: ["read_email"],
+      blockedActions: ["send_email"],
+      resource: "gmail.com",
+      status: "active"
+    }]
+  },
+  "missing-permission": {
+    input: { action: "deploy_production", vendor: "production" },
+    permissions: [{ action: "github_issue_read", resource: "github.com", status: "active" }]
+  },
+  "approval-purchase": {
+    input: { action: "purchase", vendor: "shop.example", amount: 24 },
+    permissions: [{
+      action: "purchase",
+      resource: "shop.example",
+      constraints: { maxAmount: 25 },
+      requiresApproval: true,
+      status: "active"
+    }]
+  },
+  "missing-resource": {
+    input: { action: "read_calendar", vendor: undefined },
+    permissions: [{ action: "read_calendar", resource: "google-calendar", status: "active" }]
+  },
+  "manual-guidance": {
+    input: { action: "summarize_page", vendor: "web" },
+    permissions: []
+  }
+};
+
+function permissionMatchesInput(permission: DemoPermission, input: DemoInput): boolean {
+  const blocked = permission.blockedActions ?? [];
+  if (blocked.includes(input.action)) return true;
+  if (permission.action === input.action) return true;
+  const allowed = permission.allowedActions ?? [];
+  return allowed.includes(input.action);
+}
+
+function vendorMatches(resource: string | undefined, vendor: string | undefined): boolean {
+  if (!resource) return true;
+  if (!vendor) return false;
+  return resource === vendor;
+}
+
+function evaluatePermission(permission: DemoPermission, input: DemoInput): DemoDecision {
+  const blocked = permission.blockedActions ?? [];
+  if (blocked.includes(input.action)) {
+    return { allowed: false, approvalRequired: false, reason: "Action is blocked by this permission.", risk: "high" };
+  }
+
+  const allowedActions = permission.allowedActions ?? [];
+  if (allowedActions.length > 0 && !allowedActions.includes(input.action)) {
+    return { allowed: false, approvalRequired: false, reason: "Action is not included in allowedActions.", risk: "high" };
+  }
+
+  if (!vendorMatches(permission.resource, input.vendor)) {
+    return { allowed: false, approvalRequired: false, reason: "Resource does not match permission resource.", risk: "high" };
+  }
+
+  if (permission.requiresApproval) {
+    return { allowed: false, approvalRequired: true, reason: "Permission requires approval before execution.", risk: "medium" };
+  }
+
+  const maxAmount = permission.constraints?.maxAmount;
+  if (typeof maxAmount === "number" && input.amount !== undefined && input.amount > maxAmount) {
+    return { allowed: false, approvalRequired: false, reason: "Amount exceeds maxAmount constraint.", risk: "high" };
+  }
+
+  return { allowed: true, approvalRequired: false, reason: "Action allowed by active permission.", risk: "low" };
+}
+
+function evaluateDemoPermissions(permissions: DemoPermission[], input: DemoInput): DemoDecision {
+  const active = permissions.filter((p) => p.status === "active");
+  const matching = active.filter((p) => permissionMatchesInput(p, input));
+
+  if (matching.length === 0) {
+    return { allowed: false, approvalRequired: false, reason: "No active permission exists for this action.", risk: "high" };
+  }
+
+  // Blocking permissions win
+  const blocker = matching.find((p) => (p.blockedActions ?? []).includes(input.action));
+  if (blocker) return evaluatePermission(blocker, input);
+
+  for (const perm of matching) {
+    const result = evaluatePermission(perm, input);
+    if (result.allowed) return result;
+  }
+
+  return evaluatePermission(matching[0], input);
+}
+
+export type DemoVerifyResult = {
+  requestId: string;
+  allowed: boolean;
+  approvalRequired: boolean;
+  reason: string;
+  risk: "low" | "medium" | "high";
+  timestamp: string;
+  scenarioId: DemoScenarioId;
+};
+
+export function runDemoScenario(scenarioId: DemoScenarioId): DemoVerifyResult {
+  const scenario = SCENARIOS[scenarioId];
+  const decision = evaluateDemoPermissions(scenario.permissions, scenario.input);
+  return {
+    requestId: createPublicId("req"),
+    allowed: decision.allowed,
+    approvalRequired: decision.approvalRequired,
+    reason: decision.reason,
+    risk: decision.risk,
+    timestamp: new Date().toISOString(),
+    scenarioId
+  };
+}

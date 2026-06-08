@@ -5,6 +5,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { DashboardShellLayout } from "@/components/layout/DashboardShell";
 import { Badge, Button, ButtonLink, Card, CodeBlock, EmptyState, PageHeader, StatCard } from "@/components/ui";
 import { SCOPE_TEMPLATES } from "@/lib/scopeTemplates";
+import { POLICY_TEMPLATES, POLICY_CATEGORY_LABELS, type PolicyTemplate } from "@/lib/policyTemplates";
 import { PASSPORT_PRESETS, buildPresetPermissions, type PassportPreset } from "@/lib/passportPresets";
 import {
   buildSiteGuardCurlSnippet,
@@ -50,10 +51,12 @@ type Log = {
   requestId: string;
   agentId: string;
   agentName?: string | null;
+  permissionId?: string | null;
   action: string;
   amount?: number;
   vendor?: string | null;
   allowed: boolean;
+  approvalRequired?: boolean;
   reason: string;
   risk: "low" | "medium" | "high";
   createdAt?: string;
@@ -307,7 +310,7 @@ function date(value?: string | null) {
   return value ? new Intl.DateTimeFormat("en", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value)) : "Never";
 }
 
-export function DashboardShell({ view, id }: { view: "home" | "onboarding" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "docs" | "settings"; id?: string }) {
+export function DashboardShell({ view, id }: { view: "home" | "onboarding" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "inbox" | "docs" | "settings"; id?: string }) {
   return (
     <DashboardShellLayout>
         {view === "home" ? <HomeView /> : null}
@@ -319,6 +322,7 @@ export function DashboardShell({ view, id }: { view: "home" | "onboarding" | "ag
         {view === "webhook" && id ? <WebhookView webhookId={id} /> : null}
         {view === "logs" ? <LogsView /> : null}
         {view === "approvals" ? <ApprovalsView /> : null}
+        {view === "inbox" ? <InboxView /> : null}
         {view === "docs" ? <DashboardDocs /> : null}
         {view === "settings" ? <SettingsView /> : null}
     </DashboardShellLayout>
@@ -770,6 +774,8 @@ function OnboardingView() {
   const [decision, setDecision] = useState<VerifyResult | null>(null);
   const [onboardingError, setOnboardingError] = useState("");
   const [onboardingScopeId, setOnboardingScopeId] = useState("");
+  const [onboardingPolicyTemplateId, setOnboardingPolicyTemplateId] = useState("");
+  const [onboardingPolicyApplying, setOnboardingPolicyApplying] = useState(false);
   const [agentForm, setAgentForm] = useState({
     name: "",
     provider: "" as ProviderSelection,
@@ -872,6 +878,60 @@ function OnboardingView() {
       expiration: "",
       notes: ""
     });
+  };
+
+  const applyOnboardingPolicyTemplate = (pt: PolicyTemplate) => {
+    setOnboardingPolicyTemplateId(pt.id);
+    if (pt.permissions.length === 1) {
+      const p = pt.permissions[0];
+      const template = actionToPermTemplate(p.action);
+      setPermissionForm({
+        template,
+        actionChoice: p.action,
+        customAction: "",
+        resource: p.resource,
+        scope: "",
+        allowedActions: p.allowedActions.join(", "),
+        blockedActions: p.blockedActions.join(", "),
+        requiresApproval: p.requiresApproval ? "yes" : "no",
+        maxAmount: p.constraints?.maxAmount != null ? String(p.constraints.maxAmount) : "",
+        expiration: "",
+        notes: p.notes ?? ""
+      });
+    }
+  };
+
+  const applyOnboardingPolicyTemplateAll = async (pt: PolicyTemplate) => {
+    if (!agent || pt.permissions.length <= 1) return;
+    setOnboardingPolicyApplying(true);
+    try {
+      let lastPermissionId = "";
+      for (const p of pt.permissions) {
+        const tmpl = actionToPermTemplate(p.action);
+        const result = await api<{ permissionId: string }>(`/api/dashboard/agents/${agent.agentId}/permissions`, {
+          method: "POST",
+          body: JSON.stringify({
+            action: p.action,
+            resource: p.resource || undefined,
+            allowedActions: p.allowedActions,
+            blockedActions: p.blockedActions,
+            requiresApproval: p.requiresApproval,
+            template: tmpl || undefined,
+            notes: p.notes || undefined,
+            constraints: {
+              maxAmount: p.constraints?.maxAmount,
+              allowedVendors: p.constraints?.allowedVendors
+            }
+          })
+        });
+        lastPermissionId = result.permissionId;
+      }
+      setPermissionId(lastPermissionId);
+      setTestForm({ action: pt.permissions[0].action, resource: pt.permissions[0].resource, amount: "", context: "" });
+      setStep(4);
+    } finally {
+      setOnboardingPolicyApplying(false);
+    }
   };
 
   const chooseTemplate = (template: PermissionTemplate) => {
@@ -1451,8 +1511,55 @@ ${regularPassportUrl || "[passport link]"}`;
       {step === 3 ? (
         <form className="dashboard-panel onboarding-form" noValidate onSubmit={createPermission}>
           <h2>Create first permission</h2>
-          <p>Choose a permission template or define a custom action. Define what an agent can do, what it can access, and what limits apply.</p>
+          <p>Choose a policy template for real developer workflows, or use a scope template to pre-fill the form, or define a custom action from scratch.</p>
           <Button onClick={useExampleValues} type="button">Use example values</Button>
+          <div className="policy-template-section">
+            <span className="field-label">Policy templates</span>
+            <p className="field-help">Opinionated policies for coding agents and developer tools. Single-permission templates pre-fill the form. Multi-permission templates are applied immediately.</p>
+            <div className="permission-template-grid">
+              {POLICY_TEMPLATES.map((pt) => (
+                <button
+                  key={pt.id}
+                  type="button"
+                  className={onboardingPolicyTemplateId === pt.id ? "permission-template permission-template--active" : "permission-template"}
+                  onClick={() => {
+                    if (pt.permissions.length === 1) {
+                      applyOnboardingPolicyTemplate(pt);
+                    } else {
+                      setOnboardingPolicyTemplateId(onboardingPolicyTemplateId === pt.id ? "" : pt.id);
+                    }
+                  }}
+                >
+                  <strong>{pt.label}</strong>
+                  <span>{pt.tagline}</span>
+                  <small>{POLICY_CATEGORY_LABELS[pt.category]} · {pt.permissions.length === 1 ? "1 permission" : `${pt.permissions.length} permissions`}</small>
+                </button>
+              ))}
+            </div>
+            {onboardingPolicyTemplateId && (() => {
+              const pt = POLICY_TEMPLATES.find((t) => t.id === onboardingPolicyTemplateId);
+              if (!pt || pt.permissions.length <= 1) return null;
+              return (
+                <div className="policy-template-multi-preview" style={{ marginTop: 12, padding: "12px 16px", background: "var(--surface-2)", borderRadius: 8 }}>
+                  <strong>Permissions that will be created:</strong>
+                  <ul style={{ margin: "8px 0", paddingLeft: 18 }}>
+                    {pt.permissions.map((p, i) => (
+                      <li key={i}>
+                        <strong>{p.action}</strong> on <code>{p.resource}</code>{p.requiresApproval ? " — requires approval" : " — auto-allowed"}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="field-help">Blocks: {pt.blocks.join(", ")}.</p>
+                  <div className="form-actions">
+                    <Button type="button" variant="primary" onClick={() => applyOnboardingPolicyTemplateAll(pt)} disabled={onboardingPolicyApplying}>
+                      {onboardingPolicyApplying ? "Applying…" : `Apply ${pt.permissions.length} permissions`}
+                    </Button>
+                    <Button type="button" onClick={() => setOnboardingPolicyTemplateId("")}>Cancel</Button>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
           <label>
             <span>Scope template</span>
             <select value={onboardingScopeId} onChange={(e) => applyOnboardingScopeTemplate(e.target.value)}>
@@ -1618,6 +1725,8 @@ function AgentView({ agentId }: { agentId: string }) {
     scope: ""
   });
   const [agentViewScopeId, setAgentViewScopeId] = useState("");
+  const [activePolicyTemplateId, setActivePolicyTemplateId] = useState("");
+  const [policyApplying, setPolicyApplying] = useState(false);
   const [profile, setProfile] = useState<Partial<Pick<Agent, "name" | "provider" | "externalAgentId" | "externalAgentLabel" | "description" | "connectionStatus">>>({});
   const [guidelines, setGuidelines] = useState<string[]>([]);
   const [newGuideline, setNewGuideline] = useState("");
@@ -1644,6 +1753,56 @@ function AgentView({ agentId }: { agentId: string }) {
     });
     await detail.reload();
   };
+
+  const applyPolicyTemplate = (pt: PolicyTemplate) => {
+    setActivePolicyTemplateId(pt.id);
+    if (pt.permissions.length === 1) {
+      const p = pt.permissions[0];
+      const template = actionToPermTemplate(p.action);
+      setForm({
+        template,
+        action: p.action,
+        resource: p.resource,
+        allowedActions: p.allowedActions.join(", "),
+        blockedActions: p.blockedActions.join(", "),
+        requiresApproval: p.requiresApproval,
+        maxAmount: p.constraints?.maxAmount != null ? String(p.constraints.maxAmount) : "",
+        expiresAt: "",
+        scope: ""
+      });
+    }
+  };
+
+  const applyPolicyTemplateAll = async (pt: PolicyTemplate) => {
+    if (pt.permissions.length <= 1) return;
+    setPolicyApplying(true);
+    try {
+      for (const p of pt.permissions) {
+        const template = actionToPermTemplate(p.action);
+        await api(`/api/dashboard/agents/${agentId}/permissions`, {
+          method: "POST",
+          body: JSON.stringify({
+            action: p.action,
+            resource: p.resource || undefined,
+            allowedActions: p.allowedActions,
+            blockedActions: p.blockedActions,
+            requiresApproval: p.requiresApproval,
+            template: template || undefined,
+            notes: p.notes || undefined,
+            constraints: {
+              maxAmount: p.constraints?.maxAmount,
+              allowedVendors: p.constraints?.allowedVendors
+            }
+          })
+        });
+      }
+      setActivePolicyTemplateId("");
+      await detail.reload();
+    } finally {
+      setPolicyApplying(false);
+    }
+  };
+
   const rotate = async () => {
     if (!window.confirm("Rotate this agent API key? The old key will stop working immediately.")) return;
     setSecret((await api<{ apiKey: string }>(`/api/dashboard/agents/${agentId}/rotate-key`, { method: "POST" })).apiKey);
@@ -1793,6 +1952,51 @@ function AgentView({ agentId }: { agentId: string }) {
       <form className="dashboard-panel" onSubmit={createPermission}>
         <h2>Add permission</h2>
         <p className="field-help">Permissions define which actions this agent can take. Start narrow: allow one useful action and explicitly block risky ones.</p>
+        <div className="policy-template-section">
+          <span className="field-label">Policy templates</span>
+          <p className="field-help">Pre-built policies for real developer workflows. Single-permission templates populate the form below for editing. Multi-permission templates are applied immediately.</p>
+          <div className="permission-template-grid permission-template-grid--nested">
+            {POLICY_TEMPLATES.map((pt) => (
+              <button
+                key={pt.id}
+                type="button"
+                className={activePolicyTemplateId === pt.id ? "permission-template permission-template--active" : "permission-template"}
+                onClick={() => {
+                  if (pt.permissions.length === 1) {
+                    applyPolicyTemplate(pt);
+                  } else {
+                    setActivePolicyTemplateId(activePolicyTemplateId === pt.id ? "" : pt.id);
+                  }
+                }}
+              >
+                <strong>{pt.label}</strong>
+                <span>{pt.tagline}</span>
+                <small>{POLICY_CATEGORY_LABELS[pt.category]} · {pt.permissions.length === 1 ? "1 permission" : `${pt.permissions.length} permissions`}</small>
+              </button>
+            ))}
+          </div>
+          {activePolicyTemplateId && (() => {
+            const pt = POLICY_TEMPLATES.find((t) => t.id === activePolicyTemplateId);
+            if (!pt || pt.permissions.length <= 1) return null;
+            return (
+              <div className="policy-template-multi-preview dashboard-panel" style={{ marginTop: 12 }}>
+                <strong>Permissions that will be created:</strong>
+                <ul style={{ margin: "8px 0", paddingLeft: 18 }}>
+                  {pt.permissions.map((p, i) => (
+                    <li key={i}>
+                      <strong>{p.action}</strong> on <code>{p.resource}</code>{p.requiresApproval ? " — requires approval" : " — auto-allowed"}
+                    </li>
+                  ))}
+                </ul>
+                <p className="field-help">Blocks: {pt.blocks.join(", ")}.</p>
+                <Button type="button" variant="primary" onClick={() => applyPolicyTemplateAll(pt)} disabled={policyApplying}>
+                  {policyApplying ? "Applying…" : `Apply ${pt.permissions.length} permissions`}
+                </Button>
+                <Button type="button" onClick={() => setActivePolicyTemplateId("")}>Cancel</Button>
+              </div>
+            );
+          })()}
+        </div>
         {!hasPermissions ? (
           <div className="permission-template-grid permission-template-grid--nested">
             {FIRST_PERMISSION_EXAMPLES.map((example) => (
@@ -2164,6 +2368,146 @@ function ApprovalsView() {
   );
 }
 
+function InboxView() {
+  const inbox = useResource<{ pendingApprovals: ApprovalRequest[]; deniedHighRisk: Log[] }>("/api/dashboard/inbox");
+  const [working, setWorking] = useState<string | null>(null);
+  const [resolveError, setResolveError] = useState("");
+
+  const resolve = async (approvalId: string, action: "approve" | "deny") => {
+    setWorking(approvalId);
+    setResolveError("");
+    try {
+      await api(`/api/dashboard/approvals/${approvalId}/${action}`, { method: "POST" });
+      await inbox.reload();
+    } catch (e) {
+      setResolveError(e instanceof Error ? e.message : "Action failed.");
+    } finally {
+      setWorking(null);
+    }
+  };
+
+  const pending = inbox.data?.pendingApprovals ?? [];
+  const denied = inbox.data?.deniedHighRisk ?? [];
+  const pendingCount = pending.filter((r) => r.status === "pending").length;
+
+  return (
+    <>
+      <Header
+        title="Action Inbox"
+        description="Pending approvals waiting for your decision and recent high-risk actions that were blocked."
+        action={<Button onClick={inbox.reload} type="button">Refresh</Button>}
+      />
+      {resolveError ? <p className="form-error">{resolveError}</p> : null}
+
+      <section className="dashboard-panel">
+        <h2 className="inbox-section-title">
+          Pending Approvals
+          {pendingCount > 0 ? (
+            <span className="console-status console-status--approval">{pendingCount} waiting</span>
+          ) : null}
+        </h2>
+        {!inbox.data ? null : pending.length === 0 ? (
+          <EmptyState className="dashboard-empty">
+            All clear — no pending approvals. When an agent attempts an approval-required action it will pause here.
+          </EmptyState>
+        ) : (
+          <div className="inbox-list">
+            {pending.map((req) => (
+              <div key={req.approvalId} className={`inbox-card${req.status === "pending" ? " inbox-card--pending" : ""}`}>
+                <div className="inbox-card__header">
+                  <div>
+                    <strong className="inbox-card__action">
+                      {req.agentName ?? req.agentId} wants to {req.action.replace(/_/g, " ")}
+                      {req.vendor ? ` → ${req.vendor}` : ""}
+                      {typeof req.amount === "number" ? ` ($${req.amount})` : ""}
+                    </strong>
+                    <small className="inbox-card__meta">
+                      perm <code>{req.permissionId}</code>
+                      {" · req "}
+                      <code>{req.requestId}</code>
+                      {" · "}
+                      {date(req.createdAt)}
+                    </small>
+                  </div>
+                  <div className="inbox-card__badges">
+                    <span className={`console-status console-status--${req.status === "pending" ? "approval" : "allowed"}`}>
+                      {req.status === "pending" ? "Approval required" : "Approved"}
+                    </span>
+                  </div>
+                </div>
+                {req.status === "pending" ? (
+                  <div className="inbox-card__actions">
+                    <Button
+                      variant="primary"
+                      type="button"
+                      onClick={() => resolve(req.approvalId, "approve")}
+                      disabled={working === req.approvalId}
+                    >
+                      Approve for 15 min
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => resolve(req.approvalId, "deny")}
+                      disabled={working === req.approvalId}
+                    >
+                      Deny
+                    </Button>
+                  </div>
+                ) : req.grantExpiresAt ? (
+                  <small className="inbox-card__grant">
+                    Grant valid until {date(req.grantExpiresAt)} · agent will be allowed on next verify call
+                  </small>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="dashboard-panel">
+        <h2 className="inbox-section-title">
+          Recent High-Risk Denials
+          <span className="inbox-section-title__note">last 48h</span>
+        </h2>
+        {!inbox.data ? null : denied.length === 0 ? (
+          <EmptyState className="dashboard-empty">
+            No high-risk denials in the last 48 hours. Actions blocked by your risk policy will appear here.
+          </EmptyState>
+        ) : (
+          <div className="inbox-list">
+            {denied.map((log) => (
+              <div key={log.requestId} className="inbox-card">
+                <div className="inbox-card__header">
+                  <div>
+                    <strong className="inbox-card__action">
+                      {log.agentName ?? log.agentId} tried to {log.action.replace(/_/g, " ")}
+                      {log.vendor ? ` → ${log.vendor}` : ""}
+                      {typeof log.amount === "number" ? ` ($${log.amount})` : ""}
+                    </strong>
+                    <small className="inbox-card__reason">{log.reason}</small>
+                    <small className="inbox-card__meta">
+                      req <code>{log.requestId}</code>
+                      {" · "}
+                      {date(log.createdAt)}
+                    </small>
+                  </div>
+                  <div className="inbox-card__badges">
+                    <span className="console-status console-status--denied">denied</span>
+                    <span className="console-status console-status--high">high</span>
+                    {log.approvalRequired ? (
+                      <span className="console-status console-status--approval">approval required</span>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </>
+  );
+}
+
 function SettingsView() {
   const settings = useResource<{ email: string; appUrl: string; apiUsage: string; dangerZone: string }>("/api/dashboard/settings");
   const tokens = useResource<{ tokens: DeveloperToken[] }>("/api/dashboard/tokens");
@@ -2287,16 +2631,77 @@ function Rows<T>({ items, href, title, meta }: { items: T[]; href: (item: T) => 
 const APPROVAL_REQUIRED_REASON = "Permission requires approval before execution.";
 
 function isApprovalRequired(log: Log) {
-  return !log.allowed && log.reason === APPROVAL_REQUIRED_REASON;
+  return !log.allowed && (log.approvalRequired || log.reason === APPROVAL_REQUIRED_REASON);
+}
+
+function DenyReceipt({ log, onClose }: { log: Log; onClose: () => void }) {
+  const approvalReq = isApprovalRequired(log);
+  const decisionLabel = approvalReq ? "Approval Required" : "Denied";
+  const [copied, setCopied] = useState(false);
+
+  const receiptLines = [
+    "Blocked Action",
+    `Agent:      ${log.agentName || log.agentId}`,
+    `Action:     ${log.action}`,
+    ...(log.vendor ? [`Resource:   ${log.vendor}`] : []),
+    `Decision:   ${decisionLabel}`,
+    `Reason:     ${log.reason}`,
+    `Risk:       ${log.risk}`,
+    ...(log.permissionId ? [`Policy:     ${log.permissionId}`] : []),
+    `Request ID: ${log.requestId}`,
+    `Time:       ${log.createdAt ?? ""}`,
+  ];
+  const plainText = receiptLines.join("\n");
+  const jsonText = JSON.stringify({
+    decision: approvalReq ? "approval_required" : "denied",
+    agent: log.agentName || log.agentId,
+    action: log.action,
+    resource: log.vendor ?? null,
+    risk: log.risk,
+    reason: log.reason,
+    permissionId: log.permissionId ?? null,
+    requestId: log.requestId,
+    timestamp: log.createdAt ?? null,
+  }, null, 2);
+
+  const copy = async () => {
+    await navigator.clipboard.writeText(plainText);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="deny-receipt" role="region" aria-label="Deny receipt">
+      <div className="deny-receipt__header">
+        <span className={`console-status ${approvalReq ? "console-status--approval" : "console-status--denied"}`}>
+          {decisionLabel}
+        </span>
+        <div className="deny-receipt__actions">
+          <button className="deny-receipt__copy" type="button" onClick={copy}>
+            {copied ? "Copied" : "Copy receipt"}
+          </button>
+          <button className="deny-receipt__close" type="button" onClick={onClose} aria-label="Close receipt">✕</button>
+        </div>
+      </div>
+      <pre className="deny-receipt__body">{plainText}</pre>
+      <details className="deny-receipt__json">
+        <summary>JSON</summary>
+        <pre>{jsonText}</pre>
+      </details>
+    </div>
+  );
 }
 
 function LogList({ logs, approvalFilter }: { logs: Log[]; approvalFilter?: boolean }) {
+  const [openReceipt, setOpenReceipt] = useState<string | null>(null);
   const filtered = approvalFilter ? logs.filter(isApprovalRequired) : logs;
   if (!filtered.length) return <EmptyState className="dashboard-empty">{approvalFilter ? "No approval-required decisions found." : "No logs yet."}</EmptyState>;
   return (
     <div className="dashboard-list dashboard-log-list">
       {filtered.map((log) => {
         const approvalReq = isApprovalRequired(log);
+        const isDenied = !log.allowed;
+        const showReceipt = openReceipt === log.requestId;
         return (
           <div key={log.requestId}>
             <span>
@@ -2304,12 +2709,23 @@ function LogList({ logs, approvalFilter }: { logs: Log[]; approvalFilter?: boole
               <small>{log.agentName || log.agentId} / {log.vendor || "no resource"}{typeof log.amount === "number" ? ` / $${log.amount}` : ""}</small>
               <small>{log.reason}</small>
               <small>{log.requestId}</small>
+              {isDenied ? (
+                <button
+                  className="deny-receipt__toggle"
+                  type="button"
+                  onClick={() => setOpenReceipt(showReceipt ? null : log.requestId)}
+                  aria-expanded={showReceipt}
+                >
+                  {showReceipt ? "Hide receipt" : "View receipt"}
+                </button>
+              ) : null}
             </span>
             {approvalReq
               ? <span className="console-status console-status--approval">approval required</span>
               : <span className={log.allowed ? "console-status console-status--allowed" : "console-status console-status--denied"}>{log.allowed ? "allowed" : "denied"}</span>}
             <span className={`console-status console-status--${log.risk}`}>{log.risk}</span>
             <span>{date(log.createdAt)}</span>
+            {showReceipt ? <DenyReceipt log={log} onClose={() => setOpenReceipt(null)} /> : null}
           </div>
         );
       })}
