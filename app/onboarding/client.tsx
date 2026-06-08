@@ -14,7 +14,7 @@ const roles: Array<{ value: Role; label: string; desc: string }> = [
   {
     value: "personal",
     label: "Existing AI assistant user",
-    desc: "Create a permission passport for ChatGPT, Claude, Gemini, Zapier, or Make.",
+    desc: "Define what an existing AI assistant is permitted to do and share it as a manual permission guide.",
   },
   {
     value: "website",

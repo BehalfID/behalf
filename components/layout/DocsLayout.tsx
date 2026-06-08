@@ -14,9 +14,9 @@ export const docsNav = [
   { href: "/docs/sdk",               label: "SDK"               },
   { href: "/docs/action-gateway",    label: "Action Gateway"    },
   { href: "/docs/webhooks",          label: "Webhooks"          },
-  { href: "/docs/site-guard",        label: "Site Guard"        },
   { href: "/docs/concepts",          label: "Concepts"          },
   { href: "/security",               label: "Security"          },
+  { href: "/docs/site-guard",        label: "Site Guard"        },
 ];
 
 const searchIndex = [

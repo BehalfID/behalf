@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { Logo, ThemeToggle, ModeToggle, SocialLinks, LanguageSwitcher } from "@/components/ui";
+import { Logo, ThemeToggle, SocialLinks, LanguageSwitcher } from "@/components/ui";
 
 export function PublicNav() {
   const t = useTranslations("nav");
@@ -90,7 +90,6 @@ export function PublicNav() {
           <Link href="/security">{t("security")}</Link>
           <Link href="/status">{t("status")}</Link>
           <LanguageSwitcher />
-          <ModeToggle />
           <ThemeToggle />
           <div className="public-nav__actions">
             <Link href="/signup" className="nav-action nav-action--primary">Get started →</Link>
@@ -119,10 +118,6 @@ export function PublicNav() {
           <Link href="/status" onClick={close}>{t("status")}</Link>
           <Link href="/compliance" onClick={close}>{t("compliance")}</Link>
           <Link href="/login" onClick={close}>{t("login")}</Link>
-          <div className="public-nav__drawer-row">
-            <span>{t("mode")}</span>
-            <ModeToggle />
-          </div>
           <div className="public-nav__drawer-row">
             <span>{t("theme")}</span>
             <ThemeToggle />

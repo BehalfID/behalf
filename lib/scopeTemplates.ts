@@ -5,6 +5,7 @@ export type ScopeCategory =
   | "commerce"
   | "content"
   | "admin"
+  | "developer"
   | "custom";
 
 export type ScopeTemplate = {
@@ -340,6 +341,94 @@ export const SCOPE_TEMPLATES: ScopeTemplate[] = [
     exampleResource: ""
   },
   {
+    id: "coding_agent_local",
+    label: "Coding agent: safe local dev",
+    category: "developer",
+    description: "Read and write project files, run tests and linting. Blocks pushes, deploys, and credential access.",
+    defaultAction: "create_content",
+    defaultAllowedActions: ["read files", "write files", "run tests", "run linter", "install packages"],
+    defaultBlockedActions: ["delete directories recursively", "push to remote repository", "deploy to any environment", "read .env files"],
+    requiresApprovalDefault: false,
+    exampleResource: "local-filesystem"
+  },
+  {
+    id: "coding_agent_staging",
+    label: "Coding agent: staging deploy",
+    category: "developer",
+    description: "Deploy to staging and preview environments without approval. Production is blocked.",
+    defaultAction: "deploy",
+    defaultAllowedActions: ["deploy to staging", "create preview deployment", "update staging environment variables"],
+    defaultBlockedActions: ["deploy to production", "promote to production", "delete production deployment", "modify production environment variables"],
+    requiresApprovalDefault: false,
+    exampleResource: "staging"
+  },
+  {
+    id: "coding_agent_production",
+    label: "Coding agent: production deploy (approval required)",
+    category: "developer",
+    description: "Promote staging builds to production only after human approval. Rollbacks also require sign-off.",
+    defaultAction: "deploy_production",
+    defaultAllowedActions: ["promote staging build to production"],
+    defaultBlockedActions: ["rollback without approval", "delete production deployment", "modify production environment variables"],
+    requiresApprovalDefault: true,
+    exampleResource: "production"
+  },
+  {
+    id: "github_read_issues",
+    label: "GitHub: read issues, no merge",
+    category: "developer",
+    description: "Read issues, PRs, comments, and CI status. Blocks merging, pushing, branch deletion, and settings changes.",
+    defaultAction: "access_data",
+    defaultAllowedActions: ["read issues", "read pull requests", "read comments", "search repository", "check CI status"],
+    defaultBlockedActions: ["merge pull requests", "push code", "delete branches", "create releases", "modify repository settings"],
+    requiresApprovalDefault: false,
+    exampleResource: "github.com"
+  },
+  {
+    id: "filesystem_safe",
+    label: "Filesystem: read/write, no recursive delete",
+    category: "developer",
+    description: "Read and write files within the project. Blocks rm -rf, deletion outside project root, and node_modules wipes.",
+    defaultAction: "create_content",
+    defaultAllowedActions: ["read files", "write files", "create directories", "rename files", "move files within project"],
+    defaultBlockedActions: ["delete directories recursively", "rm -rf", "delete outside project root", "remove node_modules recursively"],
+    requiresApprovalDefault: false,
+    exampleResource: "local-filesystem"
+  },
+  {
+    id: "database_read_only",
+    label: "Database: read queries only",
+    category: "developer",
+    description: "Run SELECT queries and read schema. Blocks migrations, ALTER TABLE, DROP, DELETE without WHERE.",
+    defaultAction: "access_data",
+    defaultAllowedActions: ["run SELECT queries", "read records", "view schema", "explain query plan"],
+    defaultBlockedActions: ["run migrations", "ALTER TABLE", "DROP TABLE", "DELETE without WHERE clause", "TRUNCATE"],
+    requiresApprovalDefault: false,
+    exampleResource: "database"
+  },
+  {
+    id: "database_migrations",
+    label: "Database: migrations (approval required)",
+    category: "developer",
+    description: "Apply schema migrations only after human approval. DROP and TRUNCATE always blocked.",
+    defaultAction: "deploy",
+    defaultAllowedActions: ["run migration", "apply schema change"],
+    defaultBlockedActions: ["DROP DATABASE", "DELETE all records", "TRUNCATE without approval"],
+    requiresApprovalDefault: true,
+    exampleResource: "database"
+  },
+  {
+    id: "stripe_test_mode",
+    label: "Stripe: test mode only",
+    category: "developer",
+    description: "Use Stripe test-mode keys freely. Live API key access and real charges are blocked.",
+    defaultAction: "access_data",
+    defaultAllowedActions: ["create test charges", "create test customers", "list test transactions", "read test invoices"],
+    defaultBlockedActions: ["use live API key", "charge real payment methods", "issue live refunds", "modify live subscriptions"],
+    requiresApprovalDefault: false,
+    exampleResource: "stripe.com/test"
+  },
+  {
     id: "custom",
     label: "Custom scope",
     category: "custom",
@@ -359,6 +448,7 @@ export const SCOPE_CATEGORY_LABELS: Record<ScopeCategory, string> = {
   commerce: "Commerce",
   content: "Content",
   admin: "Admin",
+  developer: "Developer",
   custom: "Custom"
 };
 

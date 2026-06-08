@@ -394,8 +394,8 @@ function LoginPanel({ onSuccess }: { onSuccess: () => void }) {
         <Logo />
         <div>
           <p className="section-kicker">Internal console</p>
-          <h2>Prototype administration for BehalfID.</h2>
-          <p>Use this area for internal setup, health checks, webhook operations, and prototype-wide resource inspection.</p>
+          <h2>Internal administration for BehalfID.</h2>
+          <p>Use this area for internal setup, health checks, webhook operations, and resource inspection.</p>
         </div>
         <ul>
           <li>Admin-only access</li>
@@ -407,7 +407,7 @@ function LoginPanel({ onSuccess }: { onSuccess: () => void }) {
       <form className="console-login__panel" onSubmit={submit}>
         <p className="console-kicker">Console access</p>
         <h1>BehalfID</h1>
-        <p className="console-muted">Internal access for prototype administration.</p>
+        <p className="console-muted">Internal access for BehalfID administration.</p>
         <label>
           <span>Admin password</span>
           <input
