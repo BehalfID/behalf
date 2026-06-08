@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .select("-_id requestId agentId permissionId action amount vendor allowed approvalRequired reason risk createdAt")
+      .select("-_id requestId agentId permissionId action amount vendor allowed approvalRequired reason risk shadow createdAt")
       .lean<VerificationLogListItem[]>(),
     VerificationLog.countDocuments(query),
     getVerificationLogSummaryAgg(query)

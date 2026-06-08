@@ -236,6 +236,69 @@ Denial reasons include:
 - `Action is not included in allowedActions.`
 - `Permission requires approval before execution.`
 
+### Shadow Mode
+
+Shadow mode lets you observe what BehalfID would have decided without enforcing it. Use it during policy discovery and onboarding to understand which actions your agents are performing before you begin blocking them.
+
+To enable shadow mode, add `"shadow": true` (or `"mode": "shadow"`) to the request body:
+
+```json
+{
+  "agentId": "agent_xxx",
+  "action": "deploy_production",
+  "vendor": "vercel",
+  "shadow": true
+}
+```
+
+The policy is evaluated normally and the decision is logged with `shadow: true`. Execution is never blocked. The response always returns `"allowed": true` and includes the real policy decision in `shadowDecision`:
+
+```json
+{
+  "requestId": "req_xxx",
+  "allowed": true,
+  "shadow": true,
+  "shadowDecision": {
+    "allowed": false,
+    "reason": "No active permission exists for this action.",
+    "risk": "high"
+  },
+  "reason": "Shadow mode: action would have been denied.",
+  "risk": "high"
+}
+```
+
+Key properties:
+- `shadow: true` is always present in the response when shadow mode was requested.
+- `shadowDecision.allowed` is the real policy outcome.
+- `allowed` is always `true` — shadow mode never blocks.
+- Approval gates are not triggered in shadow mode (no `ApprovalRequest` is created).
+- The log is marked `shadow: true` and can be filtered with `?shadow=true` on the logs endpoints.
+- Normal mode is unaffected. `allowed: false` still means the action is blocked when `shadow` is not set.
+
+**CLI shadow mode:**
+
+```sh
+# Evaluate the policy for a command without blocking it
+behalf run --shadow -- npm run deploy
+
+# Evaluate a single verify call without enforcement
+behalf verify agent_xxx --action deploy_production --shadow
+```
+
+In shadow mode the CLI prints what the decision would have been, prefixed with `[shadow]`, then executes the command regardless.
+
+**Dashboard filtering:**
+
+Logs can be filtered to show only shadow-mode decisions:
+
+```
+GET /api/dashboard/logs?shadow=true
+GET /api/logs/{agentId}?shadow=true
+```
+
+Use `?shadow=false` to exclude shadow logs and see only real enforced decisions.
+
 ## POST /api/site-guard/check
 
 Checks whether a website route should be served to an AI agent or crawler signal. Site Guard is separate from `/api/verify`: it does not use agent API keys or passport permissions. The MVP requires an account-scoped developer API token in `x-developer-token`.

@@ -15,7 +15,8 @@ const VerificationLogSchema = new Schema(
     approvalRequired: { type: Boolean, default: false },
     reason: { type: String, required: true },
     risk: { type: String, enum: ["low", "medium", "high"], required: true },
-    metadata: { type: Schema.Types.Mixed, default: undefined }
+    metadata: { type: Schema.Types.Mixed, default: undefined },
+    shadow: { type: Boolean, default: false, index: true }
   },
   { timestamps: true }
 );

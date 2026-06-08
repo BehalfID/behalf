@@ -26,7 +26,9 @@ export async function POST(request: NextRequest) {
     "amount",
     "vendor",
     "resource",
-    "metadata"
+    "metadata",
+    "shadow",
+    "mode"
   ]);
   if (unknownError) {
     return jsonError(unknownError);
@@ -89,6 +91,8 @@ export async function POST(request: NextRequest) {
     return jsonError(quota.reason ?? "Verification quota exceeded.", 429, quotaErrorDetails(quota));
   }
 
+  const shadow = body.shadow === true || body.mode === "shadow";
+
   let decision;
   try {
     decision = await verifyAction({
@@ -99,13 +103,16 @@ export async function POST(request: NextRequest) {
       action,
       amount,
       vendor,
-      metadata: body.metadata
+      metadata: body.metadata,
+      shadow
     });
   } catch {
     return jsonError("Verification failed closed.", 503);
   }
 
-  const webhookEventType = decision.allowed
+  const webhookEventType = decision.shadow
+    ? "verification.shadow"
+    : decision.allowed
     ? "verification.allowed"
     : decision.approvalRequired
     ? "verification.approval_required"
@@ -123,7 +130,8 @@ export async function POST(request: NextRequest) {
         approvalRequired: decision.approvalRequired ?? false,
         ...(decision.approvalId ? { approvalId: decision.approvalId } : {}),
         risk: decision.risk,
-        permissionId: decision.permissionId
+        permissionId: decision.permissionId,
+        ...(decision.shadow ? { shadow: true, shadowDecision: decision.shadowDecision } : {})
       },
       auth.agent.developerUserId
     )
@@ -135,6 +143,7 @@ export async function POST(request: NextRequest) {
     approvalRequired: decision.approvalRequired ?? false,
     ...(decision.approvalId ? { approvalId: decision.approvalId } : {}),
     reason: decision.reason,
-    risk: decision.risk
+    risk: decision.risk,
+    ...(decision.shadow ? { shadow: true, shadowDecision: decision.shadowDecision } : {})
   });
 }

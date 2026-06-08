@@ -48,7 +48,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       .skip(skip)
       .limit(pageLimit)
       .select(
-        "-_id requestId agentId permissionId action amount vendor allowed reason risk createdAt"
+        "-_id requestId agentId permissionId action amount vendor allowed approvalRequired reason risk shadow createdAt"
       )
       .lean<VerificationLogListItem[]>(),
     VerificationLog.countDocuments(query),
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       .sort({ createdAt: -1 })
       .limit(1000)
       .select(
-        "-_id requestId agentId permissionId action amount vendor allowed reason risk createdAt"
+        "-_id requestId agentId permissionId action amount vendor allowed approvalRequired reason risk shadow createdAt"
       )
       .lean<VerificationLogListItem[]>()
   ]);

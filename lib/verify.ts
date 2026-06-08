@@ -14,6 +14,13 @@ type VerifyInput = {
   vendor?: string;
   metadata?: Record<string, unknown>;
   enforcementDenyReason?: string;
+  shadow?: boolean;
+};
+
+type ShadowDecision = {
+  allowed: boolean;
+  reason: string;
+  risk: "low" | "medium" | "high";
 };
 
 type VerificationDecision = {
@@ -22,6 +29,8 @@ type VerificationDecision = {
   approvalRequired?: boolean;
   reason: string;
   risk: "low" | "medium" | "high";
+  shadow?: boolean;
+  shadowDecision?: ShadowDecision;
 };
 
 type RawDecision = Omit<VerificationDecision, "requestId">;
@@ -234,6 +243,59 @@ export async function verifyAction(input: VerifyInput) {
     };
   }
 
+  const now = new Date();
+  const logMetadata =
+    process.env.BEHALFID_LOG_METADATA === "false" ? undefined : input.metadata;
+
+  // Shadow mode: evaluate policy, log the real decision, but never block execution.
+  // Approval gates are skipped — no side effects should occur in shadow mode.
+  if (input.shadow) {
+    recordAgentKeyUse(input.agentId);
+
+    if (permission) {
+      await Permission.updateOne(
+        { permissionId: permission.permissionId },
+        { $set: { lastUsedAt: now } }
+      );
+    }
+
+    await VerificationLog.create({
+      logId: createPublicId("log"),
+      requestId,
+      accountId: input.accountId,
+      developerUserId: input.developerUserId,
+      agentId: input.agentId,
+      permissionId: permission?.permissionId ?? null,
+      action: input.action,
+      amount: input.amount,
+      vendor: input.vendor,
+      allowed: decision.allowed,
+      approvalRequired: decision.approvalRequired ?? false,
+      reason: decision.reason,
+      risk: decision.risk,
+      metadata: logMetadata,
+      shadow: true
+    });
+
+    return {
+      requestId,
+      permissionId: permission?.permissionId ?? null,
+      allowed: true,
+      approvalRequired: false,
+      approvalId: null,
+      shadow: true,
+      shadowDecision: {
+        allowed: decision.allowed,
+        reason: decision.reason,
+        risk: decision.risk
+      } satisfies ShadowDecision,
+      reason: decision.allowed
+        ? "Shadow mode: action would have been allowed."
+        : "Shadow mode: action would have been denied.",
+      risk: decision.risk
+    };
+  }
+
   // Resolve approval gate: if the permission requires approval, check for a
   // granted approval or upsert a pending request.
   let approvalId: string | null = null;
@@ -255,8 +317,6 @@ export async function verifyAction(input: VerifyInput) {
       ? ({ allowed: false, reason: input.enforcementDenyReason, risk: "high" } satisfies RawDecision)
       : decision;
 
-  const now = new Date();
-
   recordAgentKeyUse(input.agentId);
 
   if (permission) {
@@ -265,9 +325,6 @@ export async function verifyAction(input: VerifyInput) {
       { $set: { lastUsedAt: now } }
     );
   }
-
-  const logMetadata =
-    process.env.BEHALFID_LOG_METADATA === "false" ? undefined : input.metadata;
 
   await VerificationLog.create({
     logId: createPublicId("log"),
