@@ -120,6 +120,59 @@ describe("verification log helpers", () => {
     expect(query.agentId).toBe("agent_authenticated");
   });
 
+  it("buildReceiptData shapes data and redacts secrets", async () => {
+    const { buildReceiptData } = await import("@/lib/verificationLogs");
+
+    const receipt = buildReceiptData({
+      ...logs[0],
+      agentName: "My Agent",
+      reason: "Bearer bhf_sk_secret_token was denied",
+      vendor: "stripe.com"
+    });
+
+    expect(receipt.decision).toBe("denied");
+    expect(receipt.agent).toBe("My Agent");
+    expect(receipt.action).toBe("purchase");
+    expect(receipt.resource).toBe("stripe.com");
+    expect(receipt.risk).toBe("high");
+    expect(receipt.reason).not.toContain("bhf_sk_secret_token");
+    expect(receipt.reason).toContain("[redacted]");
+    expect(receipt.requestId).toBe("req_denied");
+    expect(receipt.permissionId).toBeNull();
+  });
+
+  it("buildReceiptData marks approval_required when approvalRequired is true", async () => {
+    const { buildReceiptData } = await import("@/lib/verificationLogs");
+
+    const receipt = buildReceiptData({ ...logs[1], permissionId: "perm_test" });
+
+    expect(receipt.decision).toBe("approval_required");
+    expect(receipt.permissionId).toBe("perm_test");
+    expect(receipt.requestId).toBe("req_approval");
+  });
+
+  it("formatReceiptText produces readable plain text with requestId", async () => {
+    const { buildReceiptData, formatReceiptText } = await import("@/lib/verificationLogs");
+
+    const data = buildReceiptData(logs[0]);
+    const text = formatReceiptText(data);
+
+    expect(text).toContain("Blocked Action");
+    expect(text).toContain("Request ID: req_denied");
+    expect(text).toContain("Decision:   Denied");
+    expect(text).toContain("Action:     purchase");
+    expect(text).toContain("Resource:   stripe.com");
+  });
+
+  it("formatReceiptText does not include permissionId line when absent", async () => {
+    const { buildReceiptData, formatReceiptText } = await import("@/lib/verificationLogs");
+
+    const data = buildReceiptData({ ...logs[0], permissionId: null });
+    const text = formatReceiptText(data);
+
+    expect(text).not.toContain("Policy:");
+  });
+
   it("calculates summary stats and redacts exports", async () => {
     const {
       calculateVerificationLogSummary,

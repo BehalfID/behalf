@@ -17,6 +17,7 @@ export type VerificationLogListItem = {
   approvalRequired?: boolean;
   reason: string;
   risk: LogRisk;
+  shadow?: boolean;
   createdAt?: Date | string;
 };
 
@@ -91,6 +92,7 @@ export function buildVerificationLogQuery(
   const requestId = searchParams.get("requestId")?.trim();
   const allowed = searchParams.get("allowed")?.trim();
   const risk = searchParams.get("risk")?.trim();
+  const shadowParam = searchParams.get("shadow")?.trim();
   const from = validDate(searchParams.get("from") ?? searchParams.get("start"));
   const to = validDate(searchParams.get("to") ?? searchParams.get("end"));
   const gte = latestDate(options.retentionStart ?? null, from);
@@ -105,6 +107,8 @@ export function buildVerificationLogQuery(
   if (allowed === "false") query.allowed = false;
   if (allowed === "approval") { query.allowed = false; query.approvalRequired = true; }
   if (risk && RISKS.has(risk)) query.risk = risk;
+  if (shadowParam === "true") query.shadow = true;
+  if (shadowParam === "false") query.$or = [{ shadow: false }, { shadow: { $exists: false } }];
   if (gte || to) query.createdAt = {
     ...(gte ? { $gte: gte } : {}),
     ...(to ? { $lte: to } : {})
@@ -291,9 +295,60 @@ export function sanitizeVerificationLog(log: VerificationLogListItem): Verificat
   };
 }
 
+export type DenyReceiptData = {
+  decision: "denied" | "approval_required";
+  agent: string;
+  action: string;
+  resource: string | null;
+  risk: string;
+  reason: string;
+  permissionId: string | null;
+  requestId: string;
+  timestamp: string;
+};
+
+const APPROVAL_REASON_RE = /requires approval|approval required|approval before execution/i;
+
+export function buildReceiptData(log: VerificationLogListItem): DenyReceiptData {
+  const isApproval = log.approvalRequired || APPROVAL_REASON_RE.test(log.reason);
+  const decision = isApproval ? "approval_required" : "denied";
+  const ts = log.createdAt instanceof Date
+    ? log.createdAt.toISOString()
+    : (typeof log.createdAt === "string" ? log.createdAt : new Date().toISOString());
+  return {
+    decision,
+    agent: redactLogString(log.agentName || log.agentId),
+    action: redactLogString(log.action),
+    resource: log.vendor ? redactLogString(log.vendor) : null,
+    risk: log.risk,
+    reason: redactLogString(log.reason),
+    permissionId: log.permissionId ? redactLogString(log.permissionId) : null,
+    requestId: redactLogString(log.requestId),
+    timestamp: ts
+  };
+}
+
+export function formatReceiptText(data: DenyReceiptData): string {
+  const decisionLabel = data.decision === "approval_required" ? "Approval Required" : "Denied";
+  const lines = [
+    "Blocked Action",
+    `Agent:      ${data.agent}`,
+    `Action:     ${data.action}`,
+  ];
+  if (data.resource) lines.push(`Resource:   ${data.resource}`);
+  lines.push(`Decision:   ${decisionLabel}`);
+  lines.push(`Reason:     ${data.reason}`);
+  lines.push(`Risk:       ${data.risk}`);
+  if (data.permissionId) lines.push(`Policy:     ${data.permissionId}`);
+  lines.push(`Request ID: ${data.requestId}`);
+  lines.push(`Time:       ${data.timestamp}`);
+  return lines.join("\n");
+}
+
 export function logsToCsv(logs: VerificationLogListItem[]) {
   const headers = [
     "createdAt",
+    "shadow",
     "decision",
     "approvalRequired",
     "risk",
@@ -307,6 +362,7 @@ export function logsToCsv(logs: VerificationLogListItem[]) {
   ];
   const rows = logs.map((log) => [
     stringifyDate(log.createdAt),
+    log.shadow ? "true" : "false",
     log.allowed ? "allowed" : "denied",
     log.approvalRequired ? "true" : "false",
     log.risk,
