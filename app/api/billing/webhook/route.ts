@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
       const account = await Account.findOne({ stripeCustomerId: customerId });
       if (!account) break;
       const isActive = sub.status === "active" || sub.status === "trialing";
-      const periodEnd = sub.items.data[0]?.current_period_end;
+      const periodEnd = sub.items?.data?.[0]?.current_period_end;
       await Account.updateOne(
         { stripeCustomerId: customerId },
         {

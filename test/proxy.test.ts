@@ -1,4 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("next/server", () => ({
+  NextResponse: { next: vi.fn(), redirect: vi.fn() },
+}));
+vi.mock("next-intl/middleware", () => ({ default: vi.fn(() => vi.fn()) }));
+vi.mock("@/i18n/routing", () => ({ routing: {} }));
+
 import { shouldBypassProxy } from "@/proxy";
 
 describe("proxy public bypasses", () => {
