@@ -19,6 +19,7 @@ import { mcpCommand } from "./commands/mcp.js";
 import { runCommand, claudeCommand, codexCommand } from "./commands/run.js";
 import { webhooksCommand } from "./commands/webhooks.js";
 import { doctorCommand } from "./commands/doctor.js";
+import { scanCommand } from "./commands/scan.js";
 
 const rawArgs = process.argv.slice(2);
 const jsonMode = rawArgs.includes("--json");
@@ -53,6 +54,8 @@ Examples:
   behalfid webhooks listen                        stream webhook events live
   behalfid doctor                                 check CLI configuration
   behalfid mcp init                               set up BehalfID enforcement in this directory
+  behalfid scan                                   inspect repo and suggest BehalfID policies
+  behalfid scan --json                            machine-readable policy suggestions
 `
   );
 
@@ -74,6 +77,7 @@ program.addCommand(claudeCommand());
 program.addCommand(codexCommand());
 program.addCommand(webhooksCommand());
 program.addCommand(doctorCommand());
+program.addCommand(scanCommand());
 
 program.parseAsync(["", "", ...filteredArgs]).catch(err => {
   if (jsonMode) {
