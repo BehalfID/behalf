@@ -1,16 +1,27 @@
 import mongoose, { Schema, type InferSchemaType, type Model } from "mongoose";
 
 /**
- * An ApprovalRequest is created when a verify() call hits a permission with
- * requiresApproval: true and no approved grant exists for (agentId, permissionId).
+ * An ApprovalRequest is created when a verify() call passes all hard policy
+ * constraints but hits a permission with requiresApproval: true and no
+ * approved grant exists for the exact request tuple
+ * (agentId, permissionId, action, vendor, amount).
  *
  * Lifecycle:
  *   pending  → approved (human approves in dashboard, grantExpiresAt set to +30min)
  *   pending  → denied   (human denies in dashboard)
- *   approved → used     (agent calls verify() again within the grant window; action allowed)
+ *   approved → used     (agent calls verify() again within the grant window
+ *                        with the SAME action/vendor/amount; action allowed)
  *
- * Multiple verify() calls while pending do NOT create duplicate records.
- * The upsert in verifyAction uses findOneAndUpdate with $setOnInsert.
+ * Scoping: an approved grant is only valid for the exact action, vendor, and
+ * amount stored on this document. It satisfies only the requiresApproval gate;
+ * it never overrides blocked actions, allowedActions narrowing, revoked or
+ * expired permissions, disabled agents, maxAmount, allowedVendors, or
+ * resource matching — those are re-evaluated on every verify() call before
+ * the approval gate is consulted.
+ *
+ * Multiple verify() calls while pending do NOT create duplicate records for
+ * the same request tuple. The upsert in verifyAction uses findOneAndUpdate
+ * with the tuple in the filter and $setOnInsert for insert-only fields.
  */
 const ApprovalRequestSchema = new Schema(
   {

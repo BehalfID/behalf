@@ -69,7 +69,7 @@ Error responses, webhook payloads, worker summaries, SDK errors, and CLI errors 
 
 ## Integration Paths
 
-- SDK path: use `@behalfid/sdk` inside your app and call `verify` before your code executes a tool action.
+- SDK path: use `@behalfid/sdk` inside your app and call `verify` before your code executes a tool action. Use `getBoundary` to discover the agent's operating limits ahead of time.
 - Action Gateway path: call `/api/actions/execute` when BehalfID should verify and execute a supported safe action in one request.
 - CLI/MCP path: use `behalf mcp init`, `behalf claude`, or `behalf codex` to add permission context and `verify_action` to local coding agents.
 - Site Guard path: call `/api/site-guard/check` from website middleware before serving protected routes.
@@ -236,6 +236,58 @@ Denial reasons include:
 - `Action is not included in allowedActions.`
 - `Permission requires approval before execution.`
 
+### Approvals (`approvalRequired` and `approvalId`)
+
+When the matching permission has `requiresApproval: true` and the request passes
+every other policy check, verification denies with `approvalRequired: true` and
+returns the `approvalId` of the pending `ApprovalRequest`:
+
+```json
+{
+  "requestId": "req_xxx",
+  "allowed": false,
+  "approvalRequired": true,
+  "approvalId": "apr_xxx",
+  "reason": "Permission requires approval before execution.",
+  "risk": "medium"
+}
+```
+
+- `approvalRequired: true` means the action is policy-compliant but is being held
+  for a human decision. A pending `ApprovalRequest` is created (or reused) for
+  the exact request — repeated identical verify calls do not create duplicates.
+- `approvalId` identifies that pending request. A developer resolves it in the
+  dashboard (`POST /api/dashboard/approvals/{approvalId}/approve` or `/deny`).
+
+**What an approval grant means.** Approving a request creates a time-limited
+grant (30 minutes) scoped to the exact `action`, `vendor`/resource, and `amount`
+that were originally requested. The next verify call that matches that exact
+tuple is allowed and the grant is consumed (marked `used`) — it cannot be
+reused.
+
+**What an approval grant does not override.** An approval satisfies only the
+human-approval gate. It never overrides policy constraints, which are
+re-evaluated on every verify call *before* the approval gate is consulted:
+
+- disabled agents
+- revoked permissions
+- expired permissions
+- `blockedActions`
+- `allowedActions` narrowing
+- resource/vendor matching
+- `constraints.allowedVendors`
+- `constraints.maxAmount` (including the requirement that `amount` be present)
+
+A grant approved for `vendor: "a.com"` does not allow `vendor: "b.com"`; a
+grant approved for `amount: 25` does not allow `amount: 250`; a grant approved
+for `action: "purchase"` does not allow `action: "deploy"`. A request that
+differs from the approved tuple is denied with `approvalRequired: true` and a
+new pending `ApprovalRequest` for the new tuple.
+
+The verification order is: find the matching permission → apply all hard
+constraint checks above → only then, if the permission requires approval,
+consume a matching grant or create a pending approval request.
+
 ### Shadow Mode
 
 Shadow mode lets you observe what BehalfID would have decided without enforcing it. Use it during policy discovery and onboarding to understand which actions your agents are performing before you begin blocking them.
@@ -298,6 +350,75 @@ GET /api/logs/{agentId}?shadow=true
 ```
 
 Use `?shadow=false` to exclude shadow logs and see only real enforced decisions.
+
+## GET /api/agents/[agentId]/boundary
+
+Returns the agent's **Boundary Manifest** — the computed, machine-readable representation of its effective operating limits. The boundary is the authoritative way for an agent to ask "what am I allowed to do?" before planning tool calls.
+
+The boundary is derived entirely from real Permission records using the same semantics as `/api/verify`:
+
+- `blockedActions` win over allowed actions across all active permissions.
+- A non-empty `allowedActions` list narrows a permission to those exact action strings; the broad parent action is not granted.
+- Revoked permissions and permissions past `constraints.expiresAt` are excluded from the effective surface and listed separately for transparency.
+- Actions on `requiresApproval` permissions are listed in `approvalRequiredActions`, not `allowedActions`.
+- A disabled agent returns `status: "disabled"` with empty `allowedActions` and `approvalRequiredActions`.
+
+Authentication matches `/api/verify`: the request requires that agent's own API key (`Authorization: Bearer bhf_sk_...`), so an agent can never read another agent's boundary. The optional `x-developer-token` header, when present, must belong to the same account. Database or computation failures fail closed with `503`.
+
+Response:
+
+```json
+{
+  "boundaryVersion": "2026-06-11",
+  "agentId": "agent_xxx",
+  "status": "active",
+  "generatedAt": "2026-06-11T00:00:00.000Z",
+  "agent": {
+    "name": "Coding Agent",
+    "description": "Deploys and maintains the web app",
+    "guidelines": ["Use BehalfID before risky actions."]
+  },
+  "allowedActions": ["deploy to staging", "read issues"],
+  "blockedActions": ["deploy to production", "force push"],
+  "approvalRequiredActions": ["deploy_production"],
+  "resources": ["github.com", "staging"],
+  "vendors": ["vercel.com"],
+  "constraints": {
+    "maxAmount": [
+      { "permissionId": "perm_xxx", "action": "purchase", "resource": null, "maxAmount": 25 }
+    ],
+    "vendorRestrictions": [
+      { "permissionId": "perm_xxx", "action": "purchase", "allowedVendors": ["vercel.com"] }
+    ],
+    "expirationRules": [
+      { "permissionId": "perm_xxx", "action": "deploy", "expiresAt": "2099-01-01T00:00:00.000Z" }
+    ]
+  },
+  "activePermissions": [ { "permissionId": "perm_xxx", "action": "deploy", "status": "active" } ],
+  "expiredPermissions": [],
+  "revokedPermissions": [],
+  "summary": {
+    "activePermissionCount": 1,
+    "expiredPermissionCount": 0,
+    "revokedPermissionCount": 0,
+    "allowedActionCount": 2,
+    "blockedActionCount": 2,
+    "approvalRequiredActionCount": 1
+  },
+  "enforcement": {
+    "decisionEndpoint": "/api/verify",
+    "note": "The boundary is informational context. Every risky action must still be verified with POST /api/verify before execution; denied or unavailable verification fails closed."
+  }
+}
+```
+
+How the boundary relates to other primitives:
+
+- **Verification** stays the enforcement decision point. The boundary tells an agent its operating space ahead of time; `/api/verify` decides each action and writes the audit log. Reading the boundary never replaces verification and is not metered as a verification.
+- **Passports** are human-readable or manual boundary sharing: tokenized links for assistants that cannot authenticate with an agent API key. The boundary endpoint is the authoritative runtime source of truth for integrated agents.
+- **Approvals** appear in `approvalRequiredActions`. When the agent attempts one of these actions, `/api/verify` returns `approvalRequired: true` and the normal approval-grant flow applies.
+
+SDK access: `behalf.getBoundary(agentId)`. CLI/MCP access: the `get_boundary` MCP tool and the permission cache used by `behalf mcp init` both read this endpoint with the agent API key — no dashboard session is required.
 
 ## POST /api/site-guard/check
 
@@ -410,7 +531,7 @@ Verification logs store the decision fields needed for debugging: `requestId`, `
 
 ## GET /api/passport/[agentId]
 
-Returns the public-safe passport for a manual passport link, including agent metadata and active permission scopes. The token is separate from the agent API key. Generated passport links keep the token in the URL fragment; API calls should send it as `Authorization: Bearer bhf_pass_...`.
+Returns the public-safe passport for a manual passport link, including agent metadata and active permission scopes. Passports are human-readable or manual boundary sharing for assistants that cannot authenticate with an agent API key; integrated agents should read `GET /api/agents/[agentId]/boundary` instead, which is the authoritative runtime source of truth. The token is separate from the agent API key. Generated passport links keep the token in the URL fragment; API calls should send it as `Authorization: Bearer bhf_pass_...`.
 
 Passport links intentionally expose the agent's allowed permission scopes so external agents can read what they are permitted to do. They never expose API keys, webhook secrets, developer identity, account IDs, internal DB IDs, or audit logs. Revoked and expired permissions are excluded.
 

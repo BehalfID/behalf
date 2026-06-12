@@ -369,10 +369,17 @@ describe("verifyAction permission decisions", () => {
     expect(modelMocks.verificationLogCreate).toHaveBeenCalledWith(
       expect.objectContaining({ allowed: false, approvalRequired: true })
     );
-    // Should have upserted a pending ApprovalRequest
+    // Should have upserted a pending ApprovalRequest scoped to the exact request
     expect(modelMocks.approvalRequestFindOneAndUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({ agentId: "agent_test", status: "pending" }),
-      expect.objectContaining({ $setOnInsert: expect.objectContaining({ action: "purchase" }) }),
+      expect.objectContaining({
+        agentId: "agent_test",
+        permissionId: "perm_test",
+        action: "purchase",
+        vendor: "amazon.com",
+        amount: 25,
+        status: "pending"
+      }),
+      expect.objectContaining({ $setOnInsert: expect.objectContaining({ approvalId: expect.stringMatching(/^apr_/) }) }),
       { upsert: true, new: true }
     );
   });
@@ -385,6 +392,9 @@ describe("verifyAction permission decisions", () => {
       approvalId: "apr_test",
       agentId: "agent_test",
       permissionId: "perm_test",
+      action: "purchase",
+      vendor: "amazon.com",
+      amount: 25,
       status: "approved",
       grantExpiresAt
     });
@@ -466,5 +476,211 @@ describe("verifyAction permission decisions", () => {
         reason: "Resource does not match permission resource."
       })
     );
+  });
+});
+
+describe("approval grants never bypass hard constraints", () => {
+  function matchingGrant(overrides: Partial<Record<string, unknown>> = {}) {
+    return {
+      approvalId: "apr_granted",
+      agentId: "agent_test",
+      permissionId: "perm_test",
+      action: "purchase",
+      vendor: "amazon.com",
+      amount: 25,
+      status: "approved",
+      grantExpiresAt: new Date(Date.now() + 20 * 60 * 1_000),
+      ...overrides
+    };
+  }
+
+  beforeEach(() => {
+    modelMocks.agentUpdateOne.mockResolvedValue({ matchedCount: 1 });
+    modelMocks.permissionUpdateOne.mockResolvedValue({ matchedCount: 1 });
+    modelMocks.verificationLogCreate.mockResolvedValue({});
+    // An approved grant always "exists" in these tests; hard constraints must
+    // still deny before the approval gate is ever consulted.
+    modelMocks.approvalRequestFindOne.mockResolvedValue(matchingGrant());
+    modelMocks.approvalRequestFindOneAndUpdate.mockResolvedValue(null);
+    modelMocks.approvalRequestUpdateOne.mockResolvedValue({ matchedCount: 1 });
+  });
+
+  it("creates a pending approval for an under-maxAmount purchase that requires approval", async () => {
+    mockPermissions([
+      permissionFixture({ requiresApproval: true, constraints: { maxAmount: 100 } })
+    ]);
+    modelMocks.approvalRequestFindOne.mockResolvedValue(null);
+    const { verifyAction } = await import("@/lib/verify");
+
+    const decision = await verifyAction(verificationRequestFixture({ amount: 25 }));
+
+    expect(decision).toEqual(expect.objectContaining({
+      allowed: false,
+      approvalRequired: true,
+      reason: "Permission requires approval before execution."
+    }));
+    expect(modelMocks.approvalRequestFindOneAndUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "purchase", amount: 25, status: "pending" }),
+      expect.anything(),
+      { upsert: true, new: true }
+    );
+  });
+
+  it("still enforces maxAmount when an approved grant exists", async () => {
+    mockPermissions([
+      permissionFixture({ requiresApproval: true, constraints: { maxAmount: 100 } })
+    ]);
+    modelMocks.approvalRequestFindOne.mockResolvedValue(matchingGrant({ amount: 250 }));
+    const { verifyAction } = await import("@/lib/verify");
+
+    const decision = await verifyAction(verificationRequestFixture({ amount: 250 }));
+
+    expect(decision).toEqual(expect.objectContaining({
+      allowed: false,
+      reason: "Amount exceeds maxAmount constraint."
+    }));
+    expect(modelMocks.approvalRequestFindOne).not.toHaveBeenCalled();
+    expect(modelMocks.approvalRequestUpdateOne).not.toHaveBeenCalled();
+  });
+
+  it("still enforces allowedVendors when an approved grant exists", async () => {
+    mockPermissions([
+      permissionFixture({ requiresApproval: true, constraints: { allowedVendors: ["amazon.com"] } })
+    ]);
+    modelMocks.approvalRequestFindOne.mockResolvedValue(matchingGrant({ vendor: "evil.example" }));
+    const { verifyAction } = await import("@/lib/verify");
+
+    const decision = await verifyAction(verificationRequestFixture({ vendor: "evil.example" }));
+
+    expect(decision).toEqual(expect.objectContaining({
+      allowed: false,
+      reason: "Vendor is not included in allowedVendors constraint."
+    }));
+    expect(modelMocks.approvalRequestFindOne).not.toHaveBeenCalled();
+    expect(modelMocks.approvalRequestUpdateOne).not.toHaveBeenCalled();
+  });
+
+  it("still enforces blockedActions when an approved grant exists", async () => {
+    mockPermissions([
+      permissionFixture({ requiresApproval: true, blockedActions: ["purchase"] })
+    ]);
+    const { verifyAction } = await import("@/lib/verify");
+
+    const decision = await verifyAction(verificationRequestFixture());
+
+    expect(decision).toEqual(expect.objectContaining({
+      allowed: false,
+      reason: "Action is blocked by this permission."
+    }));
+    expect(modelMocks.approvalRequestFindOne).not.toHaveBeenCalled();
+  });
+
+  it("still denies revoked permissions when an approved grant exists", async () => {
+    mockPermissions([
+      permissionFixture({ requiresApproval: true, status: "revoked" })
+    ]);
+    const { verifyAction } = await import("@/lib/verify");
+
+    const decision = await verifyAction(verificationRequestFixture());
+
+    expect(decision).toEqual(expect.objectContaining({
+      allowed: false,
+      reason: "Permission has been revoked."
+    }));
+    expect(modelMocks.approvalRequestFindOne).not.toHaveBeenCalled();
+  });
+
+  it("still denies expired permissions when an approved grant exists", async () => {
+    mockPermissions([
+      permissionFixture({
+        requiresApproval: true,
+        constraints: { expiresAt: new Date(Date.now() - 1_000) }
+      })
+    ]);
+    const { verifyAction } = await import("@/lib/verify");
+
+    const decision = await verifyAction(verificationRequestFixture());
+
+    expect(decision).toEqual(expect.objectContaining({
+      allowed: false,
+      reason: "Permission has expired."
+    }));
+    expect(modelMocks.approvalRequestFindOne).not.toHaveBeenCalled();
+  });
+
+  it("still denies disabled agents when an approved grant exists", async () => {
+    mockPermissions([permissionFixture({ requiresApproval: true })]);
+    const { verifyAction } = await import("@/lib/verify");
+
+    const decision = await verifyAction(verificationRequestFixture({ agentStatus: "disabled" }));
+
+    expect(decision).toEqual(expect.objectContaining({
+      allowed: false,
+      reason: "Agent is disabled."
+    }));
+    expect(modelMocks.approvalRequestFindOne).not.toHaveBeenCalled();
+  });
+
+  it("still denies actions outside allowedActions when an approved grant exists", async () => {
+    mockPermissions([
+      permissionFixture({
+        action: "purchase",
+        requiresApproval: true,
+        allowedActions: ["purchase books"]
+      })
+    ]);
+    const { verifyAction } = await import("@/lib/verify");
+
+    const decision = await verifyAction(verificationRequestFixture({ action: "purchase" }));
+
+    expect(decision).toEqual(expect.objectContaining({
+      allowed: false,
+      reason: "Action is not included in allowedActions."
+    }));
+    expect(modelMocks.approvalRequestFindOne).not.toHaveBeenCalled();
+  });
+
+  it("still denies resource mismatches when an approved grant exists", async () => {
+    mockPermissions([
+      permissionFixture({ requiresApproval: true, resource: "gmail.com" })
+    ]);
+    modelMocks.approvalRequestFindOne.mockResolvedValue(matchingGrant({ vendor: "slack.com" }));
+    const { verifyAction } = await import("@/lib/verify");
+
+    const decision = await verifyAction(verificationRequestFixture({ vendor: "slack.com" }));
+
+    expect(decision).toEqual(expect.objectContaining({
+      allowed: false,
+      reason: "Resource does not match permission resource."
+    }));
+    expect(modelMocks.approvalRequestFindOne).not.toHaveBeenCalled();
+  });
+
+  it("still fails closed on missing constrained amount/vendor when an approved grant exists", async () => {
+    const { verifyAction } = await import("@/lib/verify");
+
+    mockPermissions([
+      permissionFixture({ requiresApproval: true, constraints: { maxAmount: 100 } })
+    ]);
+    modelMocks.approvalRequestFindOne.mockResolvedValue(matchingGrant({ amount: null }));
+    await expect(verifyAction(verificationRequestFixture({ amount: undefined }))).resolves.toEqual(
+      expect.objectContaining({
+        allowed: false,
+        reason: "amount is required for permissions with a maxAmount constraint."
+      })
+    );
+
+    mockPermissions([
+      permissionFixture({ requiresApproval: true, constraints: { allowedVendors: ["amazon.com"] } })
+    ]);
+    modelMocks.approvalRequestFindOne.mockResolvedValue(matchingGrant({ vendor: null }));
+    await expect(verifyAction(verificationRequestFixture({ vendor: undefined }))).resolves.toEqual(
+      expect.objectContaining({
+        allowed: false,
+        reason: "Vendor is not included in allowedVendors constraint."
+      })
+    );
+
+    expect(modelMocks.approvalRequestFindOne).not.toHaveBeenCalled();
   });
 });

@@ -1,6 +1,6 @@
 import { createPublicId } from "@/lib/ids";
 import { recordAgentKeyUse } from "@/lib/auth";
-import ApprovalRequest, { APPROVAL_GRANT_TTL_MS } from "@/models/ApprovalRequest";
+import ApprovalRequest from "@/models/ApprovalRequest";
 import Permission, { type PermissionDocument } from "@/models/Permission";
 import VerificationLog from "@/models/VerificationLog";
 
@@ -65,7 +65,15 @@ function isActiveCandidate(permission: PermissionDocument) {
   return permission.status === "active" && !isExpired(permission);
 }
 
-function evaluatePermission(permission: PermissionDocument | null, input: VerifyInput): RawDecision {
+/**
+ * Hard constraints that can never be bypassed — not even by a human-approved
+ * grant. Returns a deny decision if any constraint fails, or null if the
+ * request passes every hard constraint.
+ */
+function evaluateHardConstraints(
+  permission: PermissionDocument | null,
+  input: VerifyInput
+): RawDecision | null {
   if (input.agentStatus === "disabled") {
     return { allowed: false, reason: "Agent is disabled.", risk: "high" };
   }
@@ -82,6 +90,10 @@ function evaluatePermission(permission: PermissionDocument | null, input: Verify
     return { allowed: false, reason: "Permission has been revoked.", risk: "high" };
   }
 
+  if (isExpired(permission)) {
+    return { allowed: false, reason: "Permission has expired.", risk: "high" };
+  }
+
   if (listIncludes(permission.blockedActions, input.action)) {
     return { allowed: false, reason: "Action is blocked by this permission.", risk: "high" };
   }
@@ -93,19 +105,6 @@ function evaluatePermission(permission: PermissionDocument | null, input: Verify
 
   if (permission.resource && !listValueMatches([permission.resource], input.vendor)) {
     return { allowed: false, reason: "Resource does not match permission resource.", risk: "high" };
-  }
-
-  if (isExpired(permission)) {
-    return { allowed: false, reason: "Permission has expired.", risk: "high" };
-  }
-
-  if (permission.requiresApproval) {
-    return {
-      allowed: false,
-      approvalRequired: true,
-      reason: "Permission requires approval before execution.",
-      risk: "medium"
-    };
   }
 
   const maxAmount = permission.constraints?.maxAmount;
@@ -122,6 +121,26 @@ function evaluatePermission(permission: PermissionDocument | null, input: Verify
     if (!listValueMatches(allowedVendors, input.vendor)) {
       return { allowed: false, reason: "Vendor is not included in allowedVendors constraint.", risk: "high" };
     }
+  }
+
+  return null;
+}
+
+function evaluatePermission(permission: PermissionDocument | null, input: VerifyInput): RawDecision {
+  // Hard constraints are evaluated first so that the approval gate can never
+  // bypass them. An approved grant only satisfies requiresApproval; it does
+  // not override blocked actions, revocation, expiry, maxAmount, vendor
+  // restrictions, or resource matching.
+  const hardDeny = evaluateHardConstraints(permission, input);
+  if (hardDeny) return hardDeny;
+
+  if (permission?.requiresApproval) {
+    return {
+      allowed: false,
+      approvalRequired: true,
+      reason: "Permission requires approval before execution.",
+      risk: "medium"
+    };
   }
 
   return { allowed: true, reason: "Action allowed by active permission.", risk: "low" };
@@ -172,10 +191,36 @@ async function findMatchingPermissions(input: VerifyInput) {
   }).sort({ createdAt: -1 });
 }
 
+type ApprovalGrantFields = {
+  action?: string | null;
+  vendor?: string | null;
+  amount?: number | null;
+};
+
 /**
- * If there is an approved, non-expired grant for (agentId, permissionId), mark it as
- * used and return true (allow the action).
- * Otherwise upsert a pending ApprovalRequest and return false (keep denying).
+ * An approved grant is only valid for the exact action/vendor/amount that was
+ * originally requested and approved. An approval for vendor=A never allows
+ * vendor=B; an approval for amount=25 never allows amount=250; an approval for
+ * action=purchase never allows action=deploy.
+ */
+function requestMatchesApprovalGrant(grant: ApprovalGrantFields, input: VerifyInput): boolean {
+  return (
+    (grant.action ?? null) === input.action &&
+    (grant.vendor ?? null) === (input.vendor ?? null) &&
+    (grant.amount ?? null) === (input.amount ?? null)
+  );
+}
+
+/**
+ * If there is an approved, non-expired grant matching this exact request
+ * (agentId, permissionId, action, vendor, amount), mark it as used and return
+ * true (allow the action).
+ * Otherwise upsert a pending ApprovalRequest scoped to this exact request and
+ * return false (keep denying).
+ *
+ * This gate is only reached after every hard constraint (blocked actions,
+ * revocation, expiry, maxAmount, allowedVendors, resource matching) has
+ * already passed — an approval can never override those.
  */
 async function resolveApprovalGate(
   requestId: string,
@@ -184,15 +229,22 @@ async function resolveApprovalGate(
 ): Promise<{ granted: boolean; approvalId?: string }> {
   const now = new Date();
 
-  // 1. Check for an approved, non-expired grant
+  // 1. Check for an approved, non-expired grant scoped to this exact request.
+  //    (vendor/amount: null in the query also matches legacy documents where
+  //    the field is absent.)
   const grant = await ApprovalRequest.findOne({
     agentId: input.agentId,
     permissionId,
+    action: input.action,
+    vendor: input.vendor ?? null,
+    amount: input.amount ?? null,
     status: "approved",
     grantExpiresAt: { $gt: now }
   });
 
-  if (grant) {
+  // Defense in depth: re-validate the grant fields in code so a grant can
+  // never be consumed by a request it was not approved for.
+  if (grant && requestMatchesApprovalGrant(grant, input)) {
     // Mark the grant as used so it cannot be reused for another action
     await ApprovalRequest.updateOne(
       { approvalId: grant.approvalId },
@@ -201,22 +253,25 @@ async function resolveApprovalGate(
     return { granted: true };
   }
 
-  // 2. Upsert a pending ApprovalRequest (idempotent — only creates if one doesn't exist).
+  // 2. Upsert a pending ApprovalRequest (idempotent — only creates if one
+  // doesn't exist for this exact action/vendor/amount tuple).
   // new: true returns the document whether it was inserted or already existed,
-  // so we always get back the stable approvalId for this (agentId, permissionId) pair.
+  // so we always get back the stable approvalId for this request shape.
   const pending = await ApprovalRequest.findOneAndUpdate(
-    { agentId: input.agentId, permissionId, status: "pending" },
+    {
+      agentId: input.agentId,
+      permissionId,
+      action: input.action,
+      vendor: input.vendor ?? null,
+      amount: input.amount ?? null,
+      status: "pending"
+    },
     {
       $setOnInsert: {
         approvalId: createPublicId("apr"),
         requestId,
         accountId: input.accountId,
-        developerUserId: input.developerUserId,
-        agentId: input.agentId,
-        permissionId,
-        action: input.action,
-        vendor: input.vendor ?? null,
-        amount: input.amount ?? null
+        developerUserId: input.developerUserId
       }
     },
     { upsert: true, new: true }
