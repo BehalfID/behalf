@@ -16,8 +16,9 @@
 #   • Validates and sanitizes all external input.
 #   • Logs no sensitive data in production.
 #
-# Last audit: 2026-06-16
+# Last audit: 2026-06-18
 # Result: PASSED
 # - npm audit: 0 vulnerabilities (root, cli, sdk, examples, github-action)
+#   - Patched nodemailer ^8.0.10 → ^9.0.1 (GHSA-p6gq-j5cr-w38f, high, SSRF/file-read via raw option)
 # - Unit tests: 577/577 passed
 # - No hardcoded secrets detected
