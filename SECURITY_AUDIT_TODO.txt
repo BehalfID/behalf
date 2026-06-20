@@ -22,3 +22,10 @@
 #   - Patched nodemailer ^8.0.10 → ^9.0.1 (GHSA-p6gq-j5cr-w38f, high, SSRF/file-read via raw option)
 # - Unit tests: 577/577 passed
 # - No hardcoded secrets detected
+
+# Last audit: 2026-06-20
+# Result: PASSED
+# - npm audit: 0 vulnerabilities (root, cli, sdk, examples, github-action)
+#   - Patched undici 6.26.0 → 6.27.0 in packages/github-action (GHSA-p88m-4jfj-68fv, GHSA-vxpw-j846-p89q, GHSA-35p6-xmwp-9g52, GHSA-g8m3-5g58-fq7m — HTTP header injection, WebSocket DoS, response queue poisoning, SameSite downgrade)
+# - Unit tests: 577/577 passed
+# - No hardcoded secrets detected
