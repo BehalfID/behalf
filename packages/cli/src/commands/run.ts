@@ -72,7 +72,7 @@ export async function launchTool(toolKey: string, extraArgs: string[], deps: Lau
   let detail = readCachedDetail(agentId);
   if (!detail) {
     stderr.write("Fetching BehalfID permissions... ");
-    detail = await fetchAndCacheDetail(agentId, baseUrl, false);
+    detail = await fetchAndCacheDetail(agentId, baseUrl, false, apiKey);
     stderr.write("done.\n");
   }
 
