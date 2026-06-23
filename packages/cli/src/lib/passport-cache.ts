@@ -73,7 +73,8 @@ export function writeCachedDetail(agentId: string, data: AgentDetail) {
 export async function fetchAndCacheDetail(
   agentId: string,
   baseUrl?: string,
-  forceRefresh = false
+  forceRefresh = false,
+  apiKey?: string
 ): Promise<AgentDetail> {
   if (!forceRefresh) {
     const cached = readCachedDetail(agentId);
@@ -81,8 +82,8 @@ export async function fetchAndCacheDetail(
   }
 
   const data = await apiRequest<AgentDetail>(
-    `/api/dashboard/agents/${encodeURIComponent(agentId)}`,
-    { baseUrl }
+    `/api/agents/${encodeURIComponent(agentId)}`,
+    { baseUrl, apiKey }
   );
 
   writeCachedDetail(agentId, data);

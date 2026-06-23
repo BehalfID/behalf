@@ -123,7 +123,7 @@ export async function callMcpTool(config: {
     let detail = readCachedDetail(config.agentId);
     if (!detail) {
       try {
-        detail = await fetchAndCacheDetail(config.agentId, config.baseUrl);
+        detail = await fetchAndCacheDetail(config.agentId, config.baseUrl, false, config.apiKey);
       } catch {
         return {
           content: [

@@ -69,7 +69,7 @@ export function mcpCommand() {
         let detail = opts.refresh ? null : readCachedDetail(agentId);
         if (!detail) {
           if (!isJsonMode()) process.stdout.write("Fetching permissions from server… ");
-          detail = await fetchAndCacheDetail(agentId, baseUrl, opts.refresh ?? false);
+          detail = await fetchAndCacheDetail(agentId, baseUrl, opts.refresh ?? false, apiKey);
           if (!isJsonMode()) console.log("done.");
         } else {
           if (!isJsonMode()) console.log("Using cached permissions (run with --refresh to update).");
