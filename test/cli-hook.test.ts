@@ -97,7 +97,7 @@ describe("runPreToolUse", () => {
     expect(err.text).toBe("");
   });
 
-  it("exits 1 and prints the blocked reason when denied", async () => {
+  it("exits 2 and prints the blocked reason when denied", async () => {
     const home = tempDir("behalf-home-");
     const { hook, config } = await loadHookModules(home);
     configured(config, home);
@@ -109,11 +109,11 @@ describe("runPreToolUse", () => {
       stderr: err.sink,
     });
 
-    expect(code).toBe(1);
+    expect(code).toBe(2);
     expect(err.text).toContain("BehalfID: blocked — Action is blocked by this permission.");
   });
 
-  it("exits 1 with the Action Inbox message when approval is required", async () => {
+  it("exits 2 with the Action Inbox message when approval is required", async () => {
     const home = tempDir("behalf-home-");
     const { hook, config } = await loadHookModules(home);
     configured(config, home);
@@ -125,7 +125,7 @@ describe("runPreToolUse", () => {
       stderr: err.sink,
     });
 
-    expect(code).toBe(1);
+    expect(code).toBe(2);
     expect(err.text).toContain("BehalfID: approval required. Visit your Action Inbox to approve.");
   });
 
