@@ -97,7 +97,7 @@ export type PreToolUseDeps = {
  * with BehalfID. Returns the process exit code:
  *
  *   0 → allow the tool call to proceed
- *   1 → block the tool call (deny or approval-required)
+ *   2 → block the tool call (deny or approval-required)
  *
  * Fails OPEN (returns 0 with a warning) on missing config or network/API
  * errors, so a BehalfID outage never bricks the agent.
@@ -157,7 +157,9 @@ export async function runPreToolUse(deps: PreToolUseDeps = {}): Promise<number> 
   } else {
     stderr.write(`BehalfID: blocked — ${reason}\n`);
   }
-  return 1;
+  // Exit 2 is Claude Code's blocking signal for PreToolUse hooks: stderr is fed
+  // back to the agent and the tool call is hard-blocked.
+  return 2;
 }
 
 export function hookCommand() {
