@@ -2,6 +2,7 @@ import { Command } from "commander";
 import { apiRequest, resolveApiKey, resolveBaseUrl } from "../lib/client.js";
 import { readConfig, readSession, CONFIG_DIR_PATH, CONFIG_FILE_PATH } from "../lib/config.js";
 import { getProjectSetupStatus } from "../lib/mcp-setup.js";
+import { hasClaudePreToolUseHook } from "./run.js";
 import { isJsonMode, printJson, runAction } from "../lib/output.js";
 
 type Check = {
@@ -116,6 +117,16 @@ export async function runDoctorChecks(cwd = process.cwd()): Promise<Check[]> {
     status: project.contextExists ? "ok" : "warn",
     detail: project.contextExists ? project.contextFile : "Missing .behalf/context.md",
     fix: "Run `behalf mcp init --refresh` to generate current permission context.",
+  });
+
+  const hookInstalled = hasClaudePreToolUseHook();
+  checks.push({
+    name: "Claude hook",
+    status: hookInstalled ? "ok" : "warn",
+    detail: hookInstalled
+      ? "BehalfID PreToolUse hook installed in ~/.claude/settings.json"
+      : "BehalfID PreToolUse hook not found in ~/.claude/settings.json",
+    fix: "Run `behalf claude` to install it.",
   });
 
   return checks;
