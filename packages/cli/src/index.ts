@@ -20,6 +20,7 @@ import { runCommand, claudeCommand, codexCommand } from "./commands/run.js";
 import { webhooksCommand } from "./commands/webhooks.js";
 import { doctorCommand } from "./commands/doctor.js";
 import { scanCommand } from "./commands/scan.js";
+import { hookCommand } from "./commands/hook.js";
 
 const rawArgs = process.argv.slice(2);
 const jsonMode = rawArgs.includes("--json");
@@ -78,6 +79,7 @@ program.addCommand(codexCommand());
 program.addCommand(webhooksCommand());
 program.addCommand(doctorCommand());
 program.addCommand(scanCommand());
+program.addCommand(hookCommand());
 
 program.parseAsync(["", "", ...filteredArgs]).catch(err => {
   if (jsonMode) {
