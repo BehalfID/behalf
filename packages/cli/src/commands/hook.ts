@@ -10,6 +10,8 @@ import { readConfig } from "../lib/config.js";
 type HookInput = {
   session_id?: string;
   tool_name?: string;
+  /** Defensive fallback: tolerate a camelCase field name from non-standard hosts. */
+  toolName?: string;
   tool_input?: Record<string, unknown>;
 };
 
@@ -33,6 +35,13 @@ type ActionMap = { action: string; resource: string };
  *   mcp__<server>__<tool>    → mcp_tool        on the MCP server name
  *   Task                     → spawn_agent     on agent
  *
+ * Matching is tolerant of how the host passes the tool name: leading/trailing
+ * whitespace, casing ("write"), and namespace/prefix wrappers ("tool:Write",
+ * "anthropic.Write", "core/MultiEdit", "foo__Edit") all resolve to the
+ * canonical tool. This matters because an unmapped tool short-circuits the gate
+ * *before* /api/verify is ever called, so a mis-cased "Write" would silently
+ * skip the audit log entirely.
+ *
  * Returns null for tools that have no BehalfID-gated equivalent (Glob, Grep,
  * TodoWrite, …); those are allowed through without a verify round-trip so the
  * agent keeps working.
@@ -41,25 +50,35 @@ export function mapToolToAction(
   toolName: string,
   toolInput: Record<string, unknown> = {}
 ): ActionMap | null {
-  // MCP tools are named mcp__<server>__<tool>.
-  if (toolName.startsWith("mcp__")) {
-    const server = toolName.split("__")[1] || "mcp";
+  if (typeof toolName !== "string") return null;
+  const trimmed = toolName.trim();
+  if (!trimmed) return null;
+
+  // MCP tools are named mcp__<server>__<tool> (prefix matched case-insensitively).
+  if (/^mcp__/i.test(trimmed)) {
+    const server = trimmed.split("__")[1] || "mcp";
     return { action: "mcp_tool", resource: server };
   }
 
-  switch (toolName) {
-    case "Write":
-    case "Edit":
-    case "MultiEdit":
+  // Strip any namespace/prefix down to the final segment, then lowercase, so
+  // format variants resolve instead of falling through to the unmapped path.
+  // Full-segment matching avoids false positives (e.g. "NotebookEdit" stays
+  // unmapped because its segment is not exactly "edit").
+  const base = (trimmed.split(/[:/.]|__/).pop() ?? trimmed).toLowerCase();
+
+  switch (base) {
+    case "write":
+    case "edit":
+    case "multiedit":
       return { action: "write_file", resource: "filesystem" };
-    case "Read":
+    case "read":
       return { action: "read_file", resource: "filesystem" };
-    case "Bash":
+    case "bash":
       return { action: "execute_command", resource: "shell" };
-    case "WebFetch":
-    case "WebSearch":
+    case "webfetch":
+    case "websearch":
       return { action: "browse_web", resource: hostnameFromInput(toolInput) };
-    case "Task":
+    case "task":
       return { action: "spawn_agent", resource: "agent" };
     default:
       return null;
@@ -105,20 +124,38 @@ export type PreToolUseDeps = {
 export async function runPreToolUse(deps: PreToolUseDeps = {}): Promise<number> {
   const stderr = deps.stderr ?? process.stderr;
   const readInput = deps.stdin ?? readStdin;
+  // Opt-in tracing: `BEHALFID_DEBUG=1 behalf hook pre-tool-use` prints the
+  // tool_name actually received and every gate decision to stderr. Off by
+  // default so normal runs stay silent. It deliberately does not dump
+  // tool_input, which can contain file contents or secrets.
+  const debug = process.env.BEHALFID_DEBUG === "1";
+  const trace = (msg: string) => {
+    if (debug) stderr.write(`BehalfID[debug]: ${msg}\n`);
+  };
 
+  let raw = "";
   let input: HookInput;
   try {
-    const raw = await readInput();
+    raw = await readInput();
     input = raw.trim() ? (JSON.parse(raw) as HookInput) : {};
   } catch {
+    trace(`could not parse ${raw.length} bytes of stdin as JSON`);
     stderr.write("BehalfID: could not parse hook input — allowing (fail open).\n");
     return 0;
   }
+  trace(`payload keys: [${Object.keys(input).join(", ")}]`);
 
-  const toolName = input.tool_name;
-  if (!toolName) return 0;
+  const toolName = input.tool_name ?? input.toolName;
+  trace(`received tool_name=${JSON.stringify(toolName)}`);
+  if (!toolName) {
+    trace("no tool_name in payload — allowing (fail open)");
+    return 0;
+  }
 
   const mapped = mapToolToAction(toolName, input.tool_input ?? {});
+  trace(
+    `mapped ${JSON.stringify(toolName)} → ${mapped ? `${mapped.action} on ${mapped.resource}` : "null (no BehalfID-gated equivalent)"}`
+  );
   if (!mapped) return 0; // tool has no BehalfID-gated equivalent
 
   const config = readConfig();
@@ -127,6 +164,7 @@ export async function runPreToolUse(deps: PreToolUseDeps = {}): Promise<number> 
   const baseUrl = resolveBaseUrl();
 
   if (!agentId || !apiKey) {
+    trace(`not configured: agentId=${agentId ? "set" : "missing"} apiKey=${apiKey ? "set" : "missing"}`);
     stderr.write("BehalfID: not configured (agent ID or API key missing) — allowing (fail open).\n");
     return 0;
   }
@@ -138,9 +176,13 @@ export async function runPreToolUse(deps: PreToolUseDeps = {}): Promise<number> 
       action: mapped.action,
       vendor: mapped.resource,
     };
+    trace(`POST ${baseUrl}/api/verify ${JSON.stringify(body)}`);
     result = deps.verify
       ? await deps.verify(body)
       : await apiRequest<VerifyResult>("/api/verify", { method: "POST", body, apiKey, baseUrl });
+    trace(
+      `verify → allowed=${result.allowed} approvalRequired=${result.approvalRequired ?? false} reason=${JSON.stringify(result.reason)}`
+    );
   } catch (err) {
     stderr.write(
       `BehalfID: verification unavailable (${err instanceof Error ? err.message : String(err)}) — allowing (fail open).\n`

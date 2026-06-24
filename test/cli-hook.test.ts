@@ -69,6 +69,32 @@ describe("mapToolToAction", () => {
     expect(hook.mapToolToAction("Glob")).toBeNull();
     expect(hook.mapToolToAction("TodoWrite")).toBeNull();
   });
+
+  it("tolerates casing, whitespace, and namespace/prefix wrappers on the tool name", async () => {
+    const { hook } = await loadHookModules(tempDir("behalf-home-"));
+
+    // lowercase / mixed case
+    expect(hook.mapToolToAction("write")).toEqual({ action: "write_file", resource: "filesystem" });
+    expect(hook.mapToolToAction("MULTIEDIT")).toEqual({ action: "write_file", resource: "filesystem" });
+    expect(hook.mapToolToAction("read")).toEqual({ action: "read_file", resource: "filesystem" });
+    // surrounding whitespace
+    expect(hook.mapToolToAction("  Write  ")).toEqual({ action: "write_file", resource: "filesystem" });
+    // namespace / prefix wrappers
+    expect(hook.mapToolToAction("tool:Write")).toEqual({ action: "write_file", resource: "filesystem" });
+    expect(hook.mapToolToAction("anthropic.Edit")).toEqual({ action: "write_file", resource: "filesystem" });
+    expect(hook.mapToolToAction("core/MultiEdit")).toEqual({ action: "write_file", resource: "filesystem" });
+    expect(hook.mapToolToAction("ns__Read")).toEqual({ action: "read_file", resource: "filesystem" });
+  });
+
+  it("still does not over-match distinct tools or empty input", async () => {
+    const { hook } = await loadHookModules(tempDir("behalf-home-"));
+
+    // NotebookEdit is its own tool — its final segment is not exactly "edit".
+    expect(hook.mapToolToAction("NotebookEdit")).toBeNull();
+    expect(hook.mapToolToAction("   ")).toBeNull();
+    expect(hook.mapToolToAction("mcp__github__search_issues"))
+      .toEqual({ action: "mcp_tool", resource: "github" });
+  });
 });
 
 describe("runPreToolUse", () => {
@@ -176,6 +202,43 @@ describe("runPreToolUse", () => {
 
     expect(code).toBe(0);
     expect(verify).not.toHaveBeenCalled();
+  });
+
+  it("still verifies (and thus logs) a non-canonical tool_name like lowercase 'write'", async () => {
+    const home = tempDir("behalf-home-");
+    const { hook, config } = await loadHookModules(home);
+    configured(config, home);
+    const verify = vi.fn(async () => ({ allowed: true, reason: "ok", requestId: "req_w" }));
+
+    const code = await hook.runPreToolUse({
+      stdin: async () => JSON.stringify({ tool_name: "write", tool_input: { file_path: "/tmp/hello.txt" } }),
+      verify,
+      stderr: stderrCollector().sink,
+    });
+
+    expect(code).toBe(0);
+    expect(verify).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "write_file", vendor: "filesystem" })
+    );
+  });
+
+  it("traces the received tool_name and gate decisions to stderr when BEHALFID_DEBUG=1", async () => {
+    const home = tempDir("behalf-home-");
+    const { hook, config } = await loadHookModules(home);
+    configured(config, home);
+    vi.stubEnv("BEHALFID_DEBUG", "1");
+    const err = stderrCollector();
+
+    const code = await hook.runPreToolUse({
+      stdin: async () => JSON.stringify({ tool_name: "Write", tool_input: { file_path: "/tmp/x" } }),
+      verify: async () => ({ allowed: true, reason: "ok", requestId: "req_d" }),
+      stderr: err.sink,
+    });
+
+    expect(code).toBe(0);
+    expect(err.text).toContain("BehalfID[debug]: received tool_name=\"Write\"");
+    expect(err.text).toContain("write_file on filesystem");
+    expect(err.text).toContain("verify → allowed=true");
   });
 });
 
