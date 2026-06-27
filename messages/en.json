@@ -61,7 +61,7 @@
       "subSimple": "Your AI assistant can now take real actions — send emails, make purchases, deploy code. BehalfID lets you decide exactly which ones are okay, and blocks everything else before it runs.",
       "example1": "Allow staging deploys, require approval for production.",
       "example2": "Allow GitHub issue reads, deny production deploys.",
-      "example3": "Allow browsing, deny purchases over $25.",
+      "example3": "Allow file reads in src/, deny writes to .env and credentials.",
       "permissionExamples": "Permission examples",
       "build": "Build",
       "tryIt": "Try It"
