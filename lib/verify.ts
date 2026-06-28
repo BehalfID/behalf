@@ -53,6 +53,82 @@ function listValueMatches(values: string[] | undefined, value: string | undefine
     .some((item) => item === value);
 }
 
+function globMatch(pattern: string, value: string): boolean {
+  let reStr = "";
+  let i = 0;
+  while (i < pattern.length) {
+    const ch = pattern[i];
+    if (ch === "*" && pattern[i + 1] === "*") {
+      i += 2;
+      if (i < pattern.length && pattern[i] === "/") {
+        reStr += "(?:.*\\/)?";
+        i++;
+      } else {
+        reStr += ".*";
+      }
+    } else if (ch === "*") {
+      reStr += "[^/]*";
+      i++;
+    } else if (/[.+^${}()|[\]\\]/.test(ch)) {
+      reStr += "\\" + ch;
+      i++;
+    } else {
+      reStr += ch;
+      i++;
+    }
+  }
+  return new RegExp("^" + reStr + "$").test(value);
+}
+
+function extractStringFromMetadata(
+  metadata: Record<string, unknown> | undefined,
+  ...keys: string[]
+): string | undefined {
+  if (!metadata) return undefined;
+  for (const key of keys) {
+    const v = metadata[key];
+    if (typeof v === "string" && v) return v;
+  }
+  return undefined;
+}
+
+function evaluateArgumentConstraints(
+  permission: PermissionDocument,
+  input: VerifyInput
+): RawDecision | null {
+  const allowedPaths = permission.constraints?.allowedPaths ?? [];
+  const deniedPaths = permission.constraints?.deniedPaths ?? [];
+  const deniedCommands = permission.constraints?.deniedCommands ?? [];
+
+  if (
+    (allowedPaths.length > 0 || deniedPaths.length > 0) &&
+    (input.action === "write_file" || input.action === "read_file")
+  ) {
+    const filePath = extractStringFromMetadata(input.metadata, "tool_input", "path");
+    if (!filePath) {
+      return { allowed: false, reason: "path_not_permitted", risk: "high" };
+    }
+    if (deniedPaths.some((p) => globMatch(p, filePath))) {
+      return { allowed: false, reason: "path_not_permitted", risk: "high" };
+    }
+    if (allowedPaths.length > 0 && !allowedPaths.some((p) => globMatch(p, filePath))) {
+      return { allowed: false, reason: "path_not_permitted", risk: "high" };
+    }
+  }
+
+  if (deniedCommands.length > 0 && input.action === "execute_command") {
+    const command = extractStringFromMetadata(input.metadata, "tool_input", "command");
+    if (!command) {
+      return { allowed: false, reason: "command_blocked", risk: "high" };
+    }
+    if (deniedCommands.some((sub) => command.includes(sub))) {
+      return { allowed: false, reason: "command_blocked", risk: "high" };
+    }
+  }
+
+  return null;
+}
+
 function permissionMatchesInput(permission: PermissionDocument, input: VerifyInput) {
   return (
     permission.action === input.action ||
@@ -133,6 +209,10 @@ function evaluatePermission(permission: PermissionDocument | null, input: Verify
   // restrictions, or resource matching.
   const hardDeny = evaluateHardConstraints(permission, input);
   if (hardDeny) return hardDeny;
+
+  // permission is guaranteed non-null here (evaluateHardConstraints denies when null)
+  const argDeny = evaluateArgumentConstraints(permission!, input);
+  if (argDeny) return argDeny;
 
   if (permission?.requiresApproval) {
     return {

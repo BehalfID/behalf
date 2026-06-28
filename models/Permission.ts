@@ -22,7 +22,10 @@ const PermissionSchema = new Schema(
     constraints: {
       maxAmount: { type: Number, min: 0 },
       allowedVendors: [{ type: String, trim: true, maxlength: 200 }],
-      expiresAt: { type: Date }
+      expiresAt: { type: Date },
+      allowedPaths: [{ type: String, trim: true, maxlength: 500 }],
+      deniedPaths: [{ type: String, trim: true, maxlength: 500 }],
+      deniedCommands: [{ type: String, trim: true, maxlength: 500 }]
     },
     status: {
       type: String,

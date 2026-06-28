@@ -85,7 +85,10 @@ export async function POST(request: NextRequest) {
   const constraintsUnknownError = rejectUnknownFields(constraints, [
     "maxAmount",
     "allowedVendors",
-    "expiresAt"
+    "expiresAt",
+    "allowedPaths",
+    "deniedPaths",
+    "deniedCommands"
   ]);
   if (constraintsUnknownError) {
     return jsonError(constraintsUnknownError);
@@ -119,6 +122,39 @@ export async function POST(request: NextRequest) {
     return jsonError("expiresAt must be in the future.");
   }
 
+  let allowedPaths: string[] | undefined;
+  if (constraints.allowedPaths !== undefined) {
+    if (
+      !Array.isArray(constraints.allowedPaths) ||
+      constraints.allowedPaths.some((p) => typeof p !== "string" || !p.trim())
+    ) {
+      return jsonError("allowedPaths must be an array of non-empty strings.");
+    }
+    allowedPaths = constraints.allowedPaths.map((p: string) => p.trim());
+  }
+
+  let deniedPaths: string[] | undefined;
+  if (constraints.deniedPaths !== undefined) {
+    if (
+      !Array.isArray(constraints.deniedPaths) ||
+      constraints.deniedPaths.some((p) => typeof p !== "string" || !p.trim())
+    ) {
+      return jsonError("deniedPaths must be an array of non-empty strings.");
+    }
+    deniedPaths = constraints.deniedPaths.map((p: string) => p.trim());
+  }
+
+  let deniedCommands: string[] | undefined;
+  if (constraints.deniedCommands !== undefined) {
+    if (
+      !Array.isArray(constraints.deniedCommands) ||
+      constraints.deniedCommands.some((c) => typeof c !== "string" || !c.trim())
+    ) {
+      return jsonError("deniedCommands must be an array of non-empty strings.");
+    }
+    deniedCommands = constraints.deniedCommands.map((c: string) => c.trim());
+  }
+
   const permissionId = createPublicId("perm");
 
   await Permission.create({
@@ -132,7 +168,10 @@ export async function POST(request: NextRequest) {
     constraints: {
       maxAmount,
       allowedVendors,
-      expiresAt
+      expiresAt,
+      allowedPaths,
+      deniedPaths,
+      deniedCommands
     },
     status: "active"
   });
