@@ -1,11 +1,16 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
-import { spawnSync, type SpawnSyncReturns } from "node:child_process";
+import { spawn, spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { Command } from "commander";
 import { apiRequest, resolveApiKey, resolveBaseUrl } from "../lib/client.js";
 import { readConfig } from "../lib/config.js";
-import { fetchAndCacheDetail, readCachedDetail } from "../lib/passport-cache.js";
+import {
+  type AgentDetail,
+  fetchAndCacheDetail,
+  readAnyCachedDetail,
+} from "../lib/passport-cache.js";
 import { getProjectSetupStatus, writeProjectSetup } from "../lib/mcp-setup.js";
 import { runAction } from "../lib/output.js";
 
@@ -104,9 +109,41 @@ export function installClaudePreToolUseHook(home = homedir()): { path: string; c
 
 type LaunchDeps = {
   spawn?: typeof spawnSync;
+  /** Async spawn used to kick off the detached background permission refresh. */
+  spawnDetached?: typeof spawn;
   stderr?: Pick<NodeJS.WriteStream, "write">;
   stdout?: Pick<NodeJS.WriteStream, "write">;
 };
+
+/**
+ * How long to wait for a cold-start permission fetch (no cache at all) before
+ * giving up and launching anyway. Keeps the worst case bounded instead of the
+ * previous unbounded 6-8s wait.
+ */
+const COLD_FETCH_TIMEOUT_MS = 2000;
+
+/**
+ * Kick off a permission refresh that outlives this process. We cannot use a
+ * plain background Promise here: the tool is launched with a blocking
+ * spawnSync, which freezes the event loop for the entire session, and the
+ * subsequent process.exit() would kill any pending fetch. Instead we spawn a
+ * detached, unref'd child running the CLI's hidden refresh command so the cache
+ * is updated for the next launch. Best-effort: failures are swallowed.
+ */
+export function refreshPermissionsInBackground(agentId: string, deps: LaunchDeps = {}): void {
+  try {
+    const spawnAsync = deps.spawnDetached ?? spawn;
+    const entry = fileURLToPath(new URL("../index.js", import.meta.url));
+    const child = spawnAsync(
+      process.execPath,
+      [entry, "__refresh-permissions", agentId],
+      { detached: true, stdio: "ignore" }
+    );
+    child.unref();
+  } catch {
+    // Background refresh is best-effort; never let it break the launch.
+  }
+}
 
 export async function launchTool(toolKey: string, extraArgs: string[], deps: LaunchDeps = {}): Promise<number> {
   const tool = TOOLS[toolKey];
@@ -136,15 +173,37 @@ export async function launchTool(toolKey: string, extraArgs: string[], deps: Lau
   const cwd = process.cwd();
   const status = getProjectSetupStatus(cwd);
 
-  // Fetch or refresh permissions
-  console.time("[behalf] fetch permissions (network)");
-  let detail = readCachedDetail(agentId);
-  if (!detail) {
+  // Resolve permissions. Fast path: any cached detail (even stale) lets us
+  // launch immediately; a stale cache triggers a detached background refresh so
+  // the next launch is current. Cold path: no cache at all — fetch with a short
+  // timeout so a slow/unreachable API can't stall the launch indefinitely.
+  console.time("[behalf] resolve permissions");
+  let detail: AgentDetail;
+  const cached = readAnyCachedDetail(agentId);
+  if (cached) {
+    detail = cached.data;
+    if (!cached.fresh) {
+      stderr.write("Using cached BehalfID permissions; refreshing in background.\n");
+      refreshPermissionsInBackground(agentId, deps);
+    }
+  } else {
     stderr.write("Fetching BehalfID permissions... ");
-    detail = await fetchAndCacheDetail(agentId, baseUrl, false, apiKey);
-    stderr.write("done.\n");
+    try {
+      detail = await fetchAndCacheDetail(agentId, baseUrl, false, apiKey, COLD_FETCH_TIMEOUT_MS);
+      stderr.write("done.\n");
+    } catch (err) {
+      // No cache and the fetch failed/timed out: proceed anyway. The PreToolUse
+      // hook still verifies every tool call live, so launching with an empty
+      // permission context is safe; the context file is just less populated.
+      stderr.write(
+        `failed (${err instanceof Error ? err.message : String(err)}). ` +
+        `Launching with empty permissions; refreshing in background.\n`
+      );
+      detail = { agent: { agentId, name: agentId, status: "unknown" }, permissions: [] };
+      refreshPermissionsInBackground(agentId, deps);
+    }
   }
-  console.timeEnd("[behalf] fetch permissions (network)");
+  console.timeEnd("[behalf] resolve permissions");
 
   console.time("[behalf] write project setup");
   const setup = writeProjectSetup(detail, { cwd });
@@ -406,3 +465,22 @@ export function runCommand() {
 
 export function claudeCommand() { return toolCommand("claude", "launch Claude Code with BehalfID enforcement"); }
 export function codexCommand()  { return toolCommand("codex",  "launch Codex CLI with BehalfID enforcement"); }
+
+/**
+ * Hidden command used by the detached background refresh in launchTool. Forces
+ * a fresh fetch of the agent's permissions and rewrites the cache, then exits.
+ * Best-effort: never throws so the detached process exits cleanly.
+ */
+export function internalRefreshPermissionsCommand() {
+  return new Command("__refresh-permissions")
+    .description("internal: refresh the cached permissions for an agent")
+    .argument("<agentId>", "agent ID")
+    .action(
+      runAction(async (agentId: string) => {
+        const apiKey = resolveApiKey();
+        if (!apiKey) return;
+        const baseUrl = resolveBaseUrl();
+        await fetchAndCacheDetail(agentId, baseUrl, true, apiKey).catch(() => {});
+      })
+    );
+}
