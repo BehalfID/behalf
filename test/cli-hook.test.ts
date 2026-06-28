@@ -542,3 +542,37 @@ describe("doctor Cursor hook check", () => {
     expect(after.find(c => c.name === "Cursor hook")?.status).toBe("ok");
   });
 });
+
+describe("doctor Cursor CLI (PATH) check", () => {
+  it("warns with the install-in-PATH fix when cursor is not on PATH", async () => {
+    const home = tempDir("behalf-home-");
+    const project = tempDir("behalf-project-");
+    const { doctor } = await loadHookModules(home);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 })));
+    vi.stubEnv("PATH", "");
+
+    const checks = await doctor.runDoctorChecks(project);
+    const cliCheck = checks.find(c => c.name === "Cursor CLI");
+    expect(cliCheck?.status).toBe("warn");
+    expect(cliCheck?.fix).toBe(
+      "cursor is not in PATH. Open Cursor, press Cmd+Shift+P, and run 'Install cursor command in PATH', then re-run behalf cursor."
+    );
+  });
+
+  it("reports ok when a cursor executable is found on PATH", async () => {
+    const home = tempDir("behalf-home-");
+    const project = tempDir("behalf-project-");
+    const bin = tempDir("behalf-bin-");
+    const { chmodSync } = await import("node:fs");
+    const exe = process.platform === "win32" ? "cursor.exe" : "cursor";
+    writeFileSync(join(bin, exe), "#!/bin/sh\n");
+    chmodSync(join(bin, exe), 0o755);
+
+    const { doctor } = await loadHookModules(home);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 })));
+    vi.stubEnv("PATH", bin);
+
+    const checks = await doctor.runDoctorChecks(project);
+    expect(checks.find(c => c.name === "Cursor CLI")?.status).toBe("ok");
+  });
+});
