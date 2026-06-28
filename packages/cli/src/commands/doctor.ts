@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { delimiter, join } from "node:path";
 import { Command } from "commander";
 import { apiRequest, resolveApiKey, resolveBaseUrl } from "../lib/client.js";
 import { readConfig, readSession, CONFIG_DIR_PATH, CONFIG_FILE_PATH } from "../lib/config.js";
@@ -24,9 +26,25 @@ function looksLikeAgentId(agentId: string | undefined): boolean {
   return !!agentId && /^agent_[A-Za-z0-9_-]+$/.test(agentId);
 }
 
+/** True if an executable named `binary` is found on any PATH entry. */
+function isOnPath(binary: string): boolean {
+  const pathEnv = process.env.PATH ?? "";
+  if (!pathEnv) return false;
+  const exts =
+    process.platform === "win32"
+      ? (process.env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM").split(";")
+      : [""];
+  for (const dir of pathEnv.split(delimiter)) {
+    if (!dir) continue;
+    for (const ext of exts) {
+      if (existsSync(join(dir, binary + ext))) return true;
+    }
+  }
+  return false;
+}
+
 export async function runDoctorChecks(cwd = process.cwd()): Promise<Check[]> {
   const checks: Check[] = [];
-  const { existsSync } = await import("node:fs");
 
   checks.push({
     name: "Config directory",
@@ -147,6 +165,14 @@ export async function runDoctorChecks(cwd = process.cwd()): Promise<Check[]> {
       ? "BehalfID beforeShellExecution hook installed in ~/.cursor/hooks.json"
       : "BehalfID beforeShellExecution hook not found in ~/.cursor/hooks.json",
     fix: "Run `behalf cursor` to install it.",
+  });
+
+  const cursorOnPath = isOnPath("cursor");
+  checks.push({
+    name: "Cursor CLI",
+    status: cursorOnPath ? "ok" : "warn",
+    detail: cursorOnPath ? "cursor found in PATH" : "cursor not found in PATH",
+    fix: "cursor is not in PATH. Open Cursor, press Cmd+Shift+P, and run 'Install cursor command in PATH', then re-run behalf cursor.",
   });
 
   return checks;
