@@ -9,6 +9,8 @@ export type RequestOptions = {
   baseUrl?: string;
   skipAuth?: boolean;
   onHeaders?: (headers: Headers) => void;
+  /** Abort the request if it takes longer than this many milliseconds. */
+  timeoutMs?: number;
 };
 
 export function resolveBaseUrl(override?: string): string {
@@ -51,15 +53,28 @@ export async function apiRequest<T = unknown>(
   if (session) headers.Cookie = session;
   if (opts.body !== undefined) headers["Content-Type"] = "application/json";
 
+  const timeoutMs = opts.timeoutMs;
+  const controller = timeoutMs ? new AbortController() : undefined;
+  const timer =
+    controller && timeoutMs
+      ? setTimeout(() => controller.abort(), timeoutMs)
+      : undefined;
+
   let response: Response;
   try {
     response = await fetch(`${baseUrl}${path}`, {
       method: opts.method ?? "GET",
       headers,
       body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+      signal: controller?.signal,
     });
   } catch {
+    if (controller?.signal.aborted) {
+      throw new Error(`Request timed out after ${timeoutMs}ms.`);
+    }
     throw new Error("Network request failed. Check your connection and base URL.");
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 
   if (opts.onHeaders) opts.onHeaders(response.headers);

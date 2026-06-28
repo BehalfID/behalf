@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { apiRequest } from "./client.js";
 
 const CACHE_DIR = join(homedir(), ".behalf", "cache");
-const TTL_MS = 5 * 60 * 1000;
+const TTL_MS = 30 * 60 * 1000;
 
 export type PermissionEntry = {
   permissionId: string;
@@ -52,13 +52,26 @@ function ensureCacheDir() {
 }
 
 export function readCachedDetail(agentId: string): AgentDetail | null {
+  const cached = readAnyCachedDetail(agentId);
+  return cached && cached.fresh ? cached.data : null;
+}
+
+/**
+ * Read the cached detail regardless of age. Returns the data along with a
+ * `fresh` flag indicating whether it is still within the TTL. Returns null only
+ * when there is no usable cache entry at all (absent or unparseable). Callers
+ * that can tolerate stale data use this to launch immediately and refresh in
+ * the background.
+ */
+export function readAnyCachedDetail(
+  agentId: string
+): { data: AgentDetail; fresh: boolean } | null {
   const path = cacheFile(agentId);
   if (!existsSync(path)) return null;
   try {
     const entry = JSON.parse(readFileSync(path, "utf-8")) as CacheEntry;
     const age = Date.now() - new Date(entry.fetchedAt).getTime();
-    if (age > TTL_MS) return null;
-    return entry.data;
+    return { data: entry.data, fresh: age <= TTL_MS };
   } catch {
     return null;
   }
@@ -74,7 +87,8 @@ export async function fetchAndCacheDetail(
   agentId: string,
   baseUrl?: string,
   forceRefresh = false,
-  apiKey?: string
+  apiKey?: string,
+  timeoutMs?: number
 ): Promise<AgentDetail> {
   if (!forceRefresh) {
     const cached = readCachedDetail(agentId);
@@ -83,7 +97,7 @@ export async function fetchAndCacheDetail(
 
   const data = await apiRequest<AgentDetail>(
     `/api/agents/${encodeURIComponent(agentId)}`,
-    { baseUrl, apiKey }
+    { baseUrl, apiKey, timeoutMs }
   );
 
   writeCachedDetail(agentId, data);
