@@ -163,6 +163,66 @@ export function installCodexMcpServer(home = homedir()): { path: string; changed
   return { path, changed: true };
 }
 
+// ── Cursor beforeShellExecution hook installation (~/.cursor/hooks.json) ──────
+
+const CURSOR_HOOK_COMMAND = "behalf hook cursor";
+
+type CursorHookEntry = { command?: string; matcher?: string };
+type CursorHooksFile = Record<string, unknown> & {
+  version?: number;
+  hooks?: Record<string, unknown> & { beforeShellExecution?: CursorHookEntry[] };
+};
+
+function cursorHooksPath(home = homedir()): string {
+  return join(home, ".cursor", "hooks.json");
+}
+
+/** Read ~/.cursor/hooks.json. Returns {} if absent, null if unparseable. */
+function readCursorHooks(path: string): CursorHooksFile | null {
+  if (!existsSync(path)) return {};
+  try {
+    return JSON.parse(readFileSync(path, "utf-8")) as CursorHooksFile;
+  } catch {
+    return null;
+  }
+}
+
+function cursorHooksHaveBehalf(file: CursorHooksFile | null): boolean {
+  const list = file?.hooks?.beforeShellExecution;
+  if (!Array.isArray(list)) return false;
+  return list.some((e) => e?.command === CURSOR_HOOK_COMMAND);
+}
+
+/** True if ~/.cursor/hooks.json already wires up the BehalfID beforeShellExecution hook. */
+export function hasCursorBeforeShellHook(home = homedir()): boolean {
+  return cursorHooksHaveBehalf(readCursorHooks(cursorHooksPath(home)));
+}
+
+/**
+ * Merge the BehalfID beforeShellExecution hook into ~/.cursor/hooks.json,
+ * preserving any existing content. Cursor uses its own schema (a top-level
+ * `version` and `{ command, matcher }` entries), distinct from the Claude/Codex
+ * PreToolUse layout. Idempotent, and leaves an unparseable file untouched.
+ */
+export function installCursorBeforeShellHook(home = homedir()): { path: string; changed: boolean } {
+  const path = cursorHooksPath(home);
+  const file = readCursorHooks(path);
+  if (file === null) return { path, changed: false };
+  if (cursorHooksHaveBehalf(file)) return { path, changed: false };
+
+  if (typeof file.version !== "number") file.version = 1;
+  const hooks = (file.hooks ?? {}) as Record<string, unknown> & { beforeShellExecution?: CursorHookEntry[] };
+  const list: CursorHookEntry[] = Array.isArray(hooks.beforeShellExecution) ? hooks.beforeShellExecution : [];
+  list.push({ command: CURSOR_HOOK_COMMAND, matcher: ".*" });
+  hooks.beforeShellExecution = list;
+  file.hooks = hooks;
+
+  const dir = dirname(path);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  writeFileSync(path, JSON.stringify(file, null, 2) + "\n");
+  return { path, changed: true };
+}
+
 type LaunchDeps = {
   spawn?: typeof spawnSync;
   /** Async spawn used to kick off the detached background permission refresh. */
@@ -288,6 +348,13 @@ export async function launchTool(toolKey: string, extraArgs: string[], deps: Lau
     const mcp = installCodexMcpServer();
     if (mcp.changed) {
       stderr.write(`Configured BehalfID MCP server → ${mcp.path}\n`);
+    }
+  } else if (toolKey === "cursor") {
+    // Cursor already wires up the BehalfID MCP server via ~/.cursor/mcp.json, so
+    // we only install the beforeShellExecution gate here.
+    const hook = installCursorBeforeShellHook();
+    if (hook.changed) {
+      stderr.write(`Installed BehalfID beforeShellExecution hook → ${hook.path}\n`);
     }
   }
 
@@ -520,6 +587,7 @@ export function runCommand() {
 
 export function claudeCommand() { return toolCommand("claude", "launch Claude Code with BehalfID enforcement"); }
 export function codexCommand()  { return toolCommand("codex",  "launch Codex CLI with BehalfID enforcement"); }
+export function cursorCommand() { return toolCommand("cursor", "launch Cursor with BehalfID enforcement"); }
 
 /**
  * Hidden command used by the detached background refresh in launchTool. Forces
