@@ -301,3 +301,96 @@ describe("doctor Claude hook check", () => {
     expect(after.find(c => c.name === "Claude hook")?.status).toBe("ok");
   });
 });
+
+describe("installCodexPreToolUseHook", () => {
+  it("writes ~/.codex/hooks.json in the expected format and is idempotent", async () => {
+    const home = tempDir("behalf-home-");
+    const { run } = await loadHookModules(home);
+
+    expect(run.hasCodexPreToolUseHook(home)).toBe(false);
+
+    const first = run.installCodexPreToolUseHook(home);
+    expect(first.changed).toBe(true);
+    expect(run.hasCodexPreToolUseHook(home)).toBe(true);
+
+    const hooks = JSON.parse(readFileSync(join(home, ".codex", "hooks.json"), "utf-8"));
+    expect(hooks.hooks.PreToolUse).toEqual([
+      { matcher: ".*", hooks: [{ type: "command", command: "behalf hook pre-tool-use" }] },
+    ]);
+
+    const second = run.installCodexPreToolUseHook(home);
+    expect(second.changed).toBe(false);
+    expect(JSON.parse(readFileSync(join(home, ".codex", "hooks.json"), "utf-8")).hooks.PreToolUse).toHaveLength(1);
+  });
+
+  it("preserves existing hooks when merging", async () => {
+    const home = tempDir("behalf-home-");
+    const { run } = await loadHookModules(home);
+    const { mkdirSync } = await import("node:fs");
+
+    mkdirSync(join(home, ".codex"), { recursive: true });
+    writeFileSync(
+      join(home, ".codex", "hooks.json"),
+      JSON.stringify({ hooks: { PreToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: "existing" }] }] } }, null, 2)
+    );
+
+    run.installCodexPreToolUseHook(home);
+
+    const hooks = JSON.parse(readFileSync(join(home, ".codex", "hooks.json"), "utf-8"));
+    expect(hooks.hooks.PreToolUse).toHaveLength(2);
+    expect(hooks.hooks.PreToolUse[0].hooks[0].command).toBe("existing");
+    expect(hooks.hooks.PreToolUse[1].hooks[0].command).toBe("behalf hook pre-tool-use");
+  });
+});
+
+describe("installCodexMcpServer", () => {
+  it("appends the [mcp_servers.behalfid] block and is idempotent", async () => {
+    const home = tempDir("behalf-home-");
+    const { run } = await loadHookModules(home);
+
+    const first = run.installCodexMcpServer(home);
+    expect(first.changed).toBe(true);
+
+    const toml = readFileSync(join(home, ".codex", "config.toml"), "utf-8");
+    expect(toml).toContain("[mcp_servers.behalfid]");
+    expect(toml).toContain('command = "behalf"');
+    expect(toml).toContain('args = ["mcp", "start"]');
+
+    const second = run.installCodexMcpServer(home);
+    expect(second.changed).toBe(false);
+  });
+
+  it("preserves an existing config.toml", async () => {
+    const home = tempDir("behalf-home-");
+    const { run } = await loadHookModules(home);
+    const { mkdirSync } = await import("node:fs");
+
+    mkdirSync(join(home, ".codex"), { recursive: true });
+    writeFileSync(join(home, ".codex", "config.toml"), '[mcp_servers.other]\ncommand = "foo"\n');
+
+    run.installCodexMcpServer(home);
+
+    const toml = readFileSync(join(home, ".codex", "config.toml"), "utf-8");
+    expect(toml).toContain("[mcp_servers.other]");
+    expect(toml).toContain("[mcp_servers.behalfid]");
+  });
+});
+
+describe("doctor Codex hook check", () => {
+  it("warns when the hook is missing and reports ok once installed", async () => {
+    const home = tempDir("behalf-home-");
+    const project = tempDir("behalf-project-");
+    const { run, doctor } = await loadHookModules(home);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 })));
+
+    const before = await doctor.runDoctorChecks(project);
+    const codexCheck = before.find(c => c.name === "Codex hook");
+    expect(codexCheck?.status).toBe("warn");
+    expect(codexCheck?.fix).toBe("Run `behalf codex` to install it.");
+
+    run.installCodexPreToolUseHook(home);
+
+    const after = await doctor.runDoctorChecks(project);
+    expect(after.find(c => c.name === "Codex hook")?.status).toBe("ok");
+  });
+});
