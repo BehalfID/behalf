@@ -137,14 +137,18 @@ export async function launchTool(toolKey: string, extraArgs: string[], deps: Lau
   const status = getProjectSetupStatus(cwd);
 
   // Fetch or refresh permissions
+  console.time("[behalf] fetch permissions (network)");
   let detail = readCachedDetail(agentId);
   if (!detail) {
     stderr.write("Fetching BehalfID permissions... ");
     detail = await fetchAndCacheDetail(agentId, baseUrl, false, apiKey);
     stderr.write("done.\n");
   }
+  console.timeEnd("[behalf] fetch permissions (network)");
 
+  console.time("[behalf] write project setup");
   const setup = writeProjectSetup(detail, { cwd });
+  console.timeEnd("[behalf] write project setup");
 
   // Inject include into tool config files (idempotent)
   for (const fileName of tool.contextFiles) {
