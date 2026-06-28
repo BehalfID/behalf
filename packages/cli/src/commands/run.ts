@@ -112,7 +112,9 @@ export async function launchTool(toolKey: string, extraArgs: string[], deps: Lau
   const tool = TOOLS[toolKey];
   if (!tool) throw new Error(`Unknown tool "${toolKey}". Supported: ${Object.keys(TOOLS).join(", ")}`);
 
+  console.time("[behalf] read config");
   const config = readConfig();
+  console.timeEnd("[behalf] read config");
   const agentId = config.agentId ?? process.env.BEHALFID_AGENT_ID;
   const apiKey = resolveApiKey();
   const baseUrl = resolveBaseUrl();
@@ -161,7 +163,9 @@ export async function launchTool(toolKey: string, extraArgs: string[], deps: Lau
   // Claude Code: install the hard PreToolUse gate so every tool call is
   // verified with BehalfID before it runs.
   if (toolKey === "claude") {
+    console.time("[behalf] install PreToolUse hook (~/.claude/settings.json)");
     const hook = installClaudePreToolUseHook();
+    console.timeEnd("[behalf] install PreToolUse hook (~/.claude/settings.json)");
     if (hook.changed) {
       stderr.write(`Installed BehalfID PreToolUse hook → ${hook.path}\n`);
     }
@@ -177,7 +181,9 @@ export async function launchTool(toolKey: string, extraArgs: string[], deps: Lau
   );
 
   // Launch the tool
+  console.time("[behalf] spawn claude process");
   const result: SpawnSyncReturns<Buffer> = spawn(tool.binary, extraArgs, { stdio: "inherit" });
+  console.timeEnd("[behalf] spawn claude process");
   return result.status ?? 1;
 }
 
