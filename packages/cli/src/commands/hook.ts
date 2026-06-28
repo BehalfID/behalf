@@ -204,6 +204,92 @@ export async function runPreToolUse(deps: PreToolUseDeps = {}): Promise<number> 
   return 2;
 }
 
+export type CursorHookDeps = {
+  stdin?: () => Promise<string>;
+  stdout?: Pick<NodeJS.WriteStream, "write">;
+  stderr?: Pick<NodeJS.WriteStream, "write">;
+  verify?: (body: Record<string, unknown>) => Promise<VerifyResult>;
+};
+
+/** Cursor's beforeShellExecution payload: we only need the command for tracing. */
+type CursorHookInput = { command?: string };
+
+/**
+ * The Cursor beforeShellExecution gate. Mirrors runPreToolUse — read a command
+ * from stdin and verify it with BehalfID — but speaks Cursor's protocol instead
+ * of Claude's. Cursor expects a JSON decision on stdout rather than an exit
+ * code:
+ *
+ *   deny  → print {"permission":"deny","reason":"..."} and exit 0
+ *   allow → print nothing and exit 0
+ *
+ * Shell execution is gated uniformly as execute_command on shell, matching how
+ * the Claude/Codex PreToolUse hook gates Bash, so enforcement is consistent
+ * across all three tools.
+ *
+ * Fails OPEN (allow, nothing printed) on missing config or network/API errors,
+ * so a BehalfID outage never blocks the developer.
+ */
+export async function runCursorHook(deps: CursorHookDeps = {}): Promise<number> {
+  const stdout = deps.stdout ?? process.stdout;
+  const stderr = deps.stderr ?? process.stderr;
+  const readInput = deps.stdin ?? readStdin;
+  const debug = process.env.BEHALFID_DEBUG === "1";
+  const trace = (msg: string) => {
+    if (debug) stderr.write(`BehalfID[debug]: ${msg}\n`);
+  };
+
+  let raw = "";
+  let input: CursorHookInput;
+  try {
+    raw = await readInput();
+    input = raw.trim() ? (JSON.parse(raw) as CursorHookInput) : {};
+  } catch {
+    trace(`could not parse ${raw.length} bytes of stdin as JSON — allowing (fail open)`);
+    return 0; // fail open: allow, print nothing
+  }
+  trace(`payload keys: [${Object.keys(input).join(", ")}]`);
+  trace(`command=${JSON.stringify(input.command)}`);
+
+  const config = readConfig();
+  const agentId = config.agentId ?? process.env.BEHALFID_AGENT_ID;
+  const apiKey = resolveApiKey();
+  const baseUrl = resolveBaseUrl();
+
+  if (!agentId || !apiKey) {
+    trace(`not configured: agentId=${agentId ? "set" : "missing"} apiKey=${apiKey ? "set" : "missing"} — allowing (fail open)`);
+    return 0; // fail open
+  }
+
+  let result: VerifyResult;
+  try {
+    const body: Record<string, unknown> = {
+      agentId,
+      action: "execute_command",
+      vendor: "shell",
+    };
+    trace(`POST ${baseUrl}/api/verify ${JSON.stringify(body)}`);
+    result = deps.verify
+      ? await deps.verify(body)
+      : await apiRequest<VerifyResult>("/api/verify", { method: "POST", body, apiKey, baseUrl });
+    trace(
+      `verify → allowed=${result.allowed} approvalRequired=${result.approvalRequired ?? false} reason=${JSON.stringify(result.reason)}`
+    );
+  } catch (err) {
+    trace(`verification unavailable (${err instanceof Error ? err.message : String(err)}) — allowing (fail open)`);
+    return 0; // fail open
+  }
+
+  if (result.allowed) return 0; // allow: print nothing
+
+  const needsApproval = result.approvalRequired === true || /approval/i.test(result.reason ?? "");
+  const reason =
+    result.reason ??
+    (needsApproval ? "Approval required. Visit your Action Inbox to approve." : "Action not permitted.");
+  stdout.write(JSON.stringify({ permission: "deny", reason }) + "\n");
+  return 0;
+}
+
 export function hookCommand() {
   const cmd = new Command("hook").description(
     "internal hooks for AI tools (invoked by Claude Code, not run directly)"
@@ -214,6 +300,13 @@ export function hookCommand() {
     .description("PreToolUse gate: read a Claude Code tool call on stdin and verify it with BehalfID")
     .action(async () => {
       process.exit(await runPreToolUse());
+    });
+
+  cmd
+    .command("cursor")
+    .description("Cursor beforeShellExecution gate: read a shell command on stdin and emit Cursor's JSON deny/allow decision")
+    .action(async () => {
+      process.exit(await runCursorHook());
     });
 
   return cmd;

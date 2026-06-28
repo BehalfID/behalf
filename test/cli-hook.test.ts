@@ -394,3 +394,151 @@ describe("doctor Codex hook check", () => {
     expect(after.find(c => c.name === "Codex hook")?.status).toBe("ok");
   });
 });
+
+describe("runCursorHook", () => {
+  function configured(config: typeof import("../packages/cli/src/lib/config"), home: string) {
+    config.writeConfig({ apiKey: "bhf_sk_testsecret12345", agentId: "agent_test123", baseUrl: "http://localhost:3000" });
+    return home;
+  }
+
+  it("prints Cursor's deny JSON and exits 0 when denied", async () => {
+    const home = tempDir("behalf-home-");
+    const { hook, config } = await loadHookModules(home);
+    configured(config, home);
+    const out = stderrCollector();
+
+    const code = await hook.runCursorHook({
+      stdin: async () => JSON.stringify({ command: "rm -rf /" }),
+      verify: async () => ({ allowed: false, reason: "Blocked by policy." }),
+      stdout: out.sink,
+    });
+
+    expect(code).toBe(0);
+    expect(JSON.parse(out.text)).toEqual({ permission: "deny", reason: "Blocked by policy." });
+  });
+
+  it("prints nothing and exits 0 when allowed", async () => {
+    const home = tempDir("behalf-home-");
+    const { hook, config } = await loadHookModules(home);
+    configured(config, home);
+    const out = stderrCollector();
+
+    const code = await hook.runCursorHook({
+      stdin: async () => JSON.stringify({ command: "ls" }),
+      verify: async () => ({ allowed: true }),
+      stdout: out.sink,
+    });
+
+    expect(code).toBe(0);
+    expect(out.text).toBe("");
+  });
+
+  it("maps approval-required to a deny decision", async () => {
+    const home = tempDir("behalf-home-");
+    const { hook, config } = await loadHookModules(home);
+    configured(config, home);
+    const out = stderrCollector();
+
+    await hook.runCursorHook({
+      stdin: async () => JSON.stringify({ command: "deploy" }),
+      verify: async () => ({ allowed: false, approvalRequired: true }),
+      stdout: out.sink,
+    });
+
+    const decision = JSON.parse(out.text);
+    expect(decision.permission).toBe("deny");
+    expect(decision.reason).toMatch(/approval/i);
+  });
+
+  it("fails open (allow, no output) when verification errors", async () => {
+    const home = tempDir("behalf-home-");
+    const { hook, config } = await loadHookModules(home);
+    configured(config, home);
+    const out = stderrCollector();
+
+    const code = await hook.runCursorHook({
+      stdin: async () => JSON.stringify({ command: "ls" }),
+      verify: async () => { throw new Error("network down"); },
+      stdout: out.sink,
+    });
+
+    expect(code).toBe(0);
+    expect(out.text).toBe("");
+  });
+
+  it("fails open when not configured", async () => {
+    const home = tempDir("behalf-home-");
+    const { hook } = await loadHookModules(home);
+    const out = stderrCollector();
+
+    const code = await hook.runCursorHook({
+      stdin: async () => JSON.stringify({ command: "ls" }),
+      stdout: out.sink,
+    });
+
+    expect(code).toBe(0);
+    expect(out.text).toBe("");
+  });
+});
+
+describe("installCursorBeforeShellHook", () => {
+  it("writes ~/.cursor/hooks.json in Cursor's format and is idempotent", async () => {
+    const home = tempDir("behalf-home-");
+    const { run } = await loadHookModules(home);
+
+    expect(run.hasCursorBeforeShellHook(home)).toBe(false);
+
+    const first = run.installCursorBeforeShellHook(home);
+    expect(first.changed).toBe(true);
+    expect(run.hasCursorBeforeShellHook(home)).toBe(true);
+
+    const file = JSON.parse(readFileSync(join(home, ".cursor", "hooks.json"), "utf-8"));
+    expect(file).toEqual({
+      version: 1,
+      hooks: { beforeShellExecution: [{ command: "behalf hook cursor", matcher: ".*" }] },
+    });
+
+    const second = run.installCursorBeforeShellHook(home);
+    expect(second.changed).toBe(false);
+    expect(JSON.parse(readFileSync(join(home, ".cursor", "hooks.json"), "utf-8")).hooks.beforeShellExecution).toHaveLength(1);
+  });
+
+  it("preserves existing hooks when merging", async () => {
+    const home = tempDir("behalf-home-");
+    const { run } = await loadHookModules(home);
+    const { mkdirSync } = await import("node:fs");
+
+    mkdirSync(join(home, ".cursor"), { recursive: true });
+    writeFileSync(
+      join(home, ".cursor", "hooks.json"),
+      JSON.stringify({ version: 1, hooks: { beforeShellExecution: [{ command: "existing", matcher: "git.*" }], afterEdit: [{ command: "x" }] } }, null, 2)
+    );
+
+    run.installCursorBeforeShellHook(home);
+
+    const file = JSON.parse(readFileSync(join(home, ".cursor", "hooks.json"), "utf-8"));
+    expect(file.hooks.beforeShellExecution).toHaveLength(2);
+    expect(file.hooks.beforeShellExecution[0].command).toBe("existing");
+    expect(file.hooks.beforeShellExecution[1].command).toBe("behalf hook cursor");
+    expect(file.hooks.afterEdit).toEqual([{ command: "x" }]);
+  });
+});
+
+describe("doctor Cursor hook check", () => {
+  it("warns when the hook is missing and reports ok once installed", async () => {
+    const home = tempDir("behalf-home-");
+    const project = tempDir("behalf-project-");
+    const { run, doctor } = await loadHookModules(home);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 })));
+
+    const before = await doctor.runDoctorChecks(project);
+    const cursorCheck = before.find(c => c.name === "Cursor hook");
+    expect(cursorCheck?.status).toBe("warn");
+    expect(cursorCheck?.fix).toBe("Run `behalf cursor` to install it.");
+
+    run.installCursorBeforeShellHook(home);
+
+    const after = await doctor.runDoctorChecks(project);
+    expect(after.find(c => c.name === "Cursor hook")?.status).toBe("ok");
+  });
+});

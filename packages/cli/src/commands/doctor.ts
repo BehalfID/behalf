@@ -2,7 +2,7 @@ import { Command } from "commander";
 import { apiRequest, resolveApiKey, resolveBaseUrl } from "../lib/client.js";
 import { readConfig, readSession, CONFIG_DIR_PATH, CONFIG_FILE_PATH } from "../lib/config.js";
 import { getProjectSetupStatus } from "../lib/mcp-setup.js";
-import { hasClaudePreToolUseHook, hasCodexPreToolUseHook } from "./run.js";
+import { hasClaudePreToolUseHook, hasCodexPreToolUseHook, hasCursorBeforeShellHook } from "./run.js";
 import { isJsonMode, printJson, runAction } from "../lib/output.js";
 
 type Check = {
@@ -137,6 +137,16 @@ export async function runDoctorChecks(cwd = process.cwd()): Promise<Check[]> {
       ? "BehalfID PreToolUse hook installed in ~/.codex/hooks.json"
       : "BehalfID PreToolUse hook not found in ~/.codex/hooks.json",
     fix: "Run `behalf codex` to install it.",
+  });
+
+  const cursorHookInstalled = hasCursorBeforeShellHook();
+  checks.push({
+    name: "Cursor hook",
+    status: cursorHookInstalled ? "ok" : "warn",
+    detail: cursorHookInstalled
+      ? "BehalfID beforeShellExecution hook installed in ~/.cursor/hooks.json"
+      : "BehalfID beforeShellExecution hook not found in ~/.cursor/hooks.json",
+    fix: "Run `behalf cursor` to install it.",
   });
 
   return checks;
