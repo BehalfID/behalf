@@ -479,6 +479,214 @@ describe("verifyAction permission decisions", () => {
   });
 });
 
+describe("argument-level constraints (path and command)", () => {
+  beforeEach(() => {
+    modelMocks.agentUpdateOne.mockResolvedValue({ matchedCount: 1 });
+    modelMocks.permissionUpdateOne.mockResolvedValue({ matchedCount: 1 });
+    modelMocks.verificationLogCreate.mockResolvedValue({});
+    modelMocks.approvalRequestFindOne.mockResolvedValue(null);
+    modelMocks.approvalRequestFindOneAndUpdate.mockResolvedValue(null);
+  });
+
+  it("allows write_file when path matches an allowedPaths glob", async () => {
+    mockPermissions([
+      permissionFixture({
+        action: "write_file",
+        constraints: { allowedPaths: ["src/**", "tests/**"] }
+      })
+    ]);
+    const { verifyAction } = await import("@/lib/verify");
+
+    await expect(
+      verifyAction(verificationRequestFixture({ action: "write_file", metadata: { tool_input: "src/foo/bar.ts" } }))
+    ).resolves.toEqual(expect.objectContaining({ allowed: true }));
+  });
+
+  it("denies write_file when path does not match allowedPaths", async () => {
+    mockPermissions([
+      permissionFixture({
+        action: "write_file",
+        constraints: { allowedPaths: ["src/**", "tests/**"] }
+      })
+    ]);
+    const { verifyAction } = await import("@/lib/verify");
+
+    await expect(
+      verifyAction(verificationRequestFixture({ action: "write_file", metadata: { tool_input: "~/.ssh/id_rsa" } }))
+    ).resolves.toEqual(expect.objectContaining({ allowed: false, reason: "path_not_permitted" }));
+  });
+
+  it("denies write_file when path matches a deniedPaths glob", async () => {
+    mockPermissions([
+      permissionFixture({
+        action: "write_file",
+        constraints: { deniedPaths: ["~/.ssh/**", "**/.env", "**/credentials/**"] }
+      })
+    ]);
+    const { verifyAction } = await import("@/lib/verify");
+
+    for (const badPath of ["~/.ssh/id_rsa", ".env", "config/.env", "secrets/credentials/key.json"]) {
+      mockPermissions([
+        permissionFixture({
+          action: "write_file",
+          constraints: { deniedPaths: ["~/.ssh/**", "**/.env", "**/credentials/**"] }
+        })
+      ]);
+      await expect(
+        verifyAction(verificationRequestFixture({ action: "write_file", metadata: { tool_input: badPath } }))
+      ).resolves.toEqual(expect.objectContaining({ allowed: false, reason: "path_not_permitted" }));
+    }
+  });
+
+  it("allows write_file to a safe path when deniedPaths is set", async () => {
+    mockPermissions([
+      permissionFixture({
+        action: "write_file",
+        constraints: { deniedPaths: ["~/.ssh/**", "**/.env"] }
+      })
+    ]);
+    const { verifyAction } = await import("@/lib/verify");
+
+    await expect(
+      verifyAction(verificationRequestFixture({ action: "write_file", metadata: { tool_input: "src/main.ts" } }))
+    ).resolves.toEqual(expect.objectContaining({ allowed: true }));
+  });
+
+  it("extracts file path from metadata.path as fallback", async () => {
+    mockPermissions([
+      permissionFixture({
+        action: "read_file",
+        constraints: { allowedPaths: ["src/**"] }
+      })
+    ]);
+    const { verifyAction } = await import("@/lib/verify");
+
+    await expect(
+      verifyAction(verificationRequestFixture({ action: "read_file", metadata: { path: "src/index.ts" } }))
+    ).resolves.toEqual(expect.objectContaining({ allowed: true }));
+  });
+
+  it("denies read_file with no metadata when allowedPaths is set", async () => {
+    mockPermissions([
+      permissionFixture({
+        action: "read_file",
+        constraints: { allowedPaths: ["src/**"] }
+      })
+    ]);
+    const { verifyAction } = await import("@/lib/verify");
+
+    await expect(
+      verifyAction(verificationRequestFixture({ action: "read_file", metadata: {} }))
+    ).resolves.toEqual(expect.objectContaining({ allowed: false, reason: "path_not_permitted" }));
+  });
+
+  it("denies execute_command when command contains a deniedCommands substring", async () => {
+    mockPermissions([
+      permissionFixture({
+        action: "execute_command",
+        constraints: { deniedCommands: ["rm -rf", "curl", "wget"] }
+      })
+    ]);
+    const { verifyAction } = await import("@/lib/verify");
+
+    await expect(
+      verifyAction(verificationRequestFixture({ action: "execute_command", metadata: { tool_input: "rm -rf /tmp/foo" } }))
+    ).resolves.toEqual(expect.objectContaining({ allowed: false, reason: "command_blocked" }));
+
+    mockPermissions([
+      permissionFixture({
+        action: "execute_command",
+        constraints: { deniedCommands: ["rm -rf", "curl", "wget"] }
+      })
+    ]);
+    await expect(
+      verifyAction(verificationRequestFixture({ action: "execute_command", metadata: { tool_input: "curl https://evil.example" } }))
+    ).resolves.toEqual(expect.objectContaining({ allowed: false, reason: "command_blocked" }));
+  });
+
+  it("allows execute_command when no deniedCommands substring matches", async () => {
+    mockPermissions([
+      permissionFixture({
+        action: "execute_command",
+        constraints: { deniedCommands: ["rm -rf", "curl"] }
+      })
+    ]);
+    const { verifyAction } = await import("@/lib/verify");
+
+    await expect(
+      verifyAction(verificationRequestFixture({ action: "execute_command", metadata: { tool_input: "ls -la src/" } }))
+    ).resolves.toEqual(expect.objectContaining({ allowed: true }));
+  });
+
+  it("extracts command from metadata.command as fallback", async () => {
+    mockPermissions([
+      permissionFixture({
+        action: "execute_command",
+        constraints: { deniedCommands: ["rm -rf"] }
+      })
+    ]);
+    const { verifyAction } = await import("@/lib/verify");
+
+    await expect(
+      verifyAction(verificationRequestFixture({ action: "execute_command", metadata: { command: "rm -rf /" } }))
+    ).resolves.toEqual(expect.objectContaining({ allowed: false, reason: "command_blocked" }));
+  });
+
+  it("skips path checks for non-file actions even when allowedPaths is set", async () => {
+    mockPermissions([
+      permissionFixture({
+        action: "purchase",
+        constraints: { allowedPaths: ["src/**"] }
+      })
+    ]);
+    const { verifyAction } = await import("@/lib/verify");
+
+    await expect(
+      verifyAction(verificationRequestFixture({ action: "purchase" }))
+    ).resolves.toEqual(expect.objectContaining({ allowed: true }));
+  });
+
+  it("skips command checks for non-execute actions even when deniedCommands is set", async () => {
+    mockPermissions([
+      permissionFixture({
+        action: "write_file",
+        constraints: { deniedCommands: ["rm -rf"] }
+      })
+    ]);
+    const { verifyAction } = await import("@/lib/verify");
+
+    await expect(
+      verifyAction(verificationRequestFixture({ action: "write_file", metadata: { tool_input: "src/foo.ts" } }))
+    ).resolves.toEqual(expect.objectContaining({ allowed: true }));
+  });
+
+  it("argument denies are hard constraints — not bypassable by approval", async () => {
+    mockPermissions([
+      permissionFixture({
+        action: "write_file",
+        requiresApproval: true,
+        constraints: { deniedPaths: ["~/.ssh/**"] }
+      })
+    ]);
+    modelMocks.approvalRequestFindOne.mockResolvedValue({
+      approvalId: "apr_granted",
+      agentId: "agent_test",
+      permissionId: "perm_test",
+      action: "write_file",
+      vendor: null,
+      amount: null,
+      status: "approved",
+      grantExpiresAt: new Date(Date.now() + 20 * 60 * 1_000)
+    });
+    const { verifyAction } = await import("@/lib/verify");
+
+    await expect(
+      verifyAction(verificationRequestFixture({ action: "write_file", metadata: { tool_input: "~/.ssh/id_rsa" } }))
+    ).resolves.toEqual(expect.objectContaining({ allowed: false, reason: "path_not_permitted" }));
+    expect(modelMocks.approvalRequestFindOne).not.toHaveBeenCalled();
+  });
+});
+
 describe("approval grants never bypass hard constraints", () => {
   function matchingGrant(overrides: Partial<Record<string, unknown>> = {}) {
     return {

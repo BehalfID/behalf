@@ -66,6 +66,9 @@ export function permissionsCommand() {
     .option("--allowed <actions>", "comma-separated allowed actions")
     .option("--blocked <actions>", "comma-separated blocked actions")
     .option("--requires-approval", "require human approval before acting")
+    .option("--allowed-paths <patterns>", "comma-separated glob patterns for permitted file paths (write_file/read_file)")
+    .option("--denied-paths <patterns>", "comma-separated glob patterns for blocked file paths (write_file/read_file)")
+    .option("--denied-commands <substrings>", "comma-separated substrings that block execute_command actions")
     .option("-k, --api-key <key>", "agent API key (overrides config)")
     .action(
       runAction(async (agentId: string, opts: {
@@ -79,6 +82,9 @@ export function permissionsCommand() {
         allowed?: string;
         blocked?: string;
         requiresApproval?: boolean;
+        allowedPaths?: string;
+        deniedPaths?: string;
+        deniedCommands?: string;
         apiKey?: string;
       }) => {
         const apiKey = opts.apiKey ?? resolveApiKey();
@@ -95,11 +101,14 @@ export function permissionsCommand() {
         if (opts.allowed) body.allowedActions = opts.allowed.split(",").map(s => s.trim()).filter(Boolean);
         if (opts.blocked) body.blockedActions = opts.blocked.split(",").map(s => s.trim()).filter(Boolean);
 
-        if (opts.maxAmount || opts.expires || opts.resource) {
+        if (opts.maxAmount || opts.expires || opts.resource || opts.allowedPaths || opts.deniedPaths || opts.deniedCommands) {
           const constraints: Record<string, unknown> = {};
           if (opts.maxAmount) constraints.maxAmount = Number(opts.maxAmount);
           if (opts.expires) constraints.expiresAt = new Date(opts.expires).toISOString();
           if (opts.resource) constraints.allowedVendors = [opts.resource];
+          if (opts.allowedPaths) constraints.allowedPaths = opts.allowedPaths.split(",").map(s => s.trim()).filter(Boolean);
+          if (opts.deniedPaths) constraints.deniedPaths = opts.deniedPaths.split(",").map(s => s.trim()).filter(Boolean);
+          if (opts.deniedCommands) constraints.deniedCommands = opts.deniedCommands.split(",").map(s => s.trim()).filter(Boolean);
           body.constraints = constraints;
         }
 
