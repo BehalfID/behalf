@@ -1,6 +1,6 @@
 {
   "name": "@behalfid/cli",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "Official CLI for BehalfID — agent permission management",
   "type": "module",
   "bin": {
