@@ -2,7 +2,7 @@ import { Command } from "commander";
 import { apiRequest, resolveApiKey, resolveBaseUrl } from "../lib/client.js";
 import { readConfig, readSession, CONFIG_DIR_PATH, CONFIG_FILE_PATH } from "../lib/config.js";
 import { getProjectSetupStatus } from "../lib/mcp-setup.js";
-import { hasClaudePreToolUseHook } from "./run.js";
+import { hasClaudePreToolUseHook, hasCodexPreToolUseHook } from "./run.js";
 import { isJsonMode, printJson, runAction } from "../lib/output.js";
 
 type Check = {
@@ -127,6 +127,16 @@ export async function runDoctorChecks(cwd = process.cwd()): Promise<Check[]> {
       ? "BehalfID PreToolUse hook installed in ~/.claude/settings.json"
       : "BehalfID PreToolUse hook not found in ~/.claude/settings.json",
     fix: "Run `behalf claude` to install it.",
+  });
+
+  const codexHookInstalled = hasCodexPreToolUseHook();
+  checks.push({
+    name: "Codex hook",
+    status: codexHookInstalled ? "ok" : "warn",
+    detail: codexHookInstalled
+      ? "BehalfID PreToolUse hook installed in ~/.codex/hooks.json"
+      : "BehalfID PreToolUse hook not found in ~/.codex/hooks.json",
+    fix: "Run `behalf codex` to install it.",
   });
 
   return checks;

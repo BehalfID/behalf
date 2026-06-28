@@ -42,13 +42,13 @@ function redactArg(arg: string): string {
   return arg.replace(/bhf_sk_[A-Za-z0-9._-]+/g, "bhf_sk_[redacted]");
 }
 
-// ── Claude Code PreToolUse hook installation ──────────────────────────────────
+// ── BehalfID PreToolUse hook installation (Claude + Codex) ────────────────────
 
-const CLAUDE_HOOK_COMMAND = "behalf hook pre-tool-use";
+const BEHALF_HOOK_COMMAND = "behalf hook pre-tool-use";
 
 type ClaudeHookSpec = { type?: string; command?: string };
 type ClaudeHookMatcher = { matcher?: string; hooks?: ClaudeHookSpec[] };
-type ClaudeSettings = Record<string, unknown> & {
+type HooksFile = Record<string, unknown> & {
   hooks?: Record<string, unknown> & { PreToolUse?: ClaudeHookMatcher[] };
 };
 
@@ -56,39 +56,37 @@ function claudeSettingsPath(home = homedir()): string {
   return join(home, ".claude", "settings.json");
 }
 
-/** Read ~/.claude/settings.json. Returns {} if absent, null if unparseable. */
-function readClaudeSettings(path: string): ClaudeSettings | null {
+function codexHooksPath(home = homedir()): string {
+  return join(home, ".codex", "hooks.json");
+}
+
+/** Read a PreToolUse hooks JSON file. Returns {} if absent, null if unparseable. */
+function readHooksFile(path: string): HooksFile | null {
   if (!existsSync(path)) return {};
   try {
-    return JSON.parse(readFileSync(path, "utf-8")) as ClaudeSettings;
+    return JSON.parse(readFileSync(path, "utf-8")) as HooksFile;
   } catch {
     return null;
   }
 }
 
-function settingsHaveBehalfHook(settings: ClaudeSettings | null): boolean {
+function settingsHaveBehalfHook(settings: HooksFile | null): boolean {
   const pre = settings?.hooks?.PreToolUse;
   if (!Array.isArray(pre)) return false;
   return pre.some(
     (entry) =>
       Array.isArray(entry?.hooks) &&
-      entry.hooks.some((h) => h?.type === "command" && h?.command === CLAUDE_HOOK_COMMAND)
+      entry.hooks.some((h) => h?.type === "command" && h?.command === BEHALF_HOOK_COMMAND)
   );
 }
 
-/** True if ~/.claude/settings.json already wires up the BehalfID PreToolUse hook. */
-export function hasClaudePreToolUseHook(home = homedir()): boolean {
-  return settingsHaveBehalfHook(readClaudeSettings(claudeSettingsPath(home)));
-}
-
 /**
- * Merge the BehalfID PreToolUse hook into ~/.claude/settings.json, preserving
- * any existing content. Idempotent: re-running never duplicates the entry, and
- * an unparseable settings file is left untouched rather than clobbered.
+ * Merge the BehalfID PreToolUse hook into a hooks JSON file, preserving any
+ * existing content. Idempotent: re-running never duplicates the entry, and an
+ * unparseable file is left untouched rather than clobbered.
  */
-export function installClaudePreToolUseHook(home = homedir()): { path: string; changed: boolean } {
-  const path = claudeSettingsPath(home);
-  const settings = readClaudeSettings(path);
+function installPreToolUseHookAt(path: string): { path: string; changed: boolean } {
+  const settings = readHooksFile(path);
   if (settings === null) return { path, changed: false };
   if (settingsHaveBehalfHook(settings)) return { path, changed: false };
 
@@ -96,7 +94,7 @@ export function installClaudePreToolUseHook(home = homedir()): { path: string; c
   const preToolUse: ClaudeHookMatcher[] = Array.isArray(hooks.PreToolUse) ? hooks.PreToolUse : [];
   preToolUse.push({
     matcher: ".*",
-    hooks: [{ type: "command", command: CLAUDE_HOOK_COMMAND }],
+    hooks: [{ type: "command", command: BEHALF_HOOK_COMMAND }],
   });
   hooks.PreToolUse = preToolUse;
   settings.hooks = hooks;
@@ -104,6 +102,64 @@ export function installClaudePreToolUseHook(home = homedir()): { path: string; c
   const dir = dirname(path);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   writeFileSync(path, JSON.stringify(settings, null, 2) + "\n");
+  return { path, changed: true };
+}
+
+/** True if ~/.claude/settings.json already wires up the BehalfID PreToolUse hook. */
+export function hasClaudePreToolUseHook(home = homedir()): boolean {
+  return settingsHaveBehalfHook(readHooksFile(claudeSettingsPath(home)));
+}
+
+/** Merge the BehalfID PreToolUse hook into ~/.claude/settings.json. */
+export function installClaudePreToolUseHook(home = homedir()): { path: string; changed: boolean } {
+  return installPreToolUseHookAt(claudeSettingsPath(home));
+}
+
+/** True if ~/.codex/hooks.json already wires up the BehalfID PreToolUse hook. */
+export function hasCodexPreToolUseHook(home = homedir()): boolean {
+  return settingsHaveBehalfHook(readHooksFile(codexHooksPath(home)));
+}
+
+/** Merge the BehalfID PreToolUse hook into ~/.codex/hooks.json. */
+export function installCodexPreToolUseHook(home = homedir()): { path: string; changed: boolean } {
+  return installPreToolUseHookAt(codexHooksPath(home));
+}
+
+// ── Codex MCP server registration (~/.codex/config.toml) ──────────────────────
+
+function codexConfigPath(home = homedir()): string {
+  return join(home, ".codex", "config.toml");
+}
+
+const CODEX_MCP_BLOCK =
+  "[mcp_servers.behalfid]\n" +
+  'command = "behalf"\n' +
+  'args = ["mcp", "start"]\n';
+
+/**
+ * Register the BehalfID MCP server in ~/.codex/config.toml under
+ * [mcp_servers.behalfid], preserving any existing config. Idempotent: if the
+ * section is already present the file is left untouched; otherwise the block is
+ * appended. We append text rather than parse TOML to avoid a dependency and to
+ * keep unrelated config byte-for-byte intact.
+ */
+export function installCodexMcpServer(home = homedir()): { path: string; changed: boolean } {
+  const path = codexConfigPath(home);
+  let existing = "";
+  if (existsSync(path)) {
+    existing = readFileSync(path, "utf-8");
+    if (/^[ \t]*\[mcp_servers\.behalfid\][ \t]*$/m.test(existing)) {
+      return { path, changed: false };
+    }
+  }
+
+  const dir = dirname(path);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+
+  let prefix = existing;
+  if (prefix.length > 0 && !prefix.endsWith("\n")) prefix += "\n";
+  if (prefix.length > 0) prefix += "\n";
+  writeFileSync(path, prefix + CODEX_MCP_BLOCK);
   return { path, changed: true };
 }
 
@@ -217,12 +273,21 @@ export async function launchTool(toolKey: string, extraArgs: string[], deps: Lau
     stderr.write("Initialized BehalfID MCP project setup for this directory.\n");
   }
 
-  // Claude Code: install the hard PreToolUse gate so every tool call is
-  // verified with BehalfID before it runs.
+  // Install the hard PreToolUse gate so every tool call is verified with
+  // BehalfID before it runs. Claude and Codex each use their own config layout.
   if (toolKey === "claude") {
     const hook = installClaudePreToolUseHook();
     if (hook.changed) {
       stderr.write(`Installed BehalfID PreToolUse hook → ${hook.path}\n`);
+    }
+  } else if (toolKey === "codex") {
+    const hook = installCodexPreToolUseHook();
+    if (hook.changed) {
+      stderr.write(`Installed BehalfID PreToolUse hook → ${hook.path}\n`);
+    }
+    const mcp = installCodexMcpServer();
+    if (mcp.changed) {
+      stderr.write(`Configured BehalfID MCP server → ${mcp.path}\n`);
     }
   }
 
