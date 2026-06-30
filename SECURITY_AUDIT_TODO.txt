@@ -83,3 +83,9 @@
 # - npm audit: 0 vulnerabilities (root, cli, sdk, examples/enforcement-demo, examples/node-demo, examples/webhook-receiver, examples/site-guard-express, examples/site-guard-nextjs, packages/github-action)
 # - Unit tests: 625/625 passed
 # - No hardcoded secrets detected
+
+# Last audit: 2026-06-30
+# Result: PASSED
+# - npm audit: 0 vulnerabilities (root, cli, sdk, examples/enforcement-demo, examples/node-demo, examples/webhook-receiver, examples/site-guard-express, examples/site-guard-nextjs, packages/github-action)
+# - Unit tests: 625/625 passed
+# - No hardcoded secrets detected
