@@ -45,7 +45,7 @@ function DecisionPacket({ decision = "denied" }: { decision?: "denied" | "allowe
           <span style={{ color: "var(--text)", font: mono ? "600 0.96rem/1.2 var(--font-mono)" : "600 1.05rem/1.2 var(--font-sans)" }}>{value}</span>
         </div>
       ))}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 20, padding: "18px 22px", background: "var(--accent-glow)", borderTop: "1px solid rgba(99,102,241,0.32)", borderBottom: "1px solid rgba(99,102,241,0.32)", color: "var(--accent)", font: "700 0.74rem/1 var(--font-mono)", letterSpacing: "0.12em", textTransform: "uppercase", minHeight: 36 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 20, padding: "18px 22px", background: "var(--accent-glow)", borderTop: "1px solid rgba(216, 138, 99,0.32)", borderBottom: "1px solid rgba(216, 138, 99,0.32)", color: "var(--accent)", font: "700 0.74rem/1 var(--font-mono)", letterSpacing: "0.12em", textTransform: "uppercase", minHeight: 36 }}>
         <span>BehalfID decision boundary</span>
       </div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20, padding: "18px 22px", borderBottom: "1px solid var(--border)" }}>
@@ -56,7 +56,7 @@ function DecisionPacket({ decision = "denied" }: { decision?: "denied" | "allowe
         <span style={{ color: "var(--muted)", font: "500 0.78rem/1 var(--font-mono)", letterSpacing: "0.04em", textTransform: "uppercase" }}>Reason</span>
         <span style={{ color: "var(--text)", font: "600 0.96rem/1.2 var(--font-sans)" }}>No active purchase permission.</span>
       </div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20, padding: "18px 22px", background: "rgba(99,102,241,0.06)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20, padding: "18px 22px", background: "rgba(216, 138, 99,0.06)" }}>
         <span style={{ color: "var(--muted)", font: "500 0.78rem/1 var(--font-mono)", letterSpacing: "0.04em", textTransform: "uppercase" }}>Audit</span>
         <span style={{ color: "var(--muted)", font: "600 0.86rem/1 var(--font-mono)" }}>verification.denied · req_3xZ9q</span>
       </div>
@@ -111,7 +111,7 @@ export default function PatternsPage() {
         <p className={s.lede} style={{ marginBottom: 24 }}>
           Four-step explainer used in marketing and docs introductions. Always in this order. Numbered <code style={{ color: "var(--accent)", fontFamily: "var(--font-mono)" }}>01–04</code>.
         </p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", border: "1px solid var(--border)", borderRadius: "var(--radius-xl)", overflow: "hidden", background: "linear-gradient(90deg, rgba(99,102,241,0.18), transparent 42%, rgba(255,255,255,0.08))" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", border: "1px solid var(--border)", borderRadius: "var(--radius-xl)", overflow: "hidden", background: "linear-gradient(90deg, rgba(216, 138, 99,0.18), transparent 42%, rgba(255,255,255,0.08))" }}>
           {pipelineSteps.map(({ num, title, copy }, i) => (
             <div key={num} style={{ padding: "24px 22px", borderRight: i < 3 ? "1px solid var(--hairline)" : "none", minHeight: 140, display: "grid", alignContent: "space-between", background: "rgba(10,10,10,0.56)" }}>
               <span style={{ color: "var(--muted)", font: "800 0.74rem/1 var(--font-mono)", letterSpacing: "0.1em" }}>{num}</span>
@@ -123,7 +123,7 @@ export default function PatternsPage() {
 
         {/* ── Hero pattern ── */}
         <h2 className={s.h2}>Marketing hero</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.08fr) minmax(340px, 460px)", gap: "clamp(36px, 6vw, 72px)", alignItems: "center", padding: "56px 32px", border: "1px solid var(--border)", borderRadius: "var(--radius-2xl)", background: "radial-gradient(circle at 78% 8%, rgba(99,102,241,0.16), transparent 24rem), linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0.86))", position: "relative", overflow: "hidden" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.08fr) minmax(340px, 460px)", gap: "clamp(36px, 6vw, 72px)", alignItems: "center", padding: "56px 32px", border: "1px solid var(--border)", borderRadius: "var(--radius-2xl)", background: "radial-gradient(circle at 78% 8%, rgba(216, 138, 99,0.16), transparent 24rem), linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0.86))", position: "relative", overflow: "hidden" }}>
           <div>
             <p className="ui-kicker">Agent permission infrastructure</p>
             <h2 style={{ margin: "12px 0 0", font: "800 clamp(2.4rem, 5vw, 4rem)/0.92 var(--font-sans)", letterSpacing: "-0.015em" }}>The permission layer between agents and action.</h2>
@@ -153,7 +153,7 @@ export default function PatternsPage() {
               <span style={{ color: "var(--muted)", font: "500 0.78rem/1 var(--font-mono)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Amount</span>
               <span style={{ color: "var(--text)", font: "600 0.96rem/1.2 var(--font-mono)" }}>$742.00</span>
             </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "18px 22px", background: "var(--accent-glow)", borderTop: "1px solid rgba(99,102,241,0.32)", borderBottom: "1px solid rgba(99,102,241,0.32)", color: "var(--accent)", font: "700 0.74rem/1 var(--font-mono)", letterSpacing: "0.12em", textTransform: "uppercase" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "18px 22px", background: "var(--accent-glow)", borderTop: "1px solid rgba(216, 138, 99,0.32)", borderBottom: "1px solid rgba(216, 138, 99,0.32)", color: "var(--accent)", font: "700 0.74rem/1 var(--font-mono)", letterSpacing: "0.12em", textTransform: "uppercase" }}>
               BehalfID
             </div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20, padding: "18px 22px" }}>

@@ -223,9 +223,9 @@
   text-transform: uppercase;
   text-align: center;
   padding: 8px 24px;
-  border-top: 1px solid rgba(99, 102, 241, 0.32);
-  border-bottom: 1px solid rgba(99, 102, 241, 0.32);
-  background: rgba(99, 102, 241, 0.18);
+  border-top: 1px solid rgba(216, 138, 99, 0.32);
+  border-bottom: 1px solid rgba(216, 138, 99, 0.32);
+  background: rgba(216, 138, 99, 0.18);
 }
 
 /* ── Section header ──────────────────────── */

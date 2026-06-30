@@ -147,7 +147,7 @@ export default function ComponentsPage() {
           <div className="ui-card" style={{ padding: 24, border: "1px solid var(--border-strong)", boxShadow: "0 8px 32px rgba(0,0,0,0.4)" }}>
             <p style={{ margin: 0, color: "var(--muted)", fontSize: "0.84rem" }}>Default card with elevation. Use only on hero panels and dialogs.</p>
           </div>
-          <div style={{ padding: 24, border: "1px solid rgba(99,102,241,0.4)", borderRadius: "var(--radius-md)", background: "var(--accent-soft)" }}>
+          <div style={{ padding: 24, border: "1px solid rgba(216, 138, 99,0.4)", borderRadius: "var(--radius-md)", background: "var(--accent-soft)" }}>
             <p style={{ margin: 0, color: "var(--text)", fontSize: "0.94rem", lineHeight: 1.5 }}><strong>Heads up.</strong> Action Gateway currently supports safe public web reads as the MVP.</p>
           </div>
         </Demo>
