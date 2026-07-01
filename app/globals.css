@@ -12461,6 +12461,42 @@ html[data-theme="light"] .lang-switcher__option--active {
   }
 }
 
+/* Prevent the collapsed hero grid from being blown out by a child's
+   min-content: minmax(0,1fr) + min-width:0 lets the column track shrink
+   to the viewport so text/stats never overflow their box on phones. */
+@media (max-width: 900px) {
+  .home-hero,
+  .home-code {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .home-hero > *,
+  .home-code > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
+/* Four nowrap stats can't sit in one row on a phone — lay them out 2×2. */
+@media (max-width: 600px) {
+  .home-hero__stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px 0;
+    padding-top: 28px;
+    margin-top: 32px;
+  }
+  .home-hero__stat,
+  .home-hero__stat:first-child {
+    padding: 0 12px;
+    align-items: center;
+    text-align: center;
+    border-right: none;
+  }
+  .home-hero__stat-label {
+    white-space: normal;
+  }
+}
+
 /* ── Video Demo Section ── */
 .marketing > .video-demo-section,
 .video-demo-section {
