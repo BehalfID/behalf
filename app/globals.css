@@ -234,8 +234,19 @@ pre {
   font-weight: var(--fw-bold);
 }
 
+/* Full lockup: show the transparent mark bare (no tile) beside the wordmark
+   so it blends on any surface in both themes. */
 .site-logo--full .site-logo__mark {
-  display: none;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.site-logo--full .site-logo__mark img {
+  width: 26px;
+  height: 26px;
 }
 
 .site-logo--symbol .site-logo__wordmark {
@@ -295,18 +306,6 @@ pre {
   width: 22px;
   height: 22px;
   object-fit: contain;
-}
-
-.site-logo__icon--light {
-  display: none;
-}
-
-[data-theme="light"] .site-logo__icon--dark {
-  display: none;
-}
-
-[data-theme="light"] .site-logo__icon--light {
-  display: block;
 }
 
 .site-logo strong,
