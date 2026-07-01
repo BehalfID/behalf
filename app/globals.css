@@ -12456,9 +12456,34 @@ html[data-theme="light"] .lang-switcher__option--active {
 }
 
 @media (max-width: 600px) {
-  .home-hero__visual {
-    display: none;
+  /* Reclaim the side gutters so the hero actually uses the screen width. */
+  .marketing > section { width: calc(100% - 20px); }
+  .home-hero,
+  .home-steps,
+  .home-code,
+  .home-deploy,
+  .home-demo,
+  .home-cta {
+    padding-left: 12px;
+    padding-right: 12px;
   }
+
+  /* Punchier hero: less top dead space, trim the secondary detail list,
+     and surface the verify terminal as the focal product visual. */
+  .home-hero {
+    padding-block: 36px 52px;
+    row-gap: 28px;
+  }
+  /* Redundant with the terminal below — drop it on phones to cut clutter. */
+  .home-hero .home-hero__examples { display: none; }
+  .home-sub { margin-bottom: 24px; }
+
+  .home-hero__visual {
+    display: block;
+    margin-top: 4px;
+  }
+  /* Keep the decorative glow inside the viewport. */
+  .home-hero__visual-glow { width: 100%; height: 100%; }
 }
 
 /* Prevent the collapsed hero grid from being blown out by a child's
