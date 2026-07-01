@@ -12621,22 +12621,22 @@ html[data-theme="light"] .lang-switcher__option--active {
 /* ── Body ───────────────────────────────────────────────── */
 .fd-body {
   padding: 20px 24px 12px;
-  min-height: 0;
+  /* Reserve the tallest scene's height so neither the line-by-line reveal
+     nor scene changes (13 vs 14 lines) reflow the page below the terminal. */
+  min-height: 304px;
 }
 
 .fd-line {
+  /* Lines always occupy their vertical space; only the fade-in animates,
+     so the terminal body keeps a stable height as scenes type out. */
   opacity: 0;
-  max-height: 0;
-  overflow: hidden;
   transform: translateY(4px);
-  transition: opacity 0.18s ease, transform 0.18s ease, max-height 0s;
+  transition: opacity 0.18s ease, transform 0.18s ease;
   line-height: 1.7;
 }
 .fd-line--visible {
   opacity: 1;
-  max-height: 80px;
   transform: translateY(0);
-  transition: opacity 0.18s ease, transform 0.18s ease, max-height 0s;
 }
 
 .fd-line pre {
@@ -12739,7 +12739,7 @@ html[data-theme="light"] .lang-switcher__option--active {
 
 /* ── Responsive ─────────────────────────────────────────── */
 @media (max-width: 600px) {
-  .fd-body { padding: 16px 16px 8px; }
+  .fd-body { padding: 16px 16px 8px; min-height: 266px; }
   .fd-footer { padding: 8px 16px 10px; }
   .fd-line pre { font-size: 0.72rem; }
 }
