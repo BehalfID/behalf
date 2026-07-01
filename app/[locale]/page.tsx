@@ -34,14 +34,14 @@ const jsonLd = {
       "@id": "https://behalfid.com/#organization",
       name: "BehalfID",
       url: "https://behalfid.com",
-      description: "BehalfID builds permission infrastructure for AI agents."
+      description: "BehalfID builds approval gates and audit controls for coding agents."
     },
     {
       "@type": "WebSite",
       "@id": "https://behalfid.com/#website",
       name: "BehalfID",
       url: "https://behalfid.com",
-      description: "The permission layer between agents and action.",
+      description: "Approval gates for coding agents — control what Claude Code, Codex, and Cursor can do before they touch production.",
       publisher: { "@id": "https://behalfid.com/#organization" },
       datePublished: "2026-05-03",
       dateModified: "2026-05-18"
@@ -166,163 +166,7 @@ export default async function Home({
         </div>
       </section>
 
-      {/* ── Flow diagram ─────────────────────────────────── */}
-      <section className="home-flow-section">
-        <div className="home-flow-section__inner">
-          <p className="section-kicker">How BehalfID works</p>
-          <h2 className="home-flow-section__h2">Every agent action passes through the permission layer — before it runs.</h2>
-          <FlowDiagram />
-          <div className="home-flow-section__legend">
-            <span className="home-flow-legend__item home-flow-legend__item--deny">Denied — action never executes</span>
-            <span className="home-flow-legend__divider">·</span>
-            <span className="home-flow-legend__item home-flow-legend__item--allow">Allowed — passes through to your tool</span>
-            <span className="home-flow-legend__divider">·</span>
-            <span className="home-flow-legend__item">Every decision logged + signed webhook</span>
-          </div>
-        </div>
-      </section>
-
-      {/* ── How it works ──────────────────────────────────── */}
-      <section className="home-steps" aria-labelledby="steps-heading">
-        <div className="home-steps__intro" data-reveal>
-          <p className="section-kicker">{ts("kicker")}</p>
-          <h2 id="steps-heading" className="home-steps__h2">
-            {ts("h2Line1")}<br />{ts("h2Line2")}
-          </h2>
-        </div>
-
-        <ol className="home-steps__list">
-          <li className="home-step">
-            <div className="home-step__left">
-              <span className="home-step__num">01</span>
-              <h3 className="home-step__title">{ts("step1Title")}</h3>
-              <p className="home-step__body">{ts("step1Body")}</p>
-            </div>
-            <div className="home-step__visual" aria-hidden="true">
-              <span className="sv-label">ACTION REQUEST</span>
-              <div className="sv-rows">
-                <div><span>agent</span><code>agent_claude_code</code></div>
-                <div><span>action</span><code>deploy</code></div>
-                <div><span>vendor</span><code>vercel.com</code></div>
-                <div><span>env</span><code>production</code></div>
-              </div>
-            </div>
-          </li>
-
-          <li className="home-step home-step--check">
-            <div className="home-step__left">
-              <span className="home-step__num">02</span>
-              <h3 className="home-step__title">{ts("step2Title")}</h3>
-              <p className="home-step__body">{ts("step2Body")}</p>
-            </div>
-            <div className="home-step__visual home-step__visual--accent" aria-hidden="true">
-              <span className="sv-label sv-label--accent">BEHALFID · DECISION BOUNDARY</span>
-              <div className="sv-rows">
-                <div><span>passport</span><code>passport_claude</code></div>
-                <div><span>active</span><code>3 permissions</code></div>
-                <div><span>deploy prod</span><code className="sv-muted">requires approval</code></div>
-              </div>
-            </div>
-          </li>
-
-          <li className="home-step home-step--decision">
-            <div className="home-step__left">
-              <span className="home-step__num">03</span>
-              <h3 className="home-step__title">{ts("step3Title")}</h3>
-              <p className="home-step__body">
-                {ts("step3Body1")}
-                <code className="hi-code">allowed</code>,{" "}
-                <code className="hi-code">denied</code>
-                {ts("step3Body2")}
-                <code className="hi-code">allowed</code>
-                {ts("step3Body3")}
-              </p>
-            </div>
-            <div className="home-step__visual home-step__visual--deny" aria-hidden="true">
-              <span className="sv-label">DECISION</span>
-              <strong className="sv-verdict sv-verdict--deny">denied</strong>
-              <code className="sv-reason">Permission requires approval before execution.</code>
-              <div className="sv-rows sv-rows--sm">
-                <div><span>execution</span><code className="sv-muted">false</code></div>
-                <div><span>requestId</span><code>req_Abc123xyz</code></div>
-              </div>
-            </div>
-          </li>
-
-          <li className="home-step">
-            <div className="home-step__left">
-              <span className="home-step__num">04</span>
-              <h3 className="home-step__title">{ts("step4Title")}</h3>
-              <p className="home-step__body">{ts("step4Body")}</p>
-            </div>
-            <div className="home-step__visual home-step__visual--ok" aria-hidden="true">
-              <span className="sv-label sv-label--ok">AUDIT EVENT · LOGGED</span>
-              <div className="sv-rows">
-                <div><span>requestId</span><code>req_Abc123xyz</code></div>
-                <div><span>event</span><code>verification.denied</code></div>
-                <div><span>agent</span><code>agent_ollie</code></div>
-                <div><span>action</span><code>purchase · $742.00</code></div>
-              </div>
-            </div>
-          </li>
-        </ol>
-      </section>
-
-      {/* ── Integration ───────────────────────────────────── */}
-      <section className="home-code" aria-labelledby="code-heading">
-        <div className="home-code__text" data-reveal>
-          <p className="section-kicker">{tc("kicker")}</p>
-          <h2 id="code-heading" className="home-code__h2">
-            {tc("h2Line1")}<br />{tc("h2Line2")}
-          </h2>
-          <p className="home-code__body mode-advanced-only">
-            {tc.rich("bodyAdvanced", { code: (chunks) => <code className="hi-code">{chunks}</code> })}
-          </p>
-          <p className="home-code__body mode-simple-only">{tc("bodySimple")}</p>
-          <div className="home-code__links">
-            <Link href="/docs/quickstart">{tc("quickstart")}</Link>
-            <Link href="/docs/sdk">{tc("sdkRef")}</Link>
-          </div>
-        </div>
-
-        <div className="home-code__block mode-advanced-only" data-reveal>
-          <CodeBlock label="enforce.ts">{`const decision = await behalf.verify({
-  agentId: "agent_claude_code",
-  action:  "deploy",
-  vendor:  "vercel.com",
-});
-
-if (!decision.allowed) {
-  // Blocked — reason logged, webhook fired
-  throw new Error(decision.reason);
-}
-
-// Deploy only runs when decision.allowed === true`}</CodeBlock>
-        </div>
-
-        <div className="home-flow-diagram mode-simple-only" aria-label={tc("verificationFlow")} data-reveal>
-          <div className="home-flow-node">
-            <span className="sv-label">Action request</span>
-            <strong className="home-flow-node__name">{tc("aiAgent")}</strong>
-            <span className="home-flow-node__sub">{tc("wantsToAct")}</span>
-          </div>
-          <div className="home-flow-node home-flow-node--center">
-            <span className="sv-label sv-label--accent">BehalfID · verify</span>
-            <strong className="home-flow-node__name">BehalfID</strong>
-            <span className="home-flow-node__sub">{tc("checksRules")}</span>
-          </div>
-          <div className="home-flow-node home-flow-node--decision">
-            <span className="sv-label">Decision</span>
-            <div className="home-flow-outcomes">
-              <span className="home-flow-outcome home-flow-outcome--ok">{tc("goAhead")}</span>
-              <span className="home-flow-outcome home-flow-outcome--deny">{tc("blocked")}</span>
-              <span className="home-flow-outcome home-flow-outcome--warn">{tc("askFirst")}</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Deploy approval workflow ──────────────────────── */}
+      {/* ── Deploy approval workflow (lead scenario) ──────── */}
       <section className="home-deploy" aria-labelledby="deploy-heading">
         <div className="home-deploy__intro" data-reveal>
           <p className="section-kicker">{td("kicker")}</p>
@@ -408,6 +252,163 @@ Approve at: https://behalfid.com/dashboard/approvals`}</CodeBlock>
 
         <div className="home-deploy__cta">
           <ButtonLink href="/docs/deploy-approvals">{td("readGuide")}</ButtonLink>
+        </div>
+      </section>
+
+      {/* ── How it works ──────────────────────────────────── */}
+      <section className="home-steps" aria-labelledby="steps-heading">
+        <div className="home-steps__intro" data-reveal>
+          <p className="section-kicker">{ts("kicker")}</p>
+          <h2 id="steps-heading" className="home-steps__h2">
+            {ts("h2Line1")}<br />{ts("h2Line2")}
+          </h2>
+        </div>
+
+        <ol className="home-steps__list">
+          <li className="home-step">
+            <div className="home-step__left">
+              <span className="home-step__num">01</span>
+              <h3 className="home-step__title">{ts("step1Title")}</h3>
+              <p className="home-step__body">{ts("step1Body")}</p>
+            </div>
+            <div className="home-step__visual" aria-hidden="true">
+              <span className="sv-label">ACTION REQUEST</span>
+              <div className="sv-rows">
+                <div><span>agent</span><code>agent_claude_code</code></div>
+                <div><span>action</span><code>deploy</code></div>
+                <div><span>vendor</span><code>vercel.com</code></div>
+                <div><span>env</span><code>production</code></div>
+              </div>
+            </div>
+          </li>
+
+          <li className="home-step home-step--check">
+            <div className="home-step__left">
+              <span className="home-step__num">02</span>
+              <h3 className="home-step__title">{ts("step2Title")}</h3>
+              <p className="home-step__body">{ts("step2Body")}</p>
+            </div>
+            <div className="home-step__visual home-step__visual--accent" aria-hidden="true">
+              <span className="sv-label sv-label--accent">BEHALFID · DECISION BOUNDARY</span>
+              <div className="sv-rows">
+                <div><span>passport</span><code>passport_claude</code></div>
+                <div><span>active</span><code>3 permissions</code></div>
+                <div><span>deploy prod</span><code className="sv-muted">requires approval</code></div>
+              </div>
+            </div>
+          </li>
+
+          <li className="home-step home-step--decision">
+            <div className="home-step__left">
+              <span className="home-step__num">03</span>
+              <h3 className="home-step__title">{ts("step3Title")}</h3>
+              <p className="home-step__body">
+                {ts("step3Body1")}
+                <code className="hi-code">allowed</code>,{" "}
+                <code className="hi-code">denied</code>
+                {ts("step3Body2")}
+                <code className="hi-code">allowed</code>
+                {ts("step3Body3")}
+              </p>
+            </div>
+            <div className="home-step__visual home-step__visual--deny" aria-hidden="true">
+              <span className="sv-label">DECISION</span>
+              <strong className="sv-verdict sv-verdict--deny">denied</strong>
+              <code className="sv-reason">Permission requires approval before execution.</code>
+              <div className="sv-rows sv-rows--sm">
+                <div><span>execution</span><code className="sv-muted">false</code></div>
+                <div><span>requestId</span><code>req_Abc123xyz</code></div>
+              </div>
+            </div>
+          </li>
+
+          <li className="home-step">
+            <div className="home-step__left">
+              <span className="home-step__num">04</span>
+              <h3 className="home-step__title">{ts("step4Title")}</h3>
+              <p className="home-step__body">{ts("step4Body")}</p>
+            </div>
+            <div className="home-step__visual home-step__visual--ok" aria-hidden="true">
+              <span className="sv-label sv-label--ok">AUDIT EVENT · LOGGED</span>
+              <div className="sv-rows">
+                <div><span>requestId</span><code>req_Abc123xyz</code></div>
+                <div><span>event</span><code>verification.denied</code></div>
+                <div><span>agent</span><code>agent_claude_code</code></div>
+                <div><span>action</span><code>deploy_production</code></div>
+              </div>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      {/* ── Integration ───────────────────────────────────── */}
+      <section className="home-code" aria-labelledby="code-heading">
+        <div className="home-code__text" data-reveal>
+          <p className="section-kicker">{tc("kicker")}</p>
+          <h2 id="code-heading" className="home-code__h2">
+            {tc("h2Line1")}<br />{tc("h2Line2")}
+          </h2>
+          <p className="home-code__body mode-advanced-only">
+            {tc.rich("bodyAdvanced", { code: (chunks) => <code className="hi-code">{chunks}</code> })}
+          </p>
+          <p className="home-code__body mode-simple-only">{tc("bodySimple")}</p>
+          <div className="home-code__links">
+            <Link href="/docs/quickstart">{tc("quickstart")}</Link>
+            <Link href="/docs/sdk">{tc("sdkRef")}</Link>
+          </div>
+        </div>
+
+        <div className="home-code__block mode-advanced-only" data-reveal>
+          <CodeBlock label="enforce.ts">{`const decision = await behalf.verify({
+  agentId: "agent_claude_code",
+  action:  "deploy",
+  vendor:  "vercel.com",
+});
+
+if (!decision.allowed) {
+  // Blocked — reason logged, webhook fired
+  throw new Error(decision.reason);
+}
+
+// Deploy only runs when decision.allowed === true`}</CodeBlock>
+        </div>
+
+        <div className="home-flow-diagram mode-simple-only" aria-label={tc("verificationFlow")} data-reveal>
+          <div className="home-flow-node">
+            <span className="sv-label">Action request</span>
+            <strong className="home-flow-node__name">{tc("aiAgent")}</strong>
+            <span className="home-flow-node__sub">{tc("wantsToAct")}</span>
+          </div>
+          <div className="home-flow-node home-flow-node--center">
+            <span className="sv-label sv-label--accent">BehalfID · verify</span>
+            <strong className="home-flow-node__name">BehalfID</strong>
+            <span className="home-flow-node__sub">{tc("checksRules")}</span>
+          </div>
+          <div className="home-flow-node home-flow-node--decision">
+            <span className="sv-label">Decision</span>
+            <div className="home-flow-outcomes">
+              <span className="home-flow-outcome home-flow-outcome--ok">{tc("goAhead")}</span>
+              <span className="home-flow-outcome home-flow-outcome--deny">{tc("blocked")}</span>
+              <span className="home-flow-outcome home-flow-outcome--warn">{tc("askFirst")}</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Use cases ─────────────────────────────────────── */}
+      <section className="home-flow-section">
+        <div className="home-flow-section__inner">
+          <p className="section-kicker">Use cases</p>
+          <h2 className="home-flow-section__h2">The same gate on every risky action — before it runs.</h2>
+          <p className="home-flow-section__sub">Production deploys, database migrations, GitHub writes, secret access, and billing or vendor API calls — each checked against your policy before the tool executes.</p>
+          <FlowDiagram />
+          <div className="home-flow-section__legend">
+            <span className="home-flow-legend__item home-flow-legend__item--deny">Denied — action never executes</span>
+            <span className="home-flow-legend__divider">·</span>
+            <span className="home-flow-legend__item home-flow-legend__item--allow">Allowed — passes through to your tool</span>
+            <span className="home-flow-legend__divider">·</span>
+            <span className="home-flow-legend__item">Every decision logged + signed webhook</span>
+          </div>
         </div>
       </section>
 
