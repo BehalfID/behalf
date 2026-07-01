@@ -1,0 +1,98 @@
+{
+  "generatedAt": "2026-06-26",
+  "brand": {
+    "name": "BehalfID",
+    "tagline": "Permission checks before AI agents act.",
+    "colors": {
+      "bg": "#05080E",
+      "accent": "#6366F1",
+      "allow": "#6ee7b7",
+      "deny": "#fca5a5",
+      "approval": "#fcd34d"
+    }
+  },
+  "pipeline": {
+    "stills": "Higgsfield GenerateImage (Nano Banana Pro for UI/text frames, Nano Banana 2 for environment shots)",
+    "higgsfieldMcp": {
+      "authenticated": true,
+      "workspaceSelected": true,
+      "plan": "free",
+      "creditsRemaining": 7.5,
+      "imageModel": "ms_image (DTC Ads, 1 credit/image)",
+      "videoModel": "seedance_2_0 (22 credits/5s, requires Plus plan)",
+      "uploadFlow": "media_upload → curl PUT → media_confirm → generate_video"
+    },
+    "video": "Ken Burns motion + 0.5s crossfade stitch via marketing/ads/scripts/stitch-ad.sh; upgrade to seedance_2_0 image-to-video when on Plus",
+    "note": "Higgsfield ms_image DTC Ads variants saved under higgsfield/concept1/"
+  },
+  "concepts": [
+    {
+      "id": "concept1",
+      "title": "Production Deploy Blocked",
+      "format": "9:16",
+      "durationSec": 16,
+      "cta": "Try deploy approvals → behalfid.com/sandbox",
+      "video": "/opt/cursor/artifacts/videos/concept1-production-deploy-blocked.mp4",
+      "shots": [
+        { "file": "concept1/concept1-shot1-hook.png", "durationSec": 3, "model": "Nano Banana 2" },
+        { "file": "concept1/concept1-shot2-terminal.png", "durationSec": 4, "model": "Nano Banana Pro" },
+        { "file": "concept1/concept1-shot3-decision.png", "durationSec": 4, "model": "Nano Banana Pro" },
+        { "file": "concept1/concept1-shot4-dashboard.png", "durationSec": 4, "model": "Nano Banana 2" },
+        { "file": "concept1/concept1-shot5-payoff.png", "durationSec": 3, "model": "Nano Banana Pro" }
+      ]
+    },
+    {
+      "id": "concept2",
+      "title": "Three Lines of Code",
+      "format": "16:9",
+      "durationSec": 14,
+      "cta": "Add the permission check → behalfid.com/signup",
+      "video": "/opt/cursor/artifacts/videos/concept2-three-lines-of-code.mp4",
+      "shots": [
+        { "file": "concept2/concept2-shot1-split.png", "durationSec": 5, "model": "Nano Banana 2" },
+        { "file": "concept2/concept2-shot2-code.png", "durationSec": 5, "model": "Nano Banana Pro" },
+        { "file": "concept2/concept2-shot3-flow.png", "durationSec": 5, "model": "Nano Banana 2" }
+      ]
+    },
+    {
+      "id": "concept3",
+      "title": "Fail Closed",
+      "format": "9:16",
+      "durationSec": 11,
+      "cta": "Every decision logged. Denied actions never run.",
+      "video": "/opt/cursor/artifacts/videos/concept3-fail-closed.mp4",
+      "shots": [
+        { "file": "concept3/concept3-shot1-metaphor.png", "durationSec": 4, "model": "Nano Banana 2" },
+        { "file": "concept3/concept3-shot2-gate.png", "durationSec": 4, "model": "Nano Banana 2" },
+        { "file": "concept3/concept3-shot3-audit.png", "durationSec": 4, "model": "Nano Banana Pro" }
+      ]
+    },
+    {
+      "id": "concept4",
+      "title": "Permission Passport",
+      "format": "9:16",
+      "durationSec": 18.5,
+      "cta": "Define boundaries once. Enforce automatically.",
+      "video": "/opt/cursor/artifacts/videos/concept4-permission-passport.mp4",
+      "shots": [
+        { "file": "concept4/concept4-shot1-passport.png", "durationSec": 5, "model": "Nano Banana Pro" },
+        { "file": "concept4/concept4-shot2-checkpoint.png", "durationSec": 5, "model": "Nano Banana 2" },
+        { "file": "concept4/concept4-shot3-deny.png", "durationSec": 5, "model": "Nano Banana Pro" },
+        { "file": "concept4/concept4-shot4-allow.png", "durationSec": 5, "model": "Nano Banana Pro" }
+      ]
+    },
+    {
+      "id": "concept5",
+      "title": "Before / After BehalfID",
+      "format": "16:9",
+      "durationSec": 14,
+      "cta": "behalfid.com — The permission layer between agents and action.",
+      "video": "/opt/cursor/artifacts/videos/concept5-before-after.mp4",
+      "shots": [
+        { "file": "concept5/concept5-shot1-before.png", "durationSec": 5, "model": "Nano Banana 2" },
+        { "file": "concept5/concept5-shot2-after.png", "durationSec": 5, "model": "Nano Banana 2" },
+        { "file": "concept5/concept5-shot3-split.png", "durationSec": 5, "model": "Nano Banana Pro" }
+      ]
+    }
+  ]
+}
