@@ -5,6 +5,8 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { DashboardShellLayout } from "@/components/layout/DashboardShell";
 import { Badge, Button, ButtonLink, Card, CodeBlock, EmptyState, PageHeader, StatCard } from "@/components/ui";
 import { SCOPE_TEMPLATES } from "@/lib/scopeTemplates";
+import { getRequiredRoleLabel } from "@/lib/authority";
+import { classifyPermissionRisk } from "@/lib/permissionRisk";
 import { POLICY_TEMPLATES, POLICY_CATEGORY_LABELS, type PolicyTemplate } from "@/lib/policyTemplates";
 import { PASSPORT_PRESETS, buildPresetPermissions, type PassportPreset } from "@/lib/passportPresets";
 import {
@@ -46,6 +48,12 @@ type Permission = {
   notes?: string;
   template?: PermissionTemplate;
   constraints?: { maxAmount?: number; allowedVendors?: string[]; expiresAt?: string };
+  requiredAuthorityLevel?: number;
+};
+type WorkspaceAuthority = {
+  role: string;
+  roleLabel: string;
+  authorityLevel: number;
 };
 type Log = {
   requestId: string;
@@ -119,6 +127,12 @@ type ApprovalRequest = {
   resolvedAt?: string | null;
   grantExpiresAt?: string | null;
   createdAt?: string;
+  requiredAuthorityLevel?: number;
+  requiredRoleLabel?: string;
+  canApprove?: boolean;
+  canDeny?: boolean;
+  approveBlockReason?: string | null;
+  denyBlockReason?: string | null;
 };
 type AgentProvider = "custom" | "ollie" | "chatgpt" | "claude" | "gemini" | "zapier" | "make" | "langchain" | "openai" | "other";
 type ProviderSelection = AgentProvider | "";
@@ -1710,7 +1724,7 @@ const result = await behalf.verify({
 }
 
 function AgentView({ agentId }: { agentId: string }) {
-  const detail = useResource<{ agent: Agent; permissions: Permission[]; logs: Log[] }>(`/api/dashboard/agents/${agentId}`);
+  const detail = useResource<{ agent: Agent; permissions: Permission[]; logs: Log[]; workspaceAuthority?: WorkspaceAuthority | null }>(`/api/dashboard/agents/${agentId}`);
   const [secret, setSecret] = useState("");
   const [passportUrl, setPassportUrl] = useState("");
   const [form, setForm] = useState({
@@ -1835,6 +1849,11 @@ function AgentView({ agentId }: { agentId: string }) {
   };
   const agent = detail.data?.agent;
   const permissions = detail.data?.permissions ?? [];
+  const workspaceAuthority = detail.data?.workspaceAuthority ?? null;
+  const permissionAuthority = classifyFormPermissionAuthority(form);
+  const canGrantSelectedPermission = permissionAuthority
+    ? canGrantPermissionAuthority(workspaceAuthority, permissionAuthority.requiredAuthorityLevel)
+    : true;
   const hasPermissions = permissions.some((permission) => permission.status === "active");
 
   if (agent && !guidelinesInitialized) {
@@ -1952,6 +1971,19 @@ function AgentView({ agentId }: { agentId: string }) {
       <form className="dashboard-panel" onSubmit={createPermission}>
         <h2>Add permission</h2>
         <p className="field-help">Permissions define which actions this agent can take. Start narrow: allow one useful action and explicitly block risky ones.</p>
+        {workspaceAuthority ? (
+          <p className="field-help">
+            Your delegated role: <strong>{workspaceAuthority.roleLabel}</strong> (authority {workspaceAuthority.authorityLevel})
+          </p>
+        ) : null}
+        {permissionAuthority ? (
+          <p className="field-help">
+            Requires: <strong>{getRequiredRoleLabel(permissionAuthority.requiredAuthorityLevel)}</strong>
+            {!canGrantSelectedPermission ? (
+              <span className="form-error"> — you do not have authority to grant this permission.</span>
+            ) : null}
+          </p>
+        ) : null}
         <div className="policy-template-section">
           <span className="field-label">Policy templates</span>
           <p className="field-help">Pre-built policies for real developer workflows. Single-permission templates populate the form below for editing. Multi-permission templates are applied immediately.</p>
@@ -2097,12 +2129,14 @@ function AgentView({ agentId }: { agentId: string }) {
           <span>Expires at</span>
           <input type="datetime-local" value={form.expiresAt} onChange={(e) => setForm({ ...form, expiresAt: e.target.value })} />
         </label>
-        <Button variant="primary" type="submit">Create permission</Button>
+        <Button variant="primary" type="submit" disabled={!canGrantSelectedPermission || workspaceAuthority?.authorityLevel === 10}>
+          Create permission
+        </Button>
       </form>
       <section className="dashboard-panel">
         <h2>Permissions</h2>
         {!permissions.length ? <EmptyState className="dashboard-empty">No permissions yet. Add one above before this agent can be allowed to do anything.</EmptyState> : null}
-        <div className="dashboard-list">{permissions.map((p) => <div key={p.permissionId}><span><strong>{p.action}</strong><small>{dashboardPermissionSummary(p)}</small></span><Badge>{p.status}</Badge>{p.status === "active" ? <Button onClick={() => revoke(p.permissionId)}>Revoke</Button> : null}</div>)}</div>
+        <div className="dashboard-list">{permissions.map((p) => <div key={p.permissionId}><span><strong>{p.action}</strong><small>{dashboardPermissionSummary(p)}{p.requiredAuthorityLevel != null ? ` · requires ${getRequiredRoleLabel(p.requiredAuthorityLevel)}` : ""}</small></span><Badge>{p.status}</Badge>{p.status === "active" ? <Button onClick={() => revoke(p.permissionId)}>Revoke</Button> : null}</div>)}</div>
       </section>
       {hasPermissions ? (
         <section className="dashboard-panel">
@@ -2276,13 +2310,41 @@ function LogsView() {
   );
 }
 
+function classifyFormPermissionAuthority(form: {
+  action: string;
+  template: PermissionTemplate | "";
+  resource: string;
+  allowedActions: string;
+  blockedActions: string;
+  requiresApproval: boolean;
+}) {
+  const action = form.action || form.template || "";
+  if (!action) return null;
+  return classifyPermissionRisk({
+    action,
+    resource: form.resource || undefined,
+    allowedActions: form.allowedActions
+      ? form.allowedActions.split(",").map((item) => item.trim()).filter(Boolean)
+      : undefined,
+    blockedActions: form.blockedActions
+      ? form.blockedActions.split(",").map((item) => item.trim()).filter(Boolean)
+      : undefined,
+    requiresApproval: form.requiresApproval
+  });
+}
+
+function canGrantPermissionAuthority(workspaceAuthority: WorkspaceAuthority | null | undefined, requiredAuthorityLevel: number) {
+  if (!workspaceAuthority) return true;
+  return workspaceAuthority.authorityLevel >= requiredAuthorityLevel;
+}
+
 function approvalActionLabel(action: string, vendor?: string | null) {
   const base = action.replace(/_/g, " ");
   return vendor ? `${base} → ${vendor}` : base;
 }
 
 function ApprovalsView() {
-  const approvals = useResource<{ approvals: ApprovalRequest[] }>("/api/dashboard/approvals");
+  const approvals = useResource<{ approvals: ApprovalRequest[]; workspaceAuthority?: WorkspaceAuthority | null }>("/api/dashboard/approvals");
   const [working, setWorking] = useState<string | null>(null);
 
   const resolve = async (approvalId: string, action: "approve" | "deny") => {
@@ -2330,6 +2392,15 @@ function ApprovalsView() {
                   <span className="approval-ids__label">req</span> <code>{req.requestId}</code>
                 </small>
                 <small>Requested {date(req.createdAt)}</small>
+                {req.requiredRoleLabel ? (
+                  <small>Requires {req.requiredRoleLabel} approval</small>
+                ) : null}
+                {req.canApprove === false && req.approveBlockReason ? (
+                  <small className="form-error">{req.approveBlockReason}</small>
+                ) : null}
+                {req.canDeny === false && req.denyBlockReason ? (
+                  <small className="form-error">{req.denyBlockReason}</small>
+                ) : null}
               </span>
               <span className={`console-status console-status--${req.status === "pending" ? "approval" : req.status === "approved" ? "allowed" : "denied"}`}>
                 {req.status}
@@ -2340,14 +2411,14 @@ function ApprovalsView() {
                     variant="primary"
                     type="button"
                     onClick={() => resolve(req.approvalId, "approve")}
-                    disabled={working === req.approvalId}
+                    disabled={working === req.approvalId || req.canApprove === false}
                   >
                     Approve
                   </Button>
                   <Button
                     type="button"
                     onClick={() => resolve(req.approvalId, "deny")}
-                    disabled={working === req.approvalId}
+                    disabled={working === req.approvalId || req.canDeny === false}
                   >
                     Deny
                   </Button>
@@ -2369,7 +2440,7 @@ function ApprovalsView() {
 }
 
 function InboxView() {
-  const inbox = useResource<{ pendingApprovals: ApprovalRequest[]; deniedHighRisk: Log[] }>("/api/dashboard/inbox");
+  const inbox = useResource<{ pendingApprovals: ApprovalRequest[]; deniedHighRisk: Log[]; workspaceAuthority?: WorkspaceAuthority | null }>("/api/dashboard/inbox");
   const [working, setWorking] = useState<string | null>(null);
   const [resolveError, setResolveError] = useState("");
 
@@ -2427,7 +2498,14 @@ function InboxView() {
                       <code>{req.requestId}</code>
                       {" · "}
                       {date(req.createdAt)}
+                      {req.requiredRoleLabel ? ` · requires ${req.requiredRoleLabel}` : ""}
                     </small>
+                    {req.canApprove === false && req.approveBlockReason ? (
+                      <small className="form-error">{req.approveBlockReason}</small>
+                    ) : null}
+                    {req.canDeny === false && req.denyBlockReason ? (
+                      <small className="form-error">{req.denyBlockReason}</small>
+                    ) : null}
                   </div>
                   <div className="inbox-card__badges">
                     <span className={`console-status console-status--${req.status === "pending" ? "approval" : "allowed"}`}>
@@ -2441,14 +2519,14 @@ function InboxView() {
                       variant="primary"
                       type="button"
                       onClick={() => resolve(req.approvalId, "approve")}
-                      disabled={working === req.approvalId}
+                      disabled={working === req.approvalId || req.canApprove === false}
                     >
                       Approve for 15 min
                     </Button>
                     <Button
                       type="button"
                       onClick={() => resolve(req.approvalId, "deny")}
-                      disabled={working === req.approvalId}
+                      disabled={working === req.approvalId || req.canDeny === false}
                     >
                       Deny
                     </Button>
@@ -2509,7 +2587,13 @@ function InboxView() {
 }
 
 function SettingsView() {
-  const settings = useResource<{ email: string; appUrl: string; apiUsage: string; dangerZone: string }>("/api/dashboard/settings");
+  const settings = useResource<{
+    email: string;
+    appUrl: string;
+    apiUsage: string;
+    dangerZone: string;
+    delegatedPermissions?: WorkspaceAuthority | null;
+  }>("/api/dashboard/settings");
   const tokens = useResource<{ tokens: DeveloperToken[] }>("/api/dashboard/tokens");
   const [tokenName, setTokenName] = useState("");
   const [newToken, setNewToken] = useState("");
@@ -2539,6 +2623,14 @@ function SettingsView() {
         </div>
         {settings.data ? (
           <div className="account-details">
+            <div className="account-details__row">
+              <span className="account-details__label">Delegated Permissions role</span>
+              <span className="account-details__value">
+                {settings.data.delegatedPermissions
+                  ? `${settings.data.delegatedPermissions.roleLabel} (authority ${settings.data.delegatedPermissions.authorityLevel})`
+                  : "Owner (authority 100)"}
+              </span>
+            </div>
             <div className="account-details__row">
               <span className="account-details__label">Email</span>
               <span className="account-details__value">{settings.data.email}</span>

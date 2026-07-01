@@ -6,6 +6,7 @@ export type RequestOptions = {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
   apiKey?: string;
+  developerToken?: string;
   baseUrl?: string;
   skipAuth?: boolean;
   onHeaders?: (headers: Headers) => void;
@@ -50,6 +51,7 @@ export async function apiRequest<T = unknown>(
   };
 
   if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+  if (opts.developerToken) headers["x-developer-token"] = opts.developerToken;
   if (session) headers.Cookie = session;
   if (opts.body !== undefined) headers["Content-Type"] = "application/json";
 

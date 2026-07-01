@@ -136,3 +136,49 @@ describe("delegated permission authorization", () => {
   });
 });
 
+describe("approval deny authority", () => {
+  const actor = (role: WorkspaceRole) => ({
+    userId: "user_test",
+    accountId: "acct_test",
+    role,
+    authorityLevel: AUTHORITY_LEVELS[role]
+  });
+
+  const leadApproval = {
+    requiredAuthorityLevel: AUTHORITY_LEVELS.ENGINEERING_LEAD,
+    action: "deploy_production",
+    vendor: "vercel.com",
+    developerUserId: "owner_user"
+  };
+
+  it("blocks ENGINEER from denying ENGINEERING_LEAD requests", () => {
+    expect(canDenyRequest(actor("ENGINEER"), leadApproval)).toBe(false);
+  });
+
+  it("allows ENGINEERING_LEAD to deny ENGINEERING_LEAD requests", () => {
+    expect(canDenyRequest(actor("ENGINEERING_LEAD"), leadApproval)).toBe(true);
+  });
+
+  it("allows OWNER to deny any request", () => {
+    expect(canDenyRequest(actor("OWNER"), leadApproval)).toBe(true);
+  });
+
+  it("blocks VIEWER from denying", () => {
+    expect(canDenyRequest(actor("VIEWER"), leadApproval)).toBe(false);
+  });
+
+  it("blocks ENGINEER from approving ENGINEERING_LEAD requests", () => {
+    expect(canApproveRequest(actor("ENGINEER"), leadApproval)).toBe(false);
+    expect(getRequiredRoleLabel(AUTHORITY_LEVELS.ENGINEERING_LEAD)).toBe("Engineering Lead");
+  });
+});
+
+describe("agent permission API enforcement", () => {
+  it("exports the required agent denial message", async () => {
+    const { agentCannotGrantPermissions } = await import("@/lib/delegatedAuth");
+    const response = agentCannotGrantPermissions();
+    expect(response.status).toBe(403);
+    const body = await response.json();
+    expect(body.error).toBe(AGENT_PERMISSION_DENIED_MESSAGE);
+  });
+});

@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireDeveloperApi } from "@/lib/developerAuth";
+import { accountScopeFilter } from "@/lib/accountAccess";
+import { getWorkspaceActor } from "@/lib/delegatedAuth";
 import { retentionSince } from "@/lib/quota";
 import {
   buildVerificationLogQuery,
@@ -15,10 +17,13 @@ import VerificationLog from "@/models/VerificationLog";
 export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
+  const actor = await getWorkspaceActor(auth.user.userId, auth.user.primaryAccountId);
+  if (!actor) return noCacheJson({ logs: [], summary: null, pagination: { limit: 0, page: 1, total: 0, hasMore: false } });
+
   const { limit, page, skip, format } = parseLogListParams(request.nextUrl.searchParams);
   const query = buildVerificationLogQuery(
     request.nextUrl.searchParams,
-    { developerUserId: auth.user.userId },
+    { ...accountScopeFilter(actor.accountId) },
     { retentionStart: retentionSince(auth.account?.plan) }
   );
 
@@ -35,7 +40,7 @@ export async function GET(request: NextRequest) {
     VerificationLog.countDocuments(query),
     getVerificationLogSummaryAgg(query)
   ]);
-  const logs = await withAgentNames(rawLogs, { developerUserId: auth.user.userId });
+  const logs = await withAgentNames(rawLogs, { accountId: actor.accountId });
   const pagination = { limit, page, total, hasMore: skip + logs.length < total };
 
   if (format === "csv") {

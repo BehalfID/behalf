@@ -89,7 +89,7 @@ export async function getDeveloperAgentDetail(userId: string, agentId: string) {
     Permission.find({ developerUserId: userId, agentId })
       .sort({ createdAt: -1 })
       .limit(50)
-      .select("-_id permissionId action description resource scope allowedActions blockedActions requiresApproval notes template constraints status lastUsedAt createdAt updatedAt")
+      .select("-_id permissionId action description resource scope allowedActions blockedActions requiresApproval notes template constraints requiredAuthorityLevel status lastUsedAt createdAt updatedAt")
       .lean(),
     VerificationLog.find({ developerUserId: userId, agentId })
       .sort({ createdAt: -1 })

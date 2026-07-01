@@ -1,7 +1,7 @@
 import { Command } from "commander";
-import { apiRequest, resolveApiKey, resolveBaseUrl } from "../lib/client.js";
+import { apiRequest, resolveBaseUrl } from "../lib/client.js";
 import { readSession } from "../lib/config.js";
-import { isJsonMode, printJson, printKv, printSuccess, printTable, runAction } from "../lib/output.js";
+import { isJsonMode, printJson, printKv, printTable, runAction } from "../lib/output.js";
 
 type CreatePermissionResult = { permissionId: string; status: string };
 
@@ -13,9 +13,12 @@ type Permission = {
   expiresAt?: string;
 };
 
-function requireSession() {
-  if (!readSession()) {
-    throw new Error("This command requires you to be logged in. Run `behalfid login`.");
+function requireHumanAuth(developerToken?: string) {
+  const session = readSession();
+  if (!session && !developerToken) {
+    throw new Error(
+      "Permission grants require human authentication. Run `behalfid login` or pass --developer-token."
+    );
   }
 }
 
@@ -27,7 +30,7 @@ export function permissionsCommand() {
     .description("list permissions for an agent")
     .action(
       runAction(async (agentId: string) => {
-        requireSession();
+        requireHumanAuth();
         const baseUrl = resolveBaseUrl();
         const data = await apiRequest<{ agent: unknown; permissions: Permission[] }>(
           `/api/dashboard/agents/${encodeURIComponent(agentId)}`,
@@ -55,7 +58,7 @@ export function permissionsCommand() {
 
   cmd
     .command("create <agentId>")
-    .description("create a permission for an agent (requires agent API key)")
+    .description("create a permission for an agent (requires login or developer token)")
     .requiredOption("-a, --action <action>", "action to permit (e.g. purchase, access_data, schedule)")
     .option("-r, --resource <resource>", "resource or vendor (e.g. amazon.com, gmail.com)")
     .option("-s, --scope <scope>", "plain-English scope description")
@@ -69,7 +72,7 @@ export function permissionsCommand() {
     .option("--allowed-paths <patterns>", "comma-separated glob patterns for permitted file paths (write_file/read_file)")
     .option("--denied-paths <patterns>", "comma-separated glob patterns for blocked file paths (write_file/read_file)")
     .option("--denied-commands <substrings>", "comma-separated substrings that block execute_command actions")
-    .option("-k, --api-key <key>", "agent API key (overrides config)")
+    .option("--developer-token <token>", "developer API token (bhf_dev_...) instead of login session")
     .action(
       runAction(async (agentId: string, opts: {
         action: string;
@@ -85,10 +88,9 @@ export function permissionsCommand() {
         allowedPaths?: string;
         deniedPaths?: string;
         deniedCommands?: string;
-        apiKey?: string;
+        developerToken?: string;
       }) => {
-        const apiKey = opts.apiKey ?? resolveApiKey();
-        if (!apiKey) throw new Error("An agent API key is required. Set it with `behalfid config set api-key <key>` or pass --api-key.");
+        requireHumanAuth(opts.developerToken);
 
         const baseUrl = resolveBaseUrl();
         const body: Record<string, unknown> = { agentId, action: opts.action };
@@ -113,7 +115,11 @@ export function permissionsCommand() {
         }
 
         const data = await apiRequest<CreatePermissionResult>("/api/permissions", {
-          method: "POST", body, apiKey, baseUrl,
+          method: "POST",
+          body,
+          baseUrl,
+          developerToken: opts.developerToken,
+          skipAuth: true
         });
 
         if (isJsonMode()) printJson(data);
@@ -123,17 +129,16 @@ export function permissionsCommand() {
 
   cmd
     .command("revoke <permissionId>")
-    .description("revoke a permission (requires agent API key)")
-    .option("-k, --api-key <key>", "agent API key (overrides config)")
+    .description("revoke a permission (requires login or developer token)")
+    .option("--developer-token <token>", "developer API token (bhf_dev_...) instead of login session")
     .action(
-      runAction(async (permissionId: string, opts: { apiKey?: string }) => {
-        const apiKey = opts.apiKey ?? resolveApiKey();
-        if (!apiKey) throw new Error("An agent API key is required. Set it with `behalfid config set api-key <key>` or pass --api-key.");
+      runAction(async (permissionId: string, opts: { developerToken?: string }) => {
+        requireHumanAuth(opts.developerToken);
 
         const baseUrl = resolveBaseUrl();
         const data = await apiRequest<{ revoked: boolean }>(
           `/api/permissions/${encodeURIComponent(permissionId)}/revoke`,
-          { method: "POST", apiKey, baseUrl }
+          { method: "POST", baseUrl, developerToken: opts.developerToken, skipAuth: true }
         );
 
         if (isJsonMode()) printJson(data);
@@ -142,4 +147,8 @@ export function permissionsCommand() {
     );
 
   return cmd;
+}
+
+function printSuccess(message: string) {
+  console.log(message);
 }
