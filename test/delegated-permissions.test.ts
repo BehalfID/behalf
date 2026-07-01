@@ -173,6 +173,46 @@ describe("approval deny authority", () => {
   });
 });
 
+describe("role delegation rules", () => {
+  const actor = (role: WorkspaceRole, userId = "user_test") => ({
+    userId,
+    accountId: "acct_test",
+    role,
+    authorityLevel: AUTHORITY_LEVELS[role]
+  });
+
+  it("allows OWNER to assign ENGINEERING_LEAD", () => {
+    expect(canDelegateRole(actor("OWNER"), "ENGINEERING_LEAD")).toBe(true);
+  });
+
+  it("blocks ENGINEERING_LEAD from assigning OWNER", () => {
+    expect(canDelegateRole(actor("ENGINEERING_LEAD"), "OWNER")).toBe(false);
+  });
+
+  it("blocks assigning equal or higher roles", () => {
+    expect(canDelegateRole(actor("ENGINEERING_LEAD"), "ENGINEERING_LEAD")).toBe(false);
+    expect(canDelegateRole(actor("SENIOR_ENGINEER"), "ENGINEERING_LEAD")).toBe(false);
+  });
+
+  it("prevents removing the last OWNER", () => {
+    const memberships = [{ role: "OWNER", userId: "owner" }];
+    expect(canRemoveMember(actor("OWNER"), { role: "OWNER", userId: "owner" }, memberships)).toBe(false);
+    expect(countOwners(memberships)).toBe(1);
+  });
+
+  it("prevents demoting the last OWNER via role update", () => {
+    const memberships = [{ role: "OWNER", userId: "owner", membershipId: "mbr_owner" }];
+    expect(
+      canUpdateMemberRole(
+        actor("OWNER", "owner"),
+        { role: "OWNER", userId: "owner", membershipId: "mbr_owner" },
+        "ENGINEERING_LEAD",
+        memberships
+      )
+    ).toBe(false);
+  });
+});
+
 describe("agent permission API enforcement", () => {
   it("exports the required agent denial message", async () => {
     const { agentCannotGrantPermissions } = await import("@/lib/delegatedAuth");

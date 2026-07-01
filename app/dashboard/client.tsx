@@ -134,6 +134,19 @@ type ApprovalRequest = {
   approveBlockReason?: string | null;
   denyBlockReason?: string | null;
 };
+type AccountMember = {
+  membershipId: string;
+  userId: string;
+  email: string | null;
+  role: string;
+  status: "active";
+};
+type PendingInvite = {
+  inviteId: string;
+  email: string;
+  role: string;
+  status: "pending";
+};
 type AgentProvider = "custom" | "ollie" | "chatgpt" | "claude" | "gemini" | "zapier" | "make" | "langchain" | "openai" | "other";
 type ProviderSelection = AgentProvider | "";
 type Plan = "free" | "pro" | "enterprise";
@@ -2586,6 +2599,130 @@ function InboxView() {
   );
 }
 
+function MembersPanel() {
+  const members = useResource<{
+    members: AccountMember[];
+    pendingInvites: PendingInvite[];
+    canManageMembers: boolean;
+    workspaceAuthority?: WorkspaceAuthority | null;
+  }>("/api/dashboard/members");
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState("ENGINEER");
+  const [memberError, setMemberError] = useState("");
+
+  const addMember = async (event: FormEvent) => {
+    event.preventDefault();
+    setMemberError("");
+    try {
+      await api("/api/dashboard/members", {
+        method: "POST",
+        body: JSON.stringify({ email, role })
+      });
+      setEmail("");
+      await members.reload();
+    } catch (error) {
+      setMemberError(error instanceof Error ? error.message : "Could not add member.");
+    }
+  };
+
+  const updateRole = async (membershipId: string, nextRole: string) => {
+    setMemberError("");
+    try {
+      await api(`/api/dashboard/members/${membershipId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ role: nextRole })
+      });
+      await members.reload();
+    } catch (error) {
+      setMemberError(error instanceof Error ? error.message : "Could not update role.");
+    }
+  };
+
+  const removeMember = async (membershipId: string) => {
+    setMemberError("");
+    try {
+      await api(`/api/dashboard/members/${membershipId}`, { method: "DELETE" });
+      await members.reload();
+    } catch (error) {
+      setMemberError(error instanceof Error ? error.message : "Could not remove member.");
+    }
+  };
+
+  return (
+    <Card className="dashboard-panel">
+      <div className="dashboard-section-header">
+        <div>
+          <h2>Delegated Permissions</h2>
+          <p className="field-help">Your role controls which agent permissions you can grant or approve. You can only assign roles below your own.</p>
+        </div>
+      </div>
+      {members.data?.workspaceAuthority ? (
+        <p className="field-help">
+          Your role: <strong>{members.data.workspaceAuthority.roleLabel}</strong> (authority {members.data.workspaceAuthority.authorityLevel})
+        </p>
+      ) : null}
+      {memberError ? <p className="form-error">{memberError}</p> : null}
+      <div className="dashboard-list">
+        {(members.data?.members ?? []).map((member) => (
+          <div key={member.membershipId}>
+            <span>
+              <strong>{member.email ?? member.userId}</strong>
+              <small>{member.role}</small>
+            </span>
+            {members.data?.canManageMembers ? (
+              <span className="approval-actions">
+                <select
+                  value={member.role}
+                  onChange={(event) => void updateRole(member.membershipId, event.target.value)}
+                >
+                  <option value="ENGINEERING_LEAD">Engineering Lead</option>
+                  <option value="SENIOR_ENGINEER">Senior Engineer</option>
+                  <option value="ENGINEER">Engineer</option>
+                  <option value="VIEWER">Viewer</option>
+                </select>
+                <Button type="button" onClick={() => void removeMember(member.membershipId)}>Remove</Button>
+              </span>
+            ) : null}
+          </div>
+        ))}
+      </div>
+      {(members.data?.pendingInvites ?? []).length > 0 ? (
+        <>
+          <h3>Pending invites</h3>
+          <div className="dashboard-list">
+            {members.data?.pendingInvites.map((invite) => (
+              <div key={invite.inviteId}>
+                <span>
+                  <strong>{invite.email}</strong>
+                  <small>{invite.role} · pending</small>
+                </span>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : null}
+      {members.data?.canManageMembers ? (
+        <form className="inline-form" onSubmit={addMember}>
+          <label>
+            <span>Email</span>
+            <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="engineer@company.com" />
+          </label>
+          <label>
+            <span>Role</span>
+            <select value={role} onChange={(event) => setRole(event.target.value)}>
+              <option value="ENGINEERING_LEAD">Engineering Lead</option>
+              <option value="SENIOR_ENGINEER">Senior Engineer</option>
+              <option value="ENGINEER">Engineer</option>
+              <option value="VIEWER">Viewer</option>
+            </select>
+          </label>
+          <Button variant="primary" type="submit">Add member</Button>
+        </form>
+      ) : null}
+    </Card>
+  );
+}
+
 function SettingsView() {
   const settings = useResource<{
     email: string;
@@ -2650,6 +2787,7 @@ function SettingsView() {
           </div>
         ) : null}
       </Card>
+      <MembersPanel />
       <section className="dashboard-panel">
         <div className="dashboard-section-header">
           <div>
