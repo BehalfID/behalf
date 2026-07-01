@@ -1,22 +1,20 @@
 import { createPublicId } from "@/lib/ids";
 
 export type DemoScenarioId =
-  | "allowed-read"
-  | "over-limit-purchase"
-  | "blocked-action"
-  | "missing-permission"
-  | "approval-purchase"
-  | "missing-resource"
-  | "manual-guidance";
+  | "deploy-approval"
+  | "migration-denied"
+  | "github-read-allowed"
+  | "push-main-denied"
+  | "secret-write-denied"
+  | "dependency-approval";
 
 export const DEMO_SCENARIO_IDS = new Set<string>([
-  "allowed-read",
-  "over-limit-purchase",
-  "blocked-action",
-  "missing-permission",
-  "approval-purchase",
-  "missing-resource",
-  "manual-guidance"
+  "deploy-approval",
+  "migration-denied",
+  "github-read-allowed",
+  "push-main-denied",
+  "secret-write-denied",
+  "dependency-approval"
 ]);
 
 type DemoPermission = {
@@ -51,50 +49,51 @@ type DemoScenario = {
 };
 
 const SCENARIOS: Record<DemoScenarioId, DemoScenario> = {
-  "allowed-read": {
-    input: { action: "browse_web", vendor: "web" },
-    permissions: [{ action: "browse_web", resource: "web", status: "active" }]
-  },
-  "over-limit-purchase": {
-    input: { action: "purchase", vendor: "shop.example", amount: 742 },
+  "deploy-approval": {
+    input: { action: "deploy_production", vendor: "vercel.com" },
     permissions: [{
-      action: "purchase",
-      resource: "shop.example",
-      constraints: { maxAmount: 25 },
-      status: "active"
-    }]
-  },
-  "blocked-action": {
-    input: { action: "send_email", vendor: "gmail.com" },
-    permissions: [{
-      action: "read_email",
-      allowedActions: ["read_email"],
-      blockedActions: ["send_email"],
-      resource: "gmail.com",
-      status: "active"
-    }]
-  },
-  "missing-permission": {
-    input: { action: "deploy_production", vendor: "production" },
-    permissions: [{ action: "github_issue_read", resource: "github.com", status: "active" }]
-  },
-  "approval-purchase": {
-    input: { action: "purchase", vendor: "shop.example", amount: 24 },
-    permissions: [{
-      action: "purchase",
-      resource: "shop.example",
-      constraints: { maxAmount: 25 },
+      action: "deploy_production",
+      resource: "vercel.com",
       requiresApproval: true,
       status: "active"
     }]
   },
-  "missing-resource": {
-    input: { action: "read_calendar", vendor: undefined },
-    permissions: [{ action: "read_calendar", resource: "google-calendar", status: "active" }]
+  "migration-denied": {
+    input: { action: "db_migrate", vendor: "prod-postgres" },
+    permissions: [{ action: "db_read", resource: "prod-postgres", status: "active" }]
   },
-  "manual-guidance": {
-    input: { action: "summarize_page", vendor: "web" },
-    permissions: []
+  "github-read-allowed": {
+    input: { action: "github_issue_read", vendor: "github.com" },
+    permissions: [{ action: "github_issue_read", resource: "github.com", status: "active" }]
+  },
+  "push-main-denied": {
+    input: { action: "git_push_main", vendor: "github.com" },
+    permissions: [{
+      action: "git_push",
+      allowedActions: ["git_push"],
+      blockedActions: ["git_push_main"],
+      resource: "github.com",
+      status: "active"
+    }]
+  },
+  "secret-write-denied": {
+    input: { action: "write_env", vendor: "repo" },
+    permissions: [{
+      action: "read_file",
+      allowedActions: ["read_file"],
+      blockedActions: ["write_env"],
+      resource: "repo",
+      status: "active"
+    }]
+  },
+  "dependency-approval": {
+    input: { action: "update_dependencies", vendor: "npm" },
+    permissions: [{
+      action: "update_dependencies",
+      resource: "npm",
+      requiresApproval: true,
+      status: "active"
+    }]
   }
 };
 

@@ -4,7 +4,7 @@ import { Link } from "@/i18n/navigation";
 import type { Metadata } from "next";
 import { PublicNav } from "@/components/layout/PublicNav";
 import { PublicFooter } from "@/components/layout/PublicFooter";
-import { ButtonLink, CodeBlock, HomeDemo, SplitCTAButton, FlowDiagram } from "@/components/ui";
+import { ButtonLink, CodeBlock, HomeDemo, SplitCTAButton } from "@/components/ui";
 import { HomeTour } from "@/components/ui/HomeTour";
 import { routing } from "@/i18n/routing";
 
@@ -148,20 +148,20 @@ export default async function Home({
         {/* ── Stats bar ─ spans both cols ─── */}
         <div className="home-hero__stats" aria-hidden="true">
           <div className="home-hero__stat">
-            <span className="home-hero__stat-val">&lt;2ms</span>
-            <span className="home-hero__stat-label">p99 latency</span>
+            <span className="home-hero__stat-val">Fail-closed</span>
+            <span className="home-hero__stat-label">enforcement</span>
           </div>
           <div className="home-hero__stat">
-            <span className="home-hero__stat-val">99.99%</span>
-            <span className="home-hero__stat-label">uptime SLA</span>
+            <span className="home-hero__stat-val">Signed</span>
+            <span className="home-hero__stat-label">webhook events</span>
           </div>
           <div className="home-hero__stat">
             <span className="home-hero__stat-val">10+</span>
             <span className="home-hero__stat-label">agent frameworks</span>
           </div>
           <div className="home-hero__stat">
-            <span className="home-hero__stat-val">SOC 2</span>
-            <span className="home-hero__stat-label">type II (in progress)</span>
+            <span className="home-hero__stat-val">Immutable</span>
+            <span className="home-hero__stat-label">verification logs</span>
           </div>
         </div>
       </section>
@@ -396,19 +396,44 @@ if (!decision.allowed) {
       </section>
 
       {/* ── Use cases ─────────────────────────────────────── */}
-      <section className="home-flow-section">
-        <div className="home-flow-section__inner">
+      <section className="home-usecases" aria-labelledby="usecases-heading">
+        <div className="home-usecases__intro" data-reveal>
           <p className="section-kicker">Use cases</p>
-          <h2 className="home-flow-section__h2">The same gate on every risky action — before it runs.</h2>
-          <p className="home-flow-section__sub">Production deploys, database migrations, GitHub writes, secret access, and billing or vendor API calls — each checked against your policy before the tool executes.</p>
-          <FlowDiagram />
-          <div className="home-flow-section__legend">
-            <span className="home-flow-legend__item home-flow-legend__item--deny">Denied — action never executes</span>
-            <span className="home-flow-legend__divider">·</span>
-            <span className="home-flow-legend__item home-flow-legend__item--allow">Allowed — passes through to your tool</span>
-            <span className="home-flow-legend__divider">·</span>
-            <span className="home-flow-legend__item">Every decision logged + signed webhook</span>
-          </div>
+          <h2 id="usecases-heading" className="home-usecases__h2">The same gate on every risky action — before it runs.</h2>
+        </div>
+        <div className="home-usecases__grid">
+          <article className="home-usecase">
+            <h3 className="home-usecase__title">Production deploys</h3>
+            <p className="home-usecase__body">Staging deploys pass automatically. Production deploys pause for your approval before they run.</p>
+            <div className="home-usecase__tags">
+              <span className="uc-tag uc-tag--allow">staging · allow</span>
+              <span className="uc-tag uc-tag--warn">production · approval</span>
+            </div>
+          </article>
+          <article className="home-usecase">
+            <h3 className="home-usecase__title">Database migrations</h3>
+            <p className="home-usecase__body">Schema reads are fine. Running a migration against a production database needs an explicit grant — otherwise it is denied.</p>
+            <div className="home-usecase__tags">
+              <span className="uc-tag uc-tag--allow">schema read · allow</span>
+              <span className="uc-tag uc-tag--deny">prod migrate · deny</span>
+            </div>
+          </article>
+          <article className="home-usecase">
+            <h3 className="home-usecase__title">GitHub writes</h3>
+            <p className="home-usecase__body">Reads and pull-request comments pass through. Direct pushes to protected branches like main are denied.</p>
+            <div className="home-usecase__tags">
+              <span className="uc-tag uc-tag--allow">pr comment · allow</span>
+              <span className="uc-tag uc-tag--deny">push to main · deny</span>
+            </div>
+          </article>
+          <article className="home-usecase">
+            <h3 className="home-usecase__title">Secrets &amp; vendor APIs</h3>
+            <p className="home-usecase__body">Scoped reads are permitted. Writes to .env and credentials are denied; billing and vendor calls pause for approval.</p>
+            <div className="home-usecase__tags">
+              <span className="uc-tag uc-tag--deny">write .env · deny</span>
+              <span className="uc-tag uc-tag--warn">vendor call · approval</span>
+            </div>
+          </article>
         </div>
       </section>
 

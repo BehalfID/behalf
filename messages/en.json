@@ -57,7 +57,7 @@
       "kicker": "For Claude Code · Codex · Cursor",
       "h1Line1": "Control what coding agents can do",
       "h1Line2": "before they touch production.",
-      "subAdvanced": "Claude Code, Codex, Cursor, and your internal agents can deploy to production, push to main, run database migrations, and reach secrets and billing APIs. BehalfID checks every action before it runs — allowing it, blocking it, or pausing for your approval.",
+      "subAdvanced": "Claude Code, Codex, Cursor, and internal agents deploy to production, push to main, run migrations, and reach sensitive tools. BehalfID checks each action before execution — allow it, block it, or pause for approval.",
       "subSimple": "Your coding agents can deploy, migrate databases, and change production. BehalfID lets you decide which actions need your approval, and blocks the rest before they run.",
       "example1": "Allow staging deploys. Require approval for production.",
       "example2": "Allow pull request comments. Block direct pushes to main.",

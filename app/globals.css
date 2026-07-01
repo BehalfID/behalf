@@ -12610,12 +12610,83 @@ html[data-theme="light"] .lang-switcher__option--active {
   color: var(--text);
 }
 
-.home-flow-section__sub {
-  margin: 0 auto 44px;
-  max-width: 560px;
+/* ── Use-case cards (replaces the repeated terminal montage) ── */
+.home-usecases {
+  padding-block: clamp(56px, 8vw, 88px);
+  border-top: 1px solid var(--border);
+}
+
+.home-usecases__intro {
+  text-align: center;
+  max-width: 640px;
+  margin: 0 auto 40px;
+}
+
+.home-usecases__h2 {
+  font-size: clamp(1.5rem, 2.8vw, 2.1rem);
+  font-weight: var(--fw-bold);
+  letter-spacing: -0.03em;
+  line-height: 1.25;
+  margin: 12px auto 0;
+  color: var(--text);
+}
+
+.home-usecases__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.home-usecase {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2xl);
+  background: var(--surface);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.home-usecase__title {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: var(--fw-bold);
+  color: var(--text);
+}
+
+.home-usecase__body {
+  margin: 0;
+  flex: 1;
+  font-size: 0.92rem;
+  line-height: 1.55;
   color: var(--muted);
-  font-size: 1rem;
-  line-height: 1.6;
+}
+
+.home-usecase__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.uc-tag {
+  font: 600 0.66rem/1 var(--font-mono);
+  letter-spacing: 0.02em;
+  padding: 5px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-strong);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.uc-tag--allow { color: var(--ok);   border-color: var(--ok-border);   background: var(--ok-bg); }
+.uc-tag--deny  { color: var(--deny); border-color: var(--deny-border); background: var(--deny-bg); }
+.uc-tag--warn  { color: var(--warn); border-color: var(--warn-border); background: var(--warn-bg); }
+
+@media (max-width: 900px) {
+  .home-usecases__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+  .home-usecases__grid { grid-template-columns: 1fr; }
 }
 
 /* ── Terminal wrap ──────────────────────────────────────── */
