@@ -14,6 +14,16 @@ export function accountFixture(overrides: Partial<Record<string, unknown>> = {})
   };
 }
 
+export function membershipFixture(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    membershipId: "mbr_test",
+    accountId: "acct_test",
+    userId: "dev_test",
+    role: "OWNER",
+    ...overrides
+  };
+}
+
 export function developerUserFixture(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     userId: "dev_test",

@@ -33,6 +33,10 @@ const PermissionSchema = new Schema(
       default: "active",
       index: true
     },
+    /** Minimum workspace authority level required to grant or manage this permission. */
+    requiredAuthorityLevel: { type: Number, min: 0, max: 100, index: true },
+    createdBy: { type: String, index: true },
+    updatedBy: { type: String },
     lastUsedAt: { type: Date }
   },
   { timestamps: true }

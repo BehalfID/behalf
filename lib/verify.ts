@@ -1,4 +1,5 @@
 import { createPublicId } from "@/lib/ids";
+import { getEffectiveRequiredAuthority } from "@/lib/delegatedAuth";
 import { recordAgentKeyUse } from "@/lib/auth";
 import ApprovalRequest from "@/models/ApprovalRequest";
 import Permission, { type PermissionDocument } from "@/models/Permission";
@@ -305,7 +306,8 @@ function requestMatchesApprovalGrant(grant: ApprovalGrantFields, input: VerifyIn
 async function resolveApprovalGate(
   requestId: string,
   input: VerifyInput,
-  permissionId: string
+  permissionId: string,
+  requiredAuthorityLevel: number
 ): Promise<{ granted: boolean; approvalId?: string }> {
   const now = new Date();
 
@@ -351,7 +353,8 @@ async function resolveApprovalGate(
         approvalId: createPublicId("apr"),
         requestId,
         accountId: input.accountId,
-        developerUserId: input.developerUserId
+        developerUserId: input.developerUserId,
+        requiredAuthorityLevel
       }
     },
     { upsert: true, new: true }
@@ -436,7 +439,12 @@ export async function verifyAction(input: VerifyInput) {
   let approvalId: string | null = null;
   if (decision.approvalRequired && permission) {
     try {
-      const gate = await resolveApprovalGate(requestId, input, permission.permissionId);
+      const gate = await resolveApprovalGate(
+        requestId,
+        input,
+        permission.permissionId,
+        getEffectiveRequiredAuthority(permission)
+      );
       if (gate.granted) {
         decision = { allowed: true, reason: "Action allowed by approved permission grant.", risk: "low" };
       } else {
