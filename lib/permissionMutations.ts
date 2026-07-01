@@ -13,6 +13,7 @@ import { isRecord, parseOptionalAmount, parseOptionalDate, readString } from "@/
 import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
 import Agent from "@/models/Agent";
 import Permission from "@/models/Permission";
+import PermissionProfile from "@/models/PermissionProfile";
 import { accountScopeFilter } from "@/lib/accountAccess";
 
 export type PermissionBody = Record<string, unknown>;
@@ -181,4 +182,43 @@ export async function createPermissionForAgent(options: {
   );
 
   return { permissionId, status: "active", requiredAuthorityLevel };
+}
+
+export async function applyPermissionProfile(options: {
+  actor: WorkspaceActor;
+  userId: string;
+  agentId: string;
+  profileId: string;
+}) {
+  const profile = await PermissionProfile.findOne({
+    profileId: options.profileId,
+    accountId: options.actor.accountId,
+    status: "active"
+  }).lean();
+  if (!profile) return { error: jsonError("Permission profile not found.", 404) };
+
+  if (options.actor.authorityLevel < profile.requiredAuthorityLevel) {
+    return { error: permissionGrantForbidden() };
+  }
+
+  const created: string[] = [];
+  for (const permission of profile.permissions) {
+    const result = await createPermissionForAgent({
+      actor: options.actor,
+      userId: options.userId,
+      agentId: options.agentId,
+      body: {
+        action: permission.action,
+        resource: permission.resource,
+        allowedActions: permission.allowedActions,
+        blockedActions: permission.blockedActions,
+        requiresApproval: permission.requiresApproval,
+        notes: permission.notes
+      }
+    });
+    if ("error" in result && result.error) return { error: result.error };
+    if ("permissionId" in result && result.permissionId) created.push(result.permissionId);
+  }
+
+  return { permissionIds: created, profileId: profile.profileId };
 }

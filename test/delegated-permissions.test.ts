@@ -213,6 +213,17 @@ describe("role delegation rules", () => {
   });
 });
 
+describe("permission profiles", () => {
+  it("derives profile authority from the highest permission risk", () => {
+    expect(
+      deriveProfileAuthority([
+        { action: "github.issue.read" },
+        { action: "deploy_production", resource: "production" }
+      ])
+    ).toBe(AUTHORITY_LEVELS.ENGINEERING_LEAD);
+  });
+});
+
 describe("agent permission API enforcement", () => {
   it("exports the required agent denial message", async () => {
     const { agentCannotGrantPermissions } = await import("@/lib/delegatedAuth");
