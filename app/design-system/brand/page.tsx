@@ -104,7 +104,7 @@ export default function BrandPage() {
             { bg: "var(--bg)", caption: "Primary lockup", sub: "on --bg #000000", textColor: undefined, markBg: undefined },
             { bg: "var(--panel)", caption: "Panel surface", sub: "on --panel #0a0a0a", textColor: undefined, markBg: undefined },
             { bg: "#f6f5ee", caption: "Light surface", sub: "on warm white", textColor: "#0B0F14", markBg: "#0B0F14" },
-            { bg: "linear-gradient(135deg, #6366F1, #4f52d6)", caption: "Inverse on accent", sub: "--accent #6366F1", textColor: "white", markBg: "rgba(255,255,255,0.12)" },
+            { bg: "linear-gradient(135deg, #D88A63, #A85A37)", caption: "Inverse on accent", sub: "--accent #D88A63", textColor: "#171412", markBg: "rgba(23,20,18,0.14)" },
           ].map(({ bg, caption, sub, textColor, markBg }) => (
             <div key={caption}>
               <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: 56, background: bg, display: "grid", placeItems: "center", minHeight: 220 }}>

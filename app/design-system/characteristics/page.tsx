@@ -132,8 +132,8 @@ export default function CharacteristicsPage() {
           {
             category: "Brand", subtitle: "One accent",
             rows: [
-              { label: "accent", token: "--accent", chip: "#6366F1", demo: "#6366F1 — only on the boundary divider, focus rings, and selection." },
-              { label: "accent-glow", token: "--accent-glow", chip: "rgba(99,102,241,0.18)", demo: "rgba(99,102,241,0.18) — fill behind the boundary divider strip." },
+              { label: "accent", token: "--accent", chip: "#D88A63", demo: "#D88A63 — only on the boundary divider, focus rings, and selection." },
+              { label: "accent-glow", token: "--accent-glow", chip: "rgba(216, 138, 99,0.18)", demo: "rgba(216, 138, 99,0.18) — fill behind the boundary divider strip." },
             ],
           },
         ].map(({ category, subtitle, rows }) => (

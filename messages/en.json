@@ -26,7 +26,7 @@
     "language": "Language"
   },
   "footer": {
-    "tagline": "Permission infrastructure\nfor AI agents.",
+    "tagline": "Approval gates\nfor coding agents.",
     "product": "Product",
     "docs": "Docs",
     "company": "Company",
@@ -50,21 +50,21 @@
   },
   "home": {
     "meta": {
-      "title": "BehalfID — Permission infrastructure for AI agents",
-      "description": "BehalfID verifies every agent action against a permission passport before it runs. Define boundaries, fail closed on denial, audit every decision."
+      "title": "BehalfID — Approval gates for coding agents",
+      "description": "BehalfID puts approval gates and audit logs in front of Claude Code, Codex, Cursor, and internal agents — before they deploy to production, write to GitHub, run database migrations, or reach secrets and billing APIs."
     },
     "hero": {
-      "kicker": "Agent permission infrastructure",
-      "h1Line1": "Permission checks",
-      "h1Line2": "before AI agents act.",
-      "subAdvanced": "AI agents are starting to buy, email, book, edit, browse, and access data. API keys identify the agent. BehalfID verifies what the agent is allowed to do before the tool runs. Denied actions fail closed.",
-      "subSimple": "Your AI assistant can now take real actions — send emails, make purchases, deploy code. BehalfID lets you decide exactly which ones are okay, and blocks everything else before it runs.",
-      "example1": "Allow staging deploys, require approval for production.",
-      "example2": "Allow GitHub issue reads, deny production deploys.",
-      "example3": "Allow file reads in src/, deny writes to .env and credentials.",
+      "kicker": "For Claude Code · Codex · Cursor",
+      "h1Line1": "Control what coding agents can do",
+      "h1Line2": "before they touch production.",
+      "subAdvanced": "Claude Code, Codex, Cursor, and internal agents deploy to production, push to main, run migrations, and reach sensitive tools. BehalfID checks each action before execution — allow it, block it, or pause for approval.",
+      "subSimple": "Your coding agents can deploy, migrate databases, and change production. BehalfID lets you decide which actions need your approval, and blocks the rest before they run.",
+      "example1": "Allow staging deploys. Require approval for production.",
+      "example2": "Allow pull request comments. Block direct pushes to main.",
+      "example3": "Allow repo reads. Deny writes to .env, secrets, and credentials.",
       "permissionExamples": "Permission examples",
-      "build": "Build",
-      "tryIt": "Try It"
+      "build": "Start building",
+      "tryIt": "Try the demo"
     },
     "steps": {
       "kicker": "How it works",
@@ -85,7 +85,7 @@
       "kicker": "Integration",
       "h2Line1": "Three lines between",
       "h2Line2": "request and execution.",
-      "bodyAdvanced": "Install the SDK, call <code>behalf.verify()</code> before your executor, and throw on denial. Works with any agent framework because the fail-closed check lives in your code, not in the model's memory.",
+      "bodyAdvanced": "Install the SDK and call <code>behalf.verify()</code> before your executor, or enforce at the MCP boundary with the CLI. The fail-closed check lives where the tool runs — in your code, not the model's memory.",
       "bodySimple": "No matter what tool your AI agent tries to use — browse, buy, deploy, email — it asks BehalfID first. You define the rules once. BehalfID enforces them automatically, every time.",
       "quickstart": "Quickstart →",
       "sdkRef": "SDK reference →",
@@ -122,9 +122,9 @@
     },
     "cta": {
       "kicker": "Ready",
-      "h2": "Add the permission check.",
-      "body": "Enforcement is fail-closed where you integrate it — via SDK or MCP. Manual passport mode is best-effort for testing with existing agents before you build the integration.",
-      "tryDeploy": "Try deploy approvals"
+      "h2": "Add approval gates to your coding agents.",
+      "body": "Enforcement is fail-closed where you integrate it — via SDK, MCP, or the CLI. Manual passport mode is best-effort for testing with existing agents before you build the integration.",
+      "tryDeploy": "View deploy approvals"
     }
   },
   "privacy": {

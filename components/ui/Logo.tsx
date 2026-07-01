@@ -14,18 +14,11 @@ export function Logo({
     <Link aria-label="BehalfID home" className={`site-logo site-logo--${variant}`} href={href}>
       <span className="site-logo__mark" aria-hidden="true">
         <Image
-          src="/behalf_favicon.png"
+          src="/icon-transparent.png"
           alt=""
-          width={22}
-          height={22}
-          className="site-logo__icon site-logo__icon--dark"
-        />
-        <Image
-          src="/icon-light.png"
-          alt=""
-          width={22}
-          height={22}
-          className="site-logo__icon site-logo__icon--light"
+          width={26}
+          height={26}
+          className="site-logo__icon"
         />
       </span>
       <span className="site-logo__wordmark">

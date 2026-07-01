@@ -54,7 +54,7 @@ function SwatchGrid({ swatches }: { swatches: SwatchDef[] }) {
 const matrixRows = [
   { chip: "#000000", token: "--bg", use: "Page canvas. Empty space.", dontUse: "Card fills.", pairs: "--text, --muted" },
   { chip: "#0a0a0a", token: "--panel", use: "Code shells. Sidebar. Logo mark.", dontUse: "Hero backgrounds.", pairs: "--text, --accent" },
-  { chip: "#6366F1", token: "--accent", use: 'Primary buttons, kickers, "ID" wordmark.', dontUse: "Body backgrounds. Decorative gradients.", pairs: "--text on top." },
+  { chip: "#D88A63", token: "--accent", use: 'Primary buttons, kickers, "ID" wordmark.', dontUse: "Body backgrounds. Decorative gradients.", pairs: "--on-brand text on top." },
   { chip: "#6ee7b7", token: "--ok", use: '"allowed" word + chip border.', dontUse: "General success toasts.", pairs: "--ok-bg, --ok-border" },
   { chip: "#fca5a5", token: "--deny", use: '"denied" word + chip border.', dontUse: "Form validation errors.", pairs: "--deny-bg, --deny-border" },
   { chip: "#fcd34d", token: "--warn", use: '"needs approval" word + chip border.', dontUse: "Warnings, cautions, deprecation banners.", pairs: "--warn-bg, --warn-border" },
@@ -70,7 +70,7 @@ export default function ColorsPage() {
         <p className={s.kicker}>Colors</p>
         <h1 className={s.h1}>One accent. Three statuses. Everything else is grayscale.</h1>
         <p className={s.lede} style={{ marginTop: 12 }}>
-          BehalfID is a permission product. Color carries meaning: indigo is the brand and the &ldquo;allowed&rdquo; decision; status colors only appear when a decision must be read at a glance. Avoid recoloring the UI to liven it up — restraint is the brand.
+          BehalfID is a permission product. Color carries meaning: copper is the brand accent; status colors only appear when a decision must be read at a glance. Avoid recoloring the UI to liven it up — restraint is the brand.
         </p>
 
         {/* ── Surfaces ── */}
@@ -94,29 +94,29 @@ export default function ColorsPage() {
         {/* ── Brand accent ── */}
         <h2 className={s.h2}>Brand accent</h2>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 16 }}>
-          <div style={{ padding: 24, border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", background: "#6366F1", display: "grid", gap: 8 }}>
-            <small style={{ color: "rgba(255,255,255,0.78)", font: "700 0.7rem/1 var(--font-mono)", letterSpacing: "0.05em", textTransform: "uppercase" }}>--accent · #6366F1</small>
-            <strong style={{ color: "white", font: "700 1.4rem/1.2 var(--font-sans)" }}>Indigo is the only brand color.</strong>
-            <span style={{ color: "rgba(255,255,255,0.78)", fontSize: "0.9rem", lineHeight: 1.5 }}>Used on primary buttons, kicker eyebrows, the &ldquo;ID&rdquo; of the wordmark, and the &ldquo;allowed&rdquo; status pill. Never a fill on body cards.</span>
+          <div style={{ padding: 24, border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", background: "#D88A63", display: "grid", gap: 8 }}>
+            <small style={{ color: "rgba(23,20,18,0.72)", font: "700 0.7rem/1 var(--font-mono)", letterSpacing: "0.05em", textTransform: "uppercase" }}>--accent · #D88A63</small>
+            <strong style={{ color: "#171412", font: "700 1.4rem/1.2 var(--font-sans)" }}>Copper is the only brand color.</strong>
+            <span style={{ color: "rgba(23,20,18,0.72)", fontSize: "0.9rem", lineHeight: 1.5 }}>Used on primary buttons, kicker eyebrows, and the &ldquo;ID&rdquo; of the wordmark. Status pills keep their own semantic colors. Never a fill on body cards.</span>
           </div>
-          <div style={{ padding: 24, border: "1px solid rgba(99,102,241,0.5)", borderRadius: "var(--radius-lg)", background: "rgba(99,102,241,0.16)", display: "grid", gap: 8 }}>
-            <small style={{ color: "var(--muted)", font: "700 0.7rem/1 var(--font-mono)", letterSpacing: "0.05em", textTransform: "uppercase" }}>--accent-glow · rgba(99,102,241,.16)</small>
+          <div style={{ padding: 24, border: "1px solid rgba(216, 138, 99,0.5)", borderRadius: "var(--radius-lg)", background: "rgba(216, 138, 99,0.16)", display: "grid", gap: 8 }}>
+            <small style={{ color: "var(--muted)", font: "700 0.7rem/1 var(--font-mono)", letterSpacing: "0.05em", textTransform: "uppercase" }}>--accent-glow · rgba(216, 138, 99,.16)</small>
             <strong style={{ color: "var(--text)", font: "700 1.4rem/1.2 var(--font-sans)" }}>Glow tint</strong>
             <span style={{ color: "var(--muted)", fontSize: "0.9rem", lineHeight: 1.5 }}>Background for allowed pills, focus rings, and selection. Borders use 0.45–0.5 alpha.</span>
           </div>
         </div>
 
-        <h3 className={s.h3} style={{ marginTop: 32 }}>Indigo ramp (use only the named tokens — ramp shown for reference)</h3>
+        <h3 className={s.h3} style={{ marginTop: 32 }}>Copper ramp (use only the named tokens — ramp shown for reference)</h3>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
           {[
-            { bg: "#1e1f4f", label: "900" },
-            { bg: "#2d2e72", label: "800" },
-            { bg: "#3c3eaa", label: "700" },
-            { bg: "#4f52d6", label: "600" },
-            { bg: "#6366F1", label: "500" },
-            { bg: "#818cf8", label: "400", dark: true },
-            { bg: "#a5b4fc", label: "300", dark: true },
-            { bg: "#c7d2fe", label: "200", dark: true },
+            { bg: "#3D241A", label: "900" },
+            { bg: "#5C3625", label: "800" },
+            { bg: "#7A4731", label: "700" },
+            { bg: "#A85A37", label: "600" },
+            { bg: "#D88A63", label: "500" },
+            { bg: "#E2A488", label: "400", dark: true },
+            { bg: "#EFC4AF", label: "300", dark: true },
+            { bg: "#F7D7C6", label: "200", dark: true },
           ].map(({ bg, label, dark }) => (
             <div key={label} style={{ aspectRatio: "1.1", display: "flex", alignItems: "flex-end", padding: 10, font: "600 0.7rem/1 var(--font-mono)", color: dark ? "rgba(0,0,0,0.7)" : "rgba(255,255,255,0.85)", background: bg }}>
               {label}
@@ -131,7 +131,7 @@ export default function ColorsPage() {
           { bg: "#6ee7b7", token: "--ok", name: "Allowed", hex: "#6ee7b7", role: "Decision = allowed. Border #22c55e at 32% alpha." },
           { bg: "#fca5a5", token: "--deny", name: "Denied", hex: "#fca5a5", role: "Decision = denied. Border #ef4444 at 30% alpha." },
           { bg: "#fcd34d", token: "--warn", name: "Needs approval", hex: "#fcd34d", role: "Decision = needs_approval. Border #eab308 at 34% alpha." },
-          { bg: "#6366F1", token: "--accent", name: "Active / brand", hex: "#6366F1", role: "Active state, primary CTA, \"ID\" wordmark accent." },
+          { bg: "#D88A63", token: "--accent", name: "Active / brand", hex: "#D88A63", role: "Active state, primary CTA, \"ID\" wordmark accent." },
         ]} />
 
         <h3 className={s.h3} style={{ marginTop: 28 }}>Status pills in context</h3>
