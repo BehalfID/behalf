@@ -12,6 +12,12 @@ const DeveloperUserSchema = new Schema(
       index: true
     },
     primaryAccountId: { type: String, index: true, sparse: true },
+    firstName: { type: String, trim: true, maxlength: 80 },
+    lastName: { type: String, trim: true, maxlength: 80 },
+    jobTitle: { type: String, trim: true, maxlength: 120 },
+    /** Optional recovery contact; never logged or returned outside setup/settings. */
+    phone: { type: String, trim: true, maxlength: 20, select: false },
+    onboardingCompletedAt: { type: Date, default: null },
     /** ISO date string (YYYY-MM-DD). Stored server-side for COPPA compliance; never returned in public responses. */
     dateOfBirth: { type: String, select: false },
     /** Whether the user has verified their email address. Null/undefined = pre-verification-feature accounts, treated as verified. */

@@ -2,6 +2,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentDeveloper } from "@/lib/developerAuth";
+import { shouldForceAccountSetup } from "@/lib/onboardingRedirect";
 import { AuthPage } from "../auth-client";
 import { routing } from "@/i18n/routing";
 
@@ -31,6 +32,9 @@ export default async function LoginPage({
   const { locale } = await params;
   setRequestLocale(locale);
   const user = await getCurrentDeveloper();
-  if (user) redirect("/dashboard");
+  if (user) {
+    if (await shouldForceAccountSetup(user.userId)) redirect("/onboarding");
+    redirect("/dashboard");
+  }
   return <AuthPage mode="login" />;
 }
