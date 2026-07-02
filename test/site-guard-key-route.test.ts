@@ -31,6 +31,7 @@ vi.mock("@/models/SiteGuardKey", () => ({
 }));
 
 const authUser = { userId: "dev_test", primaryAccountId: "acct_test" };
+const authContext = { user: authUser, activeAccountId: "acct_test", error: null };
 const site = { siteId: "site_test", developerUserId: "dev_test", domain: "docs.example.com" };
 const keyDoc = {
   keyId: "sgk_test",
@@ -60,7 +61,7 @@ function siteKeyRevokeRequest(keyId: string) {
 
 describe("GET /api/dashboard/sites/[siteId]/keys", () => {
   beforeEach(() => {
-    routeMocks.requireDeveloperApi.mockResolvedValue({ user: authUser, error: null });
+    routeMocks.requireDeveloperApi.mockResolvedValue(authContext);
     dbMocks.siteFindOne.mockReturnValue({ lean: vi.fn().mockResolvedValue(site) });
     dbMocks.keyFind.mockReturnValue({
       sort: vi.fn().mockReturnThis(),
@@ -104,6 +105,7 @@ describe("GET /api/dashboard/sites/[siteId]/keys", () => {
   it("returns 404 when a different account requests the site keys", async () => {
     routeMocks.requireDeveloperApi.mockResolvedValueOnce({
       user: { userId: "dev_other", primaryAccountId: "acct_other" },
+      activeAccountId: "acct_other",
       error: null
     });
     dbMocks.siteFindOne.mockReturnValueOnce({ lean: vi.fn().mockResolvedValue(null) });
@@ -116,6 +118,7 @@ describe("GET /api/dashboard/sites/[siteId]/keys", () => {
   it("returns 409 when the authenticated developer has no primary account", async () => {
     routeMocks.requireDeveloperApi.mockResolvedValueOnce({
       user: { userId: "dev_noaccount", primaryAccountId: null },
+      activeAccountId: null,
       error: null
     });
     const { GET } = await import("@/app/api/dashboard/sites/[siteId]/keys/route");
@@ -127,7 +130,7 @@ describe("GET /api/dashboard/sites/[siteId]/keys", () => {
 
 describe("POST /api/dashboard/sites/[siteId]/keys", () => {
   beforeEach(() => {
-    routeMocks.requireDeveloperApi.mockResolvedValue({ user: authUser, error: null });
+    routeMocks.requireDeveloperApi.mockResolvedValue(authContext);
     dbMocks.siteFindOne.mockReturnValue({ lean: vi.fn().mockResolvedValue(site) });
     dbMocks.keyCreate.mockResolvedValue(keyDoc);
   });
@@ -156,6 +159,7 @@ describe("POST /api/dashboard/sites/[siteId]/keys", () => {
   it("returns 404 when a different account tries to create a key", async () => {
     routeMocks.requireDeveloperApi.mockResolvedValueOnce({
       user: { userId: "dev_other", primaryAccountId: "acct_other" },
+      activeAccountId: "acct_other",
       error: null
     });
     dbMocks.siteFindOne.mockReturnValueOnce({ lean: vi.fn().mockResolvedValue(null) });
@@ -183,7 +187,7 @@ describe("POST /api/dashboard/sites/[siteId]/keys", () => {
 
 describe("DELETE /api/dashboard/sites/[siteId]/keys/[keyId]", () => {
   beforeEach(() => {
-    routeMocks.requireDeveloperApi.mockResolvedValue({ user: authUser, error: null });
+    routeMocks.requireDeveloperApi.mockResolvedValue(authContext);
     dbMocks.siteFindOne.mockReturnValue({ lean: vi.fn().mockResolvedValue(site) });
     dbMocks.keyFindOneAndUpdate.mockReturnValue({
       select: vi.fn().mockResolvedValue({ ...keyDoc, status: "revoked" })
@@ -217,6 +221,7 @@ describe("DELETE /api/dashboard/sites/[siteId]/keys/[keyId]", () => {
   it("returns 404 when a different account tries to revoke a key", async () => {
     routeMocks.requireDeveloperApi.mockResolvedValueOnce({
       user: { userId: "dev_other", primaryAccountId: "acct_other" },
+      activeAccountId: "acct_other",
       error: null
     });
     dbMocks.siteFindOne.mockReturnValueOnce({ lean: vi.fn().mockResolvedValue(null) });
@@ -229,6 +234,7 @@ describe("DELETE /api/dashboard/sites/[siteId]/keys/[keyId]", () => {
   it("returns 409 when the authenticated developer has no primary account", async () => {
     routeMocks.requireDeveloperApi.mockResolvedValueOnce({
       user: { userId: "dev_noaccount", primaryAccountId: null },
+      activeAccountId: null,
       error: null
     });
     const { DELETE } = await import("@/app/api/dashboard/sites/[siteId]/keys/[keyId]/route");

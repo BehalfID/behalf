@@ -26,6 +26,12 @@ vi.mock("@/lib/developerAuth", () => ({
   requireDeveloperApi: routeMocks.requireDeveloperApi,
   requireVerifiedDeveloperApi: routeMocks.requireVerifiedDeveloperApi
 }));
+vi.mock("@/lib/workspaceActor", () => ({
+  requireWorkspaceMutationActor: vi.fn().mockResolvedValue({
+    actor: { userId: "dev_test", accountId: "acct_test", role: "OWNER", authorityLevel: 100 },
+    error: null
+  })
+}));
 vi.mock("@/lib/ids", () => ({
   createPublicId: routeMocks.createPublicId,
   createApiKey: routeMocks.createApiKey
@@ -83,8 +89,18 @@ describe("dashboard billing and quota route UX", () => {
       verificationCount: 123,
       verificationPeriodStart: new Date("2026-05-01T00:00:00.000Z")
     });
-    routeMocks.requireDeveloperApi.mockResolvedValue({ user, account, error: null });
-    routeMocks.requireVerifiedDeveloperApi.mockResolvedValue({ user, account, error: null });
+    routeMocks.requireDeveloperApi.mockResolvedValue({
+      user,
+      account,
+      activeAccountId: "acct_test",
+      error: null
+    });
+    routeMocks.requireVerifiedDeveloperApi.mockResolvedValue({
+      user,
+      account,
+      activeAccountId: "acct_test",
+      error: null
+    });
     routeMocks.accountFindOne.mockResolvedValue(account);
     routeMocks.agentCountDocuments.mockResolvedValue(0);
     routeMocks.permissionCountDocuments.mockResolvedValue(0);

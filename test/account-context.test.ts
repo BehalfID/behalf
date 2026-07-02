@@ -88,4 +88,24 @@ describe("account context", () => {
       { $set: { activeAccountId: "acct_team" } }
     );
   });
+
+  it("clears stale session activeAccountId when membership was removed", async () => {
+    mocks.membershipFind.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        lean: vi.fn().mockResolvedValue([{ accountId: "acct_primary" }])
+      })
+    });
+    const { resolveActiveAccountId } = await import("@/lib/accountContext");
+    await expect(
+      resolveActiveAccountId("user_a", {
+        sessionActiveAccountId: "acct_removed",
+        sessionId: "sess_a",
+        primaryAccountId: "acct_primary"
+      })
+    ).resolves.toBe("acct_primary");
+    expect(mocks.sessionUpdateOne).toHaveBeenCalledWith(
+      { sessionId: "sess_a", userId: "user_a" },
+      { $unset: { activeAccountId: "" } }
+    );
+  });
 });

@@ -16,7 +16,7 @@ type RouteContext = {
 export async function POST(request: NextRequest, context: RouteContext) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
-  const workspace = await requireWorkspaceMutationActor(auth.user);
+  const workspace = await requireWorkspaceMutationActor(auth.user, auth.activeAccountId);
   if (workspace.error) return workspace.error;
 
   const actor = await getWorkspaceActor(auth.user.userId, auth.activeAccountId);

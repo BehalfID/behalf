@@ -2749,6 +2749,9 @@ function MembersPanel() {
         <div>
           <h2>Delegated Permissions</h2>
           <p className="field-help">Your role controls which agent permissions you can grant or approve. You can only assign roles below your own.</p>
+          <p className="field-help">
+            If someone already has a BehalfID account, they are added to this workspace immediately. New email addresses receive a pending invite and a shareable invite link.
+          </p>
         </div>
       </div>
       {members.data?.workspaceAuthority ? (

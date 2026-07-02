@@ -1,5 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getDeveloperFromToken, requireDashboardMutationOrigin } from "@/lib/developerAuth";
+import {
+  getDeveloperFromToken,
+  isEmailVerified,
+  requireDashboardMutationOrigin
+} from "@/lib/developerAuth";
 import { acceptInvite } from "@/lib/inviteAcceptance";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { readJsonObject } from "@/lib/request";
@@ -27,6 +31,13 @@ export async function POST(request: NextRequest) {
   const context = await getDeveloperFromToken(request.cookies.get(COOKIE_NAME)?.value);
   if (!context) {
     return jsonError("Sign in with the invited email to accept this workspace invite.", 401);
+  }
+
+  if (!isEmailVerified(context.user.emailVerified)) {
+    return jsonError(
+      "Email verification required. Check your inbox or resend the verification email before accepting this invite.",
+      403
+    );
   }
 
   const result = await acceptInvite(token, context.user.userId, context.user.email, {

@@ -11,7 +11,10 @@ export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
 
-  const sites = await Site.find({ developerUserId: auth.user.userId })
+  const sites = await Site.find({
+    developerUserId: auth.user.userId,
+    ...(auth.activeAccountId ? { accountId: auth.activeAccountId } : {})
+  })
     .sort({ createdAt: -1 })
     .select("-_id siteId name domain status createdAt updatedAt")
     .lean();

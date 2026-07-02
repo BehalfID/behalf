@@ -16,6 +16,7 @@ import { normalizeEmail } from "@/lib/developerAuth";
 import { buildInviteAcceptUrl, createInviteTokenPair } from "@/lib/inviteAcceptance";
 import AccountMembership from "@/models/AccountMembership";
 import AccountInvite from "@/models/AccountInvite";
+import DeveloperSession from "@/models/DeveloperSession";
 import DeveloperUser from "@/models/DeveloperUser";
 
 export type MemberRecord = {
@@ -232,6 +233,10 @@ export async function removeMember(actor: WorkspaceActor, membershipId: string) 
   }
 
   await AccountMembership.deleteOne({ membershipId, accountId: actor.accountId });
+  await DeveloperSession.updateMany(
+    { userId: target.userId, activeAccountId: actor.accountId },
+    { $unset: { activeAccountId: "" } }
+  );
   return { ok: true };
 }
 

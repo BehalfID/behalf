@@ -149,6 +149,7 @@ export async function getDeveloperFromToken(token?: string | null) {
 
   const activeAccountId = await resolveActiveAccountId(user.userId, {
     sessionActiveAccountId: session.activeAccountId,
+    sessionId: session.sessionId,
     primaryAccountId: user.primaryAccountId
   });
 

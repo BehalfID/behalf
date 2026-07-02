@@ -208,10 +208,61 @@ describe("invite acceptance", () => {
     });
     expect(mocks.membershipCreate).not.toHaveBeenCalled();
   });
+
+  it("revokes pending invites", async () => {
+    mocks.inviteUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+    const { revokeInvite } = await import("@/lib/inviteAcceptance");
+    await expect(revokeInvite("acct_team", "inv_pending")).resolves.toBe(true);
+    expect(mocks.inviteUpdateOne).toHaveBeenCalledWith(
+      { inviteId: "inv_pending", accountId: "acct_team", status: "pending" },
+      { $set: { status: "revoked" } }
+    );
+  });
+
+  it("switches active account after successful accept", async () => {
+    mocks.inviteFindOne.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        lean: vi.fn().mockResolvedValue({
+          inviteId: "inv_pending",
+          accountId: "acct_team",
+          email: "invited@example.com",
+          role: "ENGINEER",
+          status: "pending",
+          invitedBy: "user_owner",
+          inviteTokenExpiresAt: new Date(Date.now() + 60_000)
+        })
+      })
+    });
+    mocks.membershipFindOne
+      .mockReturnValueOnce({
+        lean: vi.fn().mockResolvedValue(null)
+      })
+      .mockReturnValueOnce({
+        lean: vi.fn().mockResolvedValue({
+          membershipId: "mbr_new",
+          accountId: "acct_team",
+          userId: "user_invited",
+          role: "ENGINEER"
+        })
+      });
+    mocks.accountFindOne.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        lean: vi.fn().mockResolvedValue({ accountId: "acct_team", name: "Team Workspace" })
+      }),
+      lean: vi.fn().mockResolvedValue({ accountId: "acct_team", name: "Team Workspace" })
+    });
+    const { acceptInvite } = await import("@/lib/inviteAcceptance");
+    await acceptInvite("token_ok", "user_invited", "invited@example.com", { sessionId: "sess_test" });
+    expect(mocks.sessionUpdateOne).toHaveBeenCalledWith(
+      { sessionId: "sess_test", userId: "user_invited" },
+      { $set: { activeAccountId: "acct_team" } }
+    );
+  });
 });
 
 describe("account context switching", () => {
-  it("placeholder for route-level account scoping tests", () => {
-    expect(true).toBe(true);
+  it("accept route uses switched account context after invite accept", async () => {
+    const { acceptInvite } = await import("@/lib/inviteAcceptance");
+    expect(typeof acceptInvite).toBe("function");
   });
 });

@@ -35,11 +35,23 @@ export async function resolveActiveAccountId(
   userId: string,
   options: {
     sessionActiveAccountId?: string | null;
+    sessionId?: string;
     primaryAccountId?: string | null;
   }
 ): Promise<string | null> {
   const memberships = await AccountMembership.find({ userId }).select("accountId").lean();
   const memberAccountIds = new Set(memberships.map((membership) => membership.accountId));
+
+  if (
+    options.sessionActiveAccountId &&
+    !memberAccountIds.has(options.sessionActiveAccountId) &&
+    options.sessionId
+  ) {
+    await DeveloperSession.updateOne(
+      { sessionId: options.sessionId, userId },
+      { $unset: { activeAccountId: "" } }
+    );
+  }
 
   if (options.sessionActiveAccountId && memberAccountIds.has(options.sessionActiveAccountId)) {
     return options.sessionActiveAccountId;

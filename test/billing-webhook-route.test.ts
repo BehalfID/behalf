@@ -6,7 +6,6 @@ const billingMocks = vi.hoisted(() => ({
   stripeEventCreate: vi.fn(),
   accountUpdateOne: vi.fn(),
   accountFindOne: vi.fn(),
-  developerFindOne: vi.fn(),
   webhookUpdateMany: vi.fn()
 }));
 
@@ -22,9 +21,6 @@ vi.mock("@/models/Account", () => ({
     updateOne: billingMocks.accountUpdateOne,
     findOne: billingMocks.accountFindOne
   }
-}));
-vi.mock("@/models/DeveloperUser", () => ({
-  default: { findOne: billingMocks.developerFindOne }
 }));
 vi.mock("@/models/WebhookEndpoint", () => ({
   default: { updateMany: billingMocks.webhookUpdateMany }
@@ -46,9 +42,6 @@ describe("POST /api/billing/webhook", () => {
     billingMocks.stripeEventCreate.mockResolvedValue({});
     billingMocks.accountUpdateOne.mockResolvedValue({});
     billingMocks.accountFindOne.mockResolvedValue({ accountId: "acct_test" });
-    billingMocks.developerFindOne.mockReturnValue({
-      lean: vi.fn().mockResolvedValue({ userId: "dev_test" })
-    });
     billingMocks.webhookUpdateMany.mockResolvedValue({});
     billingMocks.constructEvent.mockReturnValue({
       id: "evt_test",
@@ -141,7 +134,7 @@ describe("POST /api/billing/webhook", () => {
       })
     );
     expect(billingMocks.webhookUpdateMany).toHaveBeenCalledWith(
-      { developerUserId: "dev_test", status: "active" },
+      { accountId: "acct_test", status: "active" },
       { $set: { status: "disabled" } }
     );
   });
@@ -162,7 +155,7 @@ describe("POST /api/billing/webhook", () => {
       { $set: { plan: "free", stripeSubscriptionStatus: "past_due", stripeTrialEnd: null, stripeCurrentPeriodEnd: null } }
     );
     expect(billingMocks.webhookUpdateMany).toHaveBeenCalledWith(
-      { developerUserId: "dev_test", status: "active" },
+      { accountId: "acct_test", status: "active" },
       { $set: { status: "disabled" } }
     );
   });
