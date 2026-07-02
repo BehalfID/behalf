@@ -136,7 +136,7 @@
     "kicker": "Privacy policy",
     "title": "Privacy policy",
     "effective": "Effective {date}",
-    "effectiveDate": "26 May 2026",
+    "effectiveDate": "2 July 2026",
     "toc": {
       "heading": "On this page",
       "item1": "1. Who we are",
@@ -158,7 +158,17 @@
     "s2": {
       "heading": "2. Data we collect",
       "accountH": "Account data",
-      "accountBody": "When you create a developer account we collect your email address and a hashed password. We do not store your plaintext password at any point.",
+      "accountBody": "When you create a developer account we collect your email address, your date of birth, and a hashed password. We do not store your plaintext password at any point. Your date of birth is used only to confirm you meet our minimum age requirement and is not displayed in account setup or account settings.",
+      "setupH": "Account setup and profile data",
+      "setupIntro": "When you complete account setup we collect profile and workspace information, including:",
+      "setupItem1": "your first and last name;",
+      "setupItem2": "job title;",
+      "setupItem3": "an optional phone number — if you choose to provide one, we may use it only for account recovery, urgent security alerts, or support. We do not use it for SMS verification, phone-based two-factor authentication, or marketing outreach unless we tell you otherwise in the product;",
+      "setupItem4": "whether you are setting up for yourself or a business/team;",
+      "setupItem5": "company or organization name and workspace name;",
+      "setupItem6": "website and team size; and",
+      "setupItem7": "onboarding preferences: the AI agent tools you use, the areas you want the platform to control, your primary goal with the platform, and your first setup goal.",
+      "setupOutro": "This information is stored on your user profile and workspace and is used to operate your account, configure your workspace, and tailor onboarding guidance.",
       "agentH": "Agent and permission data",
       "agentBody": "Agent names, permission configurations, scope definitions, and expiry dates you create inside the dashboard are stored and associated with your account. API keys are stored only as SHA-256 hashes and are shown to you once at creation.",
       "verifyH": "Verification request data",
@@ -181,10 +191,11 @@
     "s4": {
       "heading": "4. How we use your data",
       "item1": "To authenticate and operate your developer account.",
-      "item2": "To execute, log, and deliver webhook events for verification requests.",
-      "item3": "To enforce rate limits and detect abuse.",
-      "item4": "To process billing and enforce plan limits via Stripe.",
-      "item5": "To respond to support or security enquiries.",
+      "item2": "To configure your workspace and tailor onboarding based on the preferences you provide during account setup.",
+      "item3": "To execute, log, and deliver webhook events for verification requests.",
+      "item4": "To enforce rate limits and detect abuse.",
+      "item5": "To process billing and enforce plan limits via Stripe.",
+      "item6": "To respond to support or security enquiries.",
       "noSell": "We do not sell your personal data. We do not use your verification request data to train machine-learning models."
     },
     "s5": {
@@ -248,7 +259,7 @@
     "kicker": "Terms of Service",
     "title": "Terms of Service",
     "effective": "Effective {date}. By creating an account or using BehalfID, you agree to these terms.",
-    "effectiveDate": "May 26, 2026",
+    "effectiveDate": "July 2, 2026",
     "toc": {
       "heading": "On this page",
       "item1": "1. Acceptance of Terms",
@@ -288,7 +299,7 @@
     "s3": {
       "heading": "3. Accounts and Eligibility",
       "body": "You must be at least 18 years old and capable of forming a binding contract to use BehalfID. You are responsible for:",
-      "item1": "Providing accurate registration information (email address and password).",
+      "item1": "Providing accurate registration and account-setup information (including your email address, password, and any profile or workspace details you submit).",
       "item2": "Maintaining the confidentiality of your account credentials.",
       "item3": "All activity that occurs under your account.",
       "item4": "Immediately notifying us of any unauthorized access to or use of your account.",
@@ -401,7 +412,7 @@
     "kicker": "Legal",
     "title": "Legal",
     "subtitle": "All BehalfID legal documents in one place. Last updated {date}. Questions? Email <email>legal@behalfid.com</email>.",
-    "updatedDate": "May 26, 2026",
+    "updatedDate": "July 2, 2026",
     "docs": {
       "terms": {
         "title": "Terms of Service",
@@ -420,12 +431,13 @@
         "title": "Privacy Policy",
         "desc": "What data BehalfID collects, how it is used, who it is shared with, how long it is retained, and how to exercise your rights.",
         "s1": "Data we collect",
-        "s2": "Cookies and local storage",
-        "s3": "How we use your data",
-        "s4": "Analytics (none)",
-        "s5": "Data retention schedules",
-        "s6": "Third-party processors",
-        "s7": "Your rights (access, deletion, portability)"
+        "s2": "Account setup and profile data",
+        "s3": "Cookies and local storage",
+        "s4": "How we use your data",
+        "s5": "Analytics (none)",
+        "s6": "Data retention schedules",
+        "s7": "Third-party processors",
+        "s8": "Your rights (access, deletion, portability)"
       },
       "security": {
         "title": "Security and Trust",

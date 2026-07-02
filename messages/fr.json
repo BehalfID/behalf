@@ -136,7 +136,7 @@
     "kicker": "Politique de confidentialité",
     "title": "Politique de confidentialité",
     "effective": "En vigueur depuis le {date}",
-    "effectiveDate": "26 mai 2026",
+    "effectiveDate": "2 juillet 2026",
     "toc": {
       "heading": "Sur cette page",
       "item1": "1. Qui nous sommes",
@@ -158,7 +158,17 @@
     "s2": {
       "heading": "2. Données que nous collectons",
       "accountH": "Données de compte",
-      "accountBody": "Lorsque vous créez un compte développeur, nous collectons votre adresse e-mail et un mot de passe haché. Nous ne stockons jamais votre mot de passe en texte clair.",
+      "accountBody": "Lorsque vous créez un compte développeur, nous collectons votre adresse e-mail, votre date de naissance et un mot de passe haché. Nous ne stockons jamais votre mot de passe en texte clair. Votre date de naissance est utilisée uniquement pour confirmer que vous respectez notre âge minimum et n'est pas affichée dans la configuration du compte ni dans les paramètres du compte.",
+      "setupH": "Configuration du compte et données de profil",
+      "setupIntro": "Lorsque vous terminez la configuration du compte, nous collectons des informations de profil et d'espace de travail, notamment :",
+      "setupItem1": "votre prénom et nom ;",
+      "setupItem2": "votre intitulé de poste ;",
+      "setupItem3": "un numéro de téléphone facultatif — si vous choisissez d'en fournir un, nous pouvons l'utiliser uniquement pour la récupération de compte, les alertes de sécurité urgentes ou le support. Nous ne l'utilisons pas pour la vérification par SMS, l'authentification à deux facteurs par téléphone ou le marketing, sauf indication contraire dans le produit ;",
+      "setupItem4": "si vous configurez le compte pour vous-même ou pour une entreprise/équipe ;",
+      "setupItem5": "le nom de l'entreprise ou de l'organisation et le nom de l'espace de travail ;",
+      "setupItem6": "le site web et la taille de l'équipe ; et",
+      "setupItem7": "les préférences d'intégration : les outils d'agents IA que vous utilisez, les domaines que vous souhaitez que la plateforme contrôle, votre objectif principal avec la plateforme et votre premier objectif de configuration.",
+      "setupOutro": "Ces informations sont stockées sur votre profil utilisateur et votre espace de travail et sont utilisées pour exploiter votre compte, configurer votre espace de travail et personnaliser les conseils d'intégration.",
       "agentH": "Données d'agents et de permissions",
       "agentBody": "Les noms d'agents, les configurations de permissions, les définitions de portée et les dates d'expiration que vous créez dans le tableau de bord sont stockés et associés à votre compte. Les clés API sont stockées uniquement sous forme de hachages SHA-256 et vous sont montrées une seule fois lors de leur création.",
       "verifyH": "Données de demandes de vérification",
@@ -181,10 +191,11 @@
     "s4": {
       "heading": "4. Comment nous utilisons vos données",
       "item1": "Pour authentifier et exploiter votre compte développeur.",
-      "item2": "Pour exécuter, journaliser et livrer des événements webhook pour les demandes de vérification.",
-      "item3": "Pour appliquer les limites de débit et détecter les abus.",
-      "item4": "Pour traiter la facturation et appliquer les limites du plan via Stripe.",
-      "item5": "Pour répondre aux demandes de support ou de sécurité.",
+      "item2": "Pour configurer votre espace de travail et personnaliser l'intégration selon les préférences que vous fournissez lors de la configuration du compte.",
+      "item3": "Pour exécuter, journaliser et livrer des événements webhook pour les demandes de vérification.",
+      "item4": "Pour appliquer les limites de débit et détecter les abus.",
+      "item5": "Pour traiter la facturation et appliquer les limites du plan via Stripe.",
+      "item6": "Pour répondre aux demandes de support ou de sécurité.",
       "noSell": "Nous ne vendons pas vos données personnelles. Nous n'utilisons pas les données de vos demandes de vérification pour entraîner des modèles d'apprentissage automatique."
     },
     "s5": {
@@ -248,7 +259,7 @@
     "kicker": "Conditions d'utilisation",
     "title": "Conditions d'utilisation",
     "effective": "En vigueur depuis le {date}. En créant un compte ou en utilisant BehalfID, vous acceptez ces conditions.",
-    "effectiveDate": "26 mai 2026",
+    "effectiveDate": "2 juillet 2026",
     "toc": {
       "heading": "Sur cette page",
       "item1": "1. Acceptation des conditions",
@@ -288,7 +299,7 @@
     "s3": {
       "heading": "3. Comptes et éligibilité",
       "body": "Vous devez avoir au moins 18 ans et être en mesure de former un contrat contraignant pour utiliser BehalfID. Vous êtes responsable de :",
-      "item1": "Fournir des informations d'inscription exactes (adresse e-mail et mot de passe).",
+      "item1": "Fournir des informations d'inscription et de configuration de compte exactes (y compris votre adresse e-mail, votre mot de passe et tout détail de profil ou d'espace de travail que vous soumettez).",
       "item2": "Maintenir la confidentialité de vos identifiants de compte.",
       "item3": "Toute activité se produisant sous votre compte.",
       "item4": "Nous notifier immédiatement de tout accès non autorisé à votre compte.",
@@ -401,7 +412,7 @@
     "kicker": "Légal",
     "title": "Légal",
     "subtitle": "Tous les documents légaux de BehalfID en un seul endroit. Dernière mise à jour : {date}. Questions ? Écrivez à <email>legal@behalfid.com</email>.",
-    "updatedDate": "26 mai 2026",
+    "updatedDate": "2 juillet 2026",
     "docs": {
       "terms": {
         "title": "Conditions d'utilisation",
@@ -420,12 +431,13 @@
         "title": "Politique de confidentialité",
         "desc": "Quelles données BehalfID collecte, comment elles sont utilisées, avec qui elles sont partagées, combien de temps elles sont conservées et comment exercer vos droits.",
         "s1": "Données que nous collectons",
-        "s2": "Cookies et stockage local",
-        "s3": "Comment nous utilisons vos données",
-        "s4": "Analyses (aucune)",
-        "s5": "Calendriers de conservation des données",
-        "s6": "Processeurs tiers",
-        "s7": "Vos droits (accès, suppression, portabilité)"
+        "s2": "Configuration du compte et données de profil",
+        "s3": "Cookies et stockage local",
+        "s4": "Comment nous utilisons vos données",
+        "s5": "Analyses (aucune)",
+        "s6": "Calendriers de conservation des données",
+        "s7": "Processeurs tiers",
+        "s8": "Vos droits (accès, suppression, portabilité)"
       },
       "security": {
         "title": "Sécurité et confiance",

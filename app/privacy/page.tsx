@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/privacy" }
 };
 
-const EFFECTIVE = "26 May 2026";
+const EFFECTIVE = "2 July 2026";
 const CONTACT   = "legal@behalfid.com";
 
 const TOC = [
@@ -70,8 +70,38 @@ export default function PrivacyPage() {
 
             <h3>Account data</h3>
             <p>
-              When you create a developer account we collect your email address and a hashed
-              password. We do not store your plaintext password at any point.
+              When you create a developer account we collect your email address, your date of
+              birth, and a hashed password. We do not store your plaintext password at any
+              point. Your date of birth is used only to confirm you meet our minimum age
+              requirement and is not displayed in account setup or account settings.
+            </p>
+
+            <h3>Account setup and profile data</h3>
+            <p>
+              When you complete account setup we collect profile and workspace information,
+              including:
+            </p>
+            <ul>
+              <li>your first and last name;</li>
+              <li>job title;</li>
+              <li>
+                an optional phone number — if you choose to provide one, we may use it only
+                for account recovery, urgent security alerts, or support. We do not use it
+                for SMS verification, phone-based two-factor authentication, or marketing
+                outreach unless we tell you otherwise in the product;
+              </li>
+              <li>whether you are setting up for yourself or a business/team;</li>
+              <li>company or organization name and workspace name;</li>
+              <li>website and team size; and</li>
+              <li>
+                onboarding preferences: the AI agent tools you use, the areas you want
+                the platform to control, your primary goal with the platform, and your first
+                setup goal.
+              </li>
+            </ul>
+            <p>
+              This information is stored on your user profile and workspace and is used to
+              operate your account, configure your workspace, and tailor onboarding guidance.
             </p>
 
             <h3>Agent and permission data</h3>
@@ -142,6 +172,10 @@ export default function PrivacyPage() {
             <h2>4. How we use your data</h2>
             <ul>
               <li>To authenticate and operate your developer account.</li>
+              <li>
+                To configure your workspace and tailor onboarding based on the preferences you
+                provide during account setup.
+              </li>
               <li>To execute, log, and deliver webhook events for verification requests.</li>
               <li>To enforce rate limits and detect abuse.</li>
               <li>To process billing and enforce plan limits via Stripe.</li>

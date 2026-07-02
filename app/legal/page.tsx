@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/legal" }
 };
 
-const UPDATED = "May 26, 2026";
+const UPDATED = "July 2, 2026";
 const CONTACT = "legal@behalfid.com";
 
 const docs = [
@@ -37,6 +37,7 @@ const docs = [
     desc: "What data BehalfID collects, how it is used, who it is shared with, how long it is retained, and how to exercise your rights.",
     sections: [
       "Data we collect",
+      "Account setup and profile data",
       "Cookies and local storage",
       "How we use your data",
       "Analytics (none)",

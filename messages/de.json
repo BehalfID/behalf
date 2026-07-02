@@ -136,7 +136,7 @@
     "kicker": "Datenschutzrichtlinie",
     "title": "Datenschutzrichtlinie",
     "effective": "Gültig ab {date}",
-    "effectiveDate": "26. Mai 2026",
+    "effectiveDate": "2. Juli 2026",
     "toc": {
       "heading": "Auf dieser Seite",
       "item1": "1. Wer wir sind",
@@ -158,7 +158,17 @@
     "s2": {
       "heading": "2. Daten, die wir erheben",
       "accountH": "Kontodaten",
-      "accountBody": "Bei der Erstellung eines Entwicklerkontos erheben wir Ihre E-Mail-Adresse und ein gehashtes Passwort. Wir speichern Ihr Passwort zu keinem Zeitpunkt im Klartext.",
+      "accountBody": "Bei der Erstellung eines Entwicklerkontos erheben wir Ihre E-Mail-Adresse, Ihr Geburtsdatum und ein gehashtes Passwort. Wir speichern Ihr Passwort zu keinem Zeitpunkt im Klartext. Ihr Geburtsdatum wird nur verwendet, um zu bestätigen, dass Sie unser Mindestalter erfüllen, und wird weder in der Kontoeinrichtung noch in den Kontoeinstellungen angezeigt.",
+      "setupH": "Kontoeinrichtung und Profildaten",
+      "setupIntro": "Wenn Sie die Kontoeinrichtung abschließen, erheben wir Profil- und Arbeitsbereichsinformationen, einschließlich:",
+      "setupItem1": "Ihres Vor- und Nachnamens;",
+      "setupItem2": "Ihrer Berufsbezeichnung;",
+      "setupItem3": "einer optionalen Telefonnummer — wenn Sie eine angeben, verwenden wir sie nur für die Kontowiederherstellung, dringende Sicherheitswarnungen oder Support. Wir verwenden sie nicht für SMS-Verifizierung, telefonbasierte Zwei-Faktor-Authentifizierung oder Marketing, es sei denn, wir teilen Ihnen dies im Produkt anders mit;",
+      "setupItem4": "ob Sie die Einrichtung für sich selbst oder ein Unternehmen/Team vornehmen;",
+      "setupItem5": "Firmen- oder Organisationsname und Arbeitsbereichsname;",
+      "setupItem6": "Website und Teamgröße; und",
+      "setupItem7": "Onboarding-Präferenzen: die von Ihnen genutzten KI-Agenten-Tools, die Bereiche, die die Plattform steuern soll, Ihr Hauptziel mit der Plattform und Ihr erstes Einrichtungsziel.",
+      "setupOutro": "Diese Informationen werden in Ihrem Benutzerprofil und Arbeitsbereich gespeichert und verwendet, um Ihr Konto zu betreiben, Ihren Arbeitsbereich zu konfigurieren und Onboarding-Anleitungen anzupassen.",
       "agentH": "Agenten- und Berechtigungsdaten",
       "agentBody": "Agentennamen, Berechtigungskonfigurationen, Bereichsdefinitionen und Ablaufdaten, die Sie im Dashboard erstellen, werden gespeichert und Ihrem Konto zugeordnet. API-Schlüssel werden ausschließlich als SHA-256-Hashes gespeichert und Ihnen einmalig bei der Erstellung angezeigt.",
       "verifyH": "Verifizierungsanfragedaten",
@@ -181,10 +191,11 @@
     "s4": {
       "heading": "4. Wie wir Ihre Daten verwenden",
       "item1": "Zur Authentifizierung und zum Betrieb Ihres Entwicklerkontos.",
-      "item2": "Zur Ausführung, Protokollierung und Zustellung von Webhook-Ereignissen für Verifizierungsanfragen.",
-      "item3": "Zur Durchsetzung von Rate-Limits und Erkennung von Missbrauch.",
-      "item4": "Zur Verarbeitung der Abrechnung und Durchsetzung von Planlimits über Stripe.",
-      "item5": "Zur Beantwortung von Support- oder Sicherheitsanfragen.",
+      "item2": "Zur Konfiguration Ihres Arbeitsbereichs und Anpassung des Onboardings basierend auf den Präferenzen, die Sie während der Kontoeinrichtung angeben.",
+      "item3": "Zur Ausführung, Protokollierung und Zustellung von Webhook-Ereignissen für Verifizierungsanfragen.",
+      "item4": "Zur Durchsetzung von Rate-Limits und Erkennung von Missbrauch.",
+      "item5": "Zur Verarbeitung der Abrechnung und Durchsetzung von Planlimits über Stripe.",
+      "item6": "Zur Beantwortung von Support- oder Sicherheitsanfragen.",
       "noSell": "Wir verkaufen Ihre personenbezogenen Daten nicht. Wir verwenden Ihre Verifizierungsanfragedaten nicht zum Training von Machine-Learning-Modellen."
     },
     "s5": {
@@ -248,7 +259,7 @@
     "kicker": "Nutzungsbedingungen",
     "title": "Nutzungsbedingungen",
     "effective": "Gültig ab {date}. Mit der Erstellung eines Kontos oder der Nutzung von BehalfID stimmen Sie diesen Bedingungen zu.",
-    "effectiveDate": "26. Mai 2026",
+    "effectiveDate": "2. Juli 2026",
     "toc": {
       "heading": "Auf dieser Seite",
       "item1": "1. Annahme der Bedingungen",
@@ -288,7 +299,7 @@
     "s3": {
       "heading": "3. Konten und Berechtigung",
       "body": "Sie müssen mindestens 18 Jahre alt und in der Lage sein, einen verbindlichen Vertrag abzuschließen, um BehalfID zu nutzen. Sie sind verantwortlich für:",
-      "item1": "Die Bereitstellung genauer Registrierungsinformationen (E-Mail-Adresse und Passwort).",
+      "item1": "Die Bereitstellung genauer Registrierungs- und Kontoeinrichtungsinformationen (einschließlich Ihrer E-Mail-Adresse, Ihres Passworts und aller von Ihnen übermittelten Profil- oder Arbeitsbereichsdaten).",
       "item2": "Die Wahrung der Vertraulichkeit Ihrer Kontodaten.",
       "item3": "Alle Aktivitäten, die unter Ihrem Konto stattfinden.",
       "item4": "Die unverzügliche Benachrichtigung über unbefugten Zugriff auf oder Nutzung Ihres Kontos.",
@@ -401,7 +412,7 @@
     "kicker": "Rechtliches",
     "title": "Rechtliches",
     "subtitle": "Alle BehalfID-Rechtsdokumente an einem Ort. Zuletzt aktualisiert {date}. Fragen? Schreiben Sie an <email>legal@behalfid.com</email>.",
-    "updatedDate": "26. Mai 2026",
+    "updatedDate": "2. Juli 2026",
     "docs": {
       "terms": {
         "title": "Nutzungsbedingungen",
@@ -420,12 +431,13 @@
         "title": "Datenschutzrichtlinie",
         "desc": "Welche Daten BehalfID erhebt, wie sie verwendet werden, mit wem sie geteilt werden, wie lange sie aufbewahrt werden und wie Sie Ihre Rechte ausüben können.",
         "s1": "Daten, die wir erheben",
-        "s2": "Cookies und lokaler Speicher",
-        "s3": "Wie wir Ihre Daten verwenden",
-        "s4": "Analyse (keine)",
-        "s5": "Datenspeicherungsfristen",
-        "s6": "Drittanbieter-Verarbeiter",
-        "s7": "Ihre Rechte (Zugriff, Löschung, Portabilität)"
+        "s2": "Kontoeinrichtung und Profildaten",
+        "s3": "Cookies und lokaler Speicher",
+        "s4": "Wie wir Ihre Daten verwenden",
+        "s5": "Analyse (keine)",
+        "s6": "Datenspeicherungsfristen",
+        "s7": "Drittanbieter-Verarbeiter",
+        "s8": "Ihre Rechte (Zugriff, Löschung, Portabilität)"
       },
       "security": {
         "title": "Sicherheit und Vertrauen",
