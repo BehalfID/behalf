@@ -87,6 +87,13 @@ describe("requireDeveloperApi unverified hardening", () => {
     expect(result.user).toBeNull();
   });
 
+  it("blocks unverified settings PATCH", async () => {
+    const { requireDeveloperApi } = await import("@/lib/developerAuth");
+    const result = await requireDeveloperApi(authRequest("/api/dashboard/settings", "PATCH"));
+    expect(result.error).not.toBeNull();
+    expect(result.user).toBeNull();
+  });
+
   it("does not select phone or dateOfBirth in session user payloads", async () => {
     const { getDeveloperFromToken } = await import("@/lib/developerAuth");
     await getDeveloperFromToken(SESSION_TOKEN);
