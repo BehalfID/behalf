@@ -106,4 +106,36 @@ describe("getWorkspaceActor", () => {
     const actor = await getWorkspaceActor("user_test", "acct_test");
     expect(actor?.role).toBe("ENGINEER");
   });
+
+  it("defaults invalid membership role to VIEWER without OWNER authority", async () => {
+    mocks.membershipFindOne.mockReturnValue({
+      lean: vi.fn().mockResolvedValue({
+        membershipId: "mbr_bad",
+        userId: "user_test",
+        accountId: "acct_test",
+        role: "SUPERADMIN_INVALID"
+      })
+    });
+    mocks.userFindOne.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        lean: vi.fn().mockResolvedValue({ primaryAccountId: "acct_owner" })
+      })
+    });
+    const { AUTHORITY_LEVELS } = await import("@/lib/authority");
+    const { getWorkspaceActor, canApproveRequest, canCreatePermission } = await import("@/lib/delegatedAuth");
+    const actor = await getWorkspaceActor("user_test", "acct_test");
+    expect(actor?.role).toBe("VIEWER");
+    expect(actor?.authorityLevel).toBe(AUTHORITY_LEVELS.VIEWER);
+    expect(actor?.authorityLevel).not.toBe(AUTHORITY_LEVELS.OWNER);
+    expect(
+      canCreatePermission(actor!, { action: "deploy_production", resource: "production" })
+    ).toBe(false);
+    expect(
+      canApproveRequest(actor!, {
+        requiredAuthorityLevel: AUTHORITY_LEVELS.ENGINEERING_LEAD,
+        action: "deploy_production",
+        vendor: "vercel.com"
+      })
+    ).toBe(false);
+  });
 });

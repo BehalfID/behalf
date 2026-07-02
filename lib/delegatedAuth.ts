@@ -4,7 +4,7 @@ import {
   getAuthorityLevelForRole,
   getRequiredRoleLabel,
   getRoleLabel,
-  isWorkspaceRole,
+  resolveWorkspaceRole,
   type WorkspaceRole
 } from "@/lib/authority";
 import { createPublicId } from "@/lib/ids";
@@ -103,7 +103,7 @@ export async function getWorkspaceActor(
 
   if (!membership) return null;
 
-  const role = isWorkspaceRole(membership.role) ? membership.role : "OWNER";
+  const role = resolveWorkspaceRole(membership.role);
   return {
     userId,
     accountId,

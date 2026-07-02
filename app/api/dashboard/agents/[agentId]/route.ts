@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { parseAgentMetadata } from "@/lib/agents";
+import { backfillLegacyAgentsForActor } from "@/lib/accountAgents";
 import { accountScopeFilter } from "@/lib/accountAccess";
 import { getAccountAgentDetail } from "@/lib/accountDashboardData";
 import { serializeAgent } from "@/lib/dashboardData";
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const actor = await getWorkspaceActor(auth.user.userId, auth.user.primaryAccountId);
   if (!actor) return jsonError("Workspace account required.", 403);
 
-  const detail = await getAccountAgentDetail(actor.accountId, agentId);
+  const detail = await getAccountAgentDetail(actor, agentId);
   if (!detail) return jsonError("Agent not found.", 404);
   return noCacheJson({
     ...detail,
@@ -90,6 +91,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   const actor = await getWorkspaceActor(auth.user.userId, auth.user.primaryAccountId);
   if (!actor) return jsonError("Workspace account required.", 403);
+
+  await backfillLegacyAgentsForActor(actor);
 
   const agent = await Agent.findOneAndUpdate(
     { ...accountScopeFilter(actor.accountId), agentId },

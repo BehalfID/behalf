@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { parseAgentMetadata } from "@/lib/agents";
+import { listAccountAgents } from "@/lib/accountAgents";
 import { createDeveloperAgent, serializeAgent } from "@/lib/dashboardData";
 import { requireDeveloperApi, requireVerifiedDeveloperApi } from "@/lib/developerAuth";
-import { accountScopeFilter } from "@/lib/accountAccess";
 import { getWorkspaceActor } from "@/lib/delegatedAuth";
 import { requireWorkspaceMutationActor } from "@/lib/workspaceActor";
 import { checkAgentLimit, quotaErrorDetails } from "@/lib/quota";
@@ -10,8 +10,6 @@ import { readJsonObject } from "@/lib/request";
 import { jsonError, noCacheJson } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
 import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
-import Agent from "@/models/Agent";
-
 export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
@@ -19,10 +17,7 @@ export async function GET(request: NextRequest) {
   const actor = await getWorkspaceActor(auth.user.userId, auth.user.primaryAccountId);
   if (!actor) return jsonError("Workspace account required.", 403);
 
-  const agents = await Agent.find({ ...accountScopeFilter(actor.accountId) })
-    .sort({ createdAt: -1 })
-    .select("-_id agentId name status agentType provider externalAgentId externalAgentLabel connectionStatus description lastUsedAt keyRotatedAt createdAt updatedAt")
-    .lean();
+  const agents = await listAccountAgents(actor);
 
   return noCacheJson({ agents: agents.map(serializeAgent) });
 }

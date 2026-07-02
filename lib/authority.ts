@@ -50,3 +50,8 @@ export function getRequiredRoleLabel(level: number): string {
 export function isWorkspaceRole(value: string): value is WorkspaceRole {
   return (WORKSPACE_ROLES as readonly string[]).includes(value);
 }
+
+/** Invalid or unknown stored roles resolve to least privilege. */
+export function resolveWorkspaceRole(value: string): WorkspaceRole {
+  return isWorkspaceRole(value) ? value : "VIEWER";
+}

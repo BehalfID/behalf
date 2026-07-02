@@ -77,6 +77,9 @@ export async function parsePermissionBody(body: PermissionBody) {
 
   const { date: expiresAt, error: dateError } = parseOptionalDate(constraints.expiresAt);
   if (dateError) return { error: jsonError(dateError) };
+  if (expiresAt && expiresAt.getTime() <= Date.now()) {
+    return { error: jsonError("expiresAt must be in the future.") };
+  }
 
   let allowedPaths: string[] | undefined;
   if (constraints.allowedPaths !== undefined) {
