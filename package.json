@@ -18,7 +18,9 @@
     "build:cli": "npm --prefix packages/cli run build",
     "test:sdk:pack": "bash scripts/test-sdk-pack.sh",
     "test:live": "RUN_LIVE_TESTS=true vitest run --config vitest.live.config.ts",
-    "seed:live-test": "tsx scripts/seed-live-test-permission.ts"
+    "seed:live-test": "tsx scripts/seed-live-test-permission.ts",
+    "dev:reset-internal-demo": "tsx scripts/dev/reset-internal-demo-account.ts",
+    "dev:generate-demo-password": "tsx scripts/dev/generate-internal-demo-password.ts"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",

@@ -14,9 +14,12 @@ const globalForMongoose = globalThis as typeof globalThis & {
 
 beforeAll(async () => {
   mongoServer = await MongoMemoryServer.create({
-    instance: { dbName: "behalfid-integration" }
+    instance: { dbName: "behalf-test" }
   });
-  process.env.MONGODB_URI = mongoServer.getUri();
+  const baseUri = mongoServer.getUri();
+  process.env.MONGODB_URI = baseUri.endsWith("/")
+    ? `${baseUri}behalf-test`
+    : `${baseUri}/behalf-test`;
   await connectToDatabase();
 });
 
