@@ -168,6 +168,20 @@ export async function requireDeveloperApi(request: NextRequest) {
     return { user: null, account: null, error: jsonError("Developer authentication required.", 401) };
   }
 
+  const pathname = request.nextUrl.pathname;
+  const isAccountSetupApi = pathname.startsWith("/api/onboarding/");
+  if (
+    !isAccountSetupApi &&
+    MUTATION_METHODS.has(request.method) &&
+    !isEmailVerified(user.emailVerified)
+  ) {
+    return {
+      user: null,
+      account: null,
+      error: jsonError("Email verification required. Check your inbox or resend the verification email.", 403)
+    };
+  }
+
   const account = user.primaryAccountId
     ? await Account.findOne({ accountId: user.primaryAccountId }).lean()
     : null;

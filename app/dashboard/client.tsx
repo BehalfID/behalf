@@ -352,12 +352,12 @@ export function DashboardShell({
   view,
   id,
   emailVerified = true,
-  onboardingCompletedAt = null
+  showSetupBanner = false
 }: {
   view: "home" | "onboarding" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "inbox" | "docs" | "settings";
   id?: string;
   emailVerified?: boolean;
-  onboardingCompletedAt?: string | null;
+  showSetupBanner?: boolean;
 }) {
   return (
     <DashboardShellLayout>
@@ -367,7 +367,7 @@ export function DashboardShell({
             <Link href="/verify-email">Verify now</Link>
           </div>
         ) : null}
-        {!onboardingCompletedAt ? (
+        {showSetupBanner ? (
           <div className="dashboard-banner" role="status">
             <strong>Finish account setup.</strong> {INCOMPLETE_SETUP_BANNER}{" "}
             <Link href="/onboarding">Complete setup</Link>

@@ -43,7 +43,7 @@ export type FirstSetupGoal = (typeof FIRST_SETUP_GOALS)[number];
 export const LEGACY_ONBOARDING_USE_CASES = ["personal", "website", "sdk"] as const;
 export type LegacyOnboardingUseCase = (typeof LEGACY_ONBOARDING_USE_CASES)[number];
 
-/** Users created before account setup v1 are not redirected to complete setup. */
+/** Users created before account setup v1 shipped are not hard-redirected to setup. */
 export const ACCOUNT_SETUP_LAUNCH = new Date("2026-07-02T00:00:00.000Z");
 
 export type AccountOnboarding = {
