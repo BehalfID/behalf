@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentDeveloper } from "@/lib/developerAuth";
+import { shouldForceAccountSetup } from "@/lib/onboardingRedirect";
 import { AuthPage } from "../auth-client";
 
 export const metadata: Metadata = {
@@ -11,6 +12,9 @@ export const metadata: Metadata = {
 
 export default async function SignupPage() {
   const user = await getCurrentDeveloper();
-  if (user) redirect("/dashboard");
+  if (user) {
+    if (await shouldForceAccountSetup(user.userId)) redirect("/onboarding");
+    redirect("/dashboard");
+  }
   return <AuthPage mode="signup" />;
 }

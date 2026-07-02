@@ -9,5 +9,14 @@ export async function GET(request: NextRequest) {
   const data = await getDashboardSummary(auth.user.userId, auth.account);
   // Include onboardingUseCase so the dashboard HomeView doesn't need a
   // separate /api/auth/me round trip to render the quickstart panel.
-  return noCacheJson({ ...data, onboardingUseCase: auth.user.onboardingUseCase ?? null });
+  return noCacheJson({
+    ...data,
+    onboardingUseCase: auth.user.onboardingUseCase ?? null,
+    accountOnboarding: auth.account?.onboarding
+      ? {
+          controlAreas: auth.account.onboarding.controlAreas ?? [],
+          firstSetupGoal: auth.account.onboarding.firstSetupGoal ?? null
+        }
+      : null
+  });
 }
