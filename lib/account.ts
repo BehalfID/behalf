@@ -1,3 +1,4 @@
+import { ensureAccountMembership } from "@/lib/delegatedAuth";
 import { createPublicId } from "@/lib/ids";
 import Account from "@/models/Account";
 import Agent from "@/models/Agent";
@@ -14,6 +15,7 @@ export async function createDeveloperAccount(userId: string, email: string) {
     name
   });
   await DeveloperUser.updateOne({ userId }, { $set: { primaryAccountId: account.accountId } });
+  await ensureAccountMembership(userId, account.accountId);
   return account;
 }
 

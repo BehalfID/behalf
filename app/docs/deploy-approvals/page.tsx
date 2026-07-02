@@ -33,9 +33,12 @@ export default function DeployApprovalsPage() {
       <h2>Step 1 — Create permissions</h2>
       <p>
         Create two permissions for your coding agent. Staging deploys are allowed automatically;
-        production deploys require human approval.
+        production deploys require human approval. Permission grants require human authentication —
+        run <code>behalf login</code> first, or pass <code>--developer-token</code> with a
+        <code>bhf_dev_...</code> token. Agent API keys cannot create permissions.
       </p>
       <CodeBlock label="terminal">{`# Staging: allowed automatically
+behalf login
 behalf permissions create agent_xxx \\
   --action deploy \\
   --resource vercel.com \\

@@ -87,6 +87,7 @@ describe("approval request lifecycle", () => {
     }));
     expect(update.$setOnInsert.approvalId).toMatch(/^apr_/);
     expect(update.$setOnInsert.requestId).toMatch(/^req_/);
+    expect(update.$setOnInsert.requiredAuthorityLevel).toEqual(expect.any(Number));
     expect(opts).toEqual({ upsert: true, new: true });
   });
 

@@ -1,25 +1,23 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireDeveloperApi } from "@/lib/developerAuth";
-import { createPublicId } from "@/lib/ids";
-import { parsePermissionMetadata } from "@/lib/permissions";
-import { readJsonObject } from "@/lib/request";
+import { requireHumanDeveloperApi } from "@/lib/humanAuth";
+import { getWorkspaceActor, serializeWorkspaceAuthority } from "@/lib/delegatedAuth";
+import { createPermissionForAgent } from "@/lib/permissionMutations";
 import { jsonError } from "@/lib/responses";
-import { isRecord, parseOptionalAmount, parseOptionalDate, readString, rejectUnknownFields } from "@/lib/validation";
-import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
-import Agent from "@/models/Agent";
-import Permission from "@/models/Permission";
+import { rejectUnknownFields } from "@/lib/validation";
+import { readJsonObject } from "@/lib/request";
 
 type RouteContext = {
   params: Promise<{ agentId: string }>;
 };
 
 export async function POST(request: NextRequest, context: RouteContext) {
-  const auth = await requireDeveloperApi(request);
+  const auth = await requireHumanDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
-  const { agentId } = await context.params;
 
-  const agent = await Agent.findOne({ developerUserId: auth.user.userId, agentId });
-  if (!agent) return jsonError("Agent not found.", 404);
+  const { agentId } = await context.params;
+  const accountId = auth.account?.accountId ?? auth.user.primaryAccountId;
+  const actor = await getWorkspaceActor(auth.user.userId, accountId);
+  if (!actor) return jsonError("Workspace account required.", 403);
 
   const { body, error } = await readJsonObject(request);
   if (error) return error;
@@ -38,48 +36,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
   ]);
   if (unknownError) return jsonError(unknownError);
 
-  const action = readString(body.action);
-  const description = body.description === undefined ? undefined : readString(body.description);
-  if (!action) return jsonError("action is required.");
-  if (body.description !== undefined && !description) return jsonError("description must be a non-empty string.");
-  const { metadata, error: metadataError } = parsePermissionMetadata(body);
-  if (metadataError || !metadata) return jsonError(metadataError ?? "Invalid permission metadata.");
-
-  const constraints = body.constraints === undefined ? {} : body.constraints;
-  if (!isRecord(constraints)) return jsonError("constraints must be an object.");
-
-  const constraintsUnknownError = rejectUnknownFields(constraints, ["maxAmount", "allowedVendors", "expiresAt"]);
-  if (constraintsUnknownError) return jsonError(constraintsUnknownError);
-
-  const { amount: maxAmount, error: amountError } = parseOptionalAmount(constraints.maxAmount);
-  if (amountError) return jsonError(amountError);
-
-  let allowedVendors: string[] | undefined;
-  if (constraints.allowedVendors !== undefined) {
-    if (!Array.isArray(constraints.allowedVendors) || constraints.allowedVendors.some((vendor) => typeof vendor !== "string" || !vendor.trim())) {
-      return jsonError("allowedVendors must be an array of non-empty strings.");
-    }
-    allowedVendors = constraints.allowedVendors.map((vendor) => vendor.trim());
-  }
-
-  const { date: expiresAt, error: dateError } = parseOptionalDate(constraints.expiresAt);
-  if (dateError) return jsonError(dateError);
-
-  const permissionId = createPublicId("perm");
-  await Permission.create({
-    permissionId,
-    developerUserId: auth.user.userId,
+  const result = await createPermissionForAgent({
+    actor,
+    userId: auth.user.userId,
     agentId,
-    action,
-    description,
-    ...metadata,
-    constraints: { maxAmount, allowedVendors, expiresAt },
-    status: "active"
+    body
   });
+  if ("error" in result && result.error) return result.error;
 
-  await emitWebhookEvent(
-    createWebhookEvent(null, "permission.created", { permissionId, agentId, action }, auth.user.userId)
+  return NextResponse.json(
+    {
+      permissionId: result.permissionId,
+      status: result.status,
+      requiredAuthorityLevel: result.requiredAuthorityLevel,
+      workspaceAuthority: serializeWorkspaceAuthority(actor)
+    },
+    { status: 201 }
   );
-
-  return NextResponse.json({ permissionId, status: "active" }, { status: 201 });
 }

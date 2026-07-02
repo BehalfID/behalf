@@ -1,5 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireDeveloperApi } from "@/lib/developerAuth";
+import {
+  approvalForbidden,
+  canApproveRequest,
+  getWorkspaceActor,
+  viewerMutationForbidden
+} from "@/lib/delegatedAuth";
+import { accountScopeFilter } from "@/lib/accountAccess";
 import { jsonError } from "@/lib/responses";
 import ApprovalRequest, { APPROVAL_GRANT_TTL_MS } from "@/models/ApprovalRequest";
 
@@ -12,11 +19,28 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (auth.error || !auth.user) return auth.error;
 
   const { approvalId } = await context.params;
+
+  const actor = await getWorkspaceActor(auth.user.userId, auth.user.primaryAccountId);
+  if (!actor) return jsonError("Workspace account required.", 403);
+  if (actor.authorityLevel <= 10) return viewerMutationForbidden();
+
+  const approval = await ApprovalRequest.findOne({
+    approvalId,
+    ...accountScopeFilter(actor.accountId),
+    status: "pending"
+  }).lean();
+  if (!approval) {
+    return jsonError("Approval request not found or already resolved.", 404);
+  }
+  if (!canApproveRequest(actor, approval)) {
+    return approvalForbidden();
+  }
+
   const now = new Date();
   const grantExpiresAt = new Date(now.getTime() + APPROVAL_GRANT_TTL_MS);
 
   const result = await ApprovalRequest.updateOne(
-    { approvalId, developerUserId: auth.user.userId, status: "pending" },
+    { approvalId, ...accountScopeFilter(actor.accountId), status: "pending" },
     {
       $set: {
         status: "approved",

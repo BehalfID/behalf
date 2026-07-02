@@ -43,7 +43,13 @@ behalf agents create --name "Ollie" --type connected --provider ollie --save`}</
       </p>
 
       <h2>Permissions</h2>
-      <CodeBlock label="terminal">{`behalf permissions create agent_xxx \\
+      <p>
+        Permission grants require human authentication. Run <code>behalf login</code> or pass
+        <code>--developer-token</code> with a <code>bhf_dev_...</code> developer token.
+        Agent API keys are for verification only and cannot create or revoke permissions.
+      </p>
+      <CodeBlock label="terminal">{`behalf login
+behalf permissions create agent_xxx \\
   --action access_data \\
   --resource gmail.com \\
   --allowed "read labels,summarize messages" \\

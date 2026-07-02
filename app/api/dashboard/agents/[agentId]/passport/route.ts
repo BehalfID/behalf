@@ -1,6 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { hashApiKey } from "@/lib/auth";
+import { accountAgentFilter } from "@/lib/accountAgents";
 import { requireDeveloperApi } from "@/lib/developerAuth";
+import { getWorkspaceActor } from "@/lib/delegatedAuth";
+import { requireWorkspaceMutationActor } from "@/lib/workspaceActor";
 import { createPassportToken } from "@/lib/ids";
 import { jsonError } from "@/lib/responses";
 import Agent from "@/models/Agent";
@@ -21,11 +24,16 @@ function passportUrl(request: NextRequest, agentId: string, token: string) {
 export async function POST(request: NextRequest, context: RouteContext) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
+  const workspace = await requireWorkspaceMutationActor(auth.user);
+  if (workspace.error) return workspace.error;
+
+  const actor = await getWorkspaceActor(auth.user.userId, auth.user.primaryAccountId);
+  if (!actor) return jsonError("Workspace account required.", 403);
 
   const { agentId } = await context.params;
   const token = createPassportToken();
   const agent = await Agent.findOneAndUpdate(
-    { developerUserId: auth.user.userId, agentId },
+    accountAgentFilter(actor, agentId),
     {
       $set: {
         publicPassportTokenHash: hashApiKey(token),

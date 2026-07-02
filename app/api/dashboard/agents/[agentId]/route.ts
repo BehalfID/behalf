@@ -1,7 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { parseAgentMetadata } from "@/lib/agents";
-import { getDeveloperAgentDetail, serializeAgent } from "@/lib/dashboardData";
+import { backfillLegacyAgentsForActor } from "@/lib/accountAgents";
+import { accountScopeFilter } from "@/lib/accountAccess";
+import { getAccountAgentDetail } from "@/lib/accountDashboardData";
+import { serializeAgent } from "@/lib/dashboardData";
 import { requireDeveloperApi } from "@/lib/developerAuth";
+import { getWorkspaceActor, serializeWorkspaceAuthority } from "@/lib/delegatedAuth";
+import { requireWorkspaceMutationActor } from "@/lib/workspaceActor";
 import { readJsonObject } from "@/lib/request";
 import { jsonError, noCacheJson } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
@@ -15,14 +20,23 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
   const { agentId } = await context.params;
-  const detail = await getDeveloperAgentDetail(auth.user.userId, agentId);
+  const actor = await getWorkspaceActor(auth.user.userId, auth.user.primaryAccountId);
+  if (!actor) return jsonError("Workspace account required.", 403);
+
+  const detail = await getAccountAgentDetail(actor, agentId);
   if (!detail) return jsonError("Agent not found.", 404);
-  return noCacheJson(detail);
+  return noCacheJson({
+    ...detail,
+    workspaceAuthority: serializeWorkspaceAuthority(actor)
+  });
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
+
+  const workspace = await requireWorkspaceMutationActor(auth.user);
+  if (workspace.error) return workspace.error;
 
   const { body, error } = await readJsonObject(request);
   if (error) return error;
@@ -75,8 +89,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return jsonError("At least one editable agent field is required.");
   }
 
+  const actor = await getWorkspaceActor(auth.user.userId, auth.user.primaryAccountId);
+  if (!actor) return jsonError("Workspace account required.", 403);
+
+  await backfillLegacyAgentsForActor(actor);
+
   const agent = await Agent.findOneAndUpdate(
-    { developerUserId: auth.user.userId, agentId },
+    { ...accountScopeFilter(actor.accountId), agentId },
     { $set: update },
     { returnDocument: "after" }
   );

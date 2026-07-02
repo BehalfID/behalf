@@ -47,7 +47,9 @@ const ApprovalRequestSchema = new Schema(
     resolvedAt: { type: Date },
     // When approved: the window in which the next verify() call will be allowed.
     // After this, the grant expires and the agent must request approval again.
-    grantExpiresAt: { type: Date }
+    grantExpiresAt: { type: Date },
+    /** Minimum workspace authority required to approve this request. */
+    requiredAuthorityLevel: { type: Number, min: 0, max: 100, index: true }
   },
   { timestamps: true }
 );
