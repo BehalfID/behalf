@@ -39,8 +39,22 @@ const WEAK_PASSWORD_SUBSTRINGS = ["password", "test", "demo", "changeme"] as con
 const PASSWORD_CHARSET =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*-_=+";
 
-const NON_PRODUCTION_DB_MARKERS =
-  /(?:^|[-_])(local|dev|test|testing|staging|stage|preview|sandbox|integration)(?:$|[-_])/i;
+export const NON_PRODUCTION_DATABASE_SEGMENTS = new Set([
+  "local",
+  "dev",
+  "development",
+  "test",
+  "testing",
+  "staging",
+  "preview",
+  "sandbox"
+]);
+
+export const PRODUCTION_DATABASE_SEGMENTS = new Set(["prod", "production", "live"]);
+
+export const INTERNAL_DEMO_RESET_REFUSAL_REASON =
+  "Refusing to reset the internal demo account because the database does not clearly look non-production. " +
+  "Use a local/dev/test/staging database, or set ALLOW_INTERNAL_DEMO_RESET=1 only if you intentionally want to override this guard.";
 
 export type InternalDemoResetEnv = {
   NODE_ENV?: string;
@@ -87,17 +101,25 @@ export function extractDatabaseName(mongodbUri?: string | null) {
   return match?.[1] ? decodeURIComponent(match[1]) : null;
 }
 
+export function splitDatabaseNameSegments(databaseName: string) {
+  return databaseName
+    .trim()
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+}
+
 export function isNonProductionDatabaseName(databaseName: string) {
-  const normalized = databaseName.trim().toLowerCase();
-  if (!normalized) {
+  const segments = splitDatabaseNameSegments(databaseName);
+  if (segments.length === 0) {
     return false;
   }
 
-  if (NON_PRODUCTION_DB_MARKERS.test(normalized)) {
-    return true;
+  if (segments.some((segment) => PRODUCTION_DATABASE_SEGMENTS.has(segment))) {
+    return false;
   }
 
-  return ["local", "dev", "test", "staging", "preview"].some((marker) => normalized.includes(marker));
+  return segments.some((segment) => NON_PRODUCTION_DATABASE_SEGMENTS.has(segment));
 }
 
 export function canRunInternalDemoReset(env: InternalDemoResetEnv) {
@@ -105,21 +127,15 @@ export function canRunInternalDemoReset(env: InternalDemoResetEnv) {
     return { allowed: true as const };
   }
 
-  if (!isProductionNodeEnv(env.NODE_ENV)) {
-    return { allowed: true as const };
-  }
-
   const databaseName = extractDatabaseName(env.MONGODB_URI);
-  if (databaseName && isNonProductionDatabaseName(databaseName)) {
-    return { allowed: true as const };
+  if (!databaseName || !isNonProductionDatabaseName(databaseName)) {
+    return {
+      allowed: false as const,
+      reason: INTERNAL_DEMO_RESET_REFUSAL_REASON
+    };
   }
 
-  return {
-    allowed: false as const,
-    reason:
-      "Refusing to reset the internal demo account in a production-like environment. " +
-      "Set ALLOW_INTERNAL_DEMO_RESET=1 only when you intentionally target a non-production database."
-  };
+  return { allowed: true as const };
 }
 
 export function getEmailDomain(email: string) {

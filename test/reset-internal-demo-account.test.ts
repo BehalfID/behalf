@@ -4,6 +4,7 @@ import {
   DEFAULT_INTERNAL_DEMO_EMAIL,
   extractDatabaseName,
   generateInternalDemoPassword,
+  INTERNAL_DEMO_RESET_REFUSAL_REASON,
   isNonProductionDatabaseName,
   isPublicConsumerEmail,
   isWeakInternalDemoPassword,
@@ -12,46 +13,78 @@ import {
   resolveInternalDemoPassword,
   shouldClearInternalDemoData,
   shouldPreserveInternalDemoData,
+  splitDatabaseNameSegments,
   validateInternalDemoPassword
 } from "@/scripts/dev/reset-internal-demo-account-helpers";
 
 describe("internal demo reset safety guards", () => {
-  it("refuses production-like environment without override", () => {
+  it("rejects production-looking databases without override", () => {
     const result = canRunInternalDemoReset({
       NODE_ENV: "production",
       MONGODB_URI: "mongodb+srv://cluster.example.net/behalf-prod"
     });
 
     expect(result.allowed).toBe(false);
-    expect(result.reason).toMatch(/production-like/i);
+    expect(result.reason).toBe(INTERNAL_DEMO_RESET_REFUSAL_REASON);
   });
 
-  it("accepts dev/test environment", () => {
-    expect(
-      canRunInternalDemoReset({
-        NODE_ENV: "development",
-        MONGODB_URI: "mongodb://localhost:27017/behalf"
-      }).allowed
-    ).toBe(true);
+  it("rejects development NODE_ENV with a production-looking database", () => {
+    const result = canRunInternalDemoReset({
+      NODE_ENV: "development",
+      MONGODB_URI: "mongodb+srv://cluster.example.net/behalf-production"
+    });
 
-    expect(
-      canRunInternalDemoReset({
-        NODE_ENV: "test",
-        MONGODB_URI: "mongodb://127.0.0.1:27017/behalf-test"
-      }).allowed
-    ).toBe(true);
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toBe(INTERNAL_DEMO_RESET_REFUSAL_REASON);
   });
 
-  it("accepts non-production database names in production NODE_ENV", () => {
+  it("rejects test NODE_ENV with a production-looking database", () => {
+    const result = canRunInternalDemoReset({
+      NODE_ENV: "test",
+      MONGODB_URI: "mongodb://127.0.0.1:27017/behalf-live"
+    });
+
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toBe(INTERNAL_DEMO_RESET_REFUSAL_REASON);
+  });
+
+  it("allows dev/test/staging database names regardless of NODE_ENV", () => {
     expect(
       canRunInternalDemoReset({
         NODE_ENV: "production",
         MONGODB_URI: "mongodb+srv://cluster.example.net/behalf-staging"
       }).allowed
     ).toBe(true);
+
+    expect(
+      canRunInternalDemoReset({
+        NODE_ENV: "development",
+        MONGODB_URI: "mongodb://localhost:27017/behalf-test"
+      }).allowed
+    ).toBe(true);
+
+    expect(
+      canRunInternalDemoReset({
+        NODE_ENV: "test",
+        MONGODB_URI: "mongodb://127.0.0.1:27017/behalf_dev"
+      }).allowed
+    ).toBe(true);
   });
 
-  it("accepts production-like environment only with explicit override", () => {
+  it("rejects missing database names unless override is set", () => {
+    expect(canRunInternalDemoReset({ NODE_ENV: "development" }).allowed).toBe(false);
+    expect(canRunInternalDemoReset({ NODE_ENV: "development", MONGODB_URI: "" }).allowed).toBe(
+      false
+    );
+    expect(
+      canRunInternalDemoReset({
+        NODE_ENV: "development",
+        MONGODB_URI: "mongodb://localhost:27017"
+      }).allowed
+    ).toBe(false);
+  });
+
+  it("allows override with ALLOW_INTERNAL_DEMO_RESET=1", () => {
     expect(
       canRunInternalDemoReset({
         NODE_ENV: "production",
@@ -59,6 +92,20 @@ describe("internal demo reset safety guards", () => {
         ALLOW_INTERNAL_DEMO_RESET: "1"
       }).allowed
     ).toBe(true);
+  });
+});
+
+describe("internal demo database name heuristics", () => {
+  it("matches whole segments instead of unsafe substrings", () => {
+    expect(splitDatabaseNameSegments("behalf-prod")).toEqual(["behalf", "prod"]);
+    expect(isNonProductionDatabaseName("behalf-prod")).toBe(false);
+    expect(isNonProductionDatabaseName("behalf_dev")).toBe(true);
+    expect(isNonProductionDatabaseName("behalf-development")).toBe(true);
+    expect(isNonProductionDatabaseName("behalf-preview")).toBe(true);
+    expect(isNonProductionDatabaseName("behalf-production")).toBe(false);
+    expect(isNonProductionDatabaseName("production-preview-copy")).toBe(false);
+    expect(isNonProductionDatabaseName("behalf")).toBe(false);
+    expect(isNonProductionDatabaseName("live")).toBe(false);
   });
 });
 
@@ -138,11 +185,6 @@ describe("internal demo reset helpers", () => {
     expect(extractDatabaseName("mongodb+srv://user:pass@cluster.mongodb.net/behalf-staging")).toBe(
       "behalf-staging"
     );
-  });
-
-  it("detects non-production database names", () => {
-    expect(isNonProductionDatabaseName("behalf-dev")).toBe(true);
-    expect(isNonProductionDatabaseName("behalf-production")).toBe(false);
   });
 
   it("clears demo activity by default", () => {

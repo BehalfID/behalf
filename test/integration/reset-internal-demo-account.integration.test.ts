@@ -19,14 +19,17 @@ import {
 const DEMO_PASSWORD =
   "K8#mQ2vR9pL4nX7wZ1cF6hJ0sD5gB3tY8uA2eP7iO1qW4rE9yU6iM3nV0xC7zA1bN";
 
-const RESET_ENV = {
-  NODE_ENV: "test",
-  INTERNAL_DEMO_PASSWORD: DEMO_PASSWORD
-} as const;
+function getResetEnv() {
+  return {
+    NODE_ENV: "test",
+    INTERNAL_DEMO_PASSWORD: DEMO_PASSWORD,
+    MONGODB_URI: process.env.MONGODB_URI
+  } as const;
+}
 
 async function seedCompletedDemoUser() {
   await runInternalDemoAccountReset({
-    env: RESET_ENV,
+    env: getResetEnv(),
     hashPassword
   });
 
@@ -44,7 +47,7 @@ async function seedCompletedDemoUser() {
 
 async function seedDemoActivity() {
   await runInternalDemoAccountReset({
-    env: RESET_ENV,
+    env: getResetEnv(),
     hashPassword
   });
 
@@ -105,7 +108,7 @@ async function seedDemoActivity() {
 describe("internal demo account reset integration", () => {
   it("creates/updates demo user with emailVerified true", async () => {
     const result = await runInternalDemoAccountReset({
-      env: RESET_ENV,
+      env: getResetEnv(),
       hashPassword
     });
 
@@ -128,7 +131,7 @@ describe("internal demo account reset integration", () => {
     expect(before?.onboardingCompletedAt).toBeTruthy();
 
     const result = await runInternalDemoAccountReset({
-      env: RESET_ENV,
+      env: getResetEnv(),
       hashPassword
     });
 
@@ -168,7 +171,7 @@ describe("internal demo account reset integration", () => {
     });
 
     const result = await runInternalDemoAccountReset({
-      env: RESET_ENV,
+      env: getResetEnv(),
       hashPassword
     });
 
@@ -197,7 +200,7 @@ describe("internal demo account reset integration", () => {
 
     const result = await runInternalDemoAccountReset({
       env: {
-        ...RESET_ENV,
+        ...getResetEnv(),
         KEEP_INTERNAL_DEMO_DATA: "1"
       },
       hashPassword

@@ -4,6 +4,9 @@
  * Default behavior clears onboarding state and demo-owned agents, permissions,
  * approvals, logs, and invites so login hard-redirects to /onboarding.
  *
+ * Safety: requires a clearly non-production MongoDB database name unless
+ * ALLOW_INTERNAL_DEMO_RESET=1 is set.
+ *
  * Usage:
  *   INTERNAL_DEMO_PASSWORD='<46+ character secure password>' npm run dev:reset-internal-demo
  *
