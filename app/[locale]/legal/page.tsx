@@ -64,6 +64,7 @@ export default async function LegalPage({
         t("docs.privacy.s5"),
         t("docs.privacy.s6"),
         t("docs.privacy.s7"),
+        t("docs.privacy.s8"),
       ],
       updated: t("lastUpdated", { date: t("updatedDate") }),
     },

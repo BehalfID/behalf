@@ -136,7 +136,7 @@
     "kicker": "Política de privacidad",
     "title": "Política de privacidad",
     "effective": "En vigor desde el {date}",
-    "effectiveDate": "26 de mayo de 2026",
+    "effectiveDate": "2 de julio de 2026",
     "toc": {
       "heading": "En esta página",
       "item1": "1. Quiénes somos",
@@ -158,7 +158,17 @@
     "s2": {
       "heading": "2. Datos que recopilamos",
       "accountH": "Datos de cuenta",
-      "accountBody": "Cuando creas una cuenta de desarrollador, recopilamos tu dirección de correo electrónico y una contraseña cifrada. No almacenamos tu contraseña en texto plano en ningún momento.",
+      "accountBody": "Cuando creas una cuenta de desarrollador, recopilamos tu dirección de correo electrónico, tu fecha de nacimiento y una contraseña cifrada. No almacenamos tu contraseña en texto plano en ningún momento. Tu fecha de nacimiento se usa solo para confirmar que cumples con nuestra edad mínima y no se muestra en la configuración de la cuenta ni en los ajustes de la cuenta.",
+      "setupH": "Configuración de la cuenta y datos del perfil",
+      "setupIntro": "Cuando completas la configuración de la cuenta, recopilamos información del perfil y del espacio de trabajo, incluyendo:",
+      "setupItem1": "tu nombre y apellido;",
+      "setupItem2": "tu cargo;",
+      "setupItem3": "un número de teléfono opcional — si decides proporcionarlo, podemos usarlo solo para recuperación de la cuenta, alertas de seguridad urgentes o soporte. No lo usamos para verificación por SMS, autenticación de dos factores basada en teléfono ni marketing, salvo que te indiquemos lo contrario en el producto;",
+      "setupItem4": "si configuras la cuenta para ti o para un negocio/equipo;",
+      "setupItem5": "nombre de la empresa u organización y nombre del espacio de trabajo;",
+      "setupItem6": "sitio web y tamaño del equipo; y",
+      "setupItem7": "preferencias de incorporación: las herramientas de agentes de IA que usas, las áreas que quieres que controle la plataforma, tu objetivo principal con la plataforma y tu primer objetivo de configuración.",
+      "setupOutro": "Esta información se almacena en tu perfil de usuario y espacio de trabajo y se usa para operar tu cuenta, configurar tu espacio de trabajo y personalizar la guía de incorporación.",
       "agentH": "Datos de agentes y permisos",
       "agentBody": "Los nombres de agentes, configuraciones de permisos, definiciones de alcance y fechas de vencimiento que creas en el panel de control se almacenan y asocian con tu cuenta. Las claves API se almacenan solo como hashes SHA-256 y se te muestran una vez al crearlas.",
       "verifyH": "Datos de solicitudes de verificación",
@@ -181,10 +191,11 @@
     "s4": {
       "heading": "4. Cómo usamos tus datos",
       "item1": "Para autenticar y operar tu cuenta de desarrollador.",
-      "item2": "Para ejecutar, registrar y entregar eventos de webhook para solicitudes de verificación.",
-      "item3": "Para aplicar límites de velocidad y detectar abusos.",
-      "item4": "Para procesar la facturación y aplicar límites del plan mediante Stripe.",
-      "item5": "Para responder a consultas de soporte o seguridad.",
+      "item2": "Para configurar tu espacio de trabajo y personalizar la incorporación según las preferencias que proporcionas durante la configuración de la cuenta.",
+      "item3": "Para ejecutar, registrar y entregar eventos de webhook para solicitudes de verificación.",
+      "item4": "Para aplicar límites de velocidad y detectar abusos.",
+      "item5": "Para procesar la facturación y aplicar límites del plan mediante Stripe.",
+      "item6": "Para responder a consultas de soporte o seguridad.",
       "noSell": "No vendemos tus datos personales. No usamos los datos de tus solicitudes de verificación para entrenar modelos de aprendizaje automático."
     },
     "s5": {
@@ -248,7 +259,7 @@
     "kicker": "Términos de servicio",
     "title": "Términos de servicio",
     "effective": "En vigor desde el {date}. Al crear una cuenta o usar BehalfID, aceptas estos términos.",
-    "effectiveDate": "26 de mayo de 2026",
+    "effectiveDate": "2 de julio de 2026",
     "toc": {
       "heading": "En esta página",
       "item1": "1. Aceptación de los términos",
@@ -288,7 +299,7 @@
     "s3": {
       "heading": "3. Cuentas y elegibilidad",
       "body": "Debes tener al menos 18 años y ser capaz de celebrar un contrato vinculante para usar BehalfID. Eres responsable de:",
-      "item1": "Proporcionar información de registro precisa (dirección de correo y contraseña).",
+      "item1": "Proporcionar información precisa de registro y configuración de la cuenta (incluida tu dirección de correo electrónico, contraseña y cualquier dato de perfil o espacio de trabajo que envíes).",
       "item2": "Mantener la confidencialidad de las credenciales de tu cuenta.",
       "item3": "Toda la actividad que ocurra bajo tu cuenta.",
       "item4": "Notificarnos inmediatamente sobre cualquier acceso no autorizado a tu cuenta.",
@@ -401,7 +412,7 @@
     "kicker": "Legal",
     "title": "Legal",
     "subtitle": "Todos los documentos legales de BehalfID en un solo lugar. Última actualización: {date}. ¿Preguntas? Escribe a <email>legal@behalfid.com</email>.",
-    "updatedDate": "26 de mayo de 2026",
+    "updatedDate": "2 de julio de 2026",
     "docs": {
       "terms": {
         "title": "Términos de servicio",
@@ -420,12 +431,13 @@
         "title": "Política de privacidad",
         "desc": "Qué datos recopila BehalfID, cómo se usan, con quién se comparten, cuánto tiempo se retienen y cómo ejercer tus derechos.",
         "s1": "Datos que recopilamos",
-        "s2": "Cookies y almacenamiento local",
-        "s3": "Cómo usamos tus datos",
-        "s4": "Análisis (ninguno)",
-        "s5": "Programas de retención de datos",
-        "s6": "Procesadores de terceros",
-        "s7": "Tus derechos (acceso, eliminación, portabilidad)"
+        "s2": "Configuración de la cuenta y datos del perfil",
+        "s3": "Cookies y almacenamiento local",
+        "s4": "Cómo usamos tus datos",
+        "s5": "Análisis (ninguno)",
+        "s6": "Programas de retención de datos",
+        "s7": "Procesadores de terceros",
+        "s8": "Tus derechos (acceso, eliminación, portabilidad)"
       },
       "security": {
         "title": "Seguridad y confianza",

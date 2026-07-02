@@ -88,6 +88,18 @@ export default async function PrivacyPage({
             <h2>{t("s2.heading")}</h2>
             <h3>{t("s2.accountH")}</h3>
             <p>{t("s2.accountBody")}</p>
+            <h3>{t("s2.setupH")}</h3>
+            <p>{t("s2.setupIntro")}</p>
+            <ul>
+              <li>{t("s2.setupItem1")}</li>
+              <li>{t("s2.setupItem2")}</li>
+              <li>{t("s2.setupItem3")}</li>
+              <li>{t("s2.setupItem4")}</li>
+              <li>{t("s2.setupItem5")}</li>
+              <li>{t("s2.setupItem6")}</li>
+              <li>{t("s2.setupItem7")}</li>
+            </ul>
+            <p>{t("s2.setupOutro")}</p>
             <h3>{t("s2.agentH")}</h3>
             <p>{t("s2.agentBody")}</p>
             <h3>{t("s2.verifyH")}</h3>
@@ -133,6 +145,7 @@ export default async function PrivacyPage({
               <li>{t("s4.item3")}</li>
               <li>{t("s4.item4")}</li>
               <li>{t("s4.item5")}</li>
+              <li>{t("s4.item6")}</li>
             </ul>
             <p>{t("s4.noSell")}</p>
           </section>

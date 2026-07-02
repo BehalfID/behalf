@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/terms" }
 };
 
-const EFFECTIVE_DATE = "May 26, 2026";
+const EFFECTIVE_DATE = "July 2, 2026";
 const CONTACT_EMAIL = "legal@behalfid.com";
 
 const TOC = [
@@ -111,7 +111,10 @@ export default function TermsPage() {
               BehalfID. You are responsible for:
             </p>
             <ul>
-              <li>Providing accurate registration information (email address and password).</li>
+              <li>
+                Providing accurate registration and account-setup information (including your
+                email address, password, and any profile or workspace details you submit).
+              </li>
               <li>Maintaining the confidentiality of your account credentials.</li>
               <li>All activity that occurs under your account.</li>
               <li>Immediately notifying us of any unauthorized access to or use of your account.</li>
