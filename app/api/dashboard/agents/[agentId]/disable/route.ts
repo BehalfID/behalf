@@ -16,7 +16,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const workspace = await requireWorkspaceMutationActor(auth.user);
   if (workspace.error) return workspace.error;
 
-  const actor = await getWorkspaceActor(auth.user.userId, auth.user.primaryAccountId);
+  const actor = await getWorkspaceActor(auth.user.userId, auth.activeAccountId);
   if (!actor) return jsonError("Workspace account required.", 403);
 
   const { agentId } = await context.params;

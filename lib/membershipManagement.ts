@@ -13,6 +13,7 @@ import {
 } from "@/lib/delegatedAuth";
 import { createPublicId } from "@/lib/ids";
 import { normalizeEmail } from "@/lib/developerAuth";
+import { buildInviteAcceptUrl, createInviteTokenPair } from "@/lib/inviteAcceptance";
 import AccountMembership from "@/models/AccountMembership";
 import AccountInvite from "@/models/AccountInvite";
 import DeveloperUser from "@/models/DeveloperUser";
@@ -111,7 +112,8 @@ export async function listAccountMembers(accountId: string) {
 
 export async function addOrInviteMember(
   actor: WorkspaceActor,
-  input: { email: string; role: WorkspaceRole }
+  input: { email: string; role: WorkspaceRole },
+  options?: { appBaseUrl?: string }
 ) {
   if (!canManageMembers(actor)) {
     return { error: roleDelegationForbidden() };
@@ -150,12 +152,16 @@ export async function addOrInviteMember(
     };
   }
 
+  const { token, tokenHash, expiresAt } = createInviteTokenPair();
+
   const invite = await AccountInvite.findOneAndUpdate(
     { accountId: actor.accountId, email, status: "pending" },
     {
       $set: {
         role: input.role,
-        invitedBy: actor.userId
+        invitedBy: actor.userId,
+        inviteTokenHash: tokenHash,
+        inviteTokenExpiresAt: expiresAt
       },
       $setOnInsert: {
         inviteId: createPublicId("inv"),
@@ -167,13 +173,17 @@ export async function addOrInviteMember(
     { upsert: true, returnDocument: "after" }
   ).lean();
 
+  const baseUrl = options?.appBaseUrl ?? process.env.NEXT_PUBLIC_APP_URL ?? "";
+  const acceptUrl = baseUrl ? buildInviteAcceptUrl(token, baseUrl) : null;
+
   return {
     invite: {
       inviteId: invite.inviteId,
       email: invite.email,
       role: isWorkspaceRole(invite.role) ? invite.role : input.role,
       status: "pending" as const,
-      invitedBy: invite.invitedBy
+      invitedBy: invite.invitedBy,
+      acceptUrl
     }
   };
 }

@@ -4,7 +4,8 @@ import { hashSessionToken } from "@/lib/developerAuth";
 const mocks = vi.hoisted(() => ({
   sessionFindOne: vi.fn(),
   userFindOne: vi.fn(),
-  accountFindOne: vi.fn()
+  accountFindOne: vi.fn(),
+  membershipFind: vi.fn()
 }));
 
 vi.mock("@/lib/db", () => ({ connectToDatabase: vi.fn(async () => undefined) }));
@@ -20,6 +21,9 @@ vi.mock("@/models/DeveloperUser", () => ({
 }));
 vi.mock("@/models/Account", () => ({
   default: { findOne: mocks.accountFindOne }
+}));
+vi.mock("@/models/AccountMembership", () => ({
+  default: { find: mocks.membershipFind }
 }));
 
 const SESSION_TOKEN = "test-session-token";
@@ -47,9 +51,15 @@ describe("requireDeveloperApi unverified hardening", () => {
     vi.clearAllMocks();
     mocks.sessionFindOne.mockReturnValue({
       lean: vi.fn().mockResolvedValue({
+        sessionId: "sess_test",
         userId: "dev_test",
         tokenHash: hashSessionToken(SESSION_TOKEN),
         expiresAt: new Date(Date.now() + 60_000)
+      })
+    });
+    mocks.membershipFind.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        lean: vi.fn().mockResolvedValue([{ accountId: "acct_test" }])
       })
     });
     mocks.userFindOne.mockReturnValue({
@@ -96,7 +106,8 @@ describe("requireDeveloperApi unverified hardening", () => {
 
   it("does not select phone or dateOfBirth in session user payloads", async () => {
     const { getDeveloperFromToken } = await import("@/lib/developerAuth");
-    await getDeveloperFromToken(SESSION_TOKEN);
+    const context = await getDeveloperFromToken(SESSION_TOKEN);
+    expect(context?.user.email).toBe("dev@example.com");
     const selectArg = mocks.userFindOne.mock.results[0]?.value.select.mock.calls[0][0] as string;
     expect(selectArg).not.toContain("phone");
     expect(selectArg).not.toContain("dateOfBirth");

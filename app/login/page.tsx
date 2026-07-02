@@ -10,11 +10,22 @@ export const metadata: Metadata = {
   alternates: { canonical: "/login" }
 };
 
-export default async function LoginPage() {
+function safeNextPath(next?: string) {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
+  return next;
+}
+
+export default async function LoginPage({
+  searchParams
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const { next } = await searchParams;
+  const nextPath = safeNextPath(next) ?? undefined;
   const user = await getCurrentDeveloper();
   if (user) {
     if (await shouldForceAccountSetup(user.userId)) redirect("/onboarding");
-    redirect("/dashboard");
+    redirect(nextPath ?? "/dashboard");
   }
-  return <AuthPage mode="login" />;
+  return <AuthPage mode="login" nextPath={nextPath} />;
 }

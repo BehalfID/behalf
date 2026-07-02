@@ -10,8 +10,8 @@ export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
 
-  const actor = await getWorkspaceActor(auth.user.userId, auth.user.primaryAccountId);
-  const setup = await loadAccountSetupState(auth.user.userId, auth.user.primaryAccountId);
+  const actor = await getWorkspaceActor(auth.user.userId, auth.activeAccountId);
+  const setup = await loadAccountSetupState(auth.user.userId, auth.activeAccountId);
 
   return noCacheJson({
     email: auth.user.email,
@@ -43,11 +43,11 @@ export async function PATCH(request: NextRequest) {
   const unknownError = rejectUnknownFields(body, [...PATCH_ALLOWED_FIELDS]);
   if (unknownError) return jsonError(unknownError);
 
-  const result = await patchAccountSetup(auth.user.userId, auth.user.primaryAccountId, body);
+  const result = await patchAccountSetup(auth.user.userId, auth.activeAccountId, body);
   if (result.error) return jsonError(result.error, result.status ?? 400);
 
-  const setup = await loadAccountSetupState(auth.user.userId, auth.user.primaryAccountId);
-  const actor = await getWorkspaceActor(auth.user.userId, auth.user.primaryAccountId);
+  const setup = await loadAccountSetupState(auth.user.userId, auth.activeAccountId);
+  const actor = await getWorkspaceActor(auth.user.userId, auth.activeAccountId);
 
   return noCacheJson({
     ok: true,

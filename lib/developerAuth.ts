@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import { promisify } from "util";
 import { connectToDatabase } from "@/lib/db";
+import { resolveActiveAccountId } from "@/lib/accountContext";
 import { createPublicId } from "@/lib/ids";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { jsonError } from "@/lib/responses";
@@ -144,10 +145,29 @@ export async function getDeveloperFromToken(token?: string | null) {
     .select("-_id userId email emailVerified onboardingUseCase primaryAccountId firstName lastName jobTitle onboardingCompletedAt createdAt updatedAt")
     .lean();
 
-  return user;
+  if (!user) return null;
+
+  const activeAccountId = await resolveActiveAccountId(user.userId, {
+    sessionActiveAccountId: session.activeAccountId,
+    primaryAccountId: user.primaryAccountId
+  });
+
+  return { user, session, activeAccountId };
+}
+
+/** @deprecated Prefer getDeveloperFromToken which includes active account context. */
+export async function getDeveloperUserFromToken(token?: string | null) {
+  const context = await getDeveloperFromToken(token);
+  return context?.user ?? null;
 }
 
 export async function getCurrentDeveloper() {
+  const cookieStore = await cookies();
+  const context = await getDeveloperFromToken(cookieStore.get(COOKIE_NAME)?.value);
+  return context?.user ?? null;
+}
+
+export async function getCurrentDeveloperContext() {
   const cookieStore = await cookies();
   return getDeveloperFromToken(cookieStore.get(COOKIE_NAME)?.value);
 }
@@ -155,18 +175,26 @@ export async function getCurrentDeveloper() {
 export async function requireDeveloperApi(request: NextRequest) {
   const limit = await checkRateLimit(request);
   if (limit.limited) {
-    return { user: null, account: null, error: rateLimitError() };
+    return { user: null, account: null, activeAccountId: null, session: null, error: rateLimitError() };
   }
 
   const originError = requireDashboardMutationOrigin(request);
   if (originError) {
-    return { user: null, account: null, error: originError };
+    return { user: null, account: null, activeAccountId: null, session: null, error: originError };
   }
 
-  const user = await getDeveloperFromToken(request.cookies.get(COOKIE_NAME)?.value);
-  if (!user) {
-    return { user: null, account: null, error: jsonError("Developer authentication required.", 401) };
+  const context = await getDeveloperFromToken(request.cookies.get(COOKIE_NAME)?.value);
+  if (!context) {
+    return {
+      user: null,
+      account: null,
+      activeAccountId: null,
+      session: null,
+      error: jsonError("Developer authentication required.", 401)
+    };
   }
+
+  const { user, session, activeAccountId } = context;
 
   const pathname = request.nextUrl.pathname;
   const isAccountSetupApi = pathname.startsWith("/api/onboarding/");
@@ -178,15 +206,17 @@ export async function requireDeveloperApi(request: NextRequest) {
     return {
       user: null,
       account: null,
+      activeAccountId: null,
+      session: null,
       error: jsonError("Email verification required. Check your inbox or resend the verification email.", 403)
     };
   }
 
-  const account = user.primaryAccountId
-    ? await Account.findOne({ accountId: user.primaryAccountId }).lean()
+  const account = activeAccountId
+    ? await Account.findOne({ accountId: activeAccountId }).lean()
     : null;
 
-  return { user, account, error: null };
+  return { user, account, activeAccountId, session, error: null };
 }
 
 /** Like requireDeveloperApi but also requires emailVerified (or pre-verification account). */
@@ -197,6 +227,8 @@ export async function requireVerifiedDeveloperApi(request: NextRequest) {
     return {
       user: null,
       account: null,
+      activeAccountId: null,
+      session: null,
       error: jsonError("Email verification required. Check your inbox or resend the verification email.", 403)
     };
   }
@@ -205,3 +237,10 @@ export async function requireVerifiedDeveloperApi(request: NextRequest) {
 
 export type DeveloperPublic = Pick<DeveloperUserDocument, "userId" | "email" | "createdAt" | "updatedAt">;
 export type DeveloperAccount = AccountDocument | null;
+
+export function getRequestAccountId(auth: {
+  activeAccountId?: string | null;
+  user?: { primaryAccountId?: string | null } | null;
+}) {
+  return auth.activeAccountId ?? auth.user?.primaryAccountId ?? null;
+}

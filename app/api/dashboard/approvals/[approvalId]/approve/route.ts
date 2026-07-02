@@ -20,7 +20,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const { approvalId } = await context.params;
 
-  const actor = await getWorkspaceActor(auth.user.userId, auth.user.primaryAccountId);
+  const actor = await getWorkspaceActor(auth.user.userId, auth.activeAccountId);
   if (!actor) return jsonError("Workspace account required.", 403);
   if (actor.authorityLevel <= 10) return viewerMutationForbidden();
 

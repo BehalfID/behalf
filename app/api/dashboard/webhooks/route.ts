@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
   const signing = createSigningSecret();
   const webhook = await WebhookEndpoint.create({
     webhookId: createPublicId("wh"),
-    accountId: auth.account?.accountId ?? auth.user.primaryAccountId ?? auth.user.userId,
+    accountId: auth.account?.accountId ?? auth.activeAccountId ?? auth.user.userId,
     developerUserId: auth.user.userId,
     url,
     secretHash: signing.secretHash,

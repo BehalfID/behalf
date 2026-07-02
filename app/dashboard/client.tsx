@@ -154,6 +154,7 @@ type PendingInvite = {
   email: string;
   role: string;
   status: "pending";
+  acceptUrl?: string | null;
 };
 type AgentProvider = "custom" | "ollie" | "chatgpt" | "claude" | "gemini" | "zapier" | "make" | "langchain" | "openai" | "other";
 type ProviderSelection = AgentProvider | "";
@@ -2688,15 +2689,20 @@ function MembersPanel() {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("ENGINEER");
   const [memberError, setMemberError] = useState("");
+  const [lastInviteUrl, setLastInviteUrl] = useState("");
 
   const addMember = async (event: FormEvent) => {
     event.preventDefault();
     setMemberError("");
+    setLastInviteUrl("");
     try {
-      await api("/api/dashboard/members", {
+      const result = await api<{ member?: AccountMember; invite?: PendingInvite }>("/api/dashboard/members", {
         method: "POST",
         body: JSON.stringify({ email, role })
       });
+      if (result.invite?.acceptUrl) {
+        setLastInviteUrl(result.invite.acceptUrl);
+      }
       setEmail("");
       await members.reload();
     } catch (error) {
@@ -2727,6 +2733,16 @@ function MembersPanel() {
     }
   };
 
+  const revokeInvite = async (inviteId: string) => {
+    setMemberError("");
+    try {
+      await api(`/api/dashboard/members/invites/${inviteId}`, { method: "DELETE" });
+      await members.reload();
+    } catch (error) {
+      setMemberError(error instanceof Error ? error.message : "Could not revoke invite.");
+    }
+  };
+
   return (
     <Card className="dashboard-panel">
       <div className="dashboard-section-header">
@@ -2741,12 +2757,17 @@ function MembersPanel() {
         </p>
       ) : null}
       {memberError ? <p className="form-error">{memberError}</p> : null}
+      {lastInviteUrl ? (
+        <p className="field-help">
+          Share this invite link: <code className="invite-link">{lastInviteUrl}</code>
+        </p>
+      ) : null}
       <div className="dashboard-list">
         {(members.data?.members ?? []).map((member) => (
-          <div key={member.membershipId}>
+          <div key={member.membershipId} className="member-row member-row--active">
             <span>
               <strong>{member.email ?? member.userId}</strong>
-              <small>{member.role}</small>
+              <small>{member.role} · active member</small>
             </span>
             {members.data?.canManageMembers ? (
               <span className="approval-actions">
@@ -2770,11 +2791,14 @@ function MembersPanel() {
           <h3>Pending invites</h3>
           <div className="dashboard-list">
             {members.data?.pendingInvites.map((invite) => (
-              <div key={invite.inviteId}>
+              <div key={invite.inviteId} className="member-row member-row--pending">
                 <span>
                   <strong>{invite.email}</strong>
-                  <small>{invite.role} · pending</small>
+                  <small>{invite.role} · pending invite</small>
                 </span>
+                {members.data?.canManageMembers ? (
+                  <Button type="button" onClick={() => void revokeInvite(invite.inviteId)}>Revoke</Button>
+                ) : null}
               </div>
             ))}
           </div>

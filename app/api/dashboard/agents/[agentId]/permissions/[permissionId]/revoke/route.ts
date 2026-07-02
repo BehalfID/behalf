@@ -20,7 +20,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (auth.error || !auth.user) return auth.error;
   const { agentId, permissionId } = await context.params;
 
-  const actor = await getWorkspaceActor(auth.user.userId, auth.user.primaryAccountId);
+  const actor = await getWorkspaceActor(auth.user.userId, auth.activeAccountId);
   if (!actor) return jsonError("Workspace account required.", 403);
 
   const permission = await Permission.findOne({

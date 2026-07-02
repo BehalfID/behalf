@@ -11,14 +11,14 @@ type RouteContext = {
 export async function DELETE(request: NextRequest, context: RouteContext) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
-  if (!auth.user.primaryAccountId) return jsonError("Developer account is required.", 409);
+  if (!auth.activeAccountId) return jsonError("Developer account is required.", 409);
   const { siteId, keyId } = await context.params;
 
-  const site = await Site.findOne({ developerUserId: auth.user.userId, accountId: auth.user.primaryAccountId, siteId }).lean();
+  const site = await Site.findOne({ developerUserId: auth.user.userId, accountId: auth.activeAccountId, siteId }).lean();
   if (!site) return jsonError("Site not found.", 404);
 
   const key = await SiteGuardKey.findOneAndUpdate(
-    { developerUserId: auth.user.userId, accountId: auth.user.primaryAccountId, siteId, keyId, status: "active" },
+    { developerUserId: auth.user.userId, accountId: auth.activeAccountId, siteId, keyId, status: "active" },
     { $set: { status: "revoked" } },
     { returnDocument: "after" }
   ).select("-_id keyId siteId name keyPreview status updatedAt");

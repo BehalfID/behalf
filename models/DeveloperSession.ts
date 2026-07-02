@@ -5,7 +5,9 @@ const DeveloperSessionSchema = new Schema(
     sessionId: { type: String, required: true, unique: true, index: true },
     userId: { type: String, required: true, index: true },
     tokenHash: { type: String, required: true, unique: true, index: true },
-    expiresAt: { type: Date, required: true }
+    expiresAt: { type: Date, required: true },
+    /** Active workspace account for multi-account users. Must match an AccountMembership. */
+    activeAccountId: { type: String, index: true, sparse: true }
   },
   { timestamps: { createdAt: true, updatedAt: false } }
 );

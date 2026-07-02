@@ -13235,3 +13235,82 @@ html[data-theme="light"] .inbox-card {
 html[data-theme="light"] .inbox-card--pending {
   background: rgba(252, 211, 77, 0.06);
 }
+
+.workspace-switcher {
+  display: grid;
+  gap: 4px;
+  margin: 14px 0 18px;
+  padding: 0 4px;
+}
+
+.workspace-switcher__label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.workspace-switcher__label select {
+  width: 100%;
+}
+
+.workspace-switcher__role {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.app-mobile-workspace {
+  display: none;
+  padding: 0 20px 12px;
+}
+
+.invite-shell {
+  align-items: stretch;
+}
+
+.invite-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.invite-meta {
+  margin: 0;
+  color: var(--muted);
+}
+
+.invite-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.invite-success {
+  color: var(--accent);
+}
+
+.invite-link {
+  display: inline-block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.member-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.member-row--pending {
+  opacity: 0.92;
+}
+
+@media (max-width: 900px) {
+  .app-mobile-workspace {
+    display: block;
+  }
+
+  .dashboard-sidebar .workspace-switcher {
+    display: none;
+  }
+}

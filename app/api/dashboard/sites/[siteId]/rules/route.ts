@@ -15,7 +15,7 @@ type RouteContext = {
 export async function POST(request: NextRequest, context: RouteContext) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
-  if (!auth.user.primaryAccountId) return jsonError("Developer account is required.", 409);
+  if (!auth.activeAccountId) return jsonError("Developer account is required.", 409);
 
   const { body, error } = await readJsonObject(request);
   if (error) return error;
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const { siteId } = await context.params;
   const site = await Site.findOne({
     developerUserId: auth.user.userId,
-    accountId: auth.user.primaryAccountId,
+    accountId: auth.activeAccountId,
     siteId
   });
   if (!site) return jsonError("Site not found.", 404);

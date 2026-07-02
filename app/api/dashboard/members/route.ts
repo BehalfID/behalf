@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
 
-  const actor = await getWorkspaceActor(auth.user.userId, auth.user.primaryAccountId);
+  const actor = await getWorkspaceActor(auth.user.userId, auth.activeAccountId);
   if (!actor) return jsonError("Workspace account required.", 403);
 
   const { members, pendingInvites } = await listAccountMembers(actor.accountId);
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
 
-  const actor = await getWorkspaceActor(auth.user.userId, auth.user.primaryAccountId);
+  const actor = await getWorkspaceActor(auth.user.userId, auth.activeAccountId);
   if (!actor) return jsonError("Workspace account required.", 403);
   if (!canManageMembers(actor)) return roleDelegationForbidden();
 
@@ -51,7 +51,9 @@ export async function POST(request: NextRequest) {
     return jsonError("role must be one of: ENGINEERING_LEAD, SENIOR_ENGINEER, ENGINEER, VIEWER.");
   }
 
-  const result = await addOrInviteMember(actor, { email, role });
+  const result = await addOrInviteMember(actor, { email, role }, {
+    appBaseUrl: process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin
+  });
   if ("error" in result) {
     return typeof result.error === "string"
       ? jsonError(result.error, 400)

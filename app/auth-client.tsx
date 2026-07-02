@@ -12,12 +12,26 @@ function maxDateOfBirth(minAge: number): string {
   return d.toISOString().split("T")[0];
 }
 
-export function AuthPage({ mode }: { mode: "login" | "signup" }) {
+function safeNextPath(next?: string) {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
+  return next;
+}
+
+export function AuthPage({
+  mode,
+  nextPath,
+  initialEmail = ""
+}: {
+  mode: "login" | "signup";
+  nextPath?: string;
+  initialEmail?: string;
+}) {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [error, setError] = useState("");
+  const redirectPath = safeNextPath(nextPath) ?? (mode === "signup" ? "/onboarding" : "/dashboard");
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -50,11 +64,11 @@ export function AuthPage({ mode }: { mode: "login" | "signup" }) {
     }
 
     if (mode === "signup") {
-      router.push("/onboarding");
+      router.push(redirectPath);
       return;
     }
 
-    router.push("/dashboard");
+    router.push(redirectPath);
   };
 
   return (
@@ -115,7 +129,7 @@ export function AuthPage({ mode }: { mode: "login" | "signup" }) {
           )}
           <p className="auth-alt">
             {mode === "signup" ? "Already have an account?" : "New to BehalfID?"}{" "}
-            <Link href={mode === "signup" ? "/login" : "/signup"}>
+            <Link href={mode === "signup" ? `/login${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""}` : `/signup${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""}${initialEmail ? `${nextPath ? "&" : "?"}email=${encodeURIComponent(initialEmail)}` : ""}`}>
               {mode === "signup" ? "Log in" : "Create account"}
             </Link>
           </p>
