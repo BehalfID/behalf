@@ -1,25 +1,65 @@
-import { type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
+import { loadAccountSetupState, patchAccountSetup, PATCH_ALLOWED_FIELDS } from "@/lib/accountSetup";
 import { requireDeveloperApi } from "@/lib/developerAuth";
-import { getWorkspaceActor, serializeWorkspaceAuthority } from "@/lib/delegatedAuth";
-import { noCacheJson } from "@/lib/responses";
+import { canManageMembers, getWorkspaceActor, serializeWorkspaceAuthority } from "@/lib/delegatedAuth";
+import { jsonError, noCacheJson } from "@/lib/responses";
+import { readJsonObject } from "@/lib/request";
+import { rejectUnknownFields } from "@/lib/validation";
 
 export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
 
   const actor = await getWorkspaceActor(auth.user.userId, auth.user.primaryAccountId);
+  const setup = await loadAccountSetupState(auth.user.userId, auth.user.primaryAccountId);
 
   return noCacheJson({
     email: auth.user.email,
     appUrl: process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin,
     apiUsage: "API usage details coming soon.",
-    dangerZone: "To delete your account, contact support@behalfid.com",
+    dangerZone: "To delete your account, contact support@[REDACTED].com",
     delegatedPermissions: actor
       ? {
           role: actor.role,
           roleLabel: serializeWorkspaceAuthority(actor).roleLabel,
           authorityLevel: actor.authorityLevel
         }
-      : null
+      : null,
+    profile: setup?.profile ?? null,
+    account: setup?.account ?? null,
+    onboardingCompletedAt: setup?.onboardingCompletedAt ?? null,
+    canEditAccountFields: actor ? canManageMembers(actor) : false
+  });
+}
+
+export async function PATCH(request: NextRequest) {
+  const auth = await requireDeveloperApi(request);
+  if (auth.error || !auth.user) return auth.error;
+
+  const { body, error } = await readJsonObject(request);
+  if (error) return error;
+  if (!body) return jsonError("Request body must be a JSON object.");
+
+  const unknownError = rejectUnknownFields(body, [...PATCH_ALLOWED_FIELDS]);
+  if (unknownError) return jsonError(unknownError);
+
+  const result = await patchAccountSetup(auth.user.userId, auth.user.primaryAccountId, body);
+  if (result.error) return jsonError(result.error, result.status ?? 400);
+
+  const setup = await loadAccountSetupState(auth.user.userId, auth.user.primaryAccountId);
+  const actor = await getWorkspaceActor(auth.user.userId, auth.user.primaryAccountId);
+
+  return noCacheJson({
+    ok: true,
+    profile: setup?.profile ?? null,
+    account: setup?.account ?? null,
+    delegatedPermissions: actor
+      ? {
+          role: actor.role,
+          roleLabel: serializeWorkspaceAuthority(actor).roleLabel,
+          authorityLevel: actor.authorityLevel
+        }
+      : null,
+    canEditAccountFields: actor ? canManageMembers(actor) : false
   });
 }

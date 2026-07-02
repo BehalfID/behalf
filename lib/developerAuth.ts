@@ -141,7 +141,7 @@ export async function getDeveloperFromToken(token?: string | null) {
 
   if (!session) return null;
   const user = await DeveloperUser.findOne({ userId: session.userId })
-    .select("-_id userId email emailVerified onboardingUseCase primaryAccountId createdAt updatedAt")
+    .select("-_id userId email emailVerified onboardingUseCase primaryAccountId firstName lastName jobTitle onboardingCompletedAt createdAt updatedAt")
     .lean();
 
   return user;
@@ -166,6 +166,20 @@ export async function requireDeveloperApi(request: NextRequest) {
   const user = await getDeveloperFromToken(request.cookies.get(COOKIE_NAME)?.value);
   if (!user) {
     return { user: null, account: null, error: jsonError("Developer authentication required.", 401) };
+  }
+
+  const pathname = request.nextUrl.pathname;
+  const isAccountSetupApi = pathname.startsWith("/api/onboarding/");
+  if (
+    !isAccountSetupApi &&
+    MUTATION_METHODS.has(request.method) &&
+    !isEmailVerified(user.emailVerified)
+  ) {
+    return {
+      user: null,
+      account: null,
+      error: jsonError("Email verification required. Check your inbox or resend the verification email.", 403)
+    };
   }
 
   const account = user.primaryAccountId

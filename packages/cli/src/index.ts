@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Command } from "commander";
 import { setJsonMode } from "./lib/output.js";
+import { maybePrintCliBanner } from "./lib/banner.js";
 import { configCommand } from "./commands/config.js";
 import { initCommand } from "./commands/init.js";
 import { loginCommand } from "./commands/login.js";
@@ -24,8 +25,16 @@ import { hookCommand } from "./commands/hook.js";
 
 const rawArgs = process.argv.slice(2);
 const jsonMode = rawArgs.includes("--json");
+const noBanner = rawArgs.includes("--no-banner");
 if (jsonMode) setJsonMode(true);
-const filteredArgs = rawArgs.filter(a => a !== "--json");
+const filteredArgs = rawArgs.filter((arg) => arg !== "--json" && arg !== "--no-banner");
+
+maybePrintCliBanner({
+  argv: filteredArgs,
+  jsonMode,
+  noBannerFlag: noBanner,
+  stdoutIsTTY: process.stdout.isTTY
+});
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -39,6 +48,7 @@ program
   .name("behalfid")
   .description("Official CLI for BehalfID — agent permission management and enforcement")
   .version(version)
+  .option("--no-banner", "suppress the interactive startup banner")
   .addHelpText(
     "after",
     `

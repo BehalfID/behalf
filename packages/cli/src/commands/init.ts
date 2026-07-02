@@ -16,7 +16,7 @@ export function initCommand() {
         const config = readConfig();
         const hasSession = !!readSession();
 
-        console.log("\nWelcome to BehalfID CLI\n");
+        console.log("\nLet's configure your CLI.\n");
 
         if (config.baseUrl || config.apiKey || hasSession) {
           console.log("Current config:");

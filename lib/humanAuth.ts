@@ -58,7 +58,7 @@ export async function requireHumanDeveloperApi(request: NextRequest): Promise<Hu
 
   await connectToDatabase();
   const user = await DeveloperUser.findOne({ userId: tokenDoc.userId })
-    .select("-_id userId email emailVerified onboardingUseCase primaryAccountId createdAt updatedAt")
+    .select("-_id userId email emailVerified onboardingUseCase primaryAccountId firstName lastName jobTitle onboardingCompletedAt createdAt updatedAt")
     .lean();
   if (!user) {
     return { user: null, account: null, error: jsonError("Developer authentication required.", 401), authMethod: null };
@@ -84,7 +84,7 @@ export async function getHumanAuthFromRequest(request: NextRequest): Promise<Hum
 
   await connectToDatabase();
   const tokenUser = await DeveloperUser.findOne({ userId: tokenDoc.userId })
-    .select("-_id userId email emailVerified onboardingUseCase primaryAccountId createdAt updatedAt")
+    .select("-_id userId email emailVerified onboardingUseCase primaryAccountId firstName lastName jobTitle onboardingCompletedAt createdAt updatedAt")
     .lean();
   if (!tokenUser) {
     return { user: null, account: null, error: jsonError("Developer authentication required.", 401), authMethod: null };

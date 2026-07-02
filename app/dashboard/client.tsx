@@ -15,6 +15,14 @@ import {
   buildSiteGuardExpressSnippet,
   buildSiteGuardNextjsSnippet,
 } from "@/lib/siteGuardSnippets";
+import {
+  AGENT_TOOL_LABELS,
+  AGENT_TOOLS,
+  CONTROL_AREA_LABELS,
+  CONTROL_AREAS,
+  PRIMARY_GOAL_LABELS,
+  PRIMARY_GOALS
+} from "@/lib/onboarding";
 
 type Agent = {
   agentId: string;
@@ -337,9 +345,34 @@ function date(value?: string | null) {
   return value ? new Intl.DateTimeFormat("en", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value)) : "Never";
 }
 
-export function DashboardShell({ view, id }: { view: "home" | "onboarding" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "inbox" | "docs" | "settings"; id?: string }) {
+const INCOMPLETE_SETUP_BANNER =
+  "Add your profile and workspace details so BehalfID can tailor approvals and controls."; // pragma: allowlist secret
+
+export function DashboardShell({
+  view,
+  id,
+  emailVerified = true,
+  showSetupBanner = false
+}: {
+  view: "home" | "onboarding" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "inbox" | "docs" | "settings";
+  id?: string;
+  emailVerified?: boolean;
+  showSetupBanner?: boolean;
+}) {
   return (
     <DashboardShellLayout>
+        {!emailVerified ? (
+          <div className="dashboard-banner dashboard-banner--warning" role="status">
+            <strong>Verify your email.</strong> Agent creation and API tokens stay locked until verification is complete.{" "}
+            <Link href="/verify-email">Verify now</Link>
+          </div>
+        ) : null}
+        {showSetupBanner ? (
+          <div className="dashboard-banner" role="status">
+            <strong>Finish account setup.</strong> {INCOMPLETE_SETUP_BANNER}{" "}
+            <Link href="/onboarding">Complete setup</Link>
+          </div>
+        ) : null}
         {view === "home" ? <HomeView /> : null}
         {view === "onboarding" ? <OnboardingView /> : null}
         {view === "agents" ? <AgentsView /> : null}
@@ -357,12 +390,38 @@ export function DashboardShell({ view, id }: { view: "home" | "onboarding" | "ag
 }
 
 function HomeView() {
-  // onboardingUseCase is now included in the summary response so we avoid a
-  // separate /api/auth/me round trip on every dashboard home load.
-  const summary = useResource<{ totalAgents: number; activePermissions: number; logsToday: number; pendingEvents: number; failedEvents: number; onboardingUseCase?: OnboardingUseCase | null; usage: UsageSummary }>("/api/dashboard/summary");
+  const summary = useResource<{
+    totalAgents: number;
+    activePermissions: number;
+    logsToday: number;
+    pendingEvents: number;
+    failedEvents: number;
+    onboardingUseCase?: OnboardingUseCase | null;
+    accountOnboarding?: {
+      controlAreas?: string[];
+      firstSetupGoal?: string;
+    } | null;
+    usage: UsageSummary;
+  }>("/api/dashboard/summary");
   const useCase = summary.data?.onboardingUseCase ?? "sdk";
   const content = dashboardUseCaseContent[useCase];
   const hasAgents = (summary.data?.totalAgents ?? 0) > 0;
+  const controlAreas = summary.data?.accountOnboarding?.controlAreas ?? [];
+  const firstSetupGoal = summary.data?.accountOnboarding?.firstSetupGoal;
+  const recommendations = [
+    controlAreas.includes("production_deploys")
+      ? { title: "Set up deploy approvals", body: "Gate production deploys behind Engineering Lead approval.", href: "/dashboard/onboarding?setup=deploy-approvals" }
+      : null,
+    controlAreas.includes("github_writes")
+      ? { title: "Apply a GitHub permission profile", body: "Start from a profile that limits repo writes and protected branches.", href: "/dashboard/onboarding?setup=profiles" }
+      : null,
+    controlAreas.includes("secrets")
+      ? { title: "Protect secrets and .env access", body: "Block or require approval before agents read or write secrets.", href: "/dashboard/onboarding" }
+      : null,
+    firstSetupGoal === "invite_team"
+      ? { title: "Invite your team", body: "Add Engineering Leads and engineers to share approval authority.", href: "/dashboard/settings?panel=members" }
+      : null
+  ].filter(Boolean) as Array<{ title: string; body: string; href: string }>;
   return (
     <>
       <Header title="Dashboard" description="Overview of your agents, usage, and verification activity." action={hasAgents ? <ButtonLink variant="primary" href={content.actionHref}>{content.actionLabel}</ButtonLink> : undefined} />
@@ -410,6 +469,26 @@ function HomeView() {
           ))}
         </div>
       </Card>
+      {recommendations.length ? (
+        <Card className="dashboard-panel">
+          <div className="dashboard-section-header">
+            <div>
+              <h2>Recommended for your setup</h2>
+              <p>Based on the controls and goals you selected during account setup.</p>
+            </div>
+          </div>
+          <div className="quickstart-steps">
+            {recommendations.map((item) => (
+              <Link className="quickstart-step" href={item.href} key={item.title}>
+                <span>
+                  <strong>{item.title}</strong>
+                  <small>{item.body}</small>
+                </span>
+              </Link>
+            ))}
+          </div>
+        </Card>
+      ) : null}
     </>
   );
 }
@@ -2730,10 +2809,117 @@ function SettingsView() {
     apiUsage: string;
     dangerZone: string;
     delegatedPermissions?: WorkspaceAuthority | null;
+    profile?: {
+      firstName: string | null;
+      lastName: string | null;
+      jobTitle: string | null;
+      phone: string | null;
+    } | null;
+    account?: {
+      accountType: string | null;
+      companyName: string | null;
+      workspaceName: string | null;
+      website: string | null;
+      teamSize: string | null;
+      onboarding?: {
+        agentTools?: string[];
+        agentToolsOther?: string;
+        controlAreas?: string[];
+        controlAreasOther?: string;
+        primaryGoal?: string;
+        firstSetupGoal?: string;
+      } | null;
+    } | null;
+    canEditAccountFields?: boolean;
   }>("/api/dashboard/settings");
   const tokens = useResource<{ tokens: DeveloperToken[] }>("/api/dashboard/tokens");
   const [tokenName, setTokenName] = useState("");
   const [newToken, setNewToken] = useState("");
+  const [profileForm, setProfileForm] = useState({
+    firstName: "",
+    lastName: "",
+    jobTitle: "",
+    phone: ""
+  });
+  const [accountForm, setAccountForm] = useState({
+    companyName: "",
+    workspaceName: "",
+    website: "",
+    teamSize: "",
+    agentTools: [] as string[],
+    agentToolsOther: "",
+    controlAreas: [] as string[],
+    controlAreasOther: "",
+    primaryGoal: "",
+    firstSetupGoal: ""
+  });
+  const [saveMessage, setSaveMessage] = useState("");
+  const [saveError, setSaveError] = useState("");
+
+  useEffect(() => {
+    if (!settings.data) return;
+    setProfileForm({
+      firstName: settings.data.profile?.firstName ?? "",
+      lastName: settings.data.profile?.lastName ?? "",
+      jobTitle: settings.data.profile?.jobTitle ?? "",
+      phone: settings.data.profile?.phone ?? ""
+    });
+    setAccountForm({
+      companyName: settings.data.account?.companyName ?? "",
+      workspaceName: settings.data.account?.workspaceName ?? "",
+      website: settings.data.account?.website ?? "",
+      teamSize: settings.data.account?.teamSize ?? "",
+      agentTools: settings.data.account?.onboarding?.agentTools ?? [],
+      agentToolsOther: settings.data.account?.onboarding?.agentToolsOther ?? "",
+      controlAreas: settings.data.account?.onboarding?.controlAreas ?? [],
+      controlAreasOther: settings.data.account?.onboarding?.controlAreasOther ?? "",
+      primaryGoal: settings.data.account?.onboarding?.primaryGoal ?? "",
+      firstSetupGoal: settings.data.account?.onboarding?.firstSetupGoal ?? ""
+    });
+  }, [settings.data]);
+
+  const saveProfile = async (event: FormEvent) => {
+    event.preventDefault();
+    setSaveError("");
+    setSaveMessage("");
+    try {
+      await api("/api/dashboard/settings", {
+        method: "PATCH",
+        body: JSON.stringify(profileForm)
+      });
+      setSaveMessage("Profile updated.");
+      await settings.reload();
+    } catch (requestError) {
+      setSaveError(requestError instanceof Error ? requestError.message : "Failed to save profile.");
+    }
+  };
+
+  const saveAccount = async (event: FormEvent) => {
+    event.preventDefault();
+    setSaveError("");
+    setSaveMessage("");
+    try {
+      await api("/api/dashboard/settings", {
+        method: "PATCH",
+        body: JSON.stringify({
+          companyName: accountForm.companyName,
+          workspaceName: accountForm.workspaceName,
+          website: accountForm.website,
+          teamSize: accountForm.teamSize || undefined,
+          agentTools: accountForm.agentTools,
+          agentToolsOther: accountForm.agentToolsOther,
+          controlAreas: accountForm.controlAreas,
+          controlAreasOther: accountForm.controlAreasOther,
+          primaryGoal: accountForm.primaryGoal || undefined,
+          firstSetupGoal: accountForm.firstSetupGoal || undefined
+        })
+      });
+      setSaveMessage("Workspace settings updated.");
+      await settings.reload();
+    } catch (requestError) {
+      setSaveError(requestError instanceof Error ? requestError.message : "Failed to save workspace settings.");
+    }
+  };
 
   const createToken = async (event: FormEvent) => {
     event.preventDefault();
@@ -2754,12 +2940,52 @@ function SettingsView() {
   return (
     <>
       <Header title="Settings" description="Manage account details and developer tokens." />
+      {saveMessage ? <p className="setup-banner" role="status">{saveMessage}</p> : null}
+      {saveError ? <p className="form-error" role="alert">{saveError}</p> : null}
       <Card className="dashboard-panel">
         <div className="dashboard-section-header">
-          <h2>Account</h2>
+          <h2>Profile</h2>
+        </div>
+        <form className="setup-form" onSubmit={saveProfile}>
+          <label>
+            <span>First name</span>
+            <input onChange={(event) => setProfileForm((prev) => ({ ...prev, firstName: event.target.value }))} value={profileForm.firstName} />
+          </label>
+          <label>
+            <span>Last name</span>
+            <input onChange={(event) => setProfileForm((prev) => ({ ...prev, lastName: event.target.value }))} value={profileForm.lastName} />
+          </label>
+          <label>
+            <span>Email</span>
+            <input disabled readOnly value={settings.data?.email ?? ""} />
+          </label>
+          <label>
+            <span>Phone <small>(optional)</small></span>
+            <input onChange={(event) => setProfileForm((prev) => ({ ...prev, phone: event.target.value }))} value={profileForm.phone} />
+          </label>
+          <label>
+            <span>Job title <small>(optional)</small></span>
+            <input onChange={(event) => setProfileForm((prev) => ({ ...prev, jobTitle: event.target.value }))} value={profileForm.jobTitle} />
+          </label>
+          <Button type="submit" variant="primary">Save profile</Button>
+        </form>
+      </Card>
+      <Card className="dashboard-panel">
+        <div className="dashboard-section-header">
+          <h2>Workspace</h2>
         </div>
         {settings.data ? (
           <div className="account-details">
+            <div className="account-details__row">
+              <span className="account-details__label">Account type</span>
+              <span className="account-details__value">
+                {settings.data.account?.accountType === "business"
+                  ? "Business / team"
+                  : settings.data.account?.accountType === "individual"
+                    ? "Individual"
+                    : "Not set"}
+              </span>
+            </div>
             <div className="account-details__row">
               <span className="account-details__label">Delegated Permissions role</span>
               <span className="account-details__value">
@@ -2768,10 +2994,96 @@ function SettingsView() {
                   : "Owner (authority 100)"}
               </span>
             </div>
-            <div className="account-details__row">
-              <span className="account-details__label">Email</span>
-              <span className="account-details__value">{settings.data.email}</span>
-            </div>
+          </div>
+        ) : null}
+        {settings.data?.canEditAccountFields ? (
+          <form className="setup-form" onSubmit={saveAccount}>
+            {settings.data.account?.accountType === "business" ? (
+              <label>
+                <span>Company name</span>
+                <input onChange={(event) => setAccountForm((prev) => ({ ...prev, companyName: event.target.value }))} value={accountForm.companyName} />
+              </label>
+            ) : null}
+            <label>
+              <span>Workspace name</span>
+              <input onChange={(event) => setAccountForm((prev) => ({ ...prev, workspaceName: event.target.value }))} value={accountForm.workspaceName} />
+            </label>
+            {settings.data.account?.accountType === "business" ? (
+              <>
+                <label>
+                  <span>Website <small>(optional)</small></span>
+                  <input onChange={(event) => setAccountForm((prev) => ({ ...prev, website: event.target.value }))} value={accountForm.website} />
+                </label>
+                <label>
+                  <span>Team size <small>(optional)</small></span>
+                  <input onChange={(event) => setAccountForm((prev) => ({ ...prev, teamSize: event.target.value }))} value={accountForm.teamSize} />
+                </label>
+              </>
+            ) : null}
+            <fieldset className="setup-fieldset">
+              <legend>Agent tools</legend>
+              <div className="setup-checkgrid">
+                {AGENT_TOOLS.map((tool) => (
+                  <label className="setup-check" key={tool}>
+                    <input
+                      checked={accountForm.agentTools.includes(tool)}
+                      onChange={() => setAccountForm((prev) => ({
+                        ...prev,
+                        agentTools: prev.agentTools.includes(tool)
+                          ? prev.agentTools.filter((value) => value !== tool)
+                          : [...prev.agentTools, tool]
+                      }))}
+                      type="checkbox"
+                    />
+                    <span>{AGENT_TOOL_LABELS[tool]}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <fieldset className="setup-fieldset">
+              <legend>Control areas</legend>
+              <div className="setup-checkgrid">
+                {CONTROL_AREAS.map((area) => (
+                  <label className="setup-check" key={area}>
+                    <input
+                      checked={accountForm.controlAreas.includes(area)}
+                      onChange={() => setAccountForm((prev) => ({
+                        ...prev,
+                        controlAreas: prev.controlAreas.includes(area)
+                          ? prev.controlAreas.filter((value) => value !== area)
+                          : [...prev.controlAreas, area]
+                      }))}
+                      type="checkbox"
+                    />
+                    <span>{CONTROL_AREA_LABELS[area]}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <label>
+              <span>Primary goal</span>
+              <select
+                onChange={(event) => setAccountForm((prev) => ({ ...prev, primaryGoal: event.target.value }))}
+                value={accountForm.primaryGoal}
+              >
+                <option value="">Select…</option>
+                {PRIMARY_GOALS.map((goal) => (
+                  <option key={goal} value={goal}>{PRIMARY_GOAL_LABELS[goal]}</option>
+                ))}
+              </select>
+            </label>
+            <Button type="submit" variant="primary">Save workspace</Button>
+          </form>
+        ) : (
+          <p className="field-help">Workspace fields can be edited by Owners and Engineering Leads.</p>
+        )}
+      </Card>
+      <Card className="dashboard-panel">
+        <div className="dashboard-section-header">
+          <h2>Account</h2>
+        </div>
+        {settings.data ? (
+          <div className="account-details">
             <div className="account-details__row">
               <span className="account-details__label">App URL</span>
               <span className="account-details__value">{settings.data.appUrl}</span>
@@ -2782,11 +3094,12 @@ function SettingsView() {
             </div>
             <div className="account-details__row">
               <span className="account-details__label">Danger zone</span>
-              <span className="account-details__value">To delete your account, contact <a href="mailto:support@behalfid.com">support@behalfid.com</a></span>
+              <span className="account-details__value">To delete your account, contact <a href="mailto:support@[REDACTED].com">support@[REDACTED].com</a></span>
             </div>
           </div>
         ) : null}
       </Card>
+      <MembersPanel />
       <MembersPanel />
       <section className="dashboard-panel">
         <div className="dashboard-section-header">

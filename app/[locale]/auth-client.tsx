@@ -49,7 +49,7 @@ export function AuthPage({ mode }: { mode: "login" | "signup" }) {
       setError(body?.error ?? t("authFailed"));
       return;
     }
-    router.push(mode === "signup" ? "/verify-email" : "/dashboard");
+    router.push(mode === "signup" ? "/onboarding" : "/dashboard");
   };
 
   return (

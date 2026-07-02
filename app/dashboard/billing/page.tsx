@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { connectToDatabase } from "@/lib/db";
 import { getCurrentDeveloper } from "@/lib/developerAuth";
+import { shouldForceAccountSetup } from "@/lib/onboardingRedirect";
 import type { Plan } from "@/lib/plans";
 import Account from "@/models/Account";
 import Agent from "@/models/Agent";
@@ -11,6 +12,7 @@ export const metadata = { title: "Billing — BehalfID" };
 export default async function BillingPage() {
   const user = await getCurrentDeveloper();
   if (!user) redirect("/login");
+  if (await shouldForceAccountSetup(user.userId)) redirect("/onboarding");
 
   await connectToDatabase();
 

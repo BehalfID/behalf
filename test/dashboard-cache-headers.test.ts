@@ -10,6 +10,8 @@ import { accountFixture, developerUserFixture } from "./fixtures";
 
 const mocks = vi.hoisted(() => ({
   requireDeveloperApi: vi.fn(),
+  getWorkspaceActor: vi.fn(),
+  loadAccountSetupState: vi.fn(),
   agentCountDocuments: vi.fn(),
   permissionCountDocuments: vi.fn(),
   verificationLogCountDocuments: vi.fn(),
@@ -23,10 +25,22 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/developerAuth", () => ({
   requireDeveloperApi: mocks.requireDeveloperApi
 }));
+vi.mock("@/lib/delegatedAuth", () => ({
+  getWorkspaceActor: mocks.getWorkspaceActor,
+  serializeWorkspaceAuthority: vi.fn(() => ({ roleLabel: "Owner" })),
+  canManageMembers: vi.fn(() => true)
+}));
+vi.mock("@/lib/accountSetup", () => ({
+  loadAccountSetupState: mocks.loadAccountSetupState,
+  patchAccountSetup: vi.fn(),
+  PATCH_ALLOWED_FIELDS: []
+}));
+vi.mock("@/lib/db", () => ({ connectToDatabase: vi.fn(async () => undefined) }));
 vi.mock("@/models/Agent", () => ({
   default: {
     countDocuments: mocks.agentCountDocuments,
-    find: mocks.agentFind
+    find: mocks.agentFind,
+    updateMany: vi.fn().mockResolvedValue({ modifiedCount: 0 })
   }
 }));
 vi.mock("@/models/Permission", () => ({
@@ -93,6 +107,34 @@ describe("dashboard API cache headers", () => {
     mocks.webhookEndpointFind.mockReturnValue(chainMock());
     mocks.siteFind.mockReturnValue(chainMock());
     mocks.tokenFind.mockReturnValue(chainMock());
+    mocks.getWorkspaceActor.mockResolvedValue({
+      userId: "dev_test",
+      accountId: "acct_test",
+      role: "OWNER",
+      authorityLevel: 100
+    });
+    mocks.loadAccountSetupState.mockResolvedValue({
+      profile: {
+        firstName: null,
+        lastName: null,
+        email: "dev@example.com",
+        emailVerified: true,
+        jobTitle: null,
+        phone: null
+      },
+      account: {
+        accountId: "acct_test",
+        accountType: null,
+        companyName: null,
+        workspaceName: "Test Account",
+        website: null,
+        teamSize: null,
+        onboarding: null,
+        legacyAccountType: null
+      },
+      onboardingCompletedAt: null,
+      membershipRole: "OWNER"
+    });
   });
 
   it("summary route: Cache-Control is no-store, private", async () => {

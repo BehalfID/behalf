@@ -4,6 +4,38 @@ const AccountSchema = new Schema(
   {
     accountId: { type: String, required: true, unique: true, index: true },
     name: { type: String, required: true, trim: true, maxlength: 120 },
+    accountType: {
+      type: String,
+      enum: ["individual", "business"],
+      index: true,
+      sparse: true
+    },
+    companyName: { type: String, trim: true, maxlength: 200 },
+    website: { type: String, trim: true },
+    teamSize: {
+      type: String,
+      enum: ["1", "2-5", "6-20", "21-50", "51+"]
+    },
+    onboarding: {
+      agentTools: [{ type: String }],
+      agentToolsOther: { type: String, trim: true, maxlength: 120 },
+      controlAreas: [{ type: String }],
+      controlAreasOther: { type: String, trim: true, maxlength: 200 },
+      primaryGoal: {
+        type: String,
+        enum: ["approvals", "block", "audit", "limits"]
+      },
+      firstSetupGoal: {
+        type: String,
+        enum: [
+          "create_agent",
+          "setup_deploy_approvals",
+          "apply_permission_profile",
+          "invite_team",
+          "explore_sandbox"
+        ]
+      }
+    },
     plan: {
       type: String,
       enum: ["free", "pro", "enterprise"],
