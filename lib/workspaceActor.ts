@@ -3,9 +3,11 @@ import { jsonError } from "@/lib/responses";
 import type { DeveloperUserDocument } from "@/models/DeveloperUser";
 
 export async function requireWorkspaceMutationActor(
-  user: Pick<DeveloperUserDocument, "userId" | "primaryAccountId">
+  user: Pick<DeveloperUserDocument, "userId" | "primaryAccountId">,
+  activeAccountId?: string | null
 ) {
-  const actor = await getWorkspaceActor(user.userId, user.primaryAccountId);
+  const accountId = activeAccountId ?? user.primaryAccountId;
+  const actor = await getWorkspaceActor(user.userId, accountId);
   if (!actor) {
     return { actor: null, error: jsonError("Workspace account required.", 403) };
   }

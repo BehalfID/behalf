@@ -11,7 +11,10 @@ export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
 
-  const sites = await Site.find({ developerUserId: auth.user.userId })
+  const sites = await Site.find({
+    developerUserId: auth.user.userId,
+    ...(auth.activeAccountId ? { accountId: auth.activeAccountId } : {})
+  })
     .sort({ createdAt: -1 })
     .select("-_id siteId name domain status createdAt updatedAt")
     .lean();
@@ -22,7 +25,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
-  if (!auth.user.primaryAccountId) return jsonError("Developer account is required.", 409);
+  if (!auth.activeAccountId) return jsonError("Developer account is required.", 409);
 
   const { body, error } = await readJsonObject(request);
   if (error) return error;
@@ -36,12 +39,12 @@ export async function POST(request: NextRequest) {
   if (!name) return jsonError("name is required.");
   if (!domain) return jsonError("domain must be a hostname.");
 
-  const existing = await Site.findOne({ accountId: auth.user.primaryAccountId, domain }).lean();
+  const existing = await Site.findOne({ accountId: auth.activeAccountId, domain }).lean();
   if (existing) return jsonError("A Site Guard site already uses this domain.", 409);
 
   const site = await Site.create({
     siteId: createPublicId("site"),
-    accountId: auth.user.primaryAccountId,
+    accountId: auth.activeAccountId,
     developerUserId: auth.user.userId,
     name,
     domain,

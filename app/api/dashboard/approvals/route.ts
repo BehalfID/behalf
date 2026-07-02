@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
 
-  const actor = await getWorkspaceActor(auth.user.userId, auth.user.primaryAccountId);
+  const actor = await getWorkspaceActor(auth.user.userId, auth.activeAccountId);
   if (!actor) return noCacheJson({ approvals: [], workspaceAuthority: null });
 
   const status = request.nextUrl.searchParams.get("status")?.trim();

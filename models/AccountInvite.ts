@@ -16,6 +16,11 @@ const AccountInviteSchema = new Schema(
       default: "pending",
       index: true
     },
+    /** SHA-256 hash of the invite acceptance token. Never returned in API responses. */
+    inviteTokenHash: { type: String, select: false, index: true, sparse: true },
+    inviteTokenExpiresAt: { type: Date, select: false },
+    acceptedAt: { type: Date, default: null },
+    acceptedByUserId: { type: String, index: true, sparse: true },
     invitedBy: { type: String, required: true, index: true }
   },
   { timestamps: true }

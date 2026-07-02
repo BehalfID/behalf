@@ -104,12 +104,13 @@ export async function getDeveloperAgentDetail(userId: string, agentId: string) {
 export async function getDashboardSummary(userId: string, account?: AccountDocument | null) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  const scope = account?.accountId ? { accountId: account.accountId } : { developerUserId: userId };
   const [totalAgents, activePermissions, logsToday, pendingEvents, failedEvents] = await Promise.all([
-    Agent.countDocuments({ developerUserId: userId }),
-    Permission.countDocuments({ developerUserId: userId, status: "active" }),
-    VerificationLog.countDocuments({ developerUserId: userId, createdAt: { $gte: today } }),
-    WebhookEvent.countDocuments({ developerUserId: userId, status: "pending" }),
-    WebhookEvent.countDocuments({ developerUserId: userId, deadLetter: true })
+    Agent.countDocuments(scope),
+    Permission.countDocuments({ ...scope, status: "active" }),
+    VerificationLog.countDocuments({ ...scope, createdAt: { $gte: today } }),
+    WebhookEvent.countDocuments({ ...scope, status: "pending" }),
+    WebhookEvent.countDocuments({ ...scope, deadLetter: true })
   ]);
 
   const plan = (account?.plan ?? "free") as Plan;

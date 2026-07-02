@@ -3,16 +3,13 @@ import { connectToDatabase } from "@/lib/db";
 import { jsonError } from "@/lib/responses";
 import { getStripe } from "@/lib/stripe";
 import Account from "@/models/Account";
-import DeveloperUser from "@/models/DeveloperUser";
 import StripeWebhookEvent from "@/models/StripeWebhookEvent";
 import WebhookEndpoint from "@/models/WebhookEndpoint";
 
 async function setAccountWebhookStatus(accountId: string, status: "active" | "disabled") {
-  const user = await DeveloperUser.findOne({ primaryAccountId: accountId }).lean();
-  if (!user) return;
   const currentStatus = status === "active" ? "disabled" : "active";
   await WebhookEndpoint.updateMany(
-    { developerUserId: user.userId, status: currentStatus },
+    { accountId, status: currentStatus },
     { $set: { status } }
   );
 }

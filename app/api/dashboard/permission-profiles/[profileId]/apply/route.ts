@@ -12,7 +12,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
 
-  const actor = await getWorkspaceActor(auth.user.userId, auth.user.primaryAccountId);
+  const actor = await getWorkspaceActor(auth.user.userId, auth.activeAccountId);
   if (!actor) return jsonError("Workspace account required.", 403);
 
   const { profileId } = await context.params;

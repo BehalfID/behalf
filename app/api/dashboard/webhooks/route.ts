@@ -19,7 +19,10 @@ export async function GET(request: NextRequest) {
   if (auth.error || !auth.user) return auth.error;
   const plan = (auth.account?.plan ?? "free") as Plan;
   const quotas = getQuotas(plan);
-  const webhooks = await WebhookEndpoint.find({ developerUserId: auth.user.userId })
+  const webhooks = await WebhookEndpoint.find({
+    developerUserId: auth.user.userId,
+    ...(auth.activeAccountId ? { accountId: auth.activeAccountId } : {})
+  })
     .sort({ createdAt: -1 })
     .select("-_id webhookId url secretPreview events status lastTriggeredAt createdAt updatedAt")
     .lean();
@@ -55,7 +58,7 @@ export async function POST(request: NextRequest) {
   const signing = createSigningSecret();
   const webhook = await WebhookEndpoint.create({
     webhookId: createPublicId("wh"),
-    accountId: auth.account?.accountId ?? auth.user.primaryAccountId ?? auth.user.userId,
+    accountId: auth.account?.accountId ?? auth.activeAccountId ?? auth.user.userId,
     developerUserId: auth.user.userId,
     url,
     secretHash: signing.secretHash,

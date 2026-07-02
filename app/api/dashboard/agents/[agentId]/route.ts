@@ -20,7 +20,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
   const { agentId } = await context.params;
-  const actor = await getWorkspaceActor(auth.user.userId, auth.user.primaryAccountId);
+  const actor = await getWorkspaceActor(auth.user.userId, auth.activeAccountId);
   if (!actor) return jsonError("Workspace account required.", 403);
 
   const detail = await getAccountAgentDetail(actor, agentId);
@@ -35,7 +35,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
 
-  const workspace = await requireWorkspaceMutationActor(auth.user);
+  const workspace = await requireWorkspaceMutationActor(auth.user, auth.activeAccountId);
   if (workspace.error) return workspace.error;
 
   const { body, error } = await readJsonObject(request);
@@ -89,7 +89,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return jsonError("At least one editable agent field is required.");
   }
 
-  const actor = await getWorkspaceActor(auth.user.userId, auth.user.primaryAccountId);
+  const actor = await getWorkspaceActor(auth.user.userId, auth.activeAccountId);
   if (!actor) return jsonError("Workspace account required.", 403);
 
   await backfillLegacyAgentsForActor(actor);

@@ -10,11 +10,11 @@ export async function GET(request: NextRequest) {
   if (limit.limited) return rateLimitError();
 
   const cookieValue = request.cookies?.get?.(COOKIE_NAME)?.value;
-  const user = await getDeveloperFromToken(cookieValue);
+  const context = await getDeveloperFromToken(cookieValue);
 
-  if (!user) {
+  if (!context) {
     return noCacheJson({ verified: false });
   }
 
-  return noCacheJson({ verified: isEmailVerified(user.emailVerified) });
+  return noCacheJson({ verified: isEmailVerified(context.user.emailVerified) });
 }

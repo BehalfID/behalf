@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Logo, ThemeToggle } from "@/components/ui";
 
 const dashboardNav = [
@@ -17,6 +17,83 @@ const dashboardNav = [
   { href: "/dashboard/settings", label: "Settings" },
   { href: "/dashboard/billing", label: "Billing" },
 ];
+
+type WorkspaceAccount = {
+  accountId: string;
+  name: string;
+  role: string;
+  isPrimary: boolean;
+};
+
+function WorkspaceSwitcher() {
+  const router = useRouter();
+  const [accounts, setAccounts] = useState<WorkspaceAccount[]>([]);
+  const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
+  const [switching, setSwitching] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/dashboard/accounts", { credentials: "include" });
+        if (!res.ok || cancelled) return;
+        const body = (await res.json()) as { activeAccountId: string | null; accounts: WorkspaceAccount[] };
+        setAccounts(body.accounts ?? []);
+        setActiveAccountId(body.activeAccountId);
+      } catch {
+        // Ignore — single-account users still work without the switcher.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (accounts.length <= 1) return null;
+
+  const switchAccount = async (accountId: string) => {
+    if (accountId === activeAccountId || switching) return;
+    setSwitching(true);
+    try {
+      const res = await fetch("/api/dashboard/accounts/switch", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountId })
+      });
+      if (!res.ok) throw new Error("switch failed");
+      setActiveAccountId(accountId);
+      router.refresh();
+    } catch {
+      // Keep current workspace on failure.
+    } finally {
+      setSwitching(false);
+    }
+  };
+
+  const activeAccount = accounts.find((account) => account.accountId === activeAccountId);
+
+  return (
+    <div className="workspace-switcher">
+      <label className="workspace-switcher__label">
+        <span>Workspace</span>
+        <select
+          value={activeAccountId ?? ""}
+          disabled={switching}
+          onChange={(event) => void switchAccount(event.target.value)}
+          aria-label="Switch workspace"
+        >
+          {accounts.map((account) => (
+            <option key={account.accountId} value={account.accountId}>
+              {account.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      {activeAccount ? <small className="workspace-switcher__role">{activeAccount.role}</small> : null}
+    </div>
+  );
+}
 
 export function DashboardShellLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -97,6 +174,9 @@ export function DashboardShellLayout({ children }: { children: React.ReactNode }
         </button>
         <Logo href="/dashboard" subtitle="Developer portal" />
       </div>
+      <div className="app-mobile-workspace">
+        <WorkspaceSwitcher />
+      </div>
 
       {/* Backdrop */}
       {drawerOpen && (
@@ -126,6 +206,7 @@ export function DashboardShellLayout({ children }: { children: React.ReactNode }
         </button>
 
         <Logo href="/dashboard" subtitle="Developer portal" />
+        <WorkspaceSwitcher />
         <nav aria-label="Dashboard">
           {dashboardNav.map((item) => (
             <Link

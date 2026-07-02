@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
 
-  const actor = await getWorkspaceActor(auth.user.userId, auth.user.primaryAccountId);
+  const actor = await getWorkspaceActor(auth.user.userId, auth.activeAccountId);
   if (!actor) return jsonError("Workspace account required.", 403);
 
   const profiles = await listPermissionProfiles(actor.accountId);
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
 
-  const actor = await getWorkspaceActor(auth.user.userId, auth.user.primaryAccountId);
+  const actor = await getWorkspaceActor(auth.user.userId, auth.activeAccountId);
   if (!actor) return jsonError("Workspace account required.", 403);
 
   const { body, error } = await readJsonObject(request);

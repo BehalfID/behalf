@@ -18,10 +18,10 @@ async function mutateAgentStatus(
 ) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
-  const workspace = await requireWorkspaceMutationActor(auth.user);
+  const workspace = await requireWorkspaceMutationActor(auth.user, auth.activeAccountId);
   if (workspace.error) return workspace.error;
 
-  const actor = await getWorkspaceActor(auth.user.userId, auth.user.primaryAccountId);
+  const actor = await getWorkspaceActor(auth.user.userId, auth.activeAccountId);
   if (!actor) return jsonError("Workspace account required.", 403);
 
   const { agentId } = await context.params;

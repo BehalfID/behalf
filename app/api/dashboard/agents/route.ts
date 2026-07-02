@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
 
-  const actor = await getWorkspaceActor(auth.user.userId, auth.user.primaryAccountId);
+  const actor = await getWorkspaceActor(auth.user.userId, auth.activeAccountId);
   if (!actor) return jsonError("Workspace account required.", 403);
 
   const agents = await listAccountAgents(actor);
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
   const auth = await requireVerifiedDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
 
-  const workspace = await requireWorkspaceMutationActor(auth.user);
+  const workspace = await requireWorkspaceMutationActor(auth.user, auth.activeAccountId);
   if (workspace.error) return workspace.error;
 
   const { body, error } = await readJsonObject(request);
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
   const name = readString(body.name);
   if (!name) return jsonError("name is required.");
 
-  const agentQuota = await checkAgentLimit(auth.user.primaryAccountId);
+  const agentQuota = await checkAgentLimit(auth.activeAccountId);
   if (!agentQuota.allowed) {
     return jsonError(agentQuota.reason ?? "Agent limit reached.", 402, quotaErrorDetails(agentQuota));
   }
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
   const { metadata, error: metadataError } = parseAgentMetadata(body);
   if (metadataError || !metadata) return jsonError(metadataError ?? "Invalid agent metadata.");
 
-  const result = await createDeveloperAgent(auth.user.userId, auth.user.primaryAccountId ?? undefined, { name, ...metadata });
+  const result = await createDeveloperAgent(auth.user.userId, auth.activeAccountId ?? undefined, { name, ...metadata });
   await emitWebhookEvent(
     createWebhookEvent(null, "agent.created", {
       agentId: result.agent.agentId,

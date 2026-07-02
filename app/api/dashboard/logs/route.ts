@@ -17,7 +17,7 @@ import VerificationLog from "@/models/VerificationLog";
 export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
-  const actor = await getWorkspaceActor(auth.user.userId, auth.user.primaryAccountId);
+  const actor = await getWorkspaceActor(auth.user.userId, auth.activeAccountId);
   if (!actor) return noCacheJson({ logs: [], summary: null, pagination: { limit: 0, page: 1, total: 0, hasMore: false } });
 
   const { limit, page, skip, format } = parseLogListParams(request.nextUrl.searchParams);

@@ -24,10 +24,11 @@ export async function POST(request: NextRequest) {
   if (originError) return originError;
 
   const cookieValue = request.cookies?.get?.(COOKIE_NAME)?.value;
-  const user = await getDeveloperFromToken(cookieValue);
-  if (!user) {
+  const context = await getDeveloperFromToken(cookieValue);
+  if (!context) {
     return NextResponse.json({ ok: true });
   }
+  const user = context.user;
 
   if (isEmailVerified(user.emailVerified)) {
     return NextResponse.json({ ok: true });

@@ -17,23 +17,23 @@ export async function GET(request: NextRequest, context: RouteContext) {
   if (auth.error || !auth.user) return auth.error;
   const { siteId } = await context.params;
 
-  const site = await Site.findOne({ developerUserId: auth.user.userId, accountId: auth.user.primaryAccountId, siteId })
+  const site = await Site.findOne({ developerUserId: auth.user.userId, accountId: auth.activeAccountId, siteId })
     .select("-_id siteId name domain status createdAt updatedAt")
     .lean();
   if (!site) return jsonError("Site not found.", 404);
 
   const [rules, logs, keys] = await Promise.all([
-    SiteAccessRule.find({ developerUserId: auth.user.userId, accountId: auth.user.primaryAccountId, siteId })
+    SiteAccessRule.find({ developerUserId: auth.user.userId, accountId: auth.activeAccountId, siteId })
       .sort({ createdAt: -1 })
       .limit(50)
       .select("-_id ruleId siteId name status agentIdentifier userAgentPattern allowedPaths blockedPaths requiresApproval notes createdAt updatedAt")
       .lean(),
-    SiteAccessLog.find({ developerUserId: auth.user.userId, accountId: auth.user.primaryAccountId, siteId })
+    SiteAccessLog.find({ developerUserId: auth.user.userId, accountId: auth.activeAccountId, siteId })
       .sort({ createdAt: -1 })
       .limit(25)
       .select("-_id requestId ruleId path userAgent agentIdentifier allowed reason risk createdAt")
       .lean(),
-    SiteGuardKey.find({ developerUserId: auth.user.userId, accountId: auth.user.primaryAccountId, siteId })
+    SiteGuardKey.find({ developerUserId: auth.user.userId, accountId: auth.activeAccountId, siteId })
       .sort({ createdAt: -1 })
       .select("-_id keyId siteId name keyPreview status lastUsedAt createdAt updatedAt")
       .lean()
@@ -67,7 +67,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   const { siteId } = await context.params;
   const site = await Site.findOneAndUpdate(
-    { developerUserId: auth.user.userId, accountId: auth.user.primaryAccountId, siteId },
+    { developerUserId: auth.user.userId, accountId: auth.activeAccountId, siteId },
     { $set: update },
     { returnDocument: "after" }
   ).select("-_id siteId name domain status createdAt updatedAt");

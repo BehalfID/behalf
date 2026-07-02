@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { connectToDatabase } from "@/lib/db";
-import { getCurrentDeveloper } from "@/lib/developerAuth";
+import { getCurrentDeveloperContext } from "@/lib/developerAuth";
 import { shouldForceAccountSetup } from "@/lib/onboardingRedirect";
 import type { Plan } from "@/lib/plans";
 import Account from "@/models/Account";
@@ -10,18 +10,20 @@ import { BillingClient } from "./client";
 export const metadata = { title: "Billing — BehalfID" };
 
 export default async function BillingPage() {
-  const user = await getCurrentDeveloper();
+  const context = await getCurrentDeveloperContext();
+  const user = context?.user;
   if (!user) redirect("/login");
   if (await shouldForceAccountSetup(user.userId)) redirect("/onboarding");
 
   await connectToDatabase();
 
-  const account = user.primaryAccountId
-    ? await Account.findOne({ accountId: user.primaryAccountId }).lean()
+  const accountId = context?.activeAccountId ?? user.primaryAccountId;
+  const account = accountId
+    ? await Account.findOne({ accountId }).lean()
     : null;
 
   const [agentCount] = await Promise.all([
-    Agent.countDocuments({ developerUserId: user.userId })
+    accountId ? Agent.countDocuments({ accountId }) : Agent.countDocuments({ developerUserId: user.userId })
   ]);
 
   return (

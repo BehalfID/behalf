@@ -69,12 +69,12 @@ export async function requireHumanDeveloperApi(request: NextRequest): Promise<Hu
 }
 
 export async function getHumanAuthFromRequest(request: NextRequest): Promise<HumanAuthResult> {
-  const user = await getDeveloperFromToken(request.cookies.get(COOKIE_NAME)?.value);
-  if (user) {
-    const account = user.primaryAccountId
-      ? await Account.findOne({ accountId: user.primaryAccountId }).lean()
+  const context = await getDeveloperFromToken(request.cookies.get(COOKIE_NAME)?.value);
+  if (context) {
+    const account = context.activeAccountId
+      ? await Account.findOne({ accountId: context.activeAccountId }).lean()
       : null;
-    return { user, account, error: null, authMethod: "session" };
+    return { user: context.user, account, error: null, authMethod: "session" };
   }
 
   const { tokenDoc } = await authenticateDeveloperToken(request);
