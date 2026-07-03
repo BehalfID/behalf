@@ -5,18 +5,33 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Logo, ThemeToggle } from "@/components/ui";
 
-const dashboardNav = [
-  { href: "/dashboard", label: "Overview" },
-  { href: "/dashboard/inbox", label: "Action Inbox" },
-  { href: "/dashboard/onboarding", label: "Add agent" },
-  { href: "/dashboard/agents", label: "Agents" },
-  { href: "/dashboard/webhooks", label: "Webhooks" },
-  { href: "/dashboard/logs", label: "Logs" },
-  { href: "/dashboard/approvals", label: "Approvals" },
-  { href: "/dashboard/docs", label: "Docs" },
-  { href: "/dashboard/settings", label: "Settings" },
-  { href: "/dashboard/billing", label: "Billing" },
-];
+const dashboardNavSections = [
+  {
+    label: "Control plane",
+    items: [
+      { href: "/dashboard", label: "Home" },
+      { href: "/dashboard/inbox", label: "Needs attention" },
+      { href: "/dashboard/approvals", label: "Approvals" },
+      { href: "/dashboard/logs", label: "Audit logs" },
+    ]
+  },
+  {
+    label: "Agents & access",
+    items: [
+      { href: "/dashboard/onboarding", label: "Add agent" },
+      { href: "/dashboard/agents", label: "Agents" },
+      { href: "/dashboard/webhooks", label: "Webhooks" },
+    ]
+  },
+  {
+    label: "Workspace",
+    items: [
+      { href: "/dashboard/settings", label: "Settings & members" },
+      { href: "/dashboard/billing", label: "Billing" },
+      { href: "/dashboard/docs", label: "Docs" },
+    ]
+  }
+] as const;
 
 type WorkspaceAccount = {
   accountId: string;
@@ -172,7 +187,7 @@ export function DashboardShellLayout({ children }: { children: React.ReactNode }
             </svg>
           )}
         </button>
-        <Logo href="/dashboard" subtitle="Developer portal" />
+        <Logo href="/dashboard" subtitle="Control plane" />
       </div>
       <div className="app-mobile-workspace">
         <WorkspaceSwitcher />
@@ -205,18 +220,23 @@ export function DashboardShellLayout({ children }: { children: React.ReactNode }
           </svg>
         </button>
 
-        <Logo href="/dashboard" subtitle="Developer portal" />
+        <Logo href="/dashboard" subtitle="Control plane" />
         <WorkspaceSwitcher />
         <nav aria-label="Dashboard">
-          {dashboardNav.map((item) => (
-            <Link
-              aria-current={pathname === item.href ? "page" : undefined}
-              href={item.href}
-              key={item.href}
-              onClick={closeDrawer}
-            >
-              {item.label}
-            </Link>
+          {dashboardNavSections.map((section) => (
+            <div key={section.label}>
+              <p className="app-sidebar__section-label">{section.label}</p>
+              {section.items.map((item) => (
+                <Link
+                  aria-current={pathname === item.href ? "page" : undefined}
+                  href={item.href}
+                  key={item.href}
+                  onClick={closeDrawer}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
           ))}
         </nav>
         <div className="app-sidebar__footer">

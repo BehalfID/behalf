@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { IndividualSetupIcon, TeamSetupIcon } from "@/components/onboarding/SetupIcons";
 import { Button, Logo } from "@/components/ui";
 import {
   ACCOUNT_TYPES,
@@ -12,8 +13,6 @@ import {
   CONTROL_AREAS,
   FIRST_SETUP_GOAL_LABELS,
   FIRST_SETUP_GOALS,
-  PRIMARY_GOAL_LABELS,
-  PRIMARY_GOALS,
   TEAM_SIZE_LABELS,
   TEAM_SIZES,
   defaultWorkspaceName,
@@ -21,11 +20,12 @@ import {
   type AgentTool,
   type ControlArea,
   type FirstSetupGoal,
-  type PrimaryGoal,
   type TeamSize
 } from "@/lib/onboarding";
 
-type Step = 1 | 2 | 3 | 4 | 5;
+const BRAND_NAME = "BehalfID"; // pragma: allowlist secret
+
+type Step = 1 | 2 | 3 | 4 | 5 | 6;
 
 type SetupState = {
   accountType: AccountType | "";
@@ -42,16 +42,25 @@ type SetupState = {
   agentToolsOther: string;
   controlAreas: ControlArea[];
   controlAreasOther: string;
-  primaryGoal: PrimaryGoal | "";
   firstSetupGoal: FirstSetupGoal | "";
 };
 
 const STEP_LABELS = [
-  "Account type",
-  "Your details",
+  "Setup",
+  "You",
   "Workspace",
-  "Tools & controls",
-  "First step"
+  "Agents",
+  "Controls",
+  "First move"
+] as const;
+
+const STEP_KICKERS = [
+  "Step 1 of 6",
+  "Step 2 of 6",
+  "Step 3 of 6",
+  "Step 4 of 6",
+  "Step 5 of 6",
+  "Step 6 of 6"
 ] as const;
 
 const EMPTY_STATE: SetupState = {
@@ -69,13 +78,39 @@ const EMPTY_STATE: SetupState = {
   agentToolsOther: "",
   controlAreas: [],
   controlAreasOther: "",
-  primaryGoal: "",
   firstSetupGoal: ""
 };
 
-const SETUP_ACCOUNT_TYPE_HEADING =
-  "Are you setting up BehalfID for yourself or a business/team?"; // pragma: allowlist secret
-const SETUP_CONTROL_LEGEND = "What do you want BehalfID to control?"; // pragma: allowlist secret
+const ACCOUNT_TYPE_OPTIONS: Array<{
+  type: AccountType;
+  title: string;
+  body: string;
+  Icon: typeof IndividualSetupIcon;
+}> = [
+  {
+    type: "individual",
+    title: "Just me",
+    body: "A personal control plane for your own coding agents and approvals.",
+    Icon: IndividualSetupIcon
+  },
+  {
+    type: "business",
+    title: "My team / company",
+    body: "A shared workspace with delegated approvals, members, and audit trails.",
+    Icon: TeamSetupIcon
+  }
+];
+
+const FIRST_MOVE_OPTIONS: Array<{
+  goal: FirstSetupGoal;
+  hint: string;
+}> = [
+  { goal: "create_agent", hint: "Register your first agent and store its API key." },
+  { goal: "setup_deploy_approvals", hint: "Gate production deploys behind human approval." },
+  { goal: "apply_permission_profile", hint: "Start from a profile that limits risky repo actions." },
+  { goal: "invite_team", hint: "Bring in leads and engineers who can approve on your behalf." },
+  { goal: "explore_sandbox", hint: "Try enforcement in a safe environment before going live." }
+];
 
 export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }) {
   const router = useRouter();
@@ -111,7 +146,6 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
         agentToolsOther: data.account?.onboarding?.agentToolsOther ?? "",
         controlAreas: (data.account?.onboarding?.controlAreas as ControlArea[]) ?? [],
         controlAreasOther: data.account?.onboarding?.controlAreasOther ?? "",
-        primaryGoal: (data.account?.onboarding?.primaryGoal as PrimaryGoal) ?? "",
         firstSetupGoal: (data.account?.onboarding?.firstSetupGoal as FirstSetupGoal) ?? ""
       });
     } catch {
@@ -140,7 +174,6 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
     if (form.agentToolsOther) payload.agentToolsOther = form.agentToolsOther;
     if (form.controlAreas.length) payload.controlAreas = form.controlAreas;
     if (form.controlAreasOther) payload.controlAreasOther = form.controlAreasOther;
-    if (form.primaryGoal) payload.primaryGoal = form.primaryGoal;
     if (form.firstSetupGoal) payload.firstSetupGoal = form.firstSetupGoal;
     return payload;
   }, [form]);
@@ -200,7 +233,7 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
   };
 
   const validateStep = (current: Step): string | null => {
-    if (current === 1 && !form.accountType) return "Select an account type.";
+    if (current === 1 && !form.accountType) return "Choose who this setup is for.";
     if (current === 2) {
       if (!form.firstName.trim()) return "First name is required.";
       if (!form.lastName.trim()) return "Last name is required.";
@@ -210,13 +243,14 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
       if (!form.workspaceName.trim()) return "Workspace name is required.";
     }
     if (current === 4) {
-      if (!form.agentTools.length) return "Select at least one coding-agent tool.";
-      if (form.agentTools.includes("other") && !form.agentToolsOther.trim()) return "Describe the other tool.";
-      if (!form.controlAreas.length) return "Select at least one control area.";
-      if (form.controlAreas.includes("other") && !form.controlAreasOther.trim()) return "Describe the other control area.";
-      if (!form.primaryGoal) return "Select your main goal.";
+      if (!form.agentTools.length) return "Select at least one agent entering your workflow.";
+      if (form.agentTools.includes("other") && !form.agentToolsOther.trim()) return "Tell us about the other agent.";
     }
-    if (current === 5 && !form.firstSetupGoal) return "Select what you want to do first.";
+    if (current === 5) {
+      if (!form.controlAreas.length) return `Select at least one area for ${BRAND_NAME} to control.`;
+      if (form.controlAreas.includes("other") && !form.controlAreasOther.trim()) return "Describe the other control area.";
+    }
+    if (current === 6 && !form.firstSetupGoal) return "Choose your first move.";
     return null;
   };
 
@@ -228,7 +262,7 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
     }
     const saved = await saveProgress();
     if (!saved) return;
-    setStep((prev) => Math.min(5, prev + 1) as Step);
+    setStep((prev) => Math.min(6, prev + 1) as Step);
     setError("");
   };
 
@@ -238,7 +272,7 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
   };
 
   const finish = async () => {
-    const validationError = validateStep(5);
+    const validationError = validateStep(6);
     if (validationError) {
       setError(validationError);
       return;
@@ -270,7 +304,7 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
       <main className="ob-page setup-page">
         <div className="setup-shell">
           <p className="ob-kicker">Account setup</p>
-          <p>Loading…</p>
+          <p className="setup-loading">Loading your setup…</p>
         </div>
       </main>
     );
@@ -281,8 +315,8 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
       <div className="setup-shell">
         <header className="setup-header">
           <Logo />
-          <p className="ob-kicker">Account setup</p>
-          <div className="setup-progress" aria-label={`Step ${step} of 5`}>
+          <p className="ob-kicker">{BRAND_NAME} setup</p>
+          <div className="setup-progress" aria-label={`Step ${step} of 6`}>
             {STEP_LABELS.map((label, index) => {
               const stepNum = (index + 1) as Step;
               const active = stepNum === step;
@@ -298,6 +332,9 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
               );
             })}
           </div>
+          <div className="setup-progress-bar" aria-hidden="true">
+            <span className="setup-progress-bar__fill" style={{ width: `${(step / 6) * 100}%` }} />
+          </div>
         </header>
 
         {!emailVerified ? (
@@ -310,22 +347,24 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
         {error ? <p className="form-error setup-error" role="alert">{error}</p> : null}
 
         {step === 1 ? (
-          <section className="setup-step">
-            {/* pragma: allowlist secret */}
-            <h1 className="ob-heading">{SETUP_ACCOUNT_TYPE_HEADING}</h1>
-            <div className="ob-choices">
-              {ACCOUNT_TYPES.map((type) => (
+          <section className="setup-step setup-step--enter">
+            <p className="ob-kicker">{STEP_KICKERS[0]}</p>
+            <h1 className="ob-heading">Who are we setting this up for?</h1>
+            <p className="ob-sub">Choose the workspace that fits how you will govern coding agents.</p>
+            <div className="ob-choices ob-choices--icons">
+              {ACCOUNT_TYPE_OPTIONS.map(({ type, title, body, Icon }) => (
                 <button
-                  className={`ob-choice${form.accountType === type ? " ob-choice--active" : ""}`}
+                  className={`ob-choice ob-choice--icon${form.accountType === type ? " ob-choice--active" : ""}`}
                   key={type}
                   onClick={() => update("accountType", type)}
                   type="button"
                 >
-                  <strong>{type === "individual" ? "Individual" : "Business / team"}</strong>
-                  <span>
-                    {type === "individual"
-                      ? "Personal workspace for your own coding agents and approvals."
-                      : "Shared workspace for a company or engineering team."}
+                  <span className="ob-choice__icon-wrap">
+                    <Icon className="ob-choice__icon" />
+                  </span>
+                  <span className="ob-choice__copy">
+                    <strong>{title}</strong>
+                    <span>{body}</span>
                   </span>
                 </button>
               ))}
@@ -334,37 +373,49 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
         ) : null}
 
         {step === 2 ? (
-          <section className="setup-step">
-            <h1 className="ob-heading">Your details</h1>
+          <section className="setup-step setup-step--enter">
+            <p className="ob-kicker">{STEP_KICKERS[1]}</p>
+            <h1 className="ob-heading">Who are you?</h1>
+            <p className="ob-sub">We will use this to personalize your control plane and recovery options.</p>
             <div className="setup-form">
-              <label>
-                <span>First name</span>
-                <input onChange={(e) => update("firstName", e.target.value)} required value={form.firstName} />
-              </label>
-              <label>
-                <span>Last name</span>
-                <input onChange={(e) => update("lastName", e.target.value)} required value={form.lastName} />
-              </label>
+              <div className="setup-form__row">
+                <label>
+                  <span>First name</span>
+                  <input autoComplete="given-name" onChange={(e) => update("firstName", e.target.value)} required value={form.firstName} />
+                </label>
+                <label>
+                  <span>Last name</span>
+                  <input autoComplete="family-name" onChange={(e) => update("lastName", e.target.value)} required value={form.lastName} />
+                </label>
+              </div>
               <label>
                 <span>Email</span>
                 <input disabled readOnly value={form.email} />
               </label>
               <label>
-                <span>Phone <small>(optional)</small></span>
-                <input onChange={(e) => update("phone", e.target.value)} value={form.phone} />
-                <small className="field-help">Optional. Used only for account recovery or urgent security alerts.</small>
+                <span>Job title <small>(optional)</small></span>
+                <input autoComplete="organization-title" onChange={(e) => update("jobTitle", e.target.value)} value={form.jobTitle} />
               </label>
               <label>
-                <span>Job title <small>(optional)</small></span>
-                <input onChange={(e) => update("jobTitle", e.target.value)} value={form.jobTitle} />
+                <span>Phone <small>(optional)</small></span>
+                <input autoComplete="tel" inputMode="tel" onChange={(e) => update("phone", e.target.value)} value={form.phone} />
+                <small className="field-help">Optional. Used only for account recovery, urgent security alerts, or support.</small>
               </label>
             </div>
           </section>
         ) : null}
 
         {step === 3 ? (
-          <section className="setup-step">
-            <h1 className="ob-heading">Workspace details</h1>
+          <section className="setup-step setup-step--enter">
+            <p className="ob-kicker">{STEP_KICKERS[2]}</p>
+            <h1 className="ob-heading">
+              {form.accountType === "business" ? "Name your company workspace" : "Name your workspace"}
+            </h1>
+            <p className="ob-sub">
+              {form.accountType === "business"
+                ? "This is where your team will manage agents, approvals, and audit logs."
+                : "Your personal control plane for agents, permissions, and decisions."}
+            </p>
             <div className="setup-form">
               {form.accountType === "business" ? (
                 <>
@@ -401,77 +452,64 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
         ) : null}
 
         {step === 4 ? (
-          <section className="setup-step setup-step--wide">
-            <h1 className="ob-heading">Agent tools and controls</h1>
-            <div className="setup-form">
-              <fieldset className="setup-fieldset">
-                <legend>Which coding-agent tools are you using?</legend>
-                <div className="setup-checkgrid">
-                  {AGENT_TOOLS.map((tool) => (
-                    <label className="setup-check" key={tool}>
-                      <input
-                        checked={form.agentTools.includes(tool)}
-                        onChange={() => toggleMulti("agentTools", tool)}
-                        type="checkbox"
-                      />
-                      <span>{AGENT_TOOL_LABELS[tool]}</span>
-                    </label>
-                  ))}
-                </div>
-                {form.agentTools.includes("other") ? (
-                  <label>
-                    <span>Other tool</span>
-                    <input onChange={(e) => update("agentToolsOther", e.target.value)} value={form.agentToolsOther} />
-                  </label>
-                ) : null}
-              </fieldset>
-
-              <fieldset className="setup-fieldset">
-                <legend>{SETUP_CONTROL_LEGEND}</legend>
-                <div className="setup-checkgrid">
-                  {CONTROL_AREAS.map((area) => (
-                    <label className="setup-check" key={area}>
-                      <input
-                        checked={form.controlAreas.includes(area)}
-                        onChange={() => toggleMulti("controlAreas", area)}
-                        type="checkbox"
-                      />
-                      <span>{CONTROL_AREA_LABELS[area]}</span>
-                    </label>
-                  ))}
-                </div>
-                {form.controlAreas.includes("other") ? (
-                  <label>
-                    <span>Other control area</span>
-                    <input onChange={(e) => update("controlAreasOther", e.target.value)} value={form.controlAreasOther} />
-                  </label>
-                ) : null}
-              </fieldset>
-
-              <fieldset className="setup-fieldset">
-                <legend>What is your main goal?</legend>
-                <div className="ob-choices ob-choices--compact">
-                  {PRIMARY_GOALS.map((goal) => (
-                    <button
-                      className={`ob-choice${form.primaryGoal === goal ? " ob-choice--active" : ""}`}
-                      key={goal}
-                      onClick={() => update("primaryGoal", goal)}
-                      type="button"
-                    >
-                      <strong>{PRIMARY_GOAL_LABELS[goal]}</strong>
-                    </button>
-                  ))}
-                </div>
-              </fieldset>
+          <section className="setup-step setup-step--enter">
+            <p className="ob-kicker">{STEP_KICKERS[3]}</p>
+            <h1 className="ob-heading">Which agents are entering your workflow?</h1>
+            <p className="ob-sub">Select every coding agent or automation surface you want {BRAND_NAME} in front of.</p>
+            <div className="setup-checkgrid setup-checkgrid--cards">
+              {AGENT_TOOLS.map((tool) => (
+                <label className={`setup-check setup-check--card${form.agentTools.includes(tool) ? " setup-check--card-active" : ""}`} key={tool}>
+                  <input
+                    checked={form.agentTools.includes(tool)}
+                    onChange={() => toggleMulti("agentTools", tool)}
+                    type="checkbox"
+                  />
+                  <span>{AGENT_TOOL_LABELS[tool]}</span>
+                </label>
+              ))}
             </div>
+            {form.agentTools.includes("other") ? (
+              <label className="setup-form">
+                <span>Other agent</span>
+                <input onChange={(e) => update("agentToolsOther", e.target.value)} placeholder="Describe the agent or toolchain" value={form.agentToolsOther} />
+              </label>
+            ) : null}
           </section>
         ) : null}
 
         {step === 5 ? (
-          <section className="setup-step">
-            <h1 className="ob-heading">What do you want to do first?</h1>
+          <section className="setup-step setup-step--enter">
+            <p className="ob-kicker">{STEP_KICKERS[4]}</p>
+            <h1 className="ob-heading">What should {BRAND_NAME} control first?</h1>
+            <p className="ob-sub">Pick the risky surfaces you want gated, blocked, or audited from day one.</p>
+            <div className="setup-checkgrid setup-checkgrid--cards">
+              {CONTROL_AREAS.map((area) => (
+                <label className={`setup-check setup-check--card${form.controlAreas.includes(area) ? " setup-check--card-active" : ""}`} key={area}>
+                  <input
+                    checked={form.controlAreas.includes(area)}
+                    onChange={() => toggleMulti("controlAreas", area)}
+                    type="checkbox"
+                  />
+                  <span>{CONTROL_AREA_LABELS[area]}</span>
+                </label>
+              ))}
+            </div>
+            {form.controlAreas.includes("other") ? (
+              <label className="setup-form">
+                <span>Other control area</span>
+                <input onChange={(e) => update("controlAreasOther", e.target.value)} placeholder="Describe what you need governed" value={form.controlAreasOther} />
+              </label>
+            ) : null}
+          </section>
+        ) : null}
+
+        {step === 6 ? (
+          <section className="setup-step setup-step--enter">
+            <p className="ob-kicker">{STEP_KICKERS[5]}</p>
+            <h1 className="ob-heading">What is your first move?</h1>
+            <p className="ob-sub">We will take you straight there when setup finishes.</p>
             <div className="ob-choices">
-              {FIRST_SETUP_GOALS.map((goal) => (
+              {FIRST_MOVE_OPTIONS.map(({ goal, hint }) => (
                 <button
                   className={`ob-choice${form.firstSetupGoal === goal ? " ob-choice--active" : ""}`}
                   key={goal}
@@ -479,6 +517,7 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
                   type="button"
                 >
                   <strong>{FIRST_SETUP_GOAL_LABELS[goal]}</strong>
+                  <span>{hint}</span>
                 </button>
               ))}
             </div>
@@ -493,9 +532,9 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
           ) : (
             <span />
           )}
-          {step < 5 ? (
+          {step < 6 ? (
             <Button disabled={saving || finishing} onClick={() => void goNext()} type="button" variant="primary">
-              {saving ? "Saving…" : "Next"}
+              {saving ? "Saving…" : "Continue"}
             </Button>
           ) : (
             <Button disabled={finishing} onClick={() => void finish()} type="button" variant="primary">

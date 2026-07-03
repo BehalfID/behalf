@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
     accountOnboarding: auth.account?.onboarding
       ? {
           controlAreas: auth.account.onboarding.controlAreas ?? [],
+          agentTools: auth.account.onboarding.agentTools ?? [],
           firstSetupGoal: auth.account.onboarding.firstSetupGoal ?? null
         }
       : null
