@@ -5,7 +5,7 @@ import { routing } from "./i18n/routing";
 const intlMiddleware = createMiddleware(routing);
 
 // Paths that skip locale routing (console, dashboard, auth helpers, etc.)
-const intlBypassPattern = /^\/(api|dashboard|console|passport|authenticate|logout|onboarding|design-system)(\/|$)/;
+const intlBypassPattern = /^\/(api|dashboard|console|passport|authenticate|logout|onboarding|design-system|invite)(\/|$)/;
 
 // 'unsafe-inline' is retained for style-src only — React/Next.js inline styles
 // require it. For script-src, 'unsafe-inline' is dropped in favour of a per-request

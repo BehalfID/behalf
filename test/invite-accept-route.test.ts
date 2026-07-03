@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   checkRateLimit: vi.fn(),
-  getDeveloperFromToken: vi.fn(),
+  getCurrentDeveloperContext: vi.fn(),
   acceptInvite: vi.fn(),
   requireDashboardMutationOrigin: vi.fn()
 }));
@@ -17,7 +17,7 @@ vi.mock("@/lib/developerAuth", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/developerAuth")>();
   return {
     ...actual,
-    getDeveloperFromToken: mocks.getDeveloperFromToken,
+    getCurrentDeveloperContext: mocks.getCurrentDeveloperContext,
     requireDashboardMutationOrigin: mocks.requireDashboardMutationOrigin
   };
 });
@@ -45,7 +45,7 @@ describe("POST /api/invites/accept", () => {
   });
 
   it("requires authentication", async () => {
-    mocks.getDeveloperFromToken.mockResolvedValue(null);
+    mocks.getCurrentDeveloperContext.mockResolvedValue(null);
     const { POST } = await import("@/app/api/invites/accept/route");
     const response = await POST(acceptRequest({ token: "tok_test" }));
     expect(response.status).toBe(401);
@@ -53,7 +53,7 @@ describe("POST /api/invites/accept", () => {
   });
 
   it("blocks unverified email users", async () => {
-    mocks.getDeveloperFromToken.mockResolvedValue({
+    mocks.getCurrentDeveloperContext.mockResolvedValue({
       user: { userId: "user_a", email: "invited@example.com", emailVerified: false },
       session: { sessionId: "sess_a" },
       activeAccountId: "acct_primary"
@@ -65,7 +65,7 @@ describe("POST /api/invites/accept", () => {
   });
 
   it("accepts invite for verified authenticated user", async () => {
-    mocks.getDeveloperFromToken.mockResolvedValue({
+    mocks.getCurrentDeveloperContext.mockResolvedValue({
       user: { userId: "user_a", email: "invited@example.com", emailVerified: true },
       session: { sessionId: "sess_a" },
       activeAccountId: "acct_primary"

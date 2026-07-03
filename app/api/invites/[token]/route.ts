@@ -1,4 +1,5 @@
 import { type NextRequest } from "next/server";
+import { connectToDatabase } from "@/lib/db";
 import { getInvitePreview } from "@/lib/inviteAcceptance";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { jsonError, noCacheJson } from "@/lib/responses";
@@ -14,6 +15,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   const { token } = await context.params;
   if (!token?.trim()) return jsonError("Invite token is required.", 400);
 
+  await connectToDatabase();
   const preview = await getInvitePreview(decodeURIComponent(token.trim()));
   if (!preview) return jsonError("This invite link is invalid.", 404);
 

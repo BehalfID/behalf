@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import {
-  getDeveloperFromToken,
+  getCurrentDeveloperContext,
   isEmailVerified,
   requireDashboardMutationOrigin
 } from "@/lib/developerAuth";
@@ -9,8 +9,6 @@ import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
-
-const COOKIE_NAME = "[REDACTED]_developer";
 
 export async function POST(request: NextRequest) {
   const limit = await checkRateLimit(request);
@@ -28,7 +26,7 @@ export async function POST(request: NextRequest) {
   const token = readString(body.token);
   if (!token) return jsonError("token is required.");
 
-  const context = await getDeveloperFromToken(request.cookies.get(COOKIE_NAME)?.value);
+  const context = await getCurrentDeveloperContext();
   if (!context) {
     return jsonError("Sign in with the invited email to accept this workspace invite.", 401);
   }
