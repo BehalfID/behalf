@@ -390,6 +390,8 @@ export function DashboardShell({
   );
 }
 
+const BRAND_NAME = "BehalfID"; // pragma: allowlist secret
+
 function HomeView() {
   const summary = useResource<{
     totalAgents: number;
@@ -400,15 +402,17 @@ function HomeView() {
     onboardingUseCase?: OnboardingUseCase | null;
     accountOnboarding?: {
       controlAreas?: string[];
+      agentTools?: string[];
       firstSetupGoal?: string;
     } | null;
     usage: UsageSummary;
   }>("/api/dashboard/summary");
-  const useCase = summary.data?.onboardingUseCase ?? "sdk";
-  const content = dashboardUseCaseContent[useCase];
   const hasAgents = (summary.data?.totalAgents ?? 0) > 0;
   const controlAreas = summary.data?.accountOnboarding?.controlAreas ?? [];
+  const agentTools = summary.data?.accountOnboarding?.agentTools ?? [];
   const firstSetupGoal = summary.data?.accountOnboarding?.firstSetupGoal;
+  const pendingAttention = (summary.data?.pendingEvents ?? 0) + (summary.data?.failedEvents ?? 0);
+
   const recommendations = [
     controlAreas.includes("production_deploys")
       ? { title: "Set up deploy approvals", body: "Gate production deploys behind Engineering Lead approval.", href: "/dashboard/onboarding?setup=deploy-approvals" }
@@ -419,76 +423,99 @@ function HomeView() {
     controlAreas.includes("secrets")
       ? { title: "Protect secrets and .env access", body: "Block or require approval before agents read or write secrets.", href: "/dashboard/onboarding" }
       : null,
+    controlAreas.includes("db_migrations")
+      ? { title: "Gate database migrations", body: "Require approval before agents run schema or data migrations.", href: "/dashboard/onboarding" }
+      : null,
+    agentTools.includes("github_actions")
+      ? { title: "Register your CI agents", body: "Give GitHub Actions and CI workflows their own governed identity.", href: "/dashboard/onboarding" }
+      : null,
     firstSetupGoal === "invite_team"
       ? { title: "Invite your team", body: "Add Engineering Leads and engineers to share approval authority.", href: "/dashboard/settings?panel=members" }
+      : null,
+    firstSetupGoal === "explore_sandbox"
+      ? { title: "Open the sandbox", body: "Try enforcement flows before connecting production agents.", href: "/sandbox" }
       : null
   ].filter(Boolean) as Array<{ title: string; body: string; href: string }>;
+
+  const heroAction = !hasAgents
+    ? { label: "Add your first agent", href: "/dashboard/onboarding" }
+    : firstSetupGoal === "setup_deploy_approvals"
+      ? { label: "Configure deploy approvals", href: "/dashboard/onboarding?setup=deploy-approvals" }
+      : firstSetupGoal === "apply_permission_profile"
+        ? { label: "Apply a permission profile", href: "/dashboard/onboarding?setup=profiles" }
+        : firstSetupGoal === "invite_team"
+          ? { label: "Invite team members", href: "/dashboard/settings?panel=members" }
+          : { label: "Review approvals", href: "/dashboard/approvals" };
+
   return (
     <>
-      <Header title="Dashboard" description="Overview of your agents, usage, and verification activity." action={hasAgents ? <ButtonLink variant="primary" href={content.actionHref}>{content.actionLabel}</ButtonLink> : undefined} />
+      <Header
+        title="Control plane"
+        description="Govern coding agents, delegated permissions, and audit decisions from one place."
+        action={<ButtonLink variant="primary" href={heroAction.href}>{heroAction.label}</ButtonLink>}
+      />
       {summary.error ? <p className="form-error" role="alert">{summary.error}</p> : null}
-      {!hasAgents ? (
-        <Card className="dashboard-panel onboarding-callout">
-          <p className="section-kicker">{content.kicker}</p>
-          <h2>{content.title}</h2>
-          <p>{content.body}</p>
-          <ButtonLink variant="primary" href={content.actionHref}>{content.actionLabel}</ButtonLink>
-        </Card>
-      ) : (
-        <section className="dashboard-panel dashboard-usecase-strip">
-          <div>
-            <p className="section-kicker">{content.kicker}</p>
-            <h2>{content.title}</h2>
-            <p>{content.body}</p>
-          </div>
-          <Badge>{useCase === "personal" ? "Simple mode" : useCase === "website" ? "Site path" : "SDK path"}</Badge>
-        </section>
-      )}
+
+      <section className="dashboard-hero dashboard-panel">
+        <p className="section-kicker">{BRAND_NAME} control plane</p>
+        <h2>{hasAgents ? "Your agents are on the wire." : "Your control plane is ready."}</h2>
+        <p>
+          {hasAgents
+            ? "Monitor approvals, audit risky actions, and tighten permissions before agents reach production systems."
+            : "Start by registering the coding agents in your workflow, then define what they may do without human approval."}
+        </p>
+        <div className="dashboard-hero__actions">
+          <ButtonLink variant="primary" href={heroAction.href}>{heroAction.label}</ButtonLink>
+          <ButtonLink href="/dashboard/logs">View audit logs</ButtonLink>
+        </div>
+      </section>
+
+      <section className="dashboard-attention-grid">
+        <div className="dashboard-attention-card">
+          <span>Agents registered</span>
+          <strong>{summary.data?.totalAgents ?? 0}</strong>
+        </div>
+        <div className="dashboard-attention-card">
+          <span>Active permissions</span>
+          <strong>{summary.data?.activePermissions ?? 0}</strong>
+        </div>
+        <div className="dashboard-attention-card">
+          <span>Needs attention</span>
+          <strong>{pendingAttention}</strong>
+        </div>
+      </section>
+
       <div className="metric-grid">
-        <Metric label="Agents" value={summary.data?.totalAgents ?? 0} />
-        <Metric label="Active permissions" value={summary.data?.activePermissions ?? 0} />
-        <Metric label="Logs today" value={summary.data?.logsToday ?? 0} />
+        <Metric label="Decisions today" value={summary.data?.logsToday ?? 0} />
         <Metric label="Webhook issues" value={summary.data?.failedEvents ?? 0} />
+        <Metric label="Pending events" value={summary.data?.pendingEvents ?? 0} />
       </div>
+
       {summary.data?.usage ? <PlanUsagePanel usage={summary.data.usage} /> : null}
-      <Card className="dashboard-panel">
-        <div className="dashboard-section-header">
-          <div>
-            <h2>Quickstart</h2>
-            <p>Next actions are tailored to the use case selected during signup.</p>
-          </div>
-        </div>
-        <div className="quickstart-steps">
-          {content.steps.map((item, index) => (
-            <Link className="quickstart-step" href={item.href} key={item.title}>
-              <span className="quickstart-step__number">{index + 1}</span>
-              <span>
-                <strong>{item.title}</strong>
-                <small>{item.body}</small>
-              </span>
-            </Link>
-          ))}
-        </div>
-      </Card>
+
       {recommendations.length ? (
         <Card className="dashboard-panel">
           <div className="dashboard-section-header">
             <div>
-              <h2>Recommended for your setup</h2>
-              <p>Based on the controls and goals you selected during account setup.</p>
+              <h2>Recommended next steps</h2>
+              <p>Based on the agents and controls you selected during setup.</p>
             </div>
           </div>
-          <div className="quickstart-steps">
+          <div className="dashboard-recommendations">
             {recommendations.map((item) => (
-              <Link className="quickstart-step" href={item.href} key={item.title}>
-                <span>
-                  <strong>{item.title}</strong>
-                  <small>{item.body}</small>
-                </span>
+              <Link className="dashboard-recommendation" href={item.href} key={item.title}>
+                <strong>{item.title}</strong>
+                <small>{item.body}</small>
               </Link>
             ))}
           </div>
         </Card>
+      ) : !hasAgents ? (
+        <div className="dashboard-empty-panel dashboard-panel">
+          <h2>No agents registered yet</h2>
+          <p>Add the coding agents entering your workflow so {BRAND_NAME} can verify actions before they run.</p>
+          <ButtonLink variant="primary" href="/dashboard/onboarding">Add your first agent</ButtonLink>
+        </div>
       ) : null}
     </>
   );

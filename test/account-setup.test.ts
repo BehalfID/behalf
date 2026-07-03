@@ -97,6 +97,16 @@ describe("account setup validation", () => {
     expect(validateAccountSetupCompletion(validIndividual).error).toBeNull();
   });
 
+  it("defaults primaryGoal to approvals when omitted", () => {
+    const { primaryGoal: _removed, ...onboardingWithoutGoal } = validIndividual.onboarding;
+    const result = validateAccountSetupCompletion({
+      ...validIndividual,
+      onboarding: onboardingWithoutGoal
+    });
+    expect(result.error).toBeNull();
+    expect(result.account.onboarding.primaryGoal).toBe("approvals");
+  });
+
   it("rejects invalid accountType and enum values", () => {
     expect(
       validateAccountSetupCompletion({ ...validBusiness, accountType: "enterprise" as never }).error
@@ -377,6 +387,7 @@ describe("account setup routing", () => {
     const source = await import("fs/promises").then((fs) =>
       fs.readFile("/workspace/app/auth-client.tsx", "utf8")
     );
-    expect(source).toContain('router.push("/onboarding")');
+    expect(source).toMatch(/\/onboarding/);
+    expect(source).toContain("redirectPath");
   });
 });

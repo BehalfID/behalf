@@ -359,7 +359,9 @@ export function validateAccountSetupCompletion(input: CompletionInput): {
     onboarding: Required<
       Pick<AccountOnboarding, "agentTools" | "controlAreas" | "primaryGoal" | "firstSetupGoal">
     > &
-      Pick<AccountOnboarding, "agentToolsOther" | "controlAreasOther">;
+      Pick<AccountOnboarding, "agentToolsOther" | "controlAreasOther"> & {
+        primaryGoal?: PrimaryGoal;
+      };
   };
   error: string | null;
 } {
@@ -429,8 +431,10 @@ export function validateAccountSetupCompletion(input: CompletionInput): {
   );
   if (controlAreasOther.error) return { profile: {} as never, account: {} as never, error: controlAreasOther.error };
 
-  const primaryGoal = validatePrimaryGoal(input.onboarding?.primaryGoal, true);
+  const primaryGoal = validatePrimaryGoal(input.onboarding?.primaryGoal, false);
   if (primaryGoal.error) return { profile: {} as never, account: {} as never, error: primaryGoal.error };
+
+  const resolvedPrimaryGoal = primaryGoal.value ?? "approvals";
 
   const firstSetupGoal = validateFirstSetupGoal(input.onboarding?.firstSetupGoal, true);
   if (firstSetupGoal.error) return { profile: {} as never, account: {} as never, error: firstSetupGoal.error };
@@ -453,7 +457,7 @@ export function validateAccountSetupCompletion(input: CompletionInput): {
         agentToolsOther: agentToolsOther.value,
         controlAreas: controlAreas.value!,
         controlAreasOther: controlAreasOther.value,
-        primaryGoal: primaryGoal.value!,
+        primaryGoal: resolvedPrimaryGoal,
         firstSetupGoal: firstSetupGoal.value!
       }
     },
