@@ -451,44 +451,53 @@ function HomeView() {
     <>
       <Header
         title="Control plane"
-        description="Govern coding agents, delegated permissions, and audit decisions from one place."
+        description="Govern coding agents, delegated permissions, and audit decisions."
         action={<ButtonLink variant="primary" href={heroAction.href}>{heroAction.label}</ButtonLink>}
       />
       {summary.error ? <p className="form-error" role="alert">{summary.error}</p> : null}
 
+      <section className="dashboard-status-bar">
+        <div className="dashboard-status-bar__item">
+          <span className="dashboard-status-bar__label">Agents</span>
+          <strong className="dashboard-status-bar__value">{summary.data?.totalAgents ?? 0}</strong>
+        </div>
+        <div className="dashboard-status-bar__divider" aria-hidden="true" />
+        <div className="dashboard-status-bar__item">
+          <span className="dashboard-status-bar__label">Permissions</span>
+          <strong className="dashboard-status-bar__value">{summary.data?.activePermissions ?? 0}</strong>
+        </div>
+        <div className="dashboard-status-bar__divider" aria-hidden="true" />
+        <div className={`dashboard-status-bar__item${pendingAttention > 0 ? " dashboard-status-bar__item--alert" : ""}`}>
+          <span className="dashboard-status-bar__label">Needs attention</span>
+          <strong className="dashboard-status-bar__value">{pendingAttention}</strong>
+        </div>
+        <div className="dashboard-status-bar__divider" aria-hidden="true" />
+        <div className="dashboard-status-bar__item">
+          <span className="dashboard-status-bar__label">Decisions today</span>
+          <strong className="dashboard-status-bar__value">{summary.data?.logsToday ?? 0}</strong>
+        </div>
+      </section>
+
       <section className="dashboard-hero dashboard-panel">
-        <p className="section-kicker">{BRAND_NAME} control plane</p>
-        <h2>{hasAgents ? "Your agents are on the wire." : "Your control plane is ready."}</h2>
-        <p>
-          {hasAgents
-            ? "Monitor approvals, audit risky actions, and tighten permissions before agents reach production systems."
-            : "Start by registering the coding agents in your workflow, then define what they may do without human approval."}
-        </p>
+        <div className="dashboard-hero__content">
+          <p className="dashboard-meta">{hasAgents ? "Operational" : "Ready to configure"}</p>
+          <h2>{hasAgents ? "Agents are active" : "Configure your control plane"}</h2>
+          <p>
+            {hasAgents
+              ? "Monitor approvals, audit risky actions, and tighten permissions before agents reach production systems."
+              : "Register the coding agents in your workflow, then define what they may do without human approval."}
+          </p>
+        </div>
         <div className="dashboard-hero__actions">
           <ButtonLink variant="primary" href={heroAction.href}>{heroAction.label}</ButtonLink>
-          <ButtonLink href="/dashboard/logs">View audit logs</ButtonLink>
+          <ButtonLink href="/dashboard/logs" variant="ghost">Audit logs</ButtonLink>
         </div>
       </section>
 
-      <section className="dashboard-attention-grid">
-        <div className="dashboard-attention-card">
-          <span>Agents registered</span>
-          <strong>{summary.data?.totalAgents ?? 0}</strong>
-        </div>
-        <div className="dashboard-attention-card">
-          <span>Active permissions</span>
-          <strong>{summary.data?.activePermissions ?? 0}</strong>
-        </div>
-        <div className="dashboard-attention-card">
-          <span>Needs attention</span>
-          <strong>{pendingAttention}</strong>
-        </div>
-      </section>
-
-      <div className="metric-grid">
-        <Metric label="Decisions today" value={summary.data?.logsToday ?? 0} />
-        <Metric label="Webhook issues" value={summary.data?.failedEvents ?? 0} />
+      <div className="metric-grid dashboard-metrics">
         <Metric label="Pending events" value={summary.data?.pendingEvents ?? 0} />
+        <Metric label="Webhook issues" value={summary.data?.failedEvents ?? 0} />
+        <Metric label="Decisions today" value={summary.data?.logsToday ?? 0} />
       </div>
 
       {summary.data?.usage ? <PlanUsagePanel usage={summary.data.usage} /> : null}
@@ -497,24 +506,29 @@ function HomeView() {
         <Card className="dashboard-panel">
           <div className="dashboard-section-header">
             <div>
-              <h2>Recommended next steps</h2>
-              <p>Based on the agents and controls you selected during setup.</p>
+              <p className="dashboard-meta">Next actions</p>
+              <h2>Pending configuration</h2>
+              <p>Based on your setup selections.</p>
             </div>
           </div>
-          <div className="dashboard-recommendations">
+          <div className="dashboard-action-list">
             {recommendations.map((item) => (
-              <Link className="dashboard-recommendation" href={item.href} key={item.title}>
-                <strong>{item.title}</strong>
-                <small>{item.body}</small>
+              <Link className="dashboard-action-row" href={item.href} key={item.title}>
+                <span className="dashboard-action-row__copy">
+                  <strong>{item.title}</strong>
+                  <small>{item.body}</small>
+                </span>
+                <span className="dashboard-action-row__arrow" aria-hidden="true">→</span>
               </Link>
             ))}
           </div>
         </Card>
       ) : !hasAgents ? (
         <div className="dashboard-empty-panel dashboard-panel">
-          <h2>No agents registered yet</h2>
+          <p className="dashboard-meta">No agents</p>
+          <h2>Register your first agent</h2>
           <p>Add the coding agents entering your workflow so {BRAND_NAME} can verify actions before they run.</p>
-          <ButtonLink variant="primary" href="/dashboard/onboarding">Add your first agent</ButtonLink>
+          <ButtonLink variant="primary" href="/dashboard/onboarding">Add agent</ButtonLink>
         </div>
       ) : null}
     </>
@@ -3213,7 +3227,7 @@ function DashboardDocs() {
 }
 
 function Header({ title, description, action }: { title: string; description?: string; action?: React.ReactNode }) {
-  return <PageHeader eyebrow="Developer portal" title={title} description={description} action={action} className="dashboard-header" />;
+  return <PageHeader title={title} description={description} action={action} className="dashboard-header" />;
 }
 
 function Metric({ label, value }: { label: string; value: number | string }) {

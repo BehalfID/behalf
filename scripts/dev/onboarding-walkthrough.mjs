@@ -68,7 +68,7 @@ async function login(page, email) {
 }
 
 async function waitForSetupLoaded(page) {
-  await page.waitForSelector("h1.ob-heading", { timeout: 20000 });
+  await page.waitForSelector("h1.setup-heading", { timeout: 20000 });
   await page.waitForFunction(() => !document.body.textContent?.includes("Loading your setup"), null, {
     timeout: 20000
   });

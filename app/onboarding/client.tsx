@@ -6,13 +6,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { IndividualSetupIcon, TeamSetupIcon } from "@/components/onboarding/SetupIcons";
 import { Button, Logo } from "@/components/ui";
 import {
-  ACCOUNT_TYPES,
   AGENT_TOOL_LABELS,
   AGENT_TOOLS,
   CONTROL_AREA_LABELS,
   CONTROL_AREAS,
   FIRST_SETUP_GOAL_LABELS,
-  FIRST_SETUP_GOALS,
   TEAM_SIZE_LABELS,
   TEAM_SIZES,
   defaultWorkspaceName,
@@ -54,15 +52,6 @@ const STEP_LABELS = [
   "First move"
 ] as const;
 
-const STEP_KICKERS = [
-  "Step 1 of 6",
-  "Step 2 of 6",
-  "Step 3 of 6",
-  "Step 4 of 6",
-  "Step 5 of 6",
-  "Step 6 of 6"
-] as const;
-
 const EMPTY_STATE: SetupState = {
   accountType: "",
   firstName: "",
@@ -89,14 +78,14 @@ const ACCOUNT_TYPE_OPTIONS: Array<{
 }> = [
   {
     type: "individual",
-    title: "Just me",
-    body: "A personal control plane for your own coding agents and approvals.",
+    title: "Individual",
+    body: "Personal workspace for your own agents and approvals.",
     Icon: IndividualSetupIcon
   },
   {
     type: "business",
-    title: "My team / company",
-    body: "A shared workspace with delegated approvals, members, and audit trails.",
+    title: "Team / company",
+    body: "Shared workspace with members, delegated approvals, and audit trails.",
     Icon: TeamSetupIcon
   }
 ];
@@ -111,6 +100,48 @@ const FIRST_MOVE_OPTIONS: Array<{
   { goal: "invite_team", hint: "Bring in leads and engineers who can approve on your behalf." },
   { goal: "explore_sandbox", hint: "Try enforcement in a safe environment before going live." }
 ];
+
+function SetupSummary({ form, step }: { form: SetupState; step: Step }) {
+  const accountLabel = form.accountType === "individual"
+    ? "Individual"
+    : form.accountType === "business"
+      ? "Team / company"
+      : null;
+  const nameLabel = [form.firstName, form.lastName].filter(Boolean).join(" ") || null;
+  const workspaceLabel = form.workspaceName || null;
+  const agentsLabel = form.agentTools.length
+    ? `${form.agentTools.length} selected`
+    : null;
+  const controlsLabel = form.controlAreas.length
+    ? `${form.controlAreas.length} selected`
+    : null;
+  const firstMoveLabel = form.firstSetupGoal
+    ? FIRST_SETUP_GOAL_LABELS[form.firstSetupGoal]
+    : null;
+
+  const items = [
+    { label: "Workspace mode", value: accountLabel, done: step > 1 },
+    { label: "Profile", value: nameLabel, done: step > 2 },
+    { label: "Workspace", value: workspaceLabel, done: step > 3 },
+    { label: "Agents", value: agentsLabel, done: step > 4 },
+    { label: "Controls", value: controlsLabel, done: step > 5 },
+    { label: "First move", value: firstMoveLabel, done: step > 6 }
+  ];
+
+  return (
+    <aside className="setup-summary" aria-label="Configuration summary">
+      <p className="setup-summary__title">Configuration</p>
+      <dl className="setup-summary__list">
+        {items.map(({ label, value, done }) => (
+          <div className={`setup-summary__item${done ? " setup-summary__item--done" : ""}`} key={label}>
+            <dt>{label}</dt>
+            <dd>{value ?? "—"}</dd>
+          </div>
+        ))}
+      </dl>
+    </aside>
+  );
+}
 
 export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }) {
   const router = useRouter();
@@ -233,7 +264,7 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
   };
 
   const validateStep = (current: Step): string | null => {
-    if (current === 1 && !form.accountType) return "Choose who this setup is for.";
+    if (current === 1 && !form.accountType) return "Choose a workspace mode.";
     if (current === 2) {
       if (!form.firstName.trim()) return "First name is required.";
       if (!form.lastName.trim()) return "Last name is required.";
@@ -303,7 +334,7 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
     return (
       <main className="ob-page setup-page">
         <div className="setup-shell">
-          <p className="ob-kicker">Account setup</p>
+          <p className="setup-meta">Account setup</p>
           <p className="setup-loading">Loading your setup…</p>
         </div>
       </main>
@@ -314,8 +345,10 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
     <main id="main-content" className="ob-page setup-page" tabIndex={-1}>
       <div className="setup-shell">
         <header className="setup-header">
-          <Logo />
-          <p className="ob-kicker">{BRAND_NAME} setup</p>
+          <div className="setup-header__brand">
+            <Logo />
+            <p className="setup-meta">{BRAND_NAME} · Account setup</p>
+          </div>
           <div className="setup-progress" aria-label={`Step ${step} of 6`}>
             {STEP_LABELS.map((label, index) => {
               const stepNum = (index + 1) as Step;
@@ -326,222 +359,257 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
                   className={`setup-progress__item${active ? " setup-progress__item--active" : ""}${done ? " setup-progress__item--done" : ""}`}
                   key={label}
                 >
-                  <span className="setup-progress__dot">{done ? "✓" : stepNum}</span>
+                  <span className="setup-progress__indicator" aria-hidden="true" />
                   <span className="setup-progress__label">{label}</span>
                 </div>
               );
             })}
           </div>
-          <div className="setup-progress-bar" aria-hidden="true">
-            <span className="setup-progress-bar__fill" style={{ width: `${(step / 6) * 100}%` }} />
-          </div>
         </header>
 
-        {!emailVerified ? (
-          <div className="setup-banner" role="status">
-            <strong>Verify your email when you can.</strong> You can finish setup now, but agent creation and API tokens stay locked until your email is verified.{" "}
-            <Link href="/verify-email">Verify email</Link>
-          </div>
-        ) : null}
-
-        {error ? <p className="form-error setup-error" role="alert">{error}</p> : null}
-
-        {step === 1 ? (
-          <section className="setup-step setup-step--enter">
-            <p className="ob-kicker">{STEP_KICKERS[0]}</p>
-            <h1 className="ob-heading">Who are we setting this up for?</h1>
-            <p className="ob-sub">Choose the workspace that fits how you will govern coding agents.</p>
-            <div className="ob-choices ob-choices--icons">
-              {ACCOUNT_TYPE_OPTIONS.map(({ type, title, body, Icon }) => (
-                <button
-                  className={`ob-choice ob-choice--icon${form.accountType === type ? " ob-choice--active" : ""}`}
-                  key={type}
-                  onClick={() => update("accountType", type)}
-                  type="button"
-                >
-                  <span className="ob-choice__icon-wrap">
-                    <Icon className="ob-choice__icon" />
-                  </span>
-                  <span className="ob-choice__copy">
-                    <strong>{title}</strong>
-                    <span>{body}</span>
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        {step === 2 ? (
-          <section className="setup-step setup-step--enter">
-            <p className="ob-kicker">{STEP_KICKERS[1]}</p>
-            <h1 className="ob-heading">Who are you?</h1>
-            <p className="ob-sub">We will use this to personalize your control plane and recovery options.</p>
-            <div className="setup-form">
-              <div className="setup-form__row">
-                <label>
-                  <span>First name</span>
-                  <input autoComplete="given-name" onChange={(e) => update("firstName", e.target.value)} required value={form.firstName} />
-                </label>
-                <label>
-                  <span>Last name</span>
-                  <input autoComplete="family-name" onChange={(e) => update("lastName", e.target.value)} required value={form.lastName} />
-                </label>
+        <div className="setup-layout">
+          <div className="setup-main">
+            {!emailVerified ? (
+              <div className="setup-banner" role="status">
+                <strong>Verify your email when you can.</strong> You can finish setup now, but agent creation and API tokens stay locked until your email is verified.{" "}
+                <Link href="/verify-email">Verify email</Link>
               </div>
-              <label>
-                <span>Email</span>
-                <input disabled readOnly value={form.email} />
-              </label>
-              <label>
-                <span>Job title <small>(optional)</small></span>
-                <input autoComplete="organization-title" onChange={(e) => update("jobTitle", e.target.value)} value={form.jobTitle} />
-              </label>
-              <label>
-                <span>Phone <small>(optional)</small></span>
-                <input autoComplete="tel" inputMode="tel" onChange={(e) => update("phone", e.target.value)} value={form.phone} />
-                <small className="field-help">Optional. Used only for account recovery, urgent security alerts, or support.</small>
-              </label>
-            </div>
-          </section>
-        ) : null}
+            ) : null}
 
-        {step === 3 ? (
-          <section className="setup-step setup-step--enter">
-            <p className="ob-kicker">{STEP_KICKERS[2]}</p>
-            <h1 className="ob-heading">
-              {form.accountType === "business" ? "Name your company workspace" : "Name your workspace"}
-            </h1>
-            <p className="ob-sub">
-              {form.accountType === "business"
-                ? "This is where your team will manage agents, approvals, and audit logs."
-                : "Your personal control plane for agents, permissions, and decisions."}
-            </p>
-            <div className="setup-form">
-              {form.accountType === "business" ? (
-                <>
-                  <label>
-                    <span>Company name</span>
-                    <input onChange={(e) => update("companyName", e.target.value)} required value={form.companyName} />
-                  </label>
-                  <label>
-                    <span>Workspace name</span>
-                    <input onChange={(e) => update("workspaceName", e.target.value)} required value={form.workspaceName} />
-                  </label>
-                  <label>
-                    <span>Website <small>(optional)</small></span>
-                    <input onChange={(e) => update("website", e.target.value)} placeholder="example.com" value={form.website} />
-                  </label>
-                  <label>
-                    <span>Team size <small>(optional)</small></span>
-                    <select onChange={(e) => update("teamSize", e.target.value as TeamSize | "")} value={form.teamSize}>
-                      <option value="">Select…</option>
-                      {TEAM_SIZES.map((size) => (
-                        <option key={size} value={size}>{TEAM_SIZE_LABELS[size]}</option>
-                      ))}
-                    </select>
-                  </label>
-                </>
+            {error ? <p className="form-error setup-error" role="alert">{error}</p> : null}
+
+            {step === 1 ? (
+              <section className="setup-step setup-step--enter">
+                <div className="setup-step__header">
+                  <p className="setup-meta">Step 1 of 6 · Workspace mode</p>
+                  <h1 className="setup-heading">Select workspace mode</h1>
+                  <p className="setup-lede">Choose how this control plane will be organized and governed.</p>
+                </div>
+                <div className="setup-panel">
+                  <div className="setup-mode-list">
+                    {ACCOUNT_TYPE_OPTIONS.map(({ type, title, body, Icon }) => (
+                      <button
+                        className={`setup-mode${form.accountType === type ? " setup-mode--active" : ""}`}
+                        key={type}
+                        onClick={() => update("accountType", type)}
+                        type="button"
+                      >
+                        <span className="setup-mode__icon">
+                          <Icon size={24} />
+                        </span>
+                        <span className="setup-mode__copy">
+                          <strong>{title}</strong>
+                          <span>{body}</span>
+                        </span>
+                        <span className="setup-mode__check" aria-hidden="true">{form.accountType === type ? "✓" : ""}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            ) : null}
+
+            {step === 2 ? (
+              <section className="setup-step setup-step--enter">
+                <div className="setup-step__header">
+                  <p className="setup-meta">Step 2 of 6 · Profile</p>
+                  <h1 className="setup-heading">Your profile</h1>
+                  <p className="setup-lede">Used for account recovery, audit attribution, and workspace personalization.</p>
+                </div>
+                <div className="setup-panel">
+                  <div className="setup-form">
+                    <div className="setup-form__row">
+                      <label>
+                        <span>First name</span>
+                        <input autoComplete="given-name" onChange={(e) => update("firstName", e.target.value)} required value={form.firstName} />
+                      </label>
+                      <label>
+                        <span>Last name</span>
+                        <input autoComplete="family-name" onChange={(e) => update("lastName", e.target.value)} required value={form.lastName} />
+                      </label>
+                    </div>
+                    <label>
+                      <span>Email</span>
+                      <input disabled readOnly value={form.email} />
+                    </label>
+                    <label>
+                      <span>Job title <small>(optional)</small></span>
+                      <input autoComplete="organization-title" onChange={(e) => update("jobTitle", e.target.value)} value={form.jobTitle} />
+                    </label>
+                    <label>
+                      <span>Phone <small>(optional)</small></span>
+                      <input autoComplete="tel" inputMode="tel" onChange={(e) => update("phone", e.target.value)} value={form.phone} />
+                      <small className="field-help">Used only for account recovery, urgent security alerts, or support.</small>
+                    </label>
+                  </div>
+                </div>
+              </section>
+            ) : null}
+
+            {step === 3 ? (
+              <section className="setup-step setup-step--enter">
+                <div className="setup-step__header">
+                  <p className="setup-meta">Step 3 of 6 · Workspace</p>
+                  <h1 className="setup-heading">
+                    {form.accountType === "business" ? "Company workspace" : "Workspace identity"}
+                  </h1>
+                  <p className="setup-lede">
+                    {form.accountType === "business"
+                      ? "Define the shared workspace where your team manages agents, approvals, and audit logs."
+                      : "Name your personal control plane for agents, permissions, and decisions."}
+                  </p>
+                </div>
+                <div className="setup-panel">
+                  <div className="setup-form">
+                    {form.accountType === "business" ? (
+                      <>
+                        <label>
+                          <span>Company name</span>
+                          <input onChange={(e) => update("companyName", e.target.value)} required value={form.companyName} />
+                        </label>
+                        <label>
+                          <span>Workspace name</span>
+                          <input onChange={(e) => update("workspaceName", e.target.value)} required value={form.workspaceName} />
+                        </label>
+                        <label>
+                          <span>Website <small>(optional)</small></span>
+                          <input onChange={(e) => update("website", e.target.value)} placeholder="example.com" value={form.website} />
+                        </label>
+                        <label>
+                          <span>Team size <small>(optional)</small></span>
+                          <select onChange={(e) => update("teamSize", e.target.value as TeamSize | "")} value={form.teamSize}>
+                            <option value="">Select…</option>
+                            {TEAM_SIZES.map((size) => (
+                              <option key={size} value={size}>{TEAM_SIZE_LABELS[size]}</option>
+                            ))}
+                          </select>
+                        </label>
+                      </>
+                    ) : (
+                      <label>
+                        <span>Workspace name</span>
+                        <input onChange={(e) => update("workspaceName", e.target.value)} required value={form.workspaceName} />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              </section>
+            ) : null}
+
+            {step === 4 ? (
+              <section className="setup-step setup-step--enter">
+                <div className="setup-step__header">
+                  <p className="setup-meta">Step 4 of 6 · Agents</p>
+                  <h1 className="setup-heading">Agent surfaces</h1>
+                  <p className="setup-lede">Select every coding agent or automation surface {BRAND_NAME} should govern.</p>
+                </div>
+                <div className="setup-panel">
+                  <div className="setup-option-list">
+                    {AGENT_TOOLS.map((tool) => (
+                      <label className={`setup-option${form.agentTools.includes(tool) ? " setup-option--active" : ""}`} key={tool}>
+                        <input
+                          checked={form.agentTools.includes(tool)}
+                          onChange={() => toggleMulti("agentTools", tool)}
+                          type="checkbox"
+                        />
+                        <span className="setup-option__label">{AGENT_TOOL_LABELS[tool]}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                {form.agentTools.includes("other") ? (
+                  <div className="setup-panel setup-panel--nested">
+                    <label className="setup-form">
+                      <span>Other agent</span>
+                      <input onChange={(e) => update("agentToolsOther", e.target.value)} placeholder="Describe the agent or toolchain" value={form.agentToolsOther} />
+                    </label>
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
+
+            {step === 5 ? (
+              <section className="setup-step setup-step--enter">
+                <div className="setup-step__header">
+                  <p className="setup-meta">Step 5 of 6 · Controls</p>
+                  <h1 className="setup-heading">Control surfaces</h1>
+                  <p className="setup-lede">Select the risky operations to gate, block, or audit from day one.</p>
+                </div>
+                <div className="setup-panel">
+                  <div className="setup-option-list">
+                    {CONTROL_AREAS.map((area) => (
+                      <label className={`setup-option${form.controlAreas.includes(area) ? " setup-option--active" : ""}`} key={area}>
+                        <input
+                          checked={form.controlAreas.includes(area)}
+                          onChange={() => toggleMulti("controlAreas", area)}
+                          type="checkbox"
+                        />
+                        <span className="setup-option__label">{CONTROL_AREA_LABELS[area]}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                {form.controlAreas.includes("other") ? (
+                  <div className="setup-panel setup-panel--nested">
+                    <label className="setup-form">
+                      <span>Other control area</span>
+                      <input onChange={(e) => update("controlAreasOther", e.target.value)} placeholder="Describe what you need governed" value={form.controlAreasOther} />
+                    </label>
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
+
+            {step === 6 ? (
+              <section className="setup-step setup-step--enter">
+                <div className="setup-step__header">
+                  <p className="setup-meta">Step 6 of 6 · First move</p>
+                  <h1 className="setup-heading">Initial action</h1>
+                  <p className="setup-lede">We will route you directly to this task when setup completes.</p>
+                </div>
+                <div className="setup-panel">
+                  <div className="setup-choice-list">
+                    {FIRST_MOVE_OPTIONS.map(({ goal, hint }) => (
+                      <button
+                        className={`setup-choice${form.firstSetupGoal === goal ? " setup-choice--active" : ""}`}
+                        key={goal}
+                        onClick={() => update("firstSetupGoal", goal)}
+                        type="button"
+                      >
+                        <span className="setup-choice__copy">
+                          <strong>{FIRST_SETUP_GOAL_LABELS[goal]}</strong>
+                          <span>{hint}</span>
+                        </span>
+                        <span className="setup-choice__check" aria-hidden="true">{form.firstSetupGoal === goal ? "✓" : ""}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            ) : null}
+
+            <footer className="setup-actions">
+              {step > 1 ? (
+                <Button disabled={saving || finishing} onClick={goBack} type="button" variant="ghost">
+                  Back
+                </Button>
               ) : (
-                <label>
-                  <span>Workspace name</span>
-                  <input onChange={(e) => update("workspaceName", e.target.value)} required value={form.workspaceName} />
-                </label>
+                <span />
               )}
-            </div>
-          </section>
-        ) : null}
+              {step < 6 ? (
+                <Button disabled={saving || finishing} onClick={() => void goNext()} type="button" variant="primary">
+                  {saving ? "Saving…" : "Continue"}
+                </Button>
+              ) : (
+                <Button disabled={finishing} onClick={() => void finish()} type="button" variant="primary">
+                  {finishing ? "Finishing…" : "Complete setup"}
+                </Button>
+              )}
+            </footer>
+          </div>
 
-        {step === 4 ? (
-          <section className="setup-step setup-step--enter">
-            <p className="ob-kicker">{STEP_KICKERS[3]}</p>
-            <h1 className="ob-heading">Which agents are entering your workflow?</h1>
-            <p className="ob-sub">Select every coding agent or automation surface you want {BRAND_NAME} in front of.</p>
-            <div className="setup-checkgrid setup-checkgrid--cards">
-              {AGENT_TOOLS.map((tool) => (
-                <label className={`setup-check setup-check--card${form.agentTools.includes(tool) ? " setup-check--card-active" : ""}`} key={tool}>
-                  <input
-                    checked={form.agentTools.includes(tool)}
-                    onChange={() => toggleMulti("agentTools", tool)}
-                    type="checkbox"
-                  />
-                  <span>{AGENT_TOOL_LABELS[tool]}</span>
-                </label>
-              ))}
-            </div>
-            {form.agentTools.includes("other") ? (
-              <label className="setup-form">
-                <span>Other agent</span>
-                <input onChange={(e) => update("agentToolsOther", e.target.value)} placeholder="Describe the agent or toolchain" value={form.agentToolsOther} />
-              </label>
-            ) : null}
-          </section>
-        ) : null}
-
-        {step === 5 ? (
-          <section className="setup-step setup-step--enter">
-            <p className="ob-kicker">{STEP_KICKERS[4]}</p>
-            <h1 className="ob-heading">What should {BRAND_NAME} control first?</h1>
-            <p className="ob-sub">Pick the risky surfaces you want gated, blocked, or audited from day one.</p>
-            <div className="setup-checkgrid setup-checkgrid--cards">
-              {CONTROL_AREAS.map((area) => (
-                <label className={`setup-check setup-check--card${form.controlAreas.includes(area) ? " setup-check--card-active" : ""}`} key={area}>
-                  <input
-                    checked={form.controlAreas.includes(area)}
-                    onChange={() => toggleMulti("controlAreas", area)}
-                    type="checkbox"
-                  />
-                  <span>{CONTROL_AREA_LABELS[area]}</span>
-                </label>
-              ))}
-            </div>
-            {form.controlAreas.includes("other") ? (
-              <label className="setup-form">
-                <span>Other control area</span>
-                <input onChange={(e) => update("controlAreasOther", e.target.value)} placeholder="Describe what you need governed" value={form.controlAreasOther} />
-              </label>
-            ) : null}
-          </section>
-        ) : null}
-
-        {step === 6 ? (
-          <section className="setup-step setup-step--enter">
-            <p className="ob-kicker">{STEP_KICKERS[5]}</p>
-            <h1 className="ob-heading">What is your first move?</h1>
-            <p className="ob-sub">We will take you straight there when setup finishes.</p>
-            <div className="ob-choices">
-              {FIRST_MOVE_OPTIONS.map(({ goal, hint }) => (
-                <button
-                  className={`ob-choice${form.firstSetupGoal === goal ? " ob-choice--active" : ""}`}
-                  key={goal}
-                  onClick={() => update("firstSetupGoal", goal)}
-                  type="button"
-                >
-                  <strong>{FIRST_SETUP_GOAL_LABELS[goal]}</strong>
-                  <span>{hint}</span>
-                </button>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        <footer className="setup-actions">
-          {step > 1 ? (
-            <Button disabled={saving || finishing} onClick={goBack} type="button" variant="ghost">
-              Back
-            </Button>
-          ) : (
-            <span />
-          )}
-          {step < 6 ? (
-            <Button disabled={saving || finishing} onClick={() => void goNext()} type="button" variant="primary">
-              {saving ? "Saving…" : "Continue"}
-            </Button>
-          ) : (
-            <Button disabled={finishing} onClick={() => void finish()} type="button" variant="primary">
-              {finishing ? "Finishing…" : "Finish setup"}
-            </Button>
-          )}
-        </footer>
+          <SetupSummary form={form} step={step} />
+        </div>
       </div>
     </main>
   );
