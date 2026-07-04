@@ -78,20 +78,66 @@ export function AuthPage({
           <Logo />
           <div>
             <p className="section-kicker">Agent permission infrastructure</p>
-            <h2>Verify actions before agents act.</h2>
-            <p>Use BehalfID to manage agent identities, scoped permissions, audit logs, and signed webhook events from one developer portal.</p>
+            <h2>Identity and permission enforcement for coding agents.</h2>
+            <p>Every agent action is verified against workspace policy before it runs — and every decision is signed and auditable.</p>
           </div>
-          <ul>
-            <li>Verify agent actions</li>
-            <li>Manage API keys</li>
-            <li>Audit decisions</li>
-            <li>Receive signed webhooks</li>
-          </ul>
+          <div className="auth-artifact" aria-hidden="true">
+            <div className="auth-artifact__head">
+              <p className="cx-label">Verification event</p>
+              <span className="auth-artifact__id">evt_01j8j3kf9d</span>
+            </div>
+            <div className="auth-artifact__body">
+              <dl className="cx-record">
+                <div className="cx-record__row">
+                  <dt>Agent</dt>
+                  <dd>deploy-bot</dd>
+                </div>
+                <div className="cx-record__row">
+                  <dt>Action</dt>
+                  <dd>github.merge → api-core/main</dd>
+                </div>
+                <div className="cx-record__row">
+                  <dt>Policy</dt>
+                  <dd>protected-branches</dd>
+                </div>
+                <div className="cx-record__row">
+                  <dt>Decision</dt>
+                  <dd><span className="cx-chip cx-chip--warn">Approval required</span></dd>
+                </div>
+                <div className="cx-record__row">
+                  <dt>Receipt</dt>
+                  <dd>signed · sha256 · 41ms</dd>
+                </div>
+              </dl>
+            </div>
+            <div className="auth-feed">
+              <div className="auth-feed__row">
+                <span className="auth-feed__time">14:32</span>
+                <span className="auth-feed__desc">ci-runner · deploy.staging</span>
+                <span className="cx-chip cx-chip--ok">Allowed</span>
+              </div>
+              <div className="auth-feed__row">
+                <span className="auth-feed__time">14:31</span>
+                <span className="auth-feed__desc">cursor-agent · secrets.read .env</span>
+                <span className="cx-chip cx-chip--deny">Denied</span>
+              </div>
+              <div className="auth-feed__row">
+                <span className="auth-feed__time">14:29</span>
+                <span className="auth-feed__desc">deploy-bot · db.migrate</span>
+                <span className="cx-chip cx-chip--warn">Pending</span>
+              </div>
+            </div>
+          </div>
+          <div className="auth-meta-row">
+            <span>Signed decisions</span>
+            <span>Scoped permissions</span>
+            <span>Delegated approvals</span>
+          </div>
         </div>
         <form className="auth-panel" onSubmit={submit}>
-          <p className="section-kicker">{mode === "signup" ? "Create account" : "Developer login"}</p>
-          <h1>{mode === "signup" ? "Start verifying agent actions." : "Welcome back."}</h1>
-          <p>{mode === "signup" ? "Create a developer workspace for agents, permissions, logs, and signed webhook events." : "Sign in to manage agents, permissions, logs, and webhook delivery."}</p>
+          <p className="section-kicker">{mode === "signup" ? "New workspace" : "Control plane access"}</p>
+          <h1>{mode === "signup" ? "Create your workspace" : "Sign in"}</h1>
+          <p>{mode === "signup" ? "Provision a control plane for the coding agents in your stack." : "Authenticate to manage agents, policies, and audit history."}</p>
           <label>
             <span>Email</span>
             <input autoComplete="email" onChange={(event) => setEmail(event.target.value)} required type="email" value={email} />
