@@ -5,10 +5,12 @@ import { getWorkspaceActor } from "@/lib/delegatedAuth";
 import { retentionSince } from "@/lib/quota";
 import {
   buildVerificationLogQuery,
+  extractLogEnvironment,
   getVerificationLogSummaryAgg,
   logsToCsv,
   parseLogListParams,
   withAgentNames,
+  withApprovalLinks,
   type VerificationLogListItem
 } from "@/lib/verificationLogs";
 import { noCacheJson } from "@/lib/responses";
@@ -35,12 +37,17 @@ export async function GET(request: NextRequest) {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .select("-_id requestId agentId permissionId action amount vendor allowed approvalRequired reason risk shadow createdAt")
+      .select("-_id requestId agentId permissionId action amount vendor allowed approvalRequired reason risk shadow metadata createdAt")
       .lean<VerificationLogListItem[]>(),
     VerificationLog.countDocuments(query),
     getVerificationLogSummaryAgg(query)
   ]);
-  const logs = await withAgentNames(rawLogs, { accountId: actor.accountId });
+  const withEnvironment = rawLogs.map((log) => ({
+    ...log,
+    environment: extractLogEnvironment(log.metadata ?? null)
+  }));
+  const withNames = await withAgentNames(withEnvironment, { accountId: actor.accountId });
+  const logs = await withApprovalLinks(withNames, { accountId: actor.accountId });
   const pagination = { limit, page, total, hasMore: skip + logs.length < total };
 
   if (format === "csv") {

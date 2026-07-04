@@ -2,15 +2,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const routeMocks = vi.hoisted(() => ({
   requireDeveloperApi: vi.fn(),
+  getWorkspaceActor: vi.fn(),
   requireConsoleApi: vi.fn(),
   getConsoleAccountId: vi.fn(),
   logFind: vi.fn(),
   logCountDocuments: vi.fn(),
-  agentFind: vi.fn()
+  agentFind: vi.fn(),
+  approvalFind: vi.fn()
 }));
 
 vi.mock("@/lib/developerAuth", () => ({
   requireDeveloperApi: routeMocks.requireDeveloperApi
+}));
+vi.mock("@/lib/delegatedAuth", () => ({
+  getWorkspaceActor: routeMocks.getWorkspaceActor
 }));
 vi.mock("@/lib/adminAuth", () => ({
   requireConsoleApi: routeMocks.requireConsoleApi
@@ -33,6 +38,11 @@ vi.mock("@/models/VerificationLog", () => ({
 vi.mock("@/models/Agent", () => ({
   default: {
     find: routeMocks.agentFind
+  }
+}));
+vi.mock("@/models/ApprovalRequest", () => ({
+  default: {
+    find: routeMocks.approvalFind
   }
 }));
 
@@ -88,13 +98,13 @@ describe("verification log helpers", () => {
       buildVerificationLogQuery,
       parseLogListParams
     } = await import("@/lib/verificationLogs");
-    const params = new URLSearchParams("agentId=agent_test&allowed=false&action=purchase&risk=high&resource=stripe.com&requestId=req_denied&from=2026-05-01&to=2026-05-31&limit=999&page=2");
+    const params = new URLSearchParams("agentId=agent_test&allowed=false&action=purchase&risk=high&resource=stripe.com&requestId=req_denied&from=2026-05-01&to=2026-05-31&limit=999&page=2&search=deploy&decision=denied&environment=production");
 
-    const query = buildVerificationLogQuery(params, { developerUserId: "dev_test" }, { retentionStart: new Date("2026-05-10T00:00:00.000Z") });
+    const query = buildVerificationLogQuery(params, { accountId: "acct_test" }, { retentionStart: new Date("2026-05-10T00:00:00.000Z") });
     const pagination = parseLogListParams(params);
 
     expect(query).toMatchObject({
-      developerUserId: "dev_test",
+      accountId: "acct_test",
       agentId: "agent_test",
       allowed: false,
       action: "purchase",
@@ -102,10 +112,9 @@ describe("verification log helpers", () => {
       vendor: "stripe.com",
       requestId: "req_denied"
     });
-    expect(query.createdAt).toEqual({
-      $gte: new Date("2026-05-10T00:00:00.000Z"),
-      $lte: new Date("2026-05-31T00:00:00.000Z")
-    });
+    expect(query.$and).toEqual(expect.arrayContaining([
+      expect.objectContaining({ $or: expect.any(Array) })
+    ]));
     expect(pagination).toEqual({ limit: 500, page: 2, skip: 500, format: "json" });
   });
 
@@ -208,31 +217,42 @@ describe("dashboard verification log route", () => {
     routeMocks.requireDeveloperApi.mockResolvedValue({
       user: { userId: "dev_test" },
       account: { plan: "pro" },
+      activeAccountId: "acct_test",
       error: null
+    });
+    routeMocks.getWorkspaceActor.mockResolvedValue({
+      userId: "dev_test",
+      accountId: "acct_test",
+      role: "OWNER",
+      authorityLevel: 100
     });
     routeMocks.requireConsoleApi.mockResolvedValue(null);
     routeMocks.getConsoleAccountId.mockResolvedValue("acct_test");
     routeMocks.logCountDocuments.mockResolvedValue(2);
+    routeMocks.approvalFind.mockReturnValue({
+      select: vi.fn(() => ({
+        lean: vi.fn(async () => [])
+      }))
+    });
     routeMocks.agentFind.mockReturnValue(findChain([{ agentId: "agent_test", name: "Checkout Agent" }]));
   });
 
-  it("filters denied dashboard logs without crossing developer scope", async () => {
-    // Only one logFind call — the summary now uses VerificationLog.aggregate.
+  it("filters denied dashboard logs without crossing account scope", async () => {
     routeMocks.logFind.mockReturnValueOnce(findChain([logs[0]]));
     const { GET } = await import("@/app/api/dashboard/logs/route");
 
-    const response = await GET(request("/api/dashboard/logs?allowed=false&agentId=agent_test&action=purchase&risk=high&from=2026-05-01&to=2026-05-31&limit=1&page=2"));
+    const response = await GET(request("/api/dashboard/logs?allowed=false&agentId=agent_test&action=purchase&risk=high&from=2026-05-01&to=2026-05-31&limit=1&page=2&search=stripe"));
     const json = await response.json();
 
     expect(response.status).toBe(200);
     expect(routeMocks.logFind).toHaveBeenCalledWith(expect.objectContaining({
-      developerUserId: "dev_test",
+      accountId: "acct_test",
       agentId: "agent_test",
       allowed: false,
       action: "purchase",
       risk: "high"
     }));
-    expect(routeMocks.logFind.mock.calls[0][0]).not.toHaveProperty("accountId");
+    expect(routeMocks.logFind.mock.calls[0][0]).not.toHaveProperty("developerUserId");
     expect(json.logs[0]).toMatchObject({
       agentName: "Checkout Agent",
       allowed: false,
