@@ -62,12 +62,58 @@ export function AuthPage({ mode }: { mode: "login" | "signup" }) {
             <h2>{t("contextHeading")}</h2>
             <p>{t("contextBody")}</p>
           </div>
-          <ul>
-            <li>{t("feature1")}</li>
-            <li>{t("feature2")}</li>
-            <li>{t("feature3")}</li>
-            <li>{t("feature4")}</li>
-          </ul>
+          <div className="auth-artifact" aria-hidden="true">
+            <div className="auth-artifact__head">
+              <p className="cx-label">Verification event</p>
+              <span className="auth-artifact__id">evt_01j8j3kf9d</span>
+            </div>
+            <div className="auth-artifact__body">
+              <dl className="cx-record">
+                <div className="cx-record__row">
+                  <dt>Agent</dt>
+                  <dd>deploy-bot</dd>
+                </div>
+                <div className="cx-record__row">
+                  <dt>Action</dt>
+                  <dd>github.merge → api-core/main</dd>
+                </div>
+                <div className="cx-record__row">
+                  <dt>Policy</dt>
+                  <dd>protected-branches</dd>
+                </div>
+                <div className="cx-record__row">
+                  <dt>Decision</dt>
+                  <dd><span className="cx-chip cx-chip--warn">Approval required</span></dd>
+                </div>
+                <div className="cx-record__row">
+                  <dt>Receipt</dt>
+                  <dd>signed · sha256 · 41ms</dd>
+                </div>
+              </dl>
+            </div>
+            <div className="auth-feed">
+              <div className="auth-feed__row">
+                <span className="auth-feed__time">14:32</span>
+                <span className="auth-feed__desc">ci-runner · deploy.staging</span>
+                <span className="cx-chip cx-chip--ok">Allowed</span>
+              </div>
+              <div className="auth-feed__row">
+                <span className="auth-feed__time">14:31</span>
+                <span className="auth-feed__desc">cursor-agent · secrets.read .env</span>
+                <span className="cx-chip cx-chip--deny">Denied</span>
+              </div>
+              <div className="auth-feed__row">
+                <span className="auth-feed__time">14:29</span>
+                <span className="auth-feed__desc">deploy-bot · db.migrate</span>
+                <span className="cx-chip cx-chip--warn">Pending</span>
+              </div>
+            </div>
+          </div>
+          <div className="auth-meta-row">
+            <span>{t("feature1")}</span>
+            <span>{t("feature3")}</span>
+            <span>{t("feature4")}</span>
+          </div>
         </div>
         <form className="auth-panel" onSubmit={submit}>
           <p className="section-kicker">{mode === "signup" ? t("signupKicker") : t("loginKicker")}</p>

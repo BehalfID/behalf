@@ -21,7 +21,9 @@ import {
   CONTROL_AREA_LABELS,
   CONTROL_AREAS,
   PRIMARY_GOAL_LABELS,
-  PRIMARY_GOALS
+  PRIMARY_GOALS,
+  type AgentTool,
+  type ControlArea
 } from "@/lib/onboarding";
 
 type Agent = {
@@ -390,7 +392,22 @@ export function DashboardShell({
   );
 }
 
-const BRAND_NAME = "BehalfID"; // pragma: allowlist secret
+const HOME_CONTROL_ROUTES: Record<string, string> = {
+  production_deploys: "/dashboard/onboarding?setup=deploy-approvals",
+  github_writes: "/dashboard/onboarding?setup=profiles",
+  db_migrations: "/dashboard/onboarding",
+  secrets: "/dashboard/onboarding",
+  billing_vendor_apis: "/dashboard/onboarding",
+  external_comms: "/dashboard/onboarding",
+  other: "/dashboard/onboarding"
+};
+
+function feedTime(value?: string) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("en", { hour: "2-digit", minute: "2-digit", hour12: false }).format(date);
+}
 
 function HomeView() {
   const summary = useResource<{
@@ -407,116 +424,210 @@ function HomeView() {
     } | null;
     usage: UsageSummary;
   }>("/api/dashboard/summary");
-  const hasAgents = (summary.data?.totalAgents ?? 0) > 0;
-  const controlAreas = summary.data?.accountOnboarding?.controlAreas ?? [];
-  const agentTools = summary.data?.accountOnboarding?.agentTools ?? [];
-  const firstSetupGoal = summary.data?.accountOnboarding?.firstSetupGoal;
-  const pendingAttention = (summary.data?.pendingEvents ?? 0) + (summary.data?.failedEvents ?? 0);
+  const inbox = useResource<{ pendingApprovals: ApprovalRequest[]; deniedHighRisk: Log[] }>("/api/dashboard/inbox");
+  const activity = useResource<{ logs: Log[] }>("/api/dashboard/logs?limit=8");
 
-  const recommendations = [
-    controlAreas.includes("production_deploys")
-      ? { title: "Set up deploy approvals", body: "Gate production deploys behind Engineering Lead approval.", href: "/dashboard/onboarding?setup=deploy-approvals" }
-      : null,
-    controlAreas.includes("github_writes")
-      ? { title: "Apply a GitHub permission profile", body: "Start from a profile that limits repo writes and protected branches.", href: "/dashboard/onboarding?setup=profiles" }
-      : null,
-    controlAreas.includes("secrets")
-      ? { title: "Protect secrets and .env access", body: "Block or require approval before agents read or write secrets.", href: "/dashboard/onboarding" }
-      : null,
-    controlAreas.includes("db_migrations")
-      ? { title: "Gate database migrations", body: "Require approval before agents run schema or data migrations.", href: "/dashboard/onboarding" }
-      : null,
-    agentTools.includes("github_actions")
-      ? { title: "Register your CI agents", body: "Give GitHub Actions and CI workflows their own governed identity.", href: "/dashboard/onboarding" }
+  const hasAgents = (summary.data?.totalAgents ?? 0) > 0;
+  const controlAreas = (summary.data?.accountOnboarding?.controlAreas ?? []) as ControlArea[];
+  const agentTools = (summary.data?.accountOnboarding?.agentTools ?? []) as AgentTool[];
+  const firstSetupGoal = summary.data?.accountOnboarding?.firstSetupGoal;
+
+  const pendingApprovals = (inbox.data?.pendingApprovals ?? []).filter((item) => item.status === "pending");
+  const recentLogs = activity.data?.logs ?? [];
+  const webhookIssues = summary.data?.failedEvents ?? 0;
+  const attentionCount = pendingApprovals.length + webhookIssues;
+  const systemState = summary.data
+    ? attentionCount > 0
+      ? { label: "Attention required", tone: "warn" as const }
+      : hasAgents
+        ? { label: "Operational", tone: "ok" as const }
+        : { label: "Awaiting configuration", tone: "idle" as const }
+    : { label: "Loading", tone: "idle" as const };
+
+  const nextActions = [
+    !hasAgents
+      ? { title: "Register your first agent", body: "Issue a governed identity and scoped API key.", href: "/dashboard/onboarding" }
       : null,
     firstSetupGoal === "invite_team"
-      ? { title: "Invite your team", body: "Add Engineering Leads and engineers to share approval authority.", href: "/dashboard/settings?panel=members" }
+      ? { title: "Invite your team", body: "Share approval authority with leads and engineers.", href: "/dashboard/settings?panel=members" }
       : null,
     firstSetupGoal === "explore_sandbox"
-      ? { title: "Open the sandbox", body: "Try enforcement flows before connecting production agents.", href: "/sandbox" }
+      ? { title: "Open the sandbox", body: "Exercise enforcement before connecting production agents.", href: "/sandbox" }
+      : null,
+    agentTools.includes("github_actions") && !hasAgents
+      ? { title: "Register CI agents", body: "Give GitHub Actions workflows their own identity.", href: "/dashboard/onboarding" }
       : null
   ].filter(Boolean) as Array<{ title: string; body: string; href: string }>;
 
-  const heroAction = !hasAgents
-    ? { label: "Add your first agent", href: "/dashboard/onboarding" }
-    : firstSetupGoal === "setup_deploy_approvals"
-      ? { label: "Configure deploy approvals", href: "/dashboard/onboarding?setup=deploy-approvals" }
-      : firstSetupGoal === "apply_permission_profile"
-        ? { label: "Apply a permission profile", href: "/dashboard/onboarding?setup=profiles" }
-        : firstSetupGoal === "invite_team"
-          ? { label: "Invite team members", href: "/dashboard/settings?panel=members" }
-          : { label: "Review approvals", href: "/dashboard/approvals" };
+  const headerAction = !hasAgents
+    ? { label: "Add agent", href: "/dashboard/onboarding" }
+    : pendingApprovals.length > 0
+      ? { label: "Review approvals", href: "/dashboard/inbox" }
+      : firstSetupGoal === "setup_deploy_approvals"
+        ? { label: "Configure deploy approvals", href: "/dashboard/onboarding?setup=deploy-approvals" }
+        : { label: "Add agent", href: "/dashboard/onboarding" };
 
   return (
     <>
       <Header
         title="Control plane"
-        description="Govern coding agents, delegated permissions, and audit decisions from one place."
-        action={<ButtonLink variant="primary" href={heroAction.href}>{heroAction.label}</ButtonLink>}
+        description="Current state of agents, policies, and decisions in this workspace."
+        action={<ButtonLink variant="primary" href={headerAction.href}>{headerAction.label}</ButtonLink>}
       />
       {summary.error ? <p className="form-error" role="alert">{summary.error}</p> : null}
 
-      <section className="dashboard-hero dashboard-panel">
-        <p className="section-kicker">{BRAND_NAME} control plane</p>
-        <h2>{hasAgents ? "Your agents are on the wire." : "Your control plane is ready."}</h2>
-        <p>
-          {hasAgents
-            ? "Monitor approvals, audit risky actions, and tighten permissions before agents reach production systems."
-            : "Start by registering the coding agents in your workflow, then define what they may do without human approval."}
-        </p>
-        <div className="dashboard-hero__actions">
-          <ButtonLink variant="primary" href={heroAction.href}>{heroAction.label}</ButtonLink>
-          <ButtonLink href="/dashboard/logs">View audit logs</ButtonLink>
+      <section className="ops-strip" aria-label="System status">
+        <div className="ops-strip__state">
+          <span className={`cx-dot${systemState.tone === "warn" ? " cx-dot--warn" : systemState.tone === "idle" ? " cx-dot--idle" : ""}`} aria-hidden="true" />
+          {systemState.label}
         </div>
+        <dl className="ops-strip__seg">
+          <dt>Agents</dt>
+          <dd>{summary.data?.totalAgents ?? "—"}</dd>
+        </dl>
+        <dl className="ops-strip__seg">
+          <dt>Permissions</dt>
+          <dd>{summary.data?.activePermissions ?? "—"}</dd>
+        </dl>
+        <dl className={`ops-strip__seg${pendingApprovals.length > 0 ? " ops-strip__seg--alert" : ""}`}>
+          <dt>Pending approvals</dt>
+          <dd>{inbox.data ? pendingApprovals.length : "—"}</dd>
+        </dl>
+        <dl className="ops-strip__seg">
+          <dt>Decisions today</dt>
+          <dd>{summary.data?.logsToday ?? "—"}</dd>
+        </dl>
+        <div className="ops-strip__spacer" aria-hidden="true" />
+        <Link className="ops-strip__link" href="/dashboard/logs">Audit log →</Link>
       </section>
 
-      <section className="dashboard-attention-grid">
-        <div className="dashboard-attention-card">
-          <span>Agents registered</span>
-          <strong>{summary.data?.totalAgents ?? 0}</strong>
-        </div>
-        <div className="dashboard-attention-card">
-          <span>Active permissions</span>
-          <strong>{summary.data?.activePermissions ?? 0}</strong>
-        </div>
-        <div className="dashboard-attention-card">
-          <span>Needs attention</span>
-          <strong>{pendingAttention}</strong>
-        </div>
-      </section>
+      <div className="ops-grid">
+        <div className="ops-col">
+          <section className="ops-panel" aria-label="Approval queue">
+            <div className="ops-panel__head">
+              <p className="cx-label">Approval queue</p>
+              <Link href="/dashboard/inbox">Open inbox</Link>
+            </div>
+            {!inbox.data ? (
+              <p className="ops-empty">Loading queue…</p>
+            ) : pendingApprovals.length === 0 ? (
+              <p className="ops-empty">No approvals waiting. Gated actions pause here for human review before they run.</p>
+            ) : (
+              <div className="ops-feed">
+                {pendingApprovals.slice(0, 5).map((item) => (
+                  <Link className="ops-feed__row" href="/dashboard/inbox" key={item.approvalId}>
+                    <span className="ops-feed__time">{feedTime(item.createdAt)}</span>
+                    <span className="ops-feed__body">
+                      <span className="ops-feed__title">{item.agentName ?? item.agentId} · <code>{item.action}</code></span>
+                      <span className="ops-feed__meta">{item.requiredRoleLabel ? `Requires ${item.requiredRoleLabel}` : "Awaiting decision"}</span>
+                    </span>
+                    <span className="cx-chip cx-chip--warn">Pending</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </section>
 
-      <div className="metric-grid">
-        <Metric label="Decisions today" value={summary.data?.logsToday ?? 0} />
-        <Metric label="Webhook issues" value={summary.data?.failedEvents ?? 0} />
-        <Metric label="Pending events" value={summary.data?.pendingEvents ?? 0} />
+          <section className="ops-panel" aria-label="Recent activity">
+            <div className="ops-panel__head">
+              <p className="cx-label">Recent activity</p>
+              <Link href="/dashboard/logs">View all</Link>
+            </div>
+            {!activity.data ? (
+              <p className="ops-empty">Loading activity…</p>
+            ) : recentLogs.length === 0 ? (
+              <p className="ops-empty">
+                No verification events yet. Decisions appear here the moment an agent calls <code>verify</code>.
+              </p>
+            ) : (
+              <div className="ops-feed">
+                {recentLogs.map((log) => (
+                  <div className="ops-feed__row" key={log.requestId}>
+                    <span className="ops-feed__time">{feedTime(log.createdAt)}</span>
+                    <span className="ops-feed__body">
+                      <span className="ops-feed__title">{log.agentName ?? log.agentId} · <code>{log.action}</code></span>
+                      <span className="ops-feed__meta">{log.reason}</span>
+                    </span>
+                    {log.allowed ? (
+                      <span className="cx-chip cx-chip--ok">Allowed</span>
+                    ) : log.approvalRequired ? (
+                      <span className="cx-chip cx-chip--warn">Approval</span>
+                    ) : (
+                      <span className="cx-chip cx-chip--deny">Denied</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
+
+        <div className="ops-col">
+          <section className="ops-panel" aria-label="Policy coverage">
+            <div className="ops-panel__head">
+              <p className="cx-label">Policy coverage</p>
+            </div>
+            {controlAreas.length === 0 ? (
+              <p className="ops-empty">No control boundaries selected during setup. Add them in settings to track coverage here.</p>
+            ) : (
+              <div className="ops-coverage">
+                {controlAreas.map((area) => (
+                  <Link className="ops-coverage__row" href={HOME_CONTROL_ROUTES[area] ?? "/dashboard/onboarding"} key={area}>
+                    <span>{CONTROL_AREA_LABELS[area] ?? area}</span>
+                    <span className="cx-chip">Not configured</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+            {controlAreas.length > 0 ? (
+              <div className="ops-panel__foot">Boundaries selected at setup. Configure each to move it under enforcement.</div>
+            ) : null}
+          </section>
+
+          <section className="ops-panel" aria-label="Integration surfaces">
+            <div className="ops-panel__head">
+              <p className="cx-label">Integration surfaces</p>
+            </div>
+            {agentTools.length === 0 ? (
+              <p className="ops-empty">No agent surfaces registered during setup.</p>
+            ) : (
+              <div className="ops-coverage">
+                {agentTools.map((tool) => (
+                  <Link className="ops-coverage__row" href="/dashboard/onboarding" key={tool}>
+                    <span>{AGENT_TOOL_LABELS[tool] ?? tool}</span>
+                    {hasAgents ? (
+                      <span className="cx-chip cx-chip--ok">Active</span>
+                    ) : (
+                      <span className="cx-chip">Awaiting agent</span>
+                    )}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {nextActions.length ? (
+            <section className="ops-panel" aria-label="Next actions">
+              <div className="ops-panel__head">
+                <p className="cx-label">Next actions</p>
+              </div>
+              <div>
+                {nextActions.map((item) => (
+                  <Link className="ops-next__row" href={item.href} key={item.title}>
+                    <span>
+                      <strong>{item.title}</strong>
+                      <small>{item.body}</small>
+                    </span>
+                    <span className="ops-next__arrow" aria-hidden="true">→</span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          ) : null}
+        </div>
       </div>
 
       {summary.data?.usage ? <PlanUsagePanel usage={summary.data.usage} /> : null}
-
-      {recommendations.length ? (
-        <Card className="dashboard-panel">
-          <div className="dashboard-section-header">
-            <div>
-              <h2>Recommended next steps</h2>
-              <p>Based on the agents and controls you selected during setup.</p>
-            </div>
-          </div>
-          <div className="dashboard-recommendations">
-            {recommendations.map((item) => (
-              <Link className="dashboard-recommendation" href={item.href} key={item.title}>
-                <strong>{item.title}</strong>
-                <small>{item.body}</small>
-              </Link>
-            ))}
-          </div>
-        </Card>
-      ) : !hasAgents ? (
-        <div className="dashboard-empty-panel dashboard-panel">
-          <h2>No agents registered yet</h2>
-          <p>Add the coding agents entering your workflow so {BRAND_NAME} can verify actions before they run.</p>
-          <ButtonLink variant="primary" href="/dashboard/onboarding">Add your first agent</ButtonLink>
-        </div>
-      ) : null}
     </>
   );
 }
@@ -3213,7 +3324,7 @@ function DashboardDocs() {
 }
 
 function Header({ title, description, action }: { title: string; description?: string; action?: React.ReactNode }) {
-  return <PageHeader eyebrow="Developer portal" title={title} description={description} action={action} className="dashboard-header" />;
+  return <PageHeader title={title} description={description} action={action} className="dashboard-header" />;
 }
 
 function Metric({ label, value }: { label: string; value: number | string }) {
