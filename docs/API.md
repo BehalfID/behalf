@@ -647,6 +647,93 @@ Denied response:
 
 Denied, approval-required, unsupported, or failed verification decisions do not run the executor.
 
+## POST /api/cli/session-policy
+
+Resolve the managed profile mode for a local coding-agent session. Used by CLI shims (`behalf profile install`).
+
+Authentication is optional. Developer session cookies and agent API keys enrich workspace policy; unauthenticated callers receive `unmanaged`. Agent API keys are supported on this route but **cannot** request pause leases (see `/api/cli/pause`).
+
+Request:
+
+```json
+{
+  "tool": "claude",
+  "cwd": "hashed-or-path",
+  "gitRemote": "hashed-remote",
+  "branch": "main",
+  "repoRoot": "hashed-root",
+  "deviceId": "devmac_123",
+  "cliVersion": "0.2.8",
+  "workspaceId": "acct_xxx"
+}
+```
+
+Response:
+
+```json
+{
+  "mode": "unmanaged",
+  "profileId": null,
+  "profileName": null,
+  "sessionId": "sess_xxx",
+  "workspaceId": "acct_xxx",
+  "reason": "No matching managed profile.",
+  "expiresAt": null,
+  "cacheTtlSeconds": 300
+}
+```
+
+Modes: `unmanaged`, `managed`, `required`.
+
+Server dev overrides:
+
+- `BEHALF` + `ID_CLI_POLICY_MODE=unmanaged|managed|required`
+- `BEHALF` + `ID_CLI_REQUIRED_ACCOUNT_IDS=acct_a,acct_b`
+
+## POST /api/cli/pause
+
+Request a scoped pause lease. Pause is policy-approved — not a local bypass.
+
+**Authentication:** requires a **developer session** (`behalf login`). Agent API keys are **not** accepted on this route (403). Use `/api/cli/session-policy` if you are authenticating with an agent API key.
+
+Request:
+
+```json
+{
+  "durationMinutes": 30,
+  "reason": "personal project",
+  "scope": "current_repo",
+  "tool": "claude",
+  "repo": "hashed-root",
+  "branch": "main",
+  "deviceId": "devmac_123"
+}
+```
+
+Response when granted:
+
+```json
+{
+  "granted": true,
+  "leaseId": "pause_xxx",
+  "mode": "unmanaged",
+  "expiresAt": "2026-07-04T17:30:00.000Z",
+  "reason": "Pause granted for current repo.",
+  "scope": "current_repo",
+  "tool": "claude",
+  "repo": "hashed-root",
+  "branch": "main",
+  "deviceId": "devmac_123"
+}
+```
+
+Rules:
+
+- `reason` is required
+- Maximum duration: 240 minutes (4 hours)
+- Denied when workspace policy is `required` for the current context
+- Granted/denied events are written to `CliAuditLog`
+
 ## GET /api/health
 
 Public liveness check. It does not reveal secrets.

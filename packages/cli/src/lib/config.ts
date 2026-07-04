@@ -12,6 +12,16 @@ export type Config = {
   baseUrl?: string;
 };
 
+export type ExtendedConfig = Config & {
+  deviceId?: string;
+  workspaceId?: string;
+  accountId?: string;
+  realBinaryPaths?: Record<string, string>;
+  lastPolicyCacheKey?: string;
+  pauseLeaseId?: string;
+  policyCache?: unknown;
+};
+
 function ensureDir() {
   if (!existsSync(CONFIG_DIR)) mkdirSync(CONFIG_DIR, { recursive: true });
 }
@@ -25,13 +35,36 @@ export function readConfig(): Config {
   }
 }
 
+export function readExtendedConfig(): ExtendedConfig {
+  if (!existsSync(CONFIG_FILE)) return {};
+  try {
+    return JSON.parse(readFileSync(CONFIG_FILE, "utf-8")) as ExtendedConfig;
+  } catch {
+    return {};
+  }
+}
+
 export function writeConfig(config: Config): void {
   ensureDir();
-  writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2) + "\n", { mode: 0o600 });
+  const existing = readExtendedConfig();
+  writeFileSync(
+    CONFIG_FILE,
+    JSON.stringify({ ...existing, ...config }, null, 2) + "\n",
+    { mode: 0o600 }
+  );
+}
+
+export function writeExtendedConfig(patch: Partial<ExtendedConfig>): void {
+  ensureDir();
+  const next = { ...readExtendedConfig(), ...patch };
+  for (const key of Object.keys(next) as (keyof ExtendedConfig)[]) {
+    if (next[key] === undefined) delete next[key];
+  }
+  writeFileSync(CONFIG_FILE, JSON.stringify(next, null, 2) + "\n", { mode: 0o600 });
 }
 
 export function patchConfig(patch: Partial<Config>): void {
-  writeConfig({ ...readConfig(), ...patch });
+  writeExtendedConfig(patch);
 }
 
 export function readSession(): string | null {
