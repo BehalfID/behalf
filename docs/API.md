@@ -651,7 +651,7 @@ Denied, approval-required, unsupported, or failed verification decisions do not 
 
 Resolve the managed profile mode for a local coding-agent session. Used by CLI shims (`behalf profile install`).
 
-Authentication is optional. Developer session cookies and agent API keys enrich workspace policy; unauthenticated callers receive `unmanaged`.
+Authentication is optional. Developer session cookies and agent API keys enrich workspace policy; unauthenticated callers receive `unmanaged`. Agent API keys are supported on this route but **cannot** request pause leases (see `/api/cli/pause`).
 
 Request:
 
@@ -692,7 +692,9 @@ Server dev overrides:
 
 ## POST /api/cli/pause
 
-Request a scoped pause lease. Pause is policy-approved — not a local bypass. Requires developer session or agent API key.
+Request a scoped pause lease. Pause is policy-approved — not a local bypass.
+
+**Authentication:** requires a **developer session** (`behalf login`). Agent API keys are **not** accepted on this route (403). Use `/api/cli/session-policy` if you are authenticating with an agent API key.
 
 Request:
 
@@ -716,7 +718,12 @@ Response when granted:
   "leaseId": "pause_xxx",
   "mode": "unmanaged",
   "expiresAt": "2026-07-04T17:30:00.000Z",
-  "reason": "Pause granted for current repo."
+  "reason": "Pause granted for current repo.",
+  "scope": "current_repo",
+  "tool": "claude",
+  "repo": "hashed-root",
+  "branch": "main",
+  "deviceId": "devmac_123"
 }
 ```
 
