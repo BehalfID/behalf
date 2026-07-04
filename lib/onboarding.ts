@@ -72,9 +72,9 @@ export type AccountSetupAccount = {
 };
 
 export const FIRST_SETUP_GOAL_ROUTES: Record<FirstSetupGoal, string> = {
-  create_agent: "/dashboard/onboarding",
-  setup_deploy_approvals: "/dashboard/onboarding?setup=deploy-approvals",
-  apply_permission_profile: "/dashboard/onboarding?setup=profiles",
+  create_agent: "/dashboard/agents/new",
+  setup_deploy_approvals: "/dashboard/agents/new?focus=production_deploys",
+  apply_permission_profile: "/dashboard/agents/new?focus=profiles",
   invite_team: "/dashboard/settings?panel=members",
   explore_sandbox: "/sandbox"
 };

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { OpsLogConsole } from "@/components/dashboard/OpsLogConsole";
 import { PendingActionsQueue } from "@/components/dashboard/PendingActionsQueue";
+import { FirstAgentSetup } from "@/components/dashboard/first-agent/FirstAgentSetup";
 import { OpsInboxConsole } from "@/components/dashboard/OpsInboxConsole";
 import { DashboardShellLayout } from "@/components/layout/DashboardShell";
 import { Badge, Button, ButtonLink, Card, CodeBlock, EmptyState, PageHeader, StatCard } from "@/components/ui";
@@ -361,7 +362,7 @@ export function DashboardShell({
   emailVerified = true,
   showSetupBanner = false
 }: {
-  view: "home" | "onboarding" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "inbox" | "docs" | "settings";
+  view: "home" | "onboarding" | "first-agent" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "inbox" | "docs" | "settings";
   id?: string;
   emailVerified?: boolean;
   showSetupBanner?: boolean;
@@ -382,6 +383,7 @@ export function DashboardShell({
         ) : null}
         {view === "home" ? <HomeView /> : null}
         {view === "onboarding" ? <OnboardingView /> : null}
+        {view === "first-agent" ? <FirstAgentSetupView emailVerified={emailVerified} /> : null}
         {view === "agents" ? <AgentsView /> : null}
         {view === "agent" && id ? <AgentView agentId={id} /> : null}
         {view === "sites" ? <SitesView /> : null}
@@ -411,6 +413,24 @@ function feedTime(value?: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
   return new Intl.DateTimeFormat("en", { hour: "2-digit", minute: "2-digit", hour12: false }).format(date);
+}
+
+function FirstAgentSetupView({ emailVerified }: { emailVerified: boolean }) {
+  return (
+    <Suspense fallback={<div className="setup-loading">Loading agent setup…</div>}>
+      <FirstAgentSetupViewInner emailVerified={emailVerified} />
+    </Suspense>
+  );
+}
+
+function FirstAgentSetupViewInner({ emailVerified }: { emailVerified: boolean }) {
+  const searchParams = useSearchParams();
+  const summary = useResource<{
+    accountOnboarding?: { agentTools?: AgentTool[] } | null;
+  }>("/api/dashboard/summary");
+  const suggestedSurfaces = summary.data?.accountOnboarding?.agentTools ?? [];
+  const focus = searchParams.get("focus");
+  return <FirstAgentSetup emailVerified={emailVerified} suggestedSurfaces={suggestedSurfaces} focus={focus} />;
 }
 
 function HomeView() {
@@ -450,7 +470,7 @@ function HomeView() {
 
   const nextActions = [
     !hasAgents
-      ? { title: "Register your first agent", body: "Issue a governed identity and scoped API key.", href: "/dashboard/onboarding" }
+      ? { title: "Register your first agent", body: "Issue a governed identity and scoped API key.", href: "/dashboard/agents/new" }
       : null,
     firstSetupGoal === "invite_team"
       ? { title: "Invite your team", body: "Share approval authority with leads and engineers.", href: "/dashboard/settings?panel=members" }
@@ -459,12 +479,12 @@ function HomeView() {
       ? { title: "Open the sandbox", body: "Exercise enforcement before connecting production agents.", href: "/sandbox" }
       : null,
     agentTools.includes("github_actions") && !hasAgents
-      ? { title: "Register CI agents", body: "Give GitHub Actions workflows their own identity.", href: "/dashboard/onboarding" }
+      ? { title: "Register CI agents", body: "Give GitHub Actions workflows their own identity.", href: "/dashboard/agents/new" }
       : null
   ].filter(Boolean) as Array<{ title: string; body: string; href: string }>;
 
   const headerAction = !hasAgents
-    ? { label: "Add agent", href: "/dashboard/onboarding" }
+    ? { label: "Set up first agent", href: "/dashboard/agents/new" }
     : pendingApprovals.length > 0
       ? { label: "Review approvals", href: "/dashboard/approvals" }
       : firstSetupGoal === "setup_deploy_approvals"
@@ -674,10 +694,10 @@ function AgentsView() {
   const agents = resource.data?.agents ?? [];
   return (
     <>
-      <Header title="Agents" description="Manage the AI agents BehalfID enforces permissions for." action={<ButtonLink variant="primary" href="/dashboard/onboarding">Add agent</ButtonLink>} />
+      <Header title="Agents" description="Manage the AI agents BehalfID enforces permissions for." action={<ButtonLink variant="primary" href="/dashboard/agents/new">Add agent</ButtonLink>} /> {/* pragma: allowlist secret */}
       {!agents.length && resource.data ? (
         <Card className="dashboard-panel onboarding-callout">
-          <h2>Create your first agent.</h2>
+          <h2>Create your first controlled agent.</h2>
           <p>An agent is the AI system or workflow BehalfID identifies before it tries to browse, buy, email, book, edit, or access data. API keys identify it; permissions define what it may do.</p>
           <div className="permission-template-grid permission-template-grid--nested">
             {FIRST_AGENT_EXAMPLES.map((example) => (
@@ -687,7 +707,7 @@ function AgentsView() {
               </div>
             ))}
           </div>
-          <div><ButtonLink variant="primary" href="/dashboard/onboarding">Create your first agent</ButtonLink></div>
+          <div><ButtonLink variant="primary" href="/dashboard/agents/new">Set up your first agent</ButtonLink></div>
         </Card>
       ) : null}
       {agents.length > 0 ? (
@@ -2488,8 +2508,19 @@ function WebhookView({ webhookId }: { webhookId: string }) {
   );
 }
 
+function LogsViewInner() {
+  const searchParams = useSearchParams();
+  const initialSearch = searchParams.get("search");
+  const initialAgentId = searchParams.get("agentId");
+  return <OpsLogConsole initialSearch={initialSearch ?? undefined} initialAgentId={initialAgentId ?? undefined} />;
+}
+
 function LogsView() {
-  return <OpsLogConsole />;
+  return (
+    <Suspense fallback={<OpsLogConsole compact title="Audit logs" description="Loading logs…" />}>
+      <LogsViewInner />
+    </Suspense>
+  );
 }
 
 function ApprovalsViewInner() {

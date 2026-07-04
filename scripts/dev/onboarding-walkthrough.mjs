@@ -344,7 +344,7 @@ async function runRedirectChecks(browser) {
   const goals = [
     { label: "Set up deploy approvals", expected: "deploy-approvals", email: QA_EMAILS.redirectDeploy },
     { label: "Invite team", expected: "panel=members", email: QA_EMAILS.redirectInvite },
-    { label: "Register first coding agent", expected: "/dashboard/onboarding", email: QA_EMAILS.redirectAgent }
+    { label: "Register first coding agent", expected: "/dashboard/agents/new", email: QA_EMAILS.redirectAgent }
   ];
 
   for (const goal of goals) {
