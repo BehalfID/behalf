@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { accountScopeFilter } from "@/lib/accountAccess";
 import { createDeveloperAgent, serializeAgent } from "@/lib/dashboardData";
 import { requireVerifiedDeveloperApi } from "@/lib/developerAuth";
 import {
@@ -6,6 +7,7 @@ import {
   buildTestDecision,
   mapAgentSurfaceToProvider,
   permissionBodyFromSetupPermission,
+  sanitizeVerifyMetadata,
   validateFirstAgentSetupBody
 } from "@/lib/firstAgentSetup";
 import { createPermissionForAgent } from "@/lib/permissionMutations";
@@ -15,6 +17,27 @@ import { jsonError } from "@/lib/responses";
 import { rejectUnknownFields } from "@/lib/validation";
 import { requireWorkspaceMutationActor } from "@/lib/workspaceActor";
 import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
+import Agent from "@/models/Agent";
+import Permission from "@/models/Permission";
+
+async function rollbackIncompleteFirstAgentSetup(input: {
+  accountId: string;
+  agentId: string;
+  permissionIds: string[];
+}) {
+  if (input.permissionIds.length) {
+    await Permission.deleteMany({
+      ...accountScopeFilter(input.accountId),
+      agentId: input.agentId,
+      permissionId: { $in: input.permissionIds }
+    });
+  }
+
+  await Agent.deleteOne({
+    ...accountScopeFilter(input.accountId),
+    agentId: input.agentId
+  });
+}
 
 export async function POST(request: NextRequest) {
   const auth = await requireVerifiedDeveloperApi(request);
@@ -22,6 +45,8 @@ export async function POST(request: NextRequest) {
 
   const workspace = await requireWorkspaceMutationActor(auth.user, auth.activeAccountId);
   if (workspace.error || !workspace.actor) return workspace.error;
+
+  const accountId = workspace.actor.accountId;
 
   const { body, error } = await readJsonObject(request);
   if (error) return error;
@@ -65,9 +90,18 @@ export async function POST(request: NextRequest) {
       agentId: result.agent.agentId,
       body: permissionBodyFromSetupPermission(permission)
     });
+
     if ("error" in created && created.error) {
-      return created.error;
+      await rollbackIncompleteFirstAgentSetup({
+        accountId,
+        agentId: result.agent.agentId,
+        permissionIds
+      });
+      return jsonError("First agent setup failed while applying permissions.", 500, {
+        code: "setup_failed"
+      });
     }
+
     if ("permissionId" in created && created.permissionId) {
       permissionIds.push(created.permissionId);
     }
@@ -87,8 +121,8 @@ export async function POST(request: NextRequest) {
 
   const testDecision = buildTestDecision({
     approvalGates: input.approvalGates,
-    environment: input.environment,
-    agentName: input.name
+    agentName: input.name,
+    defaultEnvironment: input.environment
   });
 
   return NextResponse.json(
@@ -101,7 +135,7 @@ export async function POST(request: NextRequest) {
         resource: testDecision.resource,
         vendor: testDecision.vendor,
         environment: testDecision.environment,
-        metadata: testDecision.metadata,
+        metadata: sanitizeVerifyMetadata(testDecision.metadata),
         expectsApproval: testDecision.expectsApproval,
         expectsDenied: testDecision.expectsDenied
       }

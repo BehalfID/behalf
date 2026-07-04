@@ -5,6 +5,7 @@ import {
   defaultApprovalGatesForSurface,
   mergeSuggestedGates,
   recommendControlProfile,
+  sanitizeVerifyMetadata,
   type AgentEnvironment,
   type AgentSurface,
   type ApprovalGate,
@@ -168,7 +169,7 @@ export function FirstAgentSetup({
           action: testConfig.action,
           resource: testConfig.resource,
           vendor: testConfig.vendor,
-          metadata: testConfig.metadata
+          metadata: sanitizeVerifyMetadata(testConfig.metadata)
         })
       });
       setTestResult({
@@ -296,6 +297,7 @@ export function FirstAgentSetup({
         <TestDecisionStep
           action={testConfig.action}
           resource={testConfig.resource}
+          environment={testConfig.environment}
           running={runningTest}
           result={testResult}
           onRun={() => void runTestDecision()}

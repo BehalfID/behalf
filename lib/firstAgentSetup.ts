@@ -256,17 +256,15 @@ function applyProfileToGatePermission(
   gate: ApprovalGate,
   profile: ControlProfile
 ): FirstAgentPermissionInput {
-  const base = { ...GATE_PERMISSIONS[gate], allowedActions: [...GATE_PERMISSIONS[gate].allowedActions], blockedActions: [...GATE_PERMISSIONS[gate].blockedActions] };
+  const base = {
+    ...GATE_PERMISSIONS[gate],
+    allowedActions: [...GATE_PERMISSIONS[gate].allowedActions],
+    blockedActions: [...GATE_PERMISSIONS[gate].blockedActions],
+    requiresApproval: true
+  };
 
   if (profile === "production_strict") {
     base.blockedActions = [...base.blockedActions, "bypass approval workflow", "force deploy"];
-    base.requiresApproval = true;
-  } else if (profile === "conservative") {
-    base.requiresApproval = true;
-  } else if (profile === "balanced") {
-    base.requiresApproval = gate === "production_deploys" || gate === "billing_payment_actions" || gate === "database_schema_changes";
-  } else if (profile === "custom") {
-    base.requiresApproval = true;
   }
 
   return base;
@@ -286,24 +284,27 @@ export function buildPermissionsFromSetup(input: FirstAgentSetupInput): FirstAge
 
 export function buildTestDecision(input: {
   approvalGates: ApprovalGate[];
-  environment?: AgentEnvironment;
   agentName: string;
+  defaultEnvironment?: AgentEnvironment;
 }) {
-  const resource = input.environment ?? "production";
   const action = "deploy_production";
+  const resource = "production";
+  const vendor = "production";
+  const environment = "production";
   const expectsApproval = input.approvalGates.includes("production_deploys");
   const expectsDenied = !expectsApproval;
 
   return {
     action,
     resource,
-    vendor: resource,
-    environment: resource,
-    metadata: {
+    vendor,
+    environment,
+    metadata: sanitizeVerifyMetadata({
       source: "first_agent_setup",
       agentName: input.agentName,
+      defaultEnvironment: input.defaultEnvironment,
       test: true
-    },
+    }),
     expectsApproval,
     expectsDenied,
     expectsAllowed: false

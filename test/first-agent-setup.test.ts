@@ -26,8 +26,8 @@ describe("first agent setup helpers", () => {
       approvalGates: ["production_deploys", "secret_env_changes"]
     });
     expect(balanced.some((permission) => permission.action === "deploy")).toBe(true);
-    const productionGate = balanced.find((permission) => permission.action === "deploy_production");
-    expect(productionGate?.requiresApproval).toBe(true);
+    expect(balanced.find((permission) => permission.action === "deploy_production")?.requiresApproval).toBe(true);
+    expect(balanced.find((permission) => permission.action === "secrets_write")?.requiresApproval).toBe(true);
 
     const custom = buildPermissionsFromSetup({
       surface: "internal",
@@ -41,21 +41,55 @@ describe("first agent setup helpers", () => {
     expect(custom[0]?.requiresApproval).toBe(true);
   });
 
-  it("builds test decision expectations from selected gates", () => {
+  it("requires approval for every selected gate regardless of profile", () => {
+    const gates = [
+      "production_deploys",
+      "secret_env_changes",
+      "infrastructure_mutations",
+      "database_schema_changes",
+      "billing_payment_actions",
+      "external_network_actions"
+    ] as const;
+
+    for (const profile of ["conservative", "balanced", "production_strict", "custom"] as const) {
+      const permissions = buildPermissionsFromSetup({
+        surface: "cursor",
+        name: "Cursor agent",
+        environment: "production",
+        controlProfile: profile,
+        approvalGates: [...gates]
+      });
+
+      for (const gate of gates) {
+        const gatePermission = permissions.find((permission) => permission.gate === gate);
+        expect(gatePermission?.requiresApproval, `${gate} under ${profile}`).toBe(true);
+      }
+    }
+  });
+
+  it("builds production-focused test decisions regardless of default environment", () => {
     const withGate = buildTestDecision({
       approvalGates: ["production_deploys"],
-      environment: "production",
+      defaultEnvironment: "staging",
       agentName: "Deploy agent"
     });
     expect(withGate.action).toBe("deploy_production");
+    expect(withGate.resource).toBe("production");
+    expect(withGate.vendor).toBe("production");
+    expect(withGate.environment).toBe("production");
+    expect(withGate.metadata?.defaultEnvironment).toBe("staging");
     expect(withGate.expectsApproval).toBe(true);
     expect(withGate.expectsDenied).toBe(false);
 
     const withoutGate = buildTestDecision({
       approvalGates: ["secret_env_changes"],
-      environment: "production",
+      defaultEnvironment: "development",
       agentName: "Deploy agent"
     });
+    expect(withoutGate.resource).toBe("production");
+    expect(withoutGate.vendor).toBe("production");
+    expect(withoutGate.environment).toBe("production");
+    expect(withoutGate.metadata?.defaultEnvironment).toBe("development");
     expect(withoutGate.expectsApproval).toBe(false);
     expect(withoutGate.expectsDenied).toBe(true);
   });
@@ -96,7 +130,7 @@ describe("first agent setup helpers", () => {
     expect(invalidProfile.error).toMatch(/controlProfile/i);
   });
 
-  it("strips token-like keys from verify metadata", () => {
+  it("strips token-like keys from first-agent verify metadata", () => {
     expect(
       sanitizeVerifyMetadata({
         source: "first_agent_setup",
@@ -104,6 +138,13 @@ describe("first agent setup helpers", () => {
         BEHALF_API_KEY: "bhf_sk_secret"
       })
     ).toEqual({ source: "first_agent_setup" });
+
+    const decision = buildTestDecision({
+      approvalGates: ["production_deploys"],
+      agentName: "Deploy agent"
+    });
+    expect(decision.metadata).not.toHaveProperty("apiKey");
+    expect(decision.metadata).not.toHaveProperty("BEHALF_API_KEY");
   });
 
   it("routes create_agent onboarding goal to first-agent setup", () => {
@@ -117,7 +158,9 @@ const mocks = vi.hoisted(() => ({
   checkAgentLimit: vi.fn(),
   createDeveloperAgent: vi.fn(),
   createPermissionForAgent: vi.fn(),
-  emitWebhookEvent: vi.fn()
+  emitWebhookEvent: vi.fn(),
+  permissionDeleteMany: vi.fn(),
+  agentDeleteOne: vi.fn()
 }));
 
 vi.mock("@/lib/developerAuth", () => ({
@@ -142,6 +185,12 @@ vi.mock("@/lib/webhooks", () => ({
   emitWebhookEvent: mocks.emitWebhookEvent
 }));
 vi.mock("@/lib/db", () => ({ connectToDatabase: vi.fn(async () => undefined) }));
+vi.mock("@/models/Permission", () => ({
+  default: { deleteMany: mocks.permissionDeleteMany }
+}));
+vi.mock("@/models/Agent", () => ({
+  default: { deleteOne: mocks.agentDeleteOne }
+}));
 
 function postRequest(body: unknown) {
   return new Request("http://example.test/api/dashboard/agents/first-setup", {
@@ -172,6 +221,8 @@ describe("POST /api/dashboard/agents/first-setup", () => {
       apiKey: "bhf_sk_test_key_once"
     });
     mocks.createPermissionForAgent.mockResolvedValue({ permissionId: "perm_test" });
+    mocks.permissionDeleteMany.mockResolvedValue({});
+    mocks.agentDeleteOne.mockResolvedValue({});
   });
 
   it("blocks unverified users from creating agents", async () => {
@@ -225,8 +276,41 @@ describe("POST /api/dashboard/agents/first-setup", () => {
     expect(json.apiKey).toBe("bhf_sk_test_key_once");
     expect(json.agent.agentId).toBe("agent_test");
     expect(json.testDecision.action).toBe("deploy_production");
+    expect(json.testDecision.resource).toBe("production");
+    expect(json.testDecision.environment).toBe("production");
     expect(json.testDecision.metadata).not.toHaveProperty("apiKey");
     expect(mocks.createDeveloperAgent).toHaveBeenCalledOnce();
+    expect(mocks.createPermissionForAgent.mock.calls.length).toBeGreaterThan(0);
+  });
+
+  it("rolls back agent creation when permission setup fails", async () => {
+    mocks.createPermissionForAgent
+      .mockResolvedValueOnce({ permissionId: "perm_one" })
+      .mockResolvedValueOnce({ error: Response.json({ error: "Permission grant forbidden." }, { status: 403 }) });
+
+    const { POST } = await import("@/app/api/dashboard/agents/first-setup/route");
+    const response = await POST(
+      postRequest({
+        surface: "cursor",
+        name: "Cursor agent",
+        controlProfile: "balanced",
+        approvalGates: ["production_deploys", "secret_env_changes"]
+      })
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(json.code).toBe("setup_failed");
+    expect(json).not.toHaveProperty("apiKey");
+    expect(json).not.toHaveProperty("agent");
+    expect(mocks.permissionDeleteMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agentId: "agent_test",
+        permissionId: { $in: ["perm_one"] }
+      })
+    );
+    expect(mocks.agentDeleteOne).toHaveBeenCalledWith(expect.objectContaining({ agentId: "agent_test" }));
+    expect(mocks.emitWebhookEvent).not.toHaveBeenCalled();
   });
 
   it("does not echo api key into webhook metadata", async () => {

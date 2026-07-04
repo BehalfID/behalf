@@ -17,6 +17,7 @@ export type TestDecisionResult = {
 export function TestDecisionStep({
   action,
   resource,
+  environment,
   running,
   result,
   onRun,
@@ -24,6 +25,7 @@ export function TestDecisionStep({
 }: {
   action: string;
   resource: string;
+  environment: string;
   running: boolean;
   result: TestDecisionResult | null;
   onRun: () => void;
@@ -47,7 +49,7 @@ export function TestDecisionStep({
             </div>
             <div className="setup-review__row">
               <dt>Environment</dt>
-              <dd><code>{resource}</code></dd>
+              <dd><code>{environment}</code></dd>
             </div>
           </dl>
         </div>
