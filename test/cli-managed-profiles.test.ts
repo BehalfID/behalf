@@ -2,6 +2,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { policyCacheKey } from "../packages/cli/src/lib/profile/shims.js";
 
 function tempHome() {
   return mkdtempSync(join(tmpdir(), "behalf-profile-"));
@@ -13,6 +14,12 @@ async function loadProfileModules(home: string) {
   return import("../packages/cli/src/commands/profile.js");
 }
 
+async function loadPolicyModule(home: string) {
+  vi.resetModules();
+  vi.stubEnv("HOME", home);
+  return import("../packages/cli/src/lib/profile/policy.js");
+}
+
 function seedFakeBinary(home: string, tool: string): string {
   const binDir = join(home, "real-bin");
   mkdirSync(binDir, { recursive: true });
@@ -22,6 +29,23 @@ function seedFakeBinary(home: string, tool: string): string {
   const currentPath = process.env.PATH ?? "";
   vi.stubEnv("PATH", `${binDir}${delimiter}${currentPath}`);
   return binPath;
+}
+
+function writeFakePauseLease(home: string) {
+  const dir = join(home, ".behalf");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, "pause-lease.json"),
+    JSON.stringify({
+      granted: true,
+      leaseId: "pause_local_fake",
+      mode: "unmanaged",
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      reason: "local bypass attempt",
+      scope: "all",
+    }) + "\n",
+    { mode: 0o600 }
+  );
 }
 
 beforeEach(() => {
@@ -110,5 +134,73 @@ describe("parseDuration errors", () => {
   it("rejects invalid duration", async () => {
     const mod = await loadProfileModules(tempHome());
     expect(() => mod.parseDuration("abc")).toThrow(/Duration/);
+  });
+});
+
+describe("session policy hardening", () => {
+  it("does not let a local pause lease file bypass required server policy", async () => {
+    const home = tempHome();
+    writeFakePauseLease(home);
+    vi.stubEnv("HOME", home);
+    vi.stubEnv("BEHALF" + "ID_BASE_URL", "https://example.test");
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            mode: "required",
+            profileId: "pprf_test",
+            profileName: "Required",
+            sessionId: "sess_server",
+            workspaceId: "acct_test",
+            reason: "Workspace requires enforcement.",
+            expiresAt: null,
+            cacheTtlSeconds: 300,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        )
+      )
+    );
+
+    const policy = await loadPolicyModule(home);
+    const result = await policy.resolveSessionPolicy({ tool: "claude" });
+    expect(result.mode).toBe("required");
+    expect(fetch).toHaveBeenCalled();
+  });
+
+  it("does not downgrade cached required policy when server is unavailable", async () => {
+    const home = tempHome();
+    writeFakePauseLease(home);
+    vi.stubEnv("HOME", home);
+    vi.stubEnv("BEHALF" + "ID_BASE_URL", "https://example.test");
+
+    const policyMod = await loadPolicyModule(home);
+    const cacheKey = policyCacheKey("claude", null, null);
+    policyMod.writeCachedPolicy(cacheKey, {
+      mode: "required",
+      profileId: "pprf_cached",
+      profileName: "Cached required",
+      sessionId: "sess_cached",
+      workspaceId: "acct_test",
+      reason: "Cached required policy.",
+      expiresAt: null,
+      cacheTtlSeconds: 300,
+    });
+
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("error", { status: 503 })));
+
+    await expect(policyMod.resolveSessionPolicy({ tool: "claude", cwd: home })).rejects.toThrow(
+      /server is unavailable/i
+    );
+  });
+
+  it("keeps local pause lease as a mirror only", async () => {
+    const home = tempHome();
+    writeFakePauseLease(home);
+    const policyMod = await loadPolicyModule(home);
+    const lease = policyMod.readLocalPauseLease();
+    expect(lease?.leaseId).toBe("pause_local_fake");
+    expect(lease?.scope).toBe("all");
   });
 });

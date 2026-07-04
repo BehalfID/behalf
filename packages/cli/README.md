@@ -87,7 +87,7 @@ Removes only managed profile shims. With `--purge`, also clears shim metadata fr
 | `~/.behalf/bin/` | Shim binaries |
 | `~/.behalf/shims.json` | Installed shim metadata |
 | `~/.behalf/policy-cache.json` | Cached session policy responses |
-| `~/.behalf/pause-lease.json` | Active local pause lease mirror |
+| `~/.behalf/pause-lease.json` | Local mirror of the last granted pause lease (display only — not authoritative for policy) |
 
 API keys and session cookies remain in `config.json` / `session` with mode `0600`.
 

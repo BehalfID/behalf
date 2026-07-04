@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   requireCliAuth: vi.fn(),
+  requireDeveloperSessionForPause: vi.fn(),
   resolveCliSessionPolicy: vi.fn(),
   recordCliAuditEvent: vi.fn(),
   requestCliPauseLease: vi.fn(),
@@ -20,13 +21,7 @@ vi.mock("@/models/CliPauseLease", () => ({
 
 vi.mock("@/lib/cliAuth", () => ({
   requireCliAuth: mocks.requireCliAuth,
-  requireCliAuthStrict: vi.fn(async (request: Request) => {
-    const result = await mocks.requireCliAuth(request);
-    if (result.auth?.source === "anonymous") {
-      return { auth: null, error: new Response(JSON.stringify({ error: "auth" }), { status: 401 }) };
-    }
-    return result;
-  }),
+  requireDeveloperSessionForPause: mocks.requireDeveloperSessionForPause,
 }));
 
 vi.mock("@/lib/cliSessionPolicy", async (importOriginal) => {
@@ -103,24 +98,50 @@ describe("POST /api/cli/session-policy", () => {
     );
     expect(res.status).toBe(400);
   });
+
+  it("allows agent API key auth", async () => {
+    mocks.requireCliAuth.mockResolvedValue({
+      auth: { userId: null, accountId: "acct_a", agentId: "agent_a", source: "agent" },
+      error: null,
+    });
+    mocks.resolveCliSessionPolicy.mockResolvedValue({
+      mode: "managed",
+      profileId: "pprf_managed",
+      profileName: "Managed",
+      sessionId: "sess_agent",
+      workspaceId: "acct_a",
+      reason: "Agent session.",
+      expiresAt: null,
+      cacheTtlSeconds: 300,
+    });
+
+    const { POST } = await import("@/app/api/cli/session-policy/route");
+    const res = await POST(request("/api/cli/session-policy", { tool: "claude" }));
+    expect(res.status).toBe(200);
+  });
 });
 
 describe("POST /api/cli/pause", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.requireCliAuth.mockResolvedValue({
+    mocks.requireDeveloperSessionForPause.mockResolvedValue({
       auth: { userId: "user_a", accountId: "acct_a", agentId: null, source: "session" },
       error: null,
     });
   });
 
-  it("grants pause lease", async () => {
+  it("grants pause lease for developer session", async () => {
     mocks.requestCliPauseLease.mockResolvedValue({
       granted: true,
       leaseId: "pause_test",
       mode: "unmanaged",
       expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
       reason: "Pause granted for current repo.",
+      scope: "current_repo",
+      tool: "claude",
+      repo: "abc123",
+      branch: "main",
+      deviceId: "devmac_test",
     });
 
     const { POST } = await import("@/app/api/cli/pause/route");
@@ -135,6 +156,37 @@ describe("POST /api/cli/pause", () => {
     const body = await res.json();
     expect(body.granted).toBe(true);
     expect(body.leaseId).toBe("pause_test");
+    expect(body.scope).toBe("current_repo");
+  });
+
+  it("returns 401 for anonymous pause requests", async () => {
+    mocks.requireDeveloperSessionForPause.mockResolvedValue({
+      auth: null,
+      error: new Response(JSON.stringify({ error: "Developer authentication required." }), {
+        status: 401,
+      }),
+    });
+
+    const { POST } = await import("@/app/api/cli/pause/route");
+    const res = await POST(
+      request("/api/cli/pause", { durationMinutes: 30, reason: "personal project" })
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 403 for agent API key pause requests", async () => {
+    mocks.requireDeveloperSessionForPause.mockResolvedValue({
+      auth: null,
+      error: new Response(JSON.stringify({ error: "Pause leases require a developer session." }), {
+        status: 403,
+      }),
+    });
+
+    const { POST } = await import("@/app/api/cli/pause/route");
+    const res = await POST(
+      request("/api/cli/pause", { durationMinutes: 30, reason: "personal project" })
+    );
+    expect(res.status).toBe(403);
   });
 
   it("requires reason", async () => {
@@ -174,6 +226,40 @@ describe("POST /api/cli/pause", () => {
   });
 });
 
+describe("pause lease scope matching", () => {
+  const auth = { userId: "user_a", accountId: "acct_a", agentId: null, source: "session" as const };
+
+  it("does not apply current_repo pause from repo A to repo B", async () => {
+    const { matchActivePauseLease } = await import("@/lib/cliSessionPolicy");
+    const matched = await matchActivePauseLease(
+      auth,
+      { tool: "claude", repoRoot: "repo_b_hash" },
+      [{ scope: "current_repo", repo: "repo_a_hash", reason: "repo A only" }]
+    );
+    expect(matched).toBeNull();
+  });
+
+  it("applies all-scope pause across repos", async () => {
+    const { matchActivePauseLease } = await import("@/lib/cliSessionPolicy");
+    const matched = await matchActivePauseLease(
+      auth,
+      { tool: "claude", repoRoot: "repo_b_hash" },
+      [{ scope: "all", repo: null, reason: "all repos" }]
+    );
+    expect(matched?.reason).toBe("all repos");
+  });
+
+  it("applies current_repo pause only when repo hash matches", async () => {
+    const { matchActivePauseLease } = await import("@/lib/cliSessionPolicy");
+    const matched = await matchActivePauseLease(
+      auth,
+      { tool: "claude", repoRoot: "repo_a_hash" },
+      [{ scope: "current_repo", repo: "repo_a_hash", reason: "repo A" }]
+    );
+    expect(matched?.reason).toBe("repo A");
+  });
+});
+
 describe("resolveCliSessionPolicy", () => {
   beforeEach(() => {
     mocks.pauseFind.mockReturnValue({
@@ -193,10 +279,11 @@ describe("resolveCliSessionPolicy", () => {
   });
 
   it("defaults to unmanaged without account", async () => {
-    vi.resetModules();
     vi.unstubAllEnvs();
-    const { resolveCliSessionPolicy } = await import("@/lib/cliSessionPolicy");
-    const result = await resolveCliSessionPolicy(
+    const actual = await vi.importActual<typeof import("@/lib/cliSessionPolicy")>(
+      "@/lib/cliSessionPolicy"
+    );
+    const result = await actual.resolveCliSessionPolicy(
       { userId: null, accountId: null, agentId: null, source: "anonymous" },
       { tool: "codex" }
     );

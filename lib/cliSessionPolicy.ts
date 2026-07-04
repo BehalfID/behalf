@@ -60,12 +60,34 @@ async function findActivePauseLease(auth: CliAuthContext, input: CliSessionPolic
   else if (input.deviceId) query.deviceId = input.deviceId;
   else return null;
 
-  const leases = await CliPauseLease.find(query).sort({ expiresAt: -1 }).limit(5).lean();
+  const leases = await CliPauseLease.find(query).sort({ expiresAt: -1 }).limit(20).lean();
   for (const lease of leases) {
     if (lease.scope === "all") return lease;
-    if (lease.repo && input.repoRoot && lease.repo === input.repoRoot) return lease;
+    if (lease.scope === "current_repo" && lease.repo && input.repoRoot && lease.repo === input.repoRoot) {
+      return lease;
+    }
   }
-  return leases[0] ?? null;
+  return null;
+}
+
+/** Exported for unit tests. */
+export async function matchActivePauseLease(
+  auth: CliAuthContext,
+  input: CliSessionPolicyInput,
+  leases: Array<{
+    scope?: string | null;
+    repo?: string | null;
+    reason?: string | null;
+    expiresAt?: Date | null;
+  }>
+) {
+  for (const lease of leases) {
+    if (lease.scope === "all") return lease;
+    if (lease.scope === "current_repo" && lease.repo && input.repoRoot && lease.repo === input.repoRoot) {
+      return lease;
+    }
+  }
+  return null;
 }
 
 export function validateSessionPolicyInput(input: CliSessionPolicyInput): string | null {
@@ -257,6 +279,11 @@ export type CliPauseResult = {
   mode: CliSessionPolicyMode;
   expiresAt?: string;
   reason: string;
+  scope?: "current_repo" | "all";
+  tool?: string | null;
+  repo?: string | null;
+  branch?: string | null;
+  deviceId?: string | null;
 };
 
 export const MAX_PAUSE_MINUTES = 240;
@@ -355,6 +382,11 @@ export async function requestCliPauseLease(
     mode: "unmanaged",
     expiresAt: expiresAt.toISOString(),
     reason: grantedReason,
+    scope: input.scope ?? "current_repo",
+    tool: input.tool ?? null,
+    repo: input.repo ?? null,
+    branch: input.branch ?? null,
+    deviceId: input.deviceId ?? null,
   };
 }
 

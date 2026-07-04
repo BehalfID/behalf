@@ -66,3 +66,20 @@ export async function requireCliAuthStrict(request: NextRequest) {
   }
   return result;
 }
+
+export async function requireDeveloperSessionForPause(request: NextRequest) {
+  const result = await requireCliAuth(request);
+  if (result.auth?.source === "anonymous") {
+    return {
+      auth: null,
+      error: jsonError("Developer authentication required.", 401),
+    };
+  }
+  if (result.auth?.source === "agent" || !result.auth?.userId) {
+    return {
+      auth: null,
+      error: jsonError("Pause leases require a developer session.", 403),
+    };
+  }
+  return result;
+}

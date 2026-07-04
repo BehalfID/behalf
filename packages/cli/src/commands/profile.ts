@@ -256,9 +256,14 @@ function profileStatusCommand() {
 
         if (status.pauseLease) {
           console.log();
-          console.log("Pause lease");
+          console.log("Pause lease (local mirror)");
           printKv({
             id: status.pauseLease.leaseId,
+            scope: status.pauseLease.scope ?? "(unknown)",
+            tool: status.pauseLease.tool ?? "(any)",
+            repo: status.pauseLease.repo ?? "(none)",
+            branch: status.pauseLease.branch ?? "(none)",
+            device: status.pauseLease.deviceId ?? "(none)",
             expires: status.pauseLease.expiresAt,
             reason: status.pauseLease.reason,
           });

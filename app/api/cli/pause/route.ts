@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { requireCliAuthStrict } from "@/lib/cliAuth";
+import { requireDeveloperSessionForPause } from "@/lib/cliAuth";
 import { requestCliPauseLease } from "@/lib/cliSessionPolicy";
 import { readJsonObject } from "@/lib/request";
 import { jsonError, noCacheJson } from "@/lib/responses";
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
   const limit = await checkRateLimit(request);
   if (limit.limited) return rateLimitError();
 
-  const authResult = await requireCliAuthStrict(request);
+  const authResult = await requireDeveloperSessionForPause(request);
   if (authResult.error || !authResult.auth) return authResult.error;
 
   const { body, error } = await readJsonObject(request);

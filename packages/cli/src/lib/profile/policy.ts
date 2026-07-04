@@ -35,6 +35,11 @@ export type PauseLease = {
   expiresAt: string;
   reason: string;
   granted: boolean;
+  scope?: "current_repo" | "all";
+  tool?: string | null;
+  repo?: string | null;
+  branch?: string | null;
+  deviceId?: string | null;
 };
 
 type PolicyCacheEntry = SessionPolicy & { cachedAt: string; cacheKey: string };
@@ -83,6 +88,7 @@ export function writeCachedPolicy(cacheKey: string, policy: SessionPolicy): void
   writeExtendedConfig({ lastPolicyCacheKey: cacheKey });
 }
 
+/** Read the local pause lease mirror for display only — never used for policy authority. */
 export function readLocalPauseLease(): PauseLease | null {
   const path = getPauseLeasePath();
   if (!existsSync(path)) return null;
@@ -129,25 +135,6 @@ export async function resolveSessionPolicy(input: ResolvePolicyInput): Promise<S
   const repo = detectRepoContext(cwd);
   const cacheKey = policyCacheKey(input.tool, repo.repoRoot, repo.branch);
 
-  if (!input.skipCache) {
-    const cached = readCachedPolicy(cacheKey);
-    if (cached) return cached;
-  }
-
-  const localPause = readLocalPauseLease();
-  if (localPause) {
-    return {
-      mode: "unmanaged",
-      profileId: null,
-      profileName: null,
-      sessionId: createLocalSessionId(),
-      workspaceId: readExtendedConfig().workspaceId ?? null,
-      reason: `Active pause lease: ${localPause.reason}`,
-      expiresAt: localPause.expiresAt,
-      cacheTtlSeconds: 60,
-    };
-  }
-
   const baseUrl = resolveBaseUrl();
   const deviceId = getOrCreateDeviceId();
   const ext = readExtendedConfig();
@@ -175,12 +162,14 @@ export async function resolveSessionPolicy(input: ResolvePolicyInput): Promise<S
     return policy;
   } catch (err) {
     const cached = readCachedPolicy(cacheKey);
-    if (cached?.mode === "required") {
-      throw new Error(
-        `Managed policy requires a session but the server is unavailable. ${err instanceof Error ? err.message : "Connection failed."}`
-      );
+    if (cached) {
+      if (cached.mode === "required") {
+        throw new Error(
+          `Managed policy requires a session but the server is unavailable. ${err instanceof Error ? err.message : "Connection failed."}`
+        );
+      }
+      return cached;
     }
-    if (cached) return cached;
 
     return {
       mode: "unmanaged",
