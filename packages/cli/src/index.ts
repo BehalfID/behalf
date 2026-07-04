@@ -22,6 +22,12 @@ import { webhooksCommand } from "./commands/webhooks.js";
 import { doctorCommand } from "./commands/doctor.js";
 import { scanCommand } from "./commands/scan.js";
 import { hookCommand } from "./commands/hook.js";
+import {
+  profileCommand,
+  shimLaunchCommand,
+  pauseCommand,
+  resumeCommand,
+} from "./commands/profile.js";
 
 const rawArgs = process.argv.slice(2);
 const jsonMode = rawArgs.includes("--json");
@@ -64,6 +70,9 @@ Examples:
   behalfid logs tail                              stream verification logs live
   behalfid webhooks listen                        stream webhook events live
   behalfid doctor                                 check CLI configuration
+  behalfid profile install                        install managed shims for claude/codex/cursor  // pragma: allowlist secret
+  behalfid profile status                         show shim and policy status  // pragma: allowlist secret
+  behalfid pause --duration 30m --reason "..."    request a policy-approved pause lease  // pragma: allowlist secret
   behalfid mcp init                               set up BehalfID enforcement in this directory
   behalfid scan                                   inspect repo and suggest BehalfID policies
   behalfid scan --json                            machine-readable policy suggestions
@@ -90,6 +99,10 @@ program.addCommand(cursorCommand());
 program.addCommand(internalRefreshPermissionsCommand(), { hidden: true });
 program.addCommand(webhooksCommand());
 program.addCommand(doctorCommand());
+program.addCommand(profileCommand());
+program.addCommand(shimLaunchCommand(), { hidden: true });
+program.addCommand(pauseCommand());
+program.addCommand(resumeCommand());
 program.addCommand(scanCommand());
 program.addCommand(hookCommand());
 

@@ -14,6 +14,8 @@ type Check = {
   fix?: string;
 };
 
+export type DoctorCheck = Check;
+
 function icon(status: Check["status"]) {
   return status === "ok" ? "✓" : status === "warn" ? "!" : "✗";
 }

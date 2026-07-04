@@ -13,6 +13,7 @@ import DeveloperUser, { type DeveloperUserDocument } from "@/models/DeveloperUse
 
 const scryptAsync = promisify(crypto.scrypt);
 const COOKIE_NAME = "behalfid_developer";
+export { COOKIE_NAME as DEVELOPER_SESSION_COOKIE_NAME };
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 14;
 const MUTATION_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
