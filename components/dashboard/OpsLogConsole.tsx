@@ -147,16 +147,20 @@ export function OpsLogConsole({
   title = "Audit logs",
   description = "Operational verification events for this workspace.",
   compact = false,
-  initialLimit = 100
+  initialLimit = 100,
+  initialSearch,
+  initialAgentId
 }: {
   title?: string;
   description?: string;
   compact?: boolean;
   initialLimit?: number;
+  initialSearch?: string;
+  initialAgentId?: string;
 }) {
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch ?? "");
   const [decision, setDecision] = useState("");
-  const [agentId, setAgentId] = useState("");
+  const [agentId, setAgentId] = useState(initialAgentId ?? "");
   const [action, setAction] = useState("");
   const [environment, setEnvironment] = useState("");
   const [risk, setRisk] = useState("");
@@ -197,6 +201,13 @@ export function OpsLogConsole({
   }, [reload]);
 
   const logs = data?.logs ?? [];
+
+  useEffect(() => {
+    if (!initialSearch || !logs.length) return;
+    const match = logs.find((log) => log.requestId === initialSearch);
+    if (match) setSelected(match);
+  }, [initialSearch, logs]);
+
   const exportHref = `${path}${path.includes("?") ? "&" : "?"}format=csv`;
   const hasFilters = Boolean(search || decision || agentId || action || environment || risk || range);
 

@@ -4051,6 +4051,53 @@ html[data-theme="light"] .cx-chip--ok   { color: #0b7a55; }
   }
 }
 
+/* ── First agent setup ─────────────────────────────────── */
+
+.first-agent-setup .setup-actions--floating {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 24px 24px;
+}
+
+.first-agent-token-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.first-agent-token-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.first-agent-token-panel__warning {
+  margin: 0;
+  color: var(--warn);
+}
+
+.first-agent-integration {
+  display: grid;
+  gap: 16px;
+}
+
+.first-agent-receipt {
+  margin-top: 20px;
+}
+
+.setup-choices--single {
+  grid-template-columns: 1fr;
+}
+
+.setup-choices--triple {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 720px) {
+  .setup-choices--triple {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ── Dashboard command center (home) ───────────────────── */
 
 .dashboard-shell .app-main {

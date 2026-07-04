@@ -61,6 +61,12 @@ describe("unverified user access restrictions", () => {
     expect(res.status).toBe(403);
   });
 
+  it("blocks POST /api/dashboard/agents/first-setup for unverified user", async () => {
+    const { POST } = await import("@/app/api/dashboard/agents/first-setup/route");
+    const res = await POST(postRequest("http://example.test/api/dashboard/agents/first-setup")); // pragma: allowlist secret
+    expect(res.status).toBe(403);
+  });
+
   it("blocks POST /api/dashboard/tokens for unverified user", async () => {
     const { POST } = await import("@/app/api/dashboard/tokens/route");
     const res = await POST(postRequest("http://localhost:3000/api/dashboard/tokens"));

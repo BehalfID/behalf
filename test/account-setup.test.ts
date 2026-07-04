@@ -9,9 +9,9 @@ import {
 
 describe("onboarding helpers", () => {
   it("maps firstSetupGoal to next routes", () => {
-    expect(getNextRouteForFirstSetupGoal("create_agent")).toBe("/dashboard/onboarding");
+    expect(getNextRouteForFirstSetupGoal("create_agent")).toBe("/dashboard/agents/new");
     expect(getNextRouteForFirstSetupGoal("setup_deploy_approvals")).toBe(
-      "/dashboard/onboarding?setup=deploy-approvals"
+      "/dashboard/agents/new?focus=production_deploys"
     );
     expect(getNextRouteForFirstSetupGoal("invite_team")).toBe("/dashboard/settings?panel=members");
     expect(getNextRouteForFirstSetupGoal("explore_sandbox")).toBe("/sandbox");
@@ -289,7 +289,7 @@ describe("account setup API", () => {
     );
     const json = await response.json();
     expect(response.status).toBe(200);
-    expect(json.nextRoute).toBe("/dashboard/onboarding");
+    expect(json.nextRoute).toBe("/dashboard/agents/new");
     expect(mocks.DeveloperUser.updateOne).toHaveBeenCalledWith(
       { userId: "dev_test" },
       expect.objectContaining({
