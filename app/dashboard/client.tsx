@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { OpsLogConsole } from "@/components/dashboard/OpsLogConsole";
 import { PendingActionsQueue } from "@/components/dashboard/PendingActionsQueue";
-import { formatOpsTime } from "@/components/dashboard/opsLogTypes";
+import { OpsInboxConsole } from "@/components/dashboard/OpsInboxConsole";
 import { DashboardShellLayout } from "@/components/layout/DashboardShell";
 import { Badge, Button, ButtonLink, Card, CodeBlock, EmptyState, PageHeader, StatCard } from "@/components/ui";
 import { SCOPE_TEMPLATES } from "@/lib/scopeTemplates";
@@ -2558,143 +2558,14 @@ function InboxView() {
     }
   };
 
-  const pending = (inbox.data?.pendingApprovals ?? []).filter((item) => item.status === "pending");
-  const activeGrants = (inbox.data?.pendingApprovals ?? []).filter((item) => item.status === "approved");
-  const denied = inbox.data?.deniedHighRisk ?? [];
-  const pendingCount = pending.length;
-
   return (
-    <>
-      <Header
-        title="Needs attention"
-        description="Pending approvals and recent high-risk denials that may need review."
-        action={<Button onClick={inbox.reload} type="button">Refresh</Button>}
-      />
-      {resolveError ? <p className="form-error">{resolveError}</p> : null}
-
-      <section className="ops-panel" aria-label="Pending approvals">
-        <div className="ops-panel__head">
-          <p className="cx-label">
-            Pending actions
-            {pendingCount > 0 ? <span className="cx-chip cx-chip--warn">{pendingCount} waiting</span> : null}
-          </p>
-          <Link href="/dashboard/approvals">Open queue</Link>
-        </div>
-        {!inbox.data ? (
-          <p className="ops-empty">Loading queue…</p>
-        ) : pending.length === 0 ? (
-          <EmptyState className="dashboard-empty">
-            All clear — no pending approvals. Gated actions will appear here when an agent needs human review.
-          </EmptyState>
-        ) : (
-          <div className="ops-queue-table-wrap">
-            <table className="ops-queue-table">
-              <thead>
-                <tr>
-                  <th scope="col">Time</th>
-                  <th scope="col">Agent</th>
-                  <th scope="col">Action</th>
-                  <th scope="col">Resource</th>
-                  <th scope="col">Required role</th>
-                  <th scope="col">Decision</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pending.map((req) => (
-                  <tr key={req.approvalId}>
-                    <td className="ops-log-table__time">{formatOpsTime(req.createdAt)}</td>
-                    <td className="ops-log-table__mono">{req.agentName ?? req.agentId}</td>
-                    <td className="ops-log-table__mono"><code>{approvalActionLabel(req.action, req.vendor)}</code></td>
-                    <td className="ops-log-table__mono">{req.vendor ?? "—"}</td>
-                    <td>{req.requiredRoleLabel ?? "—"}</td>
-                    <td>
-                      <div className="ops-queue-actions">
-                        <Button
-                          variant="primary"
-                          type="button"
-                          onClick={() => resolve(req.approvalId, "approve")}
-                          disabled={working === req.approvalId || req.canApprove === false}
-                        >
-                          Approve
-                        </Button>
-                        <Button
-                          type="button"
-                          onClick={() => resolve(req.approvalId, "deny")}
-                          disabled={working === req.approvalId || req.canDeny === false}
-                        >
-                          Deny
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-
-      {activeGrants.length ? (
-        <section className="ops-panel" aria-label="Active approval grants">
-          <div className="ops-panel__head">
-            <p className="cx-label">Recently approved grants</p>
-          </div>
-          <div className="ops-feed">
-            {activeGrants.map((req) => (
-              <div className="ops-feed__row" key={req.approvalId}>
-                <span className="ops-feed__time">{formatOpsTime(req.createdAt)}</span>
-                <span className="ops-feed__body">
-                  <span className="ops-feed__title">{req.agentName ?? req.agentId} · <code>{req.action}</code></span>
-                  <span className="ops-feed__meta">
-                    Grant valid until {date(req.grantExpiresAt)} · agent allowed on next matching verify call
-                  </span>
-                </span>
-                <span className="cx-chip cx-chip--ok">Approved</span>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      <section className="ops-panel" aria-label="Recent high-risk denials">
-        <div className="ops-panel__head">
-          <p className="cx-label">Recent high-risk denials</p>
-          <Link href="/dashboard/logs?decision=denied&risk=high">View in logs</Link>
-        </div>
-        {!inbox.data ? (
-          <p className="ops-empty">Loading denials…</p>
-        ) : denied.length === 0 ? (
-          <EmptyState className="dashboard-empty">
-            No high-risk denials in the last 48 hours.
-          </EmptyState>
-        ) : (
-          <div className="ops-log-table-wrap">
-            <table className="ops-log-table">
-              <thead>
-                <tr>
-                  <th scope="col">Time</th>
-                  <th scope="col">Agent</th>
-                  <th scope="col">Action</th>
-                  <th scope="col">Resource</th>
-                  <th scope="col">Reason</th>
-                </tr>
-              </thead>
-              <tbody>
-                {denied.map((log) => (
-                  <tr key={log.requestId}>
-                    <td className="ops-log-table__time">{formatOpsTime(log.createdAt)}</td>
-                    <td className="ops-log-table__mono">{log.agentName ?? log.agentId}</td>
-                    <td className="ops-log-table__mono"><code>{log.action}</code></td>
-                    <td className="ops-log-table__mono">{log.vendor ?? "—"}</td>
-                    <td className="ops-log-table__reason">{log.reason}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-    </>
+    <OpsInboxConsole
+      inbox={inbox}
+      working={working}
+      resolveError={resolveError}
+      onResolve={resolve}
+      dateFormatter={date}
+    />
   );
 }
 

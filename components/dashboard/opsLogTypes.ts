@@ -1,5 +1,6 @@
 export type LogRisk = "low" | "medium" | "high";
 export type LogDecision = "allowed" | "denied" | "approval_required";
+export type DecisionTone = "allowed" | "denied" | "approval";
 
 export type OpsLog = {
   requestId: string;
@@ -53,18 +54,38 @@ export type OpsApprovalRequest = {
   denyBlockReason?: string | null;
 };
 
+export function getLogDecision(log: Pick<OpsLog, "allowed" | "approvalRequired" | "reason" | "decision">): LogDecision {
+  if (log.decision) return log.decision;
+  if (log.allowed) return "allowed";
+  if (log.approvalRequired || /requires approval|approval required|approval before execution/i.test(log.reason)) {
+    return "approval_required";
+  }
+  return "denied";
+}
+
+export function logDecisionTone(log: Pick<OpsLog, "allowed" | "approvalRequired" | "reason" | "decision">): DecisionTone {
+  const decision = getLogDecision(log);
+  if (decision === "allowed") return "allowed";
+  if (decision === "approval_required") return "approval";
+  return "denied";
+}
+
 export function logDecisionLabel(log: Pick<OpsLog, "allowed" | "approvalRequired" | "reason" | "decision">) {
-  const decision = log.decision ?? (log.allowed ? "allowed" : log.approvalRequired ? "approval_required" : "denied");
+  const decision = getLogDecision(log);
   if (decision === "allowed") return "Allowed";
   if (decision === "approval_required") return "Requires approval";
   return "Denied";
 }
 
-export function logDecisionClass(log: Pick<OpsLog, "allowed" | "approvalRequired" | "reason" | "decision">) {
-  const decision = log.decision ?? (log.allowed ? "allowed" : log.approvalRequired ? "approval_required" : "denied");
-  if (decision === "allowed") return "ops-log-chip ops-log-chip--allowed";
-  if (decision === "approval_required") return "ops-log-chip ops-log-chip--approval";
-  return "ops-log-chip ops-log-chip--denied";
+export function logDecisionShortLabel(log: Pick<OpsLog, "allowed" | "approvalRequired" | "reason" | "decision">) {
+  const decision = getLogDecision(log);
+  if (decision === "allowed") return "Allowed";
+  if (decision === "approval_required") return "Needs approval";
+  return "Denied";
+}
+
+export function approvalRequiredMetricLabel(count: number) {
+  return count === 1 ? "requires approval" : "require approval";
 }
 
 export function formatOpsTime(value?: string | null) {
@@ -86,4 +107,9 @@ export function formatOpsDate(value?: string | null) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
   return date.toISOString();
+}
+
+export function formatActionLabel(action: string, vendor?: string | null) {
+  const base = action.replace(/_/g, " ");
+  return vendor ? `${base} · ${vendor}` : base;
 }
