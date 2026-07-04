@@ -3,6 +3,8 @@ import VerificationLog from "@/models/VerificationLog";
 
 export type LogRisk = "low" | "medium" | "high";
 
+export type LogDecision = "allowed" | "denied" | "approval_required";
+
 export type VerificationLogListItem = {
   requestId: string;
   accountId?: string | null;
@@ -13,11 +15,15 @@ export type VerificationLogListItem = {
   action: string;
   amount?: number;
   vendor?: string | null;
+  environment?: string | null;
   allowed: boolean;
   approvalRequired?: boolean;
+  decision?: LogDecision;
   reason: string;
   risk: LogRisk;
   shadow?: boolean;
+  approvalId?: string | null;
+  metadata?: Record<string, unknown> | null;
   createdAt?: Date | string;
 };
 
@@ -41,6 +47,8 @@ export type LogPagination = {
 const RISKS = new Set(["low", "medium", "high"]);
 const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 500;
+const APPROVAL_REASON_RE = /requires approval|approval required|approval before execution/i;
+const SEARCHABLE_FIELDS = ["requestId", "action", "vendor", "reason", "agentId"] as const;
 
 export function redactLogString(value: string) {
   return value
@@ -80,6 +88,25 @@ export function parseLogListParams(searchParams: URLSearchParams) {
   };
 }
 
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function extractLogEnvironment(metadata?: Record<string, unknown> | null) {
+  if (!metadata || typeof metadata !== "object") return null;
+  for (const key of ["environment", "env", "stage", "deployment", "targetEnvironment"]) {
+    const value = metadata[key];
+    if (typeof value === "string" && value.trim()) return value.trim().slice(0, 80);
+  }
+  return null;
+}
+
+export function getLogDecision(log: Pick<VerificationLogListItem, "allowed" | "approvalRequired" | "reason">): LogDecision {
+  if (log.allowed) return "allowed";
+  if (log.approvalRequired || APPROVAL_REASON_RE.test(log.reason)) return "approval_required";
+  return "denied";
+}
+
 export function buildVerificationLogQuery(
   searchParams: URLSearchParams,
   baseQuery: Record<string, unknown>,
@@ -89,10 +116,12 @@ export function buildVerificationLogQuery(
   const agentId = searchParams.get("agentId")?.trim() || searchParams.get("agent")?.trim();
   const action = searchParams.get("action")?.trim();
   const vendor = searchParams.get("vendor")?.trim() || searchParams.get("resource")?.trim();
+  const environment = searchParams.get("environment")?.trim();
   const requestId = searchParams.get("requestId")?.trim();
-  const allowed = searchParams.get("allowed")?.trim();
+  const allowed = searchParams.get("allowed")?.trim() || decisionToAllowed(searchParams.get("decision")?.trim());
   const risk = searchParams.get("risk")?.trim();
   const shadowParam = searchParams.get("shadow")?.trim();
+  const search = searchParams.get("search")?.trim() || searchParams.get("q")?.trim();
   const from = validDate(searchParams.get("from") ?? searchParams.get("start"));
   const to = validDate(searchParams.get("to") ?? searchParams.get("end"));
   const gte = latestDate(options.retentionStart ?? null, from);
@@ -109,12 +138,41 @@ export function buildVerificationLogQuery(
   if (risk && RISKS.has(risk)) query.risk = risk;
   if (shadowParam === "true") query.shadow = true;
   if (shadowParam === "false") query.$or = [{ shadow: false }, { shadow: { $exists: false } }];
+  if (environment) {
+    query.$and = [
+      ...(Array.isArray(query.$and) ? query.$and : []),
+      {
+        $or: [
+          { "metadata.environment": new RegExp(`^${escapeRegex(environment)}$`, "i") },
+          { "metadata.env": new RegExp(`^${escapeRegex(environment)}$`, "i") },
+          { "metadata.stage": new RegExp(`^${escapeRegex(environment)}$`, "i") }
+        ]
+      }
+    ];
+  }
+  if (search) {
+    const pattern = new RegExp(escapeRegex(search), "i");
+    query.$and = [
+      ...(Array.isArray(query.$and) ? query.$and : []),
+      { $or: SEARCHABLE_FIELDS.map((field) => ({ [field]: pattern })) }
+    ];
+  }
   if (gte || to) query.createdAt = {
     ...(gte ? { $gte: gte } : {}),
     ...(to ? { $lte: to } : {})
   };
 
   return query;
+}
+
+function decisionToAllowed(decision?: string | null) {
+  if (!decision) return null;
+  if (decision === "allowed") return "true";
+  if (decision === "denied") return "false";
+  if (decision === "approval" || decision === "approval_required" || decision === "requires_approval") {
+    return "approval";
+  }
+  return null;
 }
 
 export function calculateVerificationLogSummary(logs: VerificationLogListItem[]): VerificationLogSummary {
@@ -277,10 +335,33 @@ export async function withAgentNames(
   if (scope.accountId) query.accountId = scope.accountId;
   const agents = await Agent.find(query).select("-_id agentId name").lean();
   const names = new Map(agents.map((agent) => [agent.agentId, agent.name]));
-  return logs.map((log) => sanitizeVerificationLog({ ...log, agentName: names.get(log.agentId) ?? null }));
+  return logs.map((log) => sanitizeVerificationLog({
+    ...log,
+    agentName: names.get(log.agentId) ?? null,
+    environment: log.environment ?? extractLogEnvironment(log.metadata ?? null)
+  }));
+}
+
+function sanitizeMetadata(metadata?: Record<string, unknown> | null) {
+  if (!metadata || typeof metadata !== "object") return metadata ?? null;
+  const sanitized: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(metadata)) {
+    if (typeof value === "string") {
+      sanitized[key] = redactLogString(value);
+    } else if (Array.isArray(value)) {
+      sanitized[key] = value.map((item) => (typeof item === "string" ? redactLogString(item) : item));
+    } else if (value && typeof value === "object") {
+      sanitized[key] = sanitizeMetadata(value as Record<string, unknown>);
+    } else {
+      sanitized[key] = value;
+    }
+  }
+  return sanitized;
 }
 
 export function sanitizeVerificationLog(log: VerificationLogListItem): VerificationLogListItem {
+  const metadata = sanitizeMetadata(log.metadata ?? null);
+  const environment = log.environment ?? extractLogEnvironment(metadata);
   return {
     ...log,
     requestId: redactLogString(log.requestId),
@@ -291,7 +372,11 @@ export function sanitizeVerificationLog(log: VerificationLogListItem): Verificat
     permissionId: log.permissionId ? redactLogString(log.permissionId) : log.permissionId,
     action: redactLogString(log.action),
     vendor: log.vendor ? redactLogString(log.vendor) : log.vendor,
-    reason: redactLogString(log.reason)
+    environment: environment ? redactLogString(environment) : environment,
+    reason: redactLogString(log.reason),
+    decision: getLogDecision(log),
+    metadata,
+    approvalId: log.approvalId ? redactLogString(log.approvalId) : log.approvalId ?? null
   };
 }
 
@@ -306,8 +391,6 @@ export type DenyReceiptData = {
   requestId: string;
   timestamp: string;
 };
-
-const APPROVAL_REASON_RE = /requires approval|approval required|approval before execution/i;
 
 export function buildReceiptData(log: VerificationLogListItem): DenyReceiptData {
   const isApproval = log.approvalRequired || APPROVAL_REASON_RE.test(log.reason);
@@ -345,6 +428,31 @@ export function formatReceiptText(data: DenyReceiptData): string {
   return lines.join("\n");
 }
 
+export async function withApprovalLinks(
+  logs: VerificationLogListItem[],
+  scope: { accountId: string }
+) {
+  const requestIds = logs
+    .filter((log) => !log.allowed && (log.approvalRequired || APPROVAL_REASON_RE.test(log.reason)))
+    .map((log) => log.requestId)
+    .filter(Boolean);
+  if (!requestIds.length) return logs;
+
+  const ApprovalRequest = (await import("@/models/ApprovalRequest")).default;
+  const approvals = await ApprovalRequest.find({
+    accountId: scope.accountId,
+    requestId: { $in: requestIds }
+  })
+    .select("-_id approvalId requestId status")
+    .lean<Array<{ approvalId: string; requestId: string; status: string }>>();
+
+  const byRequest = new Map(approvals.map((item) => [item.requestId, item.approvalId]));
+  return logs.map((log) => ({
+    ...log,
+    approvalId: byRequest.get(log.requestId) ?? log.approvalId ?? null
+  }));
+}
+
 export function logsToCsv(logs: VerificationLogListItem[]) {
   const headers = [
     "createdAt",
@@ -356,23 +464,27 @@ export function logsToCsv(logs: VerificationLogListItem[]) {
     "agentName",
     "action",
     "vendor",
+    "environment",
     "amount",
     "reason",
-    "requestId"
+    "requestId",
+    "approvalId"
   ];
   const rows = logs.map((log) => [
     stringifyDate(log.createdAt),
     log.shadow ? "true" : "false",
-    log.allowed ? "allowed" : "denied",
+    getLogDecision(log),
     log.approvalRequired ? "true" : "false",
     log.risk,
     log.agentId,
     log.agentName ?? "",
     log.action,
     log.vendor ?? "",
+    log.environment ?? extractLogEnvironment(log.metadata ?? null) ?? "",
     log.amount ?? "",
     log.reason,
-    log.requestId
+    log.requestId,
+    log.approvalId ?? ""
   ]);
   return [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
 }

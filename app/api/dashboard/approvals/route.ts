@@ -15,10 +15,12 @@ export async function GET(request: NextRequest) {
 
   const status = request.nextUrl.searchParams.get("status")?.trim();
   const query: Record<string, unknown> = { ...accountScopeFilter(actor.accountId) };
-  if (status && ["pending", "approved", "denied", "used"].includes(status)) {
+  if (status === "all") {
+    // no status filter — return every lifecycle state
+  } else if (status && ["pending", "approved", "denied", "used"].includes(status)) {
     query.status = status;
   } else {
-    query.status = { $in: ["pending", "approved"] };
+    query.status = "pending";
   }
 
   const approvals = await ApprovalRequest.find(query)

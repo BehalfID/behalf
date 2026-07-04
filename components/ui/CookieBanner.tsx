@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const CONSENT_KEY = "behalf_cookie_consent";
@@ -62,6 +63,26 @@ function rememberConsent(value: "accepted" | "declined") {
 export function CookieBanner() {
   const [visible, setVisible] = useState(false);
   const [locale, setLocale] = useState("en");
+  const pathname = usePathname();
+  const isDashboard = pathname?.startsWith("/dashboard") ?? false;
+
+  useEffect(() => {
+    if (!visible) {
+      document.body.classList.remove("site-consent-visible");
+      document.body.classList.remove("site-consent-visible--dashboard");
+      return;
+    }
+
+    document.body.classList.add("site-consent-visible");
+    if (isDashboard) {
+      document.body.classList.add("site-consent-visible--dashboard");
+    }
+
+    return () => {
+      document.body.classList.remove("site-consent-visible");
+      document.body.classList.remove("site-consent-visible--dashboard");
+    };
+  }, [visible, isDashboard]);
 
   useEffect(() => {
     setLocale(getLocale());
@@ -97,7 +118,12 @@ export function CookieBanner() {
   const privacyHref = locale === "en" ? "/privacy" : `/${locale}/privacy`;
 
   return (
-    <div className="site-consent" role="dialog" aria-label={tr.dialog} aria-modal="false">
+    <div
+      className={`site-consent${isDashboard ? " site-consent--dashboard" : ""}`}
+      role="dialog"
+      aria-label={tr.dialog}
+      aria-modal="false"
+    >
       <div className="site-consent__inner">
         <p className="site-consent__text">
           {tr.body}{" "}

@@ -1,7 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { FormEvent, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { OpsLogConsole } from "@/components/dashboard/OpsLogConsole";
+import { PendingActionsQueue } from "@/components/dashboard/PendingActionsQueue";
+import { OpsInboxConsole } from "@/components/dashboard/OpsInboxConsole";
 import { DashboardShellLayout } from "@/components/layout/DashboardShell";
 import { Badge, Button, ButtonLink, Card, CodeBlock, EmptyState, PageHeader, StatCard } from "@/components/ui";
 import { SCOPE_TEMPLATES } from "@/lib/scopeTemplates";
@@ -462,7 +466,7 @@ function HomeView() {
   const headerAction = !hasAgents
     ? { label: "Add agent", href: "/dashboard/onboarding" }
     : pendingApprovals.length > 0
-      ? { label: "Review approvals", href: "/dashboard/inbox" }
+      ? { label: "Review approvals", href: "/dashboard/approvals" }
       : firstSetupGoal === "setup_deploy_approvals"
         ? { label: "Configure deploy approvals", href: "/dashboard/onboarding?setup=deploy-approvals" }
         : { label: "Add agent", href: "/dashboard/onboarding" };
@@ -506,7 +510,7 @@ function HomeView() {
           <section className="ops-panel" aria-label="Approval queue">
             <div className="ops-panel__head">
               <p className="cx-label">Approval queue</p>
-              <Link href="/dashboard/inbox">Open inbox</Link>
+              <Link href="/dashboard/approvals">Open queue</Link>
             </div>
             {!inbox.data ? (
               <p className="ops-empty">Loading queue…</p>
@@ -515,7 +519,7 @@ function HomeView() {
             ) : (
               <div className="ops-feed">
                 {pendingApprovals.slice(0, 5).map((item) => (
-                  <Link className="ops-feed__row" href="/dashboard/inbox" key={item.approvalId}>
+                  <Link className="ops-feed__row" href="/dashboard/approvals" key={item.approvalId}>
                     <span className="ops-feed__time">{feedTime(item.createdAt)}</span>
                     <span className="ops-feed__body">
                       <span className="ops-feed__title">{item.agentName ?? item.agentId} · <code>{item.action}</code></span>
@@ -2485,59 +2489,20 @@ function WebhookView({ webhookId }: { webhookId: string }) {
 }
 
 function LogsView() {
-  const [agentId, setAgentId] = useState("");
-  const [allowed, setAllowed] = useState("");
-  const [action, setAction] = useState("");
-  const [risk, setRisk] = useState("");
-  const path = useMemo(() => {
-    const params = new URLSearchParams();
-    if (agentId) params.set("agentId", agentId.trim());
-    // "approval" is a client-side filter: send allowed=false and filter by reason client-side
-    if (allowed && allowed !== "approval") params.set("allowed", allowed);
-    if (allowed === "approval") params.set("allowed", "false");
-    if (action) params.set("action", action.trim());
-    if (risk) params.set("risk", risk);
-    return `/api/dashboard/logs${params.size ? `?${params.toString()}` : ""}`;
-  }, [action, agentId, allowed, risk]);
-  const logs = useResource<{ logs: Log[]; summary: LogSummary }>(path);
-  const exportHref = `${path}${path.includes("?") ? "&" : "?"}format=csv`;
+  return <OpsLogConsole />;
+}
+
+function ApprovalsViewInner() {
+  const searchParams = useSearchParams();
+  const highlightApprovalId = searchParams.get("highlight");
+  return <PendingActionsQueue highlightApprovalId={highlightApprovalId} />;
+}
+
+function ApprovalsView() {
   return (
-    <>
-      <Header title="Logs" description="Search and export verification decisions." action={<ButtonLink href={exportHref}>Export CSV</ButtonLink>} />
-      <div className="console-toolbar logs-toolbar">
-        <label className="logs-toolbar__filter logs-toolbar__filter--lg">
-          <span className="logs-toolbar__label">Agent ID</span>
-          <input aria-label="Filter by agent ID" onChange={(event) => setAgentId(event.target.value)} placeholder="agent_xxx" value={agentId} />
-        </label>
-        <label className="logs-toolbar__filter">
-          <span className="logs-toolbar__label">Decision</span>
-          <select aria-label="Allowed filter" onChange={(event) => setAllowed(event.target.value)} value={allowed}>
-            <option value="">All decisions</option>
-            <option value="true">Allowed</option>
-            <option value="false">Denied</option>
-            <option value="approval">Approval required</option>
-          </select>
-        </label>
-        <label className="logs-toolbar__filter">
-          <span className="logs-toolbar__label">Action</span>
-          <input aria-label="Filter by action" onChange={(event) => setAction(event.target.value)} placeholder="access_data" value={action} />
-        </label>
-        <label className="logs-toolbar__filter">
-          <span className="logs-toolbar__label">Risk</span>
-          <select aria-label="Risk filter" onChange={(event) => setRisk(event.target.value)} value={risk}>
-            <option value="">All risk</option>
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-          </select>
-        </label>
-        <div className="logs-toolbar__actions">
-          <Button onClick={logs.reload} type="button">Refresh</Button>
-        </div>
-      </div>
-      {logs.data?.summary ? <LogSummaryStrip summary={logs.data.summary} /> : null}
-      <LogList logs={logs.data?.logs ?? []} approvalFilter={allowed === "approval"} />
-    </>
+    <Suspense fallback={<PendingActionsQueue />}>
+      <ApprovalsViewInner />
+    </Suspense>
   );
 }
 
@@ -2574,101 +2539,6 @@ function approvalActionLabel(action: string, vendor?: string | null) {
   return vendor ? `${base} → ${vendor}` : base;
 }
 
-function ApprovalsView() {
-  const approvals = useResource<{ approvals: ApprovalRequest[]; workspaceAuthority?: WorkspaceAuthority | null }>("/api/dashboard/approvals");
-  const [working, setWorking] = useState<string | null>(null);
-
-  const resolve = async (approvalId: string, action: "approve" | "deny") => {
-    setWorking(approvalId);
-    try {
-      await api(`/api/dashboard/approvals/${approvalId}/${action}`, { method: "POST" });
-      await approvals.reload();
-    } finally {
-      setWorking(null);
-    }
-  };
-
-  const list = approvals.data?.approvals ?? [];
-  const pendingCount = list.filter((r) => r.status === "pending").length;
-
-  return (
-    <>
-      <Header
-        title="Approvals"
-        description="When an agent hits an approval-required permission, it pauses here. Approve to let it proceed; deny to block it."
-        action={<Button onClick={approvals.reload} type="button">Refresh</Button>}
-      />
-      {pendingCount > 0 ? (
-        <div className="console-status console-status--approval" style={{ display: "inline-flex", marginBottom: "1rem", padding: "0.25rem 0.75rem", borderRadius: "4px" }}>
-          {pendingCount} pending {pendingCount === 1 ? "request" : "requests"} waiting for your approval
-        </div>
-      ) : null}
-      {list.length === 0 ? (
-        <EmptyState className="dashboard-empty">
-          No pending approval requests. When an agent attempts a restricted action (like a production deploy), it will pause here.
-        </EmptyState>
-      ) : (
-        <div className="dashboard-list dashboard-approval-list">
-          {list.map((req) => (
-            <div key={req.approvalId}>
-              <span>
-                <strong>{approvalActionLabel(req.action, req.vendor)}</strong>
-                <small>
-                  {req.agentName ? `${req.agentName} (${req.agentId})` : req.agentId}
-                  {typeof req.amount === "number" ? ` · $${req.amount}` : ""}
-                </small>
-                <small className="approval-ids">
-                  <code>{req.approvalId}</code>
-                  {" · "}
-                  <span className="approval-ids__label">req</span> <code>{req.requestId}</code>
-                </small>
-                <small>Requested {date(req.createdAt)}</small>
-                {req.requiredRoleLabel ? (
-                  <small>Requires {req.requiredRoleLabel} approval</small>
-                ) : null}
-                {req.canApprove === false && req.approveBlockReason ? (
-                  <small className="form-error">{req.approveBlockReason}</small>
-                ) : null}
-                {req.canDeny === false && req.denyBlockReason ? (
-                  <small className="form-error">{req.denyBlockReason}</small>
-                ) : null}
-              </span>
-              <span className={`console-status console-status--${req.status === "pending" ? "approval" : req.status === "approved" ? "allowed" : "denied"}`}>
-                {req.status}
-              </span>
-              {req.status === "pending" ? (
-                <span className="approval-actions">
-                  <Button
-                    variant="primary"
-                    type="button"
-                    onClick={() => resolve(req.approvalId, "approve")}
-                    disabled={working === req.approvalId || req.canApprove === false}
-                  >
-                    Approve
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={() => resolve(req.approvalId, "deny")}
-                    disabled={working === req.approvalId || req.canDeny === false}
-                  >
-                    Deny
-                  </Button>
-                </span>
-              ) : req.status === "approved" && req.grantExpiresAt ? (
-                <span>
-                  <small className="approval-grant-expiry">
-                    Approved · grant valid until {date(req.grantExpiresAt)}
-                    {" · "}agent will be allowed on next verify call
-                  </small>
-                </span>
-              ) : null}
-            </div>
-          ))}
-        </div>
-      )}
-    </>
-  );
-}
 
 function InboxView() {
   const inbox = useResource<{ pendingApprovals: ApprovalRequest[]; deniedHighRisk: Log[]; workspaceAuthority?: WorkspaceAuthority | null }>("/api/dashboard/inbox");
@@ -2688,132 +2558,14 @@ function InboxView() {
     }
   };
 
-  const pending = inbox.data?.pendingApprovals ?? [];
-  const denied = inbox.data?.deniedHighRisk ?? [];
-  const pendingCount = pending.filter((r) => r.status === "pending").length;
-
   return (
-    <>
-      <Header
-        title="Action Inbox"
-        description="Pending approvals waiting for your decision and recent high-risk actions that were blocked."
-        action={<Button onClick={inbox.reload} type="button">Refresh</Button>}
-      />
-      {resolveError ? <p className="form-error">{resolveError}</p> : null}
-
-      <section className="dashboard-panel">
-        <h2 className="inbox-section-title">
-          Pending Approvals
-          {pendingCount > 0 ? (
-            <span className="console-status console-status--approval">{pendingCount} waiting</span>
-          ) : null}
-        </h2>
-        {!inbox.data ? null : pending.length === 0 ? (
-          <EmptyState className="dashboard-empty">
-            All clear — no pending approvals. When an agent attempts an approval-required action it will pause here.
-          </EmptyState>
-        ) : (
-          <div className="inbox-list">
-            {pending.map((req) => (
-              <div key={req.approvalId} className={`inbox-card${req.status === "pending" ? " inbox-card--pending" : ""}`}>
-                <div className="inbox-card__header">
-                  <div>
-                    <strong className="inbox-card__action">
-                      {req.agentName ?? req.agentId} wants to {req.action.replace(/_/g, " ")}
-                      {req.vendor ? ` → ${req.vendor}` : ""}
-                      {typeof req.amount === "number" ? ` ($${req.amount})` : ""}
-                    </strong>
-                    <small className="inbox-card__meta">
-                      perm <code>{req.permissionId}</code>
-                      {" · req "}
-                      <code>{req.requestId}</code>
-                      {" · "}
-                      {date(req.createdAt)}
-                      {req.requiredRoleLabel ? ` · requires ${req.requiredRoleLabel}` : ""}
-                    </small>
-                    {req.canApprove === false && req.approveBlockReason ? (
-                      <small className="form-error">{req.approveBlockReason}</small>
-                    ) : null}
-                    {req.canDeny === false && req.denyBlockReason ? (
-                      <small className="form-error">{req.denyBlockReason}</small>
-                    ) : null}
-                  </div>
-                  <div className="inbox-card__badges">
-                    <span className={`console-status console-status--${req.status === "pending" ? "approval" : "allowed"}`}>
-                      {req.status === "pending" ? "Approval required" : "Approved"}
-                    </span>
-                  </div>
-                </div>
-                {req.status === "pending" ? (
-                  <div className="inbox-card__actions">
-                    <Button
-                      variant="primary"
-                      type="button"
-                      onClick={() => resolve(req.approvalId, "approve")}
-                      disabled={working === req.approvalId || req.canApprove === false}
-                    >
-                      Approve for 15 min
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={() => resolve(req.approvalId, "deny")}
-                      disabled={working === req.approvalId || req.canDeny === false}
-                    >
-                      Deny
-                    </Button>
-                  </div>
-                ) : req.grantExpiresAt ? (
-                  <small className="inbox-card__grant">
-                    Grant valid until {date(req.grantExpiresAt)} · agent will be allowed on next verify call
-                  </small>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="dashboard-panel">
-        <h2 className="inbox-section-title">
-          Recent High-Risk Denials
-          <span className="inbox-section-title__note">last 48h</span>
-        </h2>
-        {!inbox.data ? null : denied.length === 0 ? (
-          <EmptyState className="dashboard-empty">
-            No high-risk denials in the last 48 hours. Actions blocked by your risk policy will appear here.
-          </EmptyState>
-        ) : (
-          <div className="inbox-list">
-            {denied.map((log) => (
-              <div key={log.requestId} className="inbox-card">
-                <div className="inbox-card__header">
-                  <div>
-                    <strong className="inbox-card__action">
-                      {log.agentName ?? log.agentId} tried to {log.action.replace(/_/g, " ")}
-                      {log.vendor ? ` → ${log.vendor}` : ""}
-                      {typeof log.amount === "number" ? ` ($${log.amount})` : ""}
-                    </strong>
-                    <small className="inbox-card__reason">{log.reason}</small>
-                    <small className="inbox-card__meta">
-                      req <code>{log.requestId}</code>
-                      {" · "}
-                      {date(log.createdAt)}
-                    </small>
-                  </div>
-                  <div className="inbox-card__badges">
-                    <span className="console-status console-status--denied">denied</span>
-                    <span className="console-status console-status--high">high</span>
-                    {log.approvalRequired ? (
-                      <span className="console-status console-status--approval">approval required</span>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-    </>
+    <OpsInboxConsole
+      inbox={inbox}
+      working={working}
+      resolveError={resolveError}
+      onResolve={resolve}
+      dateFormatter={date}
+    />
   );
 }
 

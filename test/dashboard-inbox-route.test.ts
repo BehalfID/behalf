@@ -12,6 +12,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const routeMocks = vi.hoisted(() => ({
   requireDeveloperApi: vi.fn(),
+  getWorkspaceActor: vi.fn(),
   approvalFind: vi.fn(),
   logFind: vi.fn(),
   agentFind: vi.fn()
@@ -19,6 +20,12 @@ const routeMocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/developerAuth", () => ({
   requireDeveloperApi: routeMocks.requireDeveloperApi
+}));
+
+vi.mock("@/lib/delegatedAuth", () => ({
+  getWorkspaceActor: routeMocks.getWorkspaceActor,
+  enrichApprovalForActor: vi.fn((approval: unknown) => approval),
+  serializeWorkspaceAuthority: vi.fn(() => ({ roleLabel: "Owner" }))
 }));
 
 vi.mock("@/models/ApprovalRequest", () => ({
@@ -67,8 +74,18 @@ function request(path = "/api/dashboard/inbox") {
   return Object.assign(new Request(url), { nextUrl: url }) as never;
 }
 
-function authOk(userId = "dev_test") {
-  routeMocks.requireDeveloperApi.mockResolvedValue({ user: { userId }, error: null });
+function authOk(userId = "dev_test", accountId = "acct_test") {
+  routeMocks.requireDeveloperApi.mockResolvedValue({
+    user: { userId },
+    activeAccountId: accountId,
+    error: null
+  });
+  routeMocks.getWorkspaceActor.mockResolvedValue({
+    userId,
+    accountId,
+    role: "OWNER",
+    authorityLevel: 100
+  });
 }
 
 const pendingApproval = {
@@ -148,8 +165,8 @@ describe("GET /api/dashboard/inbox", () => {
     expect(body.deniedHighRisk).toHaveLength(1);
   });
 
-  it("scopes approval query to the authenticated developer's userId", async () => {
-    authOk("dev_abc");
+  it("scopes approval query to the active account", async () => {
+    authOk("dev_abc", "acct_abc");
     routeMocks.approvalFind.mockReturnValue(approvalChain([]));
     routeMocks.logFind.mockReturnValue(logChain([]));
     routeMocks.agentFind.mockReturnValue(agentChain([]));
@@ -158,11 +175,11 @@ describe("GET /api/dashboard/inbox", () => {
     await GET(request());
 
     const [approvalFilter] = routeMocks.approvalFind.mock.calls[0];
-    expect(approvalFilter.developerUserId).toBe("dev_abc");
+    expect(approvalFilter.accountId).toBe("acct_abc");
   });
 
-  it("scopes log query to the authenticated developer's userId", async () => {
-    authOk("dev_abc");
+  it("scopes log query to the active account", async () => {
+    authOk("dev_abc", "acct_abc");
     routeMocks.approvalFind.mockReturnValue(approvalChain([]));
     routeMocks.logFind.mockReturnValue(logChain([]));
     routeMocks.agentFind.mockReturnValue(agentChain([]));
@@ -171,7 +188,7 @@ describe("GET /api/dashboard/inbox", () => {
     await GET(request());
 
     const [logFilter] = routeMocks.logFind.mock.calls[0];
-    expect(logFilter.developerUserId).toBe("dev_abc");
+    expect(logFilter.accountId).toBe("acct_abc");
   });
 
   it("queries only status pending and approved for approvals", async () => {
@@ -244,6 +261,23 @@ describe("GET /api/dashboard/inbox", () => {
 
     expect(body.pendingApprovals).toEqual([]);
     expect(body.deniedHighRisk).toEqual([]);
+  });
+
+  it("returns empty arrays when workspace actor is unavailable", async () => {
+    routeMocks.requireDeveloperApi.mockResolvedValue({
+      user: { userId: "dev_test" },
+      activeAccountId: null,
+      error: null
+    });
+    routeMocks.getWorkspaceActor.mockResolvedValue(null);
+
+    const { GET } = await import("@/app/api/dashboard/inbox/route");
+    const res = await GET(request());
+    const body = await res.json() as { pendingApprovals: unknown[]; deniedHighRisk: unknown[] };
+
+    expect(body.pendingApprovals).toEqual([]);
+    expect(body.deniedHighRisk).toEqual([]);
+    expect(routeMocks.approvalFind).not.toHaveBeenCalled();
   });
 
   it("skips the agent name lookup when there are no results", async () => {
