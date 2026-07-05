@@ -37,7 +37,7 @@ export async function requireCliAuth(request: NextRequest): Promise<
     return {
       auth: {
         userId: null,
-        accountId: agentAuth.agent.accountId,
+        accountId: agentAuth.agent.accountId ?? null,
         agentId: agentAuth.agent.agentId,
         source: "agent",
       },
