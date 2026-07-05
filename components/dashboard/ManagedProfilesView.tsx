@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { Button, ButtonLink, Card, PageHeader } from "@/components/ui";
 
@@ -394,6 +395,11 @@ export function ManagedProfilesView() {
             <code>behalf profile doctor</code>. Hashes are derived from the git remote when available,
             otherwise the local repo root. Protected repo rules take precedence over tool and work-hours
             settings.
+          </p>
+          <p className="ops-empty">
+            You can also add protected repos from{" "}
+            <Link href="/dashboard/managed-profiles/activity">Managed Profile Activity</Link> after running{" "}
+            <code>behalf profile status</code> or launching a managed tool.
           </p>
           {form.protectedRepos.map((repo, index) => (
             <div className="setup-form__row protected-repo-row" key={`repo-${index}`}>

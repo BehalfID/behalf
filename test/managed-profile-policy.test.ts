@@ -243,6 +243,208 @@ describe("dashboard managed profile routes", () => {
   });
 });
 
+function protectedReposRequest(body?: unknown) {
+  return new Request("http://localhost/api/dashboard/managed-profiles/protected-repos", {
+    method: "POST",
+    headers: body === undefined ? undefined : { "content-type": "application/json", origin: "http://localhost" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  }) as never;
+}
+
+const existingPolicyDoc = {
+  policyId: "pprf_test",
+  accountId: "acct_test",
+  enabled: true,
+  timezone: "America/New_York",
+  workHours: { enabled: true, days: [1, 2, 3, 4, 5], start: "09:00", end: "17:00" },
+  duringHoursMode: "managed",
+  outsideHoursMode: "unmanaged",
+  defaultMode: "unmanaged",
+  toolModes: { claude: "required" },
+  protectedRepos: [{ repoHash: "abc123def4567890", label: "Prod", mode: "required", enabled: true }],
+  pausePolicy: {
+    enabled: true,
+    reasonRequired: true,
+    maxDurationMinutes: 120,
+    allowAllRepos: false,
+    requireApprovalForRequiredMode: false,
+  },
+  createdAt: new Date("2026-07-05T10:00:00.000Z"),
+  updatedAt: new Date("2026-07-05T10:00:00.000Z"),
+};
+
+describe("POST /api/dashboard/managed-profiles/protected-repos", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.connectToDatabase.mockResolvedValue(undefined);
+    mocks.requireDeveloperApi.mockResolvedValue({
+      user: { userId: "dev_test", primaryAccountId: "acct_test" },
+      activeAccountId: "acct_test",
+      error: null,
+    });
+    mocks.requireVerifiedDeveloperApi.mockResolvedValue({
+      user: { userId: "dev_test", primaryAccountId: "acct_test", emailVerified: true },
+      activeAccountId: "acct_test",
+      error: null,
+    });
+    mocks.requireWorkspaceMutationActor.mockResolvedValue({
+      actor: { accountId: "acct_test", role: "OWNER", authorityLevel: 100 },
+      error: null,
+    });
+    mocks.policyFindOne.mockReturnValue({ lean: vi.fn().mockResolvedValue(existingPolicyDoc) });
+    mocks.policyFindOneAndUpdate.mockReturnValue({
+      lean: vi.fn().mockResolvedValue({
+        ...existingPolicyDoc,
+        protectedRepos: [
+          ...existingPolicyDoc.protectedRepos,
+          { repoHash: "0123456789abcdef", label: "Staging", mode: "managed", enabled: true },
+        ],
+      }),
+    });
+  });
+
+  it("rejects unauthenticated request", async () => {
+    mocks.requireVerifiedDeveloperApi.mockResolvedValue({
+      user: null,
+      error: new Response(JSON.stringify({ error: "Developer authentication required." }), { status: 401 }),
+    });
+    const { POST } = await import("@/app/api/dashboard/managed-profiles/protected-repos/route");
+    const res = await POST(protectedReposRequest({ repoHash: "0123456789abcdef" }));
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects unverified developer", async () => {
+    mocks.requireVerifiedDeveloperApi.mockResolvedValue({
+      user: null,
+      error: new Response(JSON.stringify({ error: "Email verification required." }), { status: 403 }),
+    });
+    const { POST } = await import("@/app/api/dashboard/managed-profiles/protected-repos/route");
+    const res = await POST(protectedReposRequest({ repoHash: "0123456789abcdef" }));
+    expect(res.status).toBe(403);
+  });
+
+  it("rejects viewer or read-only actor", async () => {
+    mocks.requireWorkspaceMutationActor.mockResolvedValue({
+      actor: null,
+      error: new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 }),
+    });
+    const { POST } = await import("@/app/api/dashboard/managed-profiles/protected-repos/route");
+    const res = await POST(protectedReposRequest({ repoHash: "0123456789abcdef" }));
+    expect(res.status).toBe(403);
+  });
+
+  it("requires workspace account", async () => {
+    mocks.requireVerifiedDeveloperApi.mockResolvedValue({
+      user: { userId: "dev_test", primaryAccountId: null, emailVerified: true },
+      activeAccountId: null,
+      error: null,
+    });
+    const { POST } = await import("@/app/api/dashboard/managed-profiles/protected-repos/route");
+    const res = await POST(protectedReposRequest({ repoHash: "0123456789abcdef" }));
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toMatch(/Workspace account required/);
+  });
+
+  it("appends valid protected repo hash", async () => {
+    const { POST } = await import("@/app/api/dashboard/managed-profiles/protected-repos/route");
+    const res = await POST(
+      protectedReposRequest({
+        repoHash: "0123456789abcdef",
+        label: "Staging repo",
+        mode: "managed",
+        enabled: true,
+      })
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.policy.protectedRepos).toHaveLength(2);
+    expect(body.policy.protectedRepos[1].repoHash).toBe("0123456789abcdef");
+    expect(mocks.policyFindOneAndUpdate).toHaveBeenCalled();
+    const updateArgs = mocks.policyFindOneAndUpdate.mock.calls[0]?.[1];
+    expect(updateArgs.timezone).toBe("America/New_York");
+    expect(updateArgs.toolModes.claude).toBe("required");
+    expect(updateArgs.protectedRepos).toHaveLength(2);
+  });
+
+  it("returns 409 for duplicate repo hash", async () => {
+    const { POST } = await import("@/app/api/dashboard/managed-profiles/protected-repos/route");
+    const res = await POST(
+      protectedReposRequest({
+        repoHash: "abc123def4567890",
+        label: "Duplicate",
+        mode: "required",
+      })
+    );
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error).toBe("Protected repo already exists.");
+    expect(mocks.policyFindOneAndUpdate).not.toHaveBeenCalled();
+  });
+
+  it("rejects raw GitHub URL repo hash", async () => {
+    const { POST } = await import("@/app/api/dashboard/managed-profiles/protected-repos/route");
+    const res = await POST(
+      protectedReposRequest({
+        repoHash: "https://github.com/org/repo.git",
+        label: "Bad",
+      })
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/lowercase hex hash/);
+  });
+
+  it("rejects local filesystem path repo hash", async () => {
+    const { POST } = await import("@/app/api/dashboard/managed-profiles/protected-repos/route");
+    const res = await POST(
+      protectedReposRequest({
+        repoHash: "/Users/name/repo",
+        label: "Bad",
+      })
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/lowercase hex hash/);
+  });
+
+  it("rejects invalid mode", async () => {
+    const { POST } = await import("@/app/api/dashboard/managed-profiles/protected-repos/route");
+    const res = await POST(
+      protectedReposRequest({
+        repoHash: "0123456789abcdef",
+        mode: "strict",
+      })
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/mode must be unmanaged, managed, or required/);
+  });
+
+  it("preserves existing managed profile settings when appending", async () => {
+    const { POST } = await import("@/app/api/dashboard/managed-profiles/protected-repos/route");
+    const res = await POST(
+      protectedReposRequest({
+        repoHash: "0123456789abcdef",
+        label: "New repo",
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(mocks.policyFindOneAndUpdate).toHaveBeenCalled();
+    const updateArgs = mocks.policyFindOneAndUpdate.mock.calls[0]?.[1];
+    expect(updateArgs.enabled).toBe(true);
+    expect(updateArgs.timezone).toBe("America/New_York");
+    expect(updateArgs.duringHoursMode).toBe("managed");
+    expect(updateArgs.outsideHoursMode).toBe("unmanaged");
+    expect(updateArgs.defaultMode).toBe("unmanaged");
+    expect(updateArgs.toolModes).toEqual({ claude: "required" });
+    expect(updateArgs.pausePolicy.maxDurationMinutes).toBe(120);
+    expect(updateArgs.protectedRepos[0].repoHash).toBe("abc123def4567890");
+    expect(updateArgs.protectedRepos[1].repoHash).toBe("0123456789abcdef");
+  });
+});
+
 describe("session policy resolution with persisted policy", () => {
   beforeEach(() => {
     vi.clearAllMocks();

@@ -469,6 +469,63 @@ export async function loadEffectiveManagedProfilePolicy(
   return serializePolicy(doc);
 }
 
+export const PROTECTED_REPO_ENROLLMENT_ALLOWED_FIELDS = ["repoHash", "label", "mode", "enabled"] as const;
+
+export function validateProtectedRepoEnrollmentInput(
+  body: Record<string, unknown>
+): { repo: ManagedProfileProtectedRepo | null; error: string | null } {
+  const unknownError = rejectUnknownFields(body, [...PROTECTED_REPO_ENROLLMENT_ALLOWED_FIELDS]);
+  if (unknownError) return { repo: null, error: unknownError };
+  return validateProtectedRepoInput(body, 0);
+}
+
+function effectivePolicyToSaveBody(
+  policy: EffectiveManagedProfilePolicy
+): Record<string, unknown> {
+  return {
+    enabled: policy.enabled,
+    timezone: policy.timezone,
+    workHours: policy.workHours,
+    duringHoursMode: policy.duringHoursMode,
+    outsideHoursMode: policy.outsideHoursMode,
+    defaultMode: policy.defaultMode,
+    toolModes: policy.toolModes,
+    protectedRepos: policy.protectedRepos.map((repo) => ({
+      repoHash: repo.repoHash,
+      label: repo.label,
+      mode: repo.mode,
+      enabled: repo.enabled,
+    })),
+    pausePolicy: policy.pausePolicy,
+  };
+}
+
+export async function enrollProtectedRepo(
+  accountId: string,
+  body: Record<string, unknown>
+): Promise<{ policy: EffectiveManagedProfilePolicy | null; error: string | null; status?: number }> {
+  const validated = validateProtectedRepoEnrollmentInput(body);
+  if (validated.error || !validated.repo) {
+    return { policy: null, error: validated.error ?? "Invalid protected repo.", status: 400 };
+  }
+
+  const existing = await loadEffectiveManagedProfilePolicy(accountId);
+  const duplicate = existing.protectedRepos.some((repo) => repo.repoHash === validated.repo!.repoHash);
+  if (duplicate) {
+    return { policy: null, error: "Protected repo already exists.", status: 409 };
+  }
+
+  const saveBody = effectivePolicyToSaveBody(existing);
+  const protectedRepos = saveBody.protectedRepos as ManagedProfileProtectedRepo[];
+  protectedRepos.push(validated.repo);
+
+  const result = await saveManagedProfilePolicy(accountId, saveBody);
+  if (result.error) {
+    return { policy: null, error: result.error, status: 400 };
+  }
+  return { policy: result.policy, error: null };
+}
+
 export async function saveManagedProfilePolicy(
   accountId: string,
   body: Record<string, unknown>

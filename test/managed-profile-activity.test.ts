@@ -410,4 +410,20 @@ describe("managed profile activity dashboard UI", () => {
     expect(source).toContain("Load more");
     expect(source).toContain("loadMore");
   });
+
+  it("includes protect repo action and enrollment form", async () => {
+    const source = await readFile("/workspace/components/dashboard/ManagedProfileActivityView.tsx", "utf8");
+    expect(source).toContain("Protect repo");
+    expect(source).toContain("Add protected repo");
+    expect(source).toContain("placeholder=\"Production repo\"");
+    expect(source).toContain("enrollMode");
+    expect(source).toContain("/api/dashboard/managed-profiles/protected-repos");
+  });
+
+  it("managed profiles page links to activity for repo enrollment", async () => {
+    const source = await readFile("/workspace/components/dashboard/ManagedProfilesView.tsx", "utf8");
+    expect(source).toContain("You can also add protected repos from");
+    expect(source).toContain("/dashboard/managed-profiles/activity");
+    expect(source).toContain("Managed Profile Activity");
+  });
 });

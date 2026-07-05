@@ -800,6 +800,45 @@ Events are sorted newest first. Raw git remotes, local filesystem paths, API key
 
 Dashboard UI: `/dashboard/managed-profiles/activity`
 
+## POST /api/dashboard/managed-profiles/protected-repos
+
+Append a single protected repository hash to the workspace managed profile policy without replacing the full policy document.
+
+Authentication: verified developer session with workspace mutation capability (Owner / Engineering Lead).
+
+Request:
+
+```json
+{
+  "repoHash": "0123456789abcdef",
+  "label": "Production repo",
+  "mode": "required",
+  "enabled": true
+}
+```
+
+Rules:
+
+- `repoHash` must be a 16- or 64-character lowercase hex policy repo hash (from `behalf profile status` or activity events)
+- Raw git remotes, local filesystem paths, and URLs are rejected
+- `mode` defaults to `required`; must be `unmanaged`, `managed`, or `required`
+- `enabled` defaults to `true`
+- `label` is optional, trimmed, max 120 characters
+- Unknown fields are rejected
+- Duplicate `repoHash` values in the same workspace policy return `409` with `Protected repo already exists.`
+- Existing policy settings (work hours, tool modes, pause policy, and other protected repos) are preserved
+
+Response:
+
+```json
+{
+  "ok": true,
+  "policy": { "...": "updated effective managed profile policy" }
+}
+```
+
+Dashboard UI: use **Protect repo** on `/dashboard/managed-profiles/activity` to enroll a repo hash from session-policy activity.
+
 ## GET /api/dashboard/managed-profiles
 
 Return the effective workspace managed profile policy for CLI shims, including defaults when no document exists yet.

@@ -1,17 +1,30 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ButtonLink, EmptyState, PageHeader } from "@/components/ui";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { Button, ButtonLink, EmptyState, PageHeader } from "@/components/ui";
 import {
   activitySummaryFromEvents,
   type ManagedProfileActivityEvent,
 } from "@/lib/cliAuditActivityTypes";
 import { formatOpsTime } from "./opsLogTypes";
 
+type PolicyMode = "unmanaged" | "managed" | "required";
+
 type ActivityResponse = {
   events: ManagedProfileActivityEvent[];
   nextCursor: string | null;
+};
+
+type ManagedProfilesResponse = {
+  policy: {
+    protectedRepos: Array<{ repoHash: string }>;
+  };
+  canEdit: boolean;
+};
+
+type EnrollTarget = {
+  repoHash: string;
 };
 
 const EVENT_TYPE_LABELS: Record<ManagedProfileActivityEvent["eventType"], string> = {
@@ -19,6 +32,12 @@ const EVENT_TYPE_LABELS: Record<ManagedProfileActivityEvent["eventType"], string
   cli_pause_grant: "Pause grant",
   cli_pause_deny: "Pause denial",
 };
+
+const MODE_OPTIONS: Array<{ value: PolicyMode; label: string }> = [
+  { value: "unmanaged", label: "Unmanaged" },
+  { value: "managed", label: "Managed" },
+  { value: "required", label: "Required" },
+];
 
 async function fetchActivity(path: string): Promise<ActivityResponse> {
   const response = await fetch(path, {
@@ -32,6 +51,18 @@ async function fetchActivity(path: string): Promise<ActivityResponse> {
   return response.json() as Promise<ActivityResponse>;
 }
 
+async function fetchManagedProfiles(): Promise<ManagedProfilesResponse> {
+  const response = await fetch("/api/dashboard/managed-profiles", {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(body?.error ?? `Request failed with ${response.status}`);
+  }
+  return response.json() as Promise<ManagedProfilesResponse>;
+}
+
 function eventTypeLabel(eventType: ManagedProfileActivityEvent["eventType"]) {
   return EVENT_TYPE_LABELS[eventType] ?? eventType;
 }
@@ -41,7 +72,42 @@ function modeLabel(mode: ManagedProfileActivityEvent["mode"]) {
   return mode[0].toUpperCase() + mode.slice(1);
 }
 
-function ActivityEventCard({ event }: { event: ManagedProfileActivityEvent }) {
+type ProtectRepoActionsProps = {
+  repoHash: string | null | undefined;
+  canEdit: boolean;
+  protectedRepoHashes: Set<string>;
+  onProtect: (repoHash: string) => void;
+};
+
+function ProtectRepoActions({
+  repoHash,
+  canEdit,
+  protectedRepoHashes,
+  onProtect,
+}: ProtectRepoActionsProps) {
+  if (!repoHash) return <>—</>;
+
+  if (protectedRepoHashes.has(repoHash)) {
+    return <span className="ops-status ops-status--allowed">Protected</span>;
+  }
+
+  if (!canEdit) return <>—</>;
+
+  return (
+    <Button onClick={() => onProtect(repoHash)} type="button" variant="secondary">
+      Protect repo
+    </Button>
+  );
+}
+
+type ActivityEventCardProps = {
+  event: ManagedProfileActivityEvent;
+  canEdit: boolean;
+  protectedRepoHashes: Set<string>;
+  onProtect: (repoHash: string) => void;
+};
+
+function ActivityEventCard({ event, canEdit, protectedRepoHashes, onProtect }: ActivityEventCardProps) {
   return (
     <article className="ops-event-card ops-event-card--static managed-activity-card">
       <div className="ops-event-card__head">
@@ -66,6 +132,16 @@ function ActivityEventCard({ event }: { event: ManagedProfileActivityEvent }) {
           Device <code>{event.deviceId}</code>
         </p>
       ) : null}
+      {event.repo ? (
+        <p className="ops-event-card__meta">
+          <ProtectRepoActions
+            canEdit={canEdit}
+            onProtect={onProtect}
+            protectedRepoHashes={protectedRepoHashes}
+            repoHash={event.repo}
+          />
+        </p>
+      ) : null}
     </article>
   );
 }
@@ -82,6 +158,14 @@ export function ManagedProfileActivityView() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [canEdit, setCanEdit] = useState(false);
+  const [protectedRepoHashes, setProtectedRepoHashes] = useState<Set<string>>(() => new Set());
+  const [enrollTarget, setEnrollTarget] = useState<EnrollTarget | null>(null);
+  const [enrollLabel, setEnrollLabel] = useState("");
+  const [enrollMode, setEnrollMode] = useState<PolicyMode>("required");
+  const [enrollError, setEnrollError] = useState("");
+  const [enrollMessage, setEnrollMessage] = useState("");
+  const [enrollSubmitting, setEnrollSubmitting] = useState(false);
 
   const basePath = useMemo(() => {
     const params = new URLSearchParams();
@@ -95,6 +179,19 @@ export function ManagedProfileActivityView() {
     if (range === "7d") params.set("from", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
     return `/api/dashboard/managed-profiles/activity?${params.toString()}`;
   }, [branch, eventType, mode, range, repo, tool]);
+
+  const loadPolicy = useCallback(async () => {
+    try {
+      const response = await fetchManagedProfiles();
+      setCanEdit(response.canEdit);
+      setProtectedRepoHashes(
+        new Set(response.policy.protectedRepos.map((entry) => entry.repoHash))
+      );
+    } catch {
+      setCanEdit(false);
+      setProtectedRepoHashes(new Set());
+    }
+  }, []);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -127,6 +224,63 @@ export function ManagedProfileActivityView() {
       setLoadingMore(false);
     }
   }, [basePath, loadingMore, nextCursor]);
+
+  const openEnrollForm = useCallback((repoHash: string) => {
+    setEnrollTarget({ repoHash });
+    setEnrollLabel("");
+    setEnrollMode("required");
+    setEnrollError("");
+    setEnrollMessage("");
+  }, []);
+
+  const closeEnrollForm = useCallback(() => {
+    setEnrollTarget(null);
+    setEnrollError("");
+  }, []);
+
+  const submitEnroll = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (!enrollTarget) return;
+
+      setEnrollSubmitting(true);
+      setEnrollError("");
+      setEnrollMessage("");
+      try {
+        const response = await fetch("/api/dashboard/managed-profiles/protected-repos", {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            repoHash: enrollTarget.repoHash,
+            label: enrollLabel.trim() || undefined,
+            mode: enrollMode,
+            enabled: true,
+          }),
+        });
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        if (!response.ok) {
+          throw new Error(body?.error ?? `Request failed with ${response.status}`);
+        }
+
+        setProtectedRepoHashes((current) => new Set([...current, enrollTarget.repoHash]));
+        setEnrollMessage("Protected repo added to managed profile policy.");
+        setEnrollTarget(null);
+      } catch (requestError) {
+        setEnrollError(requestError instanceof Error ? requestError.message : "Request failed.");
+      } finally {
+        setEnrollSubmitting(false);
+      }
+    },
+    [enrollLabel, enrollMode, enrollTarget]
+  );
+
+  useEffect(() => {
+    void loadPolicy();
+  }, [loadPolicy]);
 
   useEffect(() => {
     void reload();
@@ -234,6 +388,56 @@ export function ManagedProfileActivityView() {
         </p>
       ) : null}
 
+      {enrollMessage ? (
+        <p className="setup-banner" role="status">
+          {enrollMessage}
+        </p>
+      ) : null}
+
+      {enrollTarget ? (
+        <form className="setup-form managed-activity-enroll" onSubmit={(event) => void submitEnroll(event)}>
+          <div className="dashboard-section-header">
+            <h2>Protect repo</h2>
+          </div>
+          <label>
+            <span>Repo hash</span>
+            <input readOnly value={enrollTarget.repoHash} />
+          </label>
+          <label>
+            <span>Label</span>
+            <input
+              autoFocus
+              onChange={(event) => setEnrollLabel(event.target.value)}
+              placeholder="Production repo"
+              value={enrollLabel}
+            />
+          </label>
+          <label>
+            <span>Mode</span>
+            <select onChange={(event) => setEnrollMode(event.target.value as PolicyMode)} value={enrollMode}>
+              {MODE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {enrollError ? (
+            <p className="form-error" role="alert">
+              {enrollError}
+            </p>
+          ) : null}
+          <div className="setup-form__row">
+            <Button disabled={enrollSubmitting} type="submit" variant="primary">
+              {enrollSubmitting ? "Saving…" : "Add protected repo"}
+            </Button>
+            <Button disabled={enrollSubmitting} onClick={closeEnrollForm} type="button" variant="secondary">
+              Cancel
+            </Button>
+          </div>
+        </form>
+      ) : null}
+
       <div className="ops-events">
         <div className="ops-events__table-wrap">
           <table className="ops-events__table">
@@ -247,19 +451,20 @@ export function ManagedProfileActivityView() {
                 <th scope="col">Branch</th>
                 <th scope="col">Reason</th>
                 <th scope="col">Device</th>
+                <th scope="col">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading && !events.length ? (
                 <tr>
-                  <td colSpan={8} className="ops-events__empty">
+                  <td colSpan={9} className="ops-events__empty">
                     Loading activity…
                   </td>
                 </tr>
               ) : null}
               {!loading && !events.length ? (
                 <tr>
-                  <td colSpan={8} className="ops-events__empty">
+                  <td colSpan={9} className="ops-events__empty">
                     {hasFilters ? "No events match these filters." : "No managed profile activity yet."}
                   </td>
                 </tr>
@@ -272,10 +477,26 @@ export function ManagedProfileActivityView() {
                   <td>{eventTypeLabel(event.eventType)}</td>
                   <td className="ops-events__mono">{event.tool ?? "—"}</td>
                   <td>{modeLabel(event.mode)}</td>
-                  <td className="ops-events__mono">{event.repo ?? "—"}</td>
+                  <td className="ops-events__mono">
+                    {event.repo ?? "—"}
+                    {event.repo && protectedRepoHashes.has(event.repo) ? (
+                      <>
+                        {" "}
+                        <span className="ops-status ops-status--allowed">Protected</span>
+                      </>
+                    ) : null}
+                  </td>
                   <td className="ops-events__mono">{event.branch ?? "—"}</td>
                   <td className="ops-events__message">{event.reason}</td>
                   <td className="ops-events__mono">{event.deviceId ?? "—"}</td>
+                  <td>
+                    <ProtectRepoActions
+                      canEdit={canEdit}
+                      onProtect={openEnrollForm}
+                      protectedRepoHashes={protectedRepoHashes}
+                      repoHash={event.repo}
+                    />
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -290,7 +511,13 @@ export function ManagedProfileActivityView() {
             </p>
           ) : null}
           {events.map((event) => (
-            <ActivityEventCard key={event.id} event={event} />
+            <ActivityEventCard
+              key={event.id}
+              canEdit={canEdit}
+              event={event}
+              onProtect={openEnrollForm}
+              protectedRepoHashes={protectedRepoHashes}
+            />
           ))}
         </div>
       </div>
