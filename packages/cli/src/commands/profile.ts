@@ -129,11 +129,12 @@ export async function runProfileDoctorChecks(cwd = process.cwd()): Promise<Check
     fix: pathCheck.pathHint ?? undefined,
   });
 
+  const repoContext = detectRepoContext(cwd);
   checks.push({
     name: "Repo detection",
     status: isGitRepo(cwd) ? "ok" : "warn",
     detail: isGitRepo(cwd)
-      ? `${detectRepoContext(cwd).repoRoot ?? cwd} (hash: ${detectRepoContext(cwd).repoHash ?? "none"})`
+      ? `${repoContext.repoRoot ?? cwd} (policy hash: ${repoContext.policyRepoHash ?? "none"})`
       : "Not a git repository",
   });
 
@@ -241,7 +242,7 @@ function profileStatusCommand() {
           "repo root": status.repo.repoRoot ?? "(not in git repo)",
           branch: status.repo.branch ?? "(unknown)",
           "git remote": status.repo.gitRemote ? "(detected)" : "(none)",
-          "repo hash": status.repo.repoHash ?? "(none)",
+          "policy repo hash": status.repo.policyRepoHash ?? "(none)",
         });
 
         if (status.policy) {

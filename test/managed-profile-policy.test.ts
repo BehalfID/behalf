@@ -120,6 +120,48 @@ describe("managed profile policy validation", () => {
     });
     expect(result.error).toMatch(/Unknown field/);
   });
+
+  it("accepts 16-char lowercase hex protected repo hash", async () => {
+    const { validateProtectedRepoInput } = await import("@/lib/managedProfilePolicy");
+    const result = validateProtectedRepoInput(
+      { repoHash: "abc123def4567890", mode: "required", enabled: true },
+      0
+    );
+    expect(result.error).toBeNull();
+    expect(result.repo?.repoHash).toBe("abc123def4567890");
+  });
+
+  it("accepts 64-char lowercase hex protected repo hash", async () => {
+    const { validateProtectedRepoInput } = await import("@/lib/managedProfilePolicy");
+    const hash64 = "a".repeat(64);
+    const result = validateProtectedRepoInput({ repoHash: hash64, mode: "required" }, 0);
+    expect(result.error).toBeNull();
+    expect(result.repo?.repoHash).toBe(hash64);
+  });
+
+  it("rejects raw GitHub URL protected repo hash", async () => {
+    const { validateProtectedRepoInput } = await import("@/lib/managedProfilePolicy");
+    const result = validateProtectedRepoInput(
+      { repoHash: "https://github.com/org/repo.git", mode: "required" },
+      0
+    );
+    expect(result.error).toMatch(/lowercase hex hash/);
+  });
+
+  it("rejects local filesystem path protected repo hash", async () => {
+    const { validateProtectedRepoInput } = await import("@/lib/managedProfilePolicy");
+    const result = validateProtectedRepoInput(
+      { repoHash: "/Users/name/repo", mode: "required" },
+      0
+    );
+    expect(result.error).toMatch(/lowercase hex hash/);
+  });
+
+  it("rejects uppercase or non-hex protected repo hash", async () => {
+    const { validateProtectedRepoInput } = await import("@/lib/managedProfilePolicy");
+    const result = validateProtectedRepoInput({ repoHash: "ABC123DEF4567890", mode: "required" }, 0);
+    expect(result.error).toMatch(/lowercase hex hash/);
+  });
 });
 
 describe("dashboard managed profile routes", () => {
@@ -243,7 +285,7 @@ describe("session policy resolution with persisted policy", () => {
         outsideHoursMode: "unmanaged",
         defaultMode: "unmanaged",
         toolModes: {},
-        protectedRepos: [{ repoHash: "repo_hash_a", mode: "required", enabled: true }],
+        protectedRepos: [{ repoHash: "0123456789abcdef", mode: "required", enabled: true }],
         pausePolicy: { enabled: true, reasonRequired: true, maxDurationMinutes: 240, allowAllRepos: false },
       }),
     });
@@ -251,9 +293,49 @@ describe("session policy resolution with persisted policy", () => {
     const { resolveCliSessionPolicy } = await import("@/lib/cliSessionPolicy");
     const result = await resolveCliSessionPolicy(
       { userId: "user_a", accountId: "acct_test", agentId: null, source: "session" },
-      { tool: "claude", repoRoot: "repo_hash_a" }
+      { tool: "claude", repoRoot: "0123456789abcdef" }
     );
     expect(result.mode).toBe("required");
+  });
+
+  it("returns unmanaged when an active pause lease applies", async () => {
+    mocks.pauseFind.mockReturnValue({
+      sort: vi.fn().mockReturnValue({
+        limit: vi.fn().mockReturnValue({
+          lean: vi.fn().mockResolvedValue([
+            {
+              scope: "all",
+              repo: null,
+              reason: "existing pause",
+              expiresAt: new Date(Date.now() + 60_000),
+            },
+          ]),
+        }),
+      }),
+    });
+    mocks.policyFindOne.mockReturnValue({
+      lean: vi.fn().mockResolvedValue({
+        policyId: "pprf_test",
+        accountId: "acct_test",
+        enabled: true,
+        timezone: "UTC",
+        workHours: { enabled: false, days: [1], start: "09:00", end: "17:00" },
+        duringHoursMode: "managed",
+        outsideHoursMode: "unmanaged",
+        defaultMode: "required",
+        toolModes: {},
+        protectedRepos: [],
+        pausePolicy: { enabled: true, reasonRequired: true, maxDurationMinutes: 240, allowAllRepos: true },
+      }),
+    });
+
+    const { resolveCliSessionPolicy } = await import("@/lib/cliSessionPolicy");
+    const result = await resolveCliSessionPolicy(
+      { userId: "user_a", accountId: "acct_test", agentId: null, source: "session" },
+      { tool: "claude", repoRoot: "0123456789abcdef" }
+    );
+    expect(result.mode).toBe("unmanaged");
+    expect(result.reason).toMatch(/Active pause lease/);
   });
 
   it("returns during-hours mode inside work window", async () => {
@@ -486,12 +568,146 @@ describe("pause behavior with managed profile policy", () => {
     expect(result.granted).toBe(true);
     expect(mocks.pauseCreate).toHaveBeenCalled();
   });
+
+  it("denies new pause when active pause masks underlying required policy", async () => {
+    mocks.pauseFind.mockReturnValue({
+      sort: vi.fn().mockReturnValue({
+        limit: vi.fn().mockReturnValue({
+          lean: vi.fn().mockResolvedValue([
+            {
+              scope: "all",
+              repo: null,
+              reason: "existing pause",
+              expiresAt: new Date(Date.now() + 60_000),
+            },
+          ]),
+        }),
+      }),
+    });
+    mockPolicy({
+      policyId: "pprf_test",
+      accountId: "acct_test",
+      enabled: true,
+      timezone: "UTC",
+      workHours: { enabled: false, days: [1], start: "09:00", end: "17:00" },
+      duringHoursMode: "managed",
+      outsideHoursMode: "unmanaged",
+      defaultMode: "required",
+      toolModes: {},
+      protectedRepos: [],
+      pausePolicy: { enabled: true, reasonRequired: true, maxDurationMinutes: 240, allowAllRepos: true },
+    });
+
+    const { requestCliPauseLease } = await import("@/lib/cliSessionPolicy");
+    const result = await requestCliPauseLease(
+      { userId: "user_a", accountId: "acct_test", agentId: null, source: "session" },
+      { durationMinutes: 30, reason: "renew pause", scope: "current_repo", tool: "claude" }
+    );
+    expect(result.granted).toBe(false);
+    expect(result.mode).toBe("required");
+  });
+
+  it("allows new pause when active pause exists but underlying policy is not required", async () => {
+    mocks.pauseFind.mockReturnValue({
+      sort: vi.fn().mockReturnValue({
+        limit: vi.fn().mockReturnValue({
+          lean: vi.fn().mockResolvedValue([
+            {
+              scope: "all",
+              repo: null,
+              reason: "existing pause",
+              expiresAt: new Date(Date.now() + 60_000),
+            },
+          ]),
+        }),
+      }),
+    });
+    mockPolicy({
+      policyId: "pprf_test",
+      accountId: "acct_test",
+      enabled: true,
+      timezone: "UTC",
+      workHours: { enabled: false, days: [1], start: "09:00", end: "17:00" },
+      duringHoursMode: "managed",
+      outsideHoursMode: "unmanaged",
+      defaultMode: "managed",
+      toolModes: {},
+      protectedRepos: [],
+      pausePolicy: { enabled: true, reasonRequired: true, maxDurationMinutes: 240, allowAllRepos: true },
+    });
+
+    const { requestCliPauseLease } = await import("@/lib/cliSessionPolicy");
+    const result = await requestCliPauseLease(
+      { userId: "user_a", accountId: "acct_test", agentId: null, source: "session" },
+      { durationMinutes: 30, reason: "renew pause", scope: "current_repo", tool: "claude" }
+    );
+    expect(result.granted).toBe(true);
+    expect(mocks.pauseCreate).toHaveBeenCalled();
+  });
 });
 
-describe("CLI repo hash output", () => {
-  it("includes repo hash in repo context without exposing raw remote", async () => {
-    const { hashRepoValue } = await import("../packages/cli/src/lib/profile/repo.js");
-    const hash = hashRepoValue("/tmp/example-repo");
-    expect(hash).toMatch(/^[a-f0-9]{16}$/);
+describe("CLI policy repo hash", () => {
+  it("uses the same policyRepoHash for the same git remote across local paths", async () => {
+    const { computePolicyRepoHash, hashRepoValue } = await import("../packages/cli/src/lib/profile/repo.js");
+    const remote = "git@github.com:org/repo.git";
+    const hashA = computePolicyRepoHash({
+      gitRemote: remote,
+      repoRoot: "/Users/alice/dev/repo",
+    });
+    const hashB = computePolicyRepoHash({
+      gitRemote: remote,
+      repoRoot: "/home/bob/work/repo",
+    });
+    expect(hashA).toBe(hashB);
+    expect(hashA).toBe(hashRepoValue(remote));
+  });
+
+  it("falls back to local repo root hash when no git remote exists", async () => {
+    const { computePolicyRepoHash, hashRepoValue } = await import("../packages/cli/src/lib/profile/repo.js");
+    const repoRoot = "/tmp/local-only-repo";
+    expect(computePolicyRepoHash({ gitRemote: null, repoRoot })).toBe(hashRepoValue(repoRoot));
+  });
+
+  it("matches protected repo policy using policyRepoHash sent as repoRoot", async () => {
+    const { computePolicyRepoHash, hashRepoValue } = await import("../packages/cli/src/lib/profile/repo.js");
+    const { resolvePersistedManagedProfileMode, defaultManagedProfilePolicy } = await import(
+      "@/lib/managedProfilePolicy"
+    );
+    const remote = "https://github.com/org/stable-repo.git";
+    const policyRepoHash = computePolicyRepoHash({
+      gitRemote: remote,
+      repoRoot: "/different/local/path",
+    });
+    expect(policyRepoHash).toBeTruthy();
+    const policy = {
+      ...defaultManagedProfilePolicy("acct_test"),
+      enabled: true,
+      policyId: "pprf_test",
+      protectedRepos: [{ repoHash: policyRepoHash!, mode: "required" as const, enabled: true }],
+    };
+    const result = resolvePersistedManagedProfileMode(policy, {
+      tool: "claude",
+      repoRoot: policyRepoHash,
+    });
+    expect(result?.mode).toBe("required");
+    expect(result?.reason).toMatch(/Protected repository/);
+  });
+
+  it("does not expose raw git remote in status snapshot fields", async () => {
+    const remote = "git@github.com:secret-org/private-repo.git";
+    const repo = {
+      cwd: "/tmp/repo",
+      repoRoot: "/tmp/repo",
+      branch: "main",
+      gitRemote: remote,
+      repoHash: "0123456789abcdef",
+      policyRepoHash: "fedcba9876543210",
+    };
+    const statusLines = {
+      "git remote": repo.gitRemote ? "(detected)" : "(none)",
+      "policy repo hash": repo.policyRepoHash ?? "(none)",
+    };
+    expect(JSON.stringify(statusLines)).not.toContain(remote);
+    expect(JSON.stringify(statusLines)).not.toContain("secret-org");
   });
 });

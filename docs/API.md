@@ -661,7 +661,7 @@ Request:
   "cwd": "hashed-or-path",
   "gitRemote": "hashed-remote",
   "branch": "main",
-  "repoRoot": "hashed-root",
+  "repoRoot": "policy-repo-hash",
   "deviceId": "devmac_123",
   "cliVersion": "0.2.8",
   "workspaceId": "acct_xxx"
@@ -684,6 +684,8 @@ Response:
 ```
 
 Modes: `unmanaged`, `managed`, `required`.
+
+The CLI sends a stable **policy repo hash** in `repoRoot`: SHA-256 of the git remote URL when available, otherwise SHA-256 of the local repo root (16-char hex slice). Dashboard protected repo entries must use this same hash. Raw git remotes are never sent or displayed.
 
 Resolution order (first match wins):
 
@@ -743,6 +745,7 @@ Response when granted:
 
 Rules:
 
+- Pause grant decisions evaluate the **underlying workspace policy** and ignore any already-active pause lease (renewals cannot bypass a newly required policy)
 - `reason` is required unless workspace pause policy disables `reasonRequired`
 - Maximum duration: workspace pause policy `maxDurationMinutes` (hard cap 240 minutes)
 - Denied when workspace pause policy is disabled
@@ -768,7 +771,7 @@ Request body fields:
 - `workHours`: `{ enabled, days, start, end }`
 - `duringHoursMode`, `outsideHoursMode`, `defaultMode`
 - `toolModes`: optional `{ claude?, codex?, cursor? }`
-- `protectedRepos`: `[{ repoHash, label?, mode?, enabled? }]`
+- `protectedRepos`: `[{ repoHash, label?, mode?, enabled? }]` — `repoHash` must be 16- or 64-character lowercase hex (the policy repo hash from `behalf profile status`)
 - `pausePolicy`: `{ enabled, reasonRequired, maxDurationMinutes, allowAllRepos }`
 
 Unknown fields are rejected. Modes must be `unmanaged`, `managed`, or `required`. Pause duration is capped at 240 minutes.

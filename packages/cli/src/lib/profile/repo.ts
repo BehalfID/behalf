@@ -8,7 +8,10 @@ export type RepoContext = {
   repoRoot: string | null;
   branch: string | null;
   gitRemote: string | null;
+  /** Hash of the local repo root path (legacy/local diagnostics). */
   repoHash: string | null;
+  /** Stable hash for dashboard protected repo matching and server policy requests. */
+  policyRepoHash: string | null;
 };
 
 function runGit(args: string[], cwd: string): string | null {
@@ -24,6 +27,18 @@ function runGit(args: string[], cwd: string): string | null {
   }
 }
 
+export function hashRepoValue(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return createHash("sha256").update(value).digest("hex").slice(0, 16);
+}
+
+export function computePolicyRepoHash(input: {
+  gitRemote?: string | null;
+  repoRoot?: string | null;
+}): string | null {
+  return hashRepoValue(input.gitRemote) ?? hashRepoValue(input.repoRoot);
+}
+
 export function detectRepoContext(cwd = process.cwd()): RepoContext {
   const repoRoot = runGit(["rev-parse", "--show-toplevel"], cwd);
   const branch = repoRoot ? runGit(["rev-parse", "--abbrev-ref", "HEAD"], repoRoot) : null;
@@ -37,12 +52,8 @@ export function detectRepoContext(cwd = process.cwd()): RepoContext {
     branch,
     gitRemote,
     repoHash: hashRepoValue(repoRoot),
+    policyRepoHash: computePolicyRepoHash({ gitRemote, repoRoot }),
   };
-}
-
-export function hashRepoValue(value: string | null | undefined): string | null {
-  if (!value) return null;
-  return createHash("sha256").update(value).digest("hex").slice(0, 16);
 }
 
 export function isGitRepo(dir: string): boolean {

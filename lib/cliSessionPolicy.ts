@@ -24,6 +24,11 @@ export type CliSessionPolicyInput = {
   workspaceId?: string | null;
 };
 
+export type ResolveCliSessionPolicyOptions = {
+  /** When true, active pause leases are ignored (used for pause-grant decisions). */
+  ignorePauseLease?: boolean;
+};
+
 export type CliSessionPolicyResult = {
   mode: CliSessionPolicyMode;
   profileId: string | null;
@@ -164,7 +169,8 @@ export function validateSessionPolicyInput(input: CliSessionPolicyInput): string
 
 export async function resolveCliSessionPolicy(
   auth: CliAuthContext,
-  input: CliSessionPolicyInput
+  input: CliSessionPolicyInput,
+  options?: ResolveCliSessionPolicyOptions
 ): Promise<CliSessionPolicyResult> {
   await connectToDatabase();
 
@@ -183,18 +189,20 @@ export async function resolveCliSessionPolicy(
     };
   }
 
-  const activePause = await findActivePauseLease(auth, input);
-  if (activePause) {
-    return {
-      mode: "unmanaged",
-      profileId: null,
-      profileName: null,
-      sessionId,
-      workspaceId: auth.accountId,
-      reason: `Active pause lease: ${activePause.reason}`,
-      expiresAt: activePause.expiresAt?.toISOString() ?? null,
-      cacheTtlSeconds: 60,
-    };
+  if (!options?.ignorePauseLease) {
+    const activePause = await findActivePauseLease(auth, input);
+    if (activePause) {
+      return {
+        mode: "unmanaged",
+        profileId: null,
+        profileName: null,
+        sessionId,
+        workspaceId: auth.accountId,
+        reason: `Active pause lease: ${activePause.reason}`,
+        expiresAt: activePause.expiresAt?.toISOString() ?? null,
+        cacheTtlSeconds: 60,
+      };
+    }
   }
 
   if (!auth.accountId) {
@@ -378,12 +386,16 @@ export async function requestCliPauseLease(
     return { granted: false, mode: "unmanaged", reason: validationError };
   }
 
-  const policy = await resolveCliSessionPolicy(auth, {
-    tool: input.tool ?? "claude",
-    repoRoot: input.repo ?? null,
-    branch: input.branch ?? null,
-    deviceId: input.deviceId ?? null,
-  });
+  const policy = await resolveCliSessionPolicy(
+    auth,
+    {
+      tool: input.tool ?? "claude",
+      repoRoot: input.repo ?? null,
+      branch: input.branch ?? null,
+      deviceId: input.deviceId ?? null,
+    },
+    { ignorePauseLease: true }
+  );
 
   if (policy.mode === "required") {
     const deniedReason =

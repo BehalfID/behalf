@@ -50,7 +50,9 @@ behalf profile status
 behalf profile status --tool claude
 ```
 
-Shows shim installation, PATH ordering, repo/branch detection, repo hash used for policy matching, and the current server policy result.
+Shows shim installation, PATH ordering, repo/branch detection, and the **policy repo hash** used for dashboard protected repos and server policy matching.
+
+The policy repo hash is derived from the git remote URL when available, otherwise from the local repo root. Raw git remotes are never displayed.
 
 ## Doctor
 
@@ -58,7 +60,7 @@ Shows shim installation, PATH ordering, repo/branch detection, repo hash used fo
 behalf profile doctor
 ```
 
-Checks CLI version, auth, shim files, real binary resolution, PATH ordering, repo detection, and policy/pause API connectivity.
+Checks CLI version, auth, shim files, real binary resolution, PATH ordering, repo detection (including policy repo hash), and policy/pause API connectivity.
 
 ## Pause (policy-approved, not a bypass)
 

@@ -53,6 +53,11 @@ export type EffectiveManagedProfilePolicy = {
 export const VALID_POLICY_MODES = ["unmanaged", "managed", "required"] as const;
 export const VALID_MANAGED_TOOLS = ["claude", "codex", "cursor"] as const;
 export const MAX_PAUSE_DURATION_MINUTES = 240;
+export const PROTECTED_REPO_HASH_PATTERN = /^[a-f0-9]{16}$|^[a-f0-9]{64}$/;
+
+export function isValidProtectedRepoHash(value: string): boolean {
+  return PROTECTED_REPO_HASH_PATTERN.test(value);
+}
 
 export const PUT_ALLOWED_FIELDS = [
   "enabled",
@@ -197,8 +202,11 @@ export function validateProtectedRepoInput(
   if (!repoHash) {
     return { repo: null, error: `protectedRepos[${index}].repoHash is required.` };
   }
-  if (repoHash.length > 64) {
-    return { repo: null, error: `protectedRepos[${index}].repoHash is too long.` };
+  if (!isValidProtectedRepoHash(repoHash)) {
+    return {
+      repo: null,
+      error: `protectedRepos[${index}].repoHash must be a 16- or 64-character lowercase hex hash.`,
+    };
   }
 
   const mode = value.mode === undefined ? "required" : value.mode;

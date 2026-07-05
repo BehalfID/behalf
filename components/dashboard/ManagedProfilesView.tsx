@@ -385,9 +385,10 @@ export function ManagedProfilesView() {
             <h2>Protected repos</h2>
           </div>
           <p className="ops-empty">
-            Add repo hashes shown by <code>behalf profile status --tool claude</code> or{" "}
-            <code>behalf profile doctor</code>. Protected repo rules take precedence over tool and
-            work-hours settings.
+            Add policy repo hashes shown by <code>behalf profile status --tool claude</code> or{" "}
+            <code>behalf profile doctor</code>. Hashes are derived from the git remote when available,
+            otherwise the local repo root. Protected repo rules take precedence over tool and work-hours
+            settings.
           </p>
           {form.protectedRepos.map((repo, index) => (
             <div className="setup-form__row protected-repo-row" key={`repo-${index}`}>
