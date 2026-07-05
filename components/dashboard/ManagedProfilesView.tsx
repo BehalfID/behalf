@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { Button, Card, PageHeader } from "@/components/ui";
+import { Button, ButtonLink, Card, PageHeader } from "@/components/ui";
 
 type PolicyMode = "unmanaged" | "managed" | "required";
 
@@ -199,6 +199,11 @@ export function ManagedProfilesView() {
       <PageHeader
         title="Managed profiles"
         description="Control when local coding agents run unmanaged, managed, or required."
+        action={
+          <ButtonLink href="/dashboard/managed-profiles/activity" variant="secondary">
+            View activity
+          </ButtonLink>
+        }
       />
       {saveMessage ? <p className="setup-banner" role="status">{saveMessage}</p> : null}
       {saveError ? <p className="form-error" role="alert">{saveError}</p> : null}

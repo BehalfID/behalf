@@ -1,5 +1,5 @@
-import crypto from "crypto";
 import { connectToDatabase } from "@/lib/db";
+import { hashCliRepo } from "@/lib/cliRepoHash";
 import { createPublicId } from "@/lib/ids";
 import {
   loadEffectiveManagedProfilePolicy,
@@ -285,18 +285,19 @@ export async function recordCliAuditEvent(input: {
   reason: string;
   metadata?: Record<string, unknown>;
 }) {
+  const { sanitizeCliAuditMetadata, sanitizeCliAuditRepo } = await import("@/lib/cliAuditActivity");
   await CliAuditLog.create({
     auditId: createPublicId("clia"),
     accountId: input.auth.accountId,
     userId: input.auth.userId,
     eventType: input.eventType,
     tool: input.tool ?? undefined,
-    repo: input.repo ?? undefined,
+    repo: sanitizeCliAuditRepo(input.repo) ?? undefined,
     branch: input.branch ?? undefined,
     mode: input.mode,
     granted: input.granted,
     reason: input.reason,
-    metadata: input.metadata,
+    metadata: sanitizeCliAuditMetadata(input.metadata),
   }).catch(() => {
     // audit should not block CLI operations
   });
@@ -409,7 +410,10 @@ export async function requestCliPauseLease(
       mode: policy.mode,
       granted: false,
       reason: deniedReason,
-      metadata: { requestedMinutes: input.durationMinutes, userReason: input.reason.trim() },
+      metadata: {
+        requestedMinutes: input.durationMinutes,
+        deviceId: input.deviceId ?? null,
+      },
     });
     return { granted: false, mode: policy.mode, reason: deniedReason };
   }
@@ -446,7 +450,11 @@ export async function requestCliPauseLease(
     mode: "unmanaged",
     granted: true,
     reason: grantedReason,
-    metadata: { leaseId, expiresAt: expiresAt.toISOString(), userReason: input.reason.trim() },
+    metadata: {
+      leaseId,
+      expiresAt: expiresAt.toISOString(),
+      deviceId: input.deviceId ?? null,
+    },
   });
 
   return {
@@ -463,7 +471,4 @@ export async function requestCliPauseLease(
   };
 }
 
-export function hashCliRepo(value: string | null | undefined): string | null {
-  if (!value) return null;
-  return crypto.createHash("sha256").update(value).digest("hex").slice(0, 16);
-}
+export { hashCliRepo } from "@/lib/cliRepoHash";

@@ -752,6 +752,53 @@ Rules:
 - Denied when `scope=all` but workspace policy disallows all-repo pause
 - Denied when workspace policy is `required` for the current context
 - Granted/denied events are written to `CliAuditLog`
+- Session policy resolutions are written to `CliAuditLog` as `cli_session_policy`
+
+## GET /api/dashboard/managed-profiles/activity
+
+Return paginated managed profile runtime evidence for the current workspace: session policy decisions, pause grants, and pause denials.
+
+Authentication: developer session required. Workspace members with viewer access can read activity for their active workspace.
+
+Query parameters:
+
+- `limit` — default `25`, max `100`
+- `cursor` — opaque cursor from a previous response `nextCursor`
+- `tool` — `claude`, `codex`, or `cursor`
+- `mode` — `unmanaged`, `managed`, or `required`
+- `eventType` — `cli_session_policy`, `cli_pause_grant`, or `cli_pause_deny`
+- `repo` — policy repo hash (16- or 64-char lowercase hex)
+- `branch`
+- `from`, `to` — ISO timestamps
+
+Response:
+
+```json
+{
+  "events": [
+    {
+      "id": "clia_xxx",
+      "createdAt": "2026-07-05T12:00:00.000Z",
+      "eventType": "cli_session_policy",
+      "tool": "claude",
+      "mode": "required",
+      "granted": null,
+      "reason": "Protected repository policy applies (required).",
+      "repo": "0123456789abcdef",
+      "branch": "main",
+      "deviceId": "devmac_123",
+      "profileId": "pprf_xxx",
+      "profileName": "Protected repository",
+      "expiresAt": null
+    }
+  ],
+  "nextCursor": "..."
+}
+```
+
+Events are sorted newest first. Raw git remotes, local filesystem paths, API keys, and auth headers are never returned.
+
+Dashboard UI: `/dashboard/managed-profiles/activity`
 
 ## GET /api/dashboard/managed-profiles
 
