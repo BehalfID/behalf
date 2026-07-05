@@ -27,6 +27,7 @@ const dashboardNavSections = [
     label: "Workspace",
     items: [
       { href: "/dashboard/settings", label: "Settings & members" },
+      { href: "/dashboard/managed-profiles", label: "Managed profiles" },
       { href: "/dashboard/billing", label: "Billing" },
       { href: "/dashboard/docs", label: "Docs" },
     ]

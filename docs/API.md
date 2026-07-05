@@ -661,7 +661,7 @@ Request:
   "cwd": "hashed-or-path",
   "gitRemote": "hashed-remote",
   "branch": "main",
-  "repoRoot": "hashed-root",
+  "repoRoot": "policy-repo-hash",
   "deviceId": "devmac_123",
   "cliVersion": "0.2.8",
   "workspaceId": "acct_xxx"
@@ -684,6 +684,22 @@ Response:
 ```
 
 Modes: `unmanaged`, `managed`, `required`.
+
+The CLI sends a stable **policy repo hash** in `repoRoot`: SHA-256 of the git remote URL when available, otherwise SHA-256 of the local repo root (16-char hex slice). Dashboard protected repo entries must use this same hash. Raw git remotes are never sent or displayed.
+
+Resolution order (first match wins):
+
+1. Development override env vars (`BEHALF` + `ID_CLI_POLICY_MODE`)
+2. Active server-side pause lease for the current user/account/device/repo scope
+3. No account/auth context → `unmanaged`
+4. Required account env override (`BEHALF` + `ID_CLI_REQUIRED_ACCOUNT_IDS`)
+5. Persisted workspace managed profile policy (when enabled in dashboard):
+   - Protected repo hash match
+   - Per-tool override (`claude`, `codex`, `cursor`)
+   - Work-hours mode (server time in configured timezone)
+   - Outside-hours mode
+   - Default mode
+6. Legacy onboarding/account fallback when no persisted policy applies
 
 Server dev overrides:
 
@@ -729,10 +745,36 @@ Response when granted:
 
 Rules:
 
-- `reason` is required
-- Maximum duration: 240 minutes (4 hours)
+- Pause grant decisions evaluate the **underlying workspace policy** and ignore any already-active pause lease (renewals cannot bypass a newly required policy)
+- `reason` is required unless workspace pause policy disables `reasonRequired`
+- Maximum duration: workspace pause policy `maxDurationMinutes` (hard cap 240 minutes)
+- Denied when workspace pause policy is disabled
+- Denied when `scope=all` but workspace policy disallows all-repo pause
 - Denied when workspace policy is `required` for the current context
 - Granted/denied events are written to `CliAuditLog`
+
+## GET /api/dashboard/managed-profiles
+
+Return the effective workspace managed profile policy for CLI shims, including defaults when no document exists yet.
+
+Authentication: developer session required.
+
+## PUT /api/dashboard/managed-profiles
+
+Create or update the workspace managed profile policy used by `/api/cli/session-policy` and `/api/cli/pause`.
+
+Authentication: verified developer session with workspace mutation capability (Owner / Engineering Lead).
+
+Request body fields:
+
+- `enabled`, `timezone`
+- `workHours`: `{ enabled, days, start, end }`
+- `duringHoursMode`, `outsideHoursMode`, `defaultMode`
+- `toolModes`: optional `{ claude?, codex?, cursor? }`
+- `protectedRepos`: `[{ repoHash, label?, mode?, enabled? }]` — `repoHash` must be 16- or 64-character lowercase hex (the policy repo hash from `behalf profile status`)
+- `pausePolicy`: `{ enabled, reasonRequired, maxDurationMinutes, allowAllRepos }`
+
+Unknown fields are rejected. Modes must be `unmanaged`, `managed`, or `required`. Pause duration is capped at 240 minutes.
 
 ## GET /api/health
 

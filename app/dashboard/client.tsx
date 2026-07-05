@@ -6,6 +6,7 @@ import { FormEvent, Suspense, useCallback, useEffect, useMemo, useState } from "
 import { OpsLogConsole } from "@/components/dashboard/OpsLogConsole";
 import { PendingActionsQueue } from "@/components/dashboard/PendingActionsQueue";
 import { FirstAgentSetup } from "@/components/dashboard/first-agent/FirstAgentSetup";
+import { ManagedProfilesView } from "@/components/dashboard/ManagedProfilesView";
 import { OpsInboxConsole } from "@/components/dashboard/OpsInboxConsole";
 import { DashboardShellLayout } from "@/components/layout/DashboardShell";
 import { Badge, Button, ButtonLink, Card, CodeBlock, EmptyState, PageHeader, StatCard } from "@/components/ui";
@@ -362,7 +363,7 @@ export function DashboardShell({
   emailVerified = true,
   showSetupBanner = false
 }: {
-  view: "home" | "onboarding" | "first-agent" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "inbox" | "docs" | "settings";
+  view: "home" | "onboarding" | "first-agent" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "inbox" | "docs" | "settings" | "managed-profiles";
   id?: string;
   emailVerified?: boolean;
   showSetupBanner?: boolean;
@@ -394,6 +395,7 @@ export function DashboardShell({
         {view === "inbox" ? <InboxView /> : null}
         {view === "docs" ? <DashboardDocs /> : null}
         {view === "settings" ? <SettingsView /> : null}
+        {view === "managed-profiles" ? <ManagedProfilesView /> : null}
     </DashboardShellLayout>
   );
 }
@@ -2892,6 +2894,17 @@ function SettingsView() {
       {saveError ? <p className="form-error" role="alert">{saveError}</p> : null}
       <Card className="dashboard-panel">
         <div className="dashboard-section-header">
+          <h2>Managed profiles</h2>
+        </div>
+        <p className="field-help">
+          Configure when local Claude, Codex, and Cursor sessions run unmanaged, managed, or required.
+        </p>
+        <ButtonLink href="/dashboard/managed-profiles" variant="secondary">
+          Open managed profiles
+        </ButtonLink>
+      </Card>
+      <Card className="dashboard-panel">
+        <div className="dashboard-section-header">
           <h2>Profile</h2>
         </div>
         <form className="setup-form" onSubmit={saveProfile}>
@@ -3084,6 +3097,7 @@ function SettingsView() {
 const DOC_CARDS = [
   { title: "Quickstart", description: "Create an agent, add a permission, call verify(), and prove allowed and denied actions.", href: "/docs/quickstart" },
   { title: "CLI & MCP", description: "Install the CLI, wire up the MCP server, and launch Claude Code or Codex with enforcement active.", href: "/docs/cli" },
+  { title: "Managed profiles", description: "Configure when local Claude, Codex, and Cursor sessions run unmanaged, managed, or required.", href: "/dashboard/managed-profiles" },
   { title: "Deploy approvals", description: "Full demo: agent hits approval gate → you approve in this dashboard → agent retries and deploys.", href: "/docs/deploy-approvals" },
   { title: "SDK", description: "Node.js SDK for calling verify() before tool execution from any agent framework.", href: "/docs/sdk" },
   { title: "Webhooks", description: "Receive real-time signed events for allowed, denied, and approval-required decisions.", href: "/docs/webhooks" },
