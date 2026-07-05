@@ -60,7 +60,13 @@ export async function POST(request: NextRequest) {
     branch: input.branch,
     mode: policy.mode,
     reason: policy.reason,
-    metadata: { sessionId: policy.sessionId, profileId: policy.profileId },
+    metadata: {
+      sessionId: policy.sessionId,
+      profileId: policy.profileId,
+      profileName: policy.profileName,
+      deviceId: input.deviceId,
+      expiresAt: policy.expiresAt,
+    },
   });
 
   return noCacheJson(policy);

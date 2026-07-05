@@ -7,6 +7,7 @@ import { OpsLogConsole } from "@/components/dashboard/OpsLogConsole";
 import { PendingActionsQueue } from "@/components/dashboard/PendingActionsQueue";
 import { FirstAgentSetup } from "@/components/dashboard/first-agent/FirstAgentSetup";
 import { ManagedProfilesView } from "@/components/dashboard/ManagedProfilesView";
+import { ManagedProfileActivityView } from "@/components/dashboard/ManagedProfileActivityView";
 import { OpsInboxConsole } from "@/components/dashboard/OpsInboxConsole";
 import { DashboardShellLayout } from "@/components/layout/DashboardShell";
 import { Badge, Button, ButtonLink, Card, CodeBlock, EmptyState, PageHeader, StatCard } from "@/components/ui";
@@ -363,7 +364,7 @@ export function DashboardShell({
   emailVerified = true,
   showSetupBanner = false
 }: {
-  view: "home" | "onboarding" | "first-agent" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "inbox" | "docs" | "settings" | "managed-profiles";
+  view: "home" | "onboarding" | "first-agent" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "inbox" | "docs" | "settings" | "managed-profiles" | "managed-profiles-activity";
   id?: string;
   emailVerified?: boolean;
   showSetupBanner?: boolean;
@@ -396,6 +397,7 @@ export function DashboardShell({
         {view === "docs" ? <DashboardDocs /> : null}
         {view === "settings" ? <SettingsView /> : null}
         {view === "managed-profiles" ? <ManagedProfilesView /> : null}
+        {view === "managed-profiles-activity" ? <ManagedProfileActivityView /> : null}
     </DashboardShellLayout>
   );
 }

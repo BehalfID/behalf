@@ -82,7 +82,13 @@ describe("POST /api/cli/session-policy", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.mode).toBe("unmanaged");
-    expect(mocks.recordCliAuditEvent).toHaveBeenCalled();
+    expect(mocks.recordCliAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "cli_session_policy",
+        tool: "claude",
+        mode: "unmanaged",
+      })
+    );
   });
 
   it("validates tool name", async () => {
