@@ -72,7 +72,7 @@ behalf resume
 
 Pause requests a **server-approved lease**. It is denied when workspace policy requires enforcement (`required` mode). Leases are scoped, require a reason, and expire (max 4 hours by default).
 
-Granted, denied, and session policy resolution events appear in the dashboard **Managed profile activity** console (`/dashboard/managed-profiles/activity`).
+Granted, denied, and session policy resolution events appear in the dashboard **Managed profile activity** console (`/dashboard/managed-profiles/activity`). Repo hashes shown there can be enrolled as protected repos from the dashboard without copying hashes manually.
 
 ## Uninstall
 
