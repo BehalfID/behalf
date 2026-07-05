@@ -77,6 +77,7 @@ export function ManagedProfileActivityView() {
   const [repo, setRepo] = useState("");
   const [branch, setBranch] = useState("");
   const [range, setRange] = useState("");
+  const [rangeAnchor, setRangeAnchor] = useState<number | null>(null);
   const [events, setEvents] = useState<ManagedProfileActivityEvent[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -91,10 +92,14 @@ export function ManagedProfileActivityView() {
     if (eventType) params.set("eventType", eventType);
     if (repo.trim()) params.set("repo", repo.trim());
     if (branch.trim()) params.set("branch", branch.trim());
-    if (range === "24h") params.set("from", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
-    if (range === "7d") params.set("from", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
+    if (range === "24h" && rangeAnchor) {
+      params.set("from", new Date(rangeAnchor - 24 * 60 * 60 * 1000).toISOString());
+    }
+    if (range === "7d" && rangeAnchor) {
+      params.set("from", new Date(rangeAnchor - 7 * 24 * 60 * 60 * 1000).toISOString());
+    }
     return `/api/dashboard/managed-profiles/activity?${params.toString()}`;
-  }, [branch, eventType, mode, range, repo, tool]);
+  }, [branch, eventType, mode, range, rangeAnchor, repo, tool]);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -129,11 +134,25 @@ export function ManagedProfileActivityView() {
   }, [basePath, loadingMore, nextCursor]);
 
   useEffect(() => {
-    void reload();
+    const timer = window.setTimeout(() => {
+      void reload();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [reload]);
 
   const summary = activitySummaryFromEvents(events);
   const hasFilters = Boolean(tool || mode || eventType || repo || branch || range);
+  const handleRangeChange = (value: string) => {
+    setRange(value);
+    setRangeAnchor(value ? Date.now() : null);
+  };
+  const handleRefresh = () => {
+    if (range) {
+      setRangeAnchor(Date.now());
+      return;
+    }
+    void reload();
+  };
 
   return (
     <div className="ops-console managed-activity-console">
@@ -216,13 +235,13 @@ export function ManagedProfileActivityView() {
             className="ops-cmd__filter"
             aria-label="Time range filter"
             value={range}
-            onChange={(event) => setRange(event.target.value)}
+            onChange={(event) => handleRangeChange(event.target.value)}
           >
             <option value="">Range</option>
             <option value="24h">24h</option>
             <option value="7d">7d</option>
           </select>
-          <button type="button" className="ops-btn ops-btn--ghost ops-cmd__refresh" onClick={() => void reload()}>
+          <button type="button" className="ops-btn ops-btn--ghost ops-cmd__refresh" onClick={handleRefresh}>
             Refresh
           </button>
         </div>

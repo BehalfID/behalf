@@ -1,5 +1,4 @@
 import { connectToDatabase } from "@/lib/db";
-import { hashCliRepo } from "@/lib/cliRepoHash";
 import { createPublicId } from "@/lib/ids";
 import {
   loadEffectiveManagedProfilePolicy,
