@@ -30,11 +30,13 @@ export type SessionPolicy = {
 };
 
 export type PauseLease = {
-  leaseId: string;
+  leaseId?: string;
   mode: SessionPolicyMode;
-  expiresAt: string;
+  expiresAt?: string;
   reason: string;
   granted: boolean;
+  approvalRequired?: boolean;
+  approvalRequestId?: string;
   scope?: "current_repo" | "all";
   tool?: string | null;
   repo?: string | null;
@@ -245,7 +247,7 @@ export type RequestPauseInput = {
 
 export async function requestPauseLease(input: RequestPauseInput): Promise<PauseLease> {
   const repo = detectRepoContext(input.cwd ?? process.cwd());
-  const response = await apiRequest<PauseLease & { granted: boolean; leaseId?: string }>(
+  const response = await apiRequest<PauseLease>(
     "/api/cli/pause",
     {
       method: "POST",
@@ -261,7 +263,7 @@ export async function requestPauseLease(input: RequestPauseInput): Promise<Pause
     }
   );
 
-  if (response.granted) {
+  if (response.granted === true) {
     writeLocalPauseLease(response);
   }
 

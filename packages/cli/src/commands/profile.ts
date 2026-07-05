@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { Command } from "commander";
 import { readConfig, readExtendedConfig, readSession } from "../lib/config.js";
 import { apiRequest, resolveApiKey, resolveBaseUrl } from "../lib/client.js";
-import { isJsonMode, printJson, printKv, printSuccess, runAction } from "../lib/output.js";
+import { isJsonMode, printError, printJson, printKv, printSuccess, runAction } from "../lib/output.js";
 import { MANAGED_TOOLS, isManagedTool, type ManagedTool } from "../lib/profile/constants.js";
 import { checkPathOrdering, shellPathExportLine } from "../lib/profile/path.js";
 import {
@@ -388,6 +388,19 @@ export function pauseCommand() {
 
         if (isJsonMode()) {
           printJson(lease);
+          if (lease.approvalRequired || !lease.granted) {
+            process.exitCode = 1;
+          }
+          return;
+        }
+
+        if (lease.approvalRequired) {
+          printError("Pause requires approval.");
+          if (lease.approvalRequestId) {
+            printError(`Approval request: ${lease.approvalRequestId}`);
+          }
+          printError("Retry the same pause command after it is approved.");
+          process.exitCode = 1;
           return;
         }
 

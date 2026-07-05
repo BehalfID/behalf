@@ -745,6 +745,8 @@ Response when granted:
 
 Response when approval is required (required mode with `pausePolicy.requireApprovalForRequiredMode: true`):
 
+HTTP status: **202 Accepted**
+
 ```json
 {
   "granted": false,
@@ -754,6 +756,8 @@ Response when approval is required (required mode with `pausePolicy.requireAppro
   "reason": "Pause requires approval for this required managed profile context."
 }
 ```
+
+Hard denials (approval disabled or policy rejection) still return **403 Forbidden** with an error message.
 
 After a workspace approver approves the request in the dashboard, retry the same pause request with matching tool/repo/scope/device/duration to consume the one-time grant and receive a pause lease.
 

@@ -111,8 +111,14 @@ export async function consumeApprovedPauseApproval(
   if (!grant?.approvalId) return null;
 
   const now = new Date();
+  const tuple = pauseApprovalTupleFilter(auth, input);
   const result = await ApprovalRequest.updateOne(
-    { approvalId: grant.approvalId, status: "approved", grantExpiresAt: { $gt: now } },
+    {
+      ...tuple,
+      approvalId: grant.approvalId,
+      status: "approved",
+      grantExpiresAt: { $gt: now },
+    },
     { $set: { status: "used", resolvedAt: now } }
   );
 

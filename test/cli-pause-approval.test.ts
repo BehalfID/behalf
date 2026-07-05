@@ -223,7 +223,18 @@ describe("required-mode pause approval", () => {
 
       expect(result.granted).toBe(true);
       expect(mocks.approvalUpdateOne).toHaveBeenCalledWith(
-        expect.objectContaining({ approvalId: "apr_granted" }),
+        expect.objectContaining({
+          approvalId: "apr_granted",
+          accountId: "acct_test",
+          developerUserId: "user_a",
+          kind: "managed_profile_pause",
+          pauseTool: "claude",
+          pauseScope: "current_repo",
+          pauseRepo: "0123456789abcdef",
+          pauseDeviceId: "devmac_test",
+          status: "approved",
+          grantExpiresAt: { $gt: expect.any(Date) },
+        }),
         expect.objectContaining({ $set: expect.objectContaining({ status: "used" }) })
       );
       expect(mocks.pauseCreate).toHaveBeenCalled();
@@ -258,6 +269,29 @@ describe("required-mode pause approval", () => {
       const second = await requestCliPauseLease(sessionAuth, input);
       expect(second.approvalRequired).toBe(true);
       expect(second.granted).toBe(false);
+    });
+
+    it("does not grant pause when atomic consume filter fails", async () => {
+      mocks.approvalFindOne.mockReturnValue({
+        lean: vi.fn().mockResolvedValue({
+          approvalId: "apr_race",
+          developerUserId: "user_a",
+          pauseTool: "claude",
+          pauseScope: "current_repo",
+          pauseRepo: "0123456789abcdef",
+          pauseDeviceId: "devmac_test",
+          requestedDurationMinutes: 60,
+          grantExpiresAt: new Date(Date.now() + 60_000),
+        }),
+      });
+      mocks.approvalUpdateOne.mockResolvedValue({ matchedCount: 0 });
+
+      const { requestCliPauseLease } = await import("@/lib/cliSessionPolicy");
+      const result = await requestCliPauseLease(sessionAuth, pauseInput());
+
+      expect(result.granted).toBe(false);
+      expect(result.approvalRequired).toBe(true);
+      expect(mocks.pauseCreate).not.toHaveBeenCalled();
     });
 
     it("does not consume approval for wrong repo", async () => {
@@ -430,11 +464,29 @@ describe("required-mode pause approval", () => {
         ) as never
       );
 
-      expect(res.status).toBe(403);
+      expect(res.status).toBe(202);
       const body = await res.json();
       expect(body.approvalRequired).toBe(true);
       expect(body.approvalRequestId).toBe("apr_test123");
       expect(body.mode).toBe("required");
+    });
+
+    it("returns 403 for hard denial when approval is disabled", async () => {
+      const { POST } = await import("@/app/api/cli/pause/route");
+      const res = await POST(
+        Object.assign(
+          new Request("http://localhost/api/cli/pause", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(pauseInput()),
+          }),
+          { nextUrl: new URL("http://localhost/api/cli/pause") }
+        ) as never
+      );
+
+      expect(res.status).toBe(403);
+      const body = await res.json();
+      expect(body.approvalRequired).toBeUndefined();
     });
 
     it("agent API key cannot create approval request via pause route", async () => {
