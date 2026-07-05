@@ -4,29 +4,51 @@ import type { CliAuditLogDocument } from "@/models/CliAuditLog";
 
 export type { ManagedProfileActivityEvent } from "@/lib/cliAuditActivityTypes";
 
+export function isManagedProfileActivityEventType(
+  eventType: string | null | undefined
+): eventType is ManagedProfileActivityEvent["eventType"] {
+  return !!eventType && EVENT_TYPES.has(eventType);
+}
+
 export type ManagedProfileActivityResponse = {
   events: ManagedProfileActivityEvent[];
   nextCursor: string | null;
 };
 
-const EVENT_TYPES = new Set(["cli_session_policy", "cli_pause_grant", "cli_pause_deny"]);
+const MANAGED_PROFILE_ACTIVITY_EVENT_TYPES = [
+  "cli_session_policy",
+  "cli_pause_grant",
+  "cli_pause_deny",
+] as const;
+
+const EVENT_TYPES = new Set<string>(MANAGED_PROFILE_ACTIVITY_EVENT_TYPES);
 const MODES = new Set(["unmanaged", "managed", "required"]);
 const TOOLS = new Set(["claude", "codex", "cursor"]);
 const DEFAULT_LIMIT = 25;
 const MAX_LIMIT = 100;
 const REPO_HASH_RE = /^[a-f0-9]{16}$|^[a-f0-9]{64}$/;
-const SENSITIVE_METADATA_KEYS = new Set([
-  "gitRemote",
-  "cwd",
-  "localPath",
-  "repoRoot",
-  "apiKey",
-  "token",
-  "authorization",
-  "cookie",
-  "email",
-  "userEmail",
+const SAFE_METADATA_KEYS = new Set([
+  "sessionid",
+  "profileid",
+  "profilename",
+  "deviceid",
+  "expiresat",
+  "requestedminutes",
+  "leaseid",
 ]);
+const SENSITIVE_METADATA_KEY_PARTS = [
+  "token",
+  "key",
+  "secret",
+  "password",
+  "auth",
+  "cookie",
+  "remote",
+  "path",
+  "cwd",
+  "reporoot",
+  "email",
+];
 
 type ActivityCursor = {
   createdAt: string;
@@ -50,6 +72,23 @@ function readMetadataString(metadata: Record<string, unknown> | null | undefined
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function isSensitiveMetadataKey(key: string) {
+  const normalized = key.toLowerCase();
+  if (SAFE_METADATA_KEYS.has(normalized)) return false;
+  return SENSITIVE_METADATA_KEY_PARTS.some((part) => normalized.includes(part));
+}
+
+function isSensitiveMetadataString(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  if (/^https?:\/\//i.test(trimmed)) return true;
+  if (/^ssh:\/\//i.test(trimmed)) return true;
+  if (/^git@[^/]+:/.test(trimmed)) return true;
+  if (trimmed.startsWith("/")) return true;
+  if (/^[A-Za-z]:\\/.test(trimmed)) return true;
+  return false;
+}
+
 /** Exported for tests — store only policy repo hashes, never raw remotes or paths. */
 export function sanitizeCliAuditRepo(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -65,9 +104,9 @@ export function sanitizeCliAuditMetadata(
   if (!metadata || typeof metadata !== "object") return undefined;
   const sanitized: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(metadata)) {
-    if (SENSITIVE_METADATA_KEYS.has(key)) continue;
+    if (isSensitiveMetadataKey(key)) continue;
     if (typeof value === "string") {
-      if (/^https?:\/\//i.test(value) || value.startsWith("/") || value.includes("\\")) continue;
+      if (isSensitiveMetadataString(value)) continue;
       sanitized[key] = value;
       continue;
     }
@@ -123,6 +162,8 @@ export function buildCliAuditActivityQuery(params: ReturnType<typeof parseActivi
   if (params.eventType) {
     if (!EVENT_TYPES.has(params.eventType)) throw new Error("Invalid eventType filter.");
     query.eventType = params.eventType;
+  } else {
+    query.eventType = { $in: [...MANAGED_PROFILE_ACTIVITY_EVENT_TYPES] };
   }
   if (params.repo) query.repo = params.repo;
   if (params.branch) query.branch = params.branch;

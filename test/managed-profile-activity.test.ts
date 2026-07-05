@@ -134,8 +134,47 @@ describe("GET /api/dashboard/managed-profiles/activity", () => {
     expect(body.events[0].id).toBe("clia_test_1");
     expect(body.events[0].eventType).toBe("cli_session_policy");
     expect(mocks.auditFind).toHaveBeenCalledWith(
-      expect.objectContaining({ accountId: "acct_test" })
+      expect.objectContaining({
+        accountId: "acct_test",
+        eventType: {
+          $in: ["cli_session_policy", "cli_pause_grant", "cli_pause_deny"],
+        },
+      })
     );
+  });
+
+  it("defaults to managed-profile eventType allowlist when eventType is omitted", async () => {
+    const { buildCliAuditActivityQuery, parseActivityListParams } = await import("@/lib/cliAuditActivity");
+    const params = parseActivityListParams(new URLSearchParams());
+    const query = buildCliAuditActivityQuery(params);
+    expect(query.eventType).toEqual({
+      $in: ["cli_session_policy", "cli_pause_grant", "cli_pause_deny"],
+    });
+  });
+
+  it("rejects invalid eventType", async () => {
+    const { GET } = await import("@/app/api/dashboard/managed-profiles/activity/route");
+    const res = await GET(activityRequest("?eventType=cli_login"));
+    expect(res.status).toBe(400);
+  });
+
+  it("does not return unrelated CLI audit event types", async () => {
+    mockAuditFindRows([
+      sampleEvent,
+      {
+        ...sampleEvent,
+        auditId: "clia_other",
+        eventType: "cli_device_auth",
+        reason: "Unrelated event",
+      },
+    ]);
+    const { GET } = await import("@/app/api/dashboard/managed-profiles/activity/route");
+    const res = await GET(activityRequest());
+    const body = await res.json();
+    expect(body.events.every((event: { eventType: string }) =>
+      ["cli_session_policy", "cli_pause_grant", "cli_pause_deny"].includes(event.eventType)
+    )).toBe(true);
+    expect(body.events.some((event: { id: string }) => event.id === "clia_other")).toBe(false);
   });
 
   it("filters by tool", async () => {
@@ -228,6 +267,38 @@ describe("GET /api/dashboard/managed-profiles/activity", () => {
     const body = await res.json();
     expect(body.events[0].eventType).toBe("cli_pause_deny");
     expect(body.events[0].granted).toBe(false);
+  });
+});
+
+describe("sanitizeCliAuditMetadata", () => {
+  it("strips sensitive keys and values while preserving safe fields", async () => {
+    const { sanitizeCliAuditMetadata } = await import("@/lib/cliAuditActivity");
+    const sanitized = sanitizeCliAuditMetadata({
+      Authorization: "Bearer secret-token",
+      accessToken: "tok_secret",
+      api_key: "bhf_sk_secret",
+      gitRemote: "git@github.com:org/private.git",
+      remoteUrl: "https://github.com/org/private.git",
+      repoPath: "/Users/name/repo",
+      windowsPath: "C:\\Users\\name\\repo",
+      profileId: "pprf_test",
+      profileName: "Protected repository",
+      deviceId: "devmac_test",
+      expiresAt: "2026-07-05T13:00:00.000Z",
+      requestedMinutes: 30,
+    });
+
+    expect(sanitized).toEqual({
+      profileId: "pprf_test",
+      profileName: "Protected repository",
+      deviceId: "devmac_test",
+      expiresAt: "2026-07-05T13:00:00.000Z",
+      requestedMinutes: 30,
+    });
+    expect(JSON.stringify(sanitized)).not.toContain("github.com");
+    expect(JSON.stringify(sanitized)).not.toContain("/Users/name");
+    expect(JSON.stringify(sanitized)).not.toContain("C:\\Users");
+    expect(JSON.stringify(sanitized)).not.toContain("secret-token");
   });
 });
 
@@ -332,5 +403,11 @@ describe("managed profile activity dashboard UI", () => {
     expect(source).toContain("modeLabel(event.mode)");
     expect(source).toContain("{event.tool ??");
     expect(source).toContain("{event.reason}");
+  });
+
+  it("includes load more pagination control", async () => {
+    const source = await readFile("/workspace/components/dashboard/ManagedProfileActivityView.tsx", "utf8");
+    expect(source).toContain("Load more");
+    expect(source).toContain("loadMore");
   });
 });

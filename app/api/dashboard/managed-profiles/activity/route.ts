@@ -3,6 +3,7 @@ import { accountScopeFilter } from "@/lib/accountAccess";
 import {
   buildCliAuditActivityQuery,
   encodeActivityCursor,
+  isManagedProfileActivityEventType,
   parseActivityListParams,
   serializeCliAuditActivityEvent,
 } from "@/lib/cliAuditActivity";
@@ -44,7 +45,9 @@ export async function GET(request: NextRequest) {
     .select("auditId eventType tool mode granted reason repo branch metadata createdAt -_id")
     .lean();
 
-  const page = docs.slice(0, params.limit);
+  const page = docs
+    .slice(0, params.limit)
+    .filter((doc) => isManagedProfileActivityEventType(doc.eventType));
   const events = page.map((doc) => serializeCliAuditActivityEvent(doc));
 
   let nextCursor: string | null = null;

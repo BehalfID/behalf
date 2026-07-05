@@ -77,11 +77,13 @@ export function ManagedProfileActivityView() {
   const [repo, setRepo] = useState("");
   const [branch, setBranch] = useState("");
   const [range, setRange] = useState("");
-  const [data, setData] = useState<ActivityResponse | null>(null);
+  const [events, setEvents] = useState<ManagedProfileActivityEvent[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  const path = useMemo(() => {
+  const basePath = useMemo(() => {
     const params = new URLSearchParams();
     params.set("limit", "25");
     if (tool) params.set("tool", tool);
@@ -98,19 +100,38 @@ export function ManagedProfileActivityView() {
     setLoading(true);
     setError("");
     try {
-      setData(await fetchActivity(path));
+      const response = await fetchActivity(basePath);
+      setEvents(response.events);
+      setNextCursor(response.nextCursor);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Request failed.");
+      setEvents([]);
+      setNextCursor(null);
     } finally {
       setLoading(false);
     }
-  }, [path]);
+  }, [basePath]);
+
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    setError("");
+    try {
+      const separator = basePath.includes("?") ? "&" : "?";
+      const response = await fetchActivity(`${basePath}${separator}cursor=${encodeURIComponent(nextCursor)}`);
+      setEvents((current) => [...current, ...response.events]);
+      setNextCursor(response.nextCursor);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Request failed.");
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [basePath, loadingMore, nextCursor]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
 
-  const events = data?.events ?? [];
   const summary = activitySummaryFromEvents(events);
   const hasFilters = Boolean(tool || mode || eventType || repo || branch || range);
 
@@ -279,6 +300,19 @@ export function ManagedProfileActivityView() {
           No managed profile activity yet. Run{" "}
           <code>behalf profile status --tool claude</code> from a repo with managed profile shims installed.
         </EmptyState>
+      ) : null}
+
+      {nextCursor ? (
+        <p className="ops-console__footnote">
+          <button
+            type="button"
+            className="ops-btn ops-btn--ghost"
+            disabled={loadingMore}
+            onClick={() => void loadMore()}
+          >
+            {loadingMore ? "Loading…" : "Load more"}
+          </button>
+        </p>
       ) : null}
 
       <p className="ops-console__footnote">
