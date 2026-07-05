@@ -19,6 +19,7 @@ const MANAGED_PROFILE_ACTIVITY_EVENT_TYPES = [
   "cli_session_policy",
   "cli_pause_grant",
   "cli_pause_deny",
+  "cli_pause_approval_requested",
 ] as const;
 
 const EVENT_TYPES = new Set<string>(MANAGED_PROFILE_ACTIVITY_EVENT_TYPES);
@@ -35,6 +36,7 @@ const SAFE_METADATA_KEYS = new Set([
   "expiresat",
   "requestedminutes",
   "leaseid",
+  "approvalrequestid",
 ]);
 const SENSITIVE_METADATA_KEY_PARTS = [
   "token",

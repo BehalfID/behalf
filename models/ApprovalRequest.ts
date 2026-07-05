@@ -30,12 +30,31 @@ const ApprovalRequestSchema = new Schema(
     requestId: { type: String, required: true, unique: true, index: true },
     accountId: { type: String, index: true },
     developerUserId: { type: String, index: true },
-    agentId: { type: String, required: true, index: true },
-    // The permission that requires approval
-    permissionId: { type: String, required: true, index: true },
+    /** agent_action (default) or managed_profile_pause for CLI pause in required mode. */
+    kind: {
+      type: String,
+      enum: ["agent_action", "managed_profile_pause"],
+      default: "agent_action",
+      index: true,
+    },
+    agentId: { type: String, index: true },
+    // The permission that requires approval (agent_action only)
+    permissionId: { type: String, index: true },
     action: { type: String, required: true, trim: true, maxlength: 80 },
     vendor: { type: String, trim: true, maxlength: 200 },
     amount: { type: Number },
+    /** CLI pause approval — tool (claude, codex, cursor). */
+    pauseTool: { type: String, trim: true, maxlength: 32 },
+    /** CLI pause approval — policy repo hash or null when scope=all. */
+    pauseRepo: { type: String, trim: true, maxlength: 64 },
+    pauseBranch: { type: String, trim: true, maxlength: 120 },
+    pauseDeviceId: { type: String, trim: true, maxlength: 80 },
+    pauseScope: { type: String, enum: ["current_repo", "all"] },
+    requestedDurationMinutes: { type: Number, min: 1 },
+    /** Developer-provided pause reason. */
+    pauseReason: { type: String, trim: true, maxlength: 500 },
+    /** Why the context is in required mode (from session policy). */
+    contextReason: { type: String, trim: true, maxlength: 500 },
     status: {
       type: String,
       enum: ["pending", "approved", "denied", "used"],
@@ -59,6 +78,17 @@ ApprovalRequestSchema.index({ agentId: 1, permissionId: 1, status: 1, grantExpir
 // Compound index: list pending/recent approvals for a developer
 ApprovalRequestSchema.index({ developerUserId: 1, status: 1, createdAt: -1 });
 ApprovalRequestSchema.index({ accountId: 1, status: 1, createdAt: -1 });
+// Compound index: dedupe pending CLI pause approvals
+ApprovalRequestSchema.index({
+  accountId: 1,
+  developerUserId: 1,
+  kind: 1,
+  pauseTool: 1,
+  pauseScope: 1,
+  pauseRepo: 1,
+  pauseDeviceId: 1,
+  status: 1,
+});
 
 export type ApprovalRequestDocument = InferSchemaType<typeof ApprovalRequestSchema> & {
   _id: mongoose.Types.ObjectId;

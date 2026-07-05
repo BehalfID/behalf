@@ -4,6 +4,9 @@ import Link from "next/link";
 import {
   formatActionLabel,
   formatOpsTime,
+  formatPauseApprovalDetails,
+  formatPauseApprovalTitle,
+  isManagedProfilePauseApproval,
   logDecisionShortLabel,
   logDecisionTone,
   type OpsApprovalRequest,
@@ -77,6 +80,7 @@ export function OpsApprovalCard({
   onApprove: () => void;
   onDeny: () => void;
 }) {
+  const pauseApproval = isManagedProfilePauseApproval(req);
   return (
     <article className={`ops-approval-card${highlight ? " ops-approval-card--highlight" : ""}`}>
       <div className="ops-approval-card__head">
@@ -86,15 +90,25 @@ export function OpsApprovalCard({
         </span>
         <time className="ops-approval-card__time" dateTime={req.createdAt}>{formatOpsTime(req.createdAt)}</time>
       </div>
-      <p className="ops-approval-card__title">{req.agentName ?? req.agentId}</p>
+      <p className="ops-approval-card__title">
+        {pauseApproval ? formatPauseApprovalTitle(req) : (req.agentName ?? req.agentId)}
+      </p>
       <p className="ops-approval-card__action">
-        <code>{formatActionLabel(req.action, req.vendor)}</code>
-        {typeof req.amount === "number" ? <span className="ops-approval-card__amount">${req.amount}</span> : null}
+        {pauseApproval ? (
+          <span>{formatPauseApprovalDetails(req)}</span>
+        ) : (
+          <>
+            <code>{formatActionLabel(req.action, req.vendor)}</code>
+            {typeof req.amount === "number" ? <span className="ops-approval-card__amount">${req.amount}</span> : null}
+          </>
+        )}
       </p>
       <p className="ops-approval-card__meta">
         {req.requiredRoleLabel ? `Requires ${req.requiredRoleLabel}` : "Awaiting human decision"}
         {" · "}
-        Permission requires approval before execution.
+        {pauseApproval
+          ? "Pause in required context requires approval."
+          : "Permission requires approval before execution."}
       </p>
       <div className="ops-approval-card__actions">
         <button
@@ -137,6 +151,7 @@ export function OpsApprovalQueueRow({
   onApprove: () => void;
   onDeny: () => void;
 }) {
+  const pauseApproval = isManagedProfilePauseApproval(req);
   return (
     <div className={`ops-queue-row${highlight ? " ops-queue-row--highlight" : ""}`}>
       <div className="ops-queue-row__main">
@@ -148,13 +163,19 @@ export function OpsApprovalQueueRow({
           <time className="ops-queue-row__time" dateTime={req.createdAt}>{formatOpsTime(req.createdAt)}</time>
         </div>
         <p className="ops-queue-row__title">
-          <span>{req.agentName ?? req.agentId}</span>
-          <code>{formatActionLabel(req.action, req.vendor)}</code>
+          <span>{pauseApproval ? formatPauseApprovalTitle(req) : (req.agentName ?? req.agentId)}</span>
+          {!pauseApproval ? <code>{formatActionLabel(req.action, req.vendor)}</code> : null}
         </p>
         <p className="ops-queue-row__meta">
-          {req.requiredRoleLabel ? `${req.requiredRoleLabel} approval · ` : ""}
-          {typeof req.amount === "number" ? `$${req.amount} · ` : ""}
-          Gated action waiting for review
+          {pauseApproval ? (
+            formatPauseApprovalDetails(req)
+          ) : (
+            <>
+              {req.requiredRoleLabel ? `${req.requiredRoleLabel} approval · ` : ""}
+              {typeof req.amount === "number" ? `$${req.amount} · ` : ""}
+              Gated action waiting for review
+            </>
+          )}
         </p>
       </div>
       <div className="ops-queue-row__aside">
