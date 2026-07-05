@@ -426,4 +426,37 @@ describe("managed profile activity dashboard UI", () => {
     expect(source).toContain("/dashboard/managed-profiles/activity");
     expect(source).toContain("Managed Profile Activity");
   });
+
+  it("reads policy.enabled and repo enabled when building protected repo status", async () => {
+    const source = await readFile("/workspace/components/dashboard/ManagedProfileActivityView.tsx", "utf8");
+    expect(source).toContain("policy.enabled");
+    expect(source).toContain("repo.enabled === false");
+    expect(source).toContain("buildProtectedRepoStatusByHash");
+    expect(source).toContain("protectedRepoStatusByHash");
+  });
+
+  it("shows disabled and policy-disabled states with edit policy links", async () => {
+    const source = await readFile("/workspace/components/dashboard/ManagedProfileActivityView.tsx", "utf8");
+    expect(source).toContain("Disabled in policy");
+    expect(source).toContain("Policy disabled");
+    expect(source).toContain('href="/dashboard/managed-profiles"');
+    expect(source).toContain("Edit policy");
+  });
+
+  it("only treats enabled repos as enforced protected", async () => {
+    const source = await readFile("/workspace/components/dashboard/ManagedProfileActivityView.tsx", "utf8");
+    expect(source).toContain('"enforced"');
+    expect(source).toContain('"disabled-entry"');
+    expect(source).toContain('"policy-disabled"');
+    expect(source).toContain('protectedRepoStatusByHash.get(event.repo) === "enforced"');
+    expect(source).toContain('status === "enforced"');
+    expect(source).not.toMatch(/protectedRepoHashes/);
+  });
+
+  it("shows protect repo only for unconfigured repos when canEdit", async () => {
+    const source = await readFile("/workspace/components/dashboard/ManagedProfileActivityView.tsx", "utf8");
+    expect(source).toContain("Protect repo");
+    expect(source).toContain("if (!canEdit) return <>—</>;");
+    expect(source).toContain('next.set(enrollTarget.repoHash, "enforced")');
+  });
 });

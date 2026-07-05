@@ -18,10 +18,16 @@ type ActivityResponse = {
 
 type ManagedProfilesResponse = {
   policy: {
-    protectedRepos: Array<{ repoHash: string }>;
+    enabled: boolean;
+    protectedRepos: Array<{
+      repoHash: string;
+      enabled?: boolean;
+    }>;
   };
   canEdit: boolean;
 };
+
+type ProtectedRepoStatus = "enforced" | "disabled-entry" | "policy-disabled";
 
 type EnrollTarget = {
   repoHash: string;
@@ -72,23 +78,59 @@ function modeLabel(mode: ManagedProfileActivityEvent["mode"]) {
   return mode[0].toUpperCase() + mode.slice(1);
 }
 
+function buildProtectedRepoStatusByHash(
+  policy: ManagedProfilesResponse["policy"]
+): Map<string, ProtectedRepoStatus> {
+  const status = new Map<string, ProtectedRepoStatus>();
+  for (const repo of policy.protectedRepos) {
+    if (!policy.enabled) {
+      status.set(repo.repoHash, "policy-disabled");
+    } else if (repo.enabled === false) {
+      status.set(repo.repoHash, "disabled-entry");
+    } else {
+      status.set(repo.repoHash, "enforced");
+    }
+  }
+  return status;
+}
+
 type ProtectRepoActionsProps = {
   repoHash: string | null | undefined;
   canEdit: boolean;
-  protectedRepoHashes: Set<string>;
+  protectedRepoStatusByHash: Map<string, ProtectedRepoStatus>;
   onProtect: (repoHash: string) => void;
 };
 
 function ProtectRepoActions({
   repoHash,
   canEdit,
-  protectedRepoHashes,
+  protectedRepoStatusByHash,
   onProtect,
 }: ProtectRepoActionsProps) {
   if (!repoHash) return <>—</>;
 
-  if (protectedRepoHashes.has(repoHash)) {
+  const status = protectedRepoStatusByHash.get(repoHash);
+
+  if (status === "enforced") {
     return <span className="ops-status ops-status--allowed">Protected</span>;
+  }
+
+  if (status === "disabled-entry") {
+    return (
+      <>
+        <span className="ops-status ops-status--neutral">Disabled in policy</span>{" "}
+        <Link href="/dashboard/managed-profiles">Edit policy</Link>
+      </>
+    );
+  }
+
+  if (status === "policy-disabled") {
+    return (
+      <>
+        <span className="ops-status ops-status--neutral">Policy disabled</span>{" "}
+        <Link href="/dashboard/managed-profiles">Edit policy</Link>
+      </>
+    );
   }
 
   if (!canEdit) return <>—</>;
@@ -103,11 +145,16 @@ function ProtectRepoActions({
 type ActivityEventCardProps = {
   event: ManagedProfileActivityEvent;
   canEdit: boolean;
-  protectedRepoHashes: Set<string>;
+  protectedRepoStatusByHash: Map<string, ProtectedRepoStatus>;
   onProtect: (repoHash: string) => void;
 };
 
-function ActivityEventCard({ event, canEdit, protectedRepoHashes, onProtect }: ActivityEventCardProps) {
+function ActivityEventCard({
+  event,
+  canEdit,
+  protectedRepoStatusByHash,
+  onProtect,
+}: ActivityEventCardProps) {
   return (
     <article className="ops-event-card ops-event-card--static managed-activity-card">
       <div className="ops-event-card__head">
@@ -137,7 +184,7 @@ function ActivityEventCard({ event, canEdit, protectedRepoHashes, onProtect }: A
           <ProtectRepoActions
             canEdit={canEdit}
             onProtect={onProtect}
-            protectedRepoHashes={protectedRepoHashes}
+            protectedRepoStatusByHash={protectedRepoStatusByHash}
             repoHash={event.repo}
           />
         </p>
@@ -159,7 +206,9 @@ export function ManagedProfileActivityView() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
-  const [protectedRepoHashes, setProtectedRepoHashes] = useState<Set<string>>(() => new Set());
+  const [protectedRepoStatusByHash, setProtectedRepoStatusByHash] = useState<
+    Map<string, ProtectedRepoStatus>
+  >(() => new Map());
   const [enrollTarget, setEnrollTarget] = useState<EnrollTarget | null>(null);
   const [enrollLabel, setEnrollLabel] = useState("");
   const [enrollMode, setEnrollMode] = useState<PolicyMode>("required");
@@ -184,12 +233,10 @@ export function ManagedProfileActivityView() {
     try {
       const response = await fetchManagedProfiles();
       setCanEdit(response.canEdit);
-      setProtectedRepoHashes(
-        new Set(response.policy.protectedRepos.map((entry) => entry.repoHash))
-      );
+      setProtectedRepoStatusByHash(buildProtectedRepoStatusByHash(response.policy));
     } catch {
       setCanEdit(false);
-      setProtectedRepoHashes(new Set());
+      setProtectedRepoStatusByHash(new Map());
     }
   }, []);
 
@@ -266,7 +313,11 @@ export function ManagedProfileActivityView() {
           throw new Error(body?.error ?? `Request failed with ${response.status}`);
         }
 
-        setProtectedRepoHashes((current) => new Set([...current, enrollTarget.repoHash]));
+        setProtectedRepoStatusByHash((current) => {
+          const next = new Map(current);
+          next.set(enrollTarget.repoHash, "enforced");
+          return next;
+        });
         setEnrollMessage("Protected repo added to managed profile policy.");
         setEnrollTarget(null);
       } catch (requestError) {
@@ -479,7 +530,7 @@ export function ManagedProfileActivityView() {
                   <td>{modeLabel(event.mode)}</td>
                   <td className="ops-events__mono">
                     {event.repo ?? "—"}
-                    {event.repo && protectedRepoHashes.has(event.repo) ? (
+                    {event.repo && protectedRepoStatusByHash.get(event.repo) === "enforced" ? (
                       <>
                         {" "}
                         <span className="ops-status ops-status--allowed">Protected</span>
@@ -493,7 +544,7 @@ export function ManagedProfileActivityView() {
                     <ProtectRepoActions
                       canEdit={canEdit}
                       onProtect={openEnrollForm}
-                      protectedRepoHashes={protectedRepoHashes}
+                      protectedRepoStatusByHash={protectedRepoStatusByHash}
                       repoHash={event.repo}
                     />
                   </td>
@@ -516,7 +567,7 @@ export function ManagedProfileActivityView() {
               canEdit={canEdit}
               event={event}
               onProtect={openEnrollForm}
-              protectedRepoHashes={protectedRepoHashes}
+              protectedRepoStatusByHash={protectedRepoStatusByHash}
             />
           ))}
         </div>
