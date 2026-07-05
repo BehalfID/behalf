@@ -8,6 +8,7 @@ export type RepoContext = {
   repoRoot: string | null;
   branch: string | null;
   gitRemote: string | null;
+  repoHash: string | null;
 };
 
 function runGit(args: string[], cwd: string): string | null {
@@ -30,7 +31,13 @@ export function detectRepoContext(cwd = process.cwd()): RepoContext {
     ? runGit(["config", "--get", "remote.origin.url"], repoRoot)
     : null;
 
-  return { cwd, repoRoot, branch, gitRemote };
+  return {
+    cwd,
+    repoRoot,
+    branch,
+    gitRemote,
+    repoHash: hashRepoValue(repoRoot),
+  };
 }
 
 export function hashRepoValue(value: string | null | undefined): string | null {

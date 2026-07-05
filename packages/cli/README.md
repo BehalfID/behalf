@@ -50,7 +50,7 @@ behalf profile status
 behalf profile status --tool claude
 ```
 
-Shows shim installation, PATH ordering, repo/branch detection, and the current server policy result.
+Shows shim installation, PATH ordering, repo/branch detection, repo hash used for policy matching, and the current server policy result.
 
 ## Doctor
 

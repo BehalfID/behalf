@@ -132,7 +132,9 @@ export async function runProfileDoctorChecks(cwd = process.cwd()): Promise<Check
   checks.push({
     name: "Repo detection",
     status: isGitRepo(cwd) ? "ok" : "warn",
-    detail: isGitRepo(cwd) ? detectRepoContext(cwd).repoRoot ?? cwd : "Not a git repository",
+    detail: isGitRepo(cwd)
+      ? `${detectRepoContext(cwd).repoRoot ?? cwd} (hash: ${detectRepoContext(cwd).repoHash ?? "none"})`
+      : "Not a git repository",
   });
 
   if (session || resolveApiKey()) {
@@ -239,6 +241,7 @@ function profileStatusCommand() {
           "repo root": status.repo.repoRoot ?? "(not in git repo)",
           branch: status.repo.branch ?? "(unknown)",
           "git remote": status.repo.gitRemote ? "(detected)" : "(none)",
+          "repo hash": status.repo.repoHash ?? "(none)",
         });
 
         if (status.policy) {

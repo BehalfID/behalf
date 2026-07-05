@@ -1,7 +1,12 @@
 import crypto from "crypto";
 import { connectToDatabase } from "@/lib/db";
 import { createPublicId } from "@/lib/ids";
-import Account from "@/models/Account";
+import {
+  loadEffectiveManagedProfilePolicy,
+  resolvePersistedManagedProfileMode,
+  validatePauseRequestAgainstPolicy,
+} from "@/lib/managedProfilePolicy";
+import Account, { type AccountDocument } from "@/models/Account";
 import CliAuditLog from "@/models/CliAuditLog";
 import CliPauseLease from "@/models/CliPauseLease";
 import type { CliAuthContext } from "@/lib/cliAuth";
@@ -44,10 +49,69 @@ export function readDevCliPolicyMode(): CliSessionPolicyMode | null {
   return devPolicyMode();
 }
 
-function isWithinWorkHours(now = new Date()): boolean {
+function isWithinLegacyWorkHours(now = new Date()): boolean {
   const hour = now.getUTCHours();
   const day = now.getUTCDay();
   return day >= 1 && day <= 5 && hour >= 9 && hour < 17;
+}
+
+/** Exported for tests — legacy onboarding/account fallback when no persisted policy applies. */
+export function resolveLegacyCliSessionPolicy(
+  account: Pick<AccountDocument, "accountId" | "accountType" | "onboarding">,
+  now = new Date()
+): Omit<CliSessionPolicyResult, "sessionId" | "workspaceId"> & { workspaceId: string } {
+  const controlAreas = account.onboarding?.controlAreas ?? [];
+  const primaryGoal = account.onboarding?.primaryGoal;
+  const inWorkHours = controlAreas.includes("work_hours") && isWithinLegacyWorkHours(now);
+
+  if (inWorkHours && primaryGoal === "block") {
+    return {
+      mode: "required",
+      profileId: "pprf_work_hours",
+      profileName: "Work hours — strict",
+      workspaceId: account.accountId,
+      reason: "Workspace work-hours policy requires managed enforcement during business hours.",
+      expiresAt: null,
+      cacheTtlSeconds: DEFAULT_CACHE_TTL,
+    };
+  }
+
+  if (
+    account.accountType === "business" &&
+    (controlAreas.length > 0 || (account.onboarding?.agentTools?.length ?? 0) > 0)
+  ) {
+    return {
+      mode: "managed",
+      profileId: "pprf_managed",
+      profileName: "Workspace managed",
+      workspaceId: account.accountId,
+      reason: "Workspace has managed agent controls configured.",
+      expiresAt: null,
+      cacheTtlSeconds: DEFAULT_CACHE_TTL,
+    };
+  }
+
+  if (inWorkHours && controlAreas.length > 0) {
+    return {
+      mode: "managed",
+      profileId: "pprf_work_hours",
+      profileName: "Work hours — observe",
+      workspaceId: account.accountId,
+      reason: "Workspace work-hours policy applies during business hours.",
+      expiresAt: null,
+      cacheTtlSeconds: DEFAULT_CACHE_TTL,
+    };
+  }
+
+  return {
+    mode: "unmanaged",
+    profileId: null,
+    profileName: null,
+    workspaceId: account.accountId,
+    reason: "No matching managed profile.",
+    expiresAt: null,
+    cacheTtlSeconds: DEFAULT_CACHE_TTL,
+  };
 }
 
 async function findActivePauseLease(auth: CliAuthContext, input: CliSessionPolicyInput) {
@@ -177,61 +241,28 @@ export async function resolveCliSessionPolicy(
     };
   }
 
-  const controlAreas = account.onboarding?.controlAreas ?? [];
-  const primaryGoal = account.onboarding?.primaryGoal;
-  const inWorkHours = controlAreas.includes("work_hours") && isWithinWorkHours();
-
-  if (inWorkHours && primaryGoal === "block") {
+  const managedPolicy = await loadEffectiveManagedProfilePolicy(account.accountId);
+  const persisted = resolvePersistedManagedProfileMode(managedPolicy, {
+    tool: input.tool,
+    repoRoot: input.repoRoot,
+  });
+  if (persisted) {
     return {
-      mode: "required",
-      profileId: "pprf_work_hours",
-      profileName: "Work hours — strict",
+      mode: persisted.mode,
+      profileId: persisted.profileId,
+      profileName: persisted.profileName,
       sessionId,
       workspaceId: account.accountId,
-      reason: "Workspace work-hours policy requires managed enforcement during business hours.",
+      reason: persisted.reason,
       expiresAt: null,
       cacheTtlSeconds: DEFAULT_CACHE_TTL,
     };
   }
 
-  if (
-    account.accountType === "business" &&
-    (controlAreas.length > 0 || (account.onboarding?.agentTools?.length ?? 0) > 0)
-  ) {
-    return {
-      mode: "managed",
-      profileId: "pprf_managed",
-      profileName: "Workspace managed",
-      sessionId,
-      workspaceId: account.accountId,
-      reason: "Workspace has managed agent controls configured.",
-      expiresAt: null,
-      cacheTtlSeconds: DEFAULT_CACHE_TTL,
-    };
-  }
-
-  if (inWorkHours && controlAreas.length > 0) {
-    return {
-      mode: "managed",
-      profileId: "pprf_work_hours",
-      profileName: "Work hours — observe",
-      sessionId,
-      workspaceId: account.accountId,
-      reason: "Workspace work-hours policy applies during business hours.",
-      expiresAt: null,
-      cacheTtlSeconds: DEFAULT_CACHE_TTL,
-    };
-  }
-
+  const legacy = resolveLegacyCliSessionPolicy(account);
   return {
-    mode: "unmanaged",
-    profileId: null,
-    profileName: null,
+    ...legacy,
     sessionId,
-    workspaceId: account.accountId,
-    reason: "No matching managed profile.",
-    expiresAt: null,
-    cacheTtlSeconds: DEFAULT_CACHE_TTL,
   };
 }
 
@@ -288,14 +319,20 @@ export type CliPauseResult = {
 
 export const MAX_PAUSE_MINUTES = 240;
 
-export function validatePauseInput(input: CliPauseInput): string | null {
-  if (!input.reason?.trim()) return "reason is required.";
-  if (input.reason.trim().length > 500) return "reason is too long.";
+export function validatePauseInput(
+  input: CliPauseInput,
+  options?: { reasonRequired?: boolean; maxDurationMinutes?: number }
+): string | null {
+  const reasonRequired = options?.reasonRequired ?? true;
+  const maxDurationMinutes = options?.maxDurationMinutes ?? MAX_PAUSE_MINUTES;
+
+  if (reasonRequired && !input.reason?.trim()) return "reason is required.";
+  if (input.reason?.trim() && input.reason.trim().length > 500) return "reason is too long.";
   if (!Number.isFinite(input.durationMinutes) || input.durationMinutes <= 0) {
     return "durationMinutes must be a positive number.";
   }
-  if (input.durationMinutes > MAX_PAUSE_MINUTES) {
-    return `durationMinutes cannot exceed ${MAX_PAUSE_MINUTES} minutes (4 hours).`;
+  if (input.durationMinutes > maxDurationMinutes) {
+    return `durationMinutes cannot exceed ${maxDurationMinutes} minutes (4 hours).`;
   }
   if (input.scope && input.scope !== "current_repo" && input.scope !== "all") {
     return "scope must be current_repo or all.";
@@ -312,7 +349,31 @@ export async function requestCliPauseLease(
 ): Promise<CliPauseResult> {
   await connectToDatabase();
 
-  const validationError = validatePauseInput(input);
+  const managedPolicy = auth.accountId
+    ? await loadEffectiveManagedProfilePolicy(auth.accountId)
+    : null;
+  const pausePolicy = managedPolicy?.pausePolicy ?? {
+    enabled: true,
+    reasonRequired: true,
+    maxDurationMinutes: MAX_PAUSE_MINUTES,
+    allowAllRepos: false,
+    requireApprovalForRequiredMode: false,
+  };
+
+  const policyValidationError = validatePauseRequestAgainstPolicy({
+    reason: input.reason ?? "",
+    durationMinutes: input.durationMinutes,
+    scope: input.scope,
+    pausePolicy,
+  });
+  if (policyValidationError) {
+    return { granted: false, mode: "unmanaged", reason: policyValidationError };
+  }
+
+  const validationError = validatePauseInput(input, {
+    reasonRequired: pausePolicy.reasonRequired,
+    maxDurationMinutes: pausePolicy.maxDurationMinutes,
+  });
   if (validationError) {
     return { granted: false, mode: "unmanaged", reason: validationError };
   }
