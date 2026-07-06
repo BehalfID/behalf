@@ -6,8 +6,13 @@ import {
   createOrReusePendingPauseApproval,
 } from "@/lib/managedProfilePauseApproval";
 import {
+  defaultManagedProfilePolicy,
+  isValidProtectedRepoHash,
   loadEffectiveManagedProfilePolicy,
+  resolvePersistedManagedProfileDecision,
   resolvePersistedManagedProfileMode,
+  type ManagedProfileMatchedRule,
+  type ManagedProfilePausePolicy,
   validatePauseRequestAgainstPolicy,
 } from "@/lib/managedProfilePolicy";
 import Account, { type AccountDocument } from "@/models/Account";
@@ -169,6 +174,116 @@ export function validateSessionPolicyInput(input: CliSessionPolicyInput): string
   if (input.branch && input.branch.length > 120) return "branch is too long.";
   if (input.cliVersion && input.cliVersion.length > 40) return "cliVersion is too long.";
   return null;
+}
+
+export type ManagedProfilePolicyDecisionInput = {
+  tool: string;
+  repo?: string | null;
+  branch?: string | null;
+  deviceId?: string | null;
+};
+
+export type ManagedProfilePolicyDecisionResult = {
+  mode: CliSessionPolicyMode;
+  reason: string;
+  profileId: string | null;
+  profileName: string | null;
+  matchedRule: ManagedProfileMatchedRule | null;
+  pausePolicy: ManagedProfilePausePolicy;
+};
+
+export function validateSessionPolicySimulateInput(input: ManagedProfilePolicyDecisionInput): string | null {
+  const validationError = validateSessionPolicyInput({
+    tool: input.tool,
+    branch: input.branch,
+    deviceId: input.deviceId,
+  });
+  if (validationError) return validationError;
+  const repo = input.repo?.trim();
+  if (repo && !isValidProtectedRepoHash(repo)) {
+    return "repo must be a 16- or 64-character lowercase hex hash.";
+  }
+  return null;
+}
+
+/** Dry-run managed profile policy resolution without pause leases, audit logs, or grants. */
+export async function resolveManagedProfilePolicyDecision(
+  auth: CliAuthContext,
+  input: ManagedProfilePolicyDecisionInput
+): Promise<ManagedProfilePolicyDecisionResult> {
+  await connectToDatabase();
+
+  const fallbackPausePolicy = defaultManagedProfilePolicy(auth.accountId ?? "unknown").pausePolicy;
+
+  if (!auth.accountId) {
+    return {
+      mode: "unmanaged",
+      reason: "No matching managed profile.",
+      profileId: null,
+      profileName: null,
+      matchedRule: null,
+      pausePolicy: fallbackPausePolicy,
+    };
+  }
+
+  const account = await Account.findOne({ accountId: auth.accountId }).lean();
+  if (!account) {
+    return {
+      mode: "unmanaged",
+      reason: "Workspace not found.",
+      profileId: null,
+      profileName: null,
+      matchedRule: null,
+      pausePolicy: fallbackPausePolicy,
+    };
+  }
+
+  const managedPolicy = await loadEffectiveManagedProfilePolicy(account.accountId);
+  const pausePolicy = managedPolicy.pausePolicy;
+
+  if (!managedPolicy.enabled) {
+    const legacy = resolveLegacyCliSessionPolicy(account);
+    return {
+      mode: legacy.mode,
+      reason: legacy.reason,
+      profileId: legacy.profileId,
+      profileName: legacy.profileName,
+      matchedRule: {
+        type: "legacy",
+        mode: legacy.mode,
+      },
+      pausePolicy,
+    };
+  }
+
+  const decision = resolvePersistedManagedProfileDecision(managedPolicy, {
+    tool: input.tool,
+    repoRoot: input.repo,
+  });
+
+  if (decision) {
+    return {
+      mode: decision.mode,
+      reason: decision.reason,
+      profileId: decision.profileId,
+      profileName: decision.profileName,
+      matchedRule: decision.matchedRule,
+      pausePolicy,
+    };
+  }
+
+  const legacy = resolveLegacyCliSessionPolicy(account);
+  return {
+    mode: legacy.mode,
+    reason: legacy.reason,
+    profileId: legacy.profileId,
+    profileName: legacy.profileName,
+    matchedRule: {
+      type: "legacy",
+      mode: legacy.mode,
+    },
+    pausePolicy,
+  };
 }
 
 export async function resolveCliSessionPolicy(

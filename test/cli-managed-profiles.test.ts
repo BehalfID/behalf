@@ -204,3 +204,131 @@ describe("session policy hardening", () => {
     expect(lease?.scope).toBe("all");
   });
 });
+
+describe("profile simulate command", () => {
+  it("calls simulate endpoint with detected repo hash", async () => {
+    const home = tempHome();
+    vi.stubEnv("HOME", home);
+    vi.stubEnv("BEHALF" + "ID_BASE_URL", "https://example.test");
+
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+      expect(body.tool).toBe("claude");
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          mode: "required",
+          reason: "Protected repo requires enforcement.",
+          profileId: "pprf_test",
+          profileName: "Default managed profile",
+          matchedRule: { type: "protected_repo", repoHash: body.repo, mode: "required" },
+          pausePolicy: {
+            enabled: true,
+            reasonRequired: true,
+            maxDurationMinutes: 30,
+            allowAllRepos: false,
+            requireApprovalForRequiredMode: true,
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const policyMod = await loadPolicyModule(home);
+    const result = await policyMod.simulateSessionPolicy({ tool: "claude" });
+    expect(result.mode).toBe("required");
+    expect(result.matchedRule?.type).toBe("protected_repo");
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/cli/session-policy/simulate"),
+      expect.any(Object)
+    );
+  });
+
+  it("JSON output contains mode, reason, and matchedRule", async () => {
+    const home = tempHome();
+    vi.stubEnv("HOME", home);
+    vi.stubEnv("BEHALF" + "ID_BASE_URL", "https://example.test");
+    vi.stubEnv("BEHALF_JSON", "1");
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            ok: true,
+            mode: "managed",
+            reason: "Tool-specific policy applies (managed).",
+            profileId: "pprf_test",
+            profileName: "claude tool policy",
+            matchedRule: { type: "tool_override", tool: "claude", mode: "managed" },
+            pausePolicy: {
+              enabled: true,
+              reasonRequired: true,
+              maxDurationMinutes: 30,
+              allowAllRepos: false,
+              requireApprovalForRequiredMode: false,
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        )
+      )
+    );
+
+    const policyMod = await loadPolicyModule(home);
+    const result = await policyMod.simulateSessionPolicy({ tool: "claude" });
+    expect(result.mode).toBe("managed");
+    expect(result.reason).toMatch(/Tool-specific/);
+    expect(result.matchedRule?.type).toBe("tool_override");
+  });
+
+  it("does not write a local pause lease during simulation", async () => {
+    const home = tempHome();
+    writeFakePauseLease(home);
+    vi.stubEnv("HOME", home);
+    vi.stubEnv("BEHALF" + "ID_BASE_URL", "https://example.test");
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            ok: true,
+            mode: "required",
+            reason: "Protected repo requires enforcement.",
+            profileId: "pprf_test",
+            profileName: "Default managed profile",
+            matchedRule: { type: "protected_repo", mode: "required" },
+            pausePolicy: {
+              enabled: true,
+              reasonRequired: true,
+              maxDurationMinutes: 30,
+              allowAllRepos: false,
+              requireApprovalForRequiredMode: true,
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        )
+      )
+    );
+
+    const policyMod = await loadPolicyModule(home);
+    const before = policyMod.readLocalPauseLease();
+    await policyMod.simulateSessionPolicy({ tool: "claude" });
+    const after = policyMod.readLocalPauseLease();
+    expect(before?.leaseId).toBe("pause_local_fake");
+    expect(after?.leaseId).toBe("pause_local_fake");
+  });
+
+  it("does not print raw git remote in simulate command source", async () => {
+    const source = await import("node:fs").then((fs) =>
+      fs.readFileSync(
+        join(process.cwd(), "packages/cli/src/commands/profile.ts"),
+        "utf-8"
+      )
+    );
+    expect(source).toContain("none detected");
+    expect(source).not.toMatch(/gitRemote.*console/);
+    expect(source).toContain("simulateSessionPolicy");
+  });
+});

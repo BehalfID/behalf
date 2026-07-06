@@ -29,6 +29,27 @@ export type SessionPolicy = {
   cacheTtlSeconds: number;
 };
 
+export type PolicySimulation = {
+  ok: true;
+  mode: SessionPolicyMode;
+  reason: string;
+  profileId: string | null;
+  profileName: string | null;
+  matchedRule: {
+    type: string;
+    repoHash?: string;
+    tool?: string;
+    mode?: SessionPolicyMode;
+  } | null;
+  pausePolicy: {
+    enabled: boolean;
+    reasonRequired: boolean;
+    maxDurationMinutes: number;
+    allowAllRepos: boolean;
+    requireApprovalForRequiredMode: boolean;
+  };
+};
+
 export type PauseLease = {
   leaseId?: string;
   mode: SessionPolicyMode;
@@ -132,6 +153,13 @@ export type ResolvePolicyInput = {
   skipCache?: boolean;
 };
 
+export type SimulatePolicyInput = {
+  tool: ManagedTool;
+  cwd?: string;
+  repo?: string | null;
+  branch?: string | null;
+};
+
 export async function resolveSessionPolicy(input: ResolvePolicyInput): Promise<SessionPolicy> {
   const cwd = input.cwd ?? process.cwd();
   const repo = detectRepoContext(cwd);
@@ -184,6 +212,23 @@ export async function resolveSessionPolicy(input: ResolvePolicyInput): Promise<S
       cacheTtlSeconds: DEFAULT_POLICY_CACHE_TTL_SECONDS,
     };
   }
+}
+
+export async function simulateSessionPolicy(input: SimulatePolicyInput): Promise<PolicySimulation> {
+  const cwd = input.cwd ?? process.cwd();
+  const repo = detectRepoContext(cwd);
+  const deviceId = getOrCreateDeviceId();
+
+  return apiRequest<PolicySimulation>("/api/cli/session-policy/simulate", {
+    method: "POST",
+    baseUrl: resolveBaseUrl(),
+    body: {
+      tool: input.tool,
+      repo: input.repo ?? repo.policyRepoHash,
+      branch: input.branch ?? repo.branch,
+      deviceId,
+    },
+  });
 }
 
 export type LaunchToolInput = {

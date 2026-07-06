@@ -601,6 +601,169 @@ describe("session policy resolution with persisted policy", () => {
   });
 });
 
+describe("resolveManagedProfilePolicyDecision dry-run", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.connectToDatabase.mockResolvedValue(undefined);
+    mocks.pauseFind.mockReturnValue({
+      sort: vi.fn().mockReturnValue({
+        limit: vi.fn().mockReturnValue({
+          lean: vi.fn().mockResolvedValue([
+            {
+              scope: "all",
+              repo: null,
+              reason: "active pause",
+              expiresAt: new Date(Date.now() + 60_000),
+            },
+          ]),
+        }),
+      }),
+    });
+    mocks.accountFindOne.mockReturnValue({
+      lean: vi.fn().mockResolvedValue({
+        accountId: "acct_test",
+        accountType: "individual",
+        onboarding: {},
+      }),
+    });
+  });
+
+  it("ignores active pause leases", async () => {
+    mocks.policyFindOne.mockReturnValue({
+      lean: vi.fn().mockResolvedValue({
+        policyId: "pprf_test",
+        accountId: "acct_test",
+        enabled: true,
+        timezone: "UTC",
+        workHours: { enabled: false, days: [1], start: "09:00", end: "17:00" },
+        duringHoursMode: "managed",
+        outsideHoursMode: "unmanaged",
+        defaultMode: "required",
+        toolModes: {},
+        protectedRepos: [],
+        pausePolicy: {
+          enabled: true,
+          reasonRequired: true,
+          maxDurationMinutes: 30,
+          allowAllRepos: false,
+          requireApprovalForRequiredMode: true,
+        },
+      }),
+    });
+
+    const { resolveManagedProfilePolicyDecision } = await import("@/lib/cliSessionPolicy");
+    const result = await resolveManagedProfilePolicyDecision(
+      { userId: "user_a", accountId: "acct_test", agentId: null, source: "session" },
+      { tool: "claude", repo: "0123456789abcdef" }
+    );
+    expect(result.mode).toBe("required");
+    expect(result.reason).not.toMatch(/pause lease/i);
+    expect(mocks.pauseCreate).not.toHaveBeenCalled();
+    expect(mocks.auditCreate).not.toHaveBeenCalled();
+  });
+
+  it("returns legacy unmanaged when policy disabled", async () => {
+    mocks.policyFindOne.mockReturnValue({
+      lean: vi.fn().mockResolvedValue({
+        policyId: "pprf_test",
+        accountId: "acct_test",
+        enabled: false,
+        timezone: "UTC",
+        workHours: { enabled: false, days: [1], start: "09:00", end: "17:00" },
+        duringHoursMode: "managed",
+        outsideHoursMode: "unmanaged",
+        defaultMode: "required",
+        toolModes: { claude: "required" },
+        protectedRepos: [],
+        pausePolicy: {
+          enabled: true,
+          reasonRequired: true,
+          maxDurationMinutes: 30,
+          allowAllRepos: false,
+          requireApprovalForRequiredMode: true,
+        },
+      }),
+    });
+
+    const { resolveManagedProfilePolicyDecision } = await import("@/lib/cliSessionPolicy");
+    const result = await resolveManagedProfilePolicyDecision(
+      { userId: "user_a", accountId: "acct_test", agentId: null, source: "session" },
+      { tool: "claude" }
+    );
+    expect(result.mode).toBe("unmanaged");
+    expect(result.matchedRule?.type).toBe("legacy");
+  });
+
+  it("returns managed mode from tool override in dry-run", async () => {
+    mocks.policyFindOne.mockReturnValue({
+      lean: vi.fn().mockResolvedValue({
+        policyId: "pprf_test",
+        accountId: "acct_test",
+        enabled: true,
+        timezone: "UTC",
+        workHours: { enabled: false, days: [1], start: "09:00", end: "17:00" },
+        duringHoursMode: "managed",
+        outsideHoursMode: "unmanaged",
+        defaultMode: "unmanaged",
+        toolModes: { claude: "managed" },
+        protectedRepos: [],
+        pausePolicy: {
+          enabled: true,
+          reasonRequired: true,
+          maxDurationMinutes: 30,
+          allowAllRepos: false,
+          requireApprovalForRequiredMode: false,
+        },
+      }),
+    });
+
+    const { resolveManagedProfilePolicyDecision } = await import("@/lib/cliSessionPolicy");
+    const result = await resolveManagedProfilePolicyDecision(
+      { userId: "user_a", accountId: "acct_test", agentId: null, source: "session" },
+      { tool: "claude" }
+    );
+    expect(result.mode).toBe("managed");
+    expect(result.matchedRule?.type).toBe("tool_override");
+  });
+
+  it("returns required for protected repo match in dry-run", async () => {
+    mocks.policyFindOne.mockReturnValue({
+      lean: vi.fn().mockResolvedValue({
+        policyId: "pprf_test",
+        accountId: "acct_test",
+        enabled: true,
+        timezone: "UTC",
+        workHours: { enabled: false, days: [1], start: "09:00", end: "17:00" },
+        duringHoursMode: "managed",
+        outsideHoursMode: "unmanaged",
+        defaultMode: "unmanaged",
+        toolModes: {},
+        protectedRepos: [{ repoHash: "0123456789abcdef", mode: "required", enabled: true }],
+        pausePolicy: {
+          enabled: true,
+          reasonRequired: true,
+          maxDurationMinutes: 30,
+          allowAllRepos: false,
+          requireApprovalForRequiredMode: true,
+        },
+      }),
+    });
+
+    const { resolveManagedProfilePolicyDecision } = await import("@/lib/cliSessionPolicy");
+    const result = await resolveManagedProfilePolicyDecision(
+      { userId: "user_a", accountId: "acct_test", agentId: null, source: "session" },
+      { tool: "claude", repo: "0123456789abcdef" }
+    );
+    expect(result.mode).toBe("required");
+    expect(result.reason).toBe("Protected repo requires enforcement.");
+    expect(result.matchedRule).toEqual({
+      type: "protected_repo",
+      repoHash: "0123456789abcdef",
+      mode: "required",
+    });
+  });
+});
+
 describe("pause behavior with managed profile policy", () => {
   beforeEach(() => {
     vi.clearAllMocks();
