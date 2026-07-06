@@ -1,5 +1,6 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { Metadata } from "next";
+import { CLI_NPM_INSTALL_COMMAND } from "@/lib/cliInstallCommands";
 import { CodeBlock, DocsShell } from "../content";
 import { routing } from "@/i18n/routing";
 
@@ -28,7 +29,7 @@ export default async function CliDocsPage({ params }: { params: Promise<{ locale
       <h2>Install</h2>
       <p>The CLI ships as a self-contained binary. No Node.js required after install.</p>
       <CodeBlock label="curl (macOS / Linux)">{`curl -fsSL https://behalfid.com/install.sh | sh`}</CodeBlock>
-      <CodeBlock label="npm (global)">{`npm install -g behalf`}</CodeBlock>
+      <CodeBlock label="npm (global)">{CLI_NPM_INSTALL_COMMAND}</CodeBlock>
 
       <h2>Authenticate</h2>
       <CodeBlock label="terminal">{`behalf login`}</CodeBlock>

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
-import { Button, ButtonLink, Card, CodeBlock, PageHeader } from "@/components/ui";
+import { Button, ButtonLink, Card, PageHeader } from "@/components/ui";
+import { haptic } from "@/lib/haptic";
 import type { ManagedProfileActivityEvent } from "@/lib/cliAuditActivityTypes";
 import { MANAGED_PROFILE_ONBOARDING_STEPS } from "@/lib/managedProfileOnboarding";
 
@@ -116,11 +117,40 @@ function activityEventTypeLabel(eventType: ManagedProfileActivityEvent["eventTyp
   return ACTIVITY_EVENT_TYPE_LABELS[eventType] ?? eventType;
 }
 
-function OnboardingCommandRow({ command, explanation }: { command: string; explanation: string }) {
+function OnboardingCompactCommand({ command }: { command: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const copy = () => {
+    navigator.clipboard.writeText(command).then(() => {
+      haptic("success");
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
   return (
-    <div className="managed-profile-onboarding-command">
-      <CodeBlock label="terminal">{command}</CodeBlock>
-      <p className="field-help">{explanation}</p>
+    <div className="onboarding-command-row">
+      <code className="onboarding-command-row__text">{command}</code>
+      <button
+        type="button"
+        className={["onboarding-command-row__copy", copied ? "onboarding-command-row__copy--ok" : ""]
+          .filter(Boolean)
+          .join(" ")}
+        onClick={copy}
+        aria-label={`Copy ${command}`}
+      >
+        {copied ? "Copied" : "Copy"}
+      </button>
+    </div>
+  );
+}
+
+function OnboardingCommandGroup({ commands }: { commands: string[] }) {
+  return (
+    <div className="onboarding-command-group">
+      {commands.map((command) => (
+        <OnboardingCompactCommand command={command} key={command} />
+      ))}
     </div>
   );
 }
@@ -282,11 +312,30 @@ export function ManagedProfilesView() {
 
   const hasProtectedRepos = form?.protectedRepos.some((repo) => repo.repoHash.trim()) ?? false;
 
-  const policyHint = !form?.enabled
-    ? "Managed Profiles are disabled. Enable the policy before installing shims for enforcement."
+  const policyStatus = !form?.enabled
+    ? {
+        title: "Managed Profiles disabled",
+        detail: "Enable the policy before expecting enforcement.",
+      }
     : hasProtectedRepos
-      ? "Protected repo enforcement is configured."
-      : "No protected repos yet. Run a managed tool, then enroll the repo from Activity.";
+      ? {
+          title: "Protected repo enforcement configured",
+          detail: "At least one repo is protected.",
+        }
+      : {
+          title: "No protected repos",
+          detail: "Run a managed tool, then enroll the repo from Activity.",
+        };
+
+  const activityStatus = lastActivity
+    ? {
+        title: "Last activity",
+        detail: `${activityEventTypeLabel(lastActivity.eventType)} · ${formatRelativeTime(lastActivity.createdAt)}`,
+      }
+    : {
+        title: "No activity yet",
+        detail: "Launch a managed tool after installing shims.",
+      };
 
   if (loading && !form) {
     return <p className="setup-loading">Loading managed profile policy…</p>;
@@ -319,61 +368,70 @@ export function ManagedProfilesView() {
       {saveError ? <p className="form-error" role="alert">{saveError}</p> : null}
 
       <Card
-        className="dashboard-panel onboarding-callout"
+        className="dashboard-panel onboarding-callout managed-profile-onboarding"
         data-testid="managed-profile-onboarding"
       >
-        <div className="dashboard-section-header">
+        <div className="managed-profile-onboarding-header">
           <h2>Connect your first managed CLI</h2>
+          <p className="managed-profile-onboarding-subtitle">
+            Install shims, verify policy, and launch your first managed coding agent.
+          </p>
         </div>
-        <p className="ops-empty" data-testid="managed-profile-onboarding-policy-hint">
-          {policyHint}
-        </p>
-        {activityLoaded ? (
-          lastActivity ? (
-            <p className="ops-empty" data-testid="managed-profile-onboarding-activity-hint">
-              Last managed profile activity: {activityEventTypeLabel(lastActivity.eventType)} ·{" "}
-              {formatRelativeTime(lastActivity.createdAt)}
-            </p>
-          ) : (
-            <p className="ops-empty" data-testid="managed-profile-onboarding-activity-hint">
-              No managed profile activity yet. Launch a managed tool after installing shims.
-            </p>
-          )
-        ) : null}
+
+        <div className="managed-profile-onboarding-status">
+          <div
+            className="onboarding-status-chip"
+            data-testid="managed-profile-onboarding-policy-hint"
+          >
+            <span className="onboarding-status-chip__title">{policyStatus.title}</span>
+            <span className="onboarding-status-chip__detail">{policyStatus.detail}</span>
+          </div>
+          {activityLoaded ? (
+            <div
+              className="onboarding-status-chip"
+              data-testid="managed-profile-onboarding-activity-hint"
+            >
+              <span className="onboarding-status-chip__title">{activityStatus.title}</span>
+              <span className="onboarding-status-chip__detail">{activityStatus.detail}</span>
+            </div>
+          ) : null}
+        </div>
+
         <ol className="managed-profile-onboarding-steps">
           {MANAGED_PROFILE_ONBOARDING_STEPS.map((step, index) => (
             <li className="managed-profile-onboarding-step" key={step.title}>
-              <h3>
-                {index + 1}. {step.title}
-              </h3>
-              {step.commands.map((row) => (
-                <OnboardingCommandRow
-                  command={row.command}
-                  explanation={row.explanation}
-                  key={row.command}
-                />
-              ))}
+              <div className="managed-profile-onboarding-step__head">
+                <span aria-hidden="true" className="managed-profile-onboarding-step__badge">
+                  {index + 1}
+                </span>
+                <div className="managed-profile-onboarding-step__copy">
+                  <h3>{step.title}</h3>
+                  <p>{step.summary}</p>
+                </div>
+              </div>
+              <OnboardingCommandGroup commands={step.commands} />
             </li>
           ))}
         </ol>
-        <div className="setup-form__row managed-profile-onboarding-links">
-          <ButtonLink
+
+        <nav aria-label="Managed profile setup links" className="managed-profile-onboarding-actions">
+          <Link
+            className="managed-profile-onboarding-action"
             data-testid="managed-profile-onboarding-activity-link"
             href="/dashboard/managed-profiles/activity"
-            variant="secondary"
           >
-            Managed Profile Activity
-          </ButtonLink>
-          <ButtonLink href="#managed-profile-simulator" variant="secondary">
-            Policy simulator
-          </ButtonLink>
-          <ButtonLink href="#managed-profile-protected-repos" variant="secondary">
+            View activity
+          </Link>
+          <Link className="managed-profile-onboarding-action" href="#managed-profile-simulator">
+            Jump to simulator
+          </Link>
+          <Link className="managed-profile-onboarding-action" href="#managed-profile-protected-repos">
             Protected repos
-          </ButtonLink>
-          <ButtonLink href="/docs/cli" variant="secondary">
+          </Link>
+          <Link className="managed-profile-onboarding-action" href="/docs/cli">
             CLI docs
-          </ButtonLink>
-        </div>
+          </Link>
+        </nav>
       </Card>
 
       <Card
@@ -454,7 +512,7 @@ export function ManagedProfilesView() {
         ) : null}
       </Card>
 
-      <form className="setup-form" onSubmit={savePolicy}>
+      <form className="setup-form managed-profile-settings" onSubmit={savePolicy}>
         <Card className="dashboard-panel">
           <div className="dashboard-section-header">
             <h2>Policy enabled</h2>

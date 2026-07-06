@@ -515,10 +515,10 @@ export function ManagedProfileActivityView() {
                   </td>
                 </tr>
               ) : null}
-              {!loading && !events.length ? (
+              {!loading && !events.length && hasFilters ? (
                 <tr>
                   <td colSpan={9} className="ops-events__empty">
-                    {hasFilters ? "No events match these filters." : "No managed profile activity yet."}
+                    No events match these filters.
                   </td>
                 </tr>
               ) : null}
@@ -558,10 +558,8 @@ export function ManagedProfileActivityView() {
 
         <div className="ops-events__list">
           {loading && !events.length ? <p className="ops-events__empty">Loading activity…</p> : null}
-          {!loading && !events.length ? (
-            <p className="ops-events__empty">
-              {hasFilters ? "No events match these filters." : "No managed profile activity yet."}
-            </p>
+          {!loading && !events.length && hasFilters ? (
+            <p className="ops-events__empty">No events match these filters.</p>
           ) : null}
           {events.map((event) => (
             <ActivityEventCard
@@ -575,10 +573,13 @@ export function ManagedProfileActivityView() {
         </div>
       </div>
 
-      {!events.length && !loading ? (
-        <EmptyState className="dashboard-empty">
-          No managed profile activity yet. Run{" "}
-          <code>behalf profile status --tool claude</code> from a repo with managed profile shims installed.
+      {!events.length && !loading && !hasFilters ? (
+        <EmptyState className="dashboard-empty managed-activity-empty">
+          <p className="managed-activity-empty__title">No managed profile activity yet</p>
+          <p className="managed-activity-empty__detail">
+            Run <code>behalf profile status --tool claude</code> from a repo with managed profile shims
+            installed.
+          </p>
         </EmptyState>
       ) : null}
 
