@@ -10933,6 +10933,28 @@ body.ops-drawer-open .site-consent {
   line-height: 1.3;
 }
 
+.managed-profile-onboarding-steps {
+  list-style: none;
+  margin: 0 0 18px;
+  padding: 0;
+  display: grid;
+  gap: 20px;
+}
+
+.managed-profile-onboarding-step h3 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.managed-profile-onboarding-command + .managed-profile-onboarding-command {
+  margin-top: 10px;
+}
+
+.managed-profile-onboarding-links {
+  flex-wrap: wrap;
+}
+
 /* ── 20. Consistent section h3 spacing inside dashboard panels */
 .dashboard-panel > h3 {
   margin-top: 24px;

@@ -2,6 +2,17 @@
 
 Managed profiles intercept `claude`, `codex`, and `cursor` through local shims, resolve workspace policy from the server, and inject session environment variables before launching the real tool.
 
+## Recommended first run (dashboard)
+
+Open **Managed profiles** in the dashboard (`/dashboard/managed-profiles`). The onboarding card walks through:
+
+1. **Install shims** — install the CLI (`npm install -g` + package name from `packages/cli/package.json`), then `behalf login` and `behalf profile install`
+2. **Verify status** — `behalf profile status --tool claude`
+3. **Simulate policy** — `behalf profile simulate --tool claude`
+4. **Launch a managed tool** — `claude` (through the shim)
+
+Enable managed profile policy in the dashboard before expecting enforcement. After your first shim launch, use **Managed Profile Activity** to enroll protected repos without copying hashes manually.
+
 ## Install once
 
 ```bash
