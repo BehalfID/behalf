@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
-import { Button, ButtonLink, Card, PageHeader } from "@/components/ui";
+import { Button, ButtonLink, Card, CodeBlock, PageHeader } from "@/components/ui";
+import type { ManagedProfileActivityEvent } from "@/lib/cliAuditActivityTypes";
+import { MANAGED_PROFILE_ONBOARDING_STEPS } from "@/lib/managedProfileOnboarding";
 
 type PolicyMode = "unmanaged" | "managed" | "required";
 
@@ -88,6 +90,41 @@ const COMMON_TIMEZONES = [
   "Australia/Sydney",
 ];
 
+const ACTIVITY_EVENT_TYPE_LABELS: Record<ManagedProfileActivityEvent["eventType"], string> = {
+  cli_session_policy: "Session policy",
+  cli_pause_grant: "Pause grant",
+  cli_pause_deny: "Pause denial",
+  cli_pause_approval_requested: "Pause approval requested",
+};
+
+function formatRelativeTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  const diffSec = Math.round((date.getTime() - Date.now()) / 1000);
+  const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+  const absSec = Math.abs(diffSec);
+  if (absSec < 60) return rtf.format(diffSec, "second");
+  const diffMin = Math.round(diffSec / 60);
+  if (Math.abs(diffMin) < 60) return rtf.format(diffMin, "minute");
+  const diffHour = Math.round(diffMin / 60);
+  if (Math.abs(diffHour) < 24) return rtf.format(diffHour, "hour");
+  const diffDay = Math.round(diffHour / 24);
+  return rtf.format(diffDay, "day");
+}
+
+function activityEventTypeLabel(eventType: ManagedProfileActivityEvent["eventType"]) {
+  return ACTIVITY_EVENT_TYPE_LABELS[eventType] ?? eventType;
+}
+
+function OnboardingCommandRow({ command, explanation }: { command: string; explanation: string }) {
+  return (
+    <div className="managed-profile-onboarding-command">
+      <CodeBlock label="terminal">{command}</CodeBlock>
+      <p className="field-help">{explanation}</p>
+    </div>
+  );
+}
+
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     ...init,
@@ -122,6 +159,8 @@ export function ManagedProfilesView() {
   const [simulateLoading, setSimulateLoading] = useState(false);
   const [simulateError, setSimulateError] = useState("");
   const [simulateResult, setSimulateResult] = useState<PolicySimulationResult | null>(null);
+  const [lastActivity, setLastActivity] = useState<ManagedProfileActivityEvent | null>(null);
+  const [activityLoaded, setActivityLoaded] = useState(false);
 
   const loadPolicy = async () => {
     setLoading(true);
@@ -137,8 +176,22 @@ export function ManagedProfilesView() {
     }
   };
 
+  const loadLastActivity = async () => {
+    try {
+      const data = await api<{ events: ManagedProfileActivityEvent[] }>(
+        "/api/dashboard/managed-profiles/activity?limit=1"
+      );
+      setLastActivity(data.events[0] ?? null);
+    } catch {
+      setLastActivity(null);
+    } finally {
+      setActivityLoaded(true);
+    }
+  };
+
   useEffect(() => {
     void loadPolicy();
+    void loadLastActivity();
   }, []);
 
   const savePolicy = async (event: FormEvent) => {
@@ -227,6 +280,14 @@ export function ManagedProfilesView() {
       (repo) => repo.enabled && repo.repoHash === simulateRepoHash.trim()
     );
 
+  const hasProtectedRepos = form?.protectedRepos.some((repo) => repo.repoHash.trim()) ?? false;
+
+  const policyHint = !form?.enabled
+    ? "Managed Profiles are disabled. Enable the policy before installing shims for enforcement."
+    : hasProtectedRepos
+      ? "Protected repo enforcement is configured."
+      : "No protected repos yet. Run a managed tool, then enroll the repo from Activity.";
+
   if (loading && !form) {
     return <p className="setup-loading">Loading managed profile policy…</p>;
   }
@@ -257,7 +318,69 @@ export function ManagedProfilesView() {
       {saveMessage ? <p className="setup-banner" role="status">{saveMessage}</p> : null}
       {saveError ? <p className="form-error" role="alert">{saveError}</p> : null}
 
-      <Card className="dashboard-panel" data-testid="managed-profile-simulator">
+      <Card
+        className="dashboard-panel onboarding-callout"
+        data-testid="managed-profile-onboarding"
+      >
+        <div className="dashboard-section-header">
+          <h2>Connect your first managed CLI</h2>
+        </div>
+        <p className="ops-empty" data-testid="managed-profile-onboarding-policy-hint">
+          {policyHint}
+        </p>
+        {activityLoaded ? (
+          lastActivity ? (
+            <p className="ops-empty" data-testid="managed-profile-onboarding-activity-hint">
+              Last managed profile activity: {activityEventTypeLabel(lastActivity.eventType)} ·{" "}
+              {formatRelativeTime(lastActivity.createdAt)}
+            </p>
+          ) : (
+            <p className="ops-empty" data-testid="managed-profile-onboarding-activity-hint">
+              No managed profile activity yet. Launch a managed tool after installing shims.
+            </p>
+          )
+        ) : null}
+        <ol className="managed-profile-onboarding-steps">
+          {MANAGED_PROFILE_ONBOARDING_STEPS.map((step, index) => (
+            <li className="managed-profile-onboarding-step" key={step.title}>
+              <h3>
+                {index + 1}. {step.title}
+              </h3>
+              {step.commands.map((row) => (
+                <OnboardingCommandRow
+                  command={row.command}
+                  explanation={row.explanation}
+                  key={row.command}
+                />
+              ))}
+            </li>
+          ))}
+        </ol>
+        <div className="setup-form__row managed-profile-onboarding-links">
+          <ButtonLink
+            data-testid="managed-profile-onboarding-activity-link"
+            href="/dashboard/managed-profiles/activity"
+            variant="secondary"
+          >
+            Managed Profile Activity
+          </ButtonLink>
+          <ButtonLink href="#managed-profile-simulator" variant="secondary">
+            Policy simulator
+          </ButtonLink>
+          <ButtonLink href="#managed-profile-protected-repos" variant="secondary">
+            Protected repos
+          </ButtonLink>
+          <ButtonLink href="/docs/cli" variant="secondary">
+            CLI docs
+          </ButtonLink>
+        </div>
+      </Card>
+
+      <Card
+        className="dashboard-panel"
+        data-testid="managed-profile-simulator"
+        id="managed-profile-simulator"
+      >
         <div className="dashboard-section-header">
           <h2>Policy simulator</h2>
         </div>
@@ -508,7 +631,7 @@ export function ManagedProfilesView() {
           ))}
         </Card>
 
-        <Card className="dashboard-panel">
+        <Card className="dashboard-panel" id="managed-profile-protected-repos">
           <div className="dashboard-section-header">
             <h2>Protected repos</h2>
           </div>
