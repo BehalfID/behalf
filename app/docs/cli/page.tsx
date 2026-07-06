@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { CLI_NPM_INSTALL_COMMAND } from "@/lib/cliInstallCommands";
 import { CodeBlock, DocsShell } from "../content";
 
 export const metadata: Metadata = {
@@ -19,7 +20,7 @@ export default function CliDocsPage() {
       <p>The CLI ships as a self-contained binary. No Node.js required after install.</p>
       <CodeBlock label="curl (macOS / Linux)">{`curl -fsSL https://behalfid.com/install.sh | sh`}</CodeBlock>
       <CodeBlock label="Homebrew">{`brew install behalfid/tap/behalf`}</CodeBlock>
-      <CodeBlock label="npm">{`npm install -g @behalfid/cli`}</CodeBlock>
+      <CodeBlock label="npm">{CLI_NPM_INSTALL_COMMAND}</CodeBlock>
       <p>Verify the install:</p>
       <CodeBlock label="terminal">{`behalf --version`}</CodeBlock>
 

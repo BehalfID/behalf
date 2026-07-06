@@ -393,8 +393,9 @@ describe("managed profile activity dashboard UI", () => {
 
   it("includes empty state copy and CLI suggestion", async () => {
     const source = await readFile("/workspace/components/dashboard/ManagedProfileActivityView.tsx", "utf8");
-    expect(source).toContain("No managed profile activity yet.");
+    expect(source).toContain("No managed profile activity yet");
     expect(source).toContain("behalf profile status --tool claude");
+    expect(source).toContain("managed-activity-empty");
   });
 
   it("renders loaded event type, mode, tool, and reason columns", async () => {

@@ -10935,10 +10935,182 @@ body.ops-drawer-open .site-consent {
 
 .managed-profile-onboarding-steps {
   list-style: none;
-  margin: 0 0 18px;
+  margin: 0 0 16px;
   padding: 0;
   display: grid;
-  gap: 20px;
+  gap: 14px;
+}
+
+.managed-profile-onboarding-header h2 {
+  margin: 0 0 6px;
+}
+
+.managed-profile-onboarding-subtitle {
+  margin: 0 0 14px;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.managed-profile-onboarding-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.onboarding-status-chip {
+  flex: 1 1 220px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface) 88%, var(--text) 12%);
+}
+
+.onboarding-status-chip__title {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 0.82rem;
+  font-weight: var(--fw-bold);
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
+
+.onboarding-status-chip__detail {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.managed-profile-onboarding-step {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.managed-profile-onboarding-step__head {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.managed-profile-onboarding-step__badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: var(--fw-bold);
+}
+
+.managed-profile-onboarding-step__copy h3 {
+  margin: 0 0 2px;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.managed-profile-onboarding-step__copy p {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.onboarding-command-group {
+  display: grid;
+  gap: 4px;
+}
+
+.onboarding-command-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--surface) 70%, var(--text) 30%);
+}
+
+.onboarding-command-row__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.onboarding-command-row__copy {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+
+.onboarding-command-row__copy:hover {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--border) 60%, var(--text) 40%);
+}
+
+.onboarding-command-row__copy--ok {
+  color: var(--success, #3ecf8e);
+  border-color: color-mix(in srgb, var(--success, #3ecf8e) 40%, var(--border));
+}
+
+.managed-profile-onboarding-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  padding-top: 4px;
+}
+
+.managed-profile-onboarding-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  text-decoration: none;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.managed-profile-onboarding-action:hover {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--border) 50%, var(--text) 50%);
+  background: color-mix(in srgb, var(--surface) 90%, var(--text) 10%);
+}
+
+.managed-profile-onboarding-action::after {
+  content: "→";
+  font-size: 0.78rem;
+  opacity: 0.7;
+}
+
+.managed-profile-settings .setup-check {
+  padding: 4px 0;
+  border: none;
+  align-items: center;
+}
+
+.managed-profile-settings .setup-checkgrid .setup-check {
+  padding: 4px 8px 4px 0;
 }
 
 .managed-profile-onboarding-step h3 {
@@ -10953,6 +11125,23 @@ body.ops-drawer-open .site-consent {
 
 .managed-profile-onboarding-links {
   flex-wrap: wrap;
+}
+
+.managed-activity-empty {
+  text-align: center;
+}
+
+.managed-activity-empty__title {
+  margin: 0 0 6px;
+  font-weight: var(--fw-bold);
+  color: var(--text);
+}
+
+.managed-activity-empty__detail {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  line-height: 1.45;
 }
 
 /* ── 20. Consistent section h3 spacing inside dashboard panels */
