@@ -54,6 +54,9 @@ export async function POST(request: NextRequest) {
   });
 
   if (!result.granted) {
+    if (result.approvalRequired) {
+      return noCacheJson(result, { status: 202 });
+    }
     if (result.mode === "required") {
       return jsonError(result.reason, 403);
     }

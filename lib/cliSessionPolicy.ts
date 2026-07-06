@@ -2,6 +2,10 @@ import { connectToDatabase } from "@/lib/db";
 import { hashCliRepo } from "@/lib/cliRepoHash";
 import { createPublicId } from "@/lib/ids";
 import {
+  consumeApprovedPauseApproval,
+  createOrReusePendingPauseApproval,
+} from "@/lib/managedProfilePauseApproval";
+import {
   loadEffectiveManagedProfilePolicy,
   resolvePersistedManagedProfileMode,
   validatePauseRequestAgainstPolicy,
@@ -276,7 +280,11 @@ export async function resolveCliSessionPolicy(
 
 export async function recordCliAuditEvent(input: {
   auth: CliAuthContext;
-  eventType: "cli_session_policy" | "cli_pause_grant" | "cli_pause_deny";
+  eventType:
+    | "cli_session_policy"
+    | "cli_pause_grant"
+    | "cli_pause_deny"
+    | "cli_pause_approval_requested";
   tool?: string | null;
   repo?: string | null;
   branch?: string | null;
@@ -324,6 +332,8 @@ export type CliPauseResult = {
   repo?: string | null;
   branch?: string | null;
   deviceId?: string | null;
+  approvalRequired?: boolean;
+  approvalRequestId?: string;
 };
 
 export const MAX_PAUSE_MINUTES = 240;
@@ -399,6 +409,98 @@ export async function requestCliPauseLease(
   );
 
   if (policy.mode === "required") {
+    if (pausePolicy.requireApprovalForRequiredMode === true && auth.userId && auth.accountId) {
+      const consumed = await consumeApprovedPauseApproval(auth, input);
+      if (consumed) {
+        const durationMinutes = Math.min(input.durationMinutes, consumed.requestedDurationMinutes);
+        const expiresAt = new Date(Date.now() + durationMinutes * 60 * 1000);
+        const leaseId = createPublicId("pause");
+
+        await CliPauseLease.create({
+          leaseId,
+          accountId: auth.accountId,
+          userId: auth.userId,
+          deviceId: input.deviceId ?? undefined,
+          tool: input.tool ?? undefined,
+          repo: input.repo ?? undefined,
+          branch: input.branch ?? undefined,
+          scope: input.scope ?? "current_repo",
+          reason: input.reason.trim(),
+          granted: true,
+          mode: "unmanaged",
+          expiresAt,
+        });
+
+        const grantedReason =
+          input.scope === "all"
+            ? "Pause granted for all repos (approved)."
+            : "Pause granted for current repo (approved).";
+
+        await recordCliAuditEvent({
+          auth,
+          eventType: "cli_pause_grant",
+          tool: input.tool,
+          repo: input.repo,
+          branch: input.branch,
+          mode: policy.mode,
+          granted: true,
+          reason: grantedReason,
+          metadata: {
+            leaseId,
+            expiresAt: expiresAt.toISOString(),
+            deviceId: input.deviceId ?? null,
+            approvalRequestId: consumed.approvalId,
+          },
+        });
+
+        return {
+          granted: true,
+          leaseId,
+          mode: "unmanaged",
+          expiresAt: expiresAt.toISOString(),
+          reason: grantedReason,
+          scope: input.scope ?? "current_repo",
+          tool: input.tool ?? null,
+          repo: input.repo ?? null,
+          branch: input.branch ?? null,
+          deviceId: input.deviceId ?? null,
+        };
+      }
+
+      const approvalRequestId = await createOrReusePendingPauseApproval(
+        auth,
+        input,
+        policy.reason
+      );
+      const approvalReason =
+        "Pause requires approval for this required managed profile context.";
+
+      await recordCliAuditEvent({
+        auth,
+        eventType: "cli_pause_approval_requested",
+        tool: input.tool,
+        repo: input.repo,
+        branch: input.branch,
+        mode: policy.mode,
+        granted: false,
+        reason: approvalReason,
+        metadata: {
+          approvalRequestId,
+          requestedMinutes: input.durationMinutes,
+          deviceId: input.deviceId ?? null,
+          scope: input.scope ?? "current_repo",
+        },
+      });
+
+      return {
+        granted: false,
+        approvalRequired: true,
+        approvalRequestId,
+        mode: policy.mode,
+        reason: approvalReason,
+      };
+    }
+
     const deniedReason =
       "Pause denied: workspace policy requires enforcement for the current context.";
     await recordCliAuditEvent({

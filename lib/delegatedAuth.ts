@@ -218,9 +218,18 @@ function resolveApprovalRequiredLevel(
 
 export function canApproveRequest(
   actor: WorkspaceActor,
-  approvalRequest: Pick<ApprovalRequestDocument, "requiredAuthorityLevel" | "action" | "vendor">
+  approvalRequest: Pick<
+    ApprovalRequestDocument,
+    "requiredAuthorityLevel" | "action" | "vendor" | "developerUserId"
+  > & { kind?: ApprovalRequestDocument["kind"] | null }
 ): boolean {
   if (actor.authorityLevel <= AUTHORITY_LEVELS.VIEWER) return false;
+  if (
+    approvalRequest.kind === "managed_profile_pause" &&
+    approvalRequest.developerUserId === actor.userId
+  ) {
+    return false;
+  }
   return actor.authorityLevel >= resolveApprovalRequiredLevel(approvalRequest);
 }
 
@@ -285,21 +294,36 @@ export function enrichApprovalForActor<T extends Record<string, unknown>>(
   approval: T,
   actor: WorkspaceActor
 ) {
+  const isPauseApproval =
+    approval.kind === "managed_profile_pause" ||
+    approval.action === "managed_profile_pause";
   const requiredAuthorityLevel =
     typeof approval.requiredAuthorityLevel === "number"
       ? approval.requiredAuthorityLevel
-      : getRequiredAuthorityForAction(String(approval.action ?? ""), {
-          vendor: typeof approval.vendor === "string" ? approval.vendor : null
-        });
+      : isPauseApproval
+        ? AUTHORITY_LEVELS.ENGINEERING_LEAD
+        : getRequiredAuthorityForAction(String(approval.action ?? ""), {
+            vendor: typeof approval.vendor === "string" ? approval.vendor : null
+          });
   const approvalContext = {
     requiredAuthorityLevel,
     action: String(approval.action ?? ""),
     vendor: typeof approval.vendor === "string" ? approval.vendor : undefined,
+    kind:
+      approval.kind === "managed_profile_pause"
+        ? ("managed_profile_pause" as const)
+        : approval.kind === "agent_action"
+          ? ("agent_action" as const)
+          : undefined,
     developerUserId:
       typeof approval.developerUserId === "string" ? approval.developerUserId : undefined
   };
   const canApprove = canApproveRequest(actor, approvalContext);
   const canDeny = canDenyRequest(actor, approvalContext);
+  const selfApprovalBlocked =
+    isPauseApproval &&
+    typeof approval.developerUserId === "string" &&
+    approval.developerUserId === actor.userId;
   return {
     ...approval,
     requiredAuthorityLevel,
@@ -308,7 +332,9 @@ export function enrichApprovalForActor<T extends Record<string, unknown>>(
     canDeny,
     approveBlockReason: canApprove
       ? null
-      : `Requires ${getRequiredRoleLabel(requiredAuthorityLevel)} approval.`,
+      : selfApprovalBlocked
+        ? "You cannot approve your own pause request."
+        : `Requires ${getRequiredRoleLabel(requiredAuthorityLevel)} approval.`,
     denyBlockReason: canDeny
       ? null
       : `Requires ${getRequiredRoleLabel(requiredAuthorityLevel)} authority to deny.`

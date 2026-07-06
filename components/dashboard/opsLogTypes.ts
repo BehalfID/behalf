@@ -35,8 +35,10 @@ export type OpsLogSummary = {
 export type OpsApprovalRequest = {
   approvalId: string;
   requestId: string;
+  kind?: "agent_action" | "managed_profile_pause" | null;
   agentId: string;
   agentName?: string | null;
+  requesterName?: string | null;
   permissionId: string;
   action: string;
   vendor?: string | null;
@@ -52,7 +54,40 @@ export type OpsApprovalRequest = {
   canDeny?: boolean;
   approveBlockReason?: string | null;
   denyBlockReason?: string | null;
+  pauseTool?: string | null;
+  pauseRepo?: string | null;
+  pauseBranch?: string | null;
+  pauseDeviceId?: string | null;
+  pauseScope?: "current_repo" | "all" | null;
+  requestedDurationMinutes?: number | null;
+  pauseReason?: string | null;
+  contextReason?: string | null;
 };
+
+export function isManagedProfilePauseApproval(
+  req: Pick<OpsApprovalRequest, "kind" | "action">
+): boolean {
+  return req.kind === "managed_profile_pause" || req.action === "managed_profile_pause";
+}
+
+export function formatPauseApprovalTitle(req: OpsApprovalRequest): string {
+  return "Managed profile pause requested";
+}
+
+export function formatPauseApprovalDetails(req: OpsApprovalRequest): string {
+  const parts: string[] = [];
+  if (req.requesterName) parts.push(`Requester: ${req.requesterName}`);
+  if (req.pauseTool) parts.push(`Tool: ${req.pauseTool}`);
+  if (req.pauseRepo) parts.push(`Repo: ${req.pauseRepo}`);
+  else if (req.pauseScope === "all") parts.push("Repo: all repos");
+  if (req.pauseBranch) parts.push(`Branch: ${req.pauseBranch}`);
+  if (typeof req.requestedDurationMinutes === "number") {
+    parts.push(`Duration: ${req.requestedDurationMinutes}m`);
+  }
+  if (req.pauseReason) parts.push(`Reason: ${req.pauseReason}`);
+  if (req.contextReason) parts.push(`Required context: ${req.contextReason}`);
+  return parts.join(" · ");
+}
 
 export function getLogDecision(log: Pick<OpsLog, "allowed" | "approvalRequired" | "reason" | "decision">): LogDecision {
   if (log.decision) return log.decision;

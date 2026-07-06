@@ -37,6 +37,7 @@ const EVENT_TYPE_LABELS: Record<ManagedProfileActivityEvent["eventType"], string
   cli_session_policy: "Session policy",
   cli_pause_grant: "Pause grant",
   cli_pause_deny: "Pause denial",
+  cli_pause_approval_requested: "Pause approval requested",
 };
 
 const MODE_OPTIONS: Array<{ value: PolicyMode; label: string }> = [
@@ -402,6 +403,7 @@ export function ManagedProfileActivityView() {
             <option value="cli_session_policy">Session policy</option>
             <option value="cli_pause_grant">Pause grant</option>
             <option value="cli_pause_deny">Pause denial</option>
+            <option value="cli_pause_approval_requested">Pause approval requested</option>
           </select>
           <input
             className="ops-cmd__filter"

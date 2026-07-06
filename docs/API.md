@@ -743,6 +743,24 @@ Response when granted:
 }
 ```
 
+Response when approval is required (required mode with `pausePolicy.requireApprovalForRequiredMode: true`):
+
+HTTP status: **202 Accepted**
+
+```json
+{
+  "granted": false,
+  "approvalRequired": true,
+  "approvalRequestId": "apr_xxx",
+  "mode": "required",
+  "reason": "Pause requires approval for this required managed profile context."
+}
+```
+
+Hard denials (approval disabled or policy rejection) still return **403 Forbidden** with an error message.
+
+After a workspace approver approves the request in the dashboard, retry the same pause request with matching tool/repo/scope/device/duration to consume the one-time grant and receive a pause lease.
+
 Rules:
 
 - Pause grant decisions evaluate the **underlying workspace policy** and ignore any already-active pause lease (renewals cannot bypass a newly required policy)
@@ -750,8 +768,9 @@ Rules:
 - Maximum duration: workspace pause policy `maxDurationMinutes` (hard cap 240 minutes)
 - Denied when workspace pause policy is disabled
 - Denied when `scope=all` but workspace policy disallows all-repo pause
-- Denied when workspace policy is `required` for the current context
-- Granted/denied events are written to `CliAuditLog`
+- Denied when workspace policy is `required` for the current context **unless** `pausePolicy.requireApprovalForRequiredMode` is `true`, in which case a pending approval is created (or an existing identical pending request is returned) instead of an immediate denial
+- Approved pause grants are one-time use, scoped to requester/tool/repo/scope/device, and must be consumed within 30 minutes of approval
+- Granted/denied/approval-requested events are written to `CliAuditLog`
 - Session policy resolutions are written to `CliAuditLog` as `cli_session_policy`
 
 ## GET /api/dashboard/managed-profiles/activity
@@ -766,7 +785,7 @@ Query parameters:
 - `cursor` — opaque cursor from a previous response `nextCursor`
 - `tool` — `claude`, `codex`, or `cursor`
 - `mode` — `unmanaged`, `managed`, or `required`
-- `eventType` — `cli_session_policy`, `cli_pause_grant`, or `cli_pause_deny`
+- `eventType` — `cli_session_policy`, `cli_pause_grant`, `cli_pause_deny`, or `cli_pause_approval_requested`
 - `repo` — policy repo hash (16- or 64-char lowercase hex)
 - `branch`
 - `from`, `to` — ISO timestamps
@@ -858,7 +877,7 @@ Request body fields:
 - `duringHoursMode`, `outsideHoursMode`, `defaultMode`
 - `toolModes`: optional `{ claude?, codex?, cursor? }`
 - `protectedRepos`: `[{ repoHash, label?, mode?, enabled? }]` — `repoHash` must be 16- or 64-character lowercase hex (the policy repo hash from `behalf profile status`)
-- `pausePolicy`: `{ enabled, reasonRequired, maxDurationMinutes, allowAllRepos }`
+- `pausePolicy`: `{ enabled, reasonRequired, maxDurationMinutes, allowAllRepos, requireApprovalForRequiredMode }`
 
 Unknown fields are rejected. Modes must be `unmanaged`, `managed`, or `required`. Pause duration is capped at 240 minutes.
 

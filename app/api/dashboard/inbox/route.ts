@@ -5,7 +5,12 @@ import { enrichApprovalForActor, getWorkspaceActor, serializeWorkspaceAuthority 
 import { noCacheJson } from "@/lib/responses";
 import Agent from "@/models/Agent";
 import ApprovalRequest from "@/models/ApprovalRequest";
+import DeveloperUser from "@/models/DeveloperUser";
 import VerificationLog from "@/models/VerificationLog";
+import { BEHALF_CLI_PAUSE_AGENT_ID } from "@/lib/managedProfilePauseApproval";
+
+const APPROVAL_SELECT =
+  "-_id approvalId requestId kind agentId permissionId action vendor amount status resolvedBy resolvedAt grantExpiresAt requiredAuthorityLevel developerUserId createdAt pauseTool pauseRepo pauseBranch pauseDeviceId pauseScope requestedDurationMinutes pauseReason contextReason";
 
 const DENIED_HIGH_RISK_WINDOW_MS = 48 * 60 * 60 * 1_000;
 
@@ -25,7 +30,7 @@ export async function GET(request: NextRequest) {
     })
       .sort({ createdAt: -1 })
       .limit(50)
-      .select("-_id approvalId requestId agentId permissionId action vendor amount status resolvedBy resolvedAt grantExpiresAt requiredAuthorityLevel developerUserId createdAt")
+      .select(APPROVAL_SELECT)
       .lean(),
     VerificationLog.find({
       ...accountScopeFilter(actor.accountId),
@@ -41,9 +46,11 @@ export async function GET(request: NextRequest) {
 
   const agentIds = [
     ...new Set([
-      ...rawApprovals.map((a) => a.agentId),
-      ...rawDenied.map((d) => d.agentId)
-    ])
+      ...rawApprovals
+        .map((a) => a.agentId)
+        .filter((id): id is string => !!id && id !== BEHALF_CLI_PAUSE_AGENT_ID),
+      ...rawDenied.map((d) => d.agentId),
+    ]),
   ];
   const agents = agentIds.length
     ? await Agent.find({ ...accountScopeFilter(actor.accountId), agentId: { $in: agentIds } })
@@ -51,6 +58,25 @@ export async function GET(request: NextRequest) {
         .lean()
     : [];
   const nameMap = new Map(agents.map((a) => [a.agentId, a.name]));
+
+  const requesterIds = [
+    ...new Set(
+      rawApprovals
+        .filter((a) => a.kind === "managed_profile_pause" && a.developerUserId)
+        .map((a) => a.developerUserId as string)
+    ),
+  ];
+  const requesters = requesterIds.length
+    ? await DeveloperUser.find({ userId: { $in: requesterIds } })
+        .select("-_id userId email firstName lastName")
+        .lean()
+    : [];
+  const requesterMap = new Map(
+    requesters.map((u) => {
+      const displayName = [u.firstName, u.lastName].filter(Boolean).join(" ").trim();
+      return [u.userId, displayName || u.email || u.userId];
+    })
+  );
 
   const sortedApprovals = [...rawApprovals].sort((a, b) => {
     if (a.status === "pending" && b.status !== "pending") return -1;
@@ -62,7 +88,14 @@ export async function GET(request: NextRequest) {
     enrichApprovalForActor(
       {
         ...a,
-        agentName: nameMap.get(a.agentId) ?? null
+        agentName:
+          a.kind === "managed_profile_pause"
+            ? null
+            : (nameMap.get(a.agentId as string) ?? null),
+        requesterName:
+          a.kind === "managed_profile_pause"
+            ? (requesterMap.get(a.developerUserId as string) ?? a.developerUserId ?? null)
+            : null,
       },
       actor
     )

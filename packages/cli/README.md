@@ -70,7 +70,7 @@ behalf pause --duration 2h --reason "offline work" --scope current_repo --tool c
 behalf resume
 ```
 
-Pause requests a **server-approved lease**. It is denied when workspace policy requires enforcement (`required` mode). Leases are scoped, require a reason, and expire (max 4 hours by default).
+Pause requests a **server-approved lease**. It is denied when workspace policy requires enforcement (`required` mode) unless the workspace enables `pausePolicy.requireApprovalForRequiredMode`, in which case the CLI receives an approval request id and a workspace approver must approve the pause in the dashboard before retrying. Leases are scoped, require a reason, and expire (max 4 hours by default).
 
 Granted, denied, and session policy resolution events appear in the dashboard **Managed profile activity** console (`/dashboard/managed-profiles/activity`). Repo hashes shown there can be enrolled as protected repos from the dashboard without copying hashes manually.
 

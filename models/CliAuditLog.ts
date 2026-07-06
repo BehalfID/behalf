@@ -8,7 +8,7 @@ const CliAuditLogSchema = new Schema(
     eventType: {
       type: String,
       required: true,
-      enum: ["cli_session_policy", "cli_pause_grant", "cli_pause_deny"],
+      enum: ["cli_session_policy", "cli_pause_grant", "cli_pause_deny", "cli_pause_approval_requested"],
       index: true,
     },
     tool: { type: String, trim: true, maxlength: 32 },
