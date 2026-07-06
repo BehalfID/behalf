@@ -34,15 +34,22 @@ export async function POST(request: NextRequest) {
   const validationError = validateSessionPolicySimulateInput(input);
   if (validationError) return jsonError(validationError);
 
-  const { auth } = await requireCliAuth(request);
+  const authResult = await requireCliAuth(request);
+  if (authResult.error || !authResult.auth) return authResult.error;
+  const auth = authResult.auth;
 
   const requestedAccountId =
     readString(body.workspaceId) || readString(body.accountId) || null;
-  if (requestedAccountId && auth?.accountId && requestedAccountId !== auth.accountId) {
-    return jsonError("Account scope does not match the authenticated workspace.", 403);
+  if (requestedAccountId) {
+    if (!auth.accountId) {
+      return jsonError("Account scope requires an authenticated workspace.", 403);
+    }
+    if (requestedAccountId !== auth.accountId) {
+      return jsonError("Account scope does not match the authenticated workspace.", 403);
+    }
   }
 
-  const decision = await resolveManagedProfilePolicyDecision(auth!, input);
+  const decision = await resolveManagedProfilePolicyDecision(auth, input);
 
   return noCacheJson({
     ok: true,

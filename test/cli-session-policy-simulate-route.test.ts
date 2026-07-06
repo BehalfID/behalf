@@ -166,6 +166,33 @@ describe("POST /api/cli/session-policy/simulate", () => {
     expect(mocks.resolveManagedProfilePolicyDecision).not.toHaveBeenCalled();
   });
 
+  it("rejects scoped simulation without authenticated account", async () => {
+    mocks.requireCliAuth.mockResolvedValue({
+      auth: { userId: null, accountId: null, agentId: null, source: "anonymous" },
+      error: null,
+    });
+    const { POST } = await import("@/app/api/cli/session-policy/simulate/route");
+    const res = await POST(
+      request("/api/cli/session-policy/simulate", {
+        tool: "claude",
+        workspaceId: "acct_a",
+      })
+    );
+    expect(res.status).toBe(403);
+    expect(mocks.resolveManagedProfilePolicyDecision).not.toHaveBeenCalled();
+  });
+
+  it("returns auth errors from requireCliAuth", async () => {
+    mocks.requireCliAuth.mockResolvedValue({
+      auth: null,
+      error: new Response(JSON.stringify({ error: "Auth failed" }), { status: 401 }),
+    });
+    const { POST } = await import("@/app/api/cli/session-policy/simulate/route");
+    const res = await POST(request("/api/cli/session-policy/simulate", { tool: "claude" }));
+    expect(res.status).toBe(401);
+    expect(mocks.resolveManagedProfilePolicyDecision).not.toHaveBeenCalled();
+  });
+
   it("allows agent API key auth like session-policy", async () => {
     mocks.requireCliAuth.mockResolvedValue({
       auth: { userId: null, accountId: "acct_a", agentId: "agent_a", source: "agent" },
