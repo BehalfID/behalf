@@ -598,11 +598,58 @@ export type PersistedPolicyResolution = {
   reason: string;
 } | null;
 
-export function resolvePersistedManagedProfileMode(
+export type ManagedProfileMatchedRuleType =
+  | "protected_repo"
+  | "tool_override"
+  | "work_hours"
+  | "outside_hours"
+  | "default"
+  | "legacy"
+  | "policy_disabled";
+
+export type ManagedProfileMatchedRule = {
+  type: ManagedProfileMatchedRuleType;
+  repoHash?: string;
+  tool?: string;
+  mode: ManagedProfilePolicyMode;
+};
+
+export type PersistedPolicyDecision = {
+  mode: ManagedProfilePolicyMode;
+  profileId: string;
+  profileName: string;
+  reason: string;
+  matchedRule: ManagedProfileMatchedRule;
+};
+
+export function simulateReasonForMatchedRule(rule: ManagedProfileMatchedRule): string {
+  switch (rule.type) {
+    case "protected_repo":
+      return rule.mode === "required"
+        ? "Protected repo requires enforcement."
+        : `Protected repo policy applies (${rule.mode}).`;
+    case "tool_override":
+      return `Tool-specific policy applies (${rule.mode}).`;
+    case "work_hours":
+      return "Managed profile work-hours policy applies during configured hours.";
+    case "outside_hours":
+      return "Managed profile outside-hours policy applies.";
+    case "default":
+      return "Workspace managed profile default policy applies.";
+    case "legacy":
+      return "Legacy onboarding policy applies.";
+    case "policy_disabled":
+      return "Managed profile policy is disabled.";
+    default:
+      return "No matching managed profile.";
+  }
+}
+
+export function resolvePersistedManagedProfileDecision(
   policy: EffectiveManagedProfilePolicy,
   input: PersistedPolicyResolutionInput,
   now = new Date()
-): PersistedPolicyResolution {
+): PersistedPolicyDecision | null {
   if (!policy.enabled) return null;
 
   const repoHash = input.repoRoot?.trim() || null;
@@ -611,11 +658,17 @@ export function resolvePersistedManagedProfileMode(
       (repo) => repo.enabled && repo.repoHash === repoHash
     );
     if (protectedRepo) {
+      const matchedRule: ManagedProfileMatchedRule = {
+        type: "protected_repo",
+        repoHash: protectedRepo.repoHash,
+        mode: protectedRepo.mode,
+      };
       return {
         mode: protectedRepo.mode,
         profileId: policy.policyId ?? "pprf_managed",
-        profileName: protectedRepo.label?.trim() || "Protected repository",
-        reason: `Protected repository policy applies (${protectedRepo.mode}).`,
+        profileName: protectedRepo.label?.trim() || "Default managed profile",
+        reason: simulateReasonForMatchedRule(matchedRule),
+        matchedRule,
       };
     }
   }
@@ -625,31 +678,98 @@ export function resolvePersistedManagedProfileMode(
     (tool === "claude" || tool === "codex" || tool === "cursor") &&
     policy.toolModes[tool]
   ) {
+    const mode = policy.toolModes[tool]!;
+    const matchedRule: ManagedProfileMatchedRule = {
+      type: "tool_override",
+      tool,
+      mode,
+    };
     return {
-      mode: policy.toolModes[tool]!,
+      mode,
       profileId: policy.policyId ?? "pprf_managed",
       profileName: `${tool} tool policy`,
-      reason: `Tool-specific managed profile policy applies (${policy.toolModes[tool]}).`,
+      reason: simulateReasonForMatchedRule(matchedRule),
+      matchedRule,
     };
   }
 
   if (policy.workHours.enabled) {
     const inWorkHours = isWithinPolicyWorkHours(policy.workHours, policy.timezone, now);
     const mode = inWorkHours ? policy.duringHoursMode : policy.outsideHoursMode;
+    const matchedRule: ManagedProfileMatchedRule = {
+      type: inWorkHours ? "work_hours" : "outside_hours",
+      mode,
+    };
     return {
       mode,
       profileId: policy.policyId ?? "pprf_work_hours",
       profileName: inWorkHours ? "Work hours policy" : "Outside work hours policy",
-      reason: inWorkHours
-        ? "Managed profile work-hours policy applies during configured hours."
-        : "Managed profile outside-hours policy applies.",
+      reason: simulateReasonForMatchedRule(matchedRule),
+      matchedRule,
     };
   }
 
+  const matchedRule: ManagedProfileMatchedRule = {
+    type: "default",
+    mode: policy.defaultMode,
+  };
   return {
     mode: policy.defaultMode,
     profileId: policy.policyId ?? "pprf_managed",
-    profileName: "Workspace managed profile",
+    profileName: "Default managed profile",
+    reason: simulateReasonForMatchedRule(matchedRule),
+    matchedRule,
+  };
+}
+
+export function resolvePersistedManagedProfileMode(
+  policy: EffectiveManagedProfilePolicy,
+  input: PersistedPolicyResolutionInput,
+  now = new Date()
+): PersistedPolicyResolution {
+  const decision = resolvePersistedManagedProfileDecision(policy, input, now);
+  if (!decision) return null;
+
+  if (decision.matchedRule.type === "protected_repo") {
+    return {
+      mode: decision.mode,
+      profileId: decision.profileId,
+      profileName:
+        decision.profileName === "Default managed profile"
+          ? "Protected repository"
+          : decision.profileName,
+      reason: `Protected repository policy applies (${decision.mode}).`,
+    };
+  }
+  if (decision.matchedRule.type === "tool_override") {
+    return {
+      mode: decision.mode,
+      profileId: decision.profileId,
+      profileName: decision.profileName,
+      reason: `Tool-specific managed profile policy applies (${decision.mode}).`,
+    };
+  }
+  if (decision.matchedRule.type === "work_hours") {
+    return {
+      mode: decision.mode,
+      profileId: decision.profileId,
+      profileName: decision.profileName,
+      reason: "Managed profile work-hours policy applies during configured hours.",
+    };
+  }
+  if (decision.matchedRule.type === "outside_hours") {
+    return {
+      mode: decision.mode,
+      profileId: decision.profileId,
+      profileName: decision.profileName,
+      reason: "Managed profile outside-hours policy applies.",
+    };
+  }
+  return {
+    mode: decision.mode,
+    profileId: decision.profileId,
+    profileName:
+      decision.matchedRule.type === "default" ? "Workspace managed profile" : decision.profileName,
     reason: "Workspace managed profile default policy applies.",
   };
 }

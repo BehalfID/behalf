@@ -45,6 +45,21 @@ type ManagedProfilesResponse = {
   canEdit: boolean;
 };
 
+type PolicySimulationResult = {
+  ok: true;
+  mode: PolicyMode;
+  reason: string;
+  profileId: string | null;
+  profileName: string | null;
+  matchedRule: {
+    type: string;
+    repoHash?: string;
+    tool?: string;
+    mode?: PolicyMode;
+  } | null;
+  pausePolicy: ManagedProfilePolicy["pausePolicy"];
+};
+
 const WEEKDAYS = [
   { value: 0, label: "Sun" },
   { value: 1, label: "Mon" },
@@ -101,6 +116,12 @@ export function ManagedProfilesView() {
   const [saveMessage, setSaveMessage] = useState("");
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [simulateTool, setSimulateTool] = useState<"claude" | "codex" | "cursor">("claude");
+  const [simulateRepoHash, setSimulateRepoHash] = useState("");
+  const [simulateBranch, setSimulateBranch] = useState("main");
+  const [simulateLoading, setSimulateLoading] = useState(false);
+  const [simulateError, setSimulateError] = useState("");
+  const [simulateResult, setSimulateResult] = useState<PolicySimulationResult | null>(null);
 
   const loadPolicy = async () => {
     setLoading(true);
@@ -179,6 +200,33 @@ export function ManagedProfilesView() {
     setForm({ ...form, protectedRepos });
   };
 
+  const runSimulation = async () => {
+    setSimulateLoading(true);
+    setSimulateError("");
+    setSimulateResult(null);
+    try {
+      const result = await api<PolicySimulationResult>("/api/cli/session-policy/simulate", {
+        method: "POST",
+        body: JSON.stringify({
+          tool: simulateTool,
+          repo: simulateRepoHash.trim() || undefined,
+          branch: simulateBranch.trim() || undefined,
+        }),
+      });
+      setSimulateResult(result);
+    } catch (err) {
+      setSimulateError(err instanceof Error ? err.message : "Simulation failed.");
+    } finally {
+      setSimulateLoading(false);
+    }
+  };
+
+  const repoIsProtected =
+    simulateRepoHash.trim().length > 0 &&
+    form?.protectedRepos.some(
+      (repo) => repo.enabled && repo.repoHash === simulateRepoHash.trim()
+    );
+
   if (loading && !form) {
     return <p className="setup-loading">Loading managed profile policy…</p>;
   }
@@ -208,6 +256,80 @@ export function ManagedProfilesView() {
       />
       {saveMessage ? <p className="setup-banner" role="status">{saveMessage}</p> : null}
       {saveError ? <p className="form-error" role="alert">{saveError}</p> : null}
+
+      <Card className="dashboard-panel" data-testid="managed-profile-simulator">
+        <div className="dashboard-section-header">
+          <h2>Policy simulator</h2>
+        </div>
+        <p className="ops-empty">
+          Dry-run the effective managed profile decision for a tool, repo hash, and branch without
+          launching a tool or creating pause leases.
+        </p>
+        <div className="setup-form__row">
+          <label>
+            <span>Tool</span>
+            <select
+              data-testid="simulator-tool-select"
+              onChange={(event) =>
+                setSimulateTool(event.target.value as "claude" | "codex" | "cursor")
+              }
+              value={simulateTool}
+            >
+              <option value="claude">Claude</option>
+              <option value="codex">Codex</option>
+              <option value="cursor">Cursor</option>
+            </select>
+          </label>
+          <label>
+            <span>Repo hash</span>
+            <input
+              data-testid="simulator-repo-hash"
+              onChange={(event) => setSimulateRepoHash(event.target.value)}
+              placeholder="16-char policy repo hash"
+              value={simulateRepoHash}
+            />
+          </label>
+          <label>
+            <span>Branch</span>
+            <input
+              onChange={(event) => setSimulateBranch(event.target.value)}
+              placeholder="main"
+              value={simulateBranch}
+            />
+          </label>
+        </div>
+        <Button disabled={simulateLoading} onClick={() => void runSimulation()} type="button">
+          {simulateLoading ? "Simulating…" : "Simulate"}
+        </Button>
+        {simulateError ? <p className="form-error" role="alert">{simulateError}</p> : null}
+        {simulateResult ? (
+          <div className="dashboard-panel" data-testid="simulator-result">
+            <p>
+              <strong data-testid="simulator-result-mode">Mode:</strong> {simulateResult.mode}
+            </p>
+            <p data-testid="simulator-result-reason">
+              <strong>Reason:</strong> {simulateResult.reason}
+            </p>
+            <p>
+              <strong>Matched rule:</strong> {simulateResult.matchedRule?.type ?? "(none)"}
+            </p>
+            <p>
+              <strong>Pause policy:</strong>{" "}
+              {simulateResult.pausePolicy.enabled ? "enabled" : "disabled"},{" "}
+              max {simulateResult.pausePolicy.maxDurationMinutes}m, approval for required mode:{" "}
+              {simulateResult.pausePolicy.requireApprovalForRequiredMode ? "yes" : "no"}
+            </p>
+            {simulateRepoHash.trim() && !repoIsProtected ? (
+              <p className="ops-empty">
+                This repo hash is not enrolled as a protected repo. Add it under Protected repos or
+                use{" "}
+                <Link href="/dashboard/managed-profiles/activity">Managed Profile Activity</Link> to
+                enroll from recent CLI activity.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+      </Card>
 
       <form className="setup-form" onSubmit={savePolicy}>
         <Card className="dashboard-panel">

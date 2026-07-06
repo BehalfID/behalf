@@ -54,6 +54,24 @@ Shows shim installation, PATH ordering, repo/branch detection, and the **policy 
 
 The policy repo hash is derived from the git remote URL when available, otherwise from the local repo root. Raw git remotes are never displayed.
 
+## Simulate policy (dry-run)
+
+```bash
+behalf profile simulate --tool claude
+behalf profile simulate --tool codex --repo 0123456789abcdef --branch main
+behalf profile simulate --tool claude --json
+```
+
+Dry-runs managed profile policy resolution via `POST /api/cli/session-policy/simulate`. Does not launch a tool, grant pause leases, or write local pause mirrors.
+
+Options:
+
+- `--tool <tool>` — tool to simulate (default: `claude`)
+- `--repo <hash>` — policy repo hash (defaults to detected repo hash)
+- `--branch <branch>` — branch name (defaults to detected branch)
+
+Human output includes mode, reason, matched rule type, and whether pause approval would be required for `required` mode.
+
 ## Doctor
 
 ```bash

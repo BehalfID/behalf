@@ -706,6 +706,56 @@ Server dev overrides:
 - `BEHALF` + `ID_CLI_POLICY_MODE=unmanaged|managed|required`
 - `BEHALF` + `ID_CLI_REQUIRED_ACCOUNT_IDS=acct_a,acct_b`
 
+## POST /api/cli/session-policy/simulate
+
+Dry-run managed profile policy resolution without launching a tool, granting pause leases, or creating approval requests. Active pause leases are **not** considered — the response reflects underlying workspace policy only.
+
+Authentication matches `POST /api/cli/session-policy`: developer session, agent API key, or anonymous. If `workspaceId` / `accountId` is supplied, it must match the authenticated workspace.
+
+Request:
+
+```json
+{
+  "tool": "claude",
+  "repo": "0123456789abcdef",
+  "branch": "main",
+  "deviceId": "devmac_test"
+}
+```
+
+- `tool` (required): `claude`, `codex`, or `cursor`
+- `repo` (optional): 16- or 64-character lowercase hex policy repo hash (same value the CLI sends as `repoRoot`)
+- `branch` (optional): branch name for context (not used in rule matching today)
+- `deviceId` (optional): device identifier
+
+Response:
+
+```json
+{
+  "ok": true,
+  "mode": "required",
+  "reason": "Protected repo requires enforcement.",
+  "profileId": "pprf_xxx",
+  "profileName": "Default managed profile",
+  "matchedRule": {
+    "type": "protected_repo",
+    "repoHash": "0123456789abcdef",
+    "mode": "required"
+  },
+  "pausePolicy": {
+    "enabled": true,
+    "reasonRequired": true,
+    "maxDurationMinutes": 30,
+    "allowAllRepos": false,
+    "requireApprovalForRequiredMode": true
+  }
+}
+```
+
+`matchedRule.type` values: `protected_repo`, `tool_override`, `work_hours`, `outside_hours`, `default`, `legacy`.
+
+No audit log is written for v1. Raw git remotes and local paths are never accepted or returned.
+
 ## POST /api/cli/pause
 
 Request a scoped pause lease. Pause is policy-approved — not a local bypass.

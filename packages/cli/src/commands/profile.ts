@@ -22,6 +22,7 @@ import {
   readLocalPauseLease,
   requestPauseLease,
   resolveSessionPolicy,
+  simulateSessionPolicy,
   type RequestPauseInput,
 } from "../lib/profile/policy.js";
 import {
@@ -322,6 +323,56 @@ function profileDoctorCommand() {
     );
 }
 
+function profileSimulateCommand() {
+  return new Command("simulate")
+    .description("dry-run managed profile policy resolution without launching a tool")
+    .option("--tool <tool>", "tool to simulate (claude, codex, cursor)", "claude")
+    .option("--repo <hash>", "policy repo hash (defaults to detected repo hash)")
+    .option("--branch <branch>", "git branch (defaults to detected branch)")
+    .action(
+      runAction(async (opts: { tool: string; repo?: string; branch?: string }) => {
+        if (!isManagedTool(opts.tool)) {
+          throw new Error(`Unknown tool: ${opts.tool}. Valid tools: ${MANAGED_TOOLS.join(", ")}`);
+        }
+
+        const cwd = process.cwd();
+        const repoContext = detectRepoContext(cwd);
+        const simulation = await simulateSessionPolicy({
+          tool: opts.tool,
+          cwd,
+          repo: opts.repo ?? repoContext.policyRepoHash,
+          branch: opts.branch ?? repoContext.branch,
+        });
+
+        if (isJsonMode()) {
+          printJson(simulation);
+          return;
+        }
+
+        const repoDisplay = opts.repo ?? repoContext.policyRepoHash ?? "none detected";
+        const branchDisplay = opts.branch ?? repoContext.branch ?? "(unknown)";
+        const pauseApprovalRequired =
+          simulation.mode === "required" &&
+          simulation.pausePolicy.requireApprovalForRequiredMode === true
+            ? "yes"
+            : "no";
+
+        console.log();
+        console.log("Managed profile simulation");
+        printKv({
+          tool: opts.tool,
+          repo: repoDisplay,
+          branch: branchDisplay,
+          mode: simulation.mode,
+          reason: simulation.reason,
+          "matched rule": simulation.matchedRule?.type ?? "(none)",
+          "pause approval required": pauseApprovalRequired,
+        });
+        console.log();
+      })
+    );
+}
+
 function profileUninstallCommand() {
   return new Command("uninstall")
     .description("remove managed profile shims")
@@ -354,6 +405,7 @@ export function profileCommand() {
 
   cmd.addCommand(profileInstallCommand());
   cmd.addCommand(profileStatusCommand());
+  cmd.addCommand(profileSimulateCommand());
   cmd.addCommand(profileDoctorCommand());
   cmd.addCommand(profileUninstallCommand());
 
@@ -558,6 +610,7 @@ export {
   checkPathOrdering,
   parseDuration,
   resolveSessionPolicy,
+  simulateSessionPolicy,
   requestPauseLease,
 };
 export {
