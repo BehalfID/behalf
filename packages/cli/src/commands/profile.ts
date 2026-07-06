@@ -22,7 +22,17 @@ import {
   readLocalPauseLease,
   requestPauseLease,
   resolveSessionPolicy,
+  type RequestPauseInput,
 } from "../lib/profile/policy.js";
+import {
+  DEFAULT_PAUSE_WAIT_TIMEOUT_MS,
+  fetchPauseApprovalStatus,
+  formatApprovalRequiredLines,
+  formatPauseApprovalStatusMessage,
+  PauseApprovalWaitError,
+  parseWaitTimeout,
+  waitForPauseApprovalGrant,
+} from "../lib/profile/pause-approval.js";
 import { detectRepoContext, isGitRepo } from "../lib/profile/repo.js";
 import { getOrCreateDeviceId } from "../lib/profile/device.js";
 import type { DoctorCheck as Check } from "./doctor.js";
@@ -369,49 +379,140 @@ export function shimLaunchCommand() {
 }
 
 export function pauseCommand() {
-  return new Command("pause")
-    .description("request a server-approved pause lease (not a local bypass)")
-    .requiredOption("--duration <duration>", "pause duration, e.g. 30m or 2h")
-    .requiredOption("--reason <reason>", "reason for the pause")
-    .option("--scope <scope>", "pause scope: current_repo or all", "current_repo")
-    .option("--tool <tool>", "tool to pause (claude, codex, cursor)")
+  const cmd = new Command("pause")
+    .description("request a server-approved pause lease (not a local bypass)");
+
+  cmd
+    .command("status <approvalRequestId>")
+    .description("check the status of a pause approval request")
     .action(
-      runAction(async (opts: { duration: string; reason: string; scope: string; tool?: string }) => {
-        const durationMinutes = parseDuration(opts.duration);
-        const tool = opts.tool && isManagedTool(opts.tool) ? opts.tool : undefined;
-        const lease = await requestPauseLease({
-          durationMinutes,
-          reason: opts.reason,
-          scope: opts.scope === "all" ? "all" : "current_repo",
-          tool,
-        });
+      runAction(async (approvalRequestId: string) => {
+        const status = await fetchPauseApprovalStatus(approvalRequestId);
 
         if (isJsonMode()) {
-          printJson(lease);
-          if (lease.approvalRequired || !lease.granted) {
+          printJson(status);
+          if (status.status === "denied" || status.status === "expired") {
             process.exitCode = 1;
           }
           return;
         }
 
-        if (lease.approvalRequired) {
-          printError("Pause requires approval.");
-          if (lease.approvalRequestId) {
-            printError(`Approval request: ${lease.approvalRequestId}`);
-          }
-          printError("Retry the same pause command after it is approved.");
+        console.log(formatPauseApprovalStatusMessage(status.status));
+        if (status.status === "denied" || status.status === "expired") {
           process.exitCode = 1;
-          return;
         }
-
-        if (!lease.granted) {
-          throw new Error(lease.reason || "Pause denied by workspace policy.");
-        }
-
-        printSuccess(`Pause granted until ${lease.expiresAt}.`);
-        printSuccess(lease.reason);
       })
     );
+
+  cmd
+    .option("--duration <duration>", "pause duration, e.g. 30m or 2h")
+    .option("--reason <reason>", "reason for the pause")
+    .option("--scope <scope>", "pause scope: current_repo or all", "current_repo")
+    .option("--tool <tool>", "tool to pause (claude, codex, cursor)")
+    .option("--wait", "wait for dashboard approval and retry the same pause request once")
+    .option(
+      "--wait-timeout <duration>",
+      "max time to wait for approval (default 10m, max 30m)"
+    )
+    .action(
+      runAction(
+        async (opts: {
+          duration?: string;
+          reason?: string;
+          scope: string;
+          tool?: string;
+          wait?: boolean;
+          waitTimeout?: string;
+        }) => {
+          if (!opts.duration) throw new Error("--duration is required.");
+          if (!opts.reason) throw new Error("--reason is required.");
+
+          const durationMinutes = parseDuration(opts.duration);
+          const tool = opts.tool && isManagedTool(opts.tool) ? opts.tool : undefined;
+          const pauseInput: RequestPauseInput = {
+            durationMinutes,
+            reason: opts.reason,
+            scope: opts.scope === "all" ? "all" : "current_repo",
+            tool,
+          };
+
+          const lease = await requestPauseLease(pauseInput);
+
+          if (lease.granted) {
+            if (isJsonMode()) {
+              printJson(lease);
+              return;
+            }
+            printSuccess(`Pause granted until ${lease.expiresAt}.`);
+            printSuccess(lease.reason);
+            return;
+          }
+
+          if (lease.approvalRequired) {
+            if (opts.wait && lease.approvalRequestId) {
+              const waitTimeoutMs = opts.waitTimeout
+                ? parseWaitTimeout(opts.waitTimeout)
+                : DEFAULT_PAUSE_WAIT_TIMEOUT_MS;
+
+              if (!isJsonMode()) {
+                for (const line of formatApprovalRequiredLines(lease)) {
+                  printError(line);
+                }
+                printError("Waiting for approval...");
+              }
+
+              try {
+                const granted = await waitForPauseApprovalGrant(
+                  lease.approvalRequestId,
+                  pauseInput,
+                  waitTimeoutMs
+                );
+                if (isJsonMode()) {
+                  printJson(granted);
+                  return;
+                }
+                printSuccess(`Pause granted until ${granted.expiresAt}.`);
+                printSuccess(granted.reason);
+                return;
+              } catch (err) {
+                if (err instanceof PauseApprovalWaitError) {
+                  if (isJsonMode()) {
+                    printJson({ error: err.message, code: err.code });
+                  } else {
+                    printError(err.message);
+                  }
+                  process.exitCode = 1;
+                  return;
+                }
+                throw err;
+              }
+            }
+
+            if (isJsonMode()) {
+              printJson(lease);
+              process.exitCode = 1;
+              return;
+            }
+
+            for (const line of formatApprovalRequiredLines(lease)) {
+              printError(line);
+            }
+            process.exitCode = 1;
+            return;
+          }
+
+          if (isJsonMode()) {
+            printJson(lease);
+            process.exitCode = 1;
+            return;
+          }
+
+          throw new Error(lease.reason || "Pause denied by workspace policy.");
+        }
+      )
+    );
+
+  return cmd;
 }
 
 export function resumeCommand() {
@@ -459,4 +560,16 @@ export {
   resolveSessionPolicy,
   requestPauseLease,
 };
+export {
+  dashboardApprovalsUrl,
+  fetchPauseApprovalStatus,
+  formatApprovalRequiredLines,
+  formatPauseApprovalStatusMessage,
+  parseWaitTimeout,
+  waitForPauseApprovalGrant,
+  PauseApprovalWaitError,
+  DEFAULT_PAUSE_WAIT_TIMEOUT_MS,
+  MAX_PAUSE_WAIT_TIMEOUT_MS,
+  PAUSE_APPROVAL_POLL_INTERVAL_MS,
+} from "../lib/profile/pause-approval.js";
 

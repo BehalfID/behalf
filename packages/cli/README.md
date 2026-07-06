@@ -67,10 +67,23 @@ Checks CLI version, auth, shim files, real binary resolution, PATH ordering, rep
 ```bash
 behalf pause --duration 30m --reason "personal project"
 behalf pause --duration 2h --reason "offline work" --scope current_repo --tool claude
+behalf pause status apr_xxx
+behalf pause --duration 30m --reason "incident response" --wait
+behalf pause --duration 30m --reason "incident response" --wait --wait-timeout 15m
 behalf resume
 ```
 
-Pause requests a **server-approved lease**. It is denied when workspace policy requires enforcement (`required` mode) unless the workspace enables `pausePolicy.requireApprovalForRequiredMode`, in which case the CLI receives an approval request id and a workspace approver must approve the pause in the dashboard before retrying. Leases are scoped, require a reason, and expire (max 4 hours by default).
+Pause requests a **server-approved lease**. It is denied when workspace policy requires enforcement (`required` mode) unless the workspace enables `pausePolicy.requireApprovalForRequiredMode`, in which case the CLI receives an approval request id and a workspace approver must approve the pause in the dashboard before retrying.
+
+When approval is required, the CLI prints the approval request id and a dashboard link using your configured base URL (`/dashboard/approvals`).
+
+### Manual retry vs `--wait`
+
+- **Manual retry:** run the same `behalf pause` command again after approval. The server consumes the one-time grant only when the retry matches the original duration, reason, scope, tool, repo, branch, and device.
+- **`behalf pause status apr_xxx`:** check whether an approval is `pending`, `approved`, `denied`, `used`, or `expired`.
+- **`--wait`:** after creating an approval request, poll status every 5 seconds (default timeout 10 minutes, max 30 minutes) and automatically retry the exact same pause request once when approved. `--wait` does not bypass approval and does not write a local lease until the server returns `granted: true`.
+
+Leases are scoped, require a reason, and expire (max 4 hours by default).
 
 Granted, denied, and session policy resolution events appear in the dashboard **Managed profile activity** console (`/dashboard/managed-profiles/activity`). Repo hashes shown there can be enrolled as protected repos from the dashboard without copying hashes manually.
 

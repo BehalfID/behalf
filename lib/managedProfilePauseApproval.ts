@@ -179,4 +179,58 @@ type ApprovalRequestDocumentLike = {
   action?: string | null;
 };
 
+export type PauseApprovalStatusValue =
+  | "pending"
+  | "approved"
+  | "denied"
+  | "used"
+  | "expired";
+
+export type PauseApprovalStatusResponse = {
+  approvalRequestId: string;
+  status: PauseApprovalStatusValue;
+  grantExpiresAt: string | null;
+  reason: string;
+};
+
+const DEFAULT_PAUSE_APPROVAL_REASON =
+  "Pause requires approval for this required managed profile context.";
+
+export async function getPauseApprovalStatusForRequester(
+  auth: CliAuthContext,
+  approvalRequestId: string
+): Promise<PauseApprovalStatusResponse | null> {
+  const approval = await ApprovalRequest.findOne({
+    approvalId: approvalRequestId.trim(),
+    accountId: auth.accountId,
+    developerUserId: auth.userId,
+    kind: MANAGED_PROFILE_PAUSE_KIND,
+  }).lean();
+
+  if (!approval?.approvalId) return null;
+
+  let status = approval.status as PauseApprovalStatusValue;
+  const grantExpiresAt = approval.grantExpiresAt ?? null;
+
+  if (
+    status === "approved" &&
+    grantExpiresAt &&
+    grantExpiresAt <= new Date()
+  ) {
+    status = "expired";
+  }
+
+  const reason =
+    approval.contextReason?.trim() ||
+    approval.pauseReason?.trim() ||
+    DEFAULT_PAUSE_APPROVAL_REASON;
+
+  return {
+    approvalRequestId: approval.approvalId,
+    status,
+    grantExpiresAt: grantExpiresAt ? grantExpiresAt.toISOString() : null,
+    reason,
+  };
+}
+
 export { APPROVAL_GRANT_TTL_MS };

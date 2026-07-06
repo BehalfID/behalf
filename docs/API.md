@@ -761,6 +761,33 @@ Hard denials (approval disabled or policy rejection) still return **403 Forbidde
 
 After a workspace approver approves the request in the dashboard, retry the same pause request with matching tool/repo/scope/device/duration to consume the one-time grant and receive a pause lease.
 
+## GET /api/cli/pause/approvals/:approvalRequestId
+
+Read the status of a managed-profile pause approval created by the authenticated developer.
+
+**Authentication:** requires a **developer session** (`behalf login`). Agent API keys are **not** accepted (403).
+
+Response:
+
+```json
+{
+  "approvalRequestId": "apr_xxx",
+  "status": "pending",
+  "grantExpiresAt": null,
+  "reason": "Pause requires approval for this required managed profile context."
+}
+```
+
+Statuses:
+
+- `pending` — waiting for a workspace approver
+- `approved` — approved and ready to consume with a matching pause request
+- `denied` — denied in the dashboard
+- `used` — one-time grant already consumed
+- `expired` — approved but `grantExpiresAt` is in the past
+
+Only pause approvals owned by the authenticated developer in the active account are returned. Non-pause approval ids return **404 Not Found**. Raw pause metadata (repo hashes, device ids, secrets) is not exposed in this response.
+
 Rules:
 
 - Pause grant decisions evaluate the **underlying workspace policy** and ignore any already-active pause lease (renewals cannot bypass a newly required policy)
