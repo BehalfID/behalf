@@ -4,6 +4,7 @@ import { requireDeveloperApi } from "@/lib/developerAuth";
 import { canManageMembers, getWorkspaceActor, serializeWorkspaceAuthority } from "@/lib/delegatedAuth";
 import { jsonError, noCacheJson } from "@/lib/responses";
 import { readJsonObject } from "@/lib/request";
+import { accountDeletionSupportMessage } from "@/lib/support";
 import { rejectUnknownFields } from "@/lib/validation";
 
 export async function GET(request: NextRequest) {
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
     email: auth.user.email,
     appUrl: process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin,
     apiUsage: "API usage details coming soon.",
-    dangerZone: "To delete your account, contact support@[REDACTED].com",
+    dangerZone: accountDeletionSupportMessage(),
     delegatedPermissions: actor
       ? {
           role: actor.role,
