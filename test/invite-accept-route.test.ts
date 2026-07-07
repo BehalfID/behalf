@@ -64,6 +64,34 @@ describe("POST /api/invites/accept", () => {
     expect(mocks.acceptInvite).not.toHaveBeenCalled();
   });
 
+  it("returns a structured 402 when the workspace seat limit is reached", async () => {
+    mocks.getCurrentDeveloperContext.mockResolvedValue({
+      user: { userId: "user_a", email: "invited@example.com", emailVerified: true },
+      session: { sessionId: "sess_a" },
+      activeAccountId: "acct_primary"
+    });
+    mocks.acceptInvite.mockResolvedValue({
+      error: "seat_limit_reached",
+      quota: {
+        allowed: false,
+        code: "SEAT_LIMIT_REACHED",
+        plan: "free",
+        limit: 1,
+        reason: "Billable seat limit of 1 reached on the free plan.",
+        upgradeHint: "Upgrade to Pro to add more billable seats."
+      }
+    });
+    const { POST } = await import("@/app/api/invites/accept/route");
+    const response = await POST(acceptRequest({ token: "tok_test" }));
+    expect(response.status).toBe(402);
+    await expect(response.json()).resolves.toEqual(expect.objectContaining({
+      error: "Billable seat limit of 1 reached on the free plan.",
+      code: "SEAT_LIMIT_REACHED",
+      currentPlan: "free",
+      limit: 1
+    }));
+  });
+
   it("accepts invite for verified authenticated user", async () => {
     mocks.getCurrentDeveloperContext.mockResolvedValue({
       user: { userId: "user_a", email: "invited@example.com", emailVerified: true },

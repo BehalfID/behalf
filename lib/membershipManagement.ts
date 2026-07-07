@@ -14,6 +14,8 @@ import {
 import { createPublicId } from "@/lib/ids";
 import { normalizeEmail } from "@/lib/developerAuth";
 import { buildInviteAcceptUrl, createInviteTokenPair } from "@/lib/inviteAcceptance";
+import { checkSeatLimit, quotaErrorDetails } from "@/lib/quota";
+import { jsonError } from "@/lib/responses";
 import AccountMembership from "@/models/AccountMembership";
 import AccountInvite from "@/models/AccountInvite";
 import DeveloperSession from "@/models/DeveloperSession";
@@ -135,6 +137,19 @@ export async function addOrInviteMember(
       return { error: "This user is already a member of the workspace." };
     }
 
+    // Seat limits only block adding new billable members; existing members are
+    // never removed or downgraded when a workspace is over its limit.
+    const seatCheck = await checkSeatLimit(actor.accountId, input.role);
+    if (!seatCheck.allowed) {
+      return {
+        error: jsonError(
+          seatCheck.reason ?? "This workspace has reached its billable seat limit.",
+          402,
+          quotaErrorDetails(seatCheck)
+        )
+      };
+    }
+
     const membership = await AccountMembership.create({
       membershipId: createPublicId("mbr"),
       accountId: actor.accountId,
@@ -150,6 +165,17 @@ export async function addOrInviteMember(
         role: input.role,
         status: "active" as const
       }
+    };
+  }
+
+  const seatCheck = await checkSeatLimit(actor.accountId, input.role);
+  if (!seatCheck.allowed) {
+    return {
+      error: jsonError(
+        seatCheck.reason ?? "This workspace has reached its billable seat limit.",
+        402,
+        quotaErrorDetails(seatCheck)
+      )
     };
   }
 

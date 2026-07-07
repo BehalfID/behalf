@@ -1,6 +1,7 @@
 import { isWorkspaceRole, type WorkspaceRole } from "@/lib/authority";
 import { createPublicId } from "@/lib/ids";
 import { generateSecureToken, hashEmailToken, normalizeEmail } from "@/lib/developerAuth";
+import { checkSeatLimit, type QuotaResult } from "@/lib/quota";
 import Account from "@/models/Account";
 import AccountInvite from "@/models/AccountInvite";
 import AccountMembership from "@/models/AccountMembership";
@@ -27,7 +28,8 @@ export type AcceptInviteResult =
       alreadyAccepted?: boolean;
       alreadyMember?: boolean;
     }
-  | { error: "invalid_token" | "expired" | "revoked" | "email_mismatch"; invitedEmail?: string };
+  | { error: "invalid_token" | "expired" | "revoked" | "email_mismatch"; invitedEmail?: string }
+  | { error: "seat_limit_reached"; quota: QuotaResult };
 
 export function createInviteTokenPair() {
   const token = generateSecureToken();
@@ -156,6 +158,13 @@ export async function acceptInvite(
       role: isWorkspaceRole(existingMembership.role) ? existingMembership.role : role,
       alreadyMember: true
     };
+  }
+
+  // The invite is about to create a new membership; block only here so that
+  // users who are already members (above) are never affected by seat limits.
+  const seatCheck = await checkSeatLimit(invite.accountId, role);
+  if (!seatCheck.allowed) {
+    return { error: "seat_limit_reached", quota: seatCheck };
   }
 
   const membershipId = createPublicId("mbr");

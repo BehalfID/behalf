@@ -5,9 +5,23 @@ const mocks = vi.hoisted(() => ({
   inviteUpdateOne: vi.fn(),
   membershipFindOne: vi.fn(),
   membershipCreate: vi.fn(),
+  membershipCountDocuments: vi.fn(),
   accountFindOne: vi.fn(),
   sessionUpdateOne: vi.fn()
 }));
+
+/**
+ * Account.findOne is used two ways: getInvitePreview chains .select().lean(),
+ * while checkSeatLimit awaits the query directly. Return a thenable that also
+ * supports the chained form.
+ */
+function accountQueryMock(doc: Record<string, unknown> | null) {
+  return {
+    select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue(doc) }),
+    lean: vi.fn().mockResolvedValue(doc),
+    then: (resolve: (value: unknown) => void) => resolve(doc)
+  };
+}
 
 vi.mock("@/models/AccountInvite", () => ({
   default: {
@@ -19,7 +33,8 @@ vi.mock("@/models/AccountInvite", () => ({
 vi.mock("@/models/AccountMembership", () => ({
   default: {
     findOne: mocks.membershipFindOne,
-    create: mocks.membershipCreate
+    create: mocks.membershipCreate,
+    countDocuments: mocks.membershipCountDocuments
   }
 }));
 
@@ -38,14 +53,13 @@ vi.mock("@/models/DeveloperSession", () => ({
 describe("invite acceptance", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.accountFindOne.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        lean: vi.fn().mockResolvedValue({ accountId: "acct_team", name: "Team Workspace" })
-      })
-    });
+    mocks.accountFindOne.mockImplementation(() =>
+      accountQueryMock({ accountId: "acct_team", name: "Team Workspace", plan: "team" })
+    );
     mocks.membershipFindOne.mockReturnValue({
       lean: vi.fn().mockResolvedValue(null)
     });
+    mocks.membershipCountDocuments.mockResolvedValue(1);
     mocks.membershipCreate.mockResolvedValue({
       membershipId: "mbr_new",
       accountId: "acct_team",
@@ -176,6 +190,74 @@ describe("invite acceptance", () => {
     expect(mocks.inviteUpdateOne).toHaveBeenCalled();
   });
 
+  it("blocks acceptance of a billable invite when the workspace seat limit is reached", async () => {
+    mocks.inviteFindOne.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        lean: vi.fn().mockResolvedValue({
+          inviteId: "inv_pending",
+          accountId: "acct_team",
+          email: "invited@example.com",
+          role: "ENGINEER",
+          status: "pending",
+          invitedBy: "user_owner",
+          inviteTokenExpiresAt: new Date(Date.now() + 60_000)
+        })
+      })
+    });
+    mocks.accountFindOne.mockImplementation(() =>
+      accountQueryMock({ accountId: "acct_team", name: "Free Workspace", plan: "free" })
+    );
+    mocks.membershipCountDocuments.mockResolvedValue(1);
+
+    const { acceptInvite } = await import("@/lib/inviteAcceptance");
+    const result = await acceptInvite("token_ok", "user_invited", "invited@example.com");
+
+    expect(result).toEqual({
+      error: "seat_limit_reached",
+      quota: expect.objectContaining({
+        allowed: false,
+        code: "SEAT_LIMIT_REACHED",
+        plan: "free",
+        limit: 1
+      })
+    });
+    // Nothing is created, deleted, or disabled when over the seat limit.
+    expect(mocks.membershipCreate).not.toHaveBeenCalled();
+    expect(mocks.inviteUpdateOne).not.toHaveBeenCalled();
+  });
+
+  it("allows viewer invites to be accepted at the seat limit", async () => {
+    mocks.inviteFindOne.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        lean: vi.fn().mockResolvedValue({
+          inviteId: "inv_viewer",
+          accountId: "acct_team",
+          email: "invited@example.com",
+          role: "VIEWER",
+          status: "pending",
+          invitedBy: "user_owner",
+          inviteTokenExpiresAt: new Date(Date.now() + 60_000)
+        })
+      })
+    });
+    mocks.accountFindOne.mockImplementation(() =>
+      accountQueryMock({ accountId: "acct_team", name: "Free Workspace", plan: "free" })
+    );
+    mocks.membershipCountDocuments.mockResolvedValue(1);
+    mocks.membershipCreate.mockResolvedValue({
+      membershipId: "mbr_viewer",
+      accountId: "acct_team",
+      userId: "user_invited",
+      role: "VIEWER"
+    });
+
+    const { acceptInvite } = await import("@/lib/inviteAcceptance");
+    const result = await acceptInvite("token_ok", "user_invited", "invited@example.com");
+
+    expect(result).toMatchObject({ ok: true, role: "VIEWER" });
+    expect(mocks.membershipCreate).toHaveBeenCalled();
+  });
+
   it("does not create duplicate membership on repeat accept", async () => {
     mocks.inviteFindOne.mockReturnValue({
       select: vi.fn().mockReturnValue({
@@ -245,12 +327,9 @@ describe("invite acceptance", () => {
           role: "ENGINEER"
         })
       });
-    mocks.accountFindOne.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        lean: vi.fn().mockResolvedValue({ accountId: "acct_team", name: "Team Workspace" })
-      }),
-      lean: vi.fn().mockResolvedValue({ accountId: "acct_team", name: "Team Workspace" })
-    });
+    mocks.accountFindOne.mockImplementation(() =>
+      accountQueryMock({ accountId: "acct_team", name: "Team Workspace", plan: "team" })
+    );
     const { acceptInvite } = await import("@/lib/inviteAcceptance");
     await acceptInvite("token_ok", "user_invited", "invited@example.com", { sessionId: "sess_test" });
     expect(mocks.sessionUpdateOne).toHaveBeenCalledWith(

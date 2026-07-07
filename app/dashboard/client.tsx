@@ -185,13 +185,17 @@ type PendingInvite = {
 };
 type AgentProvider = "custom" | "ollie" | "chatgpt" | "claude" | "gemini" | "zapier" | "make" | "langchain" | "openai" | "other";
 type ProviderSelection = AgentProvider | "";
-type Plan = "free" | "pro" | "enterprise";
+type Plan = "free" | "pro" | "team" | "business" | "enterprise";
 type UsageSummary = {
   plan: Plan;
+  seatCount: number;
+  seatLimit: number | null;
   agentCount: number;
-  agentLimit: number;
+  agentLimit: number | null;
+  protectedRepoCount: number;
+  protectedRepoLimit: number | null;
   verificationCount: number;
-  verificationLimit: number;
+  verificationLimit: number | null;
   verificationPeriodStart: string;
   verificationPeriodResetAt: string;
   webhooksEnabled: boolean;
@@ -699,8 +703,8 @@ function HomeView() {
   );
 }
 
-function formatUsageLimit(limit: number) {
-  return isFinite(limit) ? limit.toLocaleString() : "Unlimited";
+function formatUsageLimit(limit: number | null) {
+  return typeof limit === "number" && isFinite(limit) ? limit.toLocaleString() : "Unlimited";
 }
 
 function formatUsageDate(value: string) {
@@ -722,10 +726,12 @@ function PlanUsagePanel({ usage }: { usage: UsageSummary }) {
         <p className="form-error" role="alert">Payment failed. Paid limits and webhook delivery are disabled until billing is updated.</p>
       ) : null}
       <div className="plan-usage-grid">
+        <div><span>Seats</span><strong>{usage.seatCount.toLocaleString()} / {formatUsageLimit(usage.seatLimit)}</strong></div>
         <div><span>Agents</span><strong>{usage.agentCount.toLocaleString()} / {formatUsageLimit(usage.agentLimit)}</strong></div>
+        <div><span>Protected repos</span><strong>{usage.protectedRepoCount.toLocaleString()} / {formatUsageLimit(usage.protectedRepoLimit)}</strong></div>
         <div><span>Verifications</span><strong>{usage.verificationCount.toLocaleString()} / {formatUsageLimit(usage.verificationLimit)}</strong></div>
         <div><span>Reset</span><strong>{formatUsageDate(usage.verificationPeriodResetAt)}</strong></div>
-        <div><span>Webhooks</span><strong>{usage.webhooksEnabled ? "Enabled" : "Available"}</strong></div>
+        <div><span>Webhooks</span><strong>{usage.webhooksEnabled ? "Enabled" : "Upgrade required"}</strong></div>
         <div><span>Log retention</span><strong>{usage.logRetentionDays} days</strong></div>
       </div>
     </section>

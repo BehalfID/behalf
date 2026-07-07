@@ -11,6 +11,8 @@ const routeMocks = vi.hoisted(() => ({
   permissionCountDocuments: vi.fn(),
   verificationLogCountDocuments: vi.fn(),
   webhookEventCountDocuments: vi.fn(),
+  membershipCountDocuments: vi.fn(),
+  policyFindOne: vi.fn(),
   webhookEndpointFind: vi.fn(),
   webhookEndpointCreate: vi.fn(),
   createPublicId: vi.fn(),
@@ -63,6 +65,12 @@ vi.mock("@/models/VerificationLog", () => ({
 vi.mock("@/models/WebhookEvent", () => ({
   default: { countDocuments: routeMocks.webhookEventCountDocuments }
 }));
+vi.mock("@/models/AccountMembership", () => ({
+  default: { countDocuments: routeMocks.membershipCountDocuments }
+}));
+vi.mock("@/models/ManagedProfilePolicy", () => ({
+  default: { findOne: routeMocks.policyFindOne }
+}));
 vi.mock("@/models/WebhookEndpoint", () => ({
   default: {
     find: routeMocks.webhookEndpointFind,
@@ -106,6 +114,13 @@ describe("dashboard billing and quota route UX", () => {
     routeMocks.permissionCountDocuments.mockResolvedValue(0);
     routeMocks.verificationLogCountDocuments.mockResolvedValue(0);
     routeMocks.webhookEventCountDocuments.mockResolvedValue(0);
+    routeMocks.membershipCountDocuments.mockResolvedValue(1);
+    routeMocks.policyFindOne.mockReturnValue({
+      select: vi.fn().mockReturnThis(),
+      lean: vi.fn().mockResolvedValue({
+        protectedRepos: [{ repoHash: "abc123def4567890", mode: "required", enabled: true }]
+      })
+    });
     routeMocks.webhookEndpointFind.mockReturnValue({
       sort: vi.fn().mockReturnThis(),
       select: vi.fn().mockReturnThis(),
@@ -154,8 +169,12 @@ describe("dashboard billing and quota route UX", () => {
     expect(response.status).toBe(200);
     expect(json.usage).toEqual(expect.objectContaining({
       plan: "free",
+      seatCount: 1,
+      seatLimit: 1,
       agentCount: 4,
-      agentLimit: 5,
+      agentLimit: 3,
+      protectedRepoCount: 1,
+      protectedRepoLimit: 1,
       verificationCount: 123,
       verificationLimit: 10_000,
       verificationPeriodStart: "2026-05-01T00:00:00.000Z",
@@ -171,13 +190,13 @@ describe("dashboard billing and quota route UX", () => {
     const { POST } = await import("@/app/api/dashboard/agents/route");
 
     routeMocks.accountFindOne.mockResolvedValue(accountFixture({ plan: "free" }));
-    routeMocks.agentCountDocuments.mockResolvedValue(5);
+    routeMocks.agentCountDocuments.mockResolvedValue(3);
     const freeResponse = await POST(jsonRequest("/api/dashboard/agents", { name: "Blocked" }));
     await expect(freeResponse.json()).resolves.toEqual(expect.objectContaining({
-      error: "Agent limit of 5 reached on the free plan.",
+      error: "Agent limit of 3 reached on the free plan.",
       code: "AGENT_LIMIT_REACHED",
       currentPlan: "free",
-      limit: 5,
+      limit: 3,
       upgradeHint: "Upgrade to Pro to add more agents."
     }));
 
@@ -200,7 +219,7 @@ describe("dashboard billing and quota route UX", () => {
       events: ["verification.allowed"]
     }));
     await expect(freeResponse.json()).resolves.toEqual({
-      error: "Webhooks require Pro or Enterprise.",
+      error: "Webhooks require a paid plan.",
       code: "WEBHOOKS_REQUIRE_PRO",
       currentPlan: "free",
       limit: 0,

@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 import { getRequestAccountId, requireVerifiedDeveloperApi } from "@/lib/developerAuth";
 import { serializeWorkspaceAuthority } from "@/lib/delegatedAuth";
 import { enrollProtectedRepo } from "@/lib/managedProfilePolicy";
+import { checkManagedProfilesEnabled, quotaErrorDetails } from "@/lib/quota";
 import { jsonError, noCacheJson } from "@/lib/responses";
 import { readJsonObject } from "@/lib/request";
 import { requireWorkspaceMutationActor } from "@/lib/workspaceActor";
@@ -16,13 +17,27 @@ export async function POST(request: NextRequest) {
   const actorCheck = await requireWorkspaceMutationActor(auth.user, accountId);
   if (actorCheck.error) return actorCheck.error;
 
+  // Entitlement gate; allowed on every current plan.
+  const featureCheck = checkManagedProfilesEnabled(auth.account?.plan);
+  if (!featureCheck.allowed) {
+    return jsonError(
+      featureCheck.reason ?? "Managed Profiles are not available on this plan.",
+      403,
+      quotaErrorDetails(featureCheck)
+    );
+  }
+
   const { body, error } = await readJsonObject(request);
   if (error) return error;
   if (!body) return jsonError("Request body must be a JSON object.");
 
   const result = await enrollProtectedRepo(accountId, body);
   if (result.error || !result.policy) {
-    return jsonError(result.error ?? "Failed to enroll protected repo.", result.status ?? 400);
+    return jsonError(
+      result.error ?? "Failed to enroll protected repo.",
+      result.status ?? 400,
+      result.quota ? quotaErrorDetails(result.quota) : undefined
+    );
   }
 
   return noCacheJson({

@@ -1,6 +1,7 @@
 import { connectToDatabase } from "@/lib/db";
 import { createPublicId } from "@/lib/ids";
 import type { CliSessionPolicyMode } from "@/lib/cliSessionPolicy";
+import { checkProtectedRepoLimit, type QuotaResult } from "@/lib/quota";
 import ManagedProfilePolicy from "@/models/ManagedProfilePolicy";
 import { isRecord, readString, rejectUnknownFields } from "@/lib/validation";
 
@@ -503,7 +504,12 @@ function effectivePolicyToSaveBody(
 export async function enrollProtectedRepo(
   accountId: string,
   body: Record<string, unknown>
-): Promise<{ policy: EffectiveManagedProfilePolicy | null; error: string | null; status?: number }> {
+): Promise<{
+  policy: EffectiveManagedProfilePolicy | null;
+  error: string | null;
+  status?: number;
+  quota?: QuotaResult;
+}> {
   const validated = validateProtectedRepoEnrollmentInput(body);
   if (validated.error || !validated.repo) {
     return { policy: null, error: validated.error ?? "Invalid protected repo.", status: 400 };
@@ -521,7 +527,7 @@ export async function enrollProtectedRepo(
 
   const result = await saveManagedProfilePolicy(accountId, saveBody);
   if (result.error) {
-    return { policy: null, error: result.error, status: 400 };
+    return { policy: null, error: result.error, status: result.status ?? 400, quota: result.quota };
   }
   return { policy: result.policy, error: null };
 }
@@ -529,7 +535,12 @@ export async function enrollProtectedRepo(
 export async function saveManagedProfilePolicy(
   accountId: string,
   body: Record<string, unknown>
-): Promise<{ policy: EffectiveManagedProfilePolicy | null; error: string | null }> {
+): Promise<{
+  policy: EffectiveManagedProfilePolicy | null;
+  error: string | null;
+  status?: number;
+  quota?: QuotaResult;
+}> {
   const validated = validateManagedProfilePolicyInput(body);
   if (validated.error || !validated.policy) {
     return { policy: null, error: validated.error ?? "Invalid policy." };
@@ -538,6 +549,22 @@ export async function saveManagedProfilePolicy(
   await connectToDatabase();
   const existing = await ManagedProfilePolicy.findOne({ accountId }).lean();
   const policyId = existing?.policyId ?? createPublicId("pprf");
+
+  // Entitlement enforcement: only block growth of the protected repo list.
+  // Existing over-limit policies can still be edited or reduced, so nothing
+  // is disabled or deleted when a workspace is over its plan limit.
+  const repoLimitCheck = await checkProtectedRepoLimit(accountId, {
+    currentCount: existing?.protectedRepos?.length ?? 0,
+    nextCount: validated.policy.protectedRepos.length
+  });
+  if (!repoLimitCheck.allowed) {
+    return {
+      policy: null,
+      error: repoLimitCheck.reason ?? "Protected repo limit reached on this plan.",
+      status: 402,
+      quota: repoLimitCheck
+    };
+  }
 
   const doc = await ManagedProfilePolicy.findOneAndUpdate(
     { accountId },

@@ -5,6 +5,7 @@ import {
   loadEffectiveManagedProfilePolicy,
   saveManagedProfilePolicy,
 } from "@/lib/managedProfilePolicy";
+import { checkManagedProfilesEnabled, quotaErrorDetails } from "@/lib/quota";
 import { jsonError, noCacheJson } from "@/lib/responses";
 import { readJsonObject } from "@/lib/request";
 import { requireWorkspaceMutationActor } from "@/lib/workspaceActor";
@@ -37,13 +38,27 @@ export async function PUT(request: NextRequest) {
   const actorCheck = await requireWorkspaceMutationActor(auth.user, accountId);
   if (actorCheck.error) return actorCheck.error;
 
+  // Entitlement gate; allowed on every current plan.
+  const featureCheck = checkManagedProfilesEnabled(auth.account?.plan);
+  if (!featureCheck.allowed) {
+    return jsonError(
+      featureCheck.reason ?? "Managed Profiles are not available on this plan.",
+      403,
+      quotaErrorDetails(featureCheck)
+    );
+  }
+
   const { body, error } = await readJsonObject(request);
   if (error) return error;
   if (!body) return jsonError("Request body must be a JSON object.");
 
   const result = await saveManagedProfilePolicy(accountId, body);
   if (result.error || !result.policy) {
-    return jsonError(result.error ?? "Failed to save managed profile policy.", 400);
+    return jsonError(
+      result.error ?? "Failed to save managed profile policy.",
+      result.status ?? 400,
+      result.quota ? quotaErrorDetails(result.quota) : undefined
+    );
   }
 
   return noCacheJson({

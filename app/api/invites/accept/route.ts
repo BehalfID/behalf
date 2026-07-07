@@ -5,6 +5,7 @@ import {
   requireDashboardMutationOrigin
 } from "@/lib/developerAuth";
 import { acceptInvite } from "@/lib/inviteAcceptance";
+import { quotaErrorDetails } from "@/lib/quota";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
@@ -54,6 +55,13 @@ export async function POST(request: NextRequest) {
     }
     if (result.error === "revoked") {
       return jsonError("This invite is no longer valid.", 410);
+    }
+    if (result.error === "seat_limit_reached") {
+      return jsonError(
+        result.quota.reason ?? "This workspace has reached its billable seat limit.",
+        402,
+        quotaErrorDetails(result.quota)
+      );
     }
     return jsonError("This invite link is invalid.", 404);
   }

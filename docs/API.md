@@ -25,10 +25,10 @@ Plan and quota errors add stable fields without exposing Stripe IDs or internal 
 
 ```json
 {
-  "error": "Agent limit of 5 reached on the free plan.",
+  "error": "Agent limit of 3 reached on the free plan.",
   "code": "AGENT_LIMIT_REACHED",
   "currentPlan": "free",
-  "limit": 5,
+  "limit": 3,
   "upgradeHint": "Upgrade to Pro to add more agents."
 }
 ```
@@ -45,13 +45,17 @@ x-developer-token: bhf_dev_xxx
 
 ## Plans and Quotas
 
-Current plan limits:
+Plan entitlements are centralized in `lib/plans.ts`; see [ENTITLEMENTS.md](ENTITLEMENTS.md) for the full model. Current plan limits:
 
-| Plan | Agents | Verifications / month | Webhooks | Log retention |
-| --- | ---: | ---: | --- | ---: |
-| Free | 5 | 10,000 | Disabled | 7 days |
-| Pro | 50 | 250,000 | Enabled | 90 days |
-| Enterprise | Unlimited | Unlimited | Enabled | 365 days |
+| Plan | Billable seats | Agents | Protected repos | Verifications / month | Webhooks | Log retention |
+| --- | ---: | ---: | ---: | ---: | --- | ---: |
+| Free | 1 | 3 | 1 | 10,000 | Disabled | 7 days |
+| Pro (legacy) | 25 | 50 | 10 | 250,000 | Enabled | 90 days |
+| Team | 25 | 25 | 10 | 250,000 | Enabled | 30 days |
+| Business | 100 | 250 | 100 | 2,000,000 | Enabled | 180 days |
+| Enterprise | Unlimited | Unlimited | Unlimited | Unlimited | Enabled | 365 days (custom) |
+
+Plans are seat-based with pooled verification usage. Creation limits block new resources only (`AGENT_LIMIT_REACHED`, `SEAT_LIMIT_REACHED`, `PROTECTED_REPO_LIMIT_REACHED`); existing resources are never deleted or disabled when an account is over a limit or downgrades. `team` and `business` are internal tiers with no checkout path yet; Stripe still only moves accounts between `free` and `pro`.
 
 Verification usage is tracked on `Account.verificationCount` with `verificationPeriodStart`. The current reset boundary is the UTC calendar month: stale or missing period data resets the count on the next metered verification and sets the period start to the first day of the current UTC month. Enterprise verification and agent quotas are treated as unlimited. Metered quota checks fail closed with `ACCOUNT_CONTEXT_MISSING` when `accountId` is missing; a known `accountId` whose `Account` record is missing remains unmetered because it indicates data inconsistency rather than lost auth context.
 
@@ -1019,7 +1023,7 @@ Failed deliveries retry after the configured backoff schedule and are not retrie
 
 Webhook receivers should verify `BehalfID-Signature` with the SDK `verifyWebhookSignature` helper, deduplicate by `BehalfID-Event-ID`, and avoid assuming exactly-once delivery. Delivery records store status, HTTP status when available, attempt count, retry time, and sanitized error summaries. They must not store webhook secrets, bearer tokens, cookies, or API keys.
 
-Dashboard webhook creation and enablement require Pro or Enterprise. Free-plan requests fail with `WEBHOOKS_REQUIRE_PRO`, `currentPlan`, `limit`, and an `upgradeHint`. Downgrades and failed payments disable endpoints instead of leaving delivery active on a free account.
+Dashboard webhook creation and enablement require a paid plan. Free-plan requests fail with `WEBHOOKS_REQUIRE_PRO` (the preserved historical code for the paid-plan webhook gate), `currentPlan`, `limit`, and an `upgradeHint`. Downgrades and failed payments disable endpoints instead of leaving delivery active on a free account.
 
 ## POST /api/agents/[agentId]/rotate-key
 
@@ -1165,8 +1169,12 @@ The developer dashboard uses these session-protected routes:
 {
   "usage": {
     "plan": "free",
+    "seatCount": 1,
+    "seatLimit": 1,
     "agentCount": 1,
-    "agentLimit": 5,
+    "agentLimit": 3,
+    "protectedRepoCount": 0,
+    "protectedRepoLimit": 1,
     "verificationCount": 42,
     "verificationLimit": 10000,
     "verificationPeriodStart": "2026-05-01T00:00:00.000Z",
@@ -1177,6 +1185,8 @@ The developer dashboard uses these session-protected routes:
   }
 }
 ```
+
+Unlimited limits (`Infinity` internally) serialize to `null` in the JSON payload.
 
 The summary response intentionally omits Stripe customer IDs, subscription IDs, price IDs, raw secrets, and internal database IDs.
 

@@ -301,6 +301,9 @@ describe("POST /api/dashboard/managed-profiles/protected-repos", () => {
         ],
       }),
     });
+    // checkProtectedRepoLimit awaits Account.findOne directly; the team plan
+    // allows up to 10 protected repos so existing append tests stay under limit.
+    mocks.accountFindOne.mockResolvedValue({ accountId: "acct_test", plan: "team" });
   });
 
   it("rejects unauthenticated request", async () => {
@@ -366,6 +369,96 @@ describe("POST /api/dashboard/managed-profiles/protected-repos", () => {
     expect(updateArgs.timezone).toBe("America/New_York");
     expect(updateArgs.toolModes.claude).toBe("required");
     expect(updateArgs.protectedRepos).toHaveLength(2);
+  });
+
+  it("blocks enrollment beyond the free plan protected repo limit with a structured 402", async () => {
+    mocks.accountFindOne.mockResolvedValue({ accountId: "acct_test", plan: "free" });
+    const { POST } = await import("@/app/api/dashboard/managed-profiles/protected-repos/route");
+    const res = await POST(
+      protectedReposRequest({
+        repoHash: "0123456789abcdef",
+        label: "Second repo",
+        mode: "managed",
+      })
+    );
+    expect(res.status).toBe(402);
+    const body = await res.json();
+    expect(body).toEqual(expect.objectContaining({
+      error: "Protected repo limit of 1 reached on the free plan.",
+      code: "PROTECTED_REPO_LIMIT_REACHED",
+      currentPlan: "free",
+      limit: 1,
+      upgradeHint: "Upgrade to Pro to protect more repositories.",
+    }));
+    // The existing protected repo is untouched: nothing is saved, disabled, or deleted.
+    expect(mocks.policyFindOneAndUpdate).not.toHaveBeenCalled();
+  });
+
+  it("allows enrollment of the first protected repo on the free plan", async () => {
+    mocks.accountFindOne.mockResolvedValue({ accountId: "acct_test", plan: "free" });
+    mocks.policyFindOne.mockReturnValue({
+      lean: vi.fn().mockResolvedValue({ ...existingPolicyDoc, protectedRepos: [] }),
+    });
+    mocks.policyFindOneAndUpdate.mockReturnValue({
+      lean: vi.fn().mockResolvedValue({
+        ...existingPolicyDoc,
+        protectedRepos: [{ repoHash: "0123456789abcdef", mode: "required", enabled: true }],
+      }),
+    });
+    const { POST } = await import("@/app/api/dashboard/managed-profiles/protected-repos/route");
+    const res = await POST(protectedReposRequest({ repoHash: "0123456789abcdef" }));
+    expect(res.status).toBe(200);
+    expect(mocks.policyFindOneAndUpdate).toHaveBeenCalled();
+  });
+
+  it("still saves an over-limit policy on PUT when the repo count does not grow", async () => {
+    mocks.accountFindOne.mockResolvedValue({ accountId: "acct_test", plan: "free" });
+    const twoRepos = [
+      { repoHash: "abc123def4567890", label: "Prod", mode: "required", enabled: true },
+      { repoHash: "0123456789abcdef", label: "Staging", mode: "managed", enabled: true },
+    ];
+    mocks.policyFindOne.mockReturnValue({
+      lean: vi.fn().mockResolvedValue({ ...existingPolicyDoc, protectedRepos: twoRepos }),
+    });
+    mocks.policyFindOneAndUpdate.mockReturnValue({
+      lean: vi.fn().mockResolvedValue({ ...existingPolicyDoc, protectedRepos: twoRepos }),
+    });
+    const { PUT } = await import("@/app/api/dashboard/managed-profiles/route");
+    const res = await PUT(
+      new Request("http://localhost/api/dashboard/managed-profiles", {
+        method: "PUT",
+        headers: { "content-type": "application/json", origin: "http://localhost" },
+        body: JSON.stringify({
+          enabled: true,
+          timezone: "America/New_York",
+          protectedRepos: twoRepos,
+        }),
+      }) as never
+    );
+    expect(res.status).toBe(200);
+    expect(mocks.policyFindOneAndUpdate).toHaveBeenCalled();
+  });
+
+  it("blocks PUT growth of protected repos beyond the free plan limit", async () => {
+    mocks.accountFindOne.mockResolvedValue({ accountId: "acct_test", plan: "free" });
+    const { PUT } = await import("@/app/api/dashboard/managed-profiles/route");
+    const res = await PUT(
+      new Request("http://localhost/api/dashboard/managed-profiles", {
+        method: "PUT",
+        headers: { "content-type": "application/json", origin: "http://localhost" },
+        body: JSON.stringify({
+          enabled: true,
+          protectedRepos: [
+            { repoHash: "abc123def4567890" },
+            { repoHash: "0123456789abcdef" },
+          ],
+        }),
+      }) as never
+    );
+    expect(res.status).toBe(402);
+    const body = await res.json();
+    expect(body.code).toBe("PROTECTED_REPO_LIMIT_REACHED");
+    expect(mocks.policyFindOneAndUpdate).not.toHaveBeenCalled();
   });
 
   it("returns 409 for duplicate repo hash", async () => {

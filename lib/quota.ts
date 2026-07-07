@@ -1,12 +1,25 @@
-import { getQuotas, isSameBillingPeriod, verificationPeriodStart, type Plan } from "@/lib/plans";
+import {
+  getPlanEntitlements,
+  isSameBillingPeriod,
+  isUnlimitedLimit,
+  normalizePlan,
+  verificationPeriodStart,
+  type Plan
+} from "@/lib/plans";
+import { BILLABLE_WORKSPACE_ROLES, isBillableWorkspaceRole } from "@/lib/authority";
 import Account from "@/models/Account";
+import AccountMembership from "@/models/AccountMembership";
 import Agent from "@/models/Agent";
 
 export type QuotaErrorCode =
   | "ACCOUNT_CONTEXT_MISSING"
   | "AGENT_LIMIT_REACHED"
   | "VERIFICATION_LIMIT_REACHED"
-  | "WEBHOOKS_REQUIRE_PRO";
+  | "SEAT_LIMIT_REACHED"
+  | "PROTECTED_REPO_LIMIT_REACHED"
+  | "WEBHOOKS_REQUIRE_PRO"
+  | "MANAGED_PROFILES_REQUIRE_PAID_PLAN"
+  | "REQUIRED_MODE_REQUIRES_PAID_PLAN";
 
 export type QuotaResult = {
   allowed: boolean;
@@ -17,8 +30,8 @@ export type QuotaResult = {
   upgradeHint?: string;
 };
 
-function normalizePlan(plan: string | null | undefined): Plan {
-  return plan === "pro" || plan === "enterprise" ? plan : "free";
+function upgradeHintFor(plan: Plan, freeHint: string): string {
+  return plan === "free" ? freeHint : "Contact BehalfID for Enterprise limits."; // pragma: allowlist secret
 }
 
 export function quotaErrorDetails(result: QuotaResult) {
@@ -43,6 +56,8 @@ export function quotaErrorDetails(result: QuotaResult) {
  *   account, so accountId is always present.
  * - Dashboard agent-creation routes run requireWorkspaceMutationActor first, which
  *   rejects requests without a resolvable workspace account.
+ * - Seat-limit and protected-repo checks run behind workspace actor / policy
+ *   resolution, both of which require a workspace accountId.
  *
  * No demo/bootstrap flow calls these helpers without an accountId, so silently
  * treating missing account context as unmetered would only ever hide a bug and
@@ -67,8 +82,9 @@ export async function checkAndIncrementVerifications(accountId: string | null | 
   const account = await Account.findOne({ accountId });
   if (!account) return { allowed: true };
 
-  const quotas = getQuotas(account.plan as Plan);
-  if (!isFinite(quotas.verificationsPerMonth)) return { allowed: true };
+  const plan = normalizePlan(account.plan);
+  const entitlements = getPlanEntitlements(plan);
+  if (isUnlimitedLimit(entitlements.monthlyVerifications)) return { allowed: true };
 
   if (!isSameBillingPeriod(account.verificationPeriodStart)) {
     await Account.updateOne(
@@ -78,14 +94,14 @@ export async function checkAndIncrementVerifications(accountId: string | null | 
     return { allowed: true };
   }
 
-  if (account.verificationCount >= quotas.verificationsPerMonth) {
+  if (account.verificationCount >= entitlements.monthlyVerifications) {
     return {
       allowed: false,
       code: "VERIFICATION_LIMIT_REACHED",
-      plan: account.plan as Plan,
-      limit: quotas.verificationsPerMonth,
-      reason: `Monthly verification limit of ${quotas.verificationsPerMonth.toLocaleString()} reached on the ${account.plan} plan.`,
-      upgradeHint: account.plan === "free" ? "Upgrade to Pro to continue." : "Contact BehalfID for Enterprise limits."
+      plan,
+      limit: entitlements.monthlyVerifications,
+      reason: `Monthly verification limit of ${entitlements.monthlyVerifications.toLocaleString()} reached on the ${account.plan} plan.`,
+      upgradeHint: upgradeHintFor(plan, "Upgrade to Pro to continue.")
     };
   }
 
@@ -99,18 +115,96 @@ export async function checkAgentLimit(accountId: string | null | undefined): Pro
   const account = await Account.findOne({ accountId });
   if (!account) return { allowed: true };
 
-  const quotas = getQuotas(account.plan as Plan);
-  if (!isFinite(quotas.maxAgents)) return { allowed: true };
+  const plan = normalizePlan(account.plan);
+  const entitlements = getPlanEntitlements(plan);
+  if (isUnlimitedLimit(entitlements.maxAgents)) return { allowed: true };
 
   const count = await Agent.countDocuments({ accountId });
-  if (count >= quotas.maxAgents) {
+  if (count >= entitlements.maxAgents) {
     return {
       allowed: false,
       code: "AGENT_LIMIT_REACHED",
-      plan: account.plan as Plan,
-      limit: quotas.maxAgents,
-      reason: `Agent limit of ${quotas.maxAgents} reached on the ${account.plan} plan.`,
-      upgradeHint: account.plan === "free" ? "Upgrade to Pro to add more agents." : "Contact BehalfID for Enterprise limits."
+      plan,
+      limit: entitlements.maxAgents,
+      reason: `Agent limit of ${entitlements.maxAgents} reached on the ${account.plan} plan.`,
+      upgradeHint: upgradeHintFor(plan, "Upgrade to Pro to add more agents.")
+    };
+  }
+
+  return { allowed: true };
+}
+
+/** Counts workspace members holding a billable (mutation-capable) role. */
+export async function countBillableSeats(accountId: string): Promise<number> {
+  return AccountMembership.countDocuments({
+    accountId,
+    role: { $in: [...BILLABLE_WORKSPACE_ROLES] }
+  });
+}
+
+/**
+ * Seat-limit check for adding a member (direct add, invite creation, or invite
+ * acceptance). Non-billable roles (VIEWER) never consume a seat. Existing
+ * members are never removed when a workspace is over its seat limit; only
+ * adding new billable members is blocked.
+ */
+export async function checkSeatLimit(
+  accountId: string | null | undefined,
+  role: string
+): Promise<QuotaResult> {
+  if (!isBillableWorkspaceRole(role)) return { allowed: true };
+  if (!accountId) return missingAccountContext();
+
+  const account = await Account.findOne({ accountId });
+  if (!account) return { allowed: true };
+
+  const plan = normalizePlan(account.plan);
+  const entitlements = getPlanEntitlements(plan);
+  if (isUnlimitedLimit(entitlements.maxBillableUsers)) return { allowed: true };
+
+  const seats = await countBillableSeats(accountId);
+  if (seats >= entitlements.maxBillableUsers) {
+    return {
+      allowed: false,
+      code: "SEAT_LIMIT_REACHED",
+      plan,
+      limit: entitlements.maxBillableUsers,
+      reason: `Billable seat limit of ${entitlements.maxBillableUsers} reached on the ${account.plan} plan.`,
+      upgradeHint: upgradeHintFor(plan, "Upgrade to Pro to add more billable seats.")
+    };
+  }
+
+  return { allowed: true };
+}
+
+/**
+ * Protected-repo creation limit. Denies only when the number of enrolled repos
+ * would grow beyond the plan limit; saving or editing an existing over-limit
+ * policy without adding repos is always allowed (existing resources are never
+ * disabled or deleted by entitlement enforcement).
+ */
+export async function checkProtectedRepoLimit(
+  accountId: string | null | undefined,
+  counts: { currentCount: number; nextCount: number }
+): Promise<QuotaResult> {
+  if (counts.nextCount <= counts.currentCount) return { allowed: true };
+  if (!accountId) return missingAccountContext();
+
+  const account = await Account.findOne({ accountId });
+  if (!account) return { allowed: true };
+
+  const plan = normalizePlan(account.plan);
+  const entitlements = getPlanEntitlements(plan);
+  if (isUnlimitedLimit(entitlements.maxProtectedRepos)) return { allowed: true };
+
+  if (counts.nextCount > entitlements.maxProtectedRepos) {
+    return {
+      allowed: false,
+      code: "PROTECTED_REPO_LIMIT_REACHED",
+      plan,
+      limit: entitlements.maxProtectedRepos,
+      reason: `Protected repo limit of ${entitlements.maxProtectedRepos} reached on the ${account.plan} plan.`,
+      upgradeHint: upgradeHintFor(plan, "Upgrade to Pro to protect more repositories.")
     };
   }
 
@@ -119,22 +213,64 @@ export async function checkAgentLimit(accountId: string | null | undefined): Pro
 
 export function checkWebhooksEnabled(plan: string | null | undefined): QuotaResult {
   const resolvedPlan = normalizePlan(plan);
-  const quotas = getQuotas(resolvedPlan);
-  if (!quotas.webhooksEnabled) {
+  const entitlements = getPlanEntitlements(resolvedPlan);
+  if (!entitlements.webhooksEnabled) {
     return {
       allowed: false,
       code: "WEBHOOKS_REQUIRE_PRO",
       plan: resolvedPlan,
       limit: 0,
-      reason: "Webhooks require Pro or Enterprise.",
+      reason: "Webhooks require a paid plan.",
       upgradeHint: "Upgrade to Pro to enable webhook delivery."
     };
   }
   return { allowed: true };
 }
 
-export function retentionSince(plan: string | null | undefined): Date {
+/**
+ * Feature gate for Managed Profiles. Every current plan has this enabled, so
+ * the check cannot deny today; it exists so future plan changes gate in one
+ * place without touching Managed Profiles enforcement semantics.
+ */
+export function checkManagedProfilesEnabled(plan: string | null | undefined): QuotaResult {
   const resolvedPlan = normalizePlan(plan);
-  const quotas = getQuotas(resolvedPlan);
-  return new Date(Date.now() - quotas.logRetentionDays * 86_400_000);
+  const entitlements = getPlanEntitlements(resolvedPlan);
+  if (!entitlements.managedProfilesEnabled) {
+    return {
+      allowed: false,
+      code: "MANAGED_PROFILES_REQUIRE_PAID_PLAN",
+      plan: resolvedPlan,
+      limit: 0,
+      reason: "Managed Profiles require a paid plan.",
+      upgradeHint: "Upgrade to Pro to use Managed Profiles."
+    };
+  }
+  return { allowed: true };
+}
+
+/**
+ * Feature gate for required managed profile mode. Required mode is currently
+ * available on every plan (it predates the entitlement layer), so this cannot
+ * deny today. It is intentionally not wired into policy validation to avoid
+ * changing Managed Profiles enforcement semantics.
+ */
+export function checkRequiredManagedProfileMode(plan: string | null | undefined): QuotaResult {
+  const resolvedPlan = normalizePlan(plan);
+  const entitlements = getPlanEntitlements(resolvedPlan);
+  if (!entitlements.requiredManagedProfileModeEnabled) {
+    return {
+      allowed: false,
+      code: "REQUIRED_MODE_REQUIRES_PAID_PLAN",
+      plan: resolvedPlan,
+      limit: 0,
+      reason: "Required managed profile mode requires a paid plan.",
+      upgradeHint: "Upgrade to Pro to use required managed profile mode."
+    };
+  }
+  return { allowed: true };
+}
+
+export function retentionSince(plan: string | null | undefined): Date {
+  const entitlements = getPlanEntitlements(plan);
+  return new Date(Date.now() - entitlements.logRetentionDays * 86_400_000);
 }

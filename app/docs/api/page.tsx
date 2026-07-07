@@ -55,14 +55,17 @@ export default function ApiDocsPage() {
       </p>
       <h2>Plans and quota errors</h2>
       <p>
-        Free accounts include 5 agents, 10,000 verifications per UTC calendar month, no dashboard webhooks,
-        and 7-day log retention. Pro includes 50 agents, 250,000 verifications per month, dashboard webhooks,
-        and 90-day log retention. Enterprise treats agent and verification quotas as unlimited, enables
-        webhooks, and keeps 365 days of logs.
+        Free accounts include 1 billable seat, 3 agents, 1 protected repo, 10,000 verifications per UTC calendar
+        month, no dashboard webhooks, and 7-day log retention. Pro includes 25 billable seats, 50 agents,
+        10 protected repos, 250,000 verifications per month, dashboard webhooks, and 90-day log retention.
+        Enterprise treats seat, agent, protected repo, and verification quotas as unlimited, enables
+        webhooks, and keeps 365 days of logs. Creation limits block new resources only; existing resources are
+        never deleted or disabled when an account is over a limit.
       </p>
       <p>
         Limit failures return stable codes with safe plan context, for example
-        <code> AGENT_LIMIT_REACHED</code>, <code>VERIFICATION_LIMIT_REACHED</code>, or
+        <code> AGENT_LIMIT_REACHED</code>, <code>VERIFICATION_LIMIT_REACHED</code>, <code>SEAT_LIMIT_REACHED</code>,
+        <code> PROTECTED_REPO_LIMIT_REACHED</code>, or
         <code> WEBHOOKS_REQUIRE_PRO</code>. Responses include the current plan, relevant limit, and upgrade hint,
         but not Stripe customer IDs, subscription IDs, price IDs, or secrets.
       </p>

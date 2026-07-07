@@ -216,13 +216,15 @@ Webhook delivery uses an outbox with at-least-once retries. Receivers should ded
 
 The dashboard billing view shows current plan, agent usage, monthly verification usage, webhook access, log retention, and the UTC monthly reset date.
 
-| Plan | Agents | Verifications / month | Webhooks | Log retention |
-| --- | ---: | ---: | --- | ---: |
-| Free | 5 | 10,000 | Disabled | 7 days |
-| Pro | 50 | 250,000 | Enabled | 90 days |
-| Enterprise | Unlimited | Unlimited | Enabled | 365 days |
+| Plan | Billable seats | Agents | Protected repos | Verifications / month | Webhooks | Log retention |
+| --- | ---: | ---: | ---: | ---: | --- | ---: |
+| Free | 1 | 3 | 1 | 10,000 | Disabled | 7 days |
+| Pro (legacy) | 25 | 50 | 10 | 250,000 | Enabled | 90 days |
+| Team | 25 | 25 | 10 | 250,000 | Enabled | 30 days |
+| Business | 100 | 250 | 100 | 2,000,000 | Enabled | 180 days |
+| Enterprise | Unlimited | Unlimited | Unlimited | Unlimited | Enabled | 365 days (custom) |
 
-Quota failures return stable error codes such as `AGENT_LIMIT_REACHED`, `VERIFICATION_LIMIT_REACHED`, and `WEBHOOKS_REQUIRE_PRO`, plus the current plan, relevant limit, and a safe upgrade hint. Downgrades and failed payments disable dashboard webhooks and remove paid limits until billing is restored.
+Quota failures return stable error codes such as `AGENT_LIMIT_REACHED`, `VERIFICATION_LIMIT_REACHED`, `SEAT_LIMIT_REACHED`, `PROTECTED_REPO_LIMIT_REACHED`, and `WEBHOOKS_REQUIRE_PRO`, plus the current plan, relevant limit, and a safe upgrade hint. Creation limits block new resources only; existing resources are never deleted or disabled by entitlement enforcement. Downgrades and failed payments disable dashboard webhooks and remove paid limits until billing is restored. See [docs/ENTITLEMENTS.md](docs/ENTITLEMENTS.md).
 
 See [docs/WEBHOOKS.md](docs/WEBHOOKS.md).
 

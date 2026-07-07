@@ -606,7 +606,7 @@ describe("MongoDB-backed quotas", () => {
     await createAgents("acct_pro", getQuotas("pro").maxAgents, "pro_agent");
 
     await expect(checkAgentLimit("acct_free")).resolves.toEqual(
-      expect.objectContaining({ allowed: false, code: "AGENT_LIMIT_REACHED", limit: 5 })
+      expect.objectContaining({ allowed: false, code: "AGENT_LIMIT_REACHED", limit: 3 })
     );
     await expect(checkAgentLimit("acct_pro")).resolves.toEqual(
       expect.objectContaining({ allowed: false, code: "AGENT_LIMIT_REACHED", limit: 50 })
