@@ -1,9 +1,11 @@
 import { hashApiKey } from "@/lib/auth";
 import { normalizeAgentMetadata, type AgentProvider, type AgentType, type ConnectionStatus } from "@/lib/agents";
 import { createApiKey, createPublicId } from "@/lib/ids";
-import { getQuotas, verificationPeriodStart, type Plan } from "@/lib/plans";
+import { getPlanEntitlements, normalizePlan, verificationPeriodStart } from "@/lib/plans";
+import { countBillableSeats } from "@/lib/quota";
 import type { AccountDocument } from "@/models/Account";
 import Agent from "@/models/Agent";
+import ManagedProfilePolicy from "@/models/ManagedProfilePolicy";
 import Permission from "@/models/Permission";
 import VerificationLog from "@/models/VerificationLog";
 import WebhookDelivery from "@/models/WebhookDelivery";
@@ -113,8 +115,16 @@ export async function getDashboardSummary(userId: string, account?: AccountDocum
     WebhookEvent.countDocuments({ ...scope, deadLetter: true })
   ]);
 
-  const plan = (account?.plan ?? "free") as Plan;
-  const quotas = getQuotas(plan);
+  const plan = normalizePlan(account?.plan);
+  const entitlements = getPlanEntitlements(plan);
+
+  const [seatCount, policy] = account?.accountId
+    ? await Promise.all([
+        countBillableSeats(account.accountId),
+        ManagedProfilePolicy.findOne({ accountId: account.accountId }).select("protectedRepos").lean()
+      ])
+    : [0, null];
+  const protectedRepoCount = policy?.protectedRepos?.length ?? 0;
 
   return {
     totalAgents,
@@ -124,14 +134,18 @@ export async function getDashboardSummary(userId: string, account?: AccountDocum
     failedEvents,
     usage: {
       plan,
+      seatCount,
+      seatLimit: entitlements.maxBillableUsers,
       agentCount: totalAgents,
-      agentLimit: quotas.maxAgents,
+      agentLimit: entitlements.maxAgents,
+      protectedRepoCount,
+      protectedRepoLimit: entitlements.maxProtectedRepos,
       verificationCount: account?.verificationCount ?? 0,
-      verificationLimit: quotas.verificationsPerMonth,
+      verificationLimit: entitlements.monthlyVerifications,
       verificationPeriodStart: (account?.verificationPeriodStart ?? verificationPeriodStart()).toISOString(),
       verificationPeriodResetAt: nextVerificationReset(account?.verificationPeriodStart).toISOString(),
-      webhooksEnabled: quotas.webhooksEnabled,
-      logRetentionDays: quotas.logRetentionDays,
+      webhooksEnabled: entitlements.webhooksEnabled,
+      logRetentionDays: entitlements.logRetentionDays,
       stripeSubscriptionStatus: account?.stripeSubscriptionStatus ?? null
     }
   };

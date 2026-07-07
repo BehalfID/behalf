@@ -38,7 +38,7 @@ const AccountSchema = new Schema(
     },
     plan: {
       type: String,
-      enum: ["free", "pro", "enterprise"],
+      enum: ["free", "pro", "team", "business", "enterprise"],
       default: "free",
       required: true,
       index: true

@@ -4,7 +4,9 @@ const mocks = vi.hoisted(() => ({
   inviteFindOneAndUpdate: vi.fn(),
   userFindOne: vi.fn(),
   membershipFindOne: vi.fn(),
-  membershipCreate: vi.fn()
+  membershipCreate: vi.fn(),
+  membershipCountDocuments: vi.fn(),
+  accountFindOne: vi.fn()
 }));
 
 vi.mock("@/models/AccountInvite", () => ({
@@ -22,7 +24,14 @@ vi.mock("@/models/DeveloperUser", () => ({
 vi.mock("@/models/AccountMembership", () => ({
   default: {
     findOne: mocks.membershipFindOne,
-    create: mocks.membershipCreate
+    create: mocks.membershipCreate,
+    countDocuments: mocks.membershipCountDocuments
+  }
+}));
+
+vi.mock("@/models/Account", () => ({
+  default: {
+    findOne: mocks.accountFindOne
   }
 }));
 
@@ -37,6 +46,12 @@ describe("addOrInviteMember existing user behavior", () => {
       userId: "user_existing",
       accountId: "acct_team",
       role: "ENGINEER"
+    });
+    mocks.membershipCountDocuments.mockResolvedValue(1);
+    mocks.accountFindOne.mockResolvedValue({
+      accountId: "acct_team",
+      name: "Team Workspace",
+      plan: "team"
     });
   });
 

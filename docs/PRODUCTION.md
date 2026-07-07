@@ -119,9 +119,10 @@ Stripe webhook events are verified with Stripe signatures and processed idempote
 
 Billing state drives quota enforcement:
 
-- Free: 5 agents, 10,000 verifications/month, no dashboard webhooks, 7-day log retention.
-- Pro: 50 agents, 250,000 verifications/month, dashboard webhooks, 90-day log retention.
-- Enterprise: unlimited agents and verifications, dashboard webhooks, 365-day log retention.
+- Free: 1 billable seat, 3 agents, 1 protected repo, 10,000 verifications/month, no dashboard webhooks, 7-day log retention.
+- Pro (legacy paid plan): 25 billable seats, 50 agents, 10 protected repos, 250,000 verifications/month, dashboard webhooks, 90-day log retention.
+- Enterprise: unlimited seats, agents, protected repos, and verifications, dashboard webhooks, 365-day log retention.
+- Team and Business are internal tiers with no Stripe checkout path yet; see [ENTITLEMENTS.md](ENTITLEMENTS.md) for the full entitlement model.
 - `checkout.session.completed` upgrades the account to Pro and re-enables previously disabled webhooks.
 - `customer.subscription.updated` keeps Pro only for `active` or `trialing`; other statuses downgrade to Free and disable webhooks.
 - `customer.subscription.deleted` downgrades to Free and disables webhooks.

@@ -51,6 +51,20 @@ export function isWorkspaceRole(value: string): value is WorkspaceRole {
   return (WORKSPACE_ROLES as readonly string[]).includes(value);
 }
 
+/**
+ * Billable seats are roles that can mutate workspace resources (create agents,
+ * approve actions, change settings, run managed profiles). Read-only roles
+ * (VIEWER) are not billable. Derived from authority levels so a new role is
+ * classified automatically.
+ */
+export const BILLABLE_WORKSPACE_ROLES: readonly WorkspaceRole[] = WORKSPACE_ROLES.filter(
+  (role) => AUTHORITY_LEVELS[role] > AUTHORITY_LEVELS.VIEWER
+);
+
+export function isBillableWorkspaceRole(role: string): boolean {
+  return isWorkspaceRole(role) && (BILLABLE_WORKSPACE_ROLES as readonly string[]).includes(role);
+}
+
 /** Invalid or unknown stored roles resolve to least privilege. */
 export function resolveWorkspaceRole(value: string): WorkspaceRole {
   return isWorkspaceRole(value) ? value : "VIEWER";

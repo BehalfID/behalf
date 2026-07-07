@@ -74,6 +74,17 @@ vi.mock("@/models/WebhookEndpoint", () => ({
 vi.mock("@/models/Site", () => ({
   default: { find: mocks.siteFind }
 }));
+vi.mock("@/models/AccountMembership", () => ({
+  default: { countDocuments: vi.fn().mockResolvedValue(1) }
+}));
+vi.mock("@/models/ManagedProfilePolicy", () => ({
+  default: {
+    findOne: vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnThis(),
+      lean: vi.fn().mockResolvedValue(null)
+    })
+  }
+}));
 vi.mock("@/models/DeveloperApiToken", () => ({
   default: {
     find: mocks.tokenFind,

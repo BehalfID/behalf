@@ -12,13 +12,13 @@ import {
   WEBHOOK_EVENT_TYPES
 } from "@/lib/webhooks";
 import WebhookEndpoint from "@/models/WebhookEndpoint";
-import { getQuotas, type Plan } from "@/lib/plans";
+import { getPlanEntitlements, normalizePlan } from "@/lib/plans";
 
 export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
-  const plan = (auth.account?.plan ?? "free") as Plan;
-  const quotas = getQuotas(plan);
+  const plan = normalizePlan(auth.account?.plan);
+  const entitlements = getPlanEntitlements(plan);
   const webhooks = await WebhookEndpoint.find({
     developerUserId: auth.user.userId,
     ...(auth.activeAccountId ? { accountId: auth.activeAccountId } : {})
@@ -30,8 +30,8 @@ export async function GET(request: NextRequest) {
     webhooks,
     eventTypes: WEBHOOK_EVENT_TYPES,
     plan,
-    webhooksEnabled: quotas.webhooksEnabled,
-    upgradeHint: quotas.webhooksEnabled ? null : "Upgrade to Pro to enable webhook delivery."
+    webhooksEnabled: entitlements.webhooksEnabled,
+    upgradeHint: entitlements.webhooksEnabled ? null : "Upgrade to Pro to enable webhook delivery."
   });
 }
 

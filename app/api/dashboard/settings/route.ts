@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { loadAccountSetupState, patchAccountSetup, PATCH_ALLOWED_FIELDS } from "@/lib/accountSetup";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import { canManageMembers, getWorkspaceActor, serializeWorkspaceAuthority } from "@/lib/delegatedAuth";
-import { getQuotas, isSameBillingPeriod, type Plan } from "@/lib/plans";
+import { getPlanEntitlements, isSameBillingPeriod, normalizePlan } from "@/lib/plans";
 import { jsonError, noCacheJson } from "@/lib/responses";
 import { readJsonObject } from "@/lib/request";
 import { accountDeletionSupportMessage } from "@/lib/support";
@@ -19,16 +19,15 @@ function apiUsageSummary(account: {
 } | null): string {
   if (!account) return "Usage data unavailable";
 
-  const plan: Plan = account.plan === "pro" || account.plan === "enterprise" ? account.plan : "free";
-  const quotas = getQuotas(plan);
+  const entitlements = getPlanEntitlements(normalizePlan(account.plan));
 
   const periodStart = account.verificationPeriodStart ? new Date(account.verificationPeriodStart) : null;
   const inCurrentPeriod = periodStart !== null && !Number.isNaN(periodStart.getTime()) && isSameBillingPeriod(periodStart);
   // The counter is reset lazily on the next verification, so a stale period means zero usage this month.
   const used = inCurrentPeriod ? account.verificationCount ?? 0 : 0;
 
-  const limit = Number.isFinite(quotas.verificationsPerMonth)
-    ? quotas.verificationsPerMonth.toLocaleString()
+  const limit = Number.isFinite(entitlements.monthlyVerifications)
+    ? entitlements.monthlyVerifications.toLocaleString()
     : "Unlimited";
 
   return `${used.toLocaleString()} / ${limit} monthly verifications used`;
