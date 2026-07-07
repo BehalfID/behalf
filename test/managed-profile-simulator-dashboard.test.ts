@@ -154,6 +154,81 @@ describe("cli install commands", () => {
   });
 });
 
+describe("managed profiles docs consistency", () => {
+  const demoSource = readFileSync(join(process.cwd(), "app/docs/demo-script/page.tsx"), "utf-8");
+  const cliDocsSource = readFileSync(join(process.cwd(), "app/docs/cli/page.tsx"), "utf-8");
+  const readmeSource = readFileSync(join(process.cwd(), "packages/cli/README.md"), "utf-8");
+  const onboardingSource = readFileSync(join(process.cwd(), "lib/managedProfileOnboarding.ts"), "utf-8");
+
+  const canonicalCommands = [
+    "behalf login",
+    "behalf profile install",
+    "behalf profile status --tool claude",
+    "behalf profile simulate --tool claude",
+    "claude",
+  ];
+
+  const docsSources = [
+    { name: "demo-script", source: demoSource },
+    { name: "cli docs", source: cliDocsSource },
+    { name: "cli readme", source: readmeSource },
+    { name: "onboarding", source: onboardingSource },
+  ];
+
+  it("includes canonical managed profile commands in demo and docs", () => {
+    for (const command of canonicalCommands) {
+      expect(demoSource).toContain(command);
+      expect(cliDocsSource).toContain(command);
+      expect(readmeSource).toContain(command);
+      expect(onboardingSource).toContain(command);
+    }
+  });
+
+  it("mentions simulate, status, protected repos, and pause approval", () => {
+    const narrativeSources = [
+      { name: "demo-script", source: demoSource },
+      { name: "cli docs", source: cliDocsSource },
+      { name: "cli readme", source: readmeSource },
+    ];
+    for (const { source } of narrativeSources) {
+      expect(source).toMatch(/simulate/i);
+      expect(source).toMatch(/status/i);
+      expect(source).toMatch(/protected repo/i);
+      expect(source).toMatch(/pause approval/i);
+    }
+    expect(onboardingSource).toMatch(/simulate/i);
+    expect(onboardingSource).toMatch(/status/i);
+  });
+
+  it("readme documents npm install from package name", async () => {
+    const { CLI_NPM_INSTALL_COMMAND } = await import("@/lib/cliInstallCommands");
+    expect(readmeSource).toContain("packages/cli/package.json");
+    expect(readmeSource).toContain("npm install -g @…/cli");
+    expect(readmeSource).not.toContain("npm install -g behalf");
+    expect(CLI_NPM_INSTALL_COMMAND).toMatch(/^npm install -g @.+\/cli$/);
+  });
+
+  it("includes launch readiness checklist in demo script", () => {
+    expect(demoSource).toContain("Launch readiness checklist");
+    expect(demoSource).toContain("PATH order verified");
+    expect(demoSource).toContain("Required-mode pause approval");
+    expect(demoSource).toContain("does not expose raw paths");
+  });
+
+  it("does not include unsafe raw path or git remote examples in user-facing docs", () => {
+    const unsafePatterns = [
+      /\/Users\/alice/,
+      /github\.com\/org\/private/,
+      /git@github\.com:.*private/,
+    ];
+    for (const { name, source } of docsSources) {
+      for (const pattern of unsafePatterns) {
+        expect(source, `${name} should not match ${pattern}`).not.toMatch(pattern);
+      }
+    }
+  });
+});
+
 describe("managed profile activity empty state", () => {
   it("does not duplicate unfiltered empty copy in table rows", () => {
     const source = readFileSync(

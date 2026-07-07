@@ -4,7 +4,7 @@ import { CodeBlock, DocsShell } from "../content";
 
 export const metadata: Metadata = {
   title: "Coding Agent Quickstart (CLI & MCP) — BehalfID",
-  description: "Stop Claude Code, Codex, and Cursor from running dangerous commands without approval. Install the behalf CLI, wire up the MCP server, and launch your coding agent with enforcement active.",
+  description: "Stop Claude Code, Codex, and Cursor from running dangerous commands without approval. Install the behalf CLI, wire up MCP enforcement or Managed Profiles shims, and launch coding agents with workspace policy active.",
   alternates: { canonical: "/docs/cli" }
 };
 
@@ -12,7 +12,7 @@ export default function CliDocsPage() {
   return (
     <DocsShell
       title="Coding agent quickstart (CLI & MCP)"
-      description="Stop Claude Code, Codex, and Cursor from deploying to production, deleting files, or pushing to main without your approval. Install the CLI, wire up MCP enforcement, and launch your agent — all in under five minutes."
+      description="Stop Claude Code, Codex, and Cursor from deploying to production, deleting files, or pushing to main without your approval. Install the CLI, wire up MCP enforcement or Managed Profiles shims, and launch your agent with workspace policy active — all in under five minutes."
       previous={{ href: "/docs", label: "Overview" }}
       next={{ href: "/docs/deploy-approvals", label: "Deploy approvals" }}
     >
@@ -142,6 +142,76 @@ behalf claude --resume     # pass extra flags straight through to the tool`}</Co
       <p>
         For a runnable local walkthrough with allowed, denied, and approval-required examples,
         see <code>docs/MCP_DEMO.md</code>.
+      </p>
+
+      <h2>Managed Profiles</h2>
+      <p>
+        <strong>Control what coding agents can do before they touch protected repos.</strong>
+      </p>
+      <p>
+        Managed Profiles let teams put coding-agent CLIs behind a workspace policy checkpoint,
+        install local shims, resolve policy before the real tool starts, and record safe activity
+        for review.
+      </p>
+      <ul className="docs-list">
+        <li>Enforce managed or required mode for protected repos</li>
+        <li>Simulate policy before launching a tool</li>
+        <li>Approve required-mode pause requests</li>
+        <li>Review activity without exposing raw paths or git remotes</li>
+      </ul>
+
+      <h3>First-run quickstart</h3>
+      <CodeBlock label="terminal">{`${CLI_NPM_INSTALL_COMMAND}
+behalf login
+behalf profile install
+behalf profile status --tool claude
+behalf profile simulate --tool claude
+claude`}</CodeBlock>
+      <p>
+        Ensure <code>~/.behalf/bin</code> is early in PATH. Enable Managed Profiles policy in the{" "}
+        <a href="/dashboard/managed-profiles">dashboard</a> before expecting enforcement.
+      </p>
+
+      <h3>Dashboard setup</h3>
+      <p>
+        The <a href="/dashboard/managed-profiles">Managed profiles</a> onboarding card walks through
+        the same install → status → simulate → launch flow. After your first shim launch, enroll
+        protected repos from <a href="/dashboard/managed-profiles/activity">Managed Profile Activity</a>{" "}
+        using repo hashes — not raw git remotes or local paths.
+      </p>
+
+      <h3>Policy simulation</h3>
+      <CodeBlock label="terminal">{`behalf profile simulate --tool claude
+behalf profile simulate --tool codex --repo 0123456789abcdef --branch main`}</CodeBlock>
+      <p>
+        Dry-runs policy resolution without launching a tool. The dashboard simulator uses the same API.
+      </p>
+
+      <h3>Protected repos and required mode</h3>
+      <p>
+        Enroll repos by policy repo hash (for example <code>0123456789abcdef</code>). Set mode to{" "}
+        <code>managed</code> or <code>required</code>. In required mode, the CLI fails closed when
+        policy cannot be verified.
+      </p>
+
+      <h3>Required-mode pause approval</h3>
+      <CodeBlock label="terminal">{`behalf pause --duration 30m --reason "incident response" --tool claude
+behalf pause status apr_example`}</CodeBlock>
+      <p>
+        When pause approval is required, the CLI prints an approval id and dashboard link. Approvers
+        review at <a href="/dashboard/approvals">Approvals</a> or{" "}
+        <a href="/dashboard/inbox">Needs attention</a>.
+      </p>
+
+      <h3>Privacy</h3>
+      <p>
+        Activity and approvals show repo hashes, tool, branch, and device id — not raw git remotes,
+        local source paths, home directories, or secrets. See{" "}
+        <a href="/docs/demo-script">Demo script</a> for a 2–3 minute recording walkthrough and launch
+        checklist.
+      </p>
+      <p>
+        Full CLI reference: <code>packages/cli/README.md</code>.
       </p>
 
       <h2>Deploy approval workflow</h2>

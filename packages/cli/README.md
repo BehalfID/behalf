@@ -1,12 +1,29 @@
 # CLI — Managed Profiles
 
-Managed profiles intercept `claude`, `codex`, and `cursor` through local shims, resolve workspace policy from the server, and inject session environment variables before launching the real tool.
+Managed Profiles let teams put coding-agent CLIs behind a workspace policy checkpoint, install local shims, resolve policy before the real tool starts, and record safe activity for review.
 
-## Canonical install and first run
+- Enforce managed or required mode for protected repos
+- Simulate policy before launching a tool
+- Approve required-mode pause requests
+- Review activity without exposing raw paths or git remotes
+
+## What Managed Profiles do
+
+Managed profiles intercept `claude`, `codex`, and `cursor` through local shims. When you run a tool through the shim:
+
+1. The shim calls `behalf __shim-launch <tool> …`
+2. The CLI POSTs to `/api/cli/session-policy` with repo context
+3. The server returns `unmanaged`, `managed`, or `required`
+4. The CLI launches the real binary with session environment variables (`BEHALF_SESSION_ID`, `BEHALF_MODE`, and related values)
+
+If mode is `required` and credentials or policy cannot be established, the CLI **fails closed**.
+
+## First-run quickstart
 
 Install the CLI globally using the package name from `packages/cli/package.json` (`npm install -g @…/cli`), then run:
 
 ```bash
+npm install -g @…/cli
 behalf login
 behalf profile install
 behalf profile status --tool claude
@@ -14,38 +31,7 @@ behalf profile simulate --tool claude
 claude
 ```
 
-## Recommended first run (dashboard)
-
-Open **Managed profiles** in the dashboard (`/dashboard/managed-profiles`). The onboarding card walks through the same sequence:
-
-1. **Install shims** — install the CLI globally (`npm install -g` + package name from `packages/cli/package.json`), then `behalf login` and `behalf profile install`
-2. **Verify status** — `behalf profile status --tool claude`
-3. **Simulate policy** — `behalf profile simulate --tool claude`
-4. **Launch a managed tool** — `claude` (through the shim)
-
-Enable managed profile policy in the dashboard before expecting enforcement. After your first shim launch, use **Managed Profile Activity** to enroll protected repos without copying hashes manually.
-
-## Approver view
-
-When `required` mode pause approval is enabled, developers run `behalf pause --duration … --reason …` and receive an approval request id. Workspace approvers review pending requests at `/dashboard/approvals` or **Needs attention** (`/dashboard/inbox`).
-
-Each pause approval shows:
-
-- Approval id (`apr_…`)
-- Requester
-- Tool, repo hash or all-repos scope, branch, and device id when available
-- Requested duration and developer pause reason
-- Policy context explaining why enforcement is required
-
-Approved grants appear under **Recently approved grants** on Needs attention until the grant expires. Pause approval requests also appear in **Managed profile activity** with duration, scope, and a link back to the approval queue.
-
-## Install once
-
-```bash
-behalf profile install
-```
-
-This creates `~/.behalf/bin/` with shims for `claude`, `codex`, and `cursor`, records the real binary paths, and prints PATH instructions when needed:
+`behalf profile install` creates `~/.behalf/bin/` with shims and prints PATH instructions when needed:
 
 ```bash
 export PATH="$HOME/.behalf/bin:$PATH"
@@ -58,40 +44,18 @@ Options:
 
 Install is idempotent. Non-managed files at shim paths are never overwritten.
 
-## How shims work
+## Dashboard setup path
 
-When you run `claude` (through the shim):
+Open **Managed profiles** in the dashboard (`/dashboard/managed-profiles`). The onboarding card walks through the same sequence:
 
-1. The shim calls `behalf __shim-launch claude …`
-2. The CLI POSTs to `/api/cli/session-policy` with repo context
-3. The server returns `unmanaged`, `managed`, or `required`
-4. The CLI launches the real binary with:
+1. **Install shims** — `npm install -g @…/cli`, then `behalf login` and `behalf profile install`
+2. **Verify status** — `behalf profile status --tool claude`
+3. **Simulate policy** — `behalf profile simulate --tool claude`
+4. **Launch a managed tool** — `claude` (through the shim)
 
-   - `BEHALF_SESSION_ID`
-   - `BEHALF_PROFILE_ID` (when applicable)
-   - `BEHALF_MODE`
-   - `BEHALF_WORKSPACE_ID` (when available)
-   - `BEHALF_API_URL`
+Enable managed profile policy in the dashboard before expecting enforcement. After your first shim launch, use **Managed Profile Activity** (`/dashboard/managed-profiles/activity`) to enroll protected repos without copying hashes manually.
 
-If mode is `required` and credentials or policy cannot be established, the CLI **fails closed**.
-
-If the server is unavailable:
-
-- Unmanaged contexts may continue
-- Required contexts fail closed unless a valid cached policy allows continuity
-
-## Check status
-
-```bash
-behalf profile status
-behalf profile status --tool claude
-```
-
-Shows shim installation, PATH ordering, repo/branch detection, and the **policy repo hash** used for dashboard protected repos and server policy matching.
-
-The policy repo hash is derived from the git remote URL when available, otherwise from the local repo root. Raw git remotes are never displayed.
-
-## Simulate policy (dry-run)
+## Policy simulation
 
 ```bash
 behalf profile simulate --tool claude
@@ -109,38 +73,91 @@ Options:
 
 Human output includes mode, reason, matched rule type, and whether pause approval would be required for `required` mode.
 
-## Doctor
+The dashboard policy simulator (`/dashboard/managed-profiles`) uses the same API for dry-runs without a local shim launch.
+
+## Protected repos
+
+Protected repos are identified by **policy repo hash** — not raw git remotes or local source paths.
 
 ```bash
-behalf profile doctor
+behalf profile status --tool claude
 ```
 
-Checks CLI version, auth, shim files, real binary resolution, PATH ordering, repo detection (including policy repo hash), and policy/pause API connectivity.
+Shows shim installation, PATH ordering, repo/branch detection, and the policy repo hash used for dashboard protected repos and server policy matching. The hash is derived from the git remote URL when available, otherwise from the local repo root. Raw git remotes are never displayed in CLI or dashboard output.
 
-## Pause (policy-approved, not a bypass)
+Enroll protected repos from:
+
+- **Managed profiles** → Protected repos (`/dashboard/managed-profiles`)
+- **Managed Profile Activity** — enroll directly from an activity row after a shim launch
+
+Set per-repo mode to `managed` or `required`. In `required` mode, the CLI fails closed when policy cannot be verified.
+
+## Required-mode pause approval
+
+Pause is policy-approved — not a bypass:
 
 ```bash
 behalf pause --duration 30m --reason "personal project"
 behalf pause --duration 2h --reason "offline work" --scope current_repo --tool claude
-behalf pause status apr_xxx
+behalf pause status apr_example
 behalf pause --duration 30m --reason "incident response" --wait
-behalf pause --duration 30m --reason "incident response" --wait --wait-timeout 15m
 behalf resume
 ```
 
-Pause requests a **server-approved lease**. It is denied when workspace policy requires enforcement (`required` mode) unless the workspace enables `pausePolicy.requireApprovalForRequiredMode`, in which case the CLI receives an approval request id and a workspace approver must approve the pause in the dashboard before retrying.
+When workspace policy requires enforcement (`required` mode), pause is denied unless the workspace enables `pausePolicy.requireApprovalForRequiredMode`. The CLI then receives an approval request id (for example `apr_example`) and a workspace approver must approve in the dashboard before retrying.
 
-When approval is required, the CLI prints the approval request id and a dashboard link using your configured base URL (`/dashboard/approvals`).
+Approver view:
+
+- Pending requests: `/dashboard/approvals` or **Needs attention** (`/dashboard/inbox`)
+- Each pause approval shows approval id, requester, tool, repo hash or all-repos scope, branch, device id (for example `devmac_example`), duration, pause reason, and policy context
+- Approved grants appear under **Recently approved grants** until expiry
+- Pause events also appear in **Managed profile activity**
 
 ### Manual retry vs `--wait`
 
-- **Manual retry:** run the same `behalf pause` command again after approval. The server consumes the one-time grant only when the retry matches the original duration, reason, scope, tool, repo, branch, and device.
-- **`behalf pause status apr_xxx`:** check whether an approval is `pending`, `approved`, `denied`, `used`, or `expired`.
-- **`--wait`:** after creating an approval request, poll status every 5 seconds (default timeout 10 minutes, max 30 minutes) and automatically retry the exact same pause request once when approved. `--wait` does not bypass approval and does not write a local lease until the server returns `granted: true`.
+- **Manual retry:** run the same `behalf pause` command again after approval
+- **`behalf pause status apr_xxx`:** check whether an approval is `pending`, `approved`, `denied`, `used`, or `expired`
+- **`--wait`:** poll every 5 seconds (default timeout 10 minutes) and automatically retry once when approved
 
 Leases are scoped, require a reason, and expire (max 4 hours by default).
 
-Granted, denied, and session policy resolution events appear in the dashboard **Managed profile activity** console (`/dashboard/managed-profiles/activity`). Repo hashes shown there can be enrolled as protected repos from the dashboard without copying hashes manually.
+## Check status and doctor
+
+```bash
+behalf profile status
+behalf profile status --tool claude
+behalf profile doctor
+```
+
+`doctor` checks CLI version, auth, shim files, real binary resolution, PATH ordering, repo detection (including policy repo hash), and policy/pause API connectivity.
+
+## Troubleshooting / launch checklist
+
+| Check | Command or location |
+|-------|---------------------|
+| CLI installed | `npm install -g @…/cli` (see `packages/cli/package.json`) |
+| Authenticated | `behalf login` → `behalf whoami` |
+| Shims installed | `behalf profile install` → files in `~/.behalf/bin/` |
+| PATH order | `behalf profile status` — shim path before real binary |
+| Policy enabled | Managed profiles dashboard — policy not disabled |
+| Simulate works | `behalf profile simulate --tool claude` |
+| Activity recorded | Launch `claude` → `/dashboard/managed-profiles/activity` |
+| Protected repo | Enroll repo hash from Activity or dashboard |
+| Pause approval | `behalf pause …` → approve in dashboard |
+
+If the server is unavailable:
+
+- Unmanaged contexts may continue
+- Required contexts fail closed unless a valid cached policy allows continuity
+
+## Privacy notes
+
+- Shims do not embed tokens
+- Activity and approvals show repo hashes (for example `0123456789abcdef`), tool, branch, and device id — not raw git remotes, local source paths, home directories, or secrets
+- API keys and session cookies remain in `config.json` / `session` with mode `0600`
+- Pause is auditable server-side (`CliAuditLog`)
+- Work-hours decisions use server UTC time, not local clock
+- Required mode never silently falls back to unmanaged when policy cannot be verified
 
 ## Uninstall
 
@@ -161,8 +178,6 @@ Removes only managed profile shims. With `--purge`, also clears shim metadata fr
 | `~/.behalf/policy-cache.json` | Cached session policy responses |
 | `~/.behalf/pause-lease.json` | Local mirror of the last granted pause lease (display only — not authoritative for policy) |
 
-API keys and session cookies remain in `config.json` / `session` with mode `0600`.
-
 ## Dev walkthrough
 
 ```bash
@@ -175,10 +190,3 @@ node scripts/dev/managed-profile-walkthrough.mjs
 |----------|--------|
 | Server env (BEHALF+ID_CLI_POLICY_MODE) | Force `unmanaged`, `managed`, or `required` |
 | Server env (BEHALF+ID_CLI_REQUIRED_ACCOUNT_IDS) | Comma-separated account IDs that always use `required` |
-
-## Security notes
-
-- Shims do not embed tokens
-- Pause is auditable server-side (`CliAuditLog`)
-- Work-hours decisions use server UTC time, not local clock
-- Required mode never silently falls back to unmanaged when policy cannot be verified
