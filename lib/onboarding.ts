@@ -484,6 +484,16 @@ export const CONTROL_AREA_LABELS: Record<ControlArea, string> = {
   other: "Other"
 };
 
+export const CONTROL_POLICY_HINTS: Record<ControlArea, string> = {
+  production_deploys: "Approval required",
+  github_writes: "Profile-scoped",
+  db_migrations: "Approval required",
+  secrets: "Deny by default",
+  billing_vendor_apis: "Approval required",
+  external_comms: "Audit only",
+  other: "Review required"
+};
+
 export const PRIMARY_GOAL_LABELS: Record<PrimaryGoal, string> = {
   approvals: "Require approval before risky actions",
   block: "Block unsafe actions",

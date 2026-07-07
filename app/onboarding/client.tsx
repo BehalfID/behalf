@@ -9,6 +9,7 @@ import {
   AGENT_TOOLS,
   CONTROL_AREA_LABELS,
   CONTROL_AREAS,
+  CONTROL_POLICY_HINTS,
   TEAM_SIZE_LABELS,
   TEAM_SIZES,
   defaultWorkspaceName,
@@ -59,16 +60,6 @@ const ACCOUNT_TYPE_OPTIONS: Array<{
     body: "Shared workspace with delegated roles and organization audit."
   }
 ];
-
-const CONTROL_POLICY_HINTS: Record<ControlArea, string> = {
-  production_deploys: "Approval required",
-  github_writes: "Profile-scoped",
-  db_migrations: "Approval required",
-  secrets: "Deny by default",
-  billing_vendor_apis: "Approval required",
-  external_comms: "Audit only",
-  other: "Review required"
-};
 
 const TRACK_OPTIONS: Array<{
   goal: FirstSetupGoal;

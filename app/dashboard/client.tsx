@@ -33,6 +33,7 @@ import {
   AGENT_TOOLS,
   CONTROL_AREA_LABELS,
   CONTROL_AREAS,
+  CONTROL_POLICY_HINTS,
   PRIMARY_GOAL_LABELS,
   PRIMARY_GOALS,
   type AgentTool,
@@ -2968,7 +2969,9 @@ function SettingsView() {
             <span>Job title <small>(optional)</small></span>
             <input onChange={(event) => setProfileForm((prev) => ({ ...prev, jobTitle: event.target.value }))} value={profileForm.jobTitle} />
           </label>
-          <Button type="submit" variant="primary">Save profile</Button>
+          <div className="setup-actions">
+            <Button type="submit" variant="primary">Save profile</Button>
+          </div>
         </form>
       </Card>
       <Card className="dashboard-panel">
@@ -3023,9 +3026,9 @@ function SettingsView() {
             ) : null}
             <fieldset className="setup-fieldset">
               <legend>Agent tools</legend>
-              <div className="setup-checkgrid">
+              <div className="setup-checkgrid setup-checkgrid--settings">
                 {AGENT_TOOLS.map((tool) => (
-                  <label className="setup-check" key={tool}>
+                  <label className="setup-check setup-check--setting" key={tool}>
                     <input
                       checked={accountForm.agentTools.includes(tool)}
                       onChange={() => setAccountForm((prev) => ({
@@ -3036,16 +3039,18 @@ function SettingsView() {
                       }))}
                       type="checkbox"
                     />
-                    <span>{AGENT_TOOL_LABELS[tool]}</span>
+                    <span className="setup-check__body">
+                      <span className="setup-check__label">{AGENT_TOOL_LABELS[tool]}</span>
+                    </span>
                   </label>
                 ))}
               </div>
             </fieldset>
             <fieldset className="setup-fieldset">
               <legend>Control areas</legend>
-              <div className="setup-checkgrid">
+              <div className="setup-checkgrid setup-checkgrid--settings">
                 {CONTROL_AREAS.map((area) => (
-                  <label className="setup-check" key={area}>
+                  <label className="setup-check setup-check--setting" key={area}>
                     <input
                       checked={accountForm.controlAreas.includes(area)}
                       onChange={() => setAccountForm((prev) => ({
@@ -3056,7 +3061,10 @@ function SettingsView() {
                       }))}
                       type="checkbox"
                     />
-                    <span>{CONTROL_AREA_LABELS[area]}</span>
+                    <span className="setup-check__body">
+                      <span className="setup-check__label">{CONTROL_AREA_LABELS[area]}</span>
+                      <span className="setup-check__hint">{CONTROL_POLICY_HINTS[area]}</span>
+                    </span>
                   </label>
                 ))}
               </div>
@@ -3073,7 +3081,9 @@ function SettingsView() {
                 ))}
               </select>
             </label>
-            <Button type="submit" variant="primary">Save workspace</Button>
+            <div className="setup-actions">
+              <Button type="submit" variant="primary">Save workspace</Button>
+            </div>
           </form>
         ) : (
           <p className="field-help">Workspace fields can be edited by Owners and Engineering Leads.</p>
@@ -3110,7 +3120,6 @@ function SettingsView() {
           </div>
         ) : null}
       </Card>
-      <MembersPanel />
       <MembersPanel />
       <section className="dashboard-panel">
         <div className="dashboard-section-header">

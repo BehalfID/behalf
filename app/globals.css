@@ -3966,6 +3966,78 @@ html[data-theme="light"] .cx-chip--ok   { color: #0b7a55; }
   border-radius: 5px;
 }
 
+/* Dashboard settings: compact, stateful setting rows */
+.setup-checkgrid--settings {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* .setup-form label sets display: grid; re-assert the flex row layout here. */
+.setup-check--setting,
+.setup-form label.setup-check--setting {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.setup-form .setup-check--setting input[type="checkbox"] {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  min-height: 0;
+  margin: 2px 0 0;
+  padding: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.setup-form .setup-check--setting input[type="checkbox"]:focus-visible {
+  box-shadow: none;
+}
+
+.setup-check--setting:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-elev);
+}
+
+.setup-check--setting:has(input:checked) {
+  border-color: rgba(216, 138, 99, 0.45);
+  background: var(--accent-soft);
+}
+
+.setup-check--setting:has(input:focus-visible) {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.setup-check--setting:has(input:disabled) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.setup-check__body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.setup-check__label {
+  color: var(--text);
+  font-size: 0.8125rem;
+  font-weight: var(--fw-ui);
+  line-height: 1.35;
+}
+
+.setup-check__hint {
+  color: var(--muted);
+  font-size: 0.7188rem;
+  line-height: 1.45;
+}
+
 .setup-actions {
   display: flex;
   justify-content: flex-end;
@@ -4040,6 +4112,10 @@ html[data-theme="light"] .cx-chip--ok   { color: #0b7a55; }
   }
 
   .setup-form__row {
+    grid-template-columns: 1fr;
+  }
+
+  .setup-checkgrid--settings {
     grid-template-columns: 1fr;
   }
 
