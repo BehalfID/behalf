@@ -119,27 +119,49 @@ function activityEventTypeLabel(eventType: ManagedProfileActivityEvent["eventTyp
 
 function OnboardingCompactCommand({ command }: { command: string }) {
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
 
   const copy = () => {
-    navigator.clipboard.writeText(command).then(() => {
-      haptic("success");
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+    const failCopy = () => {
+      setCopied(false);
+      setCopyFailed(true);
+      setTimeout(() => setCopyFailed(false), 2000);
+    };
+
+    if (!navigator.clipboard?.writeText) {
+      failCopy();
+      return;
+    }
+
+    void navigator.clipboard
+      .writeText(command)
+      .then(() => {
+        haptic("success");
+        setCopyFailed(false);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(failCopy);
   };
+
+  const copyLabel = copied ? "Copied" : copyFailed ? "Copy failed" : "Copy";
 
   return (
     <div className="onboarding-command-row">
       <code className="onboarding-command-row__text">{command}</code>
       <button
         type="button"
-        className={["onboarding-command-row__copy", copied ? "onboarding-command-row__copy--ok" : ""]
+        className={[
+          "onboarding-command-row__copy",
+          copied ? "onboarding-command-row__copy--ok" : "",
+          copyFailed ? "onboarding-command-row__copy--error" : "",
+        ]
           .filter(Boolean)
           .join(" ")}
         onClick={copy}
         aria-label={`Copy ${command}`}
       >
-        {copied ? "Copied" : "Copy"}
+        {copyLabel}
       </button>
     </div>
   );
@@ -191,6 +213,7 @@ export function ManagedProfilesView() {
   const [simulateResult, setSimulateResult] = useState<PolicySimulationResult | null>(null);
   const [lastActivity, setLastActivity] = useState<ManagedProfileActivityEvent | null>(null);
   const [activityLoaded, setActivityLoaded] = useState(false);
+  const [activityFetchFailed, setActivityFetchFailed] = useState(false);
 
   const loadPolicy = async () => {
     setLoading(true);
@@ -207,6 +230,7 @@ export function ManagedProfilesView() {
   };
 
   const loadLastActivity = async () => {
+    setActivityFetchFailed(false);
     try {
       const data = await api<{ events: ManagedProfileActivityEvent[] }>(
         "/api/dashboard/managed-profiles/activity?limit=1"
@@ -214,6 +238,7 @@ export function ManagedProfilesView() {
       setLastActivity(data.events[0] ?? null);
     } catch {
       setLastActivity(null);
+      setActivityFetchFailed(true);
     } finally {
       setActivityLoaded(true);
     }
@@ -330,15 +355,20 @@ export function ManagedProfilesView() {
           detail: "Run a managed tool, then enroll the repo from Activity.",
         };
 
-  const activityStatus = lastActivity
+  const activityStatus = activityFetchFailed
     ? {
-        title: "Last activity",
-        detail: `${activityEventTypeLabel(lastActivity.eventType)} · ${formatRelativeTime(lastActivity.createdAt)}`,
+        title: "Activity status unavailable",
+        detail: "Could not load recent managed profile activity.",
       }
-    : {
-        title: "No activity yet",
-        detail: "Launch a managed tool after installing shims.",
-      };
+    : lastActivity
+      ? {
+          title: "Last activity",
+          detail: `${activityEventTypeLabel(lastActivity.eventType)} · ${formatRelativeTime(lastActivity.createdAt)}`,
+        }
+      : {
+          title: "No activity yet",
+          detail: "Launch a managed tool after installing shims.",
+        };
 
   if (loading && !form) {
     return <p className="setup-loading">Loading managed profile policy…</p>;

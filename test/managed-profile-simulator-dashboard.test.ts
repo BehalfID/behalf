@@ -63,7 +63,15 @@ describe("managed profile onboarding dashboard source", () => {
     expect(source).toContain("OnboardingCompactCommand");
     expect(source).toContain("onboarding-command-row");
     expect(source).toContain('"Copied"');
+    expect(source).toContain('"Copy failed"');
     expect(source).toContain('"Copy"');
+    expect(source).toContain("navigator.clipboard?.writeText");
+    expect(source).toContain(".catch(");
+  });
+
+  it("shows a fallback when activity hint fetch fails", () => {
+    expect(source).toContain("activityFetchFailed");
+    expect(source).toContain("Activity status unavailable");
   });
 
   it("includes policy status callout copy", () => {
@@ -99,16 +107,50 @@ describe("managed profile onboarding dashboard source", () => {
   });
 });
 
+describe("managed profile pause approval formatting", () => {
+  it("includes approval id, device id, and clearer reason labels", async () => {
+    const { formatPauseApprovalDetails } = await import("@/components/dashboard/opsLogTypes");
+    const details = formatPauseApprovalDetails({
+      approvalId: "apr_test",
+      requestId: "req_test",
+      agentId: "behalf_cli_pause",
+      permissionId: "perm_test",
+      action: "managed_profile_pause",
+      status: "pending",
+      kind: "managed_profile_pause",
+      requesterName: "Alice",
+      pauseTool: "claude",
+      pauseScope: "all",
+      pauseDeviceId: "devmac_test",
+      requestedDurationMinutes: 30,
+      pauseReason: "incident response",
+      contextReason: "Protected repository policy applies (required).",
+    });
+    expect(details).toContain("Approval: apr_test");
+    expect(details).toContain("Device: devmac_test");
+    expect(details).toContain("Pause reason: incident response");
+    expect(details).toContain("Policy context:");
+    expect(details).not.toContain("Required context:");
+  });
+});
+
 describe("cli install commands", () => {
   it("builds npm install command from package name", async () => {
     const { CLI_NPM_INSTALL_COMMAND } = await import("@/lib/cliInstallCommands");
     expect(CLI_NPM_INSTALL_COMMAND).toMatch(/^npm install -g @.+\/cli$/);
   });
 
-  it("docs cli page uses shared npm install command", () => {
+  it("docs cli page uses shared npm install command", async () => {
+    const { CLI_NPM_INSTALL_COMMAND } = await import("@/lib/cliInstallCommands");
     const docsSource = readFileSync(join(process.cwd(), "app/docs/cli/page.tsx"), "utf-8");
+    const demoSource = readFileSync(join(process.cwd(), "app/docs/demo-script/page.tsx"), "utf-8");
+    const readmeSource = readFileSync(join(process.cwd(), "packages/cli/README.md"), "utf-8");
     expect(docsSource).toContain("CLI_NPM_INSTALL_COMMAND");
+    expect(demoSource).toContain("CLI_NPM_INSTALL_COMMAND");
+    expect(readmeSource).toContain("packages/cli/package.json");
+    expect(CLI_NPM_INSTALL_COMMAND).toMatch(/^npm install -g @.+\/cli$/);
     expect(docsSource).not.toContain("npm install -g behalf");
+    expect(readmeSource).not.toContain("npm install -g behalf");
   });
 });
 

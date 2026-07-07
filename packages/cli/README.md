@@ -2,16 +2,42 @@
 
 Managed profiles intercept `claude`, `codex`, and `cursor` through local shims, resolve workspace policy from the server, and inject session environment variables before launching the real tool.
 
+## Canonical install and first run
+
+Install the CLI globally using the package name from `packages/cli/package.json` (`npm install -g @…/cli`), then run:
+
+```bash
+behalf login
+behalf profile install
+behalf profile status --tool claude
+behalf profile simulate --tool claude
+claude
+```
+
 ## Recommended first run (dashboard)
 
-Open **Managed profiles** in the dashboard (`/dashboard/managed-profiles`). The onboarding card walks through:
+Open **Managed profiles** in the dashboard (`/dashboard/managed-profiles`). The onboarding card walks through the same sequence:
 
-1. **Install shims** — install the CLI (`npm install -g` + package name from `packages/cli/package.json`), then `behalf login` and `behalf profile install`
+1. **Install shims** — install the CLI globally (`npm install -g` + package name from `packages/cli/package.json`), then `behalf login` and `behalf profile install`
 2. **Verify status** — `behalf profile status --tool claude`
 3. **Simulate policy** — `behalf profile simulate --tool claude`
 4. **Launch a managed tool** — `claude` (through the shim)
 
 Enable managed profile policy in the dashboard before expecting enforcement. After your first shim launch, use **Managed Profile Activity** to enroll protected repos without copying hashes manually.
+
+## Approver view
+
+When `required` mode pause approval is enabled, developers run `behalf pause --duration … --reason …` and receive an approval request id. Workspace approvers review pending requests at `/dashboard/approvals` or **Needs attention** (`/dashboard/inbox`).
+
+Each pause approval shows:
+
+- Approval id (`apr_…`)
+- Requester
+- Tool, repo hash or all-repos scope, branch, and device id when available
+- Requested duration and developer pause reason
+- Policy context explaining why enforcement is required
+
+Approved grants appear under **Recently approved grants** on Needs attention until the grant expires. Pause approval requests also appear in **Managed profile activity** with duration, scope, and a link back to the approval queue.
 
 ## Install once
 

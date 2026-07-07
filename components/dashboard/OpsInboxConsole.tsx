@@ -3,7 +3,14 @@
 import Link from "next/link";
 import { Button, EmptyState, PageHeader } from "@/components/ui";
 import { DecisionIndicator, OpsApprovalCard, OpsApprovalQueueRow } from "./OpsEventPrimitives";
-import { formatOpsTime, type OpsApprovalRequest, type OpsLog } from "./opsLogTypes";
+import {
+  formatPauseApprovalDetails,
+  formatPauseApprovalTitle,
+  formatOpsTime,
+  isManagedProfilePauseApproval,
+  type OpsApprovalRequest,
+  type OpsLog,
+} from "./opsLogTypes";
 
 export function OpsInboxConsole({
   inbox,
@@ -80,18 +87,29 @@ export function OpsInboxConsole({
             <h2 className="ops-triage__title">Recently approved grants</h2>
           </div>
           <div className="ops-triage__grants">
-            {activeGrants.map((req) => (
+            {activeGrants.map((req) => {
+              const pauseApproval = isManagedProfilePauseApproval(req);
+              return (
               <div className="ops-triage__grant" key={req.approvalId}>
                 <span className="ops-status ops-status--allowed ops-status--compact">
                   <span className="ops-status__dot" aria-hidden="true" />
                   <span className="ops-status__label">Approved</span>
                 </span>
                 <div>
-                  <p className="ops-triage__grant-title">{req.agentName ?? req.agentId} · <code>{req.action}</code></p>
-                  <p className="ops-triage__grant-meta">Grant until {dateFormatter(req.grantExpiresAt)}</p>
+                  <p className="ops-triage__grant-title">
+                    {pauseApproval
+                      ? formatPauseApprovalTitle(req)
+                      : `${req.agentName ?? req.agentId} · ${req.action}`}
+                  </p>
+                  <p className="ops-triage__grant-meta">
+                    {pauseApproval ? formatPauseApprovalDetails(req) : null}
+                    {pauseApproval && req.grantExpiresAt ? " · " : null}
+                    {req.grantExpiresAt ? `Grant until ${dateFormatter(req.grantExpiresAt)}` : null}
+                  </p>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       ) : null}

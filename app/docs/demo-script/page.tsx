@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { CLI_NPM_INSTALL_COMMAND } from "@/lib/cliInstallCommands";
 import { CodeBlock, DocsShell } from "../content";
 
 export const metadata: Metadata = {
@@ -20,7 +21,7 @@ export default function DemoScriptPage() {
         Do all of this off-camera. The recording starts at step 1 below.
       </p>
       <ol className="docs-list">
-        <li>Install the CLI: <code>npm install -g @behalfid/cli</code></li>
+        <li>Install the CLI: <code>{CLI_NPM_INSTALL_COMMAND}</code></li>
         <li>Log in: <code>behalf login</code></li>
         <li>Create a demo agent: <code>behalf agents create --name "Claude Code Demo" --save</code> — the <code>--save</code> flag writes the agent ID and API key to config</li>
         <li>
