@@ -220,8 +220,10 @@ export function ManagedProfilesView() {
   };
 
   useEffect(() => {
-    void loadPolicy();
-    void loadLastActivity();
+    queueMicrotask(() => {
+      void loadPolicy();
+      void loadLastActivity();
+    });
   }, []);
 
   const savePolicy = async (event: FormEvent) => {
