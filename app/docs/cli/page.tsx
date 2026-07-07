@@ -4,7 +4,7 @@ import { CodeBlock, DocsShell } from "../content";
 
 export const metadata: Metadata = {
   title: "Coding Agent Quickstart (CLI & MCP) — BehalfID",
-  description: "Stop Claude Code, Codex, and Cursor from running dangerous commands without approval. Install the behalf CLI, wire up the MCP server, and launch your coding agent with enforcement active.",
+  description: "Stop Claude Code, Codex, and Cursor from running dangerous commands without approval. Install the behalf CLI, wire up MCP enforcement or Managed Profiles shims, and launch coding agents with workspace policy active.",
   alternates: { canonical: "/docs/cli" }
 };
 
@@ -12,7 +12,7 @@ export default function CliDocsPage() {
   return (
     <DocsShell
       title="Coding agent quickstart (CLI & MCP)"
-      description="Stop Claude Code, Codex, and Cursor from deploying to production, deleting files, or pushing to main without your approval. Install the CLI, wire up MCP enforcement, and launch your agent — all in under five minutes."
+      description="Stop Claude Code, Codex, and Cursor from deploying to production, deleting files, or pushing to main without your approval. Install the CLI, wire up MCP enforcement or Managed Profiles shims, and launch your agent with workspace policy active — all in under five minutes."
       previous={{ href: "/docs", label: "Overview" }}
       next={{ href: "/docs/deploy-approvals", label: "Deploy approvals" }}
     >

@@ -4,7 +4,7 @@ import { DocsShell } from "./content";
 
 export const metadata: Metadata = {
   title: "Docs — BehalfID",
-  description: "Stop coding agents from deploying to production, running migrations, or deleting files without your approval. CLI/MCP setup for Claude Code and Codex, SDK for custom agents.",
+  description: "Stop coding agents from deploying to production, running migrations, or deleting files without your approval. CLI/MCP or Managed Profiles setup for Claude Code, Codex, and Cursor; SDK for custom agents.",
   alternates: { canonical: "/docs" }
 };
 
@@ -16,7 +16,7 @@ const cards = [
   { href: "/docs/sdk", title: "SDK", body: "Install the JavaScript SDK from npm and call behalf.verify() before tool execution from Node 18+." },
   { href: "/docs/api", title: "API Reference", body: "Use public REST endpoints for agents, permissions, verification, logs, and key rotation." },
   { href: "/docs/webhooks", title: "Webhooks", body: "Receive signed events for allowed, denied, and approval-required decisions via an outbox-backed delivery system." },
-  { href: "/docs/concepts", title: "Concepts", body: "Understand permission passports, fail-closed enforcement, approval-required flows, audit logs, and MCP enforcement." },
+  { href: "/docs/concepts", title: "Concepts", body: "Understand permission passports, fail-closed enforcement, approval-required flows, audit logs, MCP enforcement, and Managed Profiles." },
   { href: "/security", title: "Security", body: "How BehalfID handles secrets, tokens, fail-closed enforcement, audit logs, and current limitations." },
   { href: "/docs/site-guard", title: "Site Guard", body: "Design website middleware, workers, or gateways that enforce AI access rules before protected routes run." },
   { href: "/docs/action-gateway", title: "Action Gateway", body: "Route safe public web reads through BehalfID so denied actions fail before execution." },

@@ -4,7 +4,7 @@ import { DocsShell } from "../content";
 
 export const metadata: Metadata = {
   title: "Concepts — BehalfID",
-  description: "Understand permission passports, fail-closed enforcement, approval-required flows, audit logs, and MCP enforcement.",
+  description: "Understand permission passports, fail-closed enforcement, approval-required flows, audit logs, MCP enforcement, and Managed Profiles.",
   alternates: { canonical: "/docs/concepts" }
 };
 
