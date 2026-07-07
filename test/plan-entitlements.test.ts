@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFile } from "node:fs/promises";
 import {
   formatLimit,
   getLogRetentionDays,
@@ -155,6 +156,22 @@ describe("plan entitlements source of truth", () => {
         logRetentionDays: PLAN_ENTITLEMENTS[plan].logRetentionDays
       });
     }
+  });
+});
+
+describe("webhook entitlement UI copy", () => {
+  it("does not render disabled webhooks as Available on the dashboard usage panel", async () => {
+    const source = await readFile("/workspace/app/dashboard/client.tsx", "utf8");
+    expect(source).toContain('usage.webhooksEnabled ? "Enabled" : "Upgrade required"');
+    expect(source).not.toMatch(/webhooksEnabled \? "Enabled" : "Available"/);
+  });
+
+  it("renders disabled webhooks as Upgrade required on the billing usage surface", async () => {
+    const source = await readFile("/workspace/app/dashboard/billing/client.tsx", "utf8");
+    expect(source).toContain('entitlements.webhooksEnabled ? "Enabled" : "Upgrade required"');
+    expect(source).toContain('"Upgrade to Pro to enable webhook delivery."');
+    expect(source).not.toMatch(/webhooksEnabled \? "Enabled" : "Available"/);
+    expect(source).not.toContain("Set up webhook endpoints to receive verification events.");
   });
 });
 

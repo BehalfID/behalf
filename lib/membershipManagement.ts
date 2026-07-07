@@ -125,19 +125,6 @@ export async function addOrInviteMember(
     return { error: roleDelegationForbidden() };
   }
 
-  // Seat limits only block adding new billable members; existing members are
-  // never removed or downgraded when a workspace is over its limit.
-  const seatCheck = await checkSeatLimit(actor.accountId, input.role);
-  if (!seatCheck.allowed) {
-    return {
-      error: jsonError(
-        seatCheck.reason ?? "This workspace has reached its billable seat limit.",
-        402,
-        quotaErrorDetails(seatCheck)
-      )
-    };
-  }
-
   const email = normalizeEmail(input.email);
   const existingUser = await DeveloperUser.findOne({ email }).select("userId email primaryAccountId").lean();
 
@@ -148,6 +135,19 @@ export async function addOrInviteMember(
     }).lean();
     if (existingMembership) {
       return { error: "This user is already a member of the workspace." };
+    }
+
+    // Seat limits only block adding new billable members; existing members are
+    // never removed or downgraded when a workspace is over its limit.
+    const seatCheck = await checkSeatLimit(actor.accountId, input.role);
+    if (!seatCheck.allowed) {
+      return {
+        error: jsonError(
+          seatCheck.reason ?? "This workspace has reached its billable seat limit.",
+          402,
+          quotaErrorDetails(seatCheck)
+        )
+      };
     }
 
     const membership = await AccountMembership.create({
@@ -165,6 +165,17 @@ export async function addOrInviteMember(
         role: input.role,
         status: "active" as const
       }
+    };
+  }
+
+  const seatCheck = await checkSeatLimit(actor.accountId, input.role);
+  if (!seatCheck.allowed) {
+    return {
+      error: jsonError(
+        seatCheck.reason ?? "This workspace has reached its billable seat limit.",
+        402,
+        quotaErrorDetails(seatCheck)
+      )
     };
   }
 

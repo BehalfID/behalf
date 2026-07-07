@@ -731,7 +731,7 @@ function PlanUsagePanel({ usage }: { usage: UsageSummary }) {
         <div><span>Protected repos</span><strong>{usage.protectedRepoCount.toLocaleString()} / {formatUsageLimit(usage.protectedRepoLimit)}</strong></div>
         <div><span>Verifications</span><strong>{usage.verificationCount.toLocaleString()} / {formatUsageLimit(usage.verificationLimit)}</strong></div>
         <div><span>Reset</span><strong>{formatUsageDate(usage.verificationPeriodResetAt)}</strong></div>
-        <div><span>Webhooks</span><strong>{usage.webhooksEnabled ? "Enabled" : "Available"}</strong></div>
+        <div><span>Webhooks</span><strong>{usage.webhooksEnabled ? "Enabled" : "Upgrade required"}</strong></div>
         <div><span>Log retention</span><strong>{usage.logRetentionDays} days</strong></div>
       </div>
     </section>

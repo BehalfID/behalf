@@ -238,8 +238,8 @@ export function BillingClient({
         </div>
         <div>
           <span>Webhooks</span>
-          <strong>{entitlements.webhooksEnabled ? "Enabled" : "Available"}</strong>
-          <small>{entitlements.webhooksEnabled ? "Webhook endpoints can receive verification events." : "Set up webhook endpoints to receive verification events."}</small>
+          <strong>{entitlements.webhooksEnabled ? "Enabled" : "Upgrade required"}</strong>
+          <small>{entitlements.webhooksEnabled ? "Webhook endpoints can receive verification events." : "Upgrade to Pro to enable webhook delivery."}</small>
         </div>
         <div>
           <span>Log retention</span>
