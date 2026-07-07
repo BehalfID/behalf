@@ -44,6 +44,15 @@ const scenarios: Scenario[] = [
     reason: "Read-only GitHub access is within scope.",
     executed: true,
   },
+  {
+    id: "protected-repo",
+    label: "Protected repo launch",
+    request: { tool: "claude", launch: "shim", repo: "0123456789abcdef", branch: "main" },
+    passportRule: "protected repo requires required mode",
+    outcome: "needs_approval",
+    reason: "Required mode active. Pause requires approval before enforcement can be relaxed.",
+    executed: false,
+  },
 ];
 
 function outcomeLabel(outcome: Outcome) {
