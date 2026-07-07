@@ -9,7 +9,8 @@ export const metadata: Metadata = {
 };
 
 const cards = [
-  { href: "/docs/cli", title: "Coding agent quickstart (CLI/MCP)", body: "Install the behalf CLI, wire up the MCP server, and launch Claude Code or Codex with BehalfID enforcement active. Fastest path to blocking dangerous commands." },
+  { href: "/docs/cli", title: "Coding agent quickstart (CLI/MCP)", body: "Install the behalf CLI, wire up MCP enforcement or Managed Profiles shims, and launch Claude Code, Codex, or Cursor with workspace policy active." },
+  { href: "/docs/demo-script", title: "Demo scripts", body: "Terminal-first scripts for recording Managed Profiles (2–3 min) and deploy-approval demos (60–90 sec)." },
   { href: "/docs/deploy-approvals", title: "Deploy approvals", body: "Full walkthrough: coding agent attempts production deploy → BehalfID blocks → you approve in the dashboard → agent retries → deploy runs." },
   { href: "/docs/quickstart", title: "SDK quickstart", body: "Create an agent, add a permission, install the SDK, call verify() before execution, and test allowed and denied requests from any Node.js app." },
   { href: "/docs/sdk", title: "SDK", body: "Install the JavaScript SDK from npm and call behalf.verify() before tool execution from Node 18+." },
