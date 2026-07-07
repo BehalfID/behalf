@@ -79,6 +79,20 @@ function modeLabel(mode: ManagedProfileActivityEvent["mode"]) {
   return mode[0].toUpperCase() + mode.slice(1);
 }
 
+function formatActivityRepo(event: ManagedProfileActivityEvent) {
+  if (event.pauseScope === "all") return "all repos";
+  return event.repo ?? "—";
+}
+
+function formatActivityPauseMeta(event: ManagedProfileActivityEvent) {
+  const parts: string[] = [];
+  if (typeof event.requestedDurationMinutes === "number") {
+    parts.push(`Duration ${event.requestedDurationMinutes}m`);
+  }
+  if (event.deviceId) parts.push(`Device ${event.deviceId}`);
+  return parts.join(" · ");
+}
+
 function buildProtectedRepoStatusByHash(
   policy: ManagedProfilesResponse["policy"]
 ): Map<string, ProtectedRepoStatus> {
@@ -172,12 +186,21 @@ function ActivityEventCard({
         <span>{modeLabel(event.mode)}</span>
       </p>
       <p className="ops-event-card__meta">
-        Repo {event.repo ?? "—"} · Branch {event.branch ?? "—"}
+        Repo {formatActivityRepo(event)} · Branch {event.branch ?? "—"}
       </p>
       <p className="ops-event-card__reason">{event.reason}</p>
-      {event.deviceId ? (
+      {formatActivityPauseMeta(event) ? (
+        <p className="ops-event-card__meta">{formatActivityPauseMeta(event)}</p>
+      ) : event.deviceId ? (
         <p className="ops-event-card__meta">
           Device <code>{event.deviceId}</code>
+        </p>
+      ) : null}
+      {event.approvalRequestId ? (
+        <p className="ops-event-card__meta">
+          <Link href={`/dashboard/approvals?highlight=${event.approvalRequestId}`}>
+            View approval {event.approvalRequestId}
+          </Link>
         </p>
       ) : null}
       {event.repo ? (
@@ -370,6 +393,9 @@ export function ManagedProfileActivityView() {
         <span className="ops-metrics__item ops-metrics__item--denied">
           <strong>{summary.pauseDenials}</strong> pause denials
         </span>
+        <span className="ops-metrics__item">
+          <strong>{summary.pauseApprovalRequests}</strong> pause approval requests
+        </span>
       </div>
 
       <div className="ops-cmd" role="search">
@@ -534,7 +560,7 @@ export function ManagedProfileActivityView() {
                   <td className="ops-events__mono">{event.tool ?? "—"}</td>
                   <td>{modeLabel(event.mode)}</td>
                   <td className="ops-events__mono">
-                    {event.repo ?? "—"}
+                    {formatActivityRepo(event)}
                     {event.repo && protectedRepoStatusByHash.get(event.repo) === "enforced" ? (
                       <>
                         {" "}
@@ -543,9 +569,22 @@ export function ManagedProfileActivityView() {
                     ) : null}
                   </td>
                   <td className="ops-events__mono">{event.branch ?? "—"}</td>
-                  <td className="ops-events__message">{event.reason}</td>
+                  <td className="ops-events__message">
+                    {event.reason}
+                    {typeof event.requestedDurationMinutes === "number"
+                      ? ` · Duration ${event.requestedDurationMinutes}m`
+                      : ""}
+                  </td>
                   <td className="ops-events__mono">{event.deviceId ?? "—"}</td>
                   <td>
+                    {event.approvalRequestId ? (
+                      <>
+                        <Link href={`/dashboard/approvals?highlight=${event.approvalRequestId}`}>
+                          View approval
+                        </Link>
+                        {event.repo ? <> · </> : null}
+                      </>
+                    ) : null}
                     <ProtectRepoActions
                       canEdit={canEdit}
                       onProtect={openEnrollForm}

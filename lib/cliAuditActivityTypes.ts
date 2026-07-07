@@ -12,6 +12,9 @@ export type ManagedProfileActivityEvent = {
   profileId: string | null;
   profileName: string | null;
   expiresAt: string | null;
+  requestedDurationMinutes: number | null;
+  pauseScope: "current_repo" | "all" | null;
+  approvalRequestId: string | null;
 };
 
 export function activitySummaryFromEvents(events: ManagedProfileActivityEvent[]) {

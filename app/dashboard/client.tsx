@@ -9,6 +9,12 @@ import { FirstAgentSetup } from "@/components/dashboard/first-agent/FirstAgentSe
 import { ManagedProfilesView } from "@/components/dashboard/ManagedProfilesView";
 import { ManagedProfileActivityView } from "@/components/dashboard/ManagedProfileActivityView";
 import { OpsInboxConsole } from "@/components/dashboard/OpsInboxConsole";
+import {
+  formatPauseApprovalDetails,
+  formatPauseApprovalTitle,
+  isManagedProfilePauseApproval,
+} from "@/components/dashboard/opsLogTypes";
+import { CLI_NPM_INSTALL_COMMAND } from "@/lib/cliInstallCommands";
 import { DashboardShellLayout } from "@/components/layout/DashboardShell";
 import { Badge, Button, ButtonLink, Card, CodeBlock, EmptyState, PageHeader, StatCard } from "@/components/ui";
 import { SCOPE_TEMPLATES } from "@/lib/scopeTemplates";
@@ -133,8 +139,10 @@ type SiteGuardKey = {
 type ApprovalRequest = {
   approvalId: string;
   requestId: string;
+  kind?: "agent_action" | "managed_profile_pause" | null;
   agentId: string;
   agentName?: string | null;
+  requesterName?: string | null;
   permissionId: string;
   action: string;
   vendor?: string | null;
@@ -150,6 +158,14 @@ type ApprovalRequest = {
   canDeny?: boolean;
   approveBlockReason?: string | null;
   denyBlockReason?: string | null;
+  pauseTool?: string | null;
+  pauseRepo?: string | null;
+  pauseBranch?: string | null;
+  pauseDeviceId?: string | null;
+  pauseScope?: "current_repo" | "all" | null;
+  requestedDurationMinutes?: number | null;
+  pauseReason?: string | null;
+  contextReason?: string | null;
 };
 type AccountMember = {
   membershipId: string;
@@ -542,16 +558,37 @@ function HomeView() {
               <p className="ops-empty">No approvals waiting. Gated actions pause here for human review before they run.</p>
             ) : (
               <div className="ops-feed">
-                {pendingApprovals.slice(0, 5).map((item) => (
-                  <Link className="ops-feed__row" href="/dashboard/approvals" key={item.approvalId}>
+                {pendingApprovals.slice(0, 5).map((item) => {
+                  const pauseApproval = isManagedProfilePauseApproval(item);
+                  return (
+                  <Link
+                    className="ops-feed__row"
+                    href={
+                      pauseApproval
+                        ? `/dashboard/approvals?highlight=${item.approvalId}`
+                        : "/dashboard/approvals"
+                    }
+                    key={item.approvalId}
+                  >
                     <span className="ops-feed__time">{feedTime(item.createdAt)}</span>
                     <span className="ops-feed__body">
-                      <span className="ops-feed__title">{item.agentName ?? item.agentId} · <code>{item.action}</code></span>
-                      <span className="ops-feed__meta">{item.requiredRoleLabel ? `Requires ${item.requiredRoleLabel}` : "Awaiting decision"}</span>
+                      <span className="ops-feed__title">
+                        {pauseApproval
+                          ? formatPauseApprovalTitle(item)
+                          : `${item.agentName ?? item.agentId} · ${item.action}`}
+                      </span>
+                      <span className="ops-feed__meta">
+                        {pauseApproval
+                          ? formatPauseApprovalDetails(item)
+                          : item.requiredRoleLabel
+                            ? `Requires ${item.requiredRoleLabel}`
+                            : "Awaiting decision"}
+                      </span>
                     </span>
                     <span className="cx-chip cx-chip--warn">Pending</span>
                   </Link>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>
@@ -1908,7 +1945,7 @@ ${regularPassportUrl || "[passport link]"}`;
               <p>Install the BehalfID SDK in the app or executor that will call verify before tools run.</p>
               <CodeBlock label="terminal">npm install @behalfid/sdk</CodeBlock>
               <p className="field-help" style={{ marginTop: 16, marginBottom: 8 }}>If you also use the BehalfID CLI or MCP server, install the CLI and configure it with the same agent.</p>
-              <CodeBlock label="terminal">npm install -g @behalfid/cli</CodeBlock>
+              <CodeBlock label="terminal">{CLI_NPM_INSTALL_COMMAND}</CodeBlock>
               <CodeBlock label="copy and run">{`behalf config set api-key ${apiKey}\nbehalf config set agent-id ${agent?.agentId ?? ""}`}</CodeBlock>
               <p className="field-help" style={{ marginTop: 8 }}>Your API key was shown once after creating the agent. If you missed it, rotate it from the agent detail page.</p>
             </Card>

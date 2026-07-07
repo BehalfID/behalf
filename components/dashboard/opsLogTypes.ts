@@ -76,16 +76,18 @@ export function formatPauseApprovalTitle(req: OpsApprovalRequest): string {
 
 export function formatPauseApprovalDetails(req: OpsApprovalRequest): string {
   const parts: string[] = [];
+  if (req.approvalId) parts.push(`Approval: ${req.approvalId}`);
   if (req.requesterName) parts.push(`Requester: ${req.requesterName}`);
   if (req.pauseTool) parts.push(`Tool: ${req.pauseTool}`);
   if (req.pauseRepo) parts.push(`Repo: ${req.pauseRepo}`);
   else if (req.pauseScope === "all") parts.push("Repo: all repos");
   if (req.pauseBranch) parts.push(`Branch: ${req.pauseBranch}`);
+  if (req.pauseDeviceId) parts.push(`Device: ${req.pauseDeviceId}`);
   if (typeof req.requestedDurationMinutes === "number") {
     parts.push(`Duration: ${req.requestedDurationMinutes}m`);
   }
-  if (req.pauseReason) parts.push(`Reason: ${req.pauseReason}`);
-  if (req.contextReason) parts.push(`Required context: ${req.contextReason}`);
+  if (req.pauseReason) parts.push(`Pause reason: ${req.pauseReason}`);
+  if (req.contextReason) parts.push(`Policy context: ${req.contextReason}`);
   return parts.join(" · ");
 }
 

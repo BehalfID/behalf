@@ -403,6 +403,36 @@ describe("managed profile activity dashboard UI", () => {
     expect(source).toContain("No managed profile activity yet");
     expect(source).toContain("behalf profile status --tool claude");
     expect(source).toContain("managed-activity-empty");
+    expect(source).toContain("No events match these filters.");
+  });
+
+  it("serializes pause approval metadata without leaking sensitive fields", async () => {
+    const { serializeCliAuditActivityEvent } = await import("@/lib/cliAuditActivity");
+    const event = serializeCliAuditActivityEvent({
+      auditId: "clia_pause_req",
+      eventType: "cli_pause_approval_requested",
+      tool: "claude",
+      mode: "required",
+      granted: null,
+      reason: "Pause approval required for required mode.",
+      repo: "0123456789abcdef",
+      branch: "main",
+      metadata: {
+        approvalRequestId: "apr_test",
+        requestedMinutes: 30,
+        deviceId: "devmac_test",
+        scope: "all",
+        gitRemote: "https://github.com/org/secret.git",
+        cwd: "/Users/alice/dev/secret",
+      },
+      createdAt: new Date("2026-07-05T12:00:00.000Z"),
+    });
+    expect(event.requestedDurationMinutes).toBe(30);
+    expect(event.pauseScope).toBe("all");
+    expect(event.approvalRequestId).toBe("apr_test");
+    expect(event.deviceId).toBe("devmac_test");
+    expect(JSON.stringify(event)).not.toContain("github.com");
+    expect(JSON.stringify(event)).not.toContain("/Users/alice");
   });
 
   it("renders loaded event type, mode, tool, and reason columns", async () => {

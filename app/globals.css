@@ -11070,6 +11070,11 @@ body.ops-drawer-open .site-consent {
   border-color: color-mix(in srgb, var(--success, #3ecf8e) 40%, var(--border));
 }
 
+.onboarding-command-row__copy--error {
+  color: var(--danger, #f87171);
+  border-color: color-mix(in srgb, var(--danger, #f87171) 40%, var(--border));
+}
+
 .managed-profile-onboarding-actions {
   display: flex;
   flex-wrap: wrap;

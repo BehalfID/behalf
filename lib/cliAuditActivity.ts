@@ -37,6 +37,7 @@ const SAFE_METADATA_KEYS = new Set([
   "requestedminutes",
   "leaseid",
   "approvalrequestid",
+  "scope",
 ]);
 const SENSITIVE_METADATA_KEY_PARTS = [
   "token",
@@ -72,6 +73,11 @@ function validDate(value: string | null) {
 function readMetadataString(metadata: Record<string, unknown> | null | undefined, key: string) {
   const value = metadata?.[key];
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function readMetadataNumber(metadata: Record<string, unknown> | null | undefined, key: string) {
+  const value = metadata?.[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 function isSensitiveMetadataKey(key: string) {
@@ -210,6 +216,10 @@ export function serializeCliAuditActivityEvent(
     readMetadataString(metadata, "expiresAt") ??
     (doc.eventType === "cli_pause_grant" ? readMetadataString(metadata, "expiresAt") : null);
 
+  const scopeValue = readMetadataString(metadata, "scope");
+  const pauseScope =
+    scopeValue === "all" ? "all" : scopeValue === "current_repo" ? "current_repo" : null;
+
   return {
     id: doc.auditId,
     createdAt:
@@ -227,5 +237,8 @@ export function serializeCliAuditActivityEvent(
     profileId: readMetadataString(metadata, "profileId"),
     profileName: readMetadataString(metadata, "profileName"),
     expiresAt,
+    requestedDurationMinutes: readMetadataNumber(metadata, "requestedMinutes"),
+    pauseScope,
+    approvalRequestId: readMetadataString(metadata, "approvalRequestId"),
   };
 }
