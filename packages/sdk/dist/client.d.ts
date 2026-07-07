@@ -1,5 +1,12 @@
 import type { BehalfIDConfig, CreateAgentInput, CreateAgentResult, CreatePermissionInput, CreatePermissionResult, ExecuteActionInput, ExecuteActionResult, RotateKeyResult, VerificationLog, VerifyInput, VerifyResult } from "./types.js";
 import { SiteGuardNamespace } from "./site-guard.js";
+export type VerifyCallOptions = {
+    /**
+     * Abort the in-flight HTTP request (e.g. from a timeout AbortController).
+     * Ignored when the runtime fetch implementation does not support AbortSignal.
+     */
+    signal?: AbortSignal;
+};
 export declare class BehalfID {
     private readonly apiKey;
     private readonly developerToken;
@@ -12,7 +19,7 @@ export declare class BehalfID {
      */
     readonly siteGuard: SiteGuardNamespace;
     constructor({ apiKey, developerToken, baseUrl, allowInsecureHttp }: BehalfIDConfig);
-    verify(input: VerifyInput): Promise<VerifyResult>;
+    verify(input: VerifyInput, options?: VerifyCallOptions): Promise<VerifyResult>;
     executeAction(input: ExecuteActionInput): Promise<ExecuteActionResult>;
     createAgent(input: string | CreateAgentInput): Promise<CreateAgentResult>;
     createPermission(input: CreatePermissionInput): Promise<CreatePermissionResult>;

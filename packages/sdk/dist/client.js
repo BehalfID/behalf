@@ -42,10 +42,11 @@ export class BehalfID {
         this.baseUrl = normalizedBaseUrl;
         this.siteGuard = new SiteGuardNamespace(this.request.bind(this));
     }
-    verify(input) {
+    verify(input, options) {
         return this.request("/api/verify", {
             method: "POST",
-            body: input
+            body: input,
+            signal: options?.signal
         });
     }
     executeAction(input) {
@@ -95,10 +96,14 @@ export class BehalfID {
                     ...(this.developerToken ? { "X-Developer-Token": this.developerToken } : {}),
                     ...(options.body === undefined ? {} : { "Content-Type": "application/json" })
                 },
-                body: options.body === undefined ? undefined : JSON.stringify(options.body)
+                body: options.body === undefined ? undefined : JSON.stringify(options.body),
+                signal: options.signal
             });
         }
         catch {
+            if (options.signal?.aborted) {
+                throw new Error("BehalfID: Request aborted.");
+            }
             throw new Error("BehalfID: Network request failed.");
         }
         const body = (await response.json().catch(() => null));

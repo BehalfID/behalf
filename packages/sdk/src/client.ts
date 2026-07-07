@@ -16,6 +16,15 @@ import { SiteGuardNamespace } from "./site-guard.js";
 type RequestOptions = {
   method?: string;
   body?: unknown;
+  signal?: AbortSignal;
+};
+
+export type VerifyCallOptions = {
+  /**
+   * Abort the in-flight HTTP request (e.g. from a timeout AbortController).
+   * Ignored when the runtime fetch implementation does not support AbortSignal.
+   */
+  signal?: AbortSignal;
 };
 
 const DEFAULT_BASE_URL = "https://behalfid.com";
@@ -71,10 +80,11 @@ export class BehalfID {
     this.siteGuard = new SiteGuardNamespace(this.request.bind(this));
   }
 
-  verify(input: VerifyInput): Promise<VerifyResult> {
+  verify(input: VerifyInput, options?: VerifyCallOptions): Promise<VerifyResult> {
     return this.request<VerifyResult>("/api/verify", {
       method: "POST",
-      body: input
+      body: input,
+      signal: options?.signal
     });
   }
 
@@ -133,9 +143,13 @@ export class BehalfID {
           ...(this.developerToken ? { "X-Developer-Token": this.developerToken } : {}),
           ...(options.body === undefined ? {} : { "Content-Type": "application/json" })
         },
-        body: options.body === undefined ? undefined : JSON.stringify(options.body)
+        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+        signal: options.signal
       });
     } catch {
+      if (options.signal?.aborted) {
+        throw new Error("BehalfID: Request aborted.");
+      }
       throw new Error("BehalfID: Network request failed.");
     }
 

@@ -40,19 +40,29 @@ function debugLog(config, ...parts) {
  * Guarantees fail-closed behavior when the permission check is unavailable.
  *
  * When config.timeoutMs is set, the timer is properly cleared when
- * verifyPromise settles (no orphaned callbacks). The in-flight HTTP request
- * is NOT cancelled — see docs/COMPATIBILITY_MATRIX.md §timeout.
- * TODO: extend BehalfIDClient to accept verify(input, signal?) for true
- *       request cancellation via AbortController.
+ * verifyPromise settles (no orphaned callbacks) and the in-flight HTTP
+ * request is aborted via AbortController when the deadline fires (on
+ * runtimes whose fetch supports AbortSignal). See
+ * docs/COMPATIBILITY_MATRIX.md §timeout.
  */
 export async function safeVerify(config, input) {
     debugLog(config, `verify: action="${input.action}" agentId="${input.agentId}"`);
     try {
-        const verifyPromise = config.client.verify(input);
+        // Only create an AbortController when a deadline is enforced — the
+        // no-timeout path stays identical to a plain verify(input) call.
+        const controller = config.timeoutMs !== undefined ? new AbortController() : undefined;
+        const verifyPromise = controller
+            ? config.client.verify(input, { signal: controller.signal })
+            : config.client.verify(input);
         const raced = config.timeoutMs !== undefined
             ? new Promise((resolve, reject) => {
                 const timer = setTimeout(() => {
                     debugLog(config, `verify timeout after ${config.timeoutMs}ms — denying`);
+                    // Cancel the in-flight HTTP request. The abort rejection from
+                    // verifyPromise is consumed by the handlers below (reject on
+                    // an already-settled promise is a no-op), so it can never
+                    // surface as an unhandled rejection.
+                    controller?.abort();
                     reject(new Error("BehalfID verify timeout"));
                 }, config.timeoutMs);
                 verifyPromise.then((r) => { clearTimeout(timer); resolve(r); }, (e) => { clearTimeout(timer); reject(e); });

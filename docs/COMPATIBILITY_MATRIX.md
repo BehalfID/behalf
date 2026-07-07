@@ -190,7 +190,7 @@ The following properties are enforced by the adapter code and covered by tests:
 | Non-boolean `allowed` treated as denial | Strict `=== true` check | `adapters-stress.test.ts` |
 | DenyResponse is immutable | `Object.freeze()` on return value | `adapters-stress.test.ts` |
 | execute() errors propagate to caller | No catch around execute() | `adapters-stress.test.ts` |
-| verify() timeout → deny (fail-closed) | `Promise.race` in `safeVerify`; timeout rejects into the catch | `sdk-exports.test.ts`, `live-adapters.test.ts` |
+| verify() timeout → deny (fail-closed) | Timer race in `safeVerify`; timeout rejects into the catch and aborts the in-flight request via `AbortController` | `sdk-exports.test.ts`, `safe-verify-abort.test.ts`, `live-adapters.test.ts` |
 
 ---
 
@@ -202,7 +202,7 @@ The following properties are enforced by the adapter code and covered by tests:
 - **No idempotency**: if execute() fails after verify() succeeds, the permission check result is not cached or reused.
 - **verify() timeout (opt-in)**: pass `timeoutMs` in `IntegrationConfig` to enforce a deadline on the BehalfID permission check. If the deadline fires, the action is denied (fail-closed). The execute() callback is caller-owned — add timeouts inside execute() if needed.
 
-- **AbortSignal limitation**: `timeoutMs` uses `Promise.race` — it denies locally when the timer fires, but the in-flight HTTP request to the BehalfID server is NOT cancelled. The underlying `fetch` continues until the TCP connection closes. True request cancellation requires adding `AbortSignal` support to `BehalfIDClient.verify()`, which is not yet in the interface. A `// TODO` comment marks the location in `integrations/shared/index.ts` and `packages/sdk/src/adapters/shared/index.ts`. Until that is resolved, very short `timeoutMs` values (< 50ms) may leave orphaned requests in flight on the server side.
+- **AbortSignal on timeout**: when `timeoutMs` is set, `safeVerify` creates an `AbortController` and passes its signal to `BehalfIDClient.verify(input, { signal })`. When the deadline fires, `safeVerify` aborts the in-flight client request and returns the same fail-closed deny result as before — provided the runtime `fetch` implementation supports `AbortSignal` (Node.js 18+, modern Edge runtimes, and browsers all do). Custom clients that implement only `verify(input)` remain compatible; they still fail closed on timeout, but their request is not cancelled.
 
 ---
 

@@ -1,4 +1,5 @@
 export { BehalfID } from "./client.js";
+export type { VerifyCallOptions } from "./client.js";
 export { verifyWebhookSignature } from "./webhooks.js";
 export type {
   BehalfIDConfig,

@@ -187,4 +187,24 @@ describe("sdk exports: safeVerify fail-closed behavior", () => {
 
     expect(result.allowed).toBe(false);
   });
+
+  it("aborts the in-flight verify request when the timeout fires (dist build)", async () => {
+    let signal: AbortSignal | undefined;
+    const config = {
+      client: {
+        verify: (_input: unknown, options?: { signal?: AbortSignal }) => {
+          signal = options?.signal;
+          return new Promise<never>(() => {});
+        },
+      },
+      agentId: "agent_test",
+      timeoutMs: 1,
+    };
+
+    const result = await safeVerify(config, { agentId: "agent_test", action: "test" });
+
+    expect(result.allowed).toBe(false);
+    expect(signal).toBeInstanceOf(AbortSignal);
+    expect(signal?.aborted).toBe(true);
+  });
 });
