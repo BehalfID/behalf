@@ -137,7 +137,7 @@ export async function runProfileDoctorChecks(cwd = process.cwd()): Promise<Check
     detail: pathCheck.binDirPrecedesRealTool
       ? `${binDir} precedes real ${pathSample}`
       : `${binDir} is missing or after real ${pathSample} on PATH`,
-    fix: pathCheck.pathHint ?? undefined,
+    fix: pathCheck.pathHint ?? shellPathExportLine(binDir),
   });
 
   const repoContext = detectRepoContext(cwd);
@@ -147,6 +147,7 @@ export async function runProfileDoctorChecks(cwd = process.cwd()): Promise<Check
     detail: isGitRepo(cwd)
       ? `${repoContext.repoRoot ?? cwd} (policy hash: ${repoContext.policyRepoHash ?? "none"})`
       : "Not a git repository",
+    fix: "Run from inside a git repository before checking repo policy or protected repo enrollment.",
   });
 
   if (session || resolveApiKey()) {
@@ -167,6 +168,7 @@ export async function runProfileDoctorChecks(cwd = process.cwd()): Promise<Check
         name: "Session policy API",
         status: "error",
         detail: err instanceof Error ? err.message : "Request failed",
+        fix: "Check network access, base URL, and auth; run `behalf login`, then retry `behalf profile simulate --tool claude`.",
       });
     }
 
@@ -175,13 +177,19 @@ export async function runProfileDoctorChecks(cwd = process.cwd()): Promise<Check
         method: "POST",
         body: { durationMinutes: 30 },
       });
-      checks.push({ name: "Pause lease API", status: "error", detail: "Expected validation error" });
+      checks.push({
+        name: "Pause lease API",
+        status: "error",
+        detail: "Expected validation error",
+        fix: "Check API compatibility and auth, then retry `behalf pause` with `--reason` and `--duration`.",
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Request failed";
       checks.push({
         name: "Pause lease API",
         status: message.toLowerCase().includes("reason") ? "ok" : "warn",
         detail: `${baseUrl}/api/cli/pause`,
+        fix: "Check API compatibility and auth, then retry `behalf pause` with `--reason` and `--duration`.",
       });
     }
   }
@@ -286,6 +294,9 @@ function profileStatusCommand() {
 
         if (status.pathCheck && !status.pathCheck.binDirPrecedesRealTool) {
           console.log();
+          console.log(
+            "Managed tools will bypass policy until ~/.behalf/bin precedes the real binary on PATH."
+          );
           console.log(status.pathCheck.pathHint ?? shellPathExportLine(getBinDir()));
         }
         console.log();

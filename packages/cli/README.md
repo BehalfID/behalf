@@ -133,17 +133,36 @@ behalf profile doctor
 
 ## Troubleshooting / launch checklist
 
-| Check | Command or location |
-|-------|---------------------|
-| CLI installed | `npm install -g @…/cli` (see `packages/cli/package.json`) |
-| Authenticated | `behalf login` → `behalf whoami` |
-| Shims installed | `behalf profile install` → files in `~/.behalf/bin/` |
-| PATH order | `behalf profile status` — shim path before real binary |
-| Policy enabled | Managed profiles dashboard — policy not disabled |
-| Simulate works | `behalf profile simulate --tool claude` |
-| Activity recorded | Launch `claude` → `/dashboard/managed-profiles/activity` |
-| Protected repo | Enroll repo hash from Activity or dashboard |
-| Pause approval | `behalf pause …` → approve in dashboard |
+| Check | Pass | Fail | How to verify |
+|-------|------|------|---------------|
+| CLI installed | ☐ | ☐ | `npm install -g @…/cli` (see `packages/cli/package.json`) |
+| Authenticated | ☐ | ☐ | `behalf login` → `behalf whoami` |
+| Shims installed | ☐ | ☐ | `behalf profile install` → files in `~/.behalf/bin/` |
+| PATH order | ☐ | ☐ | `behalf profile status` — shim path before real binary |
+| Status detects tool/repo/branch | ☐ | ☐ | `behalf profile status --tool claude` |
+| Simulate returns mode/reason | ☐ | ☐ | `behalf profile simulate --tool claude` |
+| Launch records activity | ☐ | ☐ | Launch `claude` → `/dashboard/managed-profiles/activity` |
+| Activity shows repo hash only | ☐ | ☐ | No raw paths or git remotes in activity rows |
+| Protected repo enrollment | ☐ | ☐ | Enroll hash from Activity or dashboard |
+| Required-mode behavior clear | ☐ | ☐ | Simulate shows `required` + reason; fails closed when unverified |
+| Pause approval works | ☐ | ☐ | `behalf pause …` → approve in dashboard → retry or `behalf pause status` |
+| Doctor output actionable | ☐ | ☐ | `behalf profile doctor` — each warn/error includes a `fix:` line |
+
+### Common first-run failures
+
+**`~/.behalf/bin` not first in PATH** — Managed tools resolve the real binary instead of the shim. Add `export PATH="$HOME/.behalf/bin:$PATH"` to your shell config, restart the terminal, and confirm PATH ordering is `ok` in `behalf profile status`.
+
+**Real `claude`/`codex`/`cursor` binary not found** — Install the tool first. `behalf profile install` skips tools whose binaries are missing. Doctor shows which real binary could not be resolved.
+
+**Unauthenticated CLI** — Run `behalf login`. Status and simulate need a session; required-mode launches fail closed without credentials.
+
+**Server unavailable** — Unmanaged contexts may continue with a warning. Required contexts fail closed unless a valid cached policy allows continuity. Check `behalf config get base-url` and network access.
+
+**Required mode fail-closed** — When mode is `required` and policy cannot be verified (server down, no cache, missing agent credentials), the shim refuses to launch. Fix auth and connectivity, then re-run simulate.
+
+**Protected repo hash not appearing** — Run from inside a git repo. Status shows `policy repo hash`; if `(none)`, confirm git remote or local root detection. Enroll only after a shim launch records activity.
+
+**Activity not appearing after launch** — Confirm PATH order (shim, not real binary), authentication, and that Managed Profiles policy is enabled in the dashboard. Refresh Activity after a few seconds.
 
 If the server is unavailable:
 
