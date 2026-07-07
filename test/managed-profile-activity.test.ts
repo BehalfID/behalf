@@ -80,6 +80,13 @@ const sampleEvent = {
   createdAt: new Date("2026-07-05T12:00:00.000Z"),
 };
 
+const managedProfileActivityEventTypes = [
+  "cli_session_policy",
+  "cli_pause_grant",
+  "cli_pause_deny",
+  "cli_pause_approval_requested",
+];
+
 function mockAuditFindRows(rows: unknown[]) {
   mocks.auditFind.mockReturnValue({
     sort: vi.fn().mockReturnValue({
@@ -137,7 +144,7 @@ describe("GET /api/dashboard/managed-profiles/activity", () => {
       expect.objectContaining({
         accountId: "acct_test",
         eventType: {
-          $in: ["cli_session_policy", "cli_pause_grant", "cli_pause_deny"],
+          $in: managedProfileActivityEventTypes,
         },
       })
     );
@@ -148,7 +155,7 @@ describe("GET /api/dashboard/managed-profiles/activity", () => {
     const params = parseActivityListParams(new URLSearchParams());
     const query = buildCliAuditActivityQuery(params);
     expect(query.eventType).toEqual({
-      $in: ["cli_session_policy", "cli_pause_grant", "cli_pause_deny"],
+      $in: managedProfileActivityEventTypes,
     });
   });
 
@@ -172,7 +179,7 @@ describe("GET /api/dashboard/managed-profiles/activity", () => {
     const res = await GET(activityRequest());
     const body = await res.json();
     expect(body.events.every((event: { eventType: string }) =>
-      ["cli_session_policy", "cli_pause_grant", "cli_pause_deny"].includes(event.eventType)
+      managedProfileActivityEventTypes.includes(event.eventType)
     )).toBe(true);
     expect(body.events.some((event: { id: string }) => event.id === "clia_other")).toBe(false);
   });
@@ -458,6 +465,6 @@ describe("managed profile activity dashboard UI", () => {
     const source = await readFile("/workspace/components/dashboard/ManagedProfileActivityView.tsx", "utf8");
     expect(source).toContain("Protect repo");
     expect(source).toContain("if (!canEdit) return <>—</>;");
-    expect(source).toContain('next.set(enrollTarget.repoHash, "enforced")');
+    expect(source).toContain("buildProtectedRepoStatusByHash(body.policy)");
   });
 });

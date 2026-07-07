@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Button, ButtonLink, EmptyState, PageHeader } from "@/components/ui";
 import {
   activitySummaryFromEvents,
@@ -217,7 +217,7 @@ export function ManagedProfileActivityView() {
   const [enrollMessage, setEnrollMessage] = useState("");
   const [enrollSubmitting, setEnrollSubmitting] = useState(false);
 
-  const basePath = useMemo(() => {
+  const buildActivityPath = useCallback(() => {
     const params = new URLSearchParams();
     params.set("limit", "25");
     if (tool) params.set("tool", tool);
@@ -245,7 +245,7 @@ export function ManagedProfileActivityView() {
     setLoading(true);
     setError("");
     try {
-      const response = await fetchActivity(basePath);
+      const response = await fetchActivity(buildActivityPath());
       setEvents(response.events);
       setNextCursor(response.nextCursor);
     } catch (requestError) {
@@ -255,13 +255,14 @@ export function ManagedProfileActivityView() {
     } finally {
       setLoading(false);
     }
-  }, [basePath]);
+  }, [buildActivityPath]);
 
   const loadMore = useCallback(async () => {
     if (!nextCursor || loadingMore) return;
     setLoadingMore(true);
     setError("");
     try {
+      const basePath = buildActivityPath();
       const separator = basePath.includes("?") ? "&" : "?";
       const response = await fetchActivity(`${basePath}${separator}cursor=${encodeURIComponent(nextCursor)}`);
       setEvents((current) => [...current, ...response.events]);
@@ -271,7 +272,7 @@ export function ManagedProfileActivityView() {
     } finally {
       setLoadingMore(false);
     }
-  }, [basePath, loadingMore, nextCursor]);
+  }, [buildActivityPath, loadingMore, nextCursor]);
 
   const openEnrollForm = useCallback((repoHash: string) => {
     setEnrollTarget({ repoHash });
@@ -309,16 +310,18 @@ export function ManagedProfileActivityView() {
             enabled: true,
           }),
         });
-        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        const body = (await response.json().catch(() => null)) as {
+          error?: string;
+          policy?: ManagedProfilesResponse["policy"];
+        } | null;
         if (!response.ok) {
           throw new Error(body?.error ?? `Request failed with ${response.status}`);
         }
+        if (!body?.policy) {
+          throw new Error("Response missing managed profile policy.");
+        }
 
-        setProtectedRepoStatusByHash((current) => {
-          const next = new Map(current);
-          next.set(enrollTarget.repoHash, "enforced");
-          return next;
-        });
+        setProtectedRepoStatusByHash(buildProtectedRepoStatusByHash(body.policy));
         setEnrollMessage("Protected repo added to managed profile policy.");
         setEnrollTarget(null);
       } catch (requestError) {
@@ -331,11 +334,11 @@ export function ManagedProfileActivityView() {
   );
 
   useEffect(() => {
-    void loadPolicy();
+    queueMicrotask(() => void loadPolicy());
   }, [loadPolicy]);
 
   useEffect(() => {
-    void reload();
+    queueMicrotask(() => void reload());
   }, [reload]);
 
   const summary = activitySummaryFromEvents(events);

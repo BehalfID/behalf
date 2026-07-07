@@ -220,8 +220,10 @@ export function ManagedProfilesView() {
   };
 
   useEffect(() => {
-    void loadPolicy();
-    void loadLastActivity();
+    queueMicrotask(() => {
+      void loadPolicy();
+      void loadLastActivity();
+    });
   }, []);
 
   const savePolicy = async (event: FormEvent) => {
@@ -310,7 +312,8 @@ export function ManagedProfilesView() {
       (repo) => repo.enabled && repo.repoHash === simulateRepoHash.trim()
     );
 
-  const hasProtectedRepos = form?.protectedRepos.some((repo) => repo.repoHash.trim()) ?? false;
+  const hasProtectedRepos =
+    form?.protectedRepos.some((repo) => repo.enabled && repo.repoHash.trim()) ?? false;
 
   const policyStatus = !form?.enabled
     ? {
@@ -320,7 +323,7 @@ export function ManagedProfilesView() {
     : hasProtectedRepos
       ? {
           title: "Protected repo enforcement configured",
-          detail: "At least one repo is protected.",
+          detail: "At least one enabled repo is protected.",
         }
       : {
           title: "No protected repos",
