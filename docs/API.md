@@ -53,7 +53,7 @@ Current plan limits:
 | Pro | 50 | 250,000 | Enabled | 90 days |
 | Enterprise | Unlimited | Unlimited | Enabled | 365 days |
 
-Verification usage is tracked on `Account.verificationCount` with `verificationPeriodStart`. The current reset boundary is the UTC calendar month: stale or missing period data resets the count on the next metered verification and sets the period start to the first day of the current UTC month. Enterprise verification and agent quotas are treated as unlimited. Current missing `Account` or missing `accountId` behavior remains unmetered for compatibility.
+Verification usage is tracked on `Account.verificationCount` with `verificationPeriodStart`. The current reset boundary is the UTC calendar month: stale or missing period data resets the count on the next metered verification and sets the period start to the first day of the current UTC month. Enterprise verification and agent quotas are treated as unlimited. Metered quota checks fail closed with `ACCOUNT_CONTEXT_MISSING` when `accountId` is missing; a known `accountId` whose `Account` record is missing remains unmetered because it indicates data inconsistency rather than lost auth context.
 
 Free accounts cannot create or enable dashboard webhooks. If an account downgrades or a Stripe payment fails, webhook endpoints are disabled and paid limits are removed until billing is restored.
 

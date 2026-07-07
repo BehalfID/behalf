@@ -658,9 +658,13 @@ describe("MongoDB-backed quotas", () => {
     );
   });
 
-  it("documents current unmetered quota behavior when account state is missing", async () => {
-    await expect(checkAgentLimit(undefined)).resolves.toEqual({ allowed: true });
-    await expect(checkAndIncrementVerifications(undefined)).resolves.toEqual({ allowed: true });
+  it("fails closed when accountId is missing but stays unmetered for a missing Account document", async () => {
+    // Decision note for issue #77 lives in lib/quota.ts: metered helpers deny
+    // lost account context, while a known accountId without an Account document
+    // remains unmetered because it indicates data inconsistency, not lost auth.
+    const denied = expect.objectContaining({ allowed: false, code: "ACCOUNT_CONTEXT_MISSING" });
+    await expect(checkAgentLimit(undefined)).resolves.toEqual(denied);
+    await expect(checkAndIncrementVerifications(undefined)).resolves.toEqual(denied);
     await expect(checkAgentLimit("acct_missing")).resolves.toEqual({ allowed: true });
     await expect(checkAndIncrementVerifications("acct_missing")).resolves.toEqual({ allowed: true });
   });

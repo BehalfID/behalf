@@ -127,7 +127,7 @@ Billing state drives quota enforcement:
 - `customer.subscription.deleted` downgrades to Free and disables webhooks.
 - `invoice.payment_failed` marks the subscription `past_due`, downgrades to Free, and disables webhooks so paid limits are not left active by accident.
 
-Verification usage resets by UTC calendar month from `verificationPeriodStart`. If the stored period is stale, the next metered verification sets the count to 1 and moves the period start to the first day of the current UTC month. Missing account state is currently unmetered for compatibility and should be monitored before changing to fail-closed behavior.
+Verification usage resets by UTC calendar month from `verificationPeriodStart`. If the stored period is stale, the next metered verification sets the count to 1 and moves the period start to the first day of the current UTC month. Metered quota checks fail closed with `ACCOUNT_CONTEXT_MISSING` when `accountId` is missing; agents that predate account scoping should be repaired with the default-account backfill. A known `accountId` whose `Account` record is missing remains unmetered (data inconsistency, not lost auth context).
 
 Local Stripe testing can use the Stripe CLI when billing env vars are configured:
 

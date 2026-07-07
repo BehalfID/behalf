@@ -33,7 +33,7 @@ Current coverage includes:
 - Fail-closed behavior for permission lookup failures and missing constrained inputs.
 - Webhook event payload safety, HMAC signing interoperability with the SDK verifier, invalid signature/body/secret failures, replay tolerance, and delivery-error redaction.
 - Action Gateway verification-before-execution call order, denial and thrown-verification short-circuiting, unsupported-action denial, DNS-pinned HTTP lookup behavior, private/internal URL blocking, private DNS resolution blocking, redirect-to-private blocking, and response truncation.
-- Billing/quota enforcement for free, pro, and enterprise agent and monthly verification limits, current unmetered behavior when `accountId` or the `Account` record is missing, webhook plan gating, and missing/invalid plan fallback.
+- Billing/quota enforcement for free, pro, and enterprise agent and monthly verification limits, fail-closed behavior when `accountId` is missing, unmetered behavior when only the `Account` record is missing, webhook plan gating, and missing/invalid plan fallback.
 - Production hardening checks for env validation, Redis rate-limit fallback warnings, protected health response shape, webhook worker route auth and summary output, and Stripe webhook idempotency/unknown-event behavior.
 - Webhook worker integration-style coverage for atomic pending-event claims, already-processing/completed/dead-letter skips, stuck processing recovery, retry timing, max-attempt dead-lettering, delivery record creation, endpoint status/event/account filtering, secret redaction, worker route safe error responses, and console replay authorization/dead-letter reset behavior.
 - API key hashing, real bearer-token parsing for missing/malformed/wrong-scheme/invalid-prefix formats, valid-looking key lookup, matching against hashed keys, successful-use `lastUsedAt` updates, no `lastUsedAt` updates for invalid or previously rotated keys, rotation invalidating the old hash condition, one-time raw key response, and non-persistence of raw rotated keys.
@@ -103,7 +103,7 @@ Webhook worker route auth, summary behavior, safe error response, and replay rou
 
 Dashboard and console auth/session establishment is not fully covered here, but log route tests cover their scoped query behavior at the route dependency boundary.
 
-Missing `accountId` or missing `Account` records currently remain unmetered for verification and agent-count quota checks. Tests document this current behavior without implying paid or enterprise status. Product/security should revisit whether this should fail closed.
+Missing `accountId` fails closed with `ACCOUNT_CONTEXT_MISSING` for verification and agent-count quota checks (issue #77). A known `accountId` whose `Account` record is missing remains unmetered because it indicates data inconsistency rather than lost auth context. Tests cover both behaviors; the full decision note lives in `lib/quota.ts`.
 
 `verifyAction` fails closed on permission lookup errors. Failures while updating `Agent`, updating `Permission`, or creating `VerificationLog` are still treated as database failures and may throw after the decision is computed; tests document that these failures do not create an allowed execution result.
 

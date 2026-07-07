@@ -186,4 +186,34 @@ describe("POST /api/verify route", () => {
     expect(routeMocks.verifyAction).not.toHaveBeenCalled();
     expect(routeMocks.emitWebhookEvent).not.toHaveBeenCalled();
   });
+
+  it("passes the agent accountId to quota enforcement and blocks fail-closed missing-account denials", async () => {
+    // Regression for issue #77: an agent without account context (e.g. a legacy
+    // agent that predates account backfill) must not verify unmetered. The quota
+    // helper fails closed and the route must honor that denial.
+    routeMocks.authenticateAgent.mockResolvedValue({
+      agent: agentFixture({ accountId: undefined }),
+      error: null
+    });
+    routeMocks.checkAndIncrementVerifications.mockResolvedValue({
+      allowed: false,
+      code: "ACCOUNT_CONTEXT_MISSING",
+      reason: "Account context is missing for this request, so quota cannot be enforced."
+    });
+    const { POST } = await import("@/app/api/verify/route");
+
+    const response = await POST(verifyRequest({ agentId: "agent_test", action: "purchase" }));
+    const json = await response.json();
+
+    expect(routeMocks.checkAndIncrementVerifications).toHaveBeenCalledWith(undefined);
+    expect(response.status).toBe(429);
+    expect(json).toEqual(
+      expect.objectContaining({
+        error: "Account context is missing for this request, so quota cannot be enforced.",
+        code: "ACCOUNT_CONTEXT_MISSING"
+      })
+    );
+    expect(routeMocks.verifyAction).not.toHaveBeenCalled();
+    expect(routeMocks.emitWebhookEvent).not.toHaveBeenCalled();
+  });
 });

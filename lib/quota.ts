@@ -3,6 +3,7 @@ import Account from "@/models/Account";
 import Agent from "@/models/Agent";
 
 export type QuotaErrorCode =
+  | "ACCOUNT_CONTEXT_MISSING"
   | "AGENT_LIMIT_REACHED"
   | "VERIFICATION_LIMIT_REACHED"
   | "WEBHOOKS_REQUIRE_PRO";
@@ -29,9 +30,39 @@ export function quotaErrorDetails(result: QuotaResult) {
   };
 }
 
+/**
+ * Decision (issue #77): metered quota helpers fail closed when accountId is missing.
+ *
+ * Call-site audit:
+ * - POST /api/verify passes the authenticated agent's accountId. Every supported
+ *   agent-creation path sets accountId (developer-token account, workspace actor
+ *   account, or the default account via getDefaultAccountId/getConsoleAccountId),
+ *   and legacy agents are repaired by backfillDefaultAccountId. A missing value
+ *   here means account context was lost on a metered, billable path.
+ * - POST /api/agents resolves tokenDoc.accountId (schema-required) or the default
+ *   account, so accountId is always present.
+ * - Dashboard agent-creation routes run requireWorkspaceMutationActor first, which
+ *   rejects requests without a resolvable workspace account.
+ *
+ * No demo/bootstrap flow calls these helpers without an accountId, so silently
+ * treating missing account context as unmetered would only ever hide a bug and
+ * open a quota/billing bypass.
+ *
+ * A known accountId whose Account document does not exist stays unmetered: account
+ * documents are never deleted and every accountId passed here originates from a
+ * created Account, so this indicates data inconsistency rather than lost auth
+ * context, and denying it would block legitimate traffic without recourse.
+ */
+function missingAccountContext(): QuotaResult {
+  return {
+    allowed: false,
+    code: "ACCOUNT_CONTEXT_MISSING",
+    reason: "Account context is missing for this request, so quota cannot be enforced."
+  };
+}
+
 export async function checkAndIncrementVerifications(accountId: string | null | undefined): Promise<QuotaResult> {
-  // TODO: Revisit whether missing account state should fail closed or remain unmetered.
-  if (!accountId) return { allowed: true };
+  if (!accountId) return missingAccountContext();
 
   const account = await Account.findOne({ accountId });
   if (!account) return { allowed: true };
@@ -63,8 +94,7 @@ export async function checkAndIncrementVerifications(accountId: string | null | 
 }
 
 export async function checkAgentLimit(accountId: string | null | undefined): Promise<QuotaResult> {
-  // TODO: Revisit whether missing account state should fail closed or remain unmetered.
-  if (!accountId) return { allowed: true };
+  if (!accountId) return missingAccountContext();
 
   const account = await Account.findOne({ accountId });
   if (!account) return { allowed: true };
