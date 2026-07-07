@@ -122,6 +122,17 @@ function OnboardingCompactCommand({ command }: { command: string }) {
   const [copyFailed, setCopyFailed] = useState(false);
 
   const copy = () => {
+    const failCopy = () => {
+      setCopied(false);
+      setCopyFailed(true);
+      setTimeout(() => setCopyFailed(false), 2000);
+    };
+
+    if (!navigator.clipboard?.writeText) {
+      failCopy();
+      return;
+    }
+
     void navigator.clipboard
       .writeText(command)
       .then(() => {
@@ -130,11 +141,7 @@ function OnboardingCompactCommand({ command }: { command: string }) {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       })
-      .catch(() => {
-        setCopied(false);
-        setCopyFailed(true);
-        setTimeout(() => setCopyFailed(false), 2000);
-      });
+      .catch(failCopy);
   };
 
   const copyLabel = copied ? "Copied" : copyFailed ? "Copy failed" : "Copy";

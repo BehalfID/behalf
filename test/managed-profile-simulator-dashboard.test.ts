@@ -65,6 +65,7 @@ describe("managed profile onboarding dashboard source", () => {
     expect(source).toContain('"Copied"');
     expect(source).toContain('"Copy failed"');
     expect(source).toContain('"Copy"');
+    expect(source).toContain("navigator.clipboard?.writeText");
     expect(source).toContain(".catch(");
   });
 
@@ -147,7 +148,7 @@ describe("cli install commands", () => {
     expect(docsSource).toContain("CLI_NPM_INSTALL_COMMAND");
     expect(demoSource).toContain("CLI_NPM_INSTALL_COMMAND");
     expect(readmeSource).toContain("packages/cli/package.json");
-    expect(readmeSource).toContain(CLI_NPM_INSTALL_COMMAND.split(" ").at(-1));
+    expect(CLI_NPM_INSTALL_COMMAND).toMatch(/^npm install -g @.+\/cli$/);
     expect(docsSource).not.toContain("npm install -g behalf");
     expect(readmeSource).not.toContain("npm install -g behalf");
   });
