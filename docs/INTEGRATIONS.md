@@ -139,6 +139,9 @@ const config = {
 };
 ```
 
+When the deadline fires, the in-flight verify request is also aborted via
+`AbortController` (on runtimes whose `fetch` supports `AbortSignal`).
+
 The `execute` callback is not subject to this timeout — wrap it separately if needed.
 
 ## Running the adapter tests

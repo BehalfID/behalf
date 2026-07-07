@@ -12,9 +12,16 @@ export type { VerifyInput, VerifyResult, RiskLevel };
 /**
  * Minimal interface satisfied by the BehalfID class from @behalfid/sdk.
  * Declare your config as IntegrationConfig and pass a real BehalfID instance.
+ *
+ * The optional second argument lets safeVerify abort the in-flight HTTP
+ * request on timeout. Clients that ignore it (or declare verify(input) only)
+ * remain compatible — the request simply is not cancelled.
  */
 export type BehalfIDClient = {
-  verify(input: VerifyInput): Promise<VerifyResult>;
+  verify(
+    input: VerifyInput,
+    options?: { signal?: AbortSignal }
+  ): Promise<VerifyResult>;
 };
 
 export type IntegrationConfig = {
@@ -22,8 +29,9 @@ export type IntegrationConfig = {
   agentId: string;
   /**
    * Milliseconds to wait for verify() before treating the check as failed and
-   * returning a deny (fail-closed). The execute callback is caller-owned and
-   * must be wrapped separately if an execute timeout is also needed.
+   * returning a deny (fail-closed). The in-flight HTTP request is aborted when
+   * the deadline fires. The execute callback is caller-owned and must be
+   * wrapped separately if an execute timeout is also needed.
    */
   timeoutMs?: number;
   /**
@@ -105,10 +113,10 @@ function debugLog(config: IntegrationConfig, ...parts: string[]): void {
  * Guarantees fail-closed behavior when the permission check is unavailable.
  *
  * When config.timeoutMs is set, the timer is properly cleared when
- * verifyPromise settles (no orphaned callbacks). The in-flight HTTP request
- * is NOT cancelled — see docs/COMPATIBILITY_MATRIX.md §timeout.
- * TODO: extend BehalfIDClient to accept verify(input, signal?) for true
- *       request cancellation via AbortController.
+ * verifyPromise settles (no orphaned callbacks) and the in-flight HTTP
+ * request is aborted via AbortController when the deadline fires (on
+ * runtimes whose fetch supports AbortSignal). See
+ * docs/COMPATIBILITY_MATRIX.md §timeout.
  */
 export async function safeVerify(
   config: IntegrationConfig,
@@ -116,13 +124,24 @@ export async function safeVerify(
 ): Promise<VerifyResult> {
   debugLog(config, `verify: action="${input.action}" agentId="${input.agentId}"`);
   try {
-    const verifyPromise = config.client.verify(input);
+    // Only create an AbortController when a deadline is enforced — the
+    // no-timeout path stays identical to a plain verify(input) call.
+    const controller =
+      config.timeoutMs !== undefined ? new AbortController() : undefined;
+    const verifyPromise = controller
+      ? config.client.verify(input, { signal: controller.signal })
+      : config.client.verify(input);
     const raced: Promise<VerifyResult> =
       config.timeoutMs !== undefined
         ? new Promise<VerifyResult>((resolve, reject) => {
             const timer = setTimeout(
               () => {
                 debugLog(config, `verify timeout after ${config.timeoutMs}ms — denying`);
+                // Cancel the in-flight HTTP request. The abort rejection from
+                // verifyPromise is consumed by the handlers below (reject on
+                // an already-settled promise is a no-op), so it can never
+                // surface as an unhandled rejection.
+                controller?.abort();
                 reject(new Error("BehalfID verify timeout"));
               },
               config.timeoutMs
