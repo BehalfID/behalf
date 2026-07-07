@@ -38,6 +38,7 @@ import {
   type AgentTool,
   type ControlArea
 } from "@/lib/onboarding";
+import { SUPPORT_EMAIL } from "@/lib/support";
 
 type Agent = {
   agentId: string;
@@ -3094,7 +3095,17 @@ function SettingsView() {
             </div>
             <div className="account-details__row">
               <span className="account-details__label">Danger zone</span>
-              <span className="account-details__value">To delete your account, contact <a href="mailto:support@[REDACTED].com">support@[REDACTED].com</a></span>
+              <span className="account-details__value">
+                {settings.data.dangerZone.includes(SUPPORT_EMAIL) ? (
+                  <>
+                    {settings.data.dangerZone.slice(0, settings.data.dangerZone.indexOf(SUPPORT_EMAIL))}
+                    <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
+                    {settings.data.dangerZone.slice(settings.data.dangerZone.indexOf(SUPPORT_EMAIL) + SUPPORT_EMAIL.length)}
+                  </>
+                ) : (
+                  settings.data.dangerZone
+                )}
+              </span>
             </div>
           </div>
         ) : null}
