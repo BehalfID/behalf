@@ -458,6 +458,52 @@ Approve at: https://behalfid.com/dashboard/approvals`}</CodeBlock>
         </div>
       </section>
 
+      {/* ── Managed Profiles ──────────────────────────────── */}
+      <section className="home-usecases" aria-labelledby="managed-profiles-heading">
+        <div className="home-usecases__intro" data-reveal>
+          <p className="section-kicker">Managed Profiles for coding agents</p>
+          <h2 id="managed-profiles-heading" className="home-usecases__h2">
+            Control coding agents before they touch protected repos.
+          </h2>
+          <p className="home-cta__body">
+            Managed Profiles put tools like Claude Code, Codex, and Cursor behind a workspace
+            policy checkpoint. Local shims resolve policy before the real tool starts, enforce
+            protected-repo rules, and record safe activity for review.
+          </p>
+        </div>
+        <div className="home-usecases__grid">
+          <article className="home-usecase">
+            <h3 className="home-usecase__title">Shim supported tools</h3>
+            <p className="home-usecase__body">
+              Install local shims for Claude Code, Codex, and Cursor.
+            </p>
+          </article>
+          <article className="home-usecase">
+            <h3 className="home-usecase__title">Enforce protected repos</h3>
+            <p className="home-usecase__body">
+              Require managed or required mode based on repo hash and workspace policy.
+            </p>
+          </article>
+          <article className="home-usecase">
+            <h3 className="home-usecase__title">Approve pause requests</h3>
+            <p className="home-usecase__body">
+              Require approval before enforcement can be paused in protected contexts.
+            </p>
+          </article>
+          <article className="home-usecase">
+            <h3 className="home-usecase__title">Review safe activity</h3>
+            <p className="home-usecase__body">
+              See tool, mode, branch, repo hash, and device without exposing raw paths or git remotes.
+            </p>
+          </article>
+        </div>
+        <div className="home-deploy__cta home-code__links home-actions--center">
+          <Link href="/docs/cli">CLI setup →</Link>
+          <Link href="/docs/demo-script">Demo script →</Link>
+          <Link href="/dashboard/managed-profiles">Managed profiles dashboard →</Link>
+        </div>
+      </section>
+
       {/* ── Interactive demo ──────────────────────────────── */}
       <HomeDemo />
 
