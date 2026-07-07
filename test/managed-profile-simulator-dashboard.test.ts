@@ -76,7 +76,8 @@ describe("managed profile onboarding dashboard source", () => {
     expect(source).toContain("No protected repos");
     expect(source).toContain("Run a managed tool, then enroll the repo from Activity.");
     expect(source).toContain("Protected repo enforcement configured");
-    expect(source).toContain("At least one repo is protected.");
+    expect(source).toContain("At least one enabled repo is protected.");
+    expect(source).toContain("repo.enabled && repo.repoHash.trim()");
   });
 
   it("includes activity link and hint", () => {

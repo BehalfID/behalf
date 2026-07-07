@@ -309,16 +309,18 @@ export function ManagedProfileActivityView() {
             enabled: true,
           }),
         });
-        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        const body = (await response.json().catch(() => null)) as {
+          error?: string;
+          policy?: ManagedProfilesResponse["policy"];
+        } | null;
         if (!response.ok) {
           throw new Error(body?.error ?? `Request failed with ${response.status}`);
         }
+        if (!body?.policy) {
+          throw new Error("Response missing managed profile policy.");
+        }
 
-        setProtectedRepoStatusByHash((current) => {
-          const next = new Map(current);
-          next.set(enrollTarget.repoHash, "enforced");
-          return next;
-        });
+        setProtectedRepoStatusByHash(buildProtectedRepoStatusByHash(body.policy));
         setEnrollMessage("Protected repo added to managed profile policy.");
         setEnrollTarget(null);
       } catch (requestError) {
