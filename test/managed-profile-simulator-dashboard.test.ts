@@ -257,6 +257,30 @@ describe("managed profiles docs consistency", () => {
   });
 });
 
+describe("managed profile doctor actionable fixes", () => {
+  const profileSource = readFileSync(
+    join(process.cwd(), "packages/cli/src/commands/profile.ts"),
+    "utf-8"
+  );
+
+  it("includes fix guidance for known doctor warn/error checks", () => {
+    expect(profileSource).toContain("fix: pathCheck.pathHint ?? shellPathExportLine(binDir)");
+    expect(profileSource).toContain(
+      "Run from inside a git repository before checking repo policy or protected repo enrollment."
+    );
+    expect(profileSource).toContain(
+      "Check network access, base URL, and auth; run `behalf login`, then retry `behalf profile simulate --tool claude`."
+    );
+    expect(profileSource).toContain(
+      "Check API compatibility and auth, then retry `behalf pause` with `--reason` and `--duration`."
+    );
+  });
+
+  it("prints fix lines for non-ok doctor checks", () => {
+    expect(profileSource).toContain('if (c.status !== "ok" && c.fix) console.log(`      fix: ${c.fix}`);');
+  });
+});
+
 describe("managed profile activity empty state", () => {
   it("does not duplicate unfiltered empty copy in table rows", () => {
     const source = readFileSync(
