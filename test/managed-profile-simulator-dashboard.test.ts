@@ -208,11 +208,39 @@ describe("managed profiles docs consistency", () => {
     expect(CLI_NPM_INSTALL_COMMAND).toMatch(/^npm install -g @.+\/cli$/);
   });
 
-  it("includes launch readiness checklist in demo script", () => {
-    expect(demoSource).toContain("Launch readiness checklist");
-    expect(demoSource).toContain("PATH order verified");
-    expect(demoSource).toContain("Required-mode pause approval");
-    expect(demoSource).toContain("does not expose raw paths");
+  it("includes fresh-workspace smoke test guide with launch checklist", () => {
+    expect(demoSource).toContain("fresh-workspace smoke test");
+    expect(demoSource).toContain("Launch checklist (pass / fail)");
+    expect(demoSource).toContain("PATH order correct");
+    expect(demoSource).toContain("Activity shows repo hash only");
+    expect(demoSource).toContain("Required-mode behavior is understandable");
+    expect(demoSource).toContain("Pause approval works");
+    expect(demoSource).toContain("Doctor output is actionable");
+    expect(demoSource).toContain("No raw paths or git remotes in activity rows");
+  });
+
+  it("smoke guide mentions PATH order, activity, protected repos, required mode, and pause approval", () => {
+    expect(demoSource).toMatch(/PATH order/i);
+    expect(demoSource).toMatch(/activity/i);
+    expect(demoSource).toMatch(/protected repo/i);
+    expect(demoSource).toMatch(/required mode/i);
+    expect(demoSource).toMatch(/pause approval/i);
+    expect(cliDocsSource).toMatch(/PATH order/i);
+    expect(cliDocsSource).toMatch(/activity/i);
+    expect(cliDocsSource).toMatch(/protected repo/i);
+    expect(cliDocsSource).toMatch(/required mode/i);
+    expect(cliDocsSource).toMatch(/pause approval/i);
+  });
+
+  it("cli docs include managed profiles troubleshooting section", () => {
+    expect(cliDocsSource).toContain("managed-profiles-troubleshooting");
+    expect(cliDocsSource).toMatch(/not first in PATH/i);
+    expect(cliDocsSource).toMatch(/binary not found/i);
+    expect(cliDocsSource).toMatch(/Unauthenticated CLI/i);
+    expect(cliDocsSource).toMatch(/Server unavailable/i);
+    expect(cliDocsSource).toMatch(/fail-closed/i);
+    expect(cliDocsSource).toMatch(/hash not appearing/i);
+    expect(cliDocsSource).toMatch(/Activity not appearing/i);
   });
 
   it("does not include unsafe raw path or git remote examples in user-facing docs", () => {

@@ -5,7 +5,7 @@ import { CodeBlock, DocsShell } from "../content";
 export const metadata: Metadata = {
   title: "Demo Script — BehalfID",
   description:
-    "Terminal-first scripts for recording short demos: Managed Profiles (2–3 minutes) and coding-agent deploy approvals (60–90 seconds).",
+    "Fresh-workspace Managed Profiles smoke test, terminal-first demo scripts for recording (2–3 minutes), and deploy-approval demos (60–90 seconds).",
   alternates: { canonical: "/docs/demo-script" },
 };
 
@@ -26,6 +26,179 @@ export default function DemoScriptPage() {
       previous={{ href: "/docs/deploy-approvals", label: "Deploy approvals" }}
       next={{ href: "/docs/api", label: "API reference" }}
     >
+      <h2>Managed Profiles — fresh-workspace smoke test</h2>
+      <p>
+        Run this checklist from a <strong>clean terminal</strong> in a git repo before recording a demo or
+        onboarding a new developer. Assumptions: no prior <code>~/.behalf</code> session (or you have cleared
+        it), a supported tool (<code>claude</code>, <code>codex</code>, or <code>cursor</code>) is installed,
+        and Managed Profiles policy is enabled in the{" "}
+        <a href="/dashboard/managed-profiles">dashboard</a>.
+      </p>
+
+      <h3>Smoke path</h3>
+      <p>Execute each step in order. Mark pass or fail in the checklist below.</p>
+      <CodeBlock label="terminal">{MANAGED_PROFILE_COMMANDS.join("\n")}</CodeBlock>
+
+      <ol className="docs-list">
+        <li>
+          <strong>Install CLI</strong> — <code>{CLI_NPM_INSTALL_COMMAND}</code>. Confirm{" "}
+          <code>behalf --version</code> prints a version.
+        </li>
+        <li>
+          <strong>Login</strong> — <code>behalf login</code>, then <code>behalf whoami</code> shows your
+          account.
+        </li>
+        <li>
+          <strong>Install shims</strong> — <code>behalf profile install</code>. Shims land in{" "}
+          <code>~/.behalf/bin</code>.
+        </li>
+        <li>
+          <strong>Verify PATH order</strong> — <code>~/.behalf/bin</code> must appear <em>before</em> the real
+          tool binary. If install printed a PATH hint, add{" "}
+          <code>export PATH=&quot;$HOME/.behalf/bin:$PATH&quot;</code> to your shell config and open a new
+          terminal.
+        </li>
+        <li>
+          <strong>Status</strong> — <code>behalf profile status --tool claude</code>. Confirm tool, repo
+          root, branch (<code>main</code>), and <strong>policy repo hash</strong> (for example{" "}
+          <code>0123456789abcdef</code>). Raw git remotes are not shown.
+        </li>
+        <li>
+          <strong>Simulate</strong> — <code>behalf profile simulate --tool claude</code>. Confirm{" "}
+          <code>mode</code> (<code>unmanaged</code>, <code>managed</code>, or <code>required</code>) and{" "}
+          <code>reason</code>.
+        </li>
+        <li>
+          <strong>Launch through shim</strong> — <code>claude</code> (not <code>behalf claude</code>). Let the
+          tool open briefly, then exit.
+        </li>
+        <li>
+          <strong>Confirm activity</strong> — Open{" "}
+          <a href="/dashboard/managed-profiles/activity">Managed Profile Activity</a>. A row should show tool,{" "}
+          branch, repo hash, and device id (for example <code>devmac_example</code>) — not raw paths or git
+          remotes.
+        </li>
+        <li>
+          <strong>Enroll protected repo</strong> — From Activity or{" "}
+          <a href="/dashboard/managed-profiles">Managed profiles</a>, enroll the repo hash. Set mode to{" "}
+          <code>required</code> if your workspace supports it.
+        </li>
+        <li>
+          <strong>Simulate required mode</strong> — Run <code>behalf profile simulate --tool claude</code>{" "}
+          again in the same repo. Confirm <code>required</code> mode and an understandable policy reason. In
+          required mode the CLI <strong>fails closed</strong> when policy cannot be verified.
+        </li>
+        <li>
+          <strong>Request pause approval</strong> —{" "}
+          <code>behalf pause --duration 30m --reason &quot;smoke test pause&quot; --tool claude</code>. Note
+          the approval id (for example <code>apr_example</code>) and dashboard link.
+        </li>
+        <li>
+          <strong>Approve in dashboard</strong> — Open{" "}
+          <a href="/dashboard/approvals">Approvals</a> or{" "}
+          <a href="/dashboard/inbox">Needs attention</a>. Approve the pause request.
+        </li>
+        <li>
+          <strong>Retry or check status</strong> — Run the same <code>behalf pause</code> command again, or{" "}
+          <code>behalf pause status apr_example</code>, until the lease is granted.
+        </li>
+        <li>
+          <strong>Privacy check</strong> — Activity and approvals show repo hashes and safe metadata only. No
+          raw git remotes, local source paths, or home directories appear in CLI or dashboard output.
+        </li>
+      </ol>
+
+      <p>
+        If any step fails, run <code>behalf profile doctor</code> and see{" "}
+        <a href="/docs/cli#managed-profiles-troubleshooting">CLI troubleshooting</a>.
+      </p>
+
+      <h3>Launch checklist (pass / fail)</h3>
+      <table className="docs-checklist">
+        <thead>
+          <tr>
+            <th>Check</th>
+            <th>Pass</th>
+            <th>Fail</th>
+            <th>How to verify</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>CLI install works</td>
+            <td>☐</td>
+            <td>☐</td>
+            <td><code>behalf --version</code></td>
+          </tr>
+          <tr>
+            <td>Login works</td>
+            <td>☐</td>
+            <td>☐</td>
+            <td><code>behalf whoami</code></td>
+          </tr>
+          <tr>
+            <td>Shim install works</td>
+            <td>☐</td>
+            <td>☐</td>
+            <td><code>behalf profile install</code> → files in <code>~/.behalf/bin</code></td>
+          </tr>
+          <tr>
+            <td>PATH order correct</td>
+            <td>☐</td>
+            <td>☐</td>
+            <td><code>behalf profile status</code> — shim path before real binary</td>
+          </tr>
+          <tr>
+            <td>Status detects tool/repo/branch</td>
+            <td>☐</td>
+            <td>☐</td>
+            <td><code>behalf profile status --tool claude</code></td>
+          </tr>
+          <tr>
+            <td>Simulate returns mode/reason</td>
+            <td>☐</td>
+            <td>☐</td>
+            <td><code>behalf profile simulate --tool claude</code></td>
+          </tr>
+          <tr>
+            <td>Launch records activity</td>
+            <td>☐</td>
+            <td>☐</td>
+            <td>Launch <code>claude</code> → Activity dashboard</td>
+          </tr>
+          <tr>
+            <td>Activity shows repo hash only</td>
+            <td>☐</td>
+            <td>☐</td>
+            <td>No raw paths or git remotes in activity rows</td>
+          </tr>
+          <tr>
+            <td>Protected repo enrollment works</td>
+            <td>☐</td>
+            <td>☐</td>
+            <td>Enroll hash from Activity or Managed profiles</td>
+          </tr>
+          <tr>
+            <td>Required-mode behavior is understandable</td>
+            <td>☐</td>
+            <td>☐</td>
+            <td>Simulate shows <code>required</code> + clear reason; fails closed when unverified</td>
+          </tr>
+          <tr>
+            <td>Pause approval works</td>
+            <td>☐</td>
+            <td>☐</td>
+            <td><code>behalf pause …</code> → approve → retry or <code>behalf pause status</code></td>
+          </tr>
+          <tr>
+            <td>Doctor output is actionable</td>
+            <td>☐</td>
+            <td>☐</td>
+            <td><code>behalf profile doctor</code> — each warn/error includes a fix line</td>
+          </tr>
+        </tbody>
+      </table>
+
       <h2>Managed Profiles — 2–3 minute recording</h2>
       <p>
         <strong>Primary message:</strong> Control what coding agents can do before they touch protected repos.
@@ -155,21 +328,6 @@ export default function DemoScriptPage() {
         Say: <em>&ldquo;Activity and approvals show repo hashes and safe metadata — never raw git remotes,
         local source paths, or secrets.&rdquo;</em>
       </p>
-
-      <h3>Launch readiness checklist</h3>
-      <p>Use this before recording or shipping a public demo:</p>
-      <ul className="docs-list">
-        <li>CLI install command confirmed: <code>{CLI_NPM_INSTALL_COMMAND}</code></li>
-        <li><code>behalf login</code> works</li>
-        <li><code>behalf profile install</code> creates shims</li>
-        <li>PATH order verified (<code>~/.behalf/bin</code> before real tool binaries)</li>
-        <li><code>behalf profile status --tool claude</code> returns expected policy</li>
-        <li><code>behalf profile simulate --tool claude</code> returns expected mode and reason</li>
-        <li>Launching <code>claude</code> records activity in the dashboard</li>
-        <li>Protected repo enrollment works from Activity or Managed profiles</li>
-        <li>Required-mode pause approval works end-to-end</li>
-        <li>Activity does not expose raw paths or git remotes</li>
-      </ul>
 
       <h3>Sharing</h3>
       <p>

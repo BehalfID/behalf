@@ -286,6 +286,9 @@ function profileStatusCommand() {
 
         if (status.pathCheck && !status.pathCheck.binDirPrecedesRealTool) {
           console.log();
+          console.log(
+            "Managed tools will bypass policy until ~/.behalf/bin precedes the real binary on PATH."
+          );
           console.log(status.pathCheck.pathHint ?? shellPathExportLine(getBinDir()));
         }
         console.log();

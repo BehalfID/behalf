@@ -5068,6 +5068,34 @@ html[data-theme="light"] .dashboard-shell .dashboard-sidebar nav a[aria-current=
   font-family: var(--font-mono);
 }
 
+.docs-checklist {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0 24px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.docs-checklist th,
+.docs-checklist td {
+  border: 1px solid var(--border);
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.docs-checklist th {
+  color: var(--text);
+  font-weight: var(--fw-bold);
+  background: var(--surface);
+}
+
+.docs-checklist td:nth-child(2),
+.docs-checklist td:nth-child(3) {
+  width: 3rem;
+  text-align: center;
+}
+
 .docs-links {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));

@@ -214,6 +214,53 @@ behalf pause status apr_example`}</CodeBlock>
         Full CLI reference: <code>packages/cli/README.md</code>.
       </p>
 
+      <h3 id="managed-profiles-troubleshooting">Troubleshooting first-run failures</h3>
+      <p>
+        Run <code>behalf profile doctor</code> first. Each warning or error includes a <code>fix:</code> line.
+        Common issues:
+      </p>
+      <ul className="docs-list">
+        <li>
+          <strong><code>~/.behalf/bin</code> not first in PATH</strong> — Managed tools resolve the real binary
+          instead of the shim. Add <code>export PATH=&quot;$HOME/.behalf/bin:$PATH&quot;</code> to your shell
+          config, restart the terminal, and confirm with <code>behalf profile status</code> (PATH ordering:
+          ok).
+        </li>
+        <li>
+          <strong>Real <code>claude</code>/<code>codex</code>/<code>cursor</code> binary not found</strong> —
+          Install the tool first. <code>behalf profile install</code> skips tools whose binaries are missing.
+          Doctor shows which real binary could not be resolved.
+        </li>
+        <li>
+          <strong>Unauthenticated CLI</strong> — Run <code>behalf login</code>. Status and simulate need a
+          session; required-mode launches fail closed without credentials.
+        </li>
+        <li>
+          <strong>Server unavailable</strong> — Unmanaged contexts may continue with a warning. Required
+          contexts fail closed unless a valid cached policy allows continuity. Check base URL with{" "}
+          <code>behalf config get base-url</code> and network access to the API.
+        </li>
+        <li>
+          <strong>Required mode fail-closed</strong> — When mode is <code>required</code> and policy cannot be
+          verified (server down, no cache, missing agent credentials), the shim refuses to launch. Fix auth and
+          connectivity, then re-run <code>behalf profile simulate --tool claude</code>.
+        </li>
+        <li>
+          <strong>Protected repo hash not appearing</strong> — Run from inside a git repo. Status shows{" "}
+          <code>policy repo hash</code>; if <code>(none)</code>, confirm git remote or local root detection.
+          Enroll only after a shim launch records activity.
+        </li>
+        <li>
+          <strong>Activity not appearing after launch</strong> — Confirm PATH order (shim, not real binary),
+          authentication, and that Managed Profiles policy is enabled in the dashboard. Wait a few seconds and
+          refresh <a href="/dashboard/managed-profiles/activity">Activity</a>.
+        </li>
+      </ul>
+      <p>
+        For a printable pass/fail checklist, see the{" "}
+        <a href="/docs/demo-script">fresh-workspace smoke test</a>.
+      </p>
+
       <h2>Deploy approval workflow</h2>
       <p>
         The most common first use case: an AI coding agent (Claude Code, Codex, Cursor) that
