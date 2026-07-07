@@ -112,14 +112,27 @@ describe("billing and quota enforcement", () => {
     );
   });
 
-  it("documents current unmetered behavior for missing account state", async () => {
+  it("fails closed when accountId is missing on metered quota checks (issue #77)", async () => {
     const { checkAgentLimit, checkAndIncrementVerifications } = await import("@/lib/quota");
 
-    await expect(checkAndIncrementVerifications(undefined)).resolves.toEqual({ allowed: true });
-    await expect(checkAndIncrementVerifications(null)).resolves.toEqual({ allowed: true });
-    await expect(checkAgentLimit(undefined)).resolves.toEqual({ allowed: true });
-    await expect(checkAgentLimit(null)).resolves.toEqual({ allowed: true });
+    const denied = {
+      allowed: false,
+      code: "ACCOUNT_CONTEXT_MISSING",
+      reason: "Account context is missing for this request, so quota cannot be enforced."
+    };
+    await expect(checkAndIncrementVerifications(undefined)).resolves.toEqual(denied);
+    await expect(checkAndIncrementVerifications(null)).resolves.toEqual(denied);
+    await expect(checkAgentLimit(undefined)).resolves.toEqual(denied);
+    await expect(checkAgentLimit(null)).resolves.toEqual(denied);
     expect(quotaMocks.accountFindOne).not.toHaveBeenCalled();
+    expect(quotaMocks.accountUpdateOne).not.toHaveBeenCalled();
+  });
+
+  it("keeps a known accountId without an Account document unmetered", async () => {
+    // Accounts are never deleted and every accountId passed to the quota helpers
+    // originates from a created Account, so a missing document is a data
+    // inconsistency rather than lost auth context. See decision note in lib/quota.ts.
+    const { checkAgentLimit, checkAndIncrementVerifications } = await import("@/lib/quota");
 
     quotaMocks.accountFindOne.mockResolvedValue(null);
     await expect(checkAndIncrementVerifications("acct_missing")).resolves.toEqual({ allowed: true });
