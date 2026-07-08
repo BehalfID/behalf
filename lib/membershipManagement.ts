@@ -15,9 +15,16 @@ import { createPublicId } from "@/lib/ids";
 import { normalizeEmail } from "@/lib/developerAuth";
 import { buildInviteAcceptUrl, createInviteTokenPair } from "@/lib/inviteAcceptance";
 import { checkSeatLimit, quotaErrorDetails } from "@/lib/quota";
+import {
+  createMembership,
+  deleteMembership,
+  findMembershipByAccountAndUser,
+  findMembershipsByAccountId,
+  findPendingInvitesByAccountId,
+  updateMembershipRole,
+  upsertPendingInvite
+} from "@/lib/repositories";
 import { jsonError } from "@/lib/responses";
-import AccountMembership from "@/models/AccountMembership";
-import AccountInvite from "@/models/AccountInvite";
 import DeveloperSession from "@/models/DeveloperSession";
 import DeveloperUser from "@/models/DeveloperUser";
 
@@ -77,9 +84,7 @@ export function canUpdateMemberRole(
 }
 
 export async function listAccountMembers(accountId: string) {
-  const memberships = await AccountMembership.find({ accountId })
-    .sort({ createdAt: 1 })
-    .lean();
+  const memberships = await findMembershipsByAccountId(accountId);
   const userIds = memberships.map((member) => member.userId);
   const users = userIds.length
     ? await DeveloperUser.find({ userId: { $in: userIds } })
@@ -97,9 +102,7 @@ export async function listAccountMembers(accountId: string) {
     createdAt: member.createdAt
   }));
 
-  const invites = await AccountInvite.find({ accountId, status: "pending" })
-    .sort({ createdAt: -1 })
-    .lean();
+  const invites = await findPendingInvitesByAccountId(accountId);
 
   const pendingInvites: InviteRecord[] = invites.map((invite) => ({
     inviteId: invite.inviteId,
@@ -129,10 +132,10 @@ export async function addOrInviteMember(
   const existingUser = await DeveloperUser.findOne({ email }).select("userId email primaryAccountId").lean();
 
   if (existingUser) {
-    const existingMembership = await AccountMembership.findOne({
-      accountId: actor.accountId,
-      userId: existingUser.userId
-    }).lean();
+    const existingMembership = await findMembershipByAccountAndUser(
+      actor.accountId,
+      existingUser.userId
+    );
     if (existingMembership) {
       return { error: "This user is already a member of the workspace." };
     }
@@ -150,7 +153,7 @@ export async function addOrInviteMember(
       };
     }
 
-    const membership = await AccountMembership.create({
+    const membership = await createMembership({
       membershipId: createPublicId("mbr"),
       accountId: actor.accountId,
       userId: existingUser.userId,
@@ -181,24 +184,13 @@ export async function addOrInviteMember(
 
   const { token, tokenHash, expiresAt } = createInviteTokenPair();
 
-  const invite = await AccountInvite.findOneAndUpdate(
-    { accountId: actor.accountId, email, status: "pending" },
-    {
-      $set: {
-        role: input.role,
-        invitedBy: actor.userId,
-        inviteTokenHash: tokenHash,
-        inviteTokenExpiresAt: expiresAt
-      },
-      $setOnInsert: {
-        inviteId: createPublicId("inv"),
-        accountId: actor.accountId,
-        email,
-        status: "pending"
-      }
-    },
-    { upsert: true, returnDocument: "after" }
-  ).lean();
+  const invite = await upsertPendingInvite(actor.accountId, email, {
+    role: input.role,
+    invitedBy: actor.userId,
+    inviteTokenHash: tokenHash,
+    inviteTokenExpiresAt: expiresAt,
+    inviteId: createPublicId("inv")
+  });
 
   const baseUrl = options?.appBaseUrl ?? process.env.NEXT_PUBLIC_APP_URL ?? "";
   const acceptUrl = baseUrl ? buildInviteAcceptUrl(token, baseUrl) : null;
@@ -220,7 +212,7 @@ export async function updateMemberRole(
   membershipId: string,
   nextRole: WorkspaceRole
 ) {
-  const memberships = await AccountMembership.find({ accountId: actor.accountId }).lean();
+  const memberships = await findMembershipsByAccountId(actor.accountId);
   const target = memberships.find((member) => member.membershipId === membershipId);
   if (!target) return { error: "Member not found." };
   const targetRole = isWorkspaceRole(target.role) ? target.role : "VIEWER";
@@ -239,12 +231,12 @@ export async function updateMemberRole(
     return { error: roleDelegationForbidden() };
   }
 
-  await AccountMembership.updateOne({ membershipId, accountId: actor.accountId }, { $set: { role: nextRole } });
+  await updateMembershipRole(membershipId, actor.accountId, nextRole);
   return { ok: true };
 }
 
 export async function removeMember(actor: WorkspaceActor, membershipId: string) {
-  const memberships = await AccountMembership.find({ accountId: actor.accountId }).lean();
+  const memberships = await findMembershipsByAccountId(actor.accountId);
   const target = memberships.find((member) => member.membershipId === membershipId);
   if (!target) return { error: "Member not found." };
   const targetRole = isWorkspaceRole(target.role) ? target.role : "VIEWER";
@@ -258,7 +250,7 @@ export async function removeMember(actor: WorkspaceActor, membershipId: string) 
     return { error: roleDelegationForbidden() };
   }
 
-  await AccountMembership.deleteOne({ membershipId, accountId: actor.accountId });
+  await deleteMembership(membershipId, actor.accountId);
   await DeveloperSession.updateMany(
     { userId: target.userId, activeAccountId: actor.accountId },
     { $unset: { activeAccountId: "" } }

@@ -1,8 +1,11 @@
 import { connectToDatabase } from "@/lib/db";
 import { createPublicId } from "@/lib/ids";
 import type { CliSessionPolicyMode } from "@/lib/cliSessionPolicy";
+import {
+  findManagedProfilePolicyByAccountId,
+  upsertManagedProfilePolicy
+} from "@/lib/repositories";
 import { checkProtectedRepoLimit, type QuotaResult } from "@/lib/quota";
-import ManagedProfilePolicy from "@/models/ManagedProfilePolicy";
 import { isRecord, readString, rejectUnknownFields } from "@/lib/validation";
 
 export type ManagedProfilePolicyMode = CliSessionPolicyMode;
@@ -465,7 +468,7 @@ export async function loadEffectiveManagedProfilePolicy(
   accountId: string
 ): Promise<EffectiveManagedProfilePolicy> {
   await connectToDatabase();
-  const doc = await ManagedProfilePolicy.findOne({ accountId }).lean();
+  const doc = await findManagedProfilePolicyByAccountId(accountId);
   if (!doc) return defaultManagedProfilePolicy(accountId);
   return serializePolicy(doc);
 }
@@ -547,7 +550,7 @@ export async function saveManagedProfilePolicy(
   }
 
   await connectToDatabase();
-  const existing = await ManagedProfilePolicy.findOne({ accountId }).lean();
+  const existing = await findManagedProfilePolicyByAccountId(accountId);
   const policyId = existing?.policyId ?? createPublicId("pprf");
 
   // Entitlement enforcement: only block growth of the protected repo list.
@@ -566,15 +569,7 @@ export async function saveManagedProfilePolicy(
     };
   }
 
-  const doc = await ManagedProfilePolicy.findOneAndUpdate(
-    { accountId },
-    {
-      policyId,
-      accountId,
-      ...validated.policy,
-    },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
-  ).lean();
+  const doc = await upsertManagedProfilePolicy(accountId, policyId, validated.policy);
 
   if (!doc) return { policy: null, error: "Failed to save managed profile policy." };
   return { policy: serializePolicy(doc), error: null };
