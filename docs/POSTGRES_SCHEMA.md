@@ -17,6 +17,8 @@ initial Drizzle/Postgres schema added in PR B of the migration plan (`docs/DATAB
 | `drizzle.config.ts` | Drizzle Kit config (`DATABASE_URL` or `POSTGRES_URL`) |
 | `drizzle/0000_initial_behalf_schema.sql` | Initial SQL migration |
 | `test/postgres-schema.test.ts` | Static validation (no live Postgres required) |
+| `test/postgres-migration-smoke.test.ts` | Optional live migration smoke test (disposable DB only) |
+| `scripts/postgres-smoke.ts` | CLI helper for the migration smoke test |
 
 ---
 
@@ -116,9 +118,53 @@ npm run db:studio
 
 `npm run build` does **not** require a database connection.
 
+`npx vitest run` skips the live migration smoke test unless explicitly enabled (see below).
+
 Environment variables (not committed):
 
 - `DATABASE_URL` or `POSTGRES_URL` — Postgres connection string for migration tooling only.
+- `POSTGRES_TEST_URL` — preferred URL for the optional migration smoke test (disposable database).
+- `RUN_POSTGRES_MIGRATION_SMOKE=true` — gate to run the live migration smoke test.
+
+---
+
+## Migration smoke test (optional)
+
+The smoke test applies `drizzle/0000_initial_behalf_schema.sql` against a **disposable**
+Postgres database, verifies all 15 core tables, RLS, critical indexes (including approval
+partial unique indexes and `managed_profile_protected_repos` `(account_id, repo_hash)`),
+and confirms `verification_logs` is unpartitioned in v1. It does **not** change app runtime
+behavior — production still uses Mongo/Mongoose.
+
+**Safety:** the test creates a temporary schema (`behalf_smoke_<timestamp>`), sets
+`search_path`, runs the migration inside that schema, then drops the schema. It never runs
+`DROP DATABASE` or wipes a shared database's `public` schema. Still, only point
+`POSTGRES_TEST_URL` at a throwaway local/staging Supabase project or CI database — never
+production.
+
+```bash
+# Preferred: dedicated disposable URL
+POSTGRES_TEST_URL='postgres://user:pass@localhost:5432/behalf_smoke' \
+  npm run test:postgres-smoke
+
+# Equivalent vitest invocation
+RUN_POSTGRES_MIGRATION_SMOKE=true \
+  POSTGRES_TEST_URL='postgres://...' \
+  npx vitest run test/postgres-migration-smoke.test.ts
+
+# CLI helper (sets RUN_POSTGRES_MIGRATION_SMOKE via npm script; URL still required)
+POSTGRES_TEST_URL='postgres://...' tsx scripts/postgres-smoke.ts
+```
+
+`DATABASE_URL` is accepted as a fallback when `POSTGRES_TEST_URL` is unset, but a dedicated
+disposable URL is strongly recommended.
+
+**Gate:** skipped by default. `npx vitest run`, `npm run build`, and `npx tsc --noEmit` do
+not require Postgres.
+
+**Prerequisite for Postgres adapters:** passing this smoke test (plus static schema tests and
+`test/repository-contracts/*`) is required before trusting Postgres repository adapters —
+runtime cutover remains a separate, unapproved step.
 
 ---
 
