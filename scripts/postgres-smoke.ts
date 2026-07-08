@@ -138,7 +138,7 @@ export async function truncatePostgresContractTables(
   schemaName: string
 ): Promise<void> {
   await sql`SET search_path TO ${sql(schemaName)}`;
-  await sql`TRUNCATE accounts, agents CASCADE`;
+  await sql`TRUNCATE accounts, developer_users, agents CASCADE`;
 }
 
 export type SmokeTestResult = {
