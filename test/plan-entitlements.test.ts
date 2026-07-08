@@ -161,17 +161,23 @@ describe("plan entitlements source of truth", () => {
 
 describe("webhook entitlement UI copy", () => {
   it("does not render disabled webhooks as Available on the dashboard usage panel", async () => {
-    const source = await readFile("/workspace/app/dashboard/client.tsx", "utf8");
-    expect(source).toContain('usage.webhooksEnabled ? "Enabled" : "Upgrade required"');
-    expect(source).not.toMatch(/webhooksEnabled \? "Enabled" : "Available"/);
+    const dashboardSource = await readFile("/workspace/app/dashboard/client.tsx", "utf8");
+    const tileSource = await readFile("/workspace/components/usage/UsageLimitTile.tsx", "utf8");
+    expect(dashboardSource).toContain("WebhookUsageLimitTile");
+    expect(tileSource).toContain('getWebhookValue(enabled)');
+    expect(tileSource).not.toMatch(/webhooksEnabled \? "Enabled" : "Available"/);
+    expect(tileSource).not.toContain('"Available"');
   });
 
   it("renders disabled webhooks as Upgrade required on the billing usage surface", async () => {
-    const source = await readFile("/workspace/app/dashboard/billing/client.tsx", "utf8");
-    expect(source).toContain('entitlements.webhooksEnabled ? "Enabled" : "Upgrade required"');
-    expect(source).toContain('"Upgrade to Pro to enable webhook delivery."');
-    expect(source).not.toMatch(/webhooksEnabled \? "Enabled" : "Available"/);
-    expect(source).not.toContain("Set up webhook endpoints to receive verification events.");
+    const billingSource = await readFile("/workspace/app/dashboard/billing/client.tsx", "utf8");
+    const tileSource = await readFile("/workspace/components/usage/UsageLimitTile.tsx", "utf8");
+    const usageDisplaySource = await readFile("/workspace/lib/usageDisplay.ts", "utf8");
+    expect(billingSource).toContain("WebhookUsageLimitTile");
+    expect(tileSource).toContain("getWebhookHelper(enabled)");
+    expect(usageDisplaySource).toContain('"Upgrade to Pro to enable webhook delivery."');
+    expect(tileSource).not.toMatch(/webhooksEnabled \? "Enabled" : "Available"/);
+    expect(tileSource).not.toContain("Set up webhook endpoints to receive verification events.");
   });
 });
 

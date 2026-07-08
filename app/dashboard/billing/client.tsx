@@ -3,8 +3,20 @@
 import { useCallback, useState, type FormEvent } from "react";
 import { DashboardShellLayout } from "@/components/layout/DashboardShell";
 import { Badge, Button, Card, PageHeader } from "@/components/ui";
+import {
+  CountedUsageLimitTile,
+  InfoUsageLimitTile,
+  WebhookUsageLimitTile
+} from "@/components/usage/UsageLimitTile";
 import type { Plan } from "@/lib/plans";
-import { formatLimit, getPlanEntitlements, PRO_PLAN_PRICE_CENTS } from "@/lib/plans";
+import { getPlanEntitlements, PRO_PLAN_PRICE_CENTS } from "@/lib/plans";
+import {
+  formatUsageCount,
+  getCountedUsageHelper,
+  getOverLimitNote,
+  getUsageLimitState,
+  getUsageStatusLabel
+} from "@/lib/usageDisplay";
 
 type BillingProps = {
   plan: Plan;
@@ -34,24 +46,27 @@ function nextResetDate(periodStart: string) {
 }
 
 function UsageBar({ used, limit, label }: { used: number; limit: number; label: string }) {
-  const isUnlimited = !isFinite(limit);
+  const state = getUsageLimitState(used, limit);
+  const isUnlimited = state === "unlimited";
   const pct = isUnlimited ? 0 : Math.min(100, Math.round((used / limit) * 100));
-  const isNearLimit = pct >= 80;
+  const statusLabel = getUsageStatusLabel(state);
+  const fillClass =
+    state === "over"
+      ? " billing-usage-fill--over"
+      : state === "near"
+        ? " billing-usage-fill--warn"
+        : "";
 
   return (
-    <div className="billing-usage-row">
+    <div className={`billing-usage-row${state !== "normal" ? ` billing-usage-row--${state}` : ""}`}>
       <div className="billing-usage-labels">
         <span>{label}</span>
-        <span className="billing-usage-count">
-          {used.toLocaleString()} {isUnlimited ? "" : `/ ${limit.toLocaleString()}`}
-        </span>
+        <span className="billing-usage-count">{formatUsageCount(used, limit)}</span>
       </div>
+      {statusLabel ? <p className="usage-limit-status">{statusLabel}</p> : null}
       {!isUnlimited && (
         <div className="billing-usage-track">
-          <div
-            className={`billing-usage-fill${isNearLimit ? " billing-usage-fill--warn" : ""}`}
-            style={{ width: `${pct}%` }}
-          />
+          <div className={`billing-usage-fill${fillClass}`} style={{ width: `${pct}%` }} />
         </div>
       )}
     </div>
@@ -216,48 +231,47 @@ export function BillingClient({
       <EnterpriseSection />
 
       <section className="dashboard-panel billing-limit-grid">
-        <div>
-          <span>Billable seats</span>
-          <strong>{seatCount.toLocaleString()} / {formatLimit(entitlements.maxBillableUsers)}</strong>
-          <small>{isFinite(entitlements.maxBillableUsers) ? "New billable members are blocked at this limit. Viewers are free." : "No enforced seat limit."}</small>
-        </div>
-        <div>
-          <span>Agents</span>
-          <strong>{agentCount.toLocaleString()} / {formatLimit(entitlements.maxAgents)}</strong>
-          <small>{isFinite(entitlements.maxAgents) ? "New agents are blocked at this limit." : "No enforced agent limit."}</small>
-        </div>
-        <div>
-          <span>Protected repos</span>
-          <strong>{protectedRepoCount.toLocaleString()} / {formatLimit(entitlements.maxProtectedRepos)}</strong>
-          <small>{isFinite(entitlements.maxProtectedRepos) ? "New protected repo enrollments are blocked at this limit." : "No enforced protected repo limit."}</small>
-        </div>
-        <div>
-          <span>Monthly verifications</span>
-          <strong>{verificationCount.toLocaleString()} / {formatLimit(entitlements.monthlyVerifications)}</strong>
-          <small>Resets {formatDate(resetDate.toISOString())}.</small>
-        </div>
-        <div>
-          <span>Webhooks</span>
-          <strong>{entitlements.webhooksEnabled ? "Enabled" : "Upgrade required"}</strong>
-          <small>{entitlements.webhooksEnabled ? "Webhook endpoints can receive verification events." : "Upgrade to Pro to enable webhook delivery."}</small>
-        </div>
-        <div>
-          <span>Log retention</span>
-          <strong>{entitlements.logRetentionDays} days</strong>
-          <small>Dashboard logs are filtered to this retention window.</small>
-        </div>
-        <div>
-          <span>Billing period</span>
-          <strong>{formatDate(verificationPeriodStart)}</strong>
-          <small>Verification usage is tracked by UTC calendar month.</small>
-        </div>
-        {stripeCurrentPeriodEnd && (
-          <div>
-            <span>Next billing date</span>
-            <strong>{formatDate(stripeCurrentPeriodEnd)}</strong>
-            <small>Your subscription renews on this date.</small>
-          </div>
-        )}
+        <CountedUsageLimitTile
+          kind="seats"
+          label="Billable seats"
+          used={seatCount}
+          limit={entitlements.maxBillableUsers}
+        />
+        <CountedUsageLimitTile kind="agents" label="Agents" used={agentCount} limit={entitlements.maxAgents} />
+        <CountedUsageLimitTile
+          kind="protectedRepos"
+          label="Protected repos"
+          used={protectedRepoCount}
+          limit={entitlements.maxProtectedRepos}
+        />
+        <CountedUsageLimitTile
+          kind="verifications"
+          label="Monthly verifications"
+          used={verificationCount}
+          limit={entitlements.monthlyVerifications}
+          helper={
+            getOverLimitNote("verifications", verificationCount, entitlements.monthlyVerifications) ??
+            `Resets ${formatDate(resetDate.toISOString())}. ${getCountedUsageHelper("verifications", verificationCount, entitlements.monthlyVerifications)}`
+          }
+        />
+        <WebhookUsageLimitTile enabled={entitlements.webhooksEnabled} />
+        <InfoUsageLimitTile
+          label="Log retention"
+          value={`${entitlements.logRetentionDays} days`}
+          helper="Dashboard logs are filtered to this retention window."
+        />
+        <InfoUsageLimitTile
+          label="Billing period"
+          value={formatDate(verificationPeriodStart)}
+          helper="Verification usage is tracked by UTC calendar month."
+        />
+        {stripeCurrentPeriodEnd ? (
+          <InfoUsageLimitTile
+            label="Next billing date"
+            value={formatDate(stripeCurrentPeriodEnd)}
+            helper="Your subscription renews on this date."
+          />
+        ) : null}
       </section>
     </DashboardShellLayout>
   );
