@@ -24,7 +24,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "test:postgres-smoke": "RUN_POSTGRES_MIGRATION_SMOKE=true vitest run test/postgres-migration-smoke.test.ts"
+    "test:postgres-smoke": "RUN_POSTGRES_MIGRATION_SMOKE=true vitest run test/postgres-migration-smoke.test.ts",
+    "test:postgres-repositories": "RUN_POSTGRES_REPOSITORY_CONTRACTS=true vitest run test/postgres-repository-contracts.test.ts"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",

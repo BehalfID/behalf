@@ -14,7 +14,10 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import type { BehalfPostgresDb } from "@/lib/db/postgres";
+import * as schema from "@/lib/db/postgres/schema";
 
 export const CORE_TABLES = [
   "accounts",
@@ -62,12 +65,80 @@ export function isSmokeTestEnabled(): boolean {
   return process.env.RUN_POSTGRES_MIGRATION_SMOKE === "true" && Boolean(resolveSmokeTestUrl());
 }
 
+export function isPostgresRepositoryContractsEnabled(): boolean {
+  return (
+    process.env.RUN_POSTGRES_REPOSITORY_CONTRACTS === "true" && Boolean(resolveSmokeTestUrl())
+  );
+}
+
 function migrationSqlPath(): string {
   return join(process.cwd(), "drizzle/0000_initial_behalf_schema.sql");
 }
 
 function createSmokeSchemaName(): string {
   return `behalf_smoke_${Date.now()}`;
+}
+
+function createContractSchemaName(): string {
+  return `behalf_contract_${Date.now()}`;
+}
+
+export type PostgresContractTestContext = {
+  schemaName: string;
+  db: BehalfPostgresDb;
+  sql: ReturnType<typeof postgres>;
+  cleanup: () => Promise<void>;
+};
+
+/** Applies the v1 migration inside a disposable schema for repository contract tests. */
+export async function setupPostgresContractTestSchema(
+  url?: string
+): Promise<PostgresContractTestContext> {
+  const connectionUrl = url ?? resolveSmokeTestUrl();
+  if (!connectionUrl) {
+    throw new Error(
+      "Postgres repository contract tests require POSTGRES_TEST_URL, DATABASE_URL, or POSTGRES_URL."
+    );
+  }
+
+  const schemaName = createContractSchemaName();
+  const sql = postgres(connectionUrl, {
+    max: 1,
+    prepare: false,
+    idle_timeout: 20,
+    connect_timeout: 15
+  });
+
+  const migrationSql = readFileSync(migrationSqlPath(), "utf8");
+
+  await sql`CREATE SCHEMA ${sql(schemaName)}`;
+  await sql`SET search_path TO ${sql(schemaName)}`;
+  await sql.unsafe(migrationSql);
+
+  const db = drizzle(sql, { schema });
+
+  return {
+    schemaName,
+    db,
+    sql,
+    cleanup: async () => {
+      try {
+        await sql`DROP SCHEMA IF EXISTS ${sql(schemaName)} CASCADE`;
+      } catch {
+        // Best-effort cleanup; connection may already be closed.
+      }
+      await sql.end({ timeout: 5 });
+    }
+  };
+}
+
+/** Clears contract-test seed data between examples without dropping the schema. */
+export async function truncatePostgresContractTables(
+  sql: ReturnType<typeof postgres>,
+  schemaName: string
+): Promise<void> {
+  await sql`SET search_path TO ${sql(schemaName)}`;
+  await sql`TRUNCATE accounts, agents CASCADE`;
 }
 
 export type SmokeTestResult = {

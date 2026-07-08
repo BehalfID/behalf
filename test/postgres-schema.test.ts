@@ -153,14 +153,66 @@ describe("postgres runtime isolation (static)", () => {
     expect(offenders).toEqual([]);
   });
 
+  it("app routes do not import lib/repositories/postgres", async () => {
+    const { readFileSync, readdirSync, statSync } = await import("node:fs");
+    const { join, relative } = await import("node:path");
+
+    const offenders: string[] = [];
+
+    function scanDir(dir: string) {
+      for (const entry of readdirSync(dir)) {
+        const full = join(dir, entry);
+        if (statSync(full).isDirectory()) {
+          if (entry === "node_modules" || entry === ".next") continue;
+          scanDir(full);
+          continue;
+        }
+        if (!/\.(ts|tsx)$/.test(entry)) continue;
+        const content = readFileSync(full, "utf8");
+        if (
+          content.includes("@/lib/repositories/postgres") ||
+          content.includes("lib/repositories/postgres")
+        ) {
+          offenders.push(relative(process.cwd(), full));
+        }
+      }
+    }
+
+    scanDir(join(process.cwd(), "app"));
+    expect(offenders).toEqual([]);
+  });
+
+  it("lib/repositories/index.ts does not export postgres adapters", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const content = readFileSync(join(process.cwd(), "lib/repositories/index.ts"), "utf8");
+
+    expect(content).not.toMatch(/repositories\/postgres/);
+  });
+
   it("mongo repository modules do not import postgres client", async () => {
-    const { readFileSync, readdirSync } = await import("node:fs");
+    const { readFileSync, readdirSync, statSync } = await import("node:fs");
     const { join } = await import("node:path");
     const repoDir = join(process.cwd(), "lib/repositories");
-    const files = readdirSync(repoDir).filter((f) => f.endsWith(".ts"));
 
-    for (const file of files) {
-      const content = readFileSync(join(repoDir, file), "utf8");
+    function scanRepoFiles(dir: string): string[] {
+      const files: string[] = [];
+      for (const entry of readdirSync(dir)) {
+        const full = join(dir, entry);
+        if (statSync(full).isDirectory()) {
+          if (entry === "postgres") continue;
+          files.push(...scanRepoFiles(full));
+          continue;
+        }
+        if (entry.endsWith(".ts")) {
+          files.push(full);
+        }
+      }
+      return files;
+    }
+
+    for (const file of scanRepoFiles(repoDir)) {
+      const content = readFileSync(file, "utf8");
       expect(content, file).not.toMatch(/lib\/db\/postgres|drizzle-orm|getPostgresDb/);
     }
   });
