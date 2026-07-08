@@ -832,6 +832,10 @@ Each PR is independently shippable and reversible. **No PR changes auth.**
   (`drizzle/0000_initial_behalf_schema.sql`), `drizzle.config.ts`, static schema tests
   (`test/postgres-schema.test.ts`), and `docs/POSTGRES_SCHEMA.md`.
 - **Done (v1):** RLS enabled with no policies (deny-all baseline) on all core tables.
+- **Done (v1):** Optional migration smoke test (`test/postgres-migration-smoke.test.ts`,
+  `scripts/postgres-smoke.ts`, `npm run test:postgres-smoke`) — applies the initial SQL
+  migration inside a disposable temporary schema; skipped by default; requires
+  `RUN_POSTGRES_MIGRATION_SMOKE=true` and `POSTGRES_TEST_URL` (or `DATABASE_URL`).
 - **Not done yet:** `pg_cron` cleanup jobs, remaining tables (device codes, site guard,
   status page, webhook deliveries, etc.), CI job that applies migrations against live Postgres.
 - Connection module (`lib/db/postgres/index.ts`) exists but is **not imported by app routes**.
@@ -921,6 +925,13 @@ Each PR is independently shippable and reversible. **No PR changes auth.**
   quota period reset, webhook claim contention).
 - **Migration-script tests (PR C):** golden-file export/transform tests; import
   idempotency (run twice, same row counts); FK-order violations fail loudly.
+- **Migration smoke test (v1, shipped):** `test/postgres-migration-smoke.test.ts` applies
+  `drizzle/0000_initial_behalf_schema.sql` to a disposable Postgres database inside a
+  temporary schema, verifies tables/RLS/indexes/partition posture, then drops the schema.
+  Gated by `RUN_POSTGRES_MIGRATION_SMOKE=true` and `POSTGRES_TEST_URL` (preferred) or
+  `DATABASE_URL`; skipped by default so `npx vitest run` needs no database. See
+  `docs/POSTGRES_SCHEMA.md` § Migration smoke test. Passing this test is required before
+  Postgres repository adapters are trusted; runtime still uses Mongo.
 - **Concurrency tests (PR B/D):** parallel verify-with-approval upserts, parallel
   webhook worker claims (`SKIP LOCKED`), parallel invite acceptance — assert no
   duplicates and no lost updates.
@@ -937,7 +948,7 @@ Each PR is independently shippable and reversible. **No PR changes auth.**
 
 1. ☐ PR A repository boundary live for this table; call sites use the repository only.
 2. ☐ Postgres schema applied in target project; constraints + indexes verified
-   (`\d+`, migration CI green).
+   (`\d+`, migration smoke test green — `npm run test:postgres-smoke` against disposable DB).
 3. ☐ Pre-flight data-quality report clean (no unique-constraint violations pending,
    backfills complete, e.g. `account_id` on legacy agents/permissions).
 4. ☐ Export/import rehearsed on staging within the last week; row counts + checksums
