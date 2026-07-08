@@ -3,9 +3,12 @@ import { normalizeAgentMetadata, type AgentProvider, type AgentType, type Connec
 import { createApiKey, createPublicId } from "@/lib/ids";
 import { getPlanEntitlements, normalizePlan, verificationPeriodStart } from "@/lib/plans";
 import { countBillableSeats } from "@/lib/quota";
+import {
+  countAgentsByScope,
+  countProtectedReposByAccountId
+} from "@/lib/repositories";
 import type { AccountDocument } from "@/models/Account";
 import Agent from "@/models/Agent";
-import ManagedProfilePolicy from "@/models/ManagedProfilePolicy";
 import Permission from "@/models/Permission";
 import VerificationLog from "@/models/VerificationLog";
 import WebhookDelivery from "@/models/WebhookDelivery";
@@ -108,7 +111,7 @@ export async function getDashboardSummary(userId: string, account?: AccountDocum
   today.setHours(0, 0, 0, 0);
   const scope = account?.accountId ? { accountId: account.accountId } : { developerUserId: userId };
   const [totalAgents, activePermissions, logsToday, pendingEvents, failedEvents] = await Promise.all([
-    Agent.countDocuments(scope),
+    countAgentsByScope(scope as { accountId: string } | { developerUserId: string }),
     Permission.countDocuments({ ...scope, status: "active" }),
     VerificationLog.countDocuments({ ...scope, createdAt: { $gte: today } }),
     WebhookEvent.countDocuments({ ...scope, status: "pending" }),
@@ -118,13 +121,12 @@ export async function getDashboardSummary(userId: string, account?: AccountDocum
   const plan = normalizePlan(account?.plan);
   const entitlements = getPlanEntitlements(plan);
 
-  const [seatCount, policy] = account?.accountId
+  const [seatCount, protectedRepoCount] = account?.accountId
     ? await Promise.all([
         countBillableSeats(account.accountId),
-        ManagedProfilePolicy.findOne({ accountId: account.accountId }).select("protectedRepos").lean()
+        countProtectedReposByAccountId(account.accountId)
       ])
-    : [0, null];
-  const protectedRepoCount = policy?.protectedRepos?.length ?? 0;
+    : [0, 0];
 
   return {
     totalAgents,

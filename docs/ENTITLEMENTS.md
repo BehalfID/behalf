@@ -59,3 +59,7 @@ Denials return structured errors via `quotaErrorDetails`: `code`, `currentPlan`,
 ## Out of scope
 
 Stripe integration, checkout, payment state, and plan purchase flows are intentionally untouched by the entitlement layer. Stripe webhooks still only move accounts between `free` and `pro`; `team` and `business` have no purchase path yet.
+
+## Data access (repository boundary)
+
+A thin repository layer under `lib/repositories/` now wraps selected Mongoose operations used by quota, dashboard summary, membership, and managed-profile code paths. Mongo remains the backing store; this is preparation for a future Postgres/Supabase cutover described in the migration plan. No behavior or data migration has occurred — repositories delegate to the existing models unchanged.

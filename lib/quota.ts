@@ -6,10 +6,14 @@ import {
   verificationPeriodStart,
   type Plan
 } from "@/lib/plans";
-import { BILLABLE_WORKSPACE_ROLES, isBillableWorkspaceRole } from "@/lib/authority";
-import Account from "@/models/Account";
-import AccountMembership from "@/models/AccountMembership";
-import Agent from "@/models/Agent";
+import { isBillableWorkspaceRole } from "@/lib/authority";
+import {
+  countAgentsByAccountId,
+  countBillableSeatsByAccountId,
+  findAccountById,
+  incrementVerificationCount,
+  resetVerificationPeriod
+} from "@/lib/repositories";
 
 export type QuotaErrorCode =
   | "ACCOUNT_CONTEXT_MISSING"
@@ -79,7 +83,7 @@ function missingAccountContext(): QuotaResult {
 export async function checkAndIncrementVerifications(accountId: string | null | undefined): Promise<QuotaResult> {
   if (!accountId) return missingAccountContext();
 
-  const account = await Account.findOne({ accountId });
+  const account = await findAccountById(accountId);
   if (!account) return { allowed: true };
 
   const plan = normalizePlan(account.plan);
@@ -87,10 +91,7 @@ export async function checkAndIncrementVerifications(accountId: string | null | 
   if (isUnlimitedLimit(entitlements.monthlyVerifications)) return { allowed: true };
 
   if (!isSameBillingPeriod(account.verificationPeriodStart)) {
-    await Account.updateOne(
-      { accountId },
-      { $set: { verificationCount: 1, verificationPeriodStart: verificationPeriodStart() } }
-    );
+    await resetVerificationPeriod(accountId, verificationPeriodStart());
     return { allowed: true };
   }
 
@@ -105,21 +106,21 @@ export async function checkAndIncrementVerifications(accountId: string | null | 
     };
   }
 
-  await Account.updateOne({ accountId }, { $inc: { verificationCount: 1 } });
+  await incrementVerificationCount(accountId);
   return { allowed: true };
 }
 
 export async function checkAgentLimit(accountId: string | null | undefined): Promise<QuotaResult> {
   if (!accountId) return missingAccountContext();
 
-  const account = await Account.findOne({ accountId });
+  const account = await findAccountById(accountId);
   if (!account) return { allowed: true };
 
   const plan = normalizePlan(account.plan);
   const entitlements = getPlanEntitlements(plan);
   if (isUnlimitedLimit(entitlements.maxAgents)) return { allowed: true };
 
-  const count = await Agent.countDocuments({ accountId });
+  const count = await countAgentsByAccountId(accountId);
   if (count >= entitlements.maxAgents) {
     return {
       allowed: false,
@@ -136,10 +137,7 @@ export async function checkAgentLimit(accountId: string | null | undefined): Pro
 
 /** Counts workspace members holding a billable (mutation-capable) role. */
 export async function countBillableSeats(accountId: string): Promise<number> {
-  return AccountMembership.countDocuments({
-    accountId,
-    role: { $in: [...BILLABLE_WORKSPACE_ROLES] }
-  });
+  return countBillableSeatsByAccountId(accountId);
 }
 
 /**
@@ -155,7 +153,7 @@ export async function checkSeatLimit(
   if (!isBillableWorkspaceRole(role)) return { allowed: true };
   if (!accountId) return missingAccountContext();
 
-  const account = await Account.findOne({ accountId });
+  const account = await findAccountById(accountId);
   if (!account) return { allowed: true };
 
   const plan = normalizePlan(account.plan);
@@ -190,7 +188,7 @@ export async function checkProtectedRepoLimit(
   if (counts.nextCount <= counts.currentCount) return { allowed: true };
   if (!accountId) return missingAccountContext();
 
-  const account = await Account.findOne({ accountId });
+  const account = await findAccountById(accountId);
   if (!account) return { allowed: true };
 
   const plan = normalizePlan(account.plan);
