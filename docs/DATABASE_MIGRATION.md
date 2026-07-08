@@ -900,7 +900,13 @@ Each PR is independently shippable and reversible. **No PR changes auth.**
   Integration tests (`vitest.integration.config.ts`, mongodb-memory-server via
   `test/integration/setup.ts`) continue to exercise the Mongo implementations until each
   table's cutover.
-- **Contract tests for repositories (new, PR A/B):** one shared spec per repository
+- **Repository contract tests (v1, shipped):** reusable specs under
+  `test/repository-contracts/` define expected repository behavior independent of the
+  backing database. `test/mongo-repository-contracts.test.ts` runs those contracts
+  against the current Mongo repository implementations (mongodb-memory-server). Any future
+  Postgres/Drizzle repository adapter must pass the same contract suites before cutover.
+  Runtime still uses Mongo; contract tests are the parity gate, not a migration step.
+- **Contract tests for repositories (future Postgres):** one shared spec per repository
   interface, executed against *both* implementations (Mongo via mongodb-memory-server,
   Postgres via a disposable database — Testcontainers/`pglite`/Supabase local). This is
   the core correctness tool: same inputs, same observable outputs, including edge cases
