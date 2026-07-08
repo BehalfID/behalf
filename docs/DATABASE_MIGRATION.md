@@ -1,6 +1,8 @@
 # Database Migration Plan: MongoDB/Mongoose → Supabase/Postgres (v1)
 
-**Status:** Proposal / planning document. No runtime behavior changes accompany this doc.
+**Status:** Active migration plan. Postgres schema v1 (Drizzle + SQL migrations) exists but is
+**not wired to runtime** — Mongo/Mongoose remains the production backing store. See
+`docs/POSTGRES_SCHEMA.md` and `lib/db/postgres/`.
 
 **Scope of this document:** feasibility analysis, target schema design, and a phased
 migration sequence. It deliberately does **not** introduce Supabase client code, change
@@ -824,13 +826,18 @@ Each PR is independently shippable and reversible. **No PR changes auth.**
 - Exit criteria: all existing unit/integration tests pass unchanged (they already mock
   `@/models/*`; move mocks to repository interfaces incrementally).
 
-### PR B — Postgres schema & migrations (no runtime wiring)
+### PR B — Postgres schema & migrations (no runtime wiring) ✅ *shipped (core tables v1)*
 
-- Add SQL migrations (drizzle-kit or `supabase/migrations/`) implementing §5–§9,
-  including `pg_cron` cleanup jobs and RLS-enabled/no-policies posture.
-- Add Drizzle schema definitions and a connection module (pooler-aware, `globalThis`
-  cached) — **not imported by app code yet**.
-- CI job spins up Postgres, applies migrations, asserts idempotency.
+- **Done (v1):** Drizzle schema (`lib/db/postgres/schema.ts`), initial SQL migration
+  (`drizzle/0000_initial_behalf_schema.sql`), `drizzle.config.ts`, static schema tests
+  (`test/postgres-schema.test.ts`), and `docs/POSTGRES_SCHEMA.md`.
+- **Done (v1):** RLS enabled with no policies (deny-all baseline) on all core tables.
+- **Not done yet:** `pg_cron` cleanup jobs, remaining tables (device codes, site guard,
+  status page, webhook deliveries, etc.), CI job that applies migrations against live Postgres.
+- Connection module (`lib/db/postgres/index.ts`) exists but is **not imported by app routes**.
+- **Next after v1:** Postgres repository adapters behind test-only or flag-gated usage; must
+  pass existing `test/repository-contracts/*` before any runtime cutover.
+- **Runtime cutover is still not approved.**
 
 ### PR C — Data export/import scripts
 
