@@ -5510,6 +5510,74 @@ html[data-theme="light"] .dashboard-shell .dashboard-sidebar nav a[aria-current=
   background: rgba(0, 0, 0, 0.34);
 }
 
+.usage-limit-tile {
+  display: grid;
+  gap: 6px;
+}
+
+.usage-limit-status {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.usage-limit-tile--normal .usage-limit-status {
+  color: var(--muted);
+}
+
+.usage-limit-tile--near {
+  border-color: color-mix(in srgb, var(--warn) 55%, var(--border));
+}
+
+.plan-usage-grid .usage-limit-tile--near,
+.billing-limit-grid .usage-limit-tile--near,
+.billing-usage-row--near {
+  background: color-mix(in srgb, var(--warn) 8%, rgba(0, 0, 0, 0.34));
+}
+
+.usage-limit-tile--near .usage-limit-status,
+.billing-usage-row--near .usage-limit-status {
+  color: var(--warn);
+}
+
+.usage-limit-tile--over {
+  border-color: color-mix(in srgb, var(--danger) 60%, var(--border));
+}
+
+.plan-usage-grid .usage-limit-tile--over,
+.billing-limit-grid .usage-limit-tile--over,
+.billing-usage-row--over {
+  background: color-mix(in srgb, var(--danger) 10%, rgba(0, 0, 0, 0.34));
+}
+
+.usage-limit-tile--over .usage-limit-status,
+.billing-usage-row--over .usage-limit-status {
+  color: var(--danger);
+}
+
+.usage-limit-tile--unlimited {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+.plan-usage-grid .usage-limit-tile--unlimited,
+.billing-limit-grid .usage-limit-tile--unlimited,
+.billing-usage-row--unlimited {
+  background: color-mix(in srgb, var(--accent) 8%, rgba(0, 0, 0, 0.34));
+}
+
+.usage-limit-tile--unlimited .usage-limit-status,
+.billing-usage-row--unlimited .usage-limit-status {
+  color: var(--accent);
+}
+
+.plan-usage-grid .usage-limit-tile small,
+.billing-limit-grid .usage-limit-tile small {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .plan-usage-grid span,
 .billing-limit-grid span,
 .billing-usage-labels span:first-child {
@@ -5618,6 +5686,18 @@ html[data-theme="light"] .dashboard-shell .dashboard-sidebar nav a[aria-current=
 
 .billing-usage-fill--warn {
   background: var(--warn);
+}
+
+.billing-usage-fill--over {
+  background: var(--danger);
+}
+
+.billing-usage-row .usage-limit-status {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .billing-alert {
@@ -11365,6 +11445,21 @@ html[data-theme="light"] .permission-template--active {
 html[data-theme="light"] .plan-usage-grid div,
 html[data-theme="light"] .billing-limit-grid div {
   background: rgba(0, 0, 0, 0.025);
+}
+
+html[data-theme="light"] .plan-usage-grid .usage-limit-tile--near,
+html[data-theme="light"] .billing-limit-grid .usage-limit-tile--near {
+  background: color-mix(in srgb, var(--warn) 10%, #fff);
+}
+
+html[data-theme="light"] .plan-usage-grid .usage-limit-tile--over,
+html[data-theme="light"] .billing-limit-grid .usage-limit-tile--over {
+  background: color-mix(in srgb, var(--danger) 8%, #fff);
+}
+
+html[data-theme="light"] .plan-usage-grid .usage-limit-tile--unlimited,
+html[data-theme="light"] .billing-limit-grid .usage-limit-tile--unlimited {
+  background: color-mix(in srgb, var(--accent) 8%, #fff);
 }
 
 /* Quickstart step cards */

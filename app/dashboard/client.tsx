@@ -17,6 +17,11 @@ import {
 import { CLI_NPM_INSTALL_COMMAND } from "@/lib/cliInstallCommands";
 import { DashboardShellLayout } from "@/components/layout/DashboardShell";
 import { Badge, Button, ButtonLink, Card, CodeBlock, EmptyState, PageHeader, StatCard } from "@/components/ui";
+import {
+  CountedUsageLimitTile,
+  InfoUsageLimitTile,
+  WebhookUsageLimitTile
+} from "@/components/usage/UsageLimitTile";
 import { SCOPE_TEMPLATES } from "@/lib/scopeTemplates";
 import { getRequiredRoleLabel } from "@/lib/authority";
 import { classifyPermissionRisk } from "@/lib/permissionRisk";
@@ -703,10 +708,6 @@ function HomeView() {
   );
 }
 
-function formatUsageLimit(limit: number | null) {
-  return typeof limit === "number" && isFinite(limit) ? limit.toLocaleString() : "Unlimited";
-}
-
 function formatUsageDate(value: string) {
   return new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(value));
 }
@@ -726,13 +727,31 @@ function PlanUsagePanel({ usage }: { usage: UsageSummary }) {
         <p className="form-error" role="alert">Payment failed. Paid limits and webhook delivery are disabled until billing is updated.</p>
       ) : null}
       <div className="plan-usage-grid">
-        <div><span>Seats</span><strong>{usage.seatCount.toLocaleString()} / {formatUsageLimit(usage.seatLimit)}</strong></div>
-        <div><span>Agents</span><strong>{usage.agentCount.toLocaleString()} / {formatUsageLimit(usage.agentLimit)}</strong></div>
-        <div><span>Protected repos</span><strong>{usage.protectedRepoCount.toLocaleString()} / {formatUsageLimit(usage.protectedRepoLimit)}</strong></div>
-        <div><span>Verifications</span><strong>{usage.verificationCount.toLocaleString()} / {formatUsageLimit(usage.verificationLimit)}</strong></div>
-        <div><span>Reset</span><strong>{formatUsageDate(usage.verificationPeriodResetAt)}</strong></div>
-        <div><span>Webhooks</span><strong>{usage.webhooksEnabled ? "Enabled" : "Upgrade required"}</strong></div>
-        <div><span>Log retention</span><strong>{usage.logRetentionDays} days</strong></div>
+        <CountedUsageLimitTile kind="seats" label="Seats" used={usage.seatCount} limit={usage.seatLimit} />
+        <CountedUsageLimitTile kind="agents" label="Agents" used={usage.agentCount} limit={usage.agentLimit} />
+        <CountedUsageLimitTile
+          kind="protectedRepos"
+          label="Protected repos"
+          used={usage.protectedRepoCount}
+          limit={usage.protectedRepoLimit}
+        />
+        <CountedUsageLimitTile
+          kind="verifications"
+          label="Verifications"
+          used={usage.verificationCount}
+          limit={usage.verificationLimit}
+        />
+        <InfoUsageLimitTile
+          label="Reset"
+          value={formatUsageDate(usage.verificationPeriodResetAt)}
+          helper="Verification usage resets at the start of each UTC calendar month."
+        />
+        <WebhookUsageLimitTile enabled={usage.webhooksEnabled} />
+        <InfoUsageLimitTile
+          label="Log retention"
+          value={`${usage.logRetentionDays} days`}
+          helper="Dashboard logs are filtered to this retention window."
+        />
       </div>
     </section>
   );
