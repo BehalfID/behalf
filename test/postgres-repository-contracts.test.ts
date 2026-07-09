@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { hashApiKey } from "@/lib/auth";
-import { accounts, agents } from "@/lib/db/postgres/schema";
+import { accounts, agents, developerUsers } from "@/lib/db/postgres/schema";
 import { createPublicId } from "@/lib/ids";
 import {
   findAccountById,
@@ -99,6 +99,25 @@ if (contractsEnabled) {
         const agentId = overrides.agentId ?? createPublicId("agent");
         const accountId = overrides.accountId ?? createPublicId("acct");
         const developerUserId = overrides.developerUserId ?? createPublicId("dev");
+
+        await db
+          .insert(accounts)
+          .values({
+            accountId,
+            name: "Contract Seed Account",
+            plan: "free"
+          })
+          .onConflictDoNothing();
+
+        await db
+          .insert(developerUsers)
+          .values({
+            userId: developerUserId,
+            email: `${developerUserId}@contract.test`,
+            passwordHash: "contract-test-password-hash"
+          })
+          .onConflictDoNothing();
+
         await db.insert(agents).values({
           agentId,
           accountId,
