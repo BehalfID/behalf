@@ -18,10 +18,11 @@ initial Drizzle/Postgres schema added in PR B of the migration plan (`docs/DATAB
 | `drizzle/0000_initial_behalf_schema.sql` | Initial SQL migration |
 | `test/postgres-schema.test.ts` | Static validation (no live Postgres required) |
 | `test/postgres-migration-smoke.test.ts` | Optional live migration smoke test (disposable DB only) |
-| `test/postgres-repository-contracts.test.ts` | Optional Postgres account/agent adapter contract tests |
+| `test/postgres-repository-contracts.test.ts` | Optional Postgres account/agent/membership adapter contract tests |
 | `scripts/postgres-smoke.ts` | CLI helper for the migration smoke test |
 | `lib/repositories/postgres/accounts.ts` | Test-only Postgres account adapter (Drizzle) |
 | `lib/repositories/postgres/agents.ts` | Test-only Postgres agent adapter (Drizzle) |
+| `lib/repositories/postgres/memberships.ts` | Test-only Postgres membership/invite adapter (Drizzle) |
 
 ---
 
@@ -171,20 +172,22 @@ runtime cutover remains a separate, unapproved step.
 
 ---
 
-## Postgres repository adapters (test-only, v1)
+## Postgres repository adapters (test-only)
 
-Test-only Drizzle adapters live under `lib/repositories/postgres/` for the smallest safe surface:
+Test-only Drizzle adapters live under `lib/repositories/postgres/`:
 
 | Adapter | Functions | Mongo equivalent |
 |---|---|---|
 | `accounts.ts` | `findAccountById`, `resetVerificationPeriod`, `incrementVerificationCount` | `lib/repositories/accounts.ts` |
 | `agents.ts` | `countAgentsByAccountId`, `countAgentsByScope` | `lib/repositories/agents.ts` |
+| `memberships.ts` | `countBillableSeatsByAccountId`, `findMembershipByAccountAndUser`, `findMembershipsByAccountId`, `createMembership`, `updateMembershipRole`, `deleteMembership`, `findPendingInvitesByAccountId`, `upsertPendingInvite` | `lib/repositories/memberships.ts` |
 
 **Important:**
 
 - Adapters are **not** exported from `lib/repositories/index.ts` — app runtime still imports Mongo repositories.
 - Adapters accept a `BehalfPostgresDb` instance (schema-isolated contract test connection); they do not call `getPostgresDb()` at import time.
-- Memberships, invites, managed profiles, permissions, approvals, logs, and webhooks are **not** implemented yet.
+- Managed profiles, permissions, approvals, logs, and webhooks are **not** implemented yet.
+- **Runtime cutover is still not approved.**
 
 ### Repository contract tests (optional)
 
@@ -200,9 +203,9 @@ RUN_POSTGRES_REPOSITORY_CONTRACTS=true \
 ```
 
 The test creates a temporary schema (`behalf_contract_<timestamp>`), applies
-`drizzle/0000_initial_behalf_schema.sql`, seeds rows with Drizzle, runs the shared account and
-agent contracts from `test/repository-contracts/`, truncates between examples, then drops the
-schema. It never runs `DROP DATABASE` or wipes a shared `public` schema.
+`drizzle/0000_initial_behalf_schema.sql`, seeds rows with Drizzle, runs the shared account,
+agent, and membership contracts from `test/repository-contracts/`, truncates between examples,
+then drops the schema. It never runs `DROP DATABASE` or wipes a shared `public` schema.
 
 **Gate:** skipped by default. `DATABASE_URL` / `POSTGRES_URL` are accepted when
 `POSTGRES_TEST_URL` is unset, but a disposable URL is strongly recommended.
@@ -214,7 +217,8 @@ Future adapters must pass the same repository contracts before any runtime cutov
 ## Next steps
 
 1. ~~Postgres repository adapters for accounts + agents (test-only; must pass `test/repository-contracts/*`).~~ **Done (v1).**
-2. Postgres repository adapters for remaining aggregates (memberships, managed profiles, …).
-3. Export/import scripts (PR C).
-4. Staging dual-read rehearsal (PR D).
-5. Per-table runtime cutover (PR E/F) — **not approved yet**.
+2. ~~Postgres repository adapters for memberships and invites (test-only).~~ **Done (v2).**
+3. Postgres repository adapters for managed profiles, then permissions/approvals/logs.
+4. Export/import scripts (PR C).
+5. Staging dual-read rehearsal (PR D).
+6. Per-table runtime cutover (PR E/F) — **not approved yet**.
