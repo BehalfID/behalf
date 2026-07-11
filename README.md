@@ -96,7 +96,7 @@ API keys and developer tokens are shown only once. Store them in environment var
 
 ## API Usage
 
-Public API docs are available at `/docs` and in [docs/API.md](docs/API.md). Demo commands are in [docs/DEMO.md](docs/DEMO.md). The local coding-agent MCP workflow is in [docs/MCP_DEMO.md](docs/MCP_DEMO.md).
+Public API docs are available at `/docs` and in [docs/API.md](docs/API.md). Demo commands are in [docs/DEMO.md](docs/DEMO.md). The local coding-agent MCP workflow is in [docs/MCP_DEMO.md](docs/MCP_DEMO.md). Two-user Claude Code pilot rehearsal materials are in [docs/PILOT_REHEARSAL.md](docs/PILOT_REHEARSAL.md), [docs/PILOT_TESTER_GUIDE.md](docs/PILOT_TESTER_GUIDE.md), and [docs/PILOT_RESULTS_TEMPLATE.md](docs/PILOT_RESULTS_TEMPLATE.md).
 
 BehalfID has four developer adoption paths:
 
