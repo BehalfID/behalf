@@ -204,6 +204,32 @@ and only relevant when a permission has a `maxAmount` constraint.
 
 Optional `metadata` must be an object under 2KB. It is only persisted when `BEHALFID_LOG_METADATA` is not `false`. Required log fields, including `action`, `amount`, and `vendor`/resource, are always stored and may still be sensitive.
 
+Optional `policyContext` is a separate, non-persisted object (max 16 KB) used only during policy evaluation — for example sanitized Claude Code PreToolUse arguments. It is never written to `VerificationLog.metadata` and never included in webhook payloads. Typical shape:
+
+```json
+{
+  "source": "claude_code",
+  "toolName": "Write",
+  "cwd": "/workspace/project",
+  "home": "/Users/alice",
+  "toolInput": {
+    "filePath": "/workspace/project/src/index.ts"
+  }
+}
+```
+
+Only constraint-relevant fields belong in `policyContext.toolInput` (`filePath`, `command`). File contents, Edit `old_string`/`new_string`, notebook cell bodies, and unrelated tool-input fields must not be sent.
+
+### Path and command argument constraints
+
+Permissions may include `constraints.allowedPaths`, `constraints.deniedPaths`, and `constraints.deniedCommands`.
+
+- Path constraints apply to `write_file` and `read_file`. Patterns are glob-style (`src/**`, `**/.env`, `~/.ssh/**`). `deniedPaths` takes precedence over `allowedPaths`. Absolute paths are matched against normalized candidates derived from `cwd` and optional `home` (relative-to-cwd and `~/` forms). When path constraints exist and no usable path is supplied, verification fails closed with `path_not_permitted`.
+- Command constraints apply to `execute_command`. `deniedCommands` entries are **literal substrings** of the full command string (not regexes or shell globs), so a denied token is detected inside compound commands such as `npm test && rm -rf /tmp/build`. Empty or whitespace-only entries are ignored. When `deniedCommands` is non-empty and no usable command is supplied, verification fails closed with `command_blocked`.
+- Argument-level denials are hard constraints: they are evaluated before approval resolution and cannot be bypassed by an approval grant.
+
+Claude Code tool calls routed through the installed BehalfID PreToolUse hook are checked against matching BehalfID permissions before execution. The hook forwards only sanitized policy-relevant fields via `policyContext` (never Write contents or Edit replacement bodies). Network or service unavailability in the hook still fails open so a BehalfID outage does not brick the agent; malformed or oversized local policy input fails closed because the action cannot be safely evaluated.
+
 Allowed response:
 
 ```json
@@ -239,6 +265,8 @@ Denial reasons include:
 - `Action is blocked by this permission.`
 - `Action is not included in allowedActions.`
 - `Permission requires approval before execution.`
+- `path_not_permitted`
+- `command_blocked`
 
 ### Approvals (`approvalRequired` and `approvalId`)
 
@@ -269,6 +297,15 @@ that were originally requested. The next verify call that matches that exact
 tuple is allowed and the grant is consumed (marked `used`) — it cannot be
 reused.
 
+**Known limitation — argument substitution.** The approval grant tuple does
+**not** currently include command or file-path arguments. After a human
+approves one `execute_command` or `write_file` request, a different command or
+path that shares the same `(agentId, permissionId, action, vendor, amount)`
+can consume that grant. Hard path/command denials still apply before the
+approval gate, but when the permission only requires approval (no denying
+path/command constraint), argument substitution is possible. Binding grants to
+a deterministic sanitized-input fingerprint is the recommended follow-up.
+
 **What an approval grant does not override.** An approval satisfies only the
 human-approval gate. It never overrides policy constraints, which are
 re-evaluated on every verify call *before* the approval gate is consulted:
@@ -281,6 +318,7 @@ re-evaluated on every verify call *before* the approval gate is consulted:
 - resource/vendor matching
 - `constraints.allowedVendors`
 - `constraints.maxAmount` (including the requirement that `amount` be present)
+- `constraints.allowedPaths` / `constraints.deniedPaths` / `constraints.deniedCommands`
 
 A grant approved for `vendor: "a.com"` does not allow `vendor: "b.com"`; a
 grant approved for `amount: 25` does not allow `amount: 250`; a grant approved

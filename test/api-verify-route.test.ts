@@ -38,7 +38,10 @@ vi.mock("@/lib/rateLimit", () => ({
   checkRateLimit: routeMocks.checkRateLimit,
   rateLimitError: () => Response.json({ error: "Rate limit exceeded." }, { status: 429 })
 }));
-vi.mock("@/lib/verify", () => ({ verifyAction: routeMocks.verifyAction }));
+vi.mock("@/lib/verify", () => ({
+  verifyAction: routeMocks.verifyAction,
+  POLICY_CONTEXT_MAX_BYTES: 16 * 1024
+}));
 vi.mock("@/lib/webhooks", () => ({
   createWebhookEvent: routeMocks.createWebhookEvent,
   emitWebhookEvent: routeMocks.emitWebhookEvent
@@ -215,5 +218,93 @@ describe("POST /api/verify route", () => {
     );
     expect(routeMocks.verifyAction).not.toHaveBeenCalled();
     expect(routeMocks.emitWebhookEvent).not.toHaveBeenCalled();
+  });
+
+  it("accepts a valid policyContext object and passes it to verifyAction", async () => {
+    const { POST } = await import("@/app/api/verify/route");
+    const policyContext = {
+      source: "claude_code",
+      cwd: "/repo",
+      toolInput: { filePath: "/repo/src/a.ts" }
+    };
+
+    const response = await POST(
+      verifyRequest({
+        agentId: "agent_test",
+        action: "write_file",
+        vendor: "filesystem",
+        metadata: { note: "keep-me" },
+        policyContext
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(routeMocks.verifyAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "write_file",
+        metadata: { note: "keep-me" },
+        policyContext
+      })
+    );
+    // policyContext must not be substituted into metadata
+    const arg = routeMocks.verifyAction.mock.calls[0][0] as Record<string, unknown>;
+    expect(arg.metadata).toEqual({ note: "keep-me" });
+    expect(arg.metadata).not.toEqual(expect.objectContaining({ toolInput: expect.anything() }));
+  });
+
+  it("rejects a non-object policyContext", async () => {
+    const { POST } = await import("@/app/api/verify/route");
+
+    const response = await POST(
+      verifyRequest({
+        agentId: "agent_test",
+        action: "write_file",
+        policyContext: "not-an-object"
+      })
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(json).toEqual({ error: "policyContext must be an object." });
+    expect(routeMocks.verifyAction).not.toHaveBeenCalled();
+  });
+
+  it("rejects an oversized policyContext", async () => {
+    const { POST } = await import("@/app/api/verify/route");
+    const { POLICY_CONTEXT_MAX_BYTES } = await import("@/lib/verify");
+
+    const response = await POST(
+      verifyRequest({
+        agentId: "agent_test",
+        action: "write_file",
+        policyContext: {
+          source: "claude_code",
+          toolInput: { filePath: "/x/" + "a".repeat(POLICY_CONTEXT_MAX_BYTES) }
+        }
+      })
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(json.error).toMatch(/policyContext must be an object under/);
+    expect(routeMocks.verifyAction).not.toHaveBeenCalled();
+  });
+
+  it("still rejects unknown fields when policyContext is present", async () => {
+    const { POST } = await import("@/app/api/verify/route");
+
+    const response = await POST(
+      verifyRequest({
+        agentId: "agent_test",
+        action: "write_file",
+        policyContext: { toolInput: { filePath: "/a.ts" } },
+        notARealField: true
+      })
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(json.error).toMatch(/Unknown field/);
+    expect(routeMocks.verifyAction).not.toHaveBeenCalled();
   });
 });

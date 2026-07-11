@@ -12,6 +12,21 @@ export type VerifyInput = {
   vendor?: string;
   resource?: string;
   metadata?: Record<string, unknown>;
+  /**
+   * Non-persisted constraint arguments (e.g. sanitized Claude Code hook input).
+   * Used only during policy evaluation — never stored in VerificationLog and
+   * never included in webhook payloads. Must be under 16 KB when serialized.
+   */
+  policyContext?: {
+    source?: string;
+    toolName?: string;
+    cwd?: string;
+    home?: string;
+    toolInput?: {
+      filePath?: string;
+      command?: string;
+    };
+  };
 };
 
 export type RiskLevel = "low" | "medium" | "high";

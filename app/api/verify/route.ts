@@ -7,7 +7,7 @@ import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { isRecord, parseOptionalAmount, readString, rejectUnknownFields } from "@/lib/validation";
-import { verifyAction } from "@/lib/verify";
+import { POLICY_CONTEXT_MAX_BYTES, verifyAction, type PolicyContext } from "@/lib/verify";
 import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
 
 export async function POST(request: NextRequest) {
@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
     "vendor",
     "resource",
     "metadata",
+    "policyContext",
     "shadow",
     "mode"
   ]);
@@ -60,6 +61,18 @@ export async function POST(request: NextRequest) {
     (!isRecord(body.metadata) || JSON.stringify(body.metadata).length > 2048)
   ) {
     return jsonError("metadata must be an object under 2KB.");
+  }
+
+  let policyContext: PolicyContext | undefined;
+  if (body.policyContext !== undefined) {
+    if (!isRecord(body.policyContext)) {
+      return jsonError("policyContext must be an object.");
+    }
+    const serialized = JSON.stringify(body.policyContext);
+    if (serialized.length > POLICY_CONTEXT_MAX_BYTES) {
+      return jsonError(`policyContext must be an object under ${POLICY_CONTEXT_MAX_BYTES} bytes.`);
+    }
+    policyContext = body.policyContext as PolicyContext;
   }
 
   try {
@@ -104,6 +117,7 @@ export async function POST(request: NextRequest) {
       amount,
       vendor,
       metadata: body.metadata,
+      policyContext,
       shadow
     });
   } catch {

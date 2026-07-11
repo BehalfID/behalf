@@ -28,8 +28,10 @@ create agent -> define permissions -> verify action -> allow/deny decision -> au
 
 Current coverage includes:
 
-- `/api/verify` route authentication, malformed body handling, quota denial, allowed and denied webhook queuing, and response secret hygiene.
+- `/api/verify` route authentication, malformed body handling, quota denial, allowed and denied webhook queuing, `policyContext` accept/reject/size limits, and response secret hygiene.
 - `verifyAction` permission decisions for disabled agents, missing permissions, revoked and expired permissions, matching active permissions, cross-permission `blockedActions` override, strict `allowedActions` narrowing, resource/vendor constraints, comma-separated resource matching, `allowedVendors`, `maxAmount`, approval-gated permissions, request IDs, risk, denial reasons, and verification-log writes.
+- Argument-level path and command constraints: nested `policyContext` / `metadata.tool_input`, flat-string legacy metadata, cwd-relative and home-relative path candidates, Windows separator normalization, `..` lexical normalization, denied-over-allowed precedence, empty `deniedCommands` ignore, compound-command substring denial, and non-persistence of `policyContext`.
+- Claude Code PreToolUse hook: sanitized `policyContext` forwarding (file path / command only), current tool-name mappings (Write/Edit/MultiEdit/NotebookEdit/Read/Bash/PowerShell/Agent/Task/Web*/mcp__/Monitor-with-command), oversized local policy fail-closed, and debug output that never prints raw commands or file contents.
 - Fail-closed behavior for permission lookup failures and missing constrained inputs.
 - Webhook event payload safety, HMAC signing interoperability with the SDK verifier, invalid signature/body/secret failures, replay tolerance, and delivery-error redaction.
 - Action Gateway verification-before-execution call order, denial and thrown-verification short-circuiting, unsupported-action denial, DNS-pinned HTTP lookup behavior, private/internal URL blocking, private DNS resolution blocking, redirect-to-private blocking, and response truncation.

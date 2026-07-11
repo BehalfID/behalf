@@ -5,6 +5,27 @@ import ApprovalRequest from "@/models/ApprovalRequest";
 import Permission, { type PermissionDocument } from "@/models/Permission";
 import VerificationLog from "@/models/VerificationLog";
 
+/** Non-persisted policy-evaluation context (e.g. from Claude Code PreToolUse). */
+export type PolicyToolInput = {
+  filePath?: string;
+  command?: string;
+  /** Snake_case aliases accepted for compatibility with hook/transport variants. */
+  file_path?: string;
+  path?: string;
+  notebook_path?: string;
+  notebookPath?: string;
+};
+
+export type PolicyContext = {
+  source?: string;
+  toolName?: string;
+  tool_name?: string;
+  cwd?: string;
+  home?: string;
+  toolInput?: PolicyToolInput;
+  tool_input?: PolicyToolInput | string;
+};
+
 type VerifyInput = {
   agentId: string;
   accountId?: string;
@@ -14,9 +35,17 @@ type VerifyInput = {
   amount?: number;
   vendor?: string;
   metadata?: Record<string, unknown>;
+  /**
+   * Constraint-relevant arguments used only during policy evaluation.
+   * Never persisted to VerificationLog and never included in webhook payloads.
+   */
+  policyContext?: PolicyContext;
   enforcementDenyReason?: string;
   shadow?: boolean;
 };
+
+/** Max serialized size accepted by POST /api/verify for policyContext. */
+export const POLICY_CONTEXT_MAX_BYTES = 16 * 1024;
 
 type ShadowDecision = {
   allowed: boolean;
@@ -81,16 +110,256 @@ function globMatch(pattern: string, value: string): boolean {
   return new RegExp("^" + reStr + "$").test(value);
 }
 
-function extractStringFromMetadata(
-  metadata: Record<string, unknown> | undefined,
-  ...keys: string[]
-): string | undefined {
-  if (!metadata) return undefined;
-  for (const key of keys) {
-    const v = metadata[key];
-    if (typeof v === "string" && v) return v;
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readNonEmptyString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+/**
+ * Lexical path normalization for policy evaluation.
+ * Does not require the target to exist (no realpath).
+ * Normalizes separators, redundant slashes, `.` and `..` segments, and
+ * preserves Windows drive-letter prefixes.
+ */
+export function lexicalNormalizePath(inputPath: string): string {
+  const raw = inputPath.replace(/\\/g, "/");
+  if (!raw) return "";
+
+  let prefix = "";
+  let rest = raw;
+
+  // UNC paths: //server/share/...
+  if (rest.startsWith("//")) {
+    const uncMatch = rest.match(/^\/\/[^/]+\/[^/]+/);
+    if (uncMatch) {
+      prefix = uncMatch[0];
+      rest = rest.slice(prefix.length);
+    }
+  } else {
+    // Windows drive: C:/... or C:foo
+    const driveMatch = rest.match(/^([A-Za-z]:)(\/)?/);
+    if (driveMatch) {
+      prefix = driveMatch[1] + "/";
+      rest = rest.slice(driveMatch[0].length);
+    } else if (rest.startsWith("/")) {
+      prefix = "/";
+      rest = rest.slice(1);
+    }
+  }
+
+  const absolute = prefix !== "";
+  const parts: string[] = [];
+  for (const segment of rest.split("/")) {
+    if (!segment || segment === ".") continue;
+    if (segment === "..") {
+      if (parts.length > 0) {
+        parts.pop();
+      } else if (!absolute) {
+        parts.push("..");
+      }
+      continue;
+    }
+    parts.push(segment);
+  }
+
+  if (!absolute) {
+    return parts.join("/") || ".";
+  }
+  if (prefix === "/") {
+    return "/" + parts.join("/");
+  }
+  // Drive or UNC prefix already includes trailing structure as needed.
+  if (prefix.endsWith("/")) {
+    return prefix + parts.join("/");
+  }
+  return parts.length > 0 ? `${prefix}/${parts.join("/")}` : prefix;
+}
+
+function isAbsolutePath(normalized: string): boolean {
+  return (
+    normalized.startsWith("/") ||
+    /^[A-Za-z]:\//.test(normalized) ||
+    normalized.startsWith("//")
+  );
+}
+
+function pathsEqualForPrefix(a: string, b: string): boolean {
+  // Windows drive letters are case-insensitive for prefix checks.
+  if (/^[A-Za-z]:\//.test(a) && /^[A-Za-z]:\//.test(b)) {
+    return a.toLowerCase() === b.toLowerCase();
+  }
+  return a === b;
+}
+
+function stripPrefixPath(full: string, base: string): string | undefined {
+  const fullNorm = lexicalNormalizePath(full);
+  const baseNorm = lexicalNormalizePath(base).replace(/\/+$/, "");
+  if (pathsEqualForPrefix(fullNorm, baseNorm)) {
+    return ".";
+  }
+  const baseWithSlash = baseNorm.endsWith("/") ? baseNorm : baseNorm + "/";
+  if (/^[A-Za-z]:\//.test(fullNorm) && /^[A-Za-z]:\//.test(baseWithSlash)) {
+    if (fullNorm.toLowerCase().startsWith(baseWithSlash.toLowerCase())) {
+      return fullNorm.slice(baseWithSlash.length);
+    }
+    return undefined;
+  }
+  if (fullNorm.startsWith(baseWithSlash)) {
+    return fullNorm.slice(baseWithSlash.length);
   }
   return undefined;
+}
+
+/**
+ * Produce safe normalized path candidates for glob matching against user
+ * patterns that may be relative (`src/**`), absolute, or home-relative (`~/`).
+ */
+export function pathMatchCandidates(
+  filePath: string,
+  cwd?: string,
+  home?: string
+): string[] {
+  const candidates = new Set<string>();
+  const normalized = lexicalNormalizePath(filePath);
+  if (normalized) candidates.add(normalized);
+
+  const cwdNorm = cwd ? lexicalNormalizePath(cwd) : undefined;
+  const homeNorm = home ? lexicalNormalizePath(home) : undefined;
+
+  let absolute = normalized;
+  if (!isAbsolutePath(normalized) && cwdNorm) {
+    const joined = lexicalNormalizePath(
+      cwdNorm.endsWith("/") ? cwdNorm + normalized : cwdNorm + "/" + normalized
+    );
+    absolute = joined;
+    candidates.add(joined);
+  }
+
+  if (cwdNorm && isAbsolutePath(absolute)) {
+    const relative = stripPrefixPath(absolute, cwdNorm);
+    if (relative !== undefined) {
+      candidates.add(relative);
+    }
+  }
+
+  if (homeNorm && isAbsolutePath(absolute)) {
+    const homeRel = stripPrefixPath(absolute, homeNorm);
+    if (homeRel !== undefined) {
+      candidates.add(homeRel === "." ? "~" : `~/${homeRel}`);
+    }
+  }
+
+  // Also try home-relative when the input itself used ~/
+  if (normalized.startsWith("~/") || normalized === "~") {
+    candidates.add(normalized);
+    if (homeNorm) {
+      const expanded =
+        normalized === "~"
+          ? homeNorm
+          : lexicalNormalizePath(homeNorm + "/" + normalized.slice(2));
+      candidates.add(expanded);
+      if (cwdNorm) {
+        const relative = stripPrefixPath(expanded, cwdNorm);
+        if (relative !== undefined) candidates.add(relative);
+      }
+    }
+  }
+
+  return [...candidates].filter(Boolean);
+}
+
+function pathMatchesAny(patterns: string[], candidates: string[]): boolean {
+  return patterns.some((pattern) => candidates.some((candidate) => globMatch(pattern, candidate)));
+}
+
+function extractToolInputRecord(
+  source: Record<string, unknown> | PolicyContext | undefined
+): Record<string, unknown> | undefined {
+  if (!source) return undefined;
+  const nested = (source as Record<string, unknown>).toolInput ?? (source as Record<string, unknown>).tool_input;
+  if (isPlainObject(nested)) return nested;
+  return undefined;
+}
+
+function extractFilePathFromToolInput(toolInput: Record<string, unknown>): string | undefined {
+  return (
+    readNonEmptyString(toolInput.filePath) ??
+    readNonEmptyString(toolInput.file_path) ??
+    readNonEmptyString(toolInput.path) ??
+    readNonEmptyString(toolInput.notebook_path) ??
+    readNonEmptyString(toolInput.notebookPath)
+  );
+}
+
+/**
+ * Resolve the file path used for allowedPaths/deniedPaths evaluation.
+ * Supports policyContext, nested metadata.tool_input objects, flat-string
+ * metadata.tool_input, and metadata.path — never stringifies objects.
+ */
+export function extractFilePathForPolicy(input: VerifyInput): string | undefined {
+  const fromPolicy = extractToolInputRecord(input.policyContext);
+  if (fromPolicy) {
+    const path = extractFilePathFromToolInput(fromPolicy);
+    if (path) return path;
+  }
+
+  const meta = input.metadata;
+  if (!meta) return undefined;
+
+  const nested = meta.tool_input ?? meta.toolInput;
+  if (isPlainObject(nested)) {
+    const path = extractFilePathFromToolInput(nested);
+    if (path) return path;
+  } else if (typeof nested === "string" && nested.trim()) {
+    // Legacy flat-string metadata.tool_input
+    return nested;
+  }
+
+  return readNonEmptyString(meta.path);
+}
+
+/**
+ * Resolve the command string used for deniedCommands evaluation.
+ * Supports policyContext, nested metadata.tool_input.command, flat-string
+ * metadata.tool_input, and metadata.command — never stringifies objects.
+ */
+export function extractCommandForPolicy(input: VerifyInput): string | undefined {
+  const fromPolicy = extractToolInputRecord(input.policyContext);
+  if (fromPolicy) {
+    const command = readNonEmptyString(fromPolicy.command);
+    if (command) return command;
+  }
+
+  const meta = input.metadata;
+  if (!meta) return undefined;
+
+  const nested = meta.tool_input ?? meta.toolInput;
+  if (isPlainObject(nested)) {
+    const command = readNonEmptyString(nested.command);
+    if (command) return command;
+  } else if (typeof nested === "string" && nested.trim()) {
+    // Legacy flat-string metadata.tool_input treated as the command
+    return nested;
+  }
+
+  return readNonEmptyString(meta.command);
+}
+
+function extractCwd(input: VerifyInput): string | undefined {
+  return (
+    readNonEmptyString(input.policyContext?.cwd) ??
+    readNonEmptyString(input.metadata?.cwd)
+  );
+}
+
+function extractHome(input: VerifyInput): string | undefined {
+  return (
+    readNonEmptyString(input.policyContext?.home) ??
+    readNonEmptyString(input.metadata?.home)
+  );
 }
 
 function evaluateArgumentConstraints(
@@ -99,29 +368,33 @@ function evaluateArgumentConstraints(
 ): RawDecision | null {
   const allowedPaths = permission.constraints?.allowedPaths ?? [];
   const deniedPaths = permission.constraints?.deniedPaths ?? [];
-  const deniedCommands = permission.constraints?.deniedCommands ?? [];
+  const deniedCommands = (permission.constraints?.deniedCommands ?? []).filter(
+    (entry) => typeof entry === "string" && entry.trim().length > 0
+  );
 
   if (
     (allowedPaths.length > 0 || deniedPaths.length > 0) &&
     (input.action === "write_file" || input.action === "read_file")
   ) {
-    const filePath = extractStringFromMetadata(input.metadata, "tool_input", "path");
+    const filePath = extractFilePathForPolicy(input);
     if (!filePath) {
       return { allowed: false, reason: "path_not_permitted", risk: "high" };
     }
-    if (deniedPaths.some((p) => globMatch(p, filePath))) {
+    const candidates = pathMatchCandidates(filePath, extractCwd(input), extractHome(input));
+    if (pathMatchesAny(deniedPaths, candidates)) {
       return { allowed: false, reason: "path_not_permitted", risk: "high" };
     }
-    if (allowedPaths.length > 0 && !allowedPaths.some((p) => globMatch(p, filePath))) {
+    if (allowedPaths.length > 0 && !pathMatchesAny(allowedPaths, candidates)) {
       return { allowed: false, reason: "path_not_permitted", risk: "high" };
     }
   }
 
   if (deniedCommands.length > 0 && input.action === "execute_command") {
-    const command = extractStringFromMetadata(input.metadata, "tool_input", "command");
+    const command = extractCommandForPolicy(input);
     if (!command) {
       return { allowed: false, reason: "command_blocked", risk: "high" };
     }
+    // Literal substring match against the complete command string (documented contract).
     if (deniedCommands.some((sub) => command.includes(sub))) {
       return { allowed: false, reason: "command_blocked", risk: "high" };
     }
@@ -283,6 +556,12 @@ type ApprovalGrantFields = {
  * originally requested and approved. An approval for vendor=A never allows
  * vendor=B; an approval for amount=25 never allows amount=250; an approval for
  * action=purchase never allows action=deploy.
+ *
+ * NOTE: The grant tuple does not currently include command or file-path
+ * arguments. When path/command data is present via policyContext, two different
+ * commands or paths that share the same (agentId, permissionId, action, vendor,
+ * amount) can consume the same approval grant. Binding approvals to a sanitized
+ * argument fingerprint is a recommended P0 follow-up.
  */
 function requestMatchesApprovalGrant(grant: ApprovalGrantFields, input: VerifyInput): boolean {
   return (
