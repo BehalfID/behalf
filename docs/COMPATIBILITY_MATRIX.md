@@ -121,6 +121,21 @@ These are **compatibility adapters, not official partnerships**. No adapter in t
 | Known limitations | Only handles `tool_use` blocks; does not intercept text or image content |
 | Before claiming production-ready | Run against real Claude API responses; test multi-turn tool loops; validate `tool_result` formatting matches current API spec |
 
+### Claude Code PreToolUse hook (CLI)
+
+| Property | Value |
+|---|---|
+| Entry point | `behalf hook pre-tool-use` (installed into `~/.claude/settings.json`) |
+| Official status | Pilot / experimental enforcement path |
+| Mapped tools | Write, Edit, MultiEdit, NotebookEdit → `write_file`; Read → `read_file`; Bash, PowerShell, Monitor(with `command`) → `execute_command`; Agent, Task → `spawn_agent`; WebFetch, WebSearch → `browse_web`; `mcp__*` → `mcp_tool` |
+| Policy transport | Sanitized `policyContext` only (`filePath` / `command` + `cwd` / `home`); never Write contents or Edit replacement bodies |
+| Constraint evaluation | `allowedPaths` / `deniedPaths` / `deniedCommands` via `/api/verify` |
+| Fail-open | Network/config unavailability |
+| Fail-closed | Oversized or unevaluable local policy input; missing path/command when those constraints apply |
+| Intentionally unmapped | Monitor without a shell `command` (e.g. WebSocket-only); Glob, Grep, TodoWrite, and other non-governed tools |
+| Known limitations | Not universal Claude Code security — only tool calls routed through the installed PreToolUse hook are checked. Approval grants are not yet bound to command/path fingerprints (argument substitution possible across the same action/vendor/amount tuple). |
+| Before claiming production-ready | Bind approvals to sanitized argument fingerprints; expand Monitor coverage only when a clean existing action mapping exists |
+
 ### LangChain
 
 | Property | Value |

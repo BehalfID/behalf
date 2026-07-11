@@ -12,6 +12,9 @@ function tempDir(prefix: string) {
 async function loadHookModules(home: string) {
   vi.resetModules();
   vi.stubEnv("HOME", home);
+  // Node's os.homedir() reads USERPROFILE on Windows; stub both so config and
+  // hook install paths stay inside the per-test temp directory.
+  vi.stubEnv("USERPROFILE", home);
   vi.stubEnv("BEHALFID_BASE_URL", "http://localhost:3000");
   return {
     hook: await import("../packages/cli/src/commands/hook"),
@@ -40,9 +43,24 @@ describe("mapToolToAction", () => {
     expect(hook.mapToolToAction("Write")).toEqual({ action: "write_file", resource: "filesystem" });
     expect(hook.mapToolToAction("Edit")).toEqual({ action: "write_file", resource: "filesystem" });
     expect(hook.mapToolToAction("MultiEdit")).toEqual({ action: "write_file", resource: "filesystem" });
+    expect(hook.mapToolToAction("NotebookEdit")).toEqual({ action: "write_file", resource: "filesystem" });
     expect(hook.mapToolToAction("Read")).toEqual({ action: "read_file", resource: "filesystem" });
     expect(hook.mapToolToAction("Bash")).toEqual({ action: "execute_command", resource: "shell" });
+    expect(hook.mapToolToAction("PowerShell")).toEqual({ action: "execute_command", resource: "shell" });
+    expect(hook.mapToolToAction("Agent")).toEqual({ action: "spawn_agent", resource: "agent" });
     expect(hook.mapToolToAction("Task")).toEqual({ action: "spawn_agent", resource: "agent" });
+  });
+
+  it("maps Monitor to execute_command only when a shell command is present", async () => {
+    const { hook } = await loadHookModules(tempDir("behalf-home-"));
+
+    expect(hook.mapToolToAction("Monitor", { command: "npm test" })).toEqual({
+      action: "execute_command",
+      resource: "shell",
+    });
+    // WebSocket-only / non-command Monitor shapes stay intentionally unmapped.
+    expect(hook.mapToolToAction("Monitor", {})).toBeNull();
+    expect(hook.mapToolToAction("Monitor", { url: "ws://localhost" })).toBeNull();
   });
 
   it("derives the browse_web resource from a request URL, falling back to web", async () => {
@@ -89,9 +107,8 @@ describe("mapToolToAction", () => {
   it("still does not over-match distinct tools or empty input", async () => {
     const { hook } = await loadHookModules(tempDir("behalf-home-"));
 
-    // NotebookEdit is its own tool — its final segment is not exactly "edit".
-    expect(hook.mapToolToAction("NotebookEdit")).toBeNull();
     expect(hook.mapToolToAction("   ")).toBeNull();
+    expect(hook.mapToolToAction("Glob")).toBeNull();
     expect(hook.mapToolToAction("mcp__github__search_issues"))
       .toEqual({ action: "mcp_tool", resource: "github" });
   });
@@ -239,6 +256,308 @@ describe("runPreToolUse", () => {
     expect(err.text).toContain("BehalfID[debug]: received tool_name=\"Write\"");
     expect(err.text).toContain("write_file on filesystem");
     expect(err.text).toContain("verify → allowed=true");
+  });
+
+  it("Write forwards the file path in sanitized policy context", async () => {
+    const home = tempDir("behalf-home-");
+    const { hook, config } = await loadHookModules(home);
+    configured(config, home);
+    const verify = vi.fn(async () => ({ allowed: true, reason: "ok", requestId: "req_w" }));
+
+    await hook.runPreToolUse({
+      stdin: async () =>
+        JSON.stringify({
+          cwd: "/workspace/project",
+          tool_name: "Write",
+          tool_input: { file_path: "/workspace/project/src/index.ts", content: "SECRET_FILE_BODY" },
+        }),
+      verify,
+      stderr: stderrCollector().sink,
+    });
+
+    expect(verify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "write_file",
+        vendor: "filesystem",
+        policyContext: expect.objectContaining({
+          source: "claude_code",
+          cwd: "/workspace/project",
+          toolInput: { filePath: "/workspace/project/src/index.ts" },
+        }),
+      })
+    );
+    const body = verify.mock.calls[0][0] as Record<string, unknown>;
+    expect(JSON.stringify(body)).not.toContain("SECRET_FILE_BODY");
+  });
+
+  it("Edit forwards the file path but not old_string or new_string", async () => {
+    const home = tempDir("behalf-home-");
+    const { hook, config } = await loadHookModules(home);
+    configured(config, home);
+    const verify = vi.fn(async () => ({ allowed: true, reason: "ok", requestId: "req_e" }));
+
+    await hook.runPreToolUse({
+      stdin: async () =>
+        JSON.stringify({
+          tool_name: "Edit",
+          tool_input: {
+            file_path: "/repo/a.ts",
+            old_string: "OLD_SECRET",
+            new_string: "NEW_SECRET",
+          },
+        }),
+      verify,
+      stderr: stderrCollector().sink,
+    });
+
+    const body = verify.mock.calls[0][0] as Record<string, unknown>;
+    expect(body.policyContext).toEqual(
+      expect.objectContaining({
+        toolInput: { filePath: "/repo/a.ts" },
+      })
+    );
+    expect(JSON.stringify(body)).not.toContain("OLD_SECRET");
+    expect(JSON.stringify(body)).not.toContain("NEW_SECRET");
+  });
+
+  it("NotebookEdit maps to write_file and forwards only its path", async () => {
+    const home = tempDir("behalf-home-");
+    const { hook, config } = await loadHookModules(home);
+    configured(config, home);
+    const verify = vi.fn(async () => ({ allowed: true, reason: "ok", requestId: "req_nb" }));
+
+    await hook.runPreToolUse({
+      stdin: async () =>
+        JSON.stringify({
+          tool_name: "NotebookEdit",
+          tool_input: {
+            notebook_path: "/repo/n.ipynb",
+            new_source: "print('CELL_SECRET')",
+          },
+        }),
+      verify,
+      stderr: stderrCollector().sink,
+    });
+
+    expect(verify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "write_file",
+        policyContext: expect.objectContaining({
+          toolInput: { filePath: "/repo/n.ipynb" },
+        }),
+      })
+    );
+    expect(JSON.stringify(verify.mock.calls[0][0])).not.toContain("CELL_SECRET");
+  });
+
+  it("Read forwards its file path", async () => {
+    const home = tempDir("behalf-home-");
+    const { hook, config } = await loadHookModules(home);
+    configured(config, home);
+    const verify = vi.fn(async () => ({ allowed: true, reason: "ok", requestId: "req_r" }));
+
+    await hook.runPreToolUse({
+      stdin: async () =>
+        JSON.stringify({
+          tool_name: "Read",
+          tool_input: { file_path: "/workspace/project/README.md" },
+        }),
+      verify,
+      stderr: stderrCollector().sink,
+    });
+
+    expect(verify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "read_file",
+        policyContext: expect.objectContaining({
+          toolInput: { filePath: "/workspace/project/README.md" },
+        }),
+      })
+    );
+  });
+
+  it("Bash forwards its command", async () => {
+    const home = tempDir("behalf-home-");
+    const { hook, config } = await loadHookModules(home);
+    configured(config, home);
+    const verify = vi.fn(async () => ({ allowed: true, reason: "ok", requestId: "req_b" }));
+
+    await hook.runPreToolUse({
+      stdin: async () =>
+        JSON.stringify({
+          tool_name: "Bash",
+          tool_input: { command: "npm test" },
+        }),
+      verify,
+      stderr: stderrCollector().sink,
+    });
+
+    expect(verify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "execute_command",
+        vendor: "shell",
+        policyContext: expect.objectContaining({
+          toolInput: { command: "npm test" },
+        }),
+      })
+    );
+  });
+
+  it("PowerShell maps to execute_command and forwards its command", async () => {
+    const home = tempDir("behalf-home-");
+    const { hook, config } = await loadHookModules(home);
+    configured(config, home);
+    const verify = vi.fn(async () => ({ allowed: true, reason: "ok", requestId: "req_ps" }));
+
+    await hook.runPreToolUse({
+      stdin: async () =>
+        JSON.stringify({
+          tool_name: "PowerShell",
+          tool_input: { command: "Get-ChildItem" },
+        }),
+      verify,
+      stderr: stderrCollector().sink,
+    });
+
+    expect(verify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "execute_command",
+        policyContext: expect.objectContaining({
+          toolInput: { command: "Get-ChildItem" },
+        }),
+      })
+    );
+  });
+
+  it("Agent maps to spawn_agent", async () => {
+    const home = tempDir("behalf-home-");
+    const { hook, config } = await loadHookModules(home);
+    configured(config, home);
+    const verify = vi.fn(async () => ({ allowed: true, reason: "ok", requestId: "req_a" }));
+
+    await hook.runPreToolUse({
+      stdin: async () => JSON.stringify({ tool_name: "Agent", tool_input: { prompt: "do stuff" } }),
+      verify,
+      stderr: stderrCollector().sink,
+    });
+
+    expect(verify).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "spawn_agent", vendor: "agent" })
+    );
+  });
+
+  it("legacy Task still maps to spawn_agent", async () => {
+    const home = tempDir("behalf-home-");
+    const { hook, config } = await loadHookModules(home);
+    configured(config, home);
+    const verify = vi.fn(async () => ({ allowed: true, reason: "ok", requestId: "req_t" }));
+
+    await hook.runPreToolUse({
+      stdin: async () => JSON.stringify({ tool_name: "Task", tool_input: {} }),
+      verify,
+      stderr: stderrCollector().sink,
+    });
+
+    expect(verify).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "spawn_agent", vendor: "agent" })
+    );
+  });
+
+  it("malformed or non-object tool_input does not crash", async () => {
+    const home = tempDir("behalf-home-");
+    const { hook, config } = await loadHookModules(home);
+    configured(config, home);
+    const verify = vi.fn(async () => ({ allowed: true, reason: "ok", requestId: "req_m" }));
+
+    const code = await hook.runPreToolUse({
+      stdin: async () => JSON.stringify({ tool_name: "Write", tool_input: "not-an-object" }),
+      verify,
+      stderr: stderrCollector().sink,
+    });
+
+    expect(code).toBe(0);
+    expect(verify).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "write_file", vendor: "filesystem" })
+    );
+  });
+
+  it("oversized local policy input fails closed with exit 2", async () => {
+    const home = tempDir("behalf-home-");
+    const { hook, config } = await loadHookModules(home);
+    configured(config, home);
+    const verify = vi.fn();
+    const err = stderrCollector();
+    const hugePath = "/repo/" + "a".repeat(hook.POLICY_CONTEXT_MAX_BYTES);
+
+    const code = await hook.runPreToolUse({
+      stdin: async () =>
+        JSON.stringify({
+          tool_name: "Write",
+          tool_input: { file_path: hugePath, content: "x" },
+        }),
+      verify,
+      stderr: err.sink,
+    });
+
+    expect(code).toBe(2);
+    expect(verify).not.toHaveBeenCalled();
+    expect(err.text).toContain("policy context too large");
+  });
+
+  it("debug tracing does not contain raw command text or file contents", async () => {
+    const home = tempDir("behalf-home-");
+    const { hook, config } = await loadHookModules(home);
+    configured(config, home);
+    vi.stubEnv("BEHALFID_DEBUG", "1");
+    const err = stderrCollector();
+
+    await hook.runPreToolUse({
+      stdin: async () =>
+        JSON.stringify({
+          cwd: "/workspace/secret-cwd",
+          tool_name: "Bash",
+          tool_input: { command: "rm -rf /SECRET_COMMAND_TOKEN" },
+        }),
+      verify: async () => ({ allowed: true, reason: "ok", requestId: "req_dbg" }),
+      stderr: err.sink,
+    });
+
+    expect(err.text).toContain("policy context: command present");
+    expect(err.text).not.toContain("SECRET_COMMAND_TOKEN");
+    expect(err.text).not.toContain("rm -rf");
+    expect(err.text).not.toContain("secret-cwd");
+  });
+
+  it("a real Claude-shaped payload reaches verify with action, vendor, and policy context", async () => {
+    const home = tempDir("behalf-home-");
+    const { hook, config } = await loadHookModules(home);
+    configured(config, home);
+    const verify = vi.fn(async () => ({ allowed: true, reason: "ok", requestId: "req_real" }));
+
+    const code = await hook.runPreToolUse({
+      stdin: async () =>
+        JSON.stringify({
+          session_id: "sess_1",
+          cwd: "/workspace/project",
+          tool_name: "Bash",
+          tool_input: { command: "npm test && echo done" },
+        }),
+      verify,
+      stderr: stderrCollector().sink,
+    });
+
+    expect(code).toBe(0);
+    expect(verify).toHaveBeenCalledWith({
+      agentId: "agent_test123",
+      action: "execute_command",
+      vendor: "shell",
+      policyContext: {
+        source: "claude_code",
+        toolName: "Bash",
+        cwd: "/workspace/project",
+        toolInput: { command: "npm test && echo done" },
+      },
+    });
   });
 });
 

@@ -685,6 +685,265 @@ describe("argument-level constraints (path and command)", () => {
     ).resolves.toEqual(expect.objectContaining({ allowed: false, reason: "path_not_permitted" }));
     expect(modelMocks.approvalRequestFindOne).not.toHaveBeenCalled();
   });
+
+  it("evaluates nested metadata.tool_input.file_path", async () => {
+    mockPermissions([
+      permissionFixture({
+        action: "write_file",
+        constraints: { allowedPaths: ["src/**"] }
+      })
+    ]);
+    const { verifyAction } = await import("@/lib/verify");
+
+    await expect(
+      verifyAction(
+        verificationRequestFixture({
+          action: "write_file",
+          metadata: { tool_input: { file_path: "src/index.ts" } }
+        })
+      )
+    ).resolves.toEqual(expect.objectContaining({ allowed: true }));
+  });
+
+  it("evaluates nested camelCase policyContext.toolInput.filePath", async () => {
+    mockPermissions([
+      permissionFixture({
+        action: "read_file",
+        constraints: { allowedPaths: ["src/**"] }
+      })
+    ]);
+    const { verifyAction } = await import("@/lib/verify");
+
+    await expect(
+      verifyAction(
+        verificationRequestFixture({
+          action: "read_file",
+          policyContext: {
+            source: "claude_code",
+            cwd: "/repo",
+            toolInput: { filePath: "/repo/src/index.ts" }
+          }
+        })
+      )
+    ).resolves.toEqual(expect.objectContaining({ allowed: true }));
+  });
+
+  it("evaluates nested metadata.tool_input.command", async () => {
+    mockPermissions([
+      permissionFixture({
+        action: "execute_command",
+        constraints: { deniedCommands: ["rm -rf"] }
+      })
+    ]);
+    const { verifyAction } = await import("@/lib/verify");
+
+    await expect(
+      verifyAction(
+        verificationRequestFixture({
+          action: "execute_command",
+          metadata: { tool_input: { command: "rm -rf /tmp" } }
+        })
+      )
+    ).resolves.toEqual(expect.objectContaining({ allowed: false, reason: "command_blocked" }));
+  });
+
+  it("matches an absolute file path against a relative allowed glob using cwd", async () => {
+    mockPermissions([
+      permissionFixture({
+        action: "write_file",
+        constraints: { allowedPaths: ["src/**"] }
+      })
+    ]);
+    const { verifyAction } = await import("@/lib/verify");
+
+    await expect(
+      verifyAction(
+        verificationRequestFixture({
+          action: "write_file",
+          policyContext: {
+            cwd: "/workspace/project",
+            toolInput: { filePath: "/workspace/project/src/index.ts" }
+          }
+        })
+      )
+    ).resolves.toEqual(expect.objectContaining({ allowed: true }));
+  });
+
+  it("matches Windows path separators against slash-based patterns", async () => {
+    mockPermissions([
+      permissionFixture({
+        action: "write_file",
+        constraints: { allowedPaths: ["src/**"] }
+      })
+    ]);
+    const { verifyAction } = await import("@/lib/verify");
+
+    await expect(
+      verifyAction(
+        verificationRequestFixture({
+          action: "write_file",
+          policyContext: {
+            cwd: "C:\\work\\project",
+            toolInput: { filePath: "C:\\work\\project\\src\\index.ts" }
+          }
+        })
+      )
+    ).resolves.toEqual(expect.objectContaining({ allowed: true }));
+  });
+
+  it("normalizes .. so a path cannot escape an allowed directory", async () => {
+    mockPermissions([
+      permissionFixture({
+        action: "write_file",
+        constraints: { allowedPaths: ["src/**"], deniedPaths: ["**/.env"] }
+      })
+    ]);
+    const { verifyAction } = await import("@/lib/verify");
+
+    await expect(
+      verifyAction(
+        verificationRequestFixture({
+          action: "write_file",
+          policyContext: {
+            cwd: "/workspace/project",
+            toolInput: { filePath: "/workspace/project/src/../.env" }
+          }
+        })
+      )
+    ).resolves.toEqual(expect.objectContaining({ allowed: false, reason: "path_not_permitted" }));
+  });
+
+  it("matches a home-absolute path against a ~/ denied glob", async () => {
+    mockPermissions([
+      permissionFixture({
+        action: "read_file",
+        constraints: { deniedPaths: ["~/.ssh/**"] }
+      })
+    ]);
+    const { verifyAction } = await import("@/lib/verify");
+
+    await expect(
+      verifyAction(
+        verificationRequestFixture({
+          action: "read_file",
+          policyContext: {
+            home: "/Users/alice",
+            toolInput: { filePath: "/Users/alice/.ssh/id_rsa" }
+          }
+        })
+      )
+    ).resolves.toEqual(expect.objectContaining({ allowed: false, reason: "path_not_permitted" }));
+  });
+
+  it("lets deniedPaths win over allowedPaths", async () => {
+    mockPermissions([
+      permissionFixture({
+        action: "write_file",
+        constraints: { allowedPaths: ["src/**"], deniedPaths: ["src/secrets/**"] }
+      })
+    ]);
+    const { verifyAction } = await import("@/lib/verify");
+
+    await expect(
+      verifyAction(
+        verificationRequestFixture({
+          action: "write_file",
+          metadata: { tool_input: "src/secrets/key.pem" }
+        })
+      )
+    ).resolves.toEqual(expect.objectContaining({ allowed: false, reason: "path_not_permitted" }));
+  });
+
+  it("ignores empty deniedCommands entries", async () => {
+    mockPermissions([
+      permissionFixture({
+        action: "execute_command",
+        constraints: { deniedCommands: ["", "   ", "rm -rf"] }
+      })
+    ]);
+    const { verifyAction } = await import("@/lib/verify");
+
+    await expect(
+      verifyAction(
+        verificationRequestFixture({
+          action: "execute_command",
+          metadata: { tool_input: { command: "ls -la" } }
+        })
+      )
+    ).resolves.toEqual(expect.objectContaining({ allowed: true }));
+  });
+
+  it("denies compound commands containing a denied literal substring", async () => {
+    mockPermissions([
+      permissionFixture({
+        action: "execute_command",
+        constraints: { deniedCommands: ["rm -rf"] }
+      })
+    ]);
+    const { verifyAction } = await import("@/lib/verify");
+
+    await expect(
+      verifyAction(
+        verificationRequestFixture({
+          action: "execute_command",
+          policyContext: {
+            toolInput: { command: "npm test && rm -rf /tmp/build" }
+          }
+        })
+      )
+    ).resolves.toEqual(expect.objectContaining({ allowed: false, reason: "command_blocked" }));
+  });
+
+  it("does not persist policyContext into VerificationLog.metadata", async () => {
+    mockPermissions([
+      permissionFixture({
+        action: "write_file",
+        constraints: { allowedPaths: ["src/**"] }
+      })
+    ]);
+    const { verifyAction } = await import("@/lib/verify");
+
+    await verifyAction(
+      verificationRequestFixture({
+        action: "write_file",
+        metadata: { note: "caller-supplied" },
+        policyContext: {
+          source: "claude_code",
+          cwd: "/repo",
+          toolInput: { filePath: "/repo/src/a.ts" }
+        }
+      })
+    );
+
+    expect(modelMocks.verificationLogCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: { note: "caller-supplied" }
+      })
+    );
+    const created = modelMocks.verificationLogCreate.mock.calls[0][0] as Record<string, unknown>;
+    expect(created).not.toHaveProperty("policyContext");
+    expect(JSON.stringify(created.metadata)).not.toContain("filePath");
+  });
+
+  it("does not treat nested tool_input objects as flat path/command strings", async () => {
+    mockPermissions([
+      permissionFixture({
+        action: "write_file",
+        constraints: { allowedPaths: ["src/**"] }
+      })
+    ]);
+    const { verifyAction } = await import("@/lib/verify");
+
+    // Object without a recognizable path field must fail closed — never String(object).
+    await expect(
+      verifyAction(
+        verificationRequestFixture({
+          action: "write_file",
+          metadata: { tool_input: { unrelated: true } }
+        })
+      )
+    ).resolves.toEqual(expect.objectContaining({ allowed: false, reason: "path_not_permitted" }));
+  });
 });
 
 describe("approval grants never bypass hard constraints", () => {

@@ -9,10 +9,12 @@ import { readConfig } from "../lib/config.js";
  */
 type HookInput = {
   session_id?: string;
+  cwd?: string;
   tool_name?: string;
   /** Defensive fallback: tolerate a camelCase field name from non-standard hosts. */
   toolName?: string;
-  tool_input?: Record<string, unknown>;
+  /** Validated as an object before any field is read. */
+  tool_input?: unknown;
 };
 
 type VerifyResult = {
@@ -25,15 +27,44 @@ type VerifyResult = {
 
 type ActionMap = { action: string; resource: string };
 
+/** Max serialized size for policyContext sent to /api/verify (must match server). */
+export const POLICY_CONTEXT_MAX_BYTES = 16 * 1024;
+
+export type ClaudePolicyToolInput = {
+  filePath?: string;
+  command?: string;
+};
+
+export type ClaudePolicyContext = {
+  source: "claude_code";
+  toolName?: string;
+  cwd?: string;
+  home?: string;
+  toolInput?: ClaudePolicyToolInput;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readNonEmptyString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
 /**
  * Map a Claude Code tool name (and its input) to a BehalfID action + resource.
  *
- *   Write / Edit / MultiEdit → write_file      on filesystem
- *   Read                     → read_file       on filesystem
- *   Bash                     → execute_command on shell
- *   WebFetch / WebSearch     → browse_web      on the request hostname (or "web")
- *   mcp__<server>__<tool>    → mcp_tool        on the MCP server name
- *   Task                     → spawn_agent     on agent
+ *   Write / Edit / MultiEdit / NotebookEdit → write_file on filesystem
+ *   Read                                   → read_file  on filesystem
+ *   Bash / PowerShell                      → execute_command on shell
+ *   Monitor (when tool_input.command set)  → execute_command on shell
+ *   WebFetch / WebSearch                   → browse_web on hostname (or "web")
+ *   mcp__<server>__<tool>                  → mcp_tool on the MCP server name
+ *   Agent / Task                           → spawn_agent on agent
+ *
+ * Monitor without a shell `command` (e.g. WebSocket-only monitoring) is
+ * intentionally unmapped — it has no clean existing action without weakening
+ * policy behavior.
  *
  * Matching is tolerant of how the host passes the tool name: leading/trailing
  * whitespace, casing ("write"), and namespace/prefix wrappers ("tool:Write",
@@ -63,21 +94,31 @@ export function mapToolToAction(
   // Strip any namespace/prefix down to the final segment, then lowercase, so
   // format variants resolve instead of falling through to the unmapped path.
   // Full-segment matching avoids false positives (e.g. "NotebookEdit" stays
-  // unmapped because its segment is not exactly "edit").
+  // distinct from "edit" and is mapped explicitly below).
   const base = (trimmed.split(/[:/.]|__/).pop() ?? trimmed).toLowerCase();
 
   switch (base) {
     case "write":
     case "edit":
     case "multiedit":
+    case "notebookedit":
       return { action: "write_file", resource: "filesystem" };
     case "read":
       return { action: "read_file", resource: "filesystem" };
     case "bash":
+    case "powershell":
       return { action: "execute_command", resource: "shell" };
+    case "monitor":
+      // Only command-backed Monitor calls map to execute_command. Other Monitor
+      // shapes (e.g. WebSocket monitoring) remain unmapped by design.
+      if (readNonEmptyString(toolInput.command)) {
+        return { action: "execute_command", resource: "shell" };
+      }
+      return null;
     case "webfetch":
     case "websearch":
       return { action: "browse_web", resource: hostnameFromInput(toolInput) };
+    case "agent":
     case "task":
       return { action: "spawn_agent", resource: "agent" };
     default:
@@ -95,6 +136,88 @@ function hostnameFromInput(toolInput: Record<string, unknown>): string {
     }
   }
   return "web";
+}
+
+function extractFilePath(toolInput: Record<string, unknown>): string | undefined {
+  return (
+    readNonEmptyString(toolInput.file_path) ??
+    readNonEmptyString(toolInput.filePath) ??
+    readNonEmptyString(toolInput.path) ??
+    readNonEmptyString(toolInput.notebook_path) ??
+    readNonEmptyString(toolInput.notebookPath)
+  );
+}
+
+function extractCommand(toolInput: Record<string, unknown>): string | undefined {
+  return readNonEmptyString(toolInput.command);
+}
+
+function resolveHomeDir(): string | undefined {
+  return readNonEmptyString(process.env.HOME) ?? readNonEmptyString(process.env.USERPROFILE);
+}
+
+/**
+ * Build a sanitized, non-persisted policyContext for /api/verify.
+ *
+ * Only constraint-relevant fields are retained. Write contents, Edit
+ * old_string/new_string, notebook cell bodies, prompts, and other tool_input
+ * fields are never forwarded.
+ *
+ * Returns null when there is nothing useful to send.
+ */
+export function buildClaudePolicyContext(opts: {
+  toolName: string;
+  action: string;
+  cwd?: string;
+  toolInput: Record<string, unknown>;
+  home?: string;
+}): ClaudePolicyContext | null {
+  const toolInput: ClaudePolicyToolInput = {};
+  const filePath = extractFilePath(opts.toolInput);
+  const command = extractCommand(opts.toolInput);
+
+  if (
+    (opts.action === "write_file" || opts.action === "read_file") &&
+    filePath
+  ) {
+    toolInput.filePath = filePath;
+  }
+  if (opts.action === "execute_command" && command) {
+    toolInput.command = command;
+  }
+
+  const hasToolInput = toolInput.filePath !== undefined || toolInput.command !== undefined;
+  const cwd = readNonEmptyString(opts.cwd);
+  const home =
+    toolInput.filePath !== undefined
+      ? readNonEmptyString(opts.home) ?? resolveHomeDir()
+      : undefined;
+
+  if (!hasToolInput && !cwd && !home) {
+    return null;
+  }
+
+  const ctx: ClaudePolicyContext = {
+    source: "claude_code",
+    toolName: opts.toolName,
+  };
+  if (cwd) ctx.cwd = cwd;
+  if (home) ctx.home = home;
+  if (hasToolInput) ctx.toolInput = toolInput;
+  return ctx;
+}
+
+/**
+ * Returns an error message when the sanitized policy context exceeds the
+ * accepted maximum. Callers must fail closed — do not omit the context and
+ * proceed as though no constraints existed.
+ */
+export function policyContextSizeError(policyContext: ClaudePolicyContext): string | null {
+  const size = Buffer.byteLength(JSON.stringify(policyContext), "utf8");
+  if (size > POLICY_CONTEXT_MAX_BYTES) {
+    return `policy context exceeds ${POLICY_CONTEXT_MAX_BYTES} byte limit (${size} bytes)`;
+  }
+  return null;
 }
 
 async function readStdin(): Promise<string> {
@@ -120,6 +243,10 @@ export type PreToolUseDeps = {
  *
  * Fails OPEN (returns 0 with a warning) on missing config or network/API
  * errors, so a BehalfID outage never bricks the agent.
+ *
+ * Malformed or oversized local policy input fails CLOSED (exit 2): that is not
+ * a network outage, and proceeding without constraint arguments would silently
+ * weaken path/command evaluation.
  */
 export async function runPreToolUse(deps: PreToolUseDeps = {}): Promise<number> {
   const stderr = deps.stderr ?? process.stderr;
@@ -152,7 +279,13 @@ export async function runPreToolUse(deps: PreToolUseDeps = {}): Promise<number> 
     return 0;
   }
 
-  const mapped = mapToolToAction(toolName, input.tool_input ?? {});
+  const rawToolInput = input.tool_input;
+  const toolInput: Record<string, unknown> = isRecord(rawToolInput) ? rawToolInput : {};
+  if (rawToolInput !== undefined && !isRecord(rawToolInput)) {
+    trace(`tool_input is ${typeof rawToolInput}, not an object — ignoring fields`);
+  }
+
+  const mapped = mapToolToAction(toolName, toolInput);
   trace(
     `mapped ${JSON.stringify(toolName)} → ${mapped ? `${mapped.action} on ${mapped.resource}` : "null (no BehalfID-gated equivalent)"}`
   );
@@ -169,6 +302,33 @@ export async function runPreToolUse(deps: PreToolUseDeps = {}): Promise<number> 
     return 0;
   }
 
+  const policyContext = buildClaudePolicyContext({
+    toolName,
+    action: mapped.action,
+    cwd: typeof input.cwd === "string" ? input.cwd : undefined,
+    toolInput,
+  });
+
+  if (policyContext) {
+    const sizeErr = policyContextSizeError(policyContext);
+    if (sizeErr) {
+      trace(`policy context blocked: ${sizeErr}`);
+      stderr.write(
+        "BehalfID: blocked — policy context too large to evaluate safely.\n"
+      );
+      return 2;
+    }
+    if (policyContext.toolInput?.command !== undefined) {
+      trace("policy context: command present");
+    }
+    if (policyContext.toolInput?.filePath !== undefined) {
+      trace("policy context: file path present");
+    }
+    if (policyContext.cwd) {
+      trace("policy context: cwd present");
+    }
+  }
+
   let result: VerifyResult;
   try {
     const body: Record<string, unknown> = {
@@ -176,7 +336,13 @@ export async function runPreToolUse(deps: PreToolUseDeps = {}): Promise<number> 
       action: mapped.action,
       vendor: mapped.resource,
     };
-    trace(`POST ${baseUrl}/api/verify ${JSON.stringify(body)}`);
+    if (policyContext) {
+      body.policyContext = policyContext;
+    }
+    // Debug must never print commands, paths, file contents, or credentials.
+    trace(
+      `POST ${baseUrl}/api/verify action=${mapped.action} vendor=${mapped.resource} policyContext=${policyContext ? "present" : "absent"}`
+    );
     result = deps.verify
       ? await deps.verify(body)
       : await apiRequest<VerifyResult>("/api/verify", { method: "POST", body, apiKey, baseUrl });
@@ -249,7 +415,8 @@ export async function runCursorHook(deps: CursorHookDeps = {}): Promise<number> 
     return 0; // fail open: allow, print nothing
   }
   trace(`payload keys: [${Object.keys(input).join(", ")}]`);
-  trace(`command=${JSON.stringify(input.command)}`);
+  // Presence only — never echo the raw command (may contain secrets).
+  trace(`command=${typeof input.command === "string" && input.command.trim() ? "present" : "absent"}`);
 
   const config = readConfig();
   const agentId = config.agentId ?? process.env.BEHALFID_AGENT_ID;
