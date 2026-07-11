@@ -16,7 +16,9 @@ Managed profiles intercept `claude`, `codex`, and `cursor` through local shims. 
 3. The server returns `unmanaged`, `managed`, or `required`
 4. The CLI launches the real binary with session environment variables (`BEHALF_SESSION_ID`, `BEHALF_MODE`, and related values)
 
-If mode is `required` and credentials or policy cannot be established, the CLI **fails closed**.
+When BehalfID successfully returns a `required` policy, the managed launch path enforces required-mode prerequisites (agent credentials and a valid profile or session) before starting the tool.
+
+Managed Profiles govern the BehalfID-managed launch path. Directly invoking the underlying binary, changing PATH precedence, deleting the shim, or otherwise intentionally bypassing the local integration is not prevented by the current implementation. Server-side policy evaluations, approval decisions, and authorization results are authoritative when requests reach BehalfID. Local shim enforcement is best-effort and is not a tamper-resistant endpoint security control.
 
 ## First-run quickstart
 
@@ -144,7 +146,7 @@ behalf profile doctor
 | Launch records activity | ☐ | ☐ | Launch `claude` → `/dashboard/managed-profiles/activity` |
 | Activity shows repo hash only | ☐ | ☐ | No raw paths or git remotes in activity rows |
 | Protected repo enrollment | ☐ | ☐ | Enroll hash from Activity or dashboard |
-| Required-mode behavior clear | ☐ | ☐ | Simulate shows `required` + reason; fails closed when unverified |
+| Required-mode behavior clear | ☐ | ☐ | Simulate shows `required` + reason; launch enforces credentials when server returns required |
 | Pause approval works | ☐ | ☐ | `behalf pause …` → approve in dashboard → retry or `behalf pause status` |
 | Doctor output actionable | ☐ | ☐ | `behalf profile doctor` — each warn/error includes a `fix:` line |
 
@@ -154,11 +156,11 @@ behalf profile doctor
 
 **Real `claude`/`codex`/`cursor` binary not found** — Install the tool first. `behalf profile install` skips tools whose binaries are missing. Doctor shows which real binary could not be resolved.
 
-**Unauthenticated CLI** — Run `behalf login`. Status and simulate need a session; required-mode launches fail closed without credentials.
+**Unauthenticated CLI** — Run `behalf login`. Status and simulate need a session; when the server returns `required`, launches refuse to start without agent credentials.
 
-**Server unavailable** — Unmanaged contexts may continue with a warning. Required contexts fail closed unless a valid cached policy allows continuity. Check `behalf config get base-url` and network access.
+**Server unavailable** — Behavior depends on the local policy cache. A fresh cached `required` policy causes the managed launch path to fail closed so a previously required context is not silently downgraded. If no usable cached required policy exists (missing or expired cache), the CLI may fall back to unmanaged operation so a BehalfID outage does not indefinitely block developer work. Check `behalf config get base-url` and network access.
 
-**Required mode fail-closed** — When mode is `required` and policy cannot be verified (server down, no cache, missing agent credentials), the shim refuses to launch. Fix auth and connectivity, then re-run simulate.
+**Required mode prerequisites** — When mode is `required` and the server response is available, missing agent credentials or an incomplete profile/session cause the shim to refuse launch. That is separate from the outage fallback: server-down with no usable required cache may continue unmanaged; server-down with a fresh cached required policy fails closed.
 
 **Protected repo hash not appearing** — Run from inside a git repo. Status shows `policy repo hash`; if `(none)`, confirm git remote or local root detection. Enroll only after a shim launch records activity.
 
@@ -166,8 +168,9 @@ behalf profile doctor
 
 If the server is unavailable:
 
-- Unmanaged contexts may continue
-- Required contexts fail closed unless a valid cached policy allows continuity
+- A fresh cached `required` policy fails closed
+- Missing or expired cache may fall back to unmanaged so developer work is not blocked indefinitely
+- Fresh cached non-required policies may continue with the cached decision
 
 ## Privacy notes
 
@@ -176,7 +179,7 @@ If the server is unavailable:
 - API keys and session cookies remain in `config.json` / `session` with mode `0600`
 - Pause is auditable server-side (`CliAuditLog`)
 - Work-hours decisions use server UTC time, not local clock
-- Required mode never silently falls back to unmanaged when policy cannot be verified
+- Local shim enforcement is best-effort; server-side decisions remain authoritative when requests reach BehalfID
 
 ## Uninstall
 

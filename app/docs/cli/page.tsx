@@ -190,8 +190,17 @@ behalf profile simulate --tool codex --repo 0123456789abcdef --branch main`}</Co
       <h3>Protected repos and required mode</h3>
       <p>
         Enroll repos by policy repo hash (for example <code>0123456789abcdef</code>). Set mode to{" "}
-        <code>managed</code> or <code>required</code>. In required mode, the CLI fails closed when
-        policy cannot be verified.
+        <code>managed</code> or <code>required</code>. When BehalfID successfully returns a{" "}
+        <code>required</code> policy, the managed launch path enforces required-mode prerequisites
+        (agent credentials and a valid profile or session) before starting the tool.
+      </p>
+      <p>
+        Managed Profiles govern the BehalfID-managed launch path (shim → session-policy → real binary).
+        Directly invoking the underlying binary, changing PATH precedence, deleting the shim, or otherwise
+        intentionally bypassing the local integration is not prevented by the current implementation.
+        Server-side policy evaluations, approval decisions, and authorization results remain authoritative
+        when requests reach BehalfID. Local shim enforcement is best-effort and is not a tamper-resistant
+        endpoint security control.
       </p>
 
       <h3>Required-mode pause approval</h3>
@@ -233,17 +242,22 @@ behalf pause status apr_example`}</CodeBlock>
         </li>
         <li>
           <strong>Unauthenticated CLI</strong> — Run <code>behalf login</code>. Status and simulate need a
-          session; required-mode launches fail closed without credentials.
+          session; when the server returns <code>required</code>, launches refuse to start without agent
+          credentials.
         </li>
         <li>
-          <strong>Server unavailable</strong> — Unmanaged contexts may continue with a warning. Required
-          contexts fail closed unless a valid cached policy allows continuity. Check base URL with{" "}
-          <code>behalf config get base-url</code> and network access to the API.
+          <strong>Server unavailable</strong> — Behavior depends on the local policy cache. A fresh cached{" "}
+          <code>required</code> policy causes the managed launch path to fail closed so a previously required
+          context is not silently downgraded. If no usable cached required policy exists (missing or expired
+          cache), the CLI may fall back to unmanaged operation so a BehalfID outage does not indefinitely
+          block developer work. Check base URL with <code>behalf config get base-url</code> and network
+          access to the API.
         </li>
         <li>
-          <strong>Required mode fail-closed</strong> — When mode is <code>required</code> and policy cannot be
-          verified (server down, no cache, missing agent credentials), the shim refuses to launch. Fix auth and
-          connectivity, then re-run <code>behalf profile simulate --tool claude</code>.
+          <strong>Required mode prerequisites</strong> — When mode is <code>required</code> and the server
+          response is available, missing agent credentials or an incomplete profile/session cause the shim to
+          refuse launch. That is separate from the outage fallback above: server-down with no usable required
+          cache may continue unmanaged; server-down with a fresh cached required policy fails closed.
         </li>
         <li>
           <strong>Protected repo hash not appearing</strong> — Run from inside a git repo. Status shows{" "}

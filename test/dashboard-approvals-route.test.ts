@@ -161,6 +161,99 @@ describe("POST /api/dashboard/approvals/[approvalId]/approve", () => {
       status: "pending"
     });
   });
+
+  describe("self-approval enforcement", () => {
+    beforeEach(async () => {
+      const actual = await vi.importActual<typeof import("@/lib/delegatedAuth")>("@/lib/delegatedAuth");
+      routeMocks.canApproveRequest.mockImplementation(actual.canApproveRequest);
+    });
+
+    it("rejects self-approval for the requester even when they are OWNER", async () => {
+      const selfRequestedApproval = {
+        ...pendingApproval,
+        developerUserId: "dev_test",
+        kind: "agent_action"
+      };
+      routeMocks.approvalFindOne.mockReturnValue({
+        lean: vi.fn(async () => selfRequestedApproval)
+      });
+
+      const { POST } = await import("@/app/api/dashboard/approvals/[approvalId]/approve/route");
+      const res = await POST(
+        request("/api/dashboard/approvals/apr_pending/approve", { method: "POST" }),
+        { params: Promise.resolve({ approvalId: "apr_pending" }) }
+      );
+
+      expect(res.status).toBe(403);
+      expect(routeMocks.approvalUpdateOne).not.toHaveBeenCalled();
+    });
+
+    it("allows a different eligible approver to approve the request", async () => {
+      const leadActor = {
+        userId: "lead_user",
+        accountId: "acct_test",
+        role: "ENGINEERING_LEAD",
+        authorityLevel: 80
+      };
+      routeMocks.requireDeveloperApi.mockResolvedValue({
+        user: { userId: "lead_user" },
+        activeAccountId: "acct_test",
+        error: null
+      });
+      routeMocks.getWorkspaceActor.mockResolvedValue(leadActor);
+      routeMocks.approvalFindOne.mockReturnValue({
+        lean: vi.fn(async () => ({
+          ...pendingApproval,
+          developerUserId: "dev_test",
+          kind: "agent_action",
+          requiredAuthorityLevel: 80
+        }))
+      });
+
+      const { POST } = await import("@/app/api/dashboard/approvals/[approvalId]/approve/route");
+      const res = await POST(
+        request("/api/dashboard/approvals/apr_pending/approve", { method: "POST" }),
+        { params: Promise.resolve({ approvalId: "apr_pending" }) }
+      );
+      const body = await res.json() as { approved: boolean };
+
+      expect(res.status).toBe(200);
+      expect(body.approved).toBe(true);
+      expect(routeMocks.approvalUpdateOne).toHaveBeenCalled();
+    });
+
+    it("rejects approvers with insufficient authority", async () => {
+      const engineerActor = {
+        userId: "engineer_user",
+        accountId: "acct_test",
+        role: "ENGINEER",
+        authorityLevel: 40
+      };
+      routeMocks.requireDeveloperApi.mockResolvedValue({
+        user: { userId: "engineer_user" },
+        activeAccountId: "acct_test",
+        error: null
+      });
+      routeMocks.getWorkspaceActor.mockResolvedValue(engineerActor);
+      routeMocks.approvalFindOne.mockReturnValue({
+        lean: vi.fn(async () => ({
+          ...pendingApproval,
+          developerUserId: "dev_test",
+          kind: "agent_action",
+          requiredAuthorityLevel: 80
+        }))
+      });
+
+      const { POST } = await import("@/app/api/dashboard/approvals/[approvalId]/approve/route");
+      const res = await POST(
+        request("/api/dashboard/approvals/apr_pending/approve", { method: "POST" }),
+        { params: Promise.resolve({ approvalId: "apr_pending" }) }
+      );
+
+      expect(res.status).toBe(403);
+      expect(routeMocks.approvalUpdateOne).not.toHaveBeenCalled();
+    });
+  });
 });
 
 describe("POST /api/dashboard/approvals/[approvalId]/deny", () => {
