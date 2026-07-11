@@ -7,6 +7,10 @@ import {
   resolveWorkspaceRole,
   type WorkspaceRole
 } from "@/lib/authority";
+import {
+  isLegacyUnboundBindableApproval,
+  LEGACY_UNBOUND_APPROVAL_MESSAGE
+} from "@/lib/approvalIntent";
 import { createPublicId } from "@/lib/ids";
 import {
   classifyPermissionRisk,
@@ -318,21 +322,36 @@ export function enrichApprovalForActor<T extends Record<string, unknown>>(
     developerUserId:
       typeof approval.developerUserId === "string" ? approval.developerUserId : undefined
   };
-  const canApprove = canApproveRequest(actor, approvalContext);
+  const canApproveBase = canApproveRequest(actor, approvalContext);
   const canDeny = canDenyRequest(actor, approvalContext);
   const selfApprovalBlocked =
     typeof approval.developerUserId === "string" && approval.developerUserId === actor.userId;
+  const legacyUnbound = isLegacyUnboundBindableApproval({
+    action: typeof approval.action === "string" ? approval.action : null,
+    kind:
+      approval.kind === "managed_profile_pause" || approval.kind === "agent_action"
+        ? approval.kind
+        : null,
+    argumentKind: typeof approval.argumentKind === "string" ? approval.argumentKind : null,
+    argumentFingerprint:
+      typeof approval.argumentFingerprint === "string" ? approval.argumentFingerprint : null,
+    argumentPreview: typeof approval.argumentPreview === "string" ? approval.argumentPreview : null
+  });
+  const canApprove = canApproveBase && !legacyUnbound;
   return {
     ...approval,
     requiredAuthorityLevel,
     requiredRoleLabel: getRequiredRoleLabel(requiredAuthorityLevel),
+    legacyUnbound,
     canApprove,
     canDeny,
     approveBlockReason: canApprove
       ? null
-      : selfApprovalBlocked
-        ? "You cannot approve your own request."
-        : `Requires ${getRequiredRoleLabel(requiredAuthorityLevel)} approval.`,
+      : legacyUnbound
+        ? LEGACY_UNBOUND_APPROVAL_MESSAGE
+        : selfApprovalBlocked
+          ? "You cannot approve your own request."
+          : `Requires ${getRequiredRoleLabel(requiredAuthorityLevel)} approval.`,
     denyBlockReason: canDeny
       ? null
       : `Requires ${getRequiredRoleLabel(requiredAuthorityLevel)} authority to deny.`

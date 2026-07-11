@@ -3,9 +3,11 @@
 import Link from "next/link";
 import {
   formatActionLabel,
+  formatApprovalTargetLabel,
   formatOpsTime,
   formatPauseApprovalDetails,
   formatPauseApprovalTitle,
+  isLegacyUnboundApproval,
   isManagedProfilePauseApproval,
   logDecisionShortLabel,
   logDecisionTone,
@@ -67,6 +69,31 @@ export function OpsLogEventCard({
   );
 }
 
+function ApprovalTargetPreview({ req }: { req: OpsApprovalRequest }) {
+  const label = formatApprovalTargetLabel(req.argumentKind);
+  if (!label || !req.argumentPreview) return null;
+  return (
+    <div className="ops-approval-card__target">
+      <p className="ops-approval-card__target-label">{label}</p>
+      <pre className="ops-approval-card__target-preview">{req.argumentPreview}</pre>
+      {req.argumentPreviewTruncated ? (
+        <p className="ops-approval-card__target-note">
+          Preview truncated. Approval remains bound to the complete original value.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function LegacyUnboundWarning({ req }: { req: OpsApprovalRequest }) {
+  if (!isLegacyUnboundApproval(req)) return null;
+  return (
+    <p className="ops-approval-card__warning" role="status">
+      Legacy unbound request — approval disabled. Retry the agent action to create a bound request.
+    </p>
+  );
+}
+
 export function OpsApprovalCard({
   req,
   working,
@@ -81,6 +108,7 @@ export function OpsApprovalCard({
   onDeny: () => void;
 }) {
   const pauseApproval = isManagedProfilePauseApproval(req);
+  const legacyUnbound = isLegacyUnboundApproval(req);
   return (
     <article className={`ops-approval-card${highlight ? " ops-approval-card--highlight" : ""}`}>
       <div className="ops-approval-card__head">
@@ -103,6 +131,8 @@ export function OpsApprovalCard({
           </>
         )}
       </p>
+      {!pauseApproval ? <ApprovalTargetPreview req={req} /> : null}
+      <LegacyUnboundWarning req={req} />
       <p className="ops-approval-card__meta">
         {req.requiredRoleLabel ? `Requires ${req.requiredRoleLabel}` : "Awaiting human decision"}
         {" · "}
@@ -114,7 +144,7 @@ export function OpsApprovalCard({
         <button
           type="button"
           className="ops-btn ops-btn--approve"
-          disabled={working || req.canApprove === false}
+          disabled={working || req.canApprove === false || legacyUnbound}
           onClick={onApprove}
         >
           Approve
@@ -152,6 +182,7 @@ export function OpsApprovalQueueRow({
   onDeny: () => void;
 }) {
   const pauseApproval = isManagedProfilePauseApproval(req);
+  const legacyUnbound = isLegacyUnboundApproval(req);
   return (
     <div className={`ops-queue-row${highlight ? " ops-queue-row--highlight" : ""}`}>
       <div className="ops-queue-row__main">
@@ -166,6 +197,8 @@ export function OpsApprovalQueueRow({
           <span>{pauseApproval ? formatPauseApprovalTitle(req) : (req.agentName ?? req.agentId)}</span>
           {!pauseApproval ? <code>{formatActionLabel(req.action, req.vendor)}</code> : null}
         </p>
+        {!pauseApproval ? <ApprovalTargetPreview req={req} /> : null}
+        <LegacyUnboundWarning req={req} />
         <p className="ops-queue-row__meta">
           {pauseApproval ? (
             formatPauseApprovalDetails(req)
@@ -183,7 +216,7 @@ export function OpsApprovalQueueRow({
           <button
             type="button"
             className="ops-btn ops-btn--approve"
-            disabled={working || req.canApprove === false}
+            disabled={working || req.canApprove === false || legacyUnbound}
             onClick={onApprove}
           >
             Approve

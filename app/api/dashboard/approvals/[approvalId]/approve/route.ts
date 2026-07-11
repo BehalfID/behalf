@@ -6,6 +6,11 @@ import {
   getWorkspaceActor,
   viewerMutationForbidden
 } from "@/lib/delegatedAuth";
+import {
+  isBindableAgentAction,
+  isValidBoundApprovalFields,
+  LEGACY_UNBOUND_APPROVAL_MESSAGE
+} from "@/lib/approvalIntent";
 import { accountScopeFilter } from "@/lib/accountAccess";
 import { jsonError } from "@/lib/responses";
 import ApprovalRequest, { APPROVAL_GRANT_TTL_MS } from "@/models/ApprovalRequest";
@@ -34,6 +39,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
   if (!canApproveRequest(actor, approval)) {
     return approvalForbidden();
+  }
+
+  // Legacy unbound command/file approvals cannot be approved after intent binding.
+  if (
+    approval.kind !== "managed_profile_pause" &&
+    isBindableAgentAction(approval.action) &&
+    !isValidBoundApprovalFields(approval)
+  ) {
+    return jsonError(LEGACY_UNBOUND_APPROVAL_MESSAGE, 409);
   }
 
   const now = new Date();

@@ -1,3 +1,5 @@
+import { redactSecrets } from "@/lib/secretRedaction";
+
 type Level = 'info' | 'warn' | 'error' | 'debug';
 
 interface Entry {
@@ -13,15 +15,6 @@ const COLORS: Record<Level, string> = {
   error: '\x1b[31m',
   debug: '\x1b[90m',
 };
-
-function redactSecrets(value: string) {
-  return value
-    .replace(/Bearer\s+[A-Za-z0-9._~+/-]+=*/gi, "Bearer [redacted]")
-    .replace(/bhf_sk_[A-Za-z0-9._~+/-]+=*/g, "bhf_sk_[redacted]")
-    .replace(/bhf_dev_[A-Za-z0-9._~+/-]+=*/g, "bhf_dev_[redacted]")
-    .replace(/bhf_pass_[A-Za-z0-9._~+/-]+=*/g, "bhf_pass_[redacted]")
-    .replace(/whsec_[A-Za-z0-9._~+/-]+=*/g, "whsec_[redacted]");
-}
 
 function sanitizeLogValue(value: unknown): unknown {
   if (typeof value === "string") return redactSecrets(value);

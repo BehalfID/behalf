@@ -54,6 +54,18 @@ function mockPermissions(permissions: unknown[]) {
   });
 }
 
+function pendingUpsertCall() {
+  return modelMocks.approvalRequestFindOneAndUpdate.mock.calls.find(
+    (call) => call[0]?.status === "pending"
+  );
+}
+
+function consumeCall() {
+  return modelMocks.approvalRequestFindOneAndUpdate.mock.calls.find(
+    (call) => call[0]?.status === "approved"
+  );
+}
+
 describe("approval request lifecycle", () => {
   beforeEach(() => {
     mockPermissions([permissionFixture({ requiresApproval: true })]);
@@ -74,36 +86,36 @@ describe("approval request lifecycle", () => {
     expect(decision.approvalRequired).toBe(true);
     expect(decision.reason).toBe("Permission requires approval before execution.");
 
-    expect(modelMocks.approvalRequestFindOneAndUpdate).toHaveBeenCalledOnce();
-    const [filter, update, opts] = modelMocks.approvalRequestFindOneAndUpdate.mock.calls[0];
-    // The pending request is scoped to the exact action/vendor/amount tuple
+    const pending = pendingUpsertCall();
+    expect(pending).toBeDefined();
+    const [filter, update, opts] = pending!;
     expect(filter).toEqual(expect.objectContaining({
       agentId: "agent_test",
       permissionId: "perm_test",
       action: "purchase",
       vendor: "amazon.com",
       amount: 25,
+      argumentFingerprint: null,
       status: "pending"
     }));
     expect(update.$setOnInsert.approvalId).toMatch(/^apr_/);
     expect(update.$setOnInsert.requestId).toMatch(/^req_/);
     expect(update.$setOnInsert.requiredAuthorityLevel).toEqual(expect.any(Number));
-    expect(opts).toEqual({ upsert: true, new: true });
+    expect(opts).toEqual({ upsert: true, returnDocument: "after" });
   });
 
   it("does not create duplicate pending requests on repeated verify() calls", async () => {
     const { verifyAction } = await import("@/lib/verify");
 
-    // Both calls return denied+approvalRequired; $setOnInsert prevents duplicates at DB level
     await verifyAction(verificationRequestFixture());
     await verifyAction(verificationRequestFixture());
 
-    // findOneAndUpdate is called twice (once per verify call), but idempotency
-    // is enforced by the $setOnInsert upsert in MongoDB — the test verifies the
-    // correct filter/update shape is used each time.
-    expect(modelMocks.approvalRequestFindOneAndUpdate).toHaveBeenCalledTimes(2);
+    // Each verify: consume attempt + pending upsert
+    expect(modelMocks.approvalRequestFindOneAndUpdate).toHaveBeenCalledTimes(4);
     for (const call of modelMocks.approvalRequestFindOneAndUpdate.mock.calls) {
-      expect(call[2]).toEqual({ upsert: true, new: true });
+      if (call[0]?.status === "pending") {
+        expect(call[2]).toEqual({ upsert: true, returnDocument: "after" });
+      }
     }
   });
 
@@ -115,6 +127,7 @@ describe("approval request lifecycle", () => {
       action: "purchase",
       vendor: "amazon.com",
       amount: 25,
+      argumentFingerprint: null,
       status: "approved",
       grantExpiresAt: new Date(Date.now() + 20 * 60 * 1_000),
       ...overrides
@@ -122,7 +135,7 @@ describe("approval request lifecycle", () => {
   }
 
   it("allows execution when an approved, non-expired grant matches the exact request", async () => {
-    modelMocks.approvalRequestFindOne.mockResolvedValue(grantFixture());
+    modelMocks.approvalRequestFindOneAndUpdate.mockResolvedValueOnce(grantFixture());
     const { verifyAction } = await import("@/lib/verify");
 
     const decision = await verifyAction(verificationRequestFixture());
@@ -131,75 +144,66 @@ describe("approval request lifecycle", () => {
     expect(decision.approvalRequired).toBe(false);
     expect(decision.reason).toBe("Action allowed by approved permission grant.");
     expect(decision.risk).toBe("low");
-    // The grant lookup itself must be scoped to the exact request tuple
-    expect(modelMocks.approvalRequestFindOne).toHaveBeenCalledWith(
-      expect.objectContaining({
-        agentId: "agent_test",
-        permissionId: "perm_test",
-        action: "purchase",
-        vendor: "amazon.com",
-        amount: 25,
-        status: "approved"
-      })
-    );
+    expect(consumeCall()?.[0]).toEqual(expect.objectContaining({
+      agentId: "agent_test",
+      permissionId: "perm_test",
+      action: "purchase",
+      vendor: "amazon.com",
+      amount: 25,
+      argumentFingerprint: null,
+      status: "approved"
+    }));
   });
 
   it("marks the grant as used after approval is consumed", async () => {
-    modelMocks.approvalRequestFindOne.mockResolvedValue(grantFixture());
+    modelMocks.approvalRequestFindOneAndUpdate.mockResolvedValueOnce(grantFixture());
     const { verifyAction } = await import("@/lib/verify");
 
     await verifyAction(verificationRequestFixture());
 
-    expect(modelMocks.approvalRequestUpdateOne).toHaveBeenCalledWith(
-      { approvalId: "apr_granted" },
-      { $set: { status: "used", resolvedAt: expect.any(Date) } }
-    );
-    // No upsert should be triggered when the grant is consumed
-    expect(modelMocks.approvalRequestFindOneAndUpdate).not.toHaveBeenCalled();
+    expect(consumeCall()?.[1]).toEqual({
+      $set: { status: "used", usedAt: expect.any(Date) }
+    });
+    expect(consumeCall()?.[2]).toEqual({ returnDocument: "before" });
+    expect(pendingUpsertCall()).toBeUndefined();
   });
 
   it("does not consume a grant approved for a lower amount", async () => {
-    modelMocks.approvalRequestFindOne.mockResolvedValue(grantFixture({ amount: 25 }));
+    // Consume query includes amount:250 so mock returns null (no match)
+    modelMocks.approvalRequestFindOneAndUpdate.mockResolvedValue(null);
     const { verifyAction } = await import("@/lib/verify");
 
     const decision = await verifyAction(verificationRequestFixture({ amount: 250 }));
 
     expect(decision.allowed).toBe(false);
     expect(decision.approvalRequired).toBe(true);
-    // Grant must not be consumed; a new pending request is upserted instead
-    expect(modelMocks.approvalRequestUpdateOne).not.toHaveBeenCalled();
-    expect(modelMocks.approvalRequestFindOneAndUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({ amount: 250, status: "pending" }),
-      expect.anything(),
-      { upsert: true, new: true }
-    );
+    expect(pendingUpsertCall()?.[0]).toEqual(expect.objectContaining({ amount: 250, status: "pending" }));
   });
 
   it("does not consume a grant approved for a different vendor", async () => {
-    modelMocks.approvalRequestFindOne.mockResolvedValue(grantFixture({ vendor: "amazon.com" }));
+    modelMocks.approvalRequestFindOneAndUpdate.mockResolvedValue(null);
     const { verifyAction } = await import("@/lib/verify");
 
     const decision = await verifyAction(verificationRequestFixture({ vendor: "evil.example" }));
 
     expect(decision.allowed).toBe(false);
     expect(decision.approvalRequired).toBe(true);
-    expect(modelMocks.approvalRequestUpdateOne).not.toHaveBeenCalled();
+    expect(pendingUpsertCall()).toBeDefined();
   });
 
   it("does not consume a grant approved for a different action", async () => {
     mockPermissions([permissionFixture({ action: "deploy", requiresApproval: true })]);
-    modelMocks.approvalRequestFindOne.mockResolvedValue(grantFixture({ action: "purchase" }));
+    modelMocks.approvalRequestFindOneAndUpdate.mockResolvedValue(null);
     const { verifyAction } = await import("@/lib/verify");
 
     const decision = await verifyAction(verificationRequestFixture({ action: "deploy" }));
 
     expect(decision.allowed).toBe(false);
     expect(decision.approvalRequired).toBe(true);
-    expect(modelMocks.approvalRequestUpdateOne).not.toHaveBeenCalled();
   });
 
   it("does not consume a grant when the request omits the approved vendor or amount", async () => {
-    modelMocks.approvalRequestFindOne.mockResolvedValue(grantFixture());
+    modelMocks.approvalRequestFindOneAndUpdate.mockResolvedValue(null);
     const { verifyAction } = await import("@/lib/verify");
 
     const decision = await verifyAction(
@@ -208,30 +212,25 @@ describe("approval request lifecycle", () => {
 
     expect(decision.allowed).toBe(false);
     expect(decision.approvalRequired).toBe(true);
-    expect(modelMocks.approvalRequestUpdateOne).not.toHaveBeenCalled();
   });
 
   it("denies and upserts pending when the grant is expired", async () => {
-    const expiredAt = new Date(Date.now() - 1_000); // already past
-    modelMocks.approvalRequestFindOne.mockResolvedValue(null); // findOne checks grantExpiresAt > now, so expired grants don't surface here
+    modelMocks.approvalRequestFindOneAndUpdate.mockResolvedValue(null);
     const { verifyAction } = await import("@/lib/verify");
 
     const decision = await verifyAction(verificationRequestFixture());
 
     expect(decision.allowed).toBe(false);
     expect(decision.approvalRequired).toBe(true);
-    expect(modelMocks.approvalRequestFindOneAndUpdate).toHaveBeenCalledOnce();
-    // Suppress unused-variable warning
-    void expiredAt;
+    expect(pendingUpsertCall()).toBeDefined();
   });
 
   it("fails closed if resolveApprovalGate throws", async () => {
-    modelMocks.approvalRequestFindOne.mockRejectedValue(new Error("db error"));
+    modelMocks.approvalRequestFindOneAndUpdate.mockRejectedValue(new Error("db error"));
     const { verifyAction } = await import("@/lib/verify");
 
     const decision = await verifyAction(verificationRequestFixture());
 
-    // Decision stays denied (approvalRequired), not allowed
     expect(decision.allowed).toBe(false);
     expect(decision.approvalRequired).toBe(true);
   });
