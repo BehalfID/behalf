@@ -21,6 +21,7 @@
     "seed:live-test": "tsx scripts/seed-live-test-permission.ts",
     "dev:reset-internal-demo": "tsx scripts/dev/reset-internal-demo-account.ts",
     "dev:generate-demo-password": "tsx scripts/dev/generate-internal-demo-password.ts",
+    "account:set-plan": "tsx scripts/set-account-plan.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",

@@ -225,7 +225,7 @@ export function canApproveRequest(
 ): boolean {
   if (actor.authorityLevel <= AUTHORITY_LEVELS.VIEWER) return false;
   if (
-    approvalRequest.kind === "managed_profile_pause" &&
+    typeof approvalRequest.developerUserId === "string" &&
     approvalRequest.developerUserId === actor.userId
   ) {
     return false;
@@ -321,9 +321,7 @@ export function enrichApprovalForActor<T extends Record<string, unknown>>(
   const canApprove = canApproveRequest(actor, approvalContext);
   const canDeny = canDenyRequest(actor, approvalContext);
   const selfApprovalBlocked =
-    isPauseApproval &&
-    typeof approval.developerUserId === "string" &&
-    approval.developerUserId === actor.userId;
+    typeof approval.developerUserId === "string" && approval.developerUserId === actor.userId;
   return {
     ...approval,
     requiredAuthorityLevel,
@@ -333,7 +331,7 @@ export function enrichApprovalForActor<T extends Record<string, unknown>>(
     approveBlockReason: canApprove
       ? null
       : selfApprovalBlocked
-        ? "You cannot approve your own pause request."
+        ? "You cannot approve your own request."
         : `Requires ${getRequiredRoleLabel(requiredAuthorityLevel)} approval.`,
     denyBlockReason: canDeny
       ? null

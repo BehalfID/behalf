@@ -238,9 +238,31 @@ describe("managed profiles docs consistency", () => {
     expect(cliDocsSource).toMatch(/binary not found/i);
     expect(cliDocsSource).toMatch(/Unauthenticated CLI/i);
     expect(cliDocsSource).toMatch(/Server unavailable/i);
-    expect(cliDocsSource).toMatch(/fail-closed/i);
+    expect(cliDocsSource).toMatch(/fail closed/i);
     expect(cliDocsSource).toMatch(/hash not appearing/i);
     expect(cliDocsSource).toMatch(/Activity not appearing/i);
+  });
+
+  it("documents outage cache vs no-cache behavior without claiming always fail-closed", () => {
+    const inaccurateAlwaysFailClosed = [
+      /server down,\s*no cache[^.\n]*refuses to launch/i,
+      /policy cannot be verified\s*\(server down,\s*no cache/i,
+      /Required mode never silently falls back to unmanaged when policy cannot be verified/i,
+      /Required contexts fail closed unless a valid cached policy allows continuity/i,
+    ];
+    for (const { name, source } of docsSources) {
+      for (const pattern of inaccurateAlwaysFailClosed) {
+        expect(source, `${name} should not match ${pattern}`).not.toMatch(pattern);
+      }
+    }
+
+    expect(cliDocsSource).toMatch(/fresh cached[\s\S]*required[\s\S]*fail closed/i);
+    expect(cliDocsSource).toMatch(/fall back to unmanaged/i);
+    expect(cliDocsSource).toMatch(/best-effort/i);
+    expect(cliDocsSource).toMatch(/not prevented by the current implementation/i);
+    expect(readmeSource).toMatch(/fall back to unmanaged/i);
+    expect(readmeSource).toMatch(/best-effort/i);
+    expect(readmeSource).toMatch(/not prevented by the current implementation/i);
   });
 
   it("does not include unsafe raw path or git remote examples in user-facing docs", () => {

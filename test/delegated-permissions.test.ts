@@ -173,6 +173,53 @@ describe("approval deny authority", () => {
   });
 });
 
+describe("approval self-approval rules", () => {
+  const actor = (role: WorkspaceRole, userId = "user_test") => ({
+    userId,
+    accountId: "acct_test",
+    role,
+    authorityLevel: AUTHORITY_LEVELS[role]
+  });
+
+  const agentActionApproval = {
+    kind: "agent_action" as const,
+    requiredAuthorityLevel: AUTHORITY_LEVELS.ENGINEERING_LEAD,
+    action: "deploy_production",
+    vendor: "vercel.com",
+    developerUserId: "user_requester"
+  };
+
+  const pauseApproval = {
+    kind: "managed_profile_pause" as const,
+    requiredAuthorityLevel: AUTHORITY_LEVELS.ENGINEERING_LEAD,
+    action: "managed_profile_pause",
+    vendor: "behalf_cli",
+    developerUserId: "user_requester"
+  };
+
+  it("blocks requester self-approval for agent_action even as OWNER", () => {
+    expect(canApproveRequest(actor("OWNER", "user_requester"), agentActionApproval)).toBe(false);
+  });
+
+  it("blocks requester self-approval for managed_profile_pause even as ENGINEERING_LEAD", () => {
+    expect(canApproveRequest(actor("ENGINEERING_LEAD", "user_requester"), pauseApproval)).toBe(false);
+  });
+
+  it("allows a different eligible approver to approve agent_action requests", () => {
+    expect(canApproveRequest(actor("ENGINEERING_LEAD", "lead_user"), agentActionApproval)).toBe(true);
+    expect(canApproveRequest(actor("OWNER", "owner_user"), agentActionApproval)).toBe(true);
+  });
+
+  it("allows a different eligible approver to approve managed_profile_pause requests", () => {
+    expect(canApproveRequest(actor("ENGINEERING_LEAD", "lead_user"), pauseApproval)).toBe(true);
+  });
+
+  it("still blocks insufficient authority for non-requester approvers", () => {
+    expect(canApproveRequest(actor("ENGINEER", "engineer_user"), agentActionApproval)).toBe(false);
+    expect(canApproveRequest(actor("VIEWER", "viewer_user"), pauseApproval)).toBe(false);
+  });
+});
+
 describe("role delegation rules", () => {
   const actor = (role: WorkspaceRole, userId = "user_test") => ({
     userId,
