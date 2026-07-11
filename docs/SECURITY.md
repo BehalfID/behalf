@@ -42,7 +42,7 @@ BehalfID is currently a prototype. It is suitable for local demos and constraine
 - Disabled agents are denied on `/api/verify`, but can still rotate keys and manage permissions while authenticated; this is intentional for recovery/prototype administration.
 - Rate limiting is process-local unless Upstash Redis is configured. Vercel/serverless memory counters are not shared and reset on cold start or redeploy.
 - Failed authentication attempts are not stored in verification logs.
-- The admin console still uses one admin password; the developer portal has individual accounts but no organizations yet.
+- The admin console still uses one admin password; the developer portal has individual accounts and multi-user workspaces (memberships/roles), but not a full external IdP/SSO organization model.
 - There is no CSRF token system beyond SameSite cookies and Origin checks.
 - Audit logs always contain action, vendor/resource, and amount when provided, and those fields may still be sensitive. Optional `metadata` is only persisted when `BEHALFID_LOG_METADATA` is not `false`.
 - Webhook delivery is at least once, not exactly once. Receivers should deduplicate by event ID.
