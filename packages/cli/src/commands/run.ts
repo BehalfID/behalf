@@ -52,7 +52,23 @@ type HooksFile = Record<string, unknown> & {
   hooks?: Record<string, unknown> & { PreToolUse?: ClaudeHookMatcher[] };
 };
 
-function claudeSettingsPath(home = homedir()): string {
+export type HookInstallFailureCode =
+  | "malformed"
+  | "unreadable"
+  | "unwritable"
+  | "unverified";
+
+export type HookInstallResult =
+  | { path: string; ok: true; changed: boolean }
+  | { path: string; ok: false; changed: false; code: HookInstallFailureCode };
+
+export type ClaudeHookStatus =
+  | { path: string; status: "ok" }
+  | { path: string; status: "missing" }
+  | { path: string; status: "malformed" }
+  | { path: string; status: "unreadable" };
+
+export function claudeSettingsPath(home = homedir()): string {
   return join(home, ".claude", "settings.json");
 }
 
@@ -60,17 +76,26 @@ function codexHooksPath(home = homedir()): string {
   return join(home, ".codex", "hooks.json");
 }
 
-/** Read a PreToolUse hooks JSON file. Returns {} if absent, null if unparseable. */
-function readHooksFile(path: string): HooksFile | null {
-  if (!existsSync(path)) return {};
+type ReadHooksOk = { ok: true; settings: HooksFile };
+type ReadHooksErr = { ok: false; code: "malformed" | "unreadable" };
+
+/** Read a PreToolUse hooks JSON file. Missing file → empty object. */
+function readHooksFile(path: string): ReadHooksOk | ReadHooksErr {
+  if (!existsSync(path)) return { ok: true, settings: {} };
+  let raw: string;
   try {
-    return JSON.parse(readFileSync(path, "utf-8")) as HooksFile;
+    raw = readFileSync(path, "utf-8");
   } catch {
-    return null;
+    return { ok: false, code: "unreadable" };
+  }
+  try {
+    return { ok: true, settings: JSON.parse(raw) as HooksFile };
+  } catch {
+    return { ok: false, code: "malformed" };
   }
 }
 
-function settingsHaveBehalfHook(settings: HooksFile | null): boolean {
+function settingsHaveBehalfHook(settings: HooksFile | null | undefined): boolean {
   const pre = settings?.hooks?.PreToolUse;
   if (!Array.isArray(pre)) return false;
   return pre.some(
@@ -82,14 +107,19 @@ function settingsHaveBehalfHook(settings: HooksFile | null): boolean {
 
 /**
  * Merge the BehalfID PreToolUse hook into a hooks JSON file, preserving any
- * existing content. Idempotent: re-running never duplicates the entry, and an
- * unparseable file is left untouched rather than clobbered.
+ * existing content. Idempotent: re-running never duplicates the entry.
+ * Malformed / unreadable / unwritable files are left untouched and reported
+ * as a failed install so callers can refuse to launch without enforcement.
  */
-function installPreToolUseHookAt(path: string): { path: string; changed: boolean } {
-  const settings = readHooksFile(path);
-  if (settings === null) return { path, changed: false };
-  if (settingsHaveBehalfHook(settings)) return { path, changed: false };
+function installPreToolUseHookAt(path: string): HookInstallResult {
+  const read = readHooksFile(path);
+  if (!read.ok) return { path, ok: false, changed: false, code: read.code };
 
+  if (settingsHaveBehalfHook(read.settings)) {
+    return { path, ok: true, changed: false };
+  }
+
+  const settings = read.settings;
   const hooks = (settings.hooks ?? {}) as Record<string, unknown> & { PreToolUse?: ClaudeHookMatcher[] };
   const preToolUse: ClaudeHookMatcher[] = Array.isArray(hooks.PreToolUse) ? hooks.PreToolUse : [];
   preToolUse.push({
@@ -99,29 +129,77 @@ function installPreToolUseHookAt(path: string): { path: string; changed: boolean
   hooks.PreToolUse = preToolUse;
   settings.hooks = hooks;
 
-  const dir = dirname(path);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  writeFileSync(path, JSON.stringify(settings, null, 2) + "\n");
-  return { path, changed: true };
+  try {
+    const dir = dirname(path);
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    writeFileSync(path, JSON.stringify(settings, null, 2) + "\n");
+  } catch {
+    return { path, ok: false, changed: false, code: "unwritable" };
+  }
+
+  // Confirm the hook is actually present after the write (or would be after merge).
+  const verify = readHooksFile(path);
+  if (!verify.ok || !settingsHaveBehalfHook(verify.settings)) {
+    return { path, ok: false, changed: false, code: "unverified" };
+  }
+
+  return { path, ok: true, changed: true };
+}
+
+/** Loud, actionable stderr message — never prints file contents or secrets. */
+export function formatClaudeHookInstallError(result: Extract<HookInstallResult, { ok: false }>): string {
+  const path = result.path;
+  switch (result.code) {
+    case "malformed":
+      return (
+        `BehalfID could not install or verify the Claude PreToolUse hook because ${path} is not valid JSON. ` +
+        `Claude was not launched. Repair or back up the file, then run \`behalf claude\` again.`
+      );
+    case "unreadable":
+      return (
+        `BehalfID could not install or verify the Claude PreToolUse hook because ${path} is unreadable. ` +
+        `Claude was not launched. Fix permissions on the file, then run \`behalf claude\` again.`
+      );
+    case "unwritable":
+      return (
+        `BehalfID could not install or verify the Claude PreToolUse hook because ${path} is not writable. ` +
+        `Claude was not launched. Fix permissions on the file or directory, then run \`behalf claude\` again.`
+      );
+    case "unverified":
+      return (
+        `BehalfID could not install or verify the Claude PreToolUse hook in ${path}. ` +
+        `Claude was not launched. Repair or back up the file, then run \`behalf claude\` again.`
+      );
+  }
+}
+
+/** Inspect Claude settings without mutating them. */
+export function getClaudePreToolUseHookStatus(home = homedir()): ClaudeHookStatus {
+  const path = claudeSettingsPath(home);
+  const read = readHooksFile(path);
+  if (!read.ok) return { path, status: read.code };
+  if (settingsHaveBehalfHook(read.settings)) return { path, status: "ok" };
+  return { path, status: "missing" };
 }
 
 /** True if ~/.claude/settings.json already wires up the BehalfID PreToolUse hook. */
 export function hasClaudePreToolUseHook(home = homedir()): boolean {
-  return settingsHaveBehalfHook(readHooksFile(claudeSettingsPath(home)));
+  return getClaudePreToolUseHookStatus(home).status === "ok";
 }
 
 /** Merge the BehalfID PreToolUse hook into ~/.claude/settings.json. */
-export function installClaudePreToolUseHook(home = homedir()): { path: string; changed: boolean } {
+export function installClaudePreToolUseHook(home = homedir()): HookInstallResult {
   return installPreToolUseHookAt(claudeSettingsPath(home));
 }
 
 /** True if ~/.codex/hooks.json already wires up the BehalfID PreToolUse hook. */
 export function hasCodexPreToolUseHook(home = homedir()): boolean {
-  return settingsHaveBehalfHook(readHooksFile(codexHooksPath(home)));
+  const read = readHooksFile(codexHooksPath(home));
+  return read.ok && settingsHaveBehalfHook(read.settings);
 }
 
 /** Merge the BehalfID PreToolUse hook into ~/.codex/hooks.json. */
-export function installCodexPreToolUseHook(home = homedir()): { path: string; changed: boolean } {
+export function installCodexPreToolUseHook(home = homedir()): HookInstallResult {
   return installPreToolUseHookAt(codexHooksPath(home));
 }
 
@@ -335,14 +413,19 @@ export async function launchTool(toolKey: string, extraArgs: string[], deps: Lau
 
   // Install the hard PreToolUse gate so every tool call is verified with
   // BehalfID before it runs. Claude and Codex each use their own config layout.
+  // For Claude: refuse to launch if the hook cannot be installed or verified.
   if (toolKey === "claude") {
     const hook = installClaudePreToolUseHook();
+    if (!hook.ok) {
+      stderr.write(formatClaudeHookInstallError(hook) + "\n");
+      return 1;
+    }
     if (hook.changed) {
       stderr.write(`Installed BehalfID PreToolUse hook → ${hook.path}\n`);
     }
   } else if (toolKey === "codex") {
     const hook = installCodexPreToolUseHook();
-    if (hook.changed) {
+    if (hook.ok && hook.changed) {
       stderr.write(`Installed BehalfID PreToolUse hook → ${hook.path}\n`);
     }
     const mcp = installCodexMcpServer();
@@ -359,7 +442,7 @@ export async function launchTool(toolKey: string, extraArgs: string[], deps: Lau
   }
 
   stdout.write(
-    `Launching ${tool.binary} with BehalfID MCP enforcement.\n` +
+    `Launching ${tool.binary} with BehalfID enforcement.\n` +
     `Agent: ${agentId}\n` +
     `Base URL: ${baseUrl}\n` +
     `Context: ${setup.contextFile}\n` +

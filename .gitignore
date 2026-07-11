@@ -12,7 +12,7 @@ npm-debug.log*
 .claude/
 CLAUDE.md
 updated_logo_set.png
-packages/cli/behalfid-cli-0.2.0.tgz
+packages/cli/*.tgz
 
 # Design system source files — not for distribution
 *.zip

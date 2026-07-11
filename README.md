@@ -141,6 +141,10 @@ Local SDK source lives in `packages/sdk`. Runnable examples live in `examples/no
 Use the CLI/MCP path when a local AI coding agent should inspect permissions and call `verify_action` before risky work:
 
 ```bash
+# Install (npm is the supported Windows path; install.sh is macOS/Linux; Homebrew is macOS)
+npm install -g @behalfid/cli
+behalf --version   # Trajectus pilot: require 0.2.9 or newer
+
 behalf config set agent-id agent_xxx
 behalf config set api-key bhf_sk_xxx
 behalf mcp init

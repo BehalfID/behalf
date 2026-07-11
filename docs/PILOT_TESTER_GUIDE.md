@@ -34,26 +34,27 @@ Network or missing local config causes the hook to **fail open** (allow with a s
 
 ## Installation
 
-Pick one method. Tell the operator which you used.
+Pick one method. Tell the operator which you used. For the Trajectus pilot, require **0.2.9 or newer**. If the version is older, **stop and contact the operator**.
 
 ```bash
-# macOS / Linux
+# npm — supported on Windows (and macOS / Linux)
+npm install -g @behalfid/cli
+
+# install.sh — macOS / Linux only (optional pin)
+# BEHALF_VERSION=v0.2.9 curl -fsSL https://behalfid.com/install.sh | sh
 curl -fsSL https://behalfid.com/install.sh | sh
 
-# Homebrew
-brew install behalfid/tap/behalf
-
-# npm
-npm install -g @behalfid/cli
+# Homebrew — macOS only
+brew install BehalfID/tap/behalf
 ```
 
-Verify:
+Verify (required):
 
 ```bash
 behalf --version
 ```
 
-If the operator gives you a locally packed CLI tarball instead, install that and record the version string.
+Record the **installation channel** and the exact version string in your results. If the operator gives you a locally packed CLI tarball instead, install that and record the version string.
 
 More detail: [CLI docs](/docs/cli).
 
