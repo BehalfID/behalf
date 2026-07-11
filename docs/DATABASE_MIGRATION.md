@@ -840,12 +840,14 @@ Each PR is independently shippable and reversible. **No PR changes auth.**
   (`lib/repositories/postgres/*`), gated contract runner (`test/postgres-repository-contracts.test.ts`,
   `npm run test:postgres-repositories`). Adapters pass the same `test/repository-contracts/*`
   suites as Mongo; **not exported** from `lib/repositories/index.ts`; runtime still uses Mongo.
+- **Done (v2):** Test-only Postgres repository adapters for `memberships` and pending invites
+  (`lib/repositories/postgres/memberships.ts`). Same contract gate and runtime isolation as v1.
 - **Not done yet:** `pg_cron` cleanup jobs, remaining tables (device codes, site guard,
   status page, webhook deliveries, etc.), CI job that applies migrations against live Postgres.
 - Connection module (`lib/db/postgres/index.ts`) exists but is **not imported by app routes**.
-- **Next after v1:** Postgres repository adapters for remaining aggregates (memberships,
-  managed profiles, permissions, approvals, logs, webhooks) — each must pass
-  `test/repository-contracts/*` before any runtime cutover.
+- **Next after v2:** Postgres repository adapters for managed profiles, then
+  permissions/approvals/logs/webhooks — each must pass `test/repository-contracts/*` before any
+  runtime cutover.
 - **Runtime cutover is still not approved.**
 
 ### PR C — Data export/import scripts
@@ -920,8 +922,8 @@ Each PR is independently shippable and reversible. **No PR changes auth.**
   `test/repository-contracts/` define expected repository behavior independent of the
   backing database. `test/mongo-repository-contracts.test.ts` runs those contracts
   against the current Mongo repository implementations (mongodb-memory-server).
-  `test/postgres-repository-contracts.test.ts` runs the same account and agent contracts
-  against the test-only Postgres adapters (`lib/repositories/postgres/*`) when
+  `test/postgres-repository-contracts.test.ts` runs the same account, agent, and membership
+  contracts against the test-only Postgres adapters (`lib/repositories/postgres/*`) when
   `RUN_POSTGRES_REPOSITORY_CONTRACTS=true` and a disposable Postgres URL are set.
   Any future Postgres/Drizzle repository adapter must pass the same contract suites before cutover.
   Runtime still uses Mongo; contract tests are the parity gate, not a migration step.
@@ -930,8 +932,8 @@ Each PR is independently shippable and reversible. **No PR changes auth.**
   Postgres via a disposable database — Testcontainers/`pglite`/Supabase local). This is
   the core correctness tool: same inputs, same observable outputs, including edge cases
   (duplicate-invite upsert, approval tuple dedupe with NULL vendor/amount, grant expiry,
-  quota period reset, webhook claim contention). **Accounts and agents are done**; remaining
-  aggregates follow the same pattern.
+  quota period reset, webhook claim contention). **Accounts, agents, and memberships/invites
+  are done**; remaining aggregates follow the same pattern.
 - **Migration-script tests (PR C):** golden-file export/transform tests; import
   idempotency (run twice, same row counts); FK-order violations fail loudly.
 - **Migration smoke test (v1, shipped):** `test/postgres-migration-smoke.test.ts` applies
@@ -941,9 +943,9 @@ Each PR is independently shippable and reversible. **No PR changes auth.**
   `DATABASE_URL`; skipped by default so `npx vitest run` needs no database. See
   `docs/POSTGRES_SCHEMA.md` § Migration smoke test. Passing this test is required before
   Postgres repository adapters are trusted; runtime still uses Mongo.
-- **Postgres repository contract tests (v1, shipped):** `test/postgres-repository-contracts.test.ts`
-  applies the v1 migration in a disposable schema, seeds data via Drizzle, runs account and
-  agent repository contracts against `lib/repositories/postgres/*`, then drops the schema.
+- **Postgres repository contract tests (v1/v2, shipped):** `test/postgres-repository-contracts.test.ts`
+  applies the v1 migration in a disposable schema, seeds data via Drizzle, runs account, agent,
+  and membership repository contracts against `lib/repositories/postgres/*`, then drops the schema.
   Gated by `RUN_POSTGRES_REPOSITORY_CONTRACTS=true` and `POSTGRES_TEST_URL` (preferred) or
   `DATABASE_URL` / `POSTGRES_URL`; skipped by default (`npm run test:postgres-repositories`).
 - **Concurrency tests (PR B/D):** parallel verify-with-approval upserts, parallel

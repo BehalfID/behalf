@@ -1,6 +1,14 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { and, eq } from "drizzle-orm";
 import { hashApiKey } from "@/lib/auth";
-import { accounts, agents, developerUsers } from "@/lib/db/postgres/schema";
+import { normalizeEmail } from "@/lib/developerAuth";
+import {
+  accountInvites,
+  accountMemberships,
+  accounts,
+  agents,
+  developerUsers
+} from "@/lib/db/postgres/schema";
 import { createPublicId } from "@/lib/ids";
 import {
   findAccountById,
@@ -8,6 +16,15 @@ import {
   resetVerificationPeriod
 } from "@/lib/repositories/postgres/accounts";
 import { countAgentsByAccountId, countAgentsByScope } from "@/lib/repositories/postgres/agents";
+import {
+  countBillableSeatsByAccountId,
+  createMembership,
+  deleteMembership,
+  findMembershipByAccountAndUser,
+  findPendingInvitesByAccountId,
+  updateMembershipRole,
+  upsertPendingInvite
+} from "@/lib/repositories/postgres/memberships";
 import {
   isPostgresRepositoryContractsEnabled,
   resolveSmokeTestUrl,
@@ -17,6 +34,7 @@ import {
 } from "../scripts/postgres-smoke";
 import { makeAccountRepositoryContract } from "./repository-contracts/accounts.contract";
 import { makeAgentRepositoryContract } from "./repository-contracts/agents.contract";
+import { makeMembershipRepositoryContract } from "./repository-contracts/memberships.contract";
 
 const contractsEnabled = isPostgresRepositoryContractsEnabled();
 const rawApiKey = "bhf_sk_contract_abcdefghijklmnopqrstuvwxyz123456";
@@ -127,6 +145,87 @@ if (contractsEnabled) {
           apiKeyHash: hashApiKey(`${rawApiKey}_${agentId}`)
         });
         return { agentId, accountId, developerUserId };
+      }
+    };
+  });
+
+  makeMembershipRepositoryContract("postgres", async () => {
+    const db = context!.db;
+
+    const ensureDeveloperUser = async (userId: string) => {
+      await db
+        .insert(developerUsers)
+        .values({
+          userId,
+          email: `${userId}@contract.test`,
+          passwordHash: "contract-test-password-hash"
+        })
+        .onConflictDoNothing();
+    };
+
+    return {
+      countBillableSeatsByAccountId: (accountId) => countBillableSeatsByAccountId(db, accountId),
+      findMembershipByAccountAndUser: (accountId, userId) =>
+        findMembershipByAccountAndUser(db, accountId, userId),
+      createMembership: async (input) => {
+        await ensureDeveloperUser(input.userId);
+        return createMembership(db, input);
+      },
+      updateMembershipRole: (membershipId, accountId, role) =>
+        updateMembershipRole(db, membershipId, accountId, role),
+      deleteMembership: (membershipId, accountId) => deleteMembership(db, membershipId, accountId),
+      findPendingInvitesByAccountId: (accountId) => findPendingInvitesByAccountId(db, accountId),
+      upsertPendingInvite: async (accountId, email, update) => {
+        await ensureDeveloperUser(update.invitedBy);
+        return upsertPendingInvite(db, accountId, email, update);
+      },
+      seedAccount: async (accountId = createPublicId("acct")) => {
+        await db.insert(accounts).values({
+          accountId,
+          name: "Membership Contract Account",
+          plan: "free"
+        });
+        await ensureDeveloperUser("dev_owner");
+        return { accountId };
+      },
+      seedAcceptedInvite: async (accountId, email) => {
+        await ensureDeveloperUser("dev_owner");
+        await db.insert(accountInvites).values({
+          inviteId: createPublicId("inv"),
+          accountId,
+          email: normalizeEmail(email),
+          role: "ENGINEER",
+          status: "accepted",
+          invitedBy: "dev_owner"
+        });
+      },
+      countMembershipsByAccountId: async (accountId) => {
+        const rows = await db
+          .select({ value: accountMemberships.membershipId })
+          .from(accountMemberships)
+          .where(eq(accountMemberships.accountId, accountId));
+        return rows.length;
+      },
+      countInvitesByAccountId: async (accountId) => {
+        const rows = await db
+          .select({ value: accountInvites.inviteId })
+          .from(accountInvites)
+          .where(eq(accountInvites.accountId, accountId));
+        return rows.length;
+      },
+      findInviteByEmail: async (accountId, email) => {
+        const invite =
+          (await db.query.accountInvites.findFirst({
+            where: and(
+              eq(accountInvites.accountId, accountId),
+              eq(accountInvites.email, normalizeEmail(email)),
+              eq(accountInvites.status, "pending")
+            )
+          })) ?? null;
+        if (!invite) {
+          return null;
+        }
+        return { inviteId: invite.inviteId, role: invite.role };
       }
     };
   });
