@@ -1,9 +1,18 @@
 import { createPublicId } from "@/lib/ids";
 import { getEffectiveRequiredAuthority } from "@/lib/delegatedAuth";
 import { recordAgentKeyUse } from "@/lib/auth";
+import {
+  APPROVAL_TARGET_REQUIRED_REASON,
+  buildApprovalIntent,
+  isBindableAgentAction,
+  type ApprovalIntent
+} from "@/lib/approvalIntent";
+import { isAbsolutePath, lexicalNormalizePath } from "@/lib/pathCanonical";
 import ApprovalRequest from "@/models/ApprovalRequest";
 import Permission, { type PermissionDocument } from "@/models/Permission";
 import VerificationLog from "@/models/VerificationLog";
+
+export { lexicalNormalizePath } from "@/lib/pathCanonical";
 
 /** Non-persisted policy-evaluation context (e.g. from Claude Code PreToolUse). */
 export type PolicyToolInput = {
@@ -116,74 +125,6 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 function readNonEmptyString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value : undefined;
-}
-
-/**
- * Lexical path normalization for policy evaluation.
- * Does not require the target to exist (no realpath).
- * Normalizes separators, redundant slashes, `.` and `..` segments, and
- * preserves Windows drive-letter prefixes.
- */
-export function lexicalNormalizePath(inputPath: string): string {
-  const raw = inputPath.replace(/\\/g, "/");
-  if (!raw) return "";
-
-  let prefix = "";
-  let rest = raw;
-
-  // UNC paths: //server/share/...
-  if (rest.startsWith("//")) {
-    const uncMatch = rest.match(/^\/\/[^/]+\/[^/]+/);
-    if (uncMatch) {
-      prefix = uncMatch[0];
-      rest = rest.slice(prefix.length);
-    }
-  } else {
-    // Windows drive: C:/... or C:foo
-    const driveMatch = rest.match(/^([A-Za-z]:)(\/)?/);
-    if (driveMatch) {
-      prefix = driveMatch[1] + "/";
-      rest = rest.slice(driveMatch[0].length);
-    } else if (rest.startsWith("/")) {
-      prefix = "/";
-      rest = rest.slice(1);
-    }
-  }
-
-  const absolute = prefix !== "";
-  const parts: string[] = [];
-  for (const segment of rest.split("/")) {
-    if (!segment || segment === ".") continue;
-    if (segment === "..") {
-      if (parts.length > 0) {
-        parts.pop();
-      } else if (!absolute) {
-        parts.push("..");
-      }
-      continue;
-    }
-    parts.push(segment);
-  }
-
-  if (!absolute) {
-    return parts.join("/") || ".";
-  }
-  if (prefix === "/") {
-    return "/" + parts.join("/");
-  }
-  // Drive or UNC prefix already includes trailing structure as needed.
-  if (prefix.endsWith("/")) {
-    return prefix + parts.join("/");
-  }
-  return parts.length > 0 ? `${prefix}/${parts.join("/")}` : prefix;
-}
-
-function isAbsolutePath(normalized: string): boolean {
-  return (
-    normalized.startsWith("/") ||
-    /^[A-Za-z]:\//.test(normalized) ||
-    normalized.startsWith("//")
-  );
 }
 
 function pathsEqualForPrefix(a: string, b: string): boolean {
@@ -545,36 +486,30 @@ async function findMatchingPermissions(input: VerifyInput) {
   }).sort({ createdAt: -1 });
 }
 
-type ApprovalGrantFields = {
-  action?: string | null;
-  vendor?: string | null;
-  amount?: number | null;
-};
+function resolveIntentForInput(input: VerifyInput): ApprovalIntent | null {
+  if (!isBindableAgentAction(input.action)) return null;
+  return buildApprovalIntent({
+    action: input.action,
+    command: extractCommandForPolicy(input),
+    filePath: extractFilePathForPolicy(input),
+    cwd: extractCwd(input),
+    home: extractHome(input)
+  });
+}
 
-/**
- * An approved grant is only valid for the exact action/vendor/amount that was
- * originally requested and approved. An approval for vendor=A never allows
- * vendor=B; an approval for amount=25 never allows amount=250; an approval for
- * action=purchase never allows action=deploy.
- *
- * NOTE: The grant tuple does not currently include command or file-path
- * arguments. When path/command data is present via policyContext, two different
- * commands or paths that share the same (agentId, permissionId, action, vendor,
- * amount) can consume the same approval grant. Binding approvals to a sanitized
- * argument fingerprint is a recommended P0 follow-up.
- */
-function requestMatchesApprovalGrant(grant: ApprovalGrantFields, input: VerifyInput): boolean {
-  return (
-    (grant.action ?? null) === input.action &&
-    (grant.vendor ?? null) === (input.vendor ?? null) &&
-    (grant.amount ?? null) === (input.amount ?? null)
+function isDuplicateKeyError(error: unknown): boolean {
+  return Boolean(
+    error &&
+      typeof error === "object" &&
+      "code" in error &&
+      (error as { code?: number }).code === 11000
   );
 }
 
 /**
  * If there is an approved, non-expired grant matching this exact request
- * (agentId, permissionId, action, vendor, amount), mark it as used and return
- * true (allow the action).
+ * (agentId, permissionId, action, vendor, amount[, argumentFingerprint]),
+ * atomically mark it as used and return true (allow the action).
  * Otherwise upsert a pending ApprovalRequest scoped to this exact request and
  * return false (keep denying).
  *
@@ -586,58 +521,81 @@ async function resolveApprovalGate(
   requestId: string,
   input: VerifyInput,
   permissionId: string,
-  requiredAuthorityLevel: number
+  requiredAuthorityLevel: number,
+  intent: ApprovalIntent | null
 ): Promise<{ granted: boolean; approvalId?: string }> {
   const now = new Date();
+  const argumentFingerprint = intent?.fingerprint ?? null;
 
-  // 1. Check for an approved, non-expired grant scoped to this exact request.
-  //    (vendor/amount: null in the query also matches legacy documents where
-  //    the field is absent.)
-  const grant = await ApprovalRequest.findOne({
-    agentId: input.agentId,
-    permissionId,
-    action: input.action,
-    vendor: input.vendor ?? null,
-    amount: input.amount ?? null,
-    status: "approved",
-    grantExpiresAt: { $gt: now }
-  });
-
-  // Defense in depth: re-validate the grant fields in code so a grant can
-  // never be consumed by a request it was not approved for.
-  if (grant && requestMatchesApprovalGrant(grant, input)) {
-    // Mark the grant as used so it cannot be reused for another action
-    await ApprovalRequest.updateOne(
-      { approvalId: grant.approvalId },
-      { $set: { status: "used", resolvedAt: now } }
-    );
-    return { granted: true };
-  }
-
-  // 2. Upsert a pending ApprovalRequest (idempotent — only creates if one
-  // doesn't exist for this exact action/vendor/amount tuple).
-  // new: true returns the document whether it was inserted or already existed,
-  // so we always get back the stable approvalId for this request shape.
-  const pending = await ApprovalRequest.findOneAndUpdate(
+  // 1. Atomically consume an approved, non-expired grant for this exact tuple.
+  //    findOneAndUpdate with status:"approved" ensures only one concurrent
+  //    retry can win; usedAt records consumption without overwriting resolvedAt.
+  const grant = await ApprovalRequest.findOneAndUpdate(
     {
       agentId: input.agentId,
       permissionId,
       action: input.action,
       vendor: input.vendor ?? null,
       amount: input.amount ?? null,
-      status: "pending"
+      argumentFingerprint,
+      status: "approved",
+      grantExpiresAt: { $gt: now }
     },
     {
-      $setOnInsert: {
-        approvalId: createPublicId("apr"),
-        requestId,
-        accountId: input.accountId,
-        developerUserId: input.developerUserId,
-        requiredAuthorityLevel
+      $set: {
+        status: "used",
+        usedAt: now
       }
     },
-    { upsert: true, new: true }
+    { returnDocument: "before" }
   );
+
+  // Defense in depth is encoded in the query filter (exact tuple + fingerprint).
+  // A returned document means this request uniquely consumed the grant.
+  if (grant) {
+    return { granted: true };
+  }
+
+  // 2. Upsert a pending ApprovalRequest (idempotent — only creates if one
+  // doesn't exist for this exact action/vendor/amount/fingerprint tuple).
+  const pendingFilter = {
+    agentId: input.agentId,
+    permissionId,
+    action: input.action,
+    vendor: input.vendor ?? null,
+    amount: input.amount ?? null,
+    argumentFingerprint,
+    status: "pending" as const
+  };
+
+  const setOnInsert: Record<string, unknown> = {
+    approvalId: createPublicId("apr"),
+    requestId,
+    accountId: input.accountId,
+    developerUserId: input.developerUserId,
+    kind: "agent_action",
+    requiredAuthorityLevel
+  };
+
+  if (intent) {
+    setOnInsert.argumentKind = intent.kind;
+    setOnInsert.argumentFingerprint = intent.fingerprint;
+    setOnInsert.argumentPreview = intent.preview;
+    setOnInsert.argumentPreviewTruncated = intent.previewTruncated;
+  }
+
+  let pending;
+  try {
+    pending = await ApprovalRequest.findOneAndUpdate(
+      pendingFilter,
+      { $setOnInsert: setOnInsert },
+      { upsert: true, returnDocument: "after" }
+    );
+  } catch (error) {
+    if (!isDuplicateKeyError(error)) throw error;
+    // Concurrent upsert raced the partial unique index — reuse the winner.
+    pending = await ApprovalRequest.findOne(pendingFilter);
+  }
 
   return { granted: false, approvalId: (pending?.approvalId as string | undefined) };
 }
@@ -714,23 +672,34 @@ export async function verifyAction(input: VerifyInput) {
   }
 
   // Resolve approval gate: if the permission requires approval, check for a
-  // granted approval or upsert a pending request.
+  // granted approval or upsert a pending request. Bindable actions require a
+  // usable command/path target — missing targets deny without creating a request.
   let approvalId: string | null = null;
   if (decision.approvalRequired && permission) {
-    try {
-      const gate = await resolveApprovalGate(
-        requestId,
-        input,
-        permission.permissionId,
-        getEffectiveRequiredAuthority(permission)
-      );
-      if (gate.granted) {
-        decision = { allowed: true, reason: "Action allowed by approved permission grant.", risk: "low" };
-      } else {
-        approvalId = gate.approvalId ?? null;
+    const intent = resolveIntentForInput(input);
+    if (isBindableAgentAction(input.action) && !intent) {
+      decision = {
+        allowed: false,
+        reason: APPROVAL_TARGET_REQUIRED_REASON,
+        risk: "high"
+      };
+    } else {
+      try {
+        const gate = await resolveApprovalGate(
+          requestId,
+          input,
+          permission.permissionId,
+          getEffectiveRequiredAuthority(permission),
+          intent
+        );
+        if (gate.granted) {
+          decision = { allowed: true, reason: "Action allowed by approved permission grant.", risk: "low" };
+        } else {
+          approvalId = gate.approvalId ?? null;
+        }
+      } catch {
+        // Fail closed: if approval resolution fails, keep the denied decision
       }
-    } catch {
-      // Fail closed: if approval resolution fails, keep the denied decision
     }
   }
 

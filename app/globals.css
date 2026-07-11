@@ -15710,6 +15710,50 @@ html[data-theme="light"] .ops-btn--approve {
   color: var(--ops-text-muted);
 }
 
+.ops-approval-card__target {
+  margin: 0 0 8px;
+}
+
+.ops-approval-card__target-label {
+  margin: 0 0 4px;
+  font-size: 0.6875rem;
+  color: var(--ops-text-muted);
+}
+
+.ops-approval-card__target-preview {
+  margin: 0;
+  padding: 8px 10px;
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  border: 1px solid var(--ops-border);
+  border-radius: 6px;
+  background: var(--ops-bg, transparent);
+}
+
+.ops-approval-card__target-note {
+  margin: 4px 0 0;
+  font-size: 0.625rem;
+  color: var(--ops-text-muted);
+  line-height: 1.4;
+}
+
+.ops-approval-card__warning {
+  margin: 0 0 8px;
+  padding: 6px 8px;
+  border: 1px solid rgba(180, 80, 60, 0.35);
+  border-radius: 6px;
+  background: rgba(180, 80, 60, 0.08);
+  color: var(--deny);
+  font-size: 0.6875rem;
+  line-height: 1.4;
+}
+
 .ops-approval-card__meta {
   margin: 0 0 10px;
   color: var(--ops-text-muted);

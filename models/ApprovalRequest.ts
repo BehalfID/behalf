@@ -4,24 +4,31 @@ import mongoose, { Schema, type InferSchemaType, type Model } from "mongoose";
  * An ApprovalRequest is created when a verify() call passes all hard policy
  * constraints but hits a permission with requiresApproval: true and no
  * approved grant exists for the exact request tuple
- * (agentId, permissionId, action, vendor, amount).
+ * (agentId, permissionId, action, vendor, amount[, argumentFingerprint]).
+ *
+ * For execute_command / read_file / write_file, the tuple also includes a
+ * deterministic SHA-256 argumentFingerprint of the canonical command or file
+ * path. Grants without a fingerprint cannot authorize those actions.
  *
  * Lifecycle:
- *   pending  → approved (human approves in dashboard, grantExpiresAt set to +30min)
+ *   pending  → approved (human approves in dashboard, grantExpiresAt set to +30min;
+ *                        resolvedAt records approval time)
  *   pending  → denied   (human denies in dashboard)
  *   approved → used     (agent calls verify() again within the grant window
- *                        with the SAME action/vendor/amount; action allowed)
+ *                        with the SAME tuple; action allowed; usedAt records
+ *                        consumption time — distinct from resolvedAt)
  *
- * Scoping: an approved grant is only valid for the exact action, vendor, and
- * amount stored on this document. It satisfies only the requiresApproval gate;
- * it never overrides blocked actions, allowedActions narrowing, revoked or
- * expired permissions, disabled agents, maxAmount, allowedVendors, or
- * resource matching — those are re-evaluated on every verify() call before
- * the approval gate is consulted.
+ * Scoping: an approved grant is only valid for the exact action, vendor,
+ * amount, and argumentFingerprint (when present) stored on this document.
+ * It satisfies only the requiresApproval gate; it never overrides blocked
+ * actions, allowedActions narrowing, revoked or expired permissions, disabled
+ * agents, maxAmount, allowedVendors, or resource matching — those are
+ * re-evaluated on every verify() call before the approval gate is consulted.
  *
  * Multiple verify() calls while pending do NOT create duplicate records for
  * the same request tuple. The upsert in verifyAction uses findOneAndUpdate
- * with the tuple in the filter and $setOnInsert for insert-only fields.
+ * with the tuple in the filter and $setOnInsert for insert-only fields, plus
+ * a partial unique index on the pending tuple.
  */
 const ApprovalRequestSchema = new Schema(
   {
@@ -43,6 +50,20 @@ const ApprovalRequestSchema = new Schema(
     action: { type: String, required: true, trim: true, maxlength: 80 },
     vendor: { type: String, trim: true, maxlength: 200 },
     amount: { type: Number },
+    /**
+     * Bound approval target for agent_action execute_command / read_file / write_file.
+     * Not used for managed_profile_pause or generic action/vendor/amount approvals.
+     */
+    argumentKind: {
+      type: String,
+      enum: ["command", "file_path"],
+      maxlength: 16
+    },
+    /** SHA-256 hex digest of the versioned canonical approval intent. */
+    argumentFingerprint: { type: String, maxlength: 64, index: true },
+    /** Bounded, best-effort-redacted preview for Action Inbox display. */
+    argumentPreview: { type: String, maxlength: 500 },
+    argumentPreviewTruncated: { type: Boolean },
     /** CLI pause approval — tool (claude, codex, cursor). */
     pauseTool: { type: String, trim: true, maxlength: 32 },
     /** CLI pause approval — policy repo hash or null when scope=all. */
@@ -63,7 +84,10 @@ const ApprovalRequestSchema = new Schema(
     },
     // Who resolved this (developer userId)
     resolvedBy: { type: String },
+    /** When a human approved or denied this request. */
     resolvedAt: { type: Date },
+    /** When an approved grant was atomically consumed by verify(). */
+    usedAt: { type: Date },
     // When approved: the window in which the next verify() call will be allowed.
     // After this, the grant expires and the agent must request approval again.
     grantExpiresAt: { type: Date },
@@ -75,6 +99,37 @@ const ApprovalRequestSchema = new Schema(
 
 // Compound index: find an approved non-expired grant for (agentId, permissionId) quickly
 ApprovalRequestSchema.index({ agentId: 1, permissionId: 1, status: 1, grantExpiresAt: 1 });
+// Grant lookup including argument fingerprint
+ApprovalRequestSchema.index({
+  agentId: 1,
+  permissionId: 1,
+  action: 1,
+  vendor: 1,
+  amount: 1,
+  argumentFingerprint: 1,
+  status: 1,
+  grantExpiresAt: 1
+});
+// Partial unique: one pending agent_action per exact request tuple (incl. fingerprint)
+ApprovalRequestSchema.index(
+  {
+    agentId: 1,
+    permissionId: 1,
+    action: 1,
+    vendor: 1,
+    amount: 1,
+    argumentFingerprint: 1,
+    status: 1
+  },
+  {
+    unique: true,
+    name: "approval_pending_tuple_unique",
+    partialFilterExpression: {
+      status: "pending",
+      kind: "agent_action"
+    }
+  }
+);
 // Compound index: list pending/recent approvals for a developer
 ApprovalRequestSchema.index({ developerUserId: 1, status: 1, createdAt: -1 });
 ApprovalRequestSchema.index({ accountId: 1, status: 1, createdAt: -1 });

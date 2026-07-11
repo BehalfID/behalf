@@ -291,4 +291,36 @@ describe("GET /api/dashboard/inbox", () => {
 
     expect(routeMocks.agentFind).not.toHaveBeenCalled();
   });
+
+  it("includes argument preview fields and does not expose policyContext", async () => {
+    authOk();
+    const boundApproval = {
+      ...pendingApproval,
+      action: "execute_command",
+      argumentKind: "command",
+      argumentPreview: "npm test",
+      argumentPreviewTruncated: false
+    };
+    routeMocks.approvalFind.mockReturnValue(approvalChain([boundApproval]));
+    routeMocks.logFind.mockReturnValue(logChain([]));
+    routeMocks.agentFind.mockReturnValue(agentChain([agentRow]));
+
+    const { GET } = await import("@/app/api/dashboard/inbox/route");
+    const res = await GET(request());
+    const body = await res.json() as {
+      pendingApprovals: Array<Record<string, unknown>>;
+    };
+
+    expect(body.pendingApprovals[0].argumentKind).toBe("command");
+    expect(body.pendingApprovals[0].argumentPreview).toBe("npm test");
+    expect(body.pendingApprovals[0].argumentPreviewTruncated).toBe(false);
+    expect(body.pendingApprovals[0]).not.toHaveProperty("policyContext");
+    expect(body.pendingApprovals[0]).not.toHaveProperty("argumentFingerprint");
+
+    const selectArg = routeMocks.approvalFind.mock.results[0].value.select.mock.calls[0][0] as string;
+    expect(selectArg).toContain("argumentKind");
+    expect(selectArg).toContain("argumentPreview");
+    expect(selectArg).not.toContain("argumentFingerprint");
+    expect(selectArg).not.toContain("policyContext");
+  });
 });

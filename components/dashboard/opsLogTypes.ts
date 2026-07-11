@@ -43,9 +43,14 @@ export type OpsApprovalRequest = {
   action: string;
   vendor?: string | null;
   amount?: number | null;
+  argumentKind?: "command" | "file_path" | null;
+  argumentPreview?: string | null;
+  argumentPreviewTruncated?: boolean | null;
+  legacyUnbound?: boolean | null;
   status: "pending" | "approved" | "denied" | "used";
   resolvedBy?: string | null;
   resolvedAt?: string | null;
+  usedAt?: string | null;
   grantExpiresAt?: string | null;
   createdAt?: string;
   requiredAuthorityLevel?: number;
@@ -149,4 +154,19 @@ export function formatOpsDate(value?: string | null) {
 export function formatActionLabel(action: string, vendor?: string | null) {
   const base = action.replace(/_/g, " ");
   return vendor ? `${base} · ${vendor}` : base;
+}
+
+export function formatApprovalTargetLabel(kind: "command" | "file_path" | null | undefined) {
+  if (kind === "command") return "Command requested";
+  if (kind === "file_path") return "File path";
+  return null;
+}
+
+export function isLegacyUnboundApproval(req: Pick<OpsApprovalRequest, "legacyUnbound" | "action" | "argumentKind" | "argumentPreview" | "kind">) {
+  if (req.legacyUnbound) return true;
+  if (isManagedProfilePauseApproval(req)) return false;
+  if (req.action !== "execute_command" && req.action !== "read_file" && req.action !== "write_file") {
+    return false;
+  }
+  return !req.argumentKind || !req.argumentPreview;
 }

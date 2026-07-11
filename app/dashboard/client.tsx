@@ -154,9 +154,14 @@ type ApprovalRequest = {
   action: string;
   vendor?: string | null;
   amount?: number | null;
+  argumentKind?: "command" | "file_path" | null;
+  argumentPreview?: string | null;
+  argumentPreviewTruncated?: boolean | null;
+  legacyUnbound?: boolean | null;
   status: "pending" | "approved" | "denied" | "used";
   resolvedBy?: string | null;
   resolvedAt?: string | null;
+  usedAt?: string | null;
   grantExpiresAt?: string | null;
   createdAt?: string;
   requiredAuthorityLevel?: number;

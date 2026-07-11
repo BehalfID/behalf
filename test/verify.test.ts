@@ -377,10 +377,11 @@ describe("verifyAction permission decisions", () => {
         action: "purchase",
         vendor: "amazon.com",
         amount: 25,
+        argumentFingerprint: null,
         status: "pending"
       }),
       expect.objectContaining({ $setOnInsert: expect.objectContaining({ approvalId: expect.stringMatching(/^apr_/) }) }),
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: "after" }
     );
   });
 
@@ -388,13 +389,14 @@ describe("verifyAction permission decisions", () => {
     const now = new Date();
     const grantExpiresAt = new Date(now.getTime() + 25 * 60 * 1_000);
     mockPermissions([permissionFixture({ requiresApproval: true })]);
-    modelMocks.approvalRequestFindOne.mockResolvedValue({
+    modelMocks.approvalRequestFindOneAndUpdate.mockResolvedValueOnce({
       approvalId: "apr_test",
       agentId: "agent_test",
       permissionId: "perm_test",
       action: "purchase",
       vendor: "amazon.com",
       amount: 25,
+      argumentFingerprint: null,
       status: "approved",
       grantExpiresAt
     });
@@ -408,10 +410,19 @@ describe("verifyAction permission decisions", () => {
       reason: "Action allowed by approved permission grant.",
       risk: "low"
     }));
-    // Grant should be marked as used
-    expect(modelMocks.approvalRequestUpdateOne).toHaveBeenCalledWith(
-      { approvalId: "apr_test" },
-      { $set: { status: "used", resolvedAt: expect.any(Date) } }
+    // Grant should be atomically consumed (status used + usedAt)
+    expect(modelMocks.approvalRequestFindOneAndUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agentId: "agent_test",
+        permissionId: "perm_test",
+        action: "purchase",
+        vendor: "amazon.com",
+        amount: 25,
+        argumentFingerprint: null,
+        status: "approved"
+      }),
+      { $set: { status: "used", usedAt: expect.any(Date) } },
+      { returnDocument: "before" }
     );
   });
 
@@ -683,7 +694,7 @@ describe("argument-level constraints (path and command)", () => {
     await expect(
       verifyAction(verificationRequestFixture({ action: "write_file", metadata: { tool_input: "~/.ssh/id_rsa" } }))
     ).resolves.toEqual(expect.objectContaining({ allowed: false, reason: "path_not_permitted" }));
-    expect(modelMocks.approvalRequestFindOne).not.toHaveBeenCalled();
+    expect(modelMocks.approvalRequestFindOneAndUpdate).not.toHaveBeenCalled();
   });
 
   it("evaluates nested metadata.tool_input.file_path", async () => {
@@ -989,7 +1000,7 @@ describe("approval grants never bypass hard constraints", () => {
     expect(modelMocks.approvalRequestFindOneAndUpdate).toHaveBeenCalledWith(
       expect.objectContaining({ action: "purchase", amount: 25, status: "pending" }),
       expect.anything(),
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: "after" }
     );
   });
 
@@ -1006,7 +1017,7 @@ describe("approval grants never bypass hard constraints", () => {
       allowed: false,
       reason: "Amount exceeds maxAmount constraint."
     }));
-    expect(modelMocks.approvalRequestFindOne).not.toHaveBeenCalled();
+    expect(modelMocks.approvalRequestFindOneAndUpdate).not.toHaveBeenCalled();
     expect(modelMocks.approvalRequestUpdateOne).not.toHaveBeenCalled();
   });
 
@@ -1023,7 +1034,7 @@ describe("approval grants never bypass hard constraints", () => {
       allowed: false,
       reason: "Vendor is not included in allowedVendors constraint."
     }));
-    expect(modelMocks.approvalRequestFindOne).not.toHaveBeenCalled();
+    expect(modelMocks.approvalRequestFindOneAndUpdate).not.toHaveBeenCalled();
     expect(modelMocks.approvalRequestUpdateOne).not.toHaveBeenCalled();
   });
 
@@ -1039,7 +1050,7 @@ describe("approval grants never bypass hard constraints", () => {
       allowed: false,
       reason: "Action is blocked by this permission."
     }));
-    expect(modelMocks.approvalRequestFindOne).not.toHaveBeenCalled();
+    expect(modelMocks.approvalRequestFindOneAndUpdate).not.toHaveBeenCalled();
   });
 
   it("still denies revoked permissions when an approved grant exists", async () => {
@@ -1054,7 +1065,7 @@ describe("approval grants never bypass hard constraints", () => {
       allowed: false,
       reason: "Permission has been revoked."
     }));
-    expect(modelMocks.approvalRequestFindOne).not.toHaveBeenCalled();
+    expect(modelMocks.approvalRequestFindOneAndUpdate).not.toHaveBeenCalled();
   });
 
   it("still denies expired permissions when an approved grant exists", async () => {
@@ -1072,7 +1083,7 @@ describe("approval grants never bypass hard constraints", () => {
       allowed: false,
       reason: "Permission has expired."
     }));
-    expect(modelMocks.approvalRequestFindOne).not.toHaveBeenCalled();
+    expect(modelMocks.approvalRequestFindOneAndUpdate).not.toHaveBeenCalled();
   });
 
   it("still denies disabled agents when an approved grant exists", async () => {
@@ -1085,7 +1096,7 @@ describe("approval grants never bypass hard constraints", () => {
       allowed: false,
       reason: "Agent is disabled."
     }));
-    expect(modelMocks.approvalRequestFindOne).not.toHaveBeenCalled();
+    expect(modelMocks.approvalRequestFindOneAndUpdate).not.toHaveBeenCalled();
   });
 
   it("still denies actions outside allowedActions when an approved grant exists", async () => {
@@ -1104,7 +1115,7 @@ describe("approval grants never bypass hard constraints", () => {
       allowed: false,
       reason: "Action is not included in allowedActions."
     }));
-    expect(modelMocks.approvalRequestFindOne).not.toHaveBeenCalled();
+    expect(modelMocks.approvalRequestFindOneAndUpdate).not.toHaveBeenCalled();
   });
 
   it("still denies resource mismatches when an approved grant exists", async () => {
@@ -1120,7 +1131,7 @@ describe("approval grants never bypass hard constraints", () => {
       allowed: false,
       reason: "Resource does not match permission resource."
     }));
-    expect(modelMocks.approvalRequestFindOne).not.toHaveBeenCalled();
+    expect(modelMocks.approvalRequestFindOneAndUpdate).not.toHaveBeenCalled();
   });
 
   it("still fails closed on missing constrained amount/vendor when an approved grant exists", async () => {
@@ -1148,6 +1159,6 @@ describe("approval grants never bypass hard constraints", () => {
       })
     );
 
-    expect(modelMocks.approvalRequestFindOne).not.toHaveBeenCalled();
+    expect(modelMocks.approvalRequestFindOneAndUpdate).not.toHaveBeenCalled();
   });
 });

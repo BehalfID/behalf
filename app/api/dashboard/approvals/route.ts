@@ -9,7 +9,8 @@ import DeveloperUser from "@/models/DeveloperUser";
 import { BEHALF_CLI_PAUSE_AGENT_ID } from "@/lib/managedProfilePauseApproval";
 
 const APPROVAL_SELECT =
-  "-_id approvalId requestId kind agentId permissionId action vendor amount status resolvedBy resolvedAt grantExpiresAt requiredAuthorityLevel developerUserId createdAt pauseTool pauseRepo pauseBranch pauseDeviceId pauseScope requestedDurationMinutes pauseReason contextReason";
+  "-_id approvalId requestId kind agentId permissionId action vendor amount status resolvedBy resolvedAt usedAt grantExpiresAt requiredAuthorityLevel developerUserId createdAt argumentKind argumentPreview argumentPreviewTruncated pauseTool pauseRepo pauseBranch pauseDeviceId pauseScope requestedDurationMinutes pauseReason contextReason";
+
 
 export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);

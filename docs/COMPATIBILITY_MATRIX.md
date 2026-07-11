@@ -133,8 +133,10 @@ These are **compatibility adapters, not official partnerships**. No adapter in t
 | Fail-open | Network/config unavailability |
 | Fail-closed | Oversized or unevaluable local policy input; missing path/command when those constraints apply |
 | Intentionally unmapped | Monitor without a shell `command` (e.g. WebSocket-only); Glob, Grep, TodoWrite, and other non-governed tools |
-| Known limitations | Not universal Claude Code security — only tool calls routed through the installed PreToolUse hook are checked. Approval grants are not yet bound to command/path fingerprints (argument substitution possible across the same action/vendor/amount tuple). |
-| Before claiming production-ready | Bind approvals to sanitized argument fingerprints; expand Monitor coverage only when a clean existing action mapping exists |
+| Known limitations | Not universal Claude Code security — only tool calls routed through the installed PreToolUse hook are checked. |
+| Before claiming production-ready | Expand Monitor coverage only when a clean existing action mapping exists |
+
+**Approval grant integrity (agent_action):** Command and file-path approvals are bound to a deterministic SHA-256 fingerprint of the canonical target (exact command string; lexically canonicalized file path). Grants are consumed with a single atomic conditional update and are single-use. Legacy unbound command/file approvals cannot be approved or consumed. Generic purchase-style approvals retain action/vendor/amount binding. Managed Profiles pause approvals are unchanged. BehalfID does not interpret shell semantics or review file contents.
 
 ### LangChain
 

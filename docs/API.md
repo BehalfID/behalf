@@ -292,19 +292,36 @@ returns the `approvalId` of the pending `ApprovalRequest`:
   dashboard (`POST /api/dashboard/approvals/{approvalId}/approve` or `/deny`).
 
 **What an approval grant means.** Approving a request creates a time-limited
-grant (30 minutes) scoped to the exact `action`, `vendor`/resource, and `amount`
-that were originally requested. The next verify call that matches that exact
-tuple is allowed and the grant is consumed (marked `used`) — it cannot be
-reused.
+grant (30 minutes) scoped to the exact `action`, `vendor`/resource, `amount`,
+and — for `execute_command` / `read_file` / `write_file` — a deterministic
+SHA-256 `argumentFingerprint` of the canonical command or file path that was
+presented for review. The next verify call that matches that exact tuple is
+allowed and the grant is consumed atomically (marked `used` with `usedAt`) —
+it cannot be reused. Approval time (`resolvedAt` / `resolvedBy`) is preserved
+separately from consumption time.
 
-**Known limitation — argument substitution.** The approval grant tuple does
-**not** currently include command or file-path arguments. After a human
-approves one `execute_command` or `write_file` request, a different command or
-path that shares the same `(agentId, permissionId, action, vendor, amount)`
-can consume that grant. Hard path/command denials still apply before the
-approval gate, but when the permission only requires approval (no denying
-path/command constraint), argument substitution is possible. Binding grants to
-a deterministic sanitized-input fingerprint is the recommended follow-up.
+**Command and file-path binding.** For bindable actions:
+
+- Commands are fingerprinted from the complete extracted command string with
+  **exact** matching (no trim, collapse, tokenize, reorder, or case folding).
+  An exact whitespace difference requires a new approval. BehalfID does not
+  interpret shell semantics.
+- File paths are fingerprinted after **lexical** canonicalization (separators,
+  `.` / `..`, optional `cwd` / `home` resolution). The file need not exist;
+  `realpath` is not used. Approvals bind to the path, not file contents.
+- The Action Inbox stores a bounded (500-character), best-effort-redacted
+  preview (`argumentPreview`). Raw `policyContext` and file contents are never
+  persisted on the approval document. Previews redact known Bearer /
+  BehalfID / webhook key formats; arbitrary shell secrets are not guaranteed
+  to be detected — do not place secrets in command arguments.
+- Missing command/path targets deny with
+  `"Approval target is required for this action."` and do **not** create an
+  ApprovalRequest.
+- Legacy unbound command/file approvals (no fingerprint) cannot be approved or
+  consumed; retry the agent action to create a bound request.
+
+Generic non-command/file approvals (for example purchases) retain
+action/vendor/amount binding as before.
 
 **What an approval grant does not override.** An approval satisfies only the
 human-approval gate. It never overrides policy constraints, which are
@@ -322,7 +339,8 @@ re-evaluated on every verify call *before* the approval gate is consulted:
 
 A grant approved for `vendor: "a.com"` does not allow `vendor: "b.com"`; a
 grant approved for `amount: 25` does not allow `amount: 250`; a grant approved
-for `action: "purchase"` does not allow `action: "deploy"`. A request that
+for `action: "purchase"` does not allow `action: "deploy"`; a grant approved
+for command `npm test` does not allow `rm -rf /tmp/project`. A request that
 differs from the approved tuple is denied with `approvalRequired: true` and a
 new pending `ApprovalRequest` for the new tuple.
 

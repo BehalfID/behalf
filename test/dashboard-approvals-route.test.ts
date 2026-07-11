@@ -253,6 +253,54 @@ describe("POST /api/dashboard/approvals/[approvalId]/approve", () => {
       expect(res.status).toBe(403);
       expect(routeMocks.approvalUpdateOne).not.toHaveBeenCalled();
     });
+    it("rejects legacy unbound command/file approvals with conflict", async () => {
+      routeMocks.approvalFindOne.mockReturnValue({
+        lean: vi.fn(async () => ({
+          ...pendingApproval,
+          action: "execute_command",
+          kind: "agent_action",
+          developerUserId: "other_dev",
+          argumentKind: null,
+          argumentFingerprint: null,
+          argumentPreview: null
+        }))
+      });
+
+      const { POST } = await import("@/app/api/dashboard/approvals/[approvalId]/approve/route");
+      const res = await POST(
+        request("/api/dashboard/approvals/apr_pending/approve", { method: "POST" }),
+        { params: Promise.resolve({ approvalId: "apr_pending" }) }
+      );
+      const body = await res.json() as { error: string };
+
+      expect(res.status).toBe(409);
+      expect(body.error).toMatch(/intent binding/i);
+      expect(routeMocks.approvalUpdateOne).not.toHaveBeenCalled();
+    });
+
+    it("approves a bound command approval with fingerprint and preview", async () => {
+      routeMocks.approvalFindOne.mockReturnValue({
+        lean: vi.fn(async () => ({
+          ...pendingApproval,
+          action: "execute_command",
+          kind: "agent_action",
+          developerUserId: "other_dev",
+          argumentKind: "command",
+          argumentFingerprint: "a".repeat(64),
+          argumentPreview: "npm test",
+          argumentPreviewTruncated: false
+        }))
+      });
+
+      const { POST } = await import("@/app/api/dashboard/approvals/[approvalId]/approve/route");
+      const res = await POST(
+        request("/api/dashboard/approvals/apr_pending/approve", { method: "POST" }),
+        { params: Promise.resolve({ approvalId: "apr_pending" }) }
+      );
+
+      expect(res.status).toBe(200);
+      expect(routeMocks.approvalUpdateOne).toHaveBeenCalled();
+    });
   });
 });
 
