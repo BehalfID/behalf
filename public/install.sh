@@ -2,7 +2,11 @@
 # BehalfID CLI installer (macOS / Linux only)
 # Usage:
 #   curl -fsSL https://behalfid.com/install.sh | sh
-#   BEHALF_VERSION=v0.2.9 curl -fsSL https://behalfid.com/install.sh | sh
+#   curl -fsSL https://behalfid.com/install.sh | BEHALF_VERSION=v0.2.9 sh
+#
+# The version pin must be assigned to the executing shell (sh), after the pipe.
+# Prefixing the assignment to the download command sets the variable for that
+# command only — the downloaded script never sees it.
 #
 # Windows is not supported by this script — use: npm install -g @behalfid/cli
 
@@ -46,6 +50,15 @@ download() {
     wget -q "$1" -O "$2"
   else
     die "curl or wget is required."
+  fi
+}
+
+# Require an exact stable semantic version tag: vX.Y.Z (digits only).
+# A plain `case` pattern like v[0-9]*.[0-9]*.[0-9]* would accept malformed
+# suffixes (v0.2.9-beta, v0.2.9/../../x), so anchor with grep -E instead.
+validate_tag() {
+  if ! printf '%s\n' "$1" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+    die "Invalid release tag: $1. Expected vX.Y.Z."
   fi
 }
 
@@ -93,6 +106,8 @@ sha256_file() {
 }
 
 TAG=$(resolve_tag)
+# Applies to both the explicit BEHALF_VERSION pin and the resolved latest tag.
+validate_tag "$TAG"
 VERSION="${TAG#v}"
 ASSET="behalf-${OS}-${ARCH}.tar.gz"
 DOWNLOAD_URL="${BASE_URL}/download/${TAG}/${ASSET}"

@@ -40,8 +40,8 @@ Pick one method. Tell the operator which you used. For the Trajectus pilot, requ
 # npm — supported on Windows (and macOS / Linux)
 npm install -g @behalfid/cli
 
-# install.sh — macOS / Linux only (optional pin)
-# BEHALF_VERSION=v0.2.9 curl -fsSL https://behalfid.com/install.sh | sh
+# install.sh — macOS / Linux only (optional pin; the pin is assigned to sh, not curl)
+# curl -fsSL https://behalfid.com/install.sh | BEHALF_VERSION=v0.2.9 sh
 curl -fsSL https://behalfid.com/install.sh | sh
 
 # Homebrew — macOS only

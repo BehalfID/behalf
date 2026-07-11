@@ -623,6 +623,7 @@ describe("installClaudePreToolUseHook", () => {
 
   it("reports unreadable settings without mutating them", async () => {
     if (process.platform === "win32") return; // chmod semantics differ on Windows
+    if (typeof process.getuid === "function" && process.getuid() === 0) return; // root bypasses file modes
     const home = tempDir("behalf-home-");
     const { run } = await loadHookModules(home);
     const { chmodSync, mkdirSync } = await import("node:fs");

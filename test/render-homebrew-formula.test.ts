@@ -95,4 +95,24 @@ describe("renderHomebrewFormula", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it("rejects versions that only start with X.Y.Z (anchored match)", () => {
+    // These all passed the old prefix-only /^[0-9]+\.[0-9]+\.[0-9]+/ check.
+    for (const version of ["0.2.9-beta", "0.2.9x", "0.2.9.1", "0.2.9/../../x"]) {
+      const result = render([
+        "--version",
+        version,
+        "--darwin-arm64-url",
+        "https://example.com/a.tgz",
+        "--darwin-arm64-sha256",
+        ARM_SHA,
+        "--darwin-x64-url",
+        "https://example.com/b.tgz",
+        "--darwin-x64-sha256",
+        X64_SHA,
+      ]);
+      expect(result.status, `version "${version}" should be rejected`).not.toBe(0);
+      expect(result.stderr).toContain("invalid version");
+    }
+  });
 });

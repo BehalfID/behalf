@@ -1,14 +1,32 @@
 name: CLI Release
 
 # Publishes CLI artifacts only after all local validation succeeds.
-# Recovery notes (operator):
-# - npm succeeds but GitHub release fails: create the GitHub release manually from
-#   the same tag with the locally built archives + SHA256SUMS; do not re-npm-publish.
-# - GitHub release succeeds but Homebrew update fails: re-run the Homebrew step or
-#   push the rendered Formula/behalf.rb to BehalfID/homebrew-tap manually.
-# - Homebrew token missing: release job fails (not treated as complete success).
-# - npm package version already exists: fail closed; bump version / retag — do not
-#   force-overwrite a published npm version.
+#
+# External mutation order (do not reorder):
+#   1. Build, test, pack, checksum, and verify every artifact locally.
+#   2. Publish to npm.
+#   3. Create the GitHub release and upload assets.
+#   4. Update the Homebrew tap.
+# The GitHub release is never created before npm publish succeeds, so install.sh
+# (which resolves GitHub releases) can never see a tag whose npm publish failed.
+#
+# Recovery notes (operator) for partial states:
+# - npm publish fails: nothing external was mutated (no GitHub release, no tap
+#   update). Fix the cause and re-run the workflow for the same tag.
+# - npm version already exists (E403/EPUBLISHCONFLICT): fail closed; a published
+#   npm version is immutable. Bump the package version and retag — do not
+#   force-overwrite or unpublish.
+# - npm succeeds but GitHub release fails: re-run the workflow for the same tag —
+#   npm publish of the already-published version will fail, so instead create the
+#   GitHub release manually from the same tag with the locally built archives +
+#   SHA256SUMS (they are deterministic from the tag commit), then run the
+#   Homebrew step manually. Do not re-npm-publish.
+# - npm and GitHub release succeed but Homebrew fails: render the formula with
+#   scripts/release/render-homebrew-formula.mjs using the released SHA256SUMS and
+#   push Formula/behalf.rb to BehalfID/homebrew-tap manually.
+# - Homebrew token missing: the job fails before the tap is touched; npm and the
+#   GitHub release remain valid. Provide HOMEBREW_TAP_TOKEN and complete the tap
+#   update manually or by re-running only that recovery path.
 
 on:
   push:
@@ -31,19 +49,27 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Resolve and checkout tag
+      - name: Resolve release tag
         id: version
+        # The workflow-dispatch input is attacker-influenced text; never embed it
+        # directly in shell source. Pass it through env so it is data, not code.
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REQUESTED_TAG: ${{ github.event.inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="${{ github.event.inputs.tag }}"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            TAG="$REQUESTED_TAG"
           else
-            TAG="${GITHUB_REF_NAME}"
+            TAG="$REF_NAME"
           fi
-          case "$TAG" in
-            v*) ;;
-            *) echo "Tag must start with v (got: $TAG)"; exit 1 ;;
-          esac
+          # Strict validation before the tag is written to GITHUB_OUTPUT: exact
+          # stable semantic version only (rejects v0.2.9-beta, v0.2, v0.2.9/../x).
+          if ! printf '%s\n' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Invalid release tag: $TAG. Expected vX.Y.Z."
+            exit 1
+          fi
           VERSION="${TAG#v}"
           if [ "$VERSION" != "0.2.9" ]; then
             echo "This release workflow is pinned to package version 0.2.9 (got: $VERSION)"
@@ -172,6 +198,15 @@ jobs:
             > SHA256SUMS
           cat SHA256SUMS
 
+      # External mutations begin here. Order is load-bearing (see header notes):
+      # npm first, then the GitHub release, then the Homebrew tap. The GitHub
+      # release must never exist for a tag whose npm publish failed.
+      - name: Publish to npm
+        run: npm publish --access public --provenance
+        working-directory: packages/cli
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -181,12 +216,6 @@ jobs:
             packages/cli/bin/*.zip
             packages/cli/bin/SHA256SUMS
           generate_release_notes: true
-
-      - name: Publish to npm
-        run: npm publish --access public --provenance
-        working-directory: packages/cli
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Update Homebrew tap
         env:

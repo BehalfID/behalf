@@ -31,7 +31,9 @@ export function renderHomebrewFormula({
       "version, darwinArm64Url, darwinArm64Sha256, darwinX64Url, and darwinX64Sha256 are required"
     );
   }
-  if (!/^[0-9]+\.[0-9]+\.[0-9]+/.test(version)) {
+  // Exact stable semantic version only — an unanchored prefix match would
+  // accept suffixed values like "0.2.9-beta" or "0.2.9x".
+  if (!/^[0-9]+\.[0-9]+\.[0-9]+$/.test(version)) {
     throw new Error(`invalid version: ${version}`);
   }
   for (const [label, sha] of [
