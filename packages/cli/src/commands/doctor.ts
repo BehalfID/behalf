@@ -4,7 +4,11 @@ import { Command } from "commander";
 import { apiRequest, resolveApiKey, resolveBaseUrl } from "../lib/client.js";
 import { readConfig, readSession, CONFIG_DIR_PATH, CONFIG_FILE_PATH } from "../lib/config.js";
 import { getProjectSetupStatus } from "../lib/mcp-setup.js";
-import { hasClaudePreToolUseHook, hasCodexPreToolUseHook, hasCursorBeforeShellHook } from "./run.js";
+import {
+  getClaudePreToolUseHookStatus,
+  hasCodexPreToolUseHook,
+  hasCursorBeforeShellHook,
+} from "./run.js";
 import { isJsonMode, printJson, runAction } from "../lib/output.js";
 
 type Check = {
@@ -139,15 +143,35 @@ export async function runDoctorChecks(cwd = process.cwd()): Promise<Check[]> {
     fix: "Run `behalf mcp init --refresh` to generate current permission context.",
   });
 
-  const hookInstalled = hasClaudePreToolUseHook();
-  checks.push({
-    name: "Claude hook",
-    status: hookInstalled ? "ok" : "warn",
-    detail: hookInstalled
-      ? "BehalfID PreToolUse hook installed in ~/.claude/settings.json"
-      : "BehalfID PreToolUse hook not found in ~/.claude/settings.json",
-    fix: "Run `behalf claude` to install it.",
-  });
+  const claudeHook = getClaudePreToolUseHookStatus();
+  if (claudeHook.status === "ok") {
+    checks.push({
+      name: "Claude hook",
+      status: "ok",
+      detail: `BehalfID PreToolUse hook installed in ${claudeHook.path}`,
+    });
+  } else if (claudeHook.status === "malformed") {
+    checks.push({
+      name: "Claude hook",
+      status: "error",
+      detail: `${claudeHook.path} is not valid JSON; BehalfID enforcement cannot be verified`,
+      fix: "Repair or back up the file, then run `behalf claude` again.",
+    });
+  } else if (claudeHook.status === "unreadable") {
+    checks.push({
+      name: "Claude hook",
+      status: "error",
+      detail: `${claudeHook.path} is unreadable; BehalfID enforcement cannot be verified`,
+      fix: "Fix permissions on the file, then run `behalf claude` again.",
+    });
+  } else {
+    checks.push({
+      name: "Claude hook",
+      status: "error",
+      detail: `BehalfID PreToolUse hook not found in ${claudeHook.path}`,
+      fix: "Run `behalf claude` to install it.",
+    });
+  }
 
   const codexHookInstalled = hasCodexPreToolUseHook();
   checks.push({

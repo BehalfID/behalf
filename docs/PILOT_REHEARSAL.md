@@ -120,18 +120,22 @@ npx tsx scripts/pilot-rehearsal-prep.ts --collect path/to/capture.txt
 
 Document the **exact source under test** in the results template.
 
-| Method | Command |
-|---|---|
-| curl (macOS / Linux) | `curl -fsSL https://behalfid.com/install.sh \| sh` |
-| Homebrew | `brew install behalfid/tap/behalf` |
-| npm (published) | `npm install -g @behalfid/cli` |
-| Local pack (dev) | From repo: `npm run build` in `packages/cli`, then `npm pack` / `npm install -g ./behalfid-cli-*.tgz` — record tarball version |
-| Verify | `behalf --version` |
-| Auth | `behalf login` then `behalf whoami` |
-| Agent config | `behalf config set base-url https://behalfid.com` (or deploy URL); `behalf config set agent-id agent_test`; `behalf config set api-key bhf_sk_REDACTED` |
-| Hook + launch | `behalf claude` |
-| Doctor | `behalf doctor` |
-| Optional MCP context | `behalf mcp init` (MCP is complementary; PreToolUse hook is the hard gate for this pilot) |
+For the Trajectus pilot, the installed CLI must report **0.2.9 or newer**. If `behalf --version` is older than `0.2.9`, **stop and contact the operator** — do not continue the rehearsal on a stale build.
+
+| Method | Command | Notes |
+|---|---|---|
+| npm (supported on Windows) | `npm install -g @behalfid/cli` | Preferred Windows path |
+| curl / `install.sh` (macOS / Linux only) | `curl -fsSL https://behalfid.com/install.sh \| sh` | Optional pin (assign to `sh`, not `curl`): `curl -fsSL https://behalfid.com/install.sh \| BEHALF_VERSION=v0.2.9 sh` |
+| Homebrew (macOS only) | `brew install BehalfID/tap/behalf` | Not for Windows/Linux |
+| Local pack (dev) | From repo: `npm run build` in `packages/cli`, then `npm pack` / `npm install -g ./behalfid-cli-*.tgz` — record tarball version | |
+| Verify (required) | `behalf --version` | Must be `0.2.9` or newer |
+| Auth | `behalf login` then `behalf whoami` | |
+| Agent config | `behalf config set base-url https://behalfid.com` (or deploy URL); `behalf config set agent-id agent_test`; `behalf config set api-key bhf_sk_REDACTED` | |
+| Hook + launch | `behalf claude` | |
+| Doctor | `behalf doctor` | |
+| Optional MCP context | `behalf mcp init` (MCP is complementary; PreToolUse hook is the hard gate for this pilot) | |
+
+Record **installation channel** and **exact version string** in the results template.
 
 Full CLI walkthrough: [/docs/cli](/docs/cli).
 
@@ -229,10 +233,10 @@ Shared evidence hygiene: capture request IDs, approval IDs, timestamps, screensh
 | Expected Action Inbox | N/A |
 | Approver action | N/A |
 | Retry action | N/A |
-| Expected verification result | CLI runs; version matches chosen source |
-| Evidence | Version string + install method |
+| Expected verification result | CLI runs; version is **0.2.9 or newer**; record channel + version |
+| Evidence | Version string + install method (npm / install.sh / Homebrew / local pack) |
 | Pass/Fail | |
-| Notes | |
+| Notes | If version &lt; 0.2.9, stop and contact the operator |
 
 ### 2. Hook installation and doctor verification
 

@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  linux-validation:
+    name: Linux validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install CLI dependencies
+        run: npm ci
+        working-directory: packages/cli
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Build app
+        run: npm run build
+
+      - name: Build CLI
+        run: npm run build:cli
+
+      - name: Focused security and CLI tests
+        run: |
+          npx vitest run \
+            test/cli-hook.test.ts \
+            test/approval-intent.test.ts \
+            test/approval-request.test.ts \
+            test/dashboard-approvals-route.test.ts \
+            test/dashboard-inbox-route.test.ts \
+            test/ops-approval-ui.test.ts \
+            test/verify.test.ts
+
+      - name: Release helper tests
+        run: |
+          npx vitest run \
+            test/verify-cli-artifact.test.ts \
+            test/render-homebrew-formula.test.ts \
+            test/install-sh.test.ts
+
+  windows-cli:
+    name: Windows CLI
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install CLI dependencies
+        run: npm ci
+        working-directory: packages/cli
+
+      - name: Build CLI
+        run: npm run build:cli
+
+      - name: Focused CLI tests
+        run: npx vitest run test/cli-hook.test.ts test/approval-intent.test.ts test/verify.test.ts
+
+      - name: CLI version smoke
+        run: |
+          $out = (node packages/cli/dist/index.js --version).Trim()
+          if ($out -ne "0.2.9") {
+            Write-Error "Expected CLI version 0.2.9, got '$out'"
+            exit 1
+          }
+          Write-Host "CLI version OK: $out"

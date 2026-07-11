@@ -1,5 +1,33 @@
 name: CLI Release
 
+# Publishes CLI artifacts only after all local validation succeeds.
+#
+# External mutation order (do not reorder):
+#   1. Build, test, pack, checksum, and verify every artifact locally.
+#   2. Publish to npm.
+#   3. Create the GitHub release and upload assets.
+#   4. Update the Homebrew tap.
+# The GitHub release is never created before npm publish succeeds, so install.sh
+# (which resolves GitHub releases) can never see a tag whose npm publish failed.
+#
+# Recovery notes (operator) for partial states:
+# - npm publish fails: nothing external was mutated (no GitHub release, no tap
+#   update). Fix the cause and re-run the workflow for the same tag.
+# - npm version already exists (E403/EPUBLISHCONFLICT): fail closed; a published
+#   npm version is immutable. Bump the package version and retag — do not
+#   force-overwrite or unpublish.
+# - npm succeeds but GitHub release fails: re-run the workflow for the same tag —
+#   npm publish of the already-published version will fail, so instead create the
+#   GitHub release manually from the same tag with the locally built archives +
+#   SHA256SUMS (they are deterministic from the tag commit), then run the
+#   Homebrew step manually. Do not re-npm-publish.
+# - npm and GitHub release succeed but Homebrew fails: render the formula with
+#   scripts/release/render-homebrew-formula.mjs using the released SHA256SUMS and
+#   push Formula/behalf.rb to BehalfID/homebrew-tap manually.
+# - Homebrew token missing: the job fails before the tap is touched; npm and the
+#   GitHub release remain valid. Provide HOMEBREW_TAP_TOKEN and complete the tap
+#   update manually or by re-running only that recovery path.
+
 on:
   push:
     tags:
@@ -7,12 +35,13 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Version tag (e.g. v0.1.0)"
+        description: "Existing version tag to release (e.g. v0.2.9). Must already exist on the remote."
         required: true
-        default: "v0.1.0"
+        type: string
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   release:
@@ -20,41 +49,118 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Resolve version
+      - name: Resolve release tag
         id: version
+        # The workflow-dispatch input is attacker-influenced text; never embed it
+        # directly in shell source. Pass it through env so it is data, not code.
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REQUESTED_TAG: ${{ github.event.inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="${{ github.event.inputs.tag }}"
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            TAG="$REQUESTED_TAG"
           else
-            TAG="${GITHUB_REF_NAME}"
+            TAG="$REF_NAME"
           fi
-          echo "tag=${TAG}" >> $GITHUB_OUTPUT
-          echo "version=${TAG#v}" >> $GITHUB_OUTPUT
+          # Strict validation before the tag is written to GITHUB_OUTPUT: exact
+          # stable semantic version only (rejects v0.2.9-beta, v0.2, v0.2.9/../x).
+          if ! printf '%s\n' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Invalid release tag: $TAG. Expected vX.Y.Z."
+            exit 1
+          fi
+          VERSION="${TAG#v}"
+          if [ "$VERSION" != "0.2.9" ]; then
+            echo "This release workflow is pinned to package version 0.2.9 (got: $VERSION)"
+            exit 1
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          # For tag pushes and dispatch, check out the explicit tag — never an
+          # arbitrary default-branch HEAD under another tag name.
+          ref: ${{ steps.version.outputs.tag }}
+          fetch-depth: 0
+
+      - name: Verify tag / package / main integrity
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.version.outputs.tag }}"
+          VERSION="${{ steps.version.outputs.version }}"
+          PKG_VERSION=$(node -p "require('./packages/cli/package.json').version")
+          if [ "$PKG_VERSION" != "$VERSION" ]; then
+            echo "package.json version ($PKG_VERSION) != tag version ($VERSION)"
+            exit 1
+          fi
+          if [ "v${PKG_VERSION}" != "$TAG" ]; then
+            echo "tag ($TAG) is not exactly v<package.json version> (v${PKG_VERSION})"
+            exit 1
+          fi
+          TAG_COMMIT=$(git rev-list -n 1 "$TAG")
+          HEAD_COMMIT=$(git rev-parse HEAD)
+          if [ "$TAG_COMMIT" != "$HEAD_COMMIT" ]; then
+            echo "Checked-out commit ($HEAD_COMMIT) != tag commit ($TAG_COMMIT)"
+            exit 1
+          fi
+          git fetch origin main
+          if ! git merge-base --is-ancestor "$TAG_COMMIT" origin/main; then
+            echo "Tag commit $TAG_COMMIT is not contained in origin/main"
+            exit 1
+          fi
+          echo "Integrity OK: tag=$TAG commit=$TAG_COMMIT version=$PKG_VERSION"
 
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
           registry-url: "https://registry.npmjs.org"
+          cache: npm
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: "1.2.17"
+
+      - name: Install root dependencies
+        run: npm ci
 
       - name: Install CLI dependencies
-        run: bun install
+        run: npm ci
         working-directory: packages/cli
 
-      # Build npm distributable (TypeScript → dist/)
-      - name: Build npm package
-        run: bun run build
+      - name: Pre-publish checks
+        run: |
+          set -euo pipefail
+          npx tsc --noEmit
+          npm run build:cli
+          npx vitest run \
+            test/cli-hook.test.ts \
+            test/approval-intent.test.ts \
+            test/approval-request.test.ts \
+            test/dashboard-approvals-route.test.ts \
+            test/dashboard-inbox-route.test.ts \
+            test/ops-approval-ui.test.ts \
+            test/verify.test.ts \
+            test/verify-cli-artifact.test.ts \
+            test/render-homebrew-formula.test.ts \
+            test/install-sh.test.ts
+
+      - name: Pack and verify npm tarball
+        id: pack
         working-directory: packages/cli
+        run: |
+          set -euo pipefail
+          TARBALL=$(npm pack --json | node -p "JSON.parse(require('fs').readFileSync(0,'utf8'))[0].filename")
+          echo "tarball=${TARBALL}" >> "$GITHUB_OUTPUT"
+          node ../../scripts/release/verify-cli-artifact.mjs "$TARBALL" "${{ steps.version.outputs.version }}"
+          sha256sum "$TARBALL" | tee ../../cli-npm-tarball.sha256
 
       # Build standalone binaries via Bun compile (cross-compilation)
       - name: Build binaries
         working-directory: packages/cli
         run: |
+          set -euo pipefail
           mkdir -p bin
           bun build src/index.ts --compile --outfile bin/behalf-linux-x64   --target bun-linux-x64
           bun build src/index.ts --compile --outfile bin/behalf-linux-arm64 --target bun-linux-arm64
@@ -62,18 +168,44 @@ jobs:
           bun build src/index.ts --compile --outfile bin/behalf-darwin-arm64 --target bun-darwin-arm64
           bun build src/index.ts --compile --outfile bin/behalf-windows-x64.exe --target bun-windows-x64
 
-      # Compress each binary into a tarball (required by Homebrew)
-      - name: Package binaries
+      - name: Package binaries and checksums
         working-directory: packages/cli/bin
         run: |
+          set -euo pipefail
           for f in behalf-linux-x64 behalf-linux-arm64 behalf-darwin-x64 behalf-darwin-arm64; do
-            cp $f behalf
-            tar czf ${f}.tar.gz behalf
+            test -f "$f"
+            cp "$f" behalf
+            tar czf "${f}.tar.gz" behalf
             rm behalf
           done
+          test -f behalf-windows-x64.exe
           cp behalf-windows-x64.exe behalf.exe
           zip behalf-windows-x64.zip behalf.exe
           rm behalf.exe
+
+          LINUX_VER=$(./behalf-linux-x64 --version | tr -d '\r')
+          if [ "$LINUX_VER" != "${{ steps.version.outputs.version }}" ]; then
+            echo "Linux x64 binary --version was '$LINUX_VER', expected ${{ steps.version.outputs.version }}"
+            exit 1
+          fi
+
+          sha256sum \
+            behalf-linux-x64.tar.gz \
+            behalf-linux-arm64.tar.gz \
+            behalf-darwin-x64.tar.gz \
+            behalf-darwin-arm64.tar.gz \
+            behalf-windows-x64.zip \
+            > SHA256SUMS
+          cat SHA256SUMS
+
+      # External mutations begin here. Order is load-bearing (see header notes):
+      # npm first, then the GitHub release, then the Homebrew tap. The GitHub
+      # release must never exist for a tag whose npm publish failed.
+      - name: Publish to npm
+        run: npm publish --access public --provenance
+        working-directory: packages/cli
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -82,26 +214,35 @@ jobs:
           files: |
             packages/cli/bin/*.tar.gz
             packages/cli/bin/*.zip
+            packages/cli/bin/SHA256SUMS
           generate_release_notes: true
-
-      - name: Publish to npm
-        run: npm publish --access public
-        working-directory: packages/cli
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Update Homebrew tap
         env:
           TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
+          set -euo pipefail
+          if [ -z "${TAP_TOKEN:-}" ]; then
+            echo "HOMEBREW_TAP_TOKEN is missing — refusing to treat the release as complete."
+            exit 1
+          fi
           VERSION=${{ steps.version.outputs.version }}
-          ARM64_SHA=$(sha256sum packages/cli/bin/behalf-darwin-arm64.tar.gz | cut -d' ' -f1)
-          X64_SHA=$(sha256sum packages/cli/bin/behalf-darwin-x64.tar.gz | cut -d' ' -f1)
-          git clone https://x-access-token:${TAP_TOKEN}@github.com/behalfid/homebrew-tap.git tap
+          TAG=${{ steps.version.outputs.tag }}
+          ARM64_SHA=$(awk '$2=="behalf-darwin-arm64.tar.gz"{print $1}' packages/cli/bin/SHA256SUMS)
+          X64_SHA=$(awk '$2=="behalf-darwin-x64.tar.gz"{print $1}' packages/cli/bin/SHA256SUMS)
+          ARM64_URL="https://github.com/BehalfID/behalf/releases/download/${TAG}/behalf-darwin-arm64.tar.gz"
+          X64_URL="https://github.com/BehalfID/behalf/releases/download/${TAG}/behalf-darwin-x64.tar.gz"
+          node scripts/release/render-homebrew-formula.mjs \
+            --version "$VERSION" \
+            --darwin-arm64-url "$ARM64_URL" \
+            --darwin-arm64-sha256 "$ARM64_SHA" \
+            --darwin-x64-url "$X64_URL" \
+            --darwin-x64-sha256 "$X64_SHA" \
+            --out /tmp/behalf.rb
+          git clone "https://x-access-token:${TAP_TOKEN}@github.com/BehalfID/homebrew-tap.git" tap
+          mkdir -p tap/Formula
+          cp /tmp/behalf.rb tap/Formula/behalf.rb
           cd tap
-          sed -i "s/version \".*\"/version \"${VERSION}\"/" Formula/behalf.rb
-          sed -i "/darwin-arm64/ { n; s/sha256 \".*\"/sha256 \"${ARM64_SHA}\"/ }" Formula/behalf.rb
-          sed -i "/darwin-x64/ { n; s/sha256 \".*\"/sha256 \"${X64_SHA}\"/ }" Formula/behalf.rb
           git config user.email "ci@behalfid.com"
           git config user.name "BehalfID CI"
           git add Formula/behalf.rb

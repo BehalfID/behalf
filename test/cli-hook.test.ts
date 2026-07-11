@@ -569,6 +569,7 @@ describe("installClaudePreToolUseHook", () => {
     expect(run.hasClaudePreToolUseHook(home)).toBe(false);
 
     const first = run.installClaudePreToolUseHook(home);
+    expect(first.ok).toBe(true);
     expect(first.changed).toBe(true);
     expect(run.hasClaudePreToolUseHook(home)).toBe(true);
 
@@ -578,6 +579,7 @@ describe("installClaudePreToolUseHook", () => {
     ]);
 
     const second = run.installClaudePreToolUseHook(home);
+    expect(second.ok).toBe(true);
     expect(second.changed).toBe(false);
     expect(JSON.parse(readFileSync(join(home, ".claude", "settings.json"), "utf-8")).hooks.PreToolUse).toHaveLength(1);
   });
@@ -593,17 +595,210 @@ describe("installClaudePreToolUseHook", () => {
       JSON.stringify({ model: "claude-opus", hooks: { PostToolUse: [{ matcher: ".*", hooks: [{ type: "command", command: "echo done" }] }] } }, null, 2)
     );
 
-    run.installClaudePreToolUseHook(home);
+    const result = run.installClaudePreToolUseHook(home);
+    expect(result.ok).toBe(true);
 
     const settings = JSON.parse(readFileSync(join(home, ".claude", "settings.json"), "utf-8"));
     expect(settings.model).toBe("claude-opus");
     expect(settings.hooks.PostToolUse).toHaveLength(1);
     expect(settings.hooks.PreToolUse[0].hooks[0].command).toBe("behalf hook pre-tool-use");
   });
+
+  it("refuses to overwrite malformed settings.json", async () => {
+    const home = tempDir("behalf-home-");
+    const { run } = await loadHookModules(home);
+    const { mkdirSync } = await import("node:fs");
+    const settingsPath = join(home, ".claude", "settings.json");
+    mkdirSync(join(home, ".claude"), { recursive: true });
+    const original = "{ not-valid-json ";
+    writeFileSync(settingsPath, original);
+
+    const result = run.installClaudePreToolUseHook(home);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("malformed");
+    expect(readFileSync(settingsPath, "utf-8")).toBe(original);
+    expect(run.hasClaudePreToolUseHook(home)).toBe(false);
+    expect(run.getClaudePreToolUseHookStatus(home).status).toBe("malformed");
+  });
+
+  it("reports unreadable settings without mutating them", async () => {
+    if (process.platform === "win32") return; // chmod semantics differ on Windows
+    if (typeof process.getuid === "function" && process.getuid() === 0) return; // root bypasses file modes
+    const home = tempDir("behalf-home-");
+    const { run } = await loadHookModules(home);
+    const { chmodSync, mkdirSync } = await import("node:fs");
+    const settingsPath = join(home, ".claude", "settings.json");
+    mkdirSync(join(home, ".claude"), { recursive: true });
+    writeFileSync(settingsPath, JSON.stringify({ hooks: {} }));
+    chmodSync(settingsPath, 0);
+
+    try {
+      const result = run.installClaudePreToolUseHook(home);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.code).toBe("unreadable");
+      expect(run.getClaudePreToolUseHookStatus(home).status).toBe("unreadable");
+    } finally {
+      chmodSync(settingsPath, 0o644);
+    }
+  });
+});
+
+describe("behalf claude refuses launch without verified hook", () => {
+  it("does not spawn Claude when settings.json is malformed", async () => {
+    const home = tempDir("behalf-home-");
+    const { run, config } = await loadHookModules(home);
+    const { mkdirSync } = await import("node:fs");
+    mkdirSync(join(home, ".claude"), { recursive: true });
+    writeFileSync(join(home, ".claude", "settings.json"), "{ broken");
+    config.writeConfig({
+      apiKey: "bhf_sk_testsecret12345",
+      agentId: "agent_test123",
+      baseUrl: "http://localhost:3000",
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      agent: { agentId: "agent_test123", name: "t", status: "active" },
+      permissions: [],
+    }), { status: 200 })));
+
+    const err = stderrCollector();
+    const out = stderrCollector();
+    let spawned = false;
+    const code = await run.launchTool("claude", [], {
+      spawn: ((..._args: unknown[]) => {
+        spawned = true;
+        return { status: 0, signal: null, output: [], pid: 0, stdout: Buffer.alloc(0), stderr: Buffer.alloc(0) };
+      }) as typeof import("node:child_process").spawnSync,
+      stderr: err.sink,
+      stdout: out.sink,
+    });
+
+    expect(code).toBe(1);
+    expect(spawned).toBe(false);
+    expect(err.text).toContain("not valid JSON");
+    expect(err.text).toContain("Claude was not launched");
+    expect(err.text).toContain(join(home, ".claude", "settings.json"));
+    expect(err.text).not.toMatch(/bhf_sk_/);
+    expect(err.text).not.toContain("{ broken");
+    expect(out.text).not.toMatch(/Launching claude/);
+  });
+
+  it("launches when settings are valid and preserves unrelated hooks", async () => {
+    const home = tempDir("behalf-home-");
+    const { run, config } = await loadHookModules(home);
+    const { mkdirSync } = await import("node:fs");
+    mkdirSync(join(home, ".claude"), { recursive: true });
+    writeFileSync(
+      join(home, ".claude", "settings.json"),
+      JSON.stringify({
+        hooks: {
+          PostToolUse: [{ matcher: ".*", hooks: [{ type: "command", command: "other-hook" }] }],
+        },
+      })
+    );
+    config.writeConfig({
+      apiKey: "bhf_sk_testsecret12345",
+      agentId: "agent_test123",
+      baseUrl: "http://localhost:3000",
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      agent: { agentId: "agent_test123", name: "t", status: "active" },
+      permissions: [],
+    }), { status: 200 })));
+
+    const err = stderrCollector();
+    const out = stderrCollector();
+    let spawnedBinary: string | undefined;
+    const code = await run.launchTool("claude", [], {
+      spawn: ((binary: string) => {
+        spawnedBinary = binary;
+        return { status: 0, signal: null, output: [], pid: 0, stdout: Buffer.alloc(0), stderr: Buffer.alloc(0) };
+      }) as typeof import("node:child_process").spawnSync,
+      stderr: err.sink,
+      stdout: out.sink,
+    });
+
+    expect(code).toBe(0);
+    expect(spawnedBinary).toBe("claude");
+    expect(out.text).toMatch(/Launching claude with BehalfID enforcement/);
+    expect(out.text).not.toMatch(/MCP enforcement/);
+    const settings = JSON.parse(readFileSync(join(home, ".claude", "settings.json"), "utf-8"));
+    expect(settings.hooks.PostToolUse[0].hooks[0].command).toBe("other-hook");
+    expect(settings.hooks.PreToolUse[0].hooks[0].command).toBe("behalf hook pre-tool-use");
+  });
+
+  it("treats an existing valid BehalfID hook as success without rewriting", async () => {
+    const home = tempDir("behalf-home-");
+    const { run, config } = await loadHookModules(home);
+    run.installClaudePreToolUseHook(home);
+    const before = readFileSync(join(home, ".claude", "settings.json"), "utf-8");
+    config.writeConfig({
+      apiKey: "bhf_sk_testsecret12345",
+      agentId: "agent_test123",
+      baseUrl: "http://localhost:3000",
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      agent: { agentId: "agent_test123", name: "t", status: "active" },
+      permissions: [],
+    }), { status: 200 })));
+
+    const err = stderrCollector();
+    const out = stderrCollector();
+    let spawned = false;
+    const code = await run.launchTool("claude", [], {
+      spawn: ((..._args: unknown[]) => {
+        spawned = true;
+        return { status: 0, signal: null, output: [], pid: 0, stdout: Buffer.alloc(0), stderr: Buffer.alloc(0) };
+      }) as typeof import("node:child_process").spawnSync,
+      stderr: err.sink,
+      stdout: out.sink,
+    });
+
+    expect(code).toBe(0);
+    expect(spawned).toBe(true);
+    expect(err.text).not.toMatch(/Installed BehalfID PreToolUse hook/);
+    expect(readFileSync(join(home, ".claude", "settings.json"), "utf-8")).toBe(before);
+  });
+});
+
+describe("Windows Claude settings path behavior", () => {
+  it("uses USERPROFILE-style home with backslash paths and is idempotent", async () => {
+    const home = tempDir("behalf-home-");
+    const { run } = await loadHookModules(home);
+
+    const first = run.installClaudePreToolUseHook(home);
+    expect(first.ok).toBe(true);
+    expect(first.changed).toBe(true);
+    expect(first.path.toLowerCase()).toContain(".claude");
+    expect(first.path.toLowerCase()).toContain("settings.json");
+
+    const second = run.installClaudePreToolUseHook(home);
+    expect(second.ok).toBe(true);
+    expect(second.changed).toBe(false);
+
+    const settings = JSON.parse(readFileSync(join(home, ".claude", "settings.json"), "utf-8"));
+    settings.hooks.PostToolUse = [{ matcher: ".*", hooks: [{ type: "command", command: "other" }] }];
+    writeFileSync(join(home, ".claude", "settings.json"), JSON.stringify(settings, null, 2));
+    const third = run.installClaudePreToolUseHook(home);
+    expect(third.ok).toBe(true);
+    expect(third.changed).toBe(false);
+    const after = JSON.parse(readFileSync(join(home, ".claude", "settings.json"), "utf-8"));
+    expect(after.hooks.PostToolUse[0].hooks[0].command).toBe("other");
+    expect(after.hooks.PreToolUse).toHaveLength(1);
+  });
+
+  it("keeps Claude settings under the stubbed USERPROFILE home", async () => {
+    const home = tempDir("behalf-home-");
+    const { run } = await loadHookModules(home);
+    const status = run.getClaudePreToolUseHookStatus(home);
+    expect(status.path.startsWith(home)).toBe(true);
+    if (process.platform === "win32") {
+      expect(/^[a-zA-Z]:[\\/]/.test(home) || home.includes("\\")).toBe(true);
+    }
+  });
 });
 
 describe("doctor Claude hook check", () => {
-  it("warns when the hook is missing and reports ok once installed", async () => {
+  it("errors when the hook is missing and reports ok once installed", async () => {
     const home = tempDir("behalf-home-");
     const project = tempDir("behalf-project-");
     const { run, doctor } = await loadHookModules(home);
@@ -611,13 +806,28 @@ describe("doctor Claude hook check", () => {
 
     const before = await doctor.runDoctorChecks(project);
     const hookCheck = before.find(c => c.name === "Claude hook");
-    expect(hookCheck?.status).toBe("warn");
+    expect(hookCheck?.status).toBe("error");
     expect(hookCheck?.fix).toBe("Run `behalf claude` to install it.");
 
     run.installClaudePreToolUseHook(home);
 
     const after = await doctor.runDoctorChecks(project);
     expect(after.find(c => c.name === "Claude hook")?.status).toBe("ok");
+  });
+
+  it("errors when settings.json is malformed", async () => {
+    const home = tempDir("behalf-home-");
+    const project = tempDir("behalf-project-");
+    const { doctor } = await loadHookModules(home);
+    const { mkdirSync } = await import("node:fs");
+    mkdirSync(join(home, ".claude"), { recursive: true });
+    writeFileSync(join(home, ".claude", "settings.json"), "{ nope");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 })));
+
+    const checks = await doctor.runDoctorChecks(project);
+    const hookCheck = checks.find(c => c.name === "Claude hook");
+    expect(hookCheck?.status).toBe("error");
+    expect(hookCheck?.detail).toMatch(/not valid JSON/);
   });
 });
 

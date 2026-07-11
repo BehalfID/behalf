@@ -17,11 +17,14 @@ export default function CliDocsPage() {
       next={{ href: "/docs/deploy-approvals", label: "Deploy approvals" }}
     >
       <h2>Install</h2>
-      <p>The CLI ships as a self-contained binary. No Node.js required after install.</p>
-      <CodeBlock label="curl (macOS / Linux)">{`curl -fsSL https://behalfid.com/install.sh | sh`}</CodeBlock>
-      <CodeBlock label="Homebrew">{`brew install behalfid/tap/behalf`}</CodeBlock>
-      <CodeBlock label="npm">{CLI_NPM_INSTALL_COMMAND}</CodeBlock>
-      <p>Verify the install:</p>
+      <p>Install the CLI, then confirm the version. For the Trajectus pilot, require <code>0.2.9</code> or newer — stop and contact the operator if the build is older.</p>
+      <CodeBlock label="npm (Windows / macOS / Linux)">{CLI_NPM_INSTALL_COMMAND}</CodeBlock>
+      <CodeBlock label="curl (macOS / Linux only)">{`curl -fsSL https://behalfid.com/install.sh | sh`}</CodeBlock>
+      <p>Optional version pin for <code>install.sh</code> — assign the variable to the executing shell (<code>sh</code>), not to <code>curl</code>:</p>
+      <CodeBlock label="curl with pinned version (macOS / Linux only)">{`curl -fsSL https://behalfid.com/install.sh | BEHALF_VERSION=v0.2.9 sh`}</CodeBlock>
+      <p>Homebrew is macOS only:</p>
+      <CodeBlock label="Homebrew (macOS only)">{`brew install BehalfID/tap/behalf`}</CodeBlock>
+      <p>Verify the install (required):</p>
       <CodeBlock label="terminal">{`behalf --version`}</CodeBlock>
 
       <h2>Setup wizard</h2>
