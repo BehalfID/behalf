@@ -44,9 +44,17 @@ maybePrintCliBanner({
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const { version } = JSON.parse(
-  readFileSync(join(__dirname, "../package.json"), "utf-8")
-) as { version: string };
+
+declare const __BEHALF_CLI_VERSION__: string | undefined;
+
+const version =
+  typeof __BEHALF_CLI_VERSION__ === "string"
+    ? __BEHALF_CLI_VERSION__
+    : (
+        JSON.parse(
+          readFileSync(join(__dirname, "../package.json"), "utf-8")
+        ) as { version: string }
+      ).version;
 
 const program = new Command();
 

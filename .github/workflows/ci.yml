@@ -18,6 +18,10 @@ jobs:
           node-version: "20"
           cache: npm
 
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.2.17"
+
       - name: Install dependencies
         run: npm ci
 
@@ -50,7 +54,33 @@ jobs:
           npx vitest run \
             test/verify-cli-artifact.test.ts \
             test/render-homebrew-formula.test.ts \
-            test/install-sh.test.ts
+            test/install-sh.test.ts \
+            test/cli-standalone-version.test.ts
+
+      - name: Standalone Linux binary version gate
+        run: |
+          set -euo pipefail
+          chmod +x scripts/release/build-cli-binaries.sh
+          scripts/release/build-cli-binaries.sh linux-x64
+          EXPECTED=$(node -p "require('./packages/cli/package.json').version")
+          ACTUAL=$(./packages/cli/bin/behalf-linux-x64 --version | tr -d '\r')
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "Standalone binary --version was '$ACTUAL', expected '$EXPECTED'"
+            exit 1
+          fi
+          echo "Standalone binary version OK: $ACTUAL"
+          TMPDIR_EMPTY=$(mktemp -d)
+          cp ./packages/cli/bin/behalf-linux-x64 "$TMPDIR_EMPTY/behalf"
+          (
+            cd "$TMPDIR_EMPTY"
+            EMPTY_ACTUAL=$(./behalf --version | tr -d '\r')
+            if [ "$EMPTY_ACTUAL" != "$EXPECTED" ]; then
+              echo "Empty-dir binary --version was '$EMPTY_ACTUAL', expected '$EXPECTED'"
+              exit 1
+            fi
+            echo "Empty-dir standalone binary version OK: $EMPTY_ACTUAL"
+          )
+          rm -rf "$TMPDIR_EMPTY"
 
   windows-cli:
     name: Windows CLI
@@ -81,9 +111,10 @@ jobs:
 
       - name: CLI version smoke
         run: |
+          $expected = (node -p "require('./packages/cli/package.json').version").Trim()
           $out = (node packages/cli/dist/index.js --version).Trim()
-          if ($out -ne "0.2.9") {
-            Write-Error "Expected CLI version 0.2.9, got '$out'"
+          if ($out -ne $expected) {
+            Write-Error "Expected CLI version $expected, got '$out'"
             exit 1
           }
           Write-Host "CLI version OK: $out"

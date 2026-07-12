@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Verify a packed @behalfid/cli npm tarball before publish.
- * Usage: node scripts/release/verify-cli-artifact.mjs <path-to.tgz> [expectedVersion]
+ * Usage: node scripts/release/verify-cli-artifact.mjs <path-to.tgz> <expectedVersion>
  */
 import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -10,10 +10,10 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const tarball = process.argv[2];
-const expectedVersion = process.argv[3] ?? "0.2.9";
+const expectedVersion = process.argv[3];
 
-if (!tarball) {
-  console.error("Usage: node scripts/release/verify-cli-artifact.mjs <tarball.tgz> [expectedVersion]");
+if (!tarball || !expectedVersion) {
+  console.error("Usage: node scripts/release/verify-cli-artifact.mjs <tarball.tgz> <expectedVersion>");
   process.exit(2);
 }
 if (!existsSync(tarball)) {
