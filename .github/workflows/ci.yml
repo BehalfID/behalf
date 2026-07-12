@@ -38,6 +38,15 @@ jobs:
       - name: Build CLI
         run: npm run build:cli
 
+      - name: Verify CLI package provenance metadata
+        run: |
+          set -euo pipefail
+          EXPECTED_VERSION=$(node -p "require('./packages/cli/package.json').version")
+          node scripts/release/verify-cli-package-metadata.mjs \
+            packages/cli/package.json \
+            "$EXPECTED_VERSION" \
+            "BehalfID/behalf"
+
       - name: Focused security and CLI tests
         run: |
           npx vitest run \
@@ -53,6 +62,7 @@ jobs:
         run: |
           npx vitest run \
             test/verify-cli-artifact.test.ts \
+            test/verify-cli-package-metadata.test.ts \
             test/render-homebrew-formula.test.ts \
             test/install-sh.test.ts \
             test/cli-standalone-version.test.ts

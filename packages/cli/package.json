@@ -1,11 +1,11 @@
 {
   "name": "@behalfid/cli",
-  "version": "0.2.10",
+  "version": "0.2.11",
   "description": "Official CLI for BehalfID — agent permission management",
   "type": "module",
   "bin": {
-    "behalf": "./dist/index.js",
-    "behalfid": "./dist/index.js"
+    "behalf": "dist/index.js",
+    "behalfid": "dist/index.js"
   },
   "files": [
     "dist",
@@ -28,7 +28,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/behalfid/behalf.git",
+    "url": "https://github.com/BehalfID/behalf",
     "directory": "packages/cli"
   }
 }

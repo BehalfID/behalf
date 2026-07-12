@@ -144,8 +144,8 @@ Use the CLI/MCP path when a local AI coding agent should inspect permissions and
 # Install (npm is the supported Windows path; install.sh is macOS/Linux; Homebrew is macOS)
 npm install -g @behalfid/cli
 # install.sh with optional version pin (assign the pin to sh, not curl):
-#   curl -fsSL https://behalfid.com/install.sh | BEHALF_VERSION=v0.2.10 sh
-behalf --version   # Trajectus pilot: require 0.2.9 or newer
+#   curl -fsSL https://behalfid.com/install.sh | BEHALF_VERSION=v0.2.11 sh
+behalf --version   # Trajectus pilot: require 0.2.11 or newer
 
 behalf config set agent-id agent_xxx
 behalf config set api-key bhf_sk_xxx

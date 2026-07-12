@@ -2,7 +2,7 @@
 # BehalfID CLI installer (macOS / Linux only)
 # Usage:
 #   curl -fsSL https://behalfid.com/install.sh | sh
-#   curl -fsSL https://behalfid.com/install.sh | BEHALF_VERSION=v0.2.10 sh
+#   curl -fsSL https://behalfid.com/install.sh | BEHALF_VERSION=v0.2.11 sh
 #
 # The version pin must be assigned to the executing shell (sh), after the pipe.
 # Prefixing the assignment to the download command sets the variable for that

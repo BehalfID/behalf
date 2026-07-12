@@ -4,15 +4,18 @@ name: CLI Release
 #
 # External mutation order (do not reorder):
 #   1. Build, test, pack, checksum, and verify every artifact locally.
-#   2. Publish to npm.
+#   2. Publish to npm with provenance.
 #   3. Create the GitHub release and upload assets.
 #   4. Update the Homebrew tap.
 # The GitHub release is never created before npm publish succeeds, so install.sh
 # (which resolves GitHub releases) can never see a tag whose npm publish failed.
 #
 # Recovery notes (operator) for partial states:
-# - npm publish fails: nothing external was mutated (no GitHub release, no tap
-#   update). Fix the cause and re-run the workflow for the same tag.
+# - npm publish fails: no npm package, GitHub Release, or Homebrew formula was
+#   created. An orphaned Sigstore provenance transparency entry may still exist
+#   from the rejected publish attempt. Never reuse or move the failed version
+#   tag when a source correction is required — bump the version, retag, and
+#   release the new tag.
 # - npm version already exists (E403/EPUBLISHCONFLICT): fail closed; a published
 #   npm version is immutable. Bump the package version and retag — do not
 #   force-overwrite or unpublish.
@@ -35,7 +38,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing version tag to release (e.g. v0.2.10). Must already exist on the remote."
+        description: "Existing version tag to release (e.g. v0.2.11). Must already exist on the remote."
         required: true
         type: string
 
@@ -139,9 +142,21 @@ jobs:
             test/ops-approval-ui.test.ts \
             test/verify.test.ts \
             test/verify-cli-artifact.test.ts \
+            test/verify-cli-package-metadata.test.ts \
             test/render-homebrew-formula.test.ts \
             test/install-sh.test.ts \
             test/cli-standalone-version.test.ts
+
+      - name: Verify CLI package provenance metadata
+        env:
+          EXPECTED_VERSION: ${{ steps.version.outputs.version }}
+          EXPECTED_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          node scripts/release/verify-cli-package-metadata.mjs \
+            packages/cli/package.json \
+            "$EXPECTED_VERSION" \
+            "$EXPECTED_REPO"
 
       - name: Pack and verify npm tarball
         id: pack
@@ -190,6 +205,55 @@ jobs:
             behalf-windows-x64.zip \
             > SHA256SUMS
           cat SHA256SUMS
+
+      - name: npm publish dry-run (reject unexpected auto-correction)
+        working-directory: packages/cli
+        env:
+          EXPECTED_VERSION: ${{ steps.version.outputs.version }}
+          EXPECTED_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # Snapshot source metadata — npm may rewrite package.json during dry-run.
+          cp package.json /tmp/behalf-cli-package.json.pre-dry-run
+          set +e
+          DRY_OUT=$(npm publish --dry-run --access public --provenance=false 2>&1)
+          DRY_STATUS=$?
+          set -e
+          printf '%s\n' "$DRY_OUT"
+          # Always restore provenance-canonical package.json before the real publish.
+          cp /tmp/behalf-cli-package.json.pre-dry-run package.json
+          if [ "$DRY_STATUS" -ne 0 ]; then
+            echo "npm publish --dry-run failed with status $DRY_STATUS"
+            exit 1
+          fi
+          if printf '%s\n' "$DRY_OUT" | grep -Eiq 'script name was cleaned'; then
+            echo "npm publish dry-run cleaned bin script names; refuse to publish"
+            exit 1
+          fi
+          EXPECTED_NORMALIZED="git+https://github.com/${EXPECTED_REPO}.git"
+          # Fail closed on any auto-correction other than npm's known rewrite of the
+          # provenance-canonical https://github.com/<repo> URL to git+…/.git form.
+          if printf '%s\n' "$DRY_OUT" | grep -Eiq 'npm auto-corrected|errors corrected'; then
+            if ! printf '%s\n' "$DRY_OUT" | grep -Fq "\"repository.url\" was normalized to \"${EXPECTED_NORMALIZED}\""; then
+              echo "npm publish dry-run auto-corrected metadata unexpectedly"
+              exit 1
+            fi
+            # Reject if any other correction line appears beyond the repository.url rewrite.
+            EXTRA=$(printf '%s\n' "$DRY_OUT" | grep -E 'npm warn publish ' | grep -Ev \
+              'npm auto-corrected some errors in your package\.json|errors corrected:|\"repository\.url\" was normalized to' \
+              || true)
+            if [ -n "$EXTRA" ]; then
+              echo "npm publish dry-run reported additional package.json auto-corrections:"
+              printf '%s\n' "$EXTRA"
+              exit 1
+            fi
+            echo "Allowed repository.url normalization to ${EXPECTED_NORMALIZED}"
+          fi
+          if ! printf '%s\n' "$DRY_OUT" | grep -Fq "@behalfid/cli@${EXPECTED_VERSION}"; then
+            echo "npm publish dry-run did not confirm @behalfid/cli@${EXPECTED_VERSION}"
+            exit 1
+          fi
+          echo "npm publish dry-run OK for @behalfid/cli@${EXPECTED_VERSION}"
 
       # External mutations begin here. Order is load-bearing (see header notes):
       # npm first, then the GitHub release, then the Homebrew tap. The GitHub
