@@ -22,7 +22,7 @@ const CANONICAL = {
   license: "MIT",
   repository: {
     type: "git",
-    url: "https://github.com/BehalfID/behalf",
+    url: "git+https://github.com/BehalfID/behalf.git",
     directory: "packages/cli",
   },
 };
@@ -85,32 +85,35 @@ function run(
 }
 
 describe("verify-cli-package-metadata", () => {
-  it("accepts the canonical repository URL and bin paths", () => {
+  it("accepts the canonical git+ repository URL and bin paths", () => {
     const path = writePkg();
     const result = run(path);
     expect(result.status, result.stderr + result.stdout).toBe(0);
     expect(result.stdout).toMatch(/verify-cli-package-metadata: OK/);
+    expect(result.stdout).toContain(
+      "repository.url: git+https://github.com/BehalfID/behalf.git"
+    );
   });
 
   it("rejects lowercase organization casing", () => {
     const path = writePkg({
-      repository: { url: "https://github.com/behalfid/behalf" },
+      repository: { url: "git+https://github.com/behalfid/behalf.git" },
     });
     const result = run(path);
     expect(result.status).not.toBe(0);
     expect(result.stderr).toMatch(/repository\.url must exactly equal/);
   });
 
-  it("rejects git+ prefix", () => {
+  it("rejects plain HTTPS browser URL", () => {
     const path = writePkg({
-      repository: { url: "git+https://github.com/BehalfID/behalf" },
+      repository: { url: "https://github.com/BehalfID/behalf" },
     });
     const result = run(path);
     expect(result.status).not.toBe(0);
     expect(result.stderr).toMatch(/repository\.url must exactly equal/);
   });
 
-  it("rejects .git suffix", () => {
+  it("rejects missing git+ prefix", () => {
     const path = writePkg({
       repository: { url: "https://github.com/BehalfID/behalf.git" },
     });
@@ -119,9 +122,18 @@ describe("verify-cli-package-metadata", () => {
     expect(result.stderr).toMatch(/repository\.url must exactly equal/);
   });
 
+  it("rejects missing .git suffix", () => {
+    const path = writePkg({
+      repository: { url: "git+https://github.com/BehalfID/behalf" },
+    });
+    const result = run(path);
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toMatch(/repository\.url must exactly equal/);
+  });
+
   it("rejects wrong repository", () => {
     const path = writePkg({
-      repository: { url: "https://github.com/BehalfID/other" },
+      repository: { url: "git+https://github.com/BehalfID/other.git" },
     });
     const result = run(path);
     expect(result.status).not.toBe(0);
@@ -164,7 +176,7 @@ describe("verify-cli-package-metadata", () => {
         license: "MIT",
         repository: {
           type: "git",
-          url: "https://github.com/BehalfID/behalf",
+          url: "git+https://github.com/BehalfID/behalf.git",
         },
       })
     );

@@ -28,7 +28,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/BehalfID/behalf",
+    "url": "git+https://github.com/BehalfID/behalf.git",
     "directory": "packages/cli"
   }
 }

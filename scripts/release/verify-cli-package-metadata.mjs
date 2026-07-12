@@ -8,7 +8,7 @@
  *     <path-to-package.json> <expectedVersion> <expectedGitHubRepo>
  *
  * expectedGitHubRepo example: BehalfID/behalf
- * Expected repository.url: https://github.com/<expectedGitHubRepo>
+ * Expected repository.url: git+https://github.com/<expectedGitHubRepo>.git
  */
 import { existsSync, readFileSync } from "node:fs";
 
@@ -39,7 +39,7 @@ try {
   fail(`failed to parse ${pkgPath}: ${err instanceof Error ? err.message : String(err)}`);
 }
 
-const expectedUrl = `https://github.com/${expectedRepo}`;
+const expectedUrl = `git+https://github.com/${expectedRepo}.git`;
 
 if (pkg.name !== "@behalfid/cli") {
   fail(`name must be "@behalfid/cli", got ${JSON.stringify(pkg.name)}`);
@@ -82,7 +82,7 @@ if (pkg.bin.behalfid !== "dist/index.js") {
 }
 
 if (!pkg.engines || typeof pkg.engines !== "object" || !pkg.engines.node) {
-  fail('engines.node must be present');
+  fail("engines.node must be present");
 }
 
 if (!pkg.license) {

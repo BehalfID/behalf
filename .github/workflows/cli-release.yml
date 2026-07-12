@@ -206,48 +206,25 @@ jobs:
             > SHA256SUMS
           cat SHA256SUMS
 
-      - name: npm publish dry-run (reject unexpected auto-correction)
+      - name: npm publish dry-run (no package.json auto-correction)
         working-directory: packages/cli
         env:
           EXPECTED_VERSION: ${{ steps.version.outputs.version }}
-          EXPECTED_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          # Snapshot source metadata — npm may rewrite package.json during dry-run.
-          cp package.json /tmp/behalf-cli-package.json.pre-dry-run
           set +e
           DRY_OUT=$(npm publish --dry-run --access public --provenance=false 2>&1)
           DRY_STATUS=$?
           set -e
           printf '%s\n' "$DRY_OUT"
-          # Always restore provenance-canonical package.json before the real publish.
-          cp /tmp/behalf-cli-package.json.pre-dry-run package.json
           if [ "$DRY_STATUS" -ne 0 ]; then
             echo "npm publish --dry-run failed with status $DRY_STATUS"
             exit 1
           fi
-          if printf '%s\n' "$DRY_OUT" | grep -Eiq 'script name was cleaned'; then
-            echo "npm publish dry-run cleaned bin script names; refuse to publish"
+          if printf '%s\n' "$DRY_OUT" | grep -Eiq \
+            'npm auto-corrected|errors corrected|script name was cleaned|repository\.url was normalized'; then
+            echo "npm publish dry-run reported package.json auto-correction; refuse to publish"
             exit 1
-          fi
-          EXPECTED_NORMALIZED="git+https://github.com/${EXPECTED_REPO}.git"
-          # Fail closed on any auto-correction other than npm's known rewrite of the
-          # provenance-canonical https://github.com/<repo> URL to git+…/.git form.
-          if printf '%s\n' "$DRY_OUT" | grep -Eiq 'npm auto-corrected|errors corrected'; then
-            if ! printf '%s\n' "$DRY_OUT" | grep -Fq "\"repository.url\" was normalized to \"${EXPECTED_NORMALIZED}\""; then
-              echo "npm publish dry-run auto-corrected metadata unexpectedly"
-              exit 1
-            fi
-            # Reject if any other correction line appears beyond the repository.url rewrite.
-            EXTRA=$(printf '%s\n' "$DRY_OUT" | grep -E 'npm warn publish ' | grep -Ev \
-              'npm auto-corrected some errors in your package\.json|errors corrected:|\"repository\.url\" was normalized to' \
-              || true)
-            if [ -n "$EXTRA" ]; then
-              echo "npm publish dry-run reported additional package.json auto-corrections:"
-              printf '%s\n' "$EXTRA"
-              exit 1
-            fi
-            echo "Allowed repository.url normalization to ${EXPECTED_NORMALIZED}"
           fi
           if ! printf '%s\n' "$DRY_OUT" | grep -Fq "@behalfid/cli@${EXPECTED_VERSION}"; then
             echo "npm publish dry-run did not confirm @behalfid/cli@${EXPECTED_VERSION}"
