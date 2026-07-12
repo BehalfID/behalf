@@ -16,6 +16,7 @@ initial Drizzle/Postgres schema added in PR B of the migration plan (`docs/DATAB
 | `lib/db/postgres/index.ts` | Cached Drizzle client (`getPostgresDb`) — **not imported by routes** |
 | `drizzle.config.ts` | Drizzle Kit config (`DATABASE_URL` or `POSTGRES_URL`) |
 | `drizzle/0000_initial_behalf_schema.sql` | Initial SQL migration |
+| `drizzle/0001_workspace_slug.sql` | Adds `accounts.slug` + partial unique index |
 | `test/postgres-schema.test.ts` | Static validation (no live Postgres required) |
 | `test/postgres-migration-smoke.test.ts` | Optional live migration smoke test (disposable DB only) |
 | `test/postgres-repository-contracts.test.ts` | Optional Postgres account/agent/membership adapter contract tests |
@@ -30,7 +31,7 @@ initial Drizzle/Postgres schema added in PR B of the migration plan (`docs/DATAB
 
 | SQL table | Mongo model | Notes |
 |---|---|---|
-| `accounts` | Account | Tenant root; `acct_*` PK |
+| `accounts` | Account | Tenant root; `acct_*` PK; optional `slug` (unique when set) |
 | `developer_users` | DeveloperUser | `user_*` PK (from `createPublicId("user")`) |
 | `developer_sessions` | DeveloperSession | `sess_*` PK; no TTL — future `pg_cron` cleanup |
 | `developer_api_tokens` | DeveloperApiToken | `tok_*` PK |
@@ -80,6 +81,8 @@ is a billed plan limit (`checkProtectedRepoLimit`).
 ## Indexes & constraints
 
 - Plan, role, status, and mode enums: `TEXT` + `CHECK (… IN (…))` (not native PG enums).
+- `accounts.slug`: optional workspace URL identity; `CHECK (slug IS NULL OR length(slug) <= 63)`;
+  partial unique index `accounts_slug_uq` where `slug IS NOT NULL`.
 - Partial unique indexes on `approval_requests` for pending tuple dedupe (`NULLS NOT DISTINCT`).
 - `verification_logs`: `(account_id, created_at)`, `(account_id, agent_id, created_at)`,
   `(agent_id, created_at)`, `(allowed)`.
@@ -134,9 +137,10 @@ Environment variables (not committed):
 
 ## Migration smoke test (optional)
 
-The smoke test applies `drizzle/0000_initial_behalf_schema.sql` against a **disposable**
+The smoke test applies `drizzle/0000_initial_behalf_schema.sql` and
+`drizzle/0001_workspace_slug.sql` against a **disposable**
 Postgres database, verifies all 15 core tables, RLS, critical indexes (including approval
-partial unique indexes and `managed_profile_protected_repos` `(account_id, repo_hash)`),
+partial unique indexes, `accounts_slug_uq`, and `managed_profile_protected_repos` `(account_id, repo_hash)`),
 and confirms `verification_logs` is unpartitioned in v1. It does **not** change app runtime
 behavior — production still uses Mongo/Mongoose.
 
@@ -178,7 +182,7 @@ Test-only Drizzle adapters live under `lib/repositories/postgres/`:
 
 | Adapter | Functions | Mongo equivalent |
 |---|---|---|
-| `accounts.ts` | `findAccountById`, `resetVerificationPeriod`, `incrementVerificationCount` | `lib/repositories/accounts.ts` |
+| `accounts.ts` | `findAccountById`, `findAccountBySlug`, `resetVerificationPeriod`, `incrementVerificationCount` | `lib/repositories/accounts.ts` |
 | `agents.ts` | `countAgentsByAccountId`, `countAgentsByScope` | `lib/repositories/agents.ts` |
 | `memberships.ts` | `countBillableSeatsByAccountId`, `findMembershipByAccountAndUser`, `findMembershipsByAccountId`, `createMembership`, `updateMembershipRole`, `deleteMembership`, `findPendingInvitesByAccountId`, `upsertPendingInvite` | `lib/repositories/memberships.ts` |
 

@@ -1,48 +1,56 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Logo, ThemeToggle } from "@/components/ui";
+import { useOptionalWorkspace } from "@/components/workspace/WorkspaceProvider";
+import { resolveDashboardFetchPath } from "@/lib/workspaceClient";
+import {
+  extractDashboardSubpath,
+  workspaceDashboardHref
+} from "@/lib/workspaceSlug";
 
-const dashboardNavSections = [
+const dashboardNavItems = [
   {
     label: "Control plane",
     items: [
-      { href: "/dashboard", label: "Home" },
-      { href: "/dashboard/inbox", label: "Needs attention" },
-      { href: "/dashboard/approvals", label: "Approvals" },
-      { href: "/dashboard/logs", label: "Audit logs" },
+      { subpath: "", label: "Home" },
+      { subpath: "/inbox", label: "Needs attention" },
+      { subpath: "/approvals", label: "Approvals" },
+      { subpath: "/logs", label: "Audit logs" }
     ]
   },
   {
     label: "Agents & access",
     items: [
-      { href: "/dashboard/onboarding", label: "Add agent" },
-      { href: "/dashboard/agents", label: "Agents" },
-      { href: "/dashboard/webhooks", label: "Webhooks" },
+      { subpath: "/onboarding", label: "Add agent" },
+      { subpath: "/agents", label: "Agents" },
+      { subpath: "/webhooks", label: "Webhooks" }
     ]
   },
   {
     label: "Workspace",
     items: [
-      { href: "/dashboard/settings", label: "Settings & members" },
-      { href: "/dashboard/managed-profiles", label: "Managed profiles" },
-      { href: "/dashboard/billing", label: "Billing" },
-      { href: "/dashboard/docs", label: "Docs" },
+      { subpath: "/settings", label: "Settings & members" },
+      { subpath: "/managed-profiles", label: "Managed profiles" },
+      { subpath: "/billing", label: "Billing" },
+      { subpath: "/docs", label: "Docs" }
     ]
   }
 ] as const;
 
 type WorkspaceAccount = {
   accountId: string;
+  slug: string | null;
   name: string;
   role: string;
   isPrimary: boolean;
 };
 
-function WorkspaceSwitcher() {
+function WorkspaceSwitcher({ workspaceSlug }: { workspaceSlug?: string | null }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [accounts, setAccounts] = useState<WorkspaceAccount[]>([]);
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
   const [switching, setSwitching] = useState(false);
@@ -51,9 +59,14 @@ function WorkspaceSwitcher() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/dashboard/accounts", { credentials: "include" });
+        const res = await fetch(resolveDashboardFetchPath("/api/dashboard/accounts"), {
+          credentials: "include"
+        });
         if (!res.ok || cancelled) return;
-        const body = (await res.json()) as { activeAccountId: string | null; accounts: WorkspaceAccount[] };
+        const body = (await res.json()) as {
+          activeAccountId: string | null;
+          accounts: WorkspaceAccount[];
+        };
         setAccounts(body.accounts ?? []);
         setActiveAccountId(body.activeAccountId);
       } catch {
@@ -63,38 +76,46 @@ function WorkspaceSwitcher() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [workspaceSlug]);
 
   if (accounts.length <= 1) return null;
 
   const switchAccount = async (accountId: string) => {
     if (accountId === activeAccountId || switching) return;
+    const target = accounts.find((account) => account.accountId === accountId);
+    if (!target?.slug) return;
     setSwitching(true);
     try {
-      const res = await fetch("/api/dashboard/accounts/switch", {
+      const res = await fetch(resolveDashboardFetchPath("/api/dashboard/accounts/switch"), {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ accountId })
       });
       if (!res.ok) throw new Error("switch failed");
+      const body = (await res.json()) as { ok: boolean; activeAccountId: string; slug?: string | null };
+      const nextSlug = body.slug ?? target.slug;
+      if (!nextSlug) throw new Error("missing slug");
       setActiveAccountId(accountId);
-      router.refresh();
+      const subpath = extractDashboardSubpath(pathname);
+      router.push(workspaceDashboardHref(nextSlug, subpath));
     } catch {
-      // Keep current workspace on failure.
+      // Keep current workspace on failure — do not update the URL.
     } finally {
       setSwitching(false);
     }
   };
 
-  const activeAccount = accounts.find((account) => account.accountId === activeAccountId);
+  const activeAccount =
+    accounts.find((account) => account.slug === workspaceSlug) ??
+    accounts.find((account) => account.accountId === activeAccountId);
 
   return (
     <div className="workspace-switcher">
       <label className="workspace-switcher__label">
         <span>Workspace</span>
         <select
-          value={activeAccountId ?? ""}
+          value={activeAccount?.accountId ?? activeAccountId ?? ""}
           disabled={switching}
           onChange={(event) => void switchAccount(event.target.value)}
           aria-label="Switch workspace"
@@ -111,23 +132,44 @@ function WorkspaceSwitcher() {
   );
 }
 
-export function DashboardShellLayout({ children }: { children: React.ReactNode }) {
+export function DashboardShellLayout({
+  children,
+  workspaceSlug: workspaceSlugProp
+}: {
+  children: React.ReactNode;
+  workspaceSlug?: string | null;
+}) {
   const pathname = usePathname();
+  const workspaceCtx = useOptionalWorkspace();
+  const workspaceSlug = workspaceSlugProp ?? workspaceCtx?.workspaceSlug ?? null;
+
   const [drawerOpen, setDrawerOpen] = useState(false);
   const hamburgerRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
+
+  const navSections = useMemo(() => {
+    return dashboardNavItems.map((section) => ({
+      label: section.label,
+      items: section.items.map((item) => ({
+        label: item.label,
+        href: workspaceSlug
+          ? workspaceDashboardHref(workspaceSlug, item.subpath)
+          : `/dashboard${item.subpath}`
+      }))
+    }));
+  }, [workspaceSlug]);
+
+  const homeHref = workspaceSlug ? workspaceDashboardHref(workspaceSlug) : "/dashboard";
 
   const closeDrawer = useCallback(() => {
     setDrawerOpen(false);
     requestAnimationFrame(() => hamburgerRef.current?.focus());
   }, []);
 
-  // Close on route change
   useEffect(() => {
     closeDrawer();
   }, [pathname, closeDrawer]);
 
-  // Escape key + focus trap
   useEffect(() => {
     if (!drawerOpen) return;
 
@@ -148,27 +190,33 @@ export function DashboardShellLayout({ children }: { children: React.ReactNode }
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
       if (e.shiftKey) {
-        if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
       } else {
-        if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     };
 
     document.addEventListener("keydown", handleKeyDown);
-    el?.querySelector<HTMLElement>('a[href], button:not([disabled])')?.focus();
+    el?.querySelector<HTMLElement>("a[href], button:not([disabled])")?.focus();
 
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [drawerOpen, closeDrawer]);
 
-  // Prevent body scroll when drawer is open
   useEffect(() => {
     document.body.style.overflow = drawerOpen ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [drawerOpen]);
 
   return (
     <main className="dashboard-shell app-shell">
-      {/* Mobile top bar — only visible on mobile */}
       <div className="app-mobile-topbar">
         <button
           ref={hamburgerRef}
@@ -188,19 +236,14 @@ export function DashboardShellLayout({ children }: { children: React.ReactNode }
             </svg>
           )}
         </button>
-        <Logo href="/dashboard" subtitle="Control plane" />
+        <Logo href={homeHref} subtitle="Control plane" />
       </div>
       <div className="app-mobile-workspace">
-        <WorkspaceSwitcher />
+        <WorkspaceSwitcher workspaceSlug={workspaceSlug} />
       </div>
 
-      {/* Backdrop */}
       {drawerOpen && (
-        <div
-          className="app-drawer-backdrop"
-          aria-hidden="true"
-          onClick={closeDrawer}
-        />
+        <div className="app-drawer-backdrop" aria-hidden="true" onClick={closeDrawer} />
       )}
 
       <aside
@@ -210,21 +253,16 @@ export function DashboardShellLayout({ children }: { children: React.ReactNode }
         role="navigation"
         aria-label="Dashboard"
       >
-        {/* Close button inside drawer (mobile only) */}
-        <button
-          className="app-drawer-close"
-          onClick={closeDrawer}
-          aria-label="Close menu"
-        >
+        <button className="app-drawer-close" onClick={closeDrawer} aria-label="Close menu">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
             <path d="M2 2l14 14M16 2L2 16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
           </svg>
         </button>
 
-        <Logo href="/dashboard" subtitle="Control plane" />
-        <WorkspaceSwitcher />
+        <Logo href={homeHref} subtitle="Control plane" />
+        <WorkspaceSwitcher workspaceSlug={workspaceSlug} />
         <nav aria-label="Dashboard">
-          {dashboardNavSections.map((section) => (
+          {navSections.map((section) => (
             <div key={section.label}>
               <p className="app-sidebar__section-label">{section.label}</p>
               {section.items.map((item) => (
@@ -248,7 +286,9 @@ export function DashboardShellLayout({ children }: { children: React.ReactNode }
         </div>
       </aside>
 
-      <section id="main-content" className="dashboard-main app-main" tabIndex={-1}>{children}</section>
+      <section id="main-content" className="dashboard-main app-main" tabIndex={-1}>
+        {children}
+      </section>
     </main>
   );
 }

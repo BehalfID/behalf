@@ -107,7 +107,7 @@ Doctor should report the Claude PreToolUse hook as installed.
 
 1. You ask Claude to run a mapped action that needs approval (for example a shell command or a write under `pilot-sandbox/`).
 2. The hook blocks the tool (Claude sees a denial / approval-required message). CLI stderr may say to visit the Action Inbox.
-3. Your **approver** (separate user, separate browser profile) opens **Action Inbox** (`/dashboard/inbox`) or **Approvals** (`/dashboard/approvals`) in the correct workspace.
+3. Your **approver** (separate user, separate browser profile) opens **Action Inbox** (`/dashboard/inbox` or `/<workspace-slug>/dashboard/inbox`) or **Approvals** (`/dashboard/approvals` or `/<workspace-slug>/dashboard/approvals`) in the correct workspace. Workspace-scoped URLs are rolling out; use `/dashboard/...` until operators confirm the new shape is live (see `docs/WORKSPACE_URLS.md`).
 4. They review the preview and approve or deny.
 
 You cannot approve your own requests.

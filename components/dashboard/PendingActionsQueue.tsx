@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { EmptyState, PageHeader } from "@/components/ui";
+import { resolveDashboardFetchPath } from "@/lib/workspaceClient";
 import { OpsApprovalCard, OpsApprovalQueueRow } from "./OpsEventPrimitives";
 import { type OpsApprovalRequest } from "./opsLogTypes";
 
@@ -11,7 +12,7 @@ type ApprovalsResponse = {
 };
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
+  const response = await fetch(resolveDashboardFetchPath(path), {
     ...init,
     credentials: "include",
     headers: { Accept: "application/json", ...(init?.body ? { "Content-Type": "application/json" } : {}), ...init?.headers }

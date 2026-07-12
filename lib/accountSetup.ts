@@ -355,22 +355,43 @@ export async function completeAccountSetup(
     }
   );
 
-  await Account.updateOne(
-    { accountId: primaryAccountId },
-    {
-      $set: {
-        accountType: validated.account.accountType,
-        companyName: validated.account.companyName ?? null,
-        name: validated.account.name,
-        website: validated.account.website ?? null,
-        teamSize: validated.account.teamSize ?? null,
-        onboarding: validated.account.onboarding
-      }
-    }
-  );
+  const existingAccount = await Account.findOne({ accountId: primaryAccountId })
+    .select("slug")
+    .lean();
+  const existingSlug =
+    typeof existingAccount?.slug === "string" ? existingAccount.slug.trim().toLowerCase() : "";
+
+  const { validateWorkspaceSlug, workspaceDashboardHref } = await import("@/lib/workspaceSlug");
+  const { generateUniqueWorkspaceSlug } = await import("@/lib/workspaceSlugServer");
+
+  const accountSet: Record<string, unknown> = {
+    accountType: validated.account.accountType,
+    companyName: validated.account.companyName ?? null,
+    name: validated.account.name,
+    website: validated.account.website ?? null,
+    teamSize: validated.account.teamSize ?? null,
+    onboarding: validated.account.onboarding
+  };
+
+  // Preserve populated valid slugs; assign only when missing/invalid.
+  let slug = existingSlug && validateWorkspaceSlug(existingSlug) === null ? existingSlug : "";
+  if (!slug) {
+    const seed =
+      validated.account.companyName?.trim() || validated.account.name?.trim() || "workspace";
+    slug = await generateUniqueWorkspaceSlug(seed, primaryAccountId);
+    accountSet.slug = slug;
+  }
+
+  await Account.updateOne({ accountId: primaryAccountId }, { $set: accountSet });
+
+  const nextBase = getNextRouteForFirstSetupGoal(validated.account.onboarding.firstSetupGoal);
+  const nextRoute =
+    slug && nextBase.startsWith("/dashboard")
+      ? workspaceDashboardHref(slug, nextBase.slice("/dashboard".length) || "")
+      : nextBase;
 
   return {
     error: null,
-    nextRoute: getNextRouteForFirstSetupGoal(validated.account.onboarding.firstSetupGoal)
+    nextRoute
   };
 }

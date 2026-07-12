@@ -6,6 +6,7 @@ import { Button, ButtonLink, Card, PageHeader } from "@/components/ui";
 import { haptic } from "@/lib/haptic";
 import type { ManagedProfileActivityEvent } from "@/lib/cliAuditActivityTypes";
 import { MANAGED_PROFILE_ONBOARDING_STEPS } from "@/lib/managedProfileOnboarding";
+import { resolveDashboardFetchPath } from "@/lib/workspaceClient";
 
 type PolicyMode = "unmanaged" | "managed" | "required";
 
@@ -178,7 +179,7 @@ function OnboardingCommandGroup({ commands }: { commands: string[] }) {
 }
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
+  const response = await fetch(resolveDashboardFetchPath(path), {
     ...init,
     credentials: "include",
     headers: {
@@ -392,7 +393,10 @@ export function ManagedProfilesView() {
         title="Managed profiles"
         description="Control when local coding agents run unmanaged, managed, or required."
         action={
-          <ButtonLink href="/dashboard/managed-profiles/activity" variant="secondary">
+          <ButtonLink
+            href={resolveDashboardFetchPath("/dashboard/managed-profiles/activity")}
+            variant="secondary"
+          >
             View activity
           </ButtonLink>
         }
@@ -451,7 +455,7 @@ export function ManagedProfilesView() {
           <Link
             className="managed-profile-onboarding-action"
             data-testid="managed-profile-onboarding-activity-link"
-            href="/dashboard/managed-profiles/activity"
+            href={resolveDashboardFetchPath("/dashboard/managed-profiles/activity")}
           >
             View activity
           </Link>
@@ -537,8 +541,10 @@ export function ManagedProfilesView() {
               <p className="ops-empty">
                 This repo hash is not enrolled as a protected repo. Add it under Protected repos or
                 use{" "}
-                <Link href="/dashboard/managed-profiles/activity">Managed Profile Activity</Link> to
-                enroll from recent CLI activity.
+                <Link href={resolveDashboardFetchPath("/dashboard/managed-profiles/activity")}>
+                  Managed Profile Activity
+                </Link>{" "}
+                to enroll from recent CLI activity.
               </p>
             ) : null}
           </div>
@@ -734,7 +740,10 @@ export function ManagedProfilesView() {
           </p>
           <p className="ops-empty">
             You can also add protected repos from{" "}
-            <Link href="/dashboard/managed-profiles/activity">Managed Profile Activity</Link> after running{" "}
+            <Link href={resolveDashboardFetchPath("/dashboard/managed-profiles/activity")}>
+              Managed Profile Activity
+            </Link>{" "}
+            after running{" "}
             <code>behalf profile status</code> or launching a managed tool.
           </p>
           {form.protectedRepos.map((repo, index) => (

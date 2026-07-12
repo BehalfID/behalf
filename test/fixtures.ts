@@ -7,6 +7,7 @@ export function accountFixture(overrides: Partial<Record<string, unknown>> = {})
   return {
     accountId: "acct_test",
     name: "Test Account",
+    slug: "test-account",
     plan: "free" as Plan,
     verificationCount: 0,
     verificationPeriodStart: verificationPeriodStart(),

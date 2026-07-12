@@ -7,6 +7,7 @@ import {
   activitySummaryFromEvents,
   type ManagedProfileActivityEvent,
 } from "@/lib/cliAuditActivityTypes";
+import { resolveDashboardFetchPath } from "@/lib/workspaceClient";
 import { formatOpsTime } from "./opsLogTypes";
 
 type PolicyMode = "unmanaged" | "managed" | "required";
@@ -47,7 +48,7 @@ const MODE_OPTIONS: Array<{ value: PolicyMode; label: string }> = [
 ];
 
 async function fetchActivity(path: string): Promise<ActivityResponse> {
-  const response = await fetch(path, {
+  const response = await fetch(resolveDashboardFetchPath(path), {
     credentials: "include",
     headers: { Accept: "application/json" },
   });
@@ -59,7 +60,7 @@ async function fetchActivity(path: string): Promise<ActivityResponse> {
 }
 
 async function fetchManagedProfiles(): Promise<ManagedProfilesResponse> {
-  const response = await fetch("/api/dashboard/managed-profiles", {
+  const response = await fetch(resolveDashboardFetchPath("/api/dashboard/managed-profiles"), {
     credentials: "include",
     headers: { Accept: "application/json" },
   });
@@ -134,7 +135,7 @@ function ProtectRepoActions({
     return (
       <>
         <span className="ops-status ops-status--neutral">Disabled in policy</span>{" "}
-        <Link href="/dashboard/managed-profiles">Edit policy</Link>
+        <Link href={resolveDashboardFetchPath("/dashboard/managed-profiles")}>Edit policy</Link>
       </>
     );
   }
@@ -143,7 +144,7 @@ function ProtectRepoActions({
     return (
       <>
         <span className="ops-status ops-status--neutral">Policy disabled</span>{" "}
-        <Link href="/dashboard/managed-profiles">Edit policy</Link>
+        <Link href={resolveDashboardFetchPath("/dashboard/managed-profiles")}>Edit policy</Link>
       </>
     );
   }
@@ -198,7 +199,11 @@ function ActivityEventCard({
       ) : null}
       {event.approvalRequestId ? (
         <p className="ops-event-card__meta">
-          <Link href={`/dashboard/approvals?highlight=${event.approvalRequestId}`}>
+          <Link
+            href={resolveDashboardFetchPath(
+              `/dashboard/approvals?highlight=${event.approvalRequestId}`
+            )}
+          >
             View approval {event.approvalRequestId}
           </Link>
         </p>
@@ -250,7 +255,9 @@ export function ManagedProfileActivityView() {
     if (branch.trim()) params.set("branch", branch.trim());
     if (range === "24h") params.set("from", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
     if (range === "7d") params.set("from", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
-    return `/api/dashboard/managed-profiles/activity?${params.toString()}`;
+    return resolveDashboardFetchPath(
+      `/api/dashboard/managed-profiles/activity?${params.toString()}`
+    );
   }, [branch, eventType, mode, range, repo, tool]);
 
   const loadPolicy = useCallback(async () => {
@@ -319,20 +326,23 @@ export function ManagedProfileActivityView() {
       setEnrollError("");
       setEnrollMessage("");
       try {
-        const response = await fetch("/api/dashboard/managed-profiles/protected-repos", {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            repoHash: enrollTarget.repoHash,
-            label: enrollLabel.trim() || undefined,
-            mode: enrollMode,
-            enabled: true,
-          }),
-        });
+        const response = await fetch(
+          resolveDashboardFetchPath("/api/dashboard/managed-profiles/protected-repos"),
+          {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              repoHash: enrollTarget.repoHash,
+              label: enrollLabel.trim() || undefined,
+              mode: enrollMode,
+              enabled: true,
+            }),
+          }
+        );
         const body = (await response.json().catch(() => null)) as {
           error?: string;
           policy?: ManagedProfilesResponse["policy"];
@@ -373,7 +383,10 @@ export function ManagedProfileActivityView() {
         title="Managed profile activity"
         description="See local coding-agent policy decisions and pause events."
         action={
-          <ButtonLink href="/dashboard/managed-profiles" variant="secondary">
+          <ButtonLink
+            href={resolveDashboardFetchPath("/dashboard/managed-profiles")}
+            variant="secondary"
+          >
             Edit managed profile policy
           </ButtonLink>
         }
@@ -579,7 +592,11 @@ export function ManagedProfileActivityView() {
                   <td>
                     {event.approvalRequestId ? (
                       <>
-                        <Link href={`/dashboard/approvals?highlight=${event.approvalRequestId}`}>
+                        <Link
+                          href={resolveDashboardFetchPath(
+                            `/dashboard/approvals?highlight=${event.approvalRequestId}`
+                          )}
+                        >
                           View approval
                         </Link>
                         {event.repo ? <> · </> : null}
@@ -639,7 +656,9 @@ export function ManagedProfileActivityView() {
       ) : null}
 
       <p className="ops-console__footnote">
-        <Link href="/dashboard/managed-profiles">Edit managed profile policy</Link>
+        <Link href={resolveDashboardFetchPath("/dashboard/managed-profiles")}>
+          Edit managed profile policy
+        </Link>
       </p>
     </div>
   );

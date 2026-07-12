@@ -14,6 +14,17 @@ vi.mock("@/lib/developerAuth", () => ({
   requireVerifiedDeveloperApi: mocks.requireVerifiedDeveloperApi
 }));
 vi.mock("@/lib/db", () => ({ connectToDatabase: mocks.connectToDatabase }));
+vi.mock("@/lib/delegatedAuth", () => ({
+  getWorkspaceActor: vi.fn().mockResolvedValue({
+    userId: "user_test",
+    accountId: "acct_test",
+    role: "OWNER",
+    authorityLevel: 100
+  })
+}));
+vi.mock("@/lib/accountAgents", () => ({
+  listAccountAgents: vi.fn().mockResolvedValue([])
+}));
 vi.mock("@/models/Agent", () => ({
   default: { find: vi.fn().mockReturnValue({ sort: vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue([]) }) }) }) }
 }));
@@ -50,7 +61,9 @@ describe("unverified user access restrictions", () => {
     // requireDeveloperApi still passes (GET is allowed)
     mocks.requireDeveloperApi.mockResolvedValue({
       user: { userId: "user_test", email: "dev@example.com", emailVerified: false },
-      account: null,
+      account: { accountId: "acct_test", name: "Workspace", slug: "workspace" },
+      activeAccountId: "acct_test",
+      workspaceSlug: null,
       error: null
     });
   });

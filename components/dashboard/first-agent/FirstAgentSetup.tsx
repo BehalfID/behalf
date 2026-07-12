@@ -12,6 +12,7 @@ import {
   type ControlProfile
 } from "@/lib/firstAgentSetup";
 import type { AgentTool } from "@/lib/onboarding";
+import { resolveDashboardFetchPath } from "@/lib/workspaceClient";
 import { AgentIdentityStep } from "./AgentIdentityStep";
 import { AgentSurfaceStep } from "./AgentSurfaceStep";
 import { AgentTokenStep } from "./AgentTokenStep";
@@ -42,7 +43,7 @@ type SetupApiResponse = {
 };
 
 async function setupApi<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
+  const response = await fetch(resolveDashboardFetchPath(path), {
     ...init,
     credentials: "include",
     headers: {

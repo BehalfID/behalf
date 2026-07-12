@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   membershipFind: vi.fn(),
   membershipFindOne: vi.fn(),
+  accountFind: vi.fn(),
   accountFindOne: vi.fn(),
   sessionUpdateOne: vi.fn()
 }));
@@ -16,6 +17,7 @@ vi.mock("@/models/AccountMembership", () => ({
 
 vi.mock("@/models/Account", () => ({
   default: {
+    find: mocks.accountFind,
     findOne: mocks.accountFindOne
   }
 }));
@@ -76,17 +78,57 @@ describe("account context", () => {
       lean: vi.fn().mockResolvedValue({ membershipId: "mbr_team", accountId: "acct_team", userId: "user_a" })
     });
     mocks.accountFindOne.mockReturnValue({
-      lean: vi.fn().mockResolvedValue({ accountId: "acct_team", name: "Team" })
+      select: vi.fn().mockReturnValue({
+        lean: vi.fn().mockResolvedValue({ accountId: "acct_team", name: "Team", slug: "team" })
+      })
     });
     const { switchActiveAccount } = await import("@/lib/accountContext");
     await expect(switchActiveAccount("user_a", "sess_a", "acct_team")).resolves.toEqual({
       ok: true,
-      accountId: "acct_team"
+      accountId: "acct_team",
+      slug: "team",
+      name: "Team"
     });
     expect(mocks.sessionUpdateOne).toHaveBeenCalledWith(
       { sessionId: "sess_a", userId: "user_a" },
       { $set: { activeAccountId: "acct_team" } }
     );
+  });
+
+  it("includes slug on UserAccountSummary rows", async () => {
+    mocks.membershipFind.mockReturnValue({
+      sort: vi.fn().mockReturnValue({
+        lean: vi.fn().mockResolvedValue([
+          { accountId: "acct_primary", role: "OWNER", userId: "user_a" },
+          { accountId: "acct_team", role: "ENGINEER", userId: "user_a" }
+        ])
+      })
+    });
+    mocks.accountFind.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        lean: vi.fn().mockResolvedValue([
+          { accountId: "acct_primary", name: "Primary", slug: "primary" },
+          { accountId: "acct_team", name: "Team", slug: "team" }
+        ])
+      })
+    });
+    const { listUserAccounts } = await import("@/lib/accountContext");
+    await expect(listUserAccounts("user_a", "acct_primary")).resolves.toEqual([
+      {
+        accountId: "acct_primary",
+        slug: "primary",
+        name: "Primary",
+        role: "OWNER",
+        isPrimary: true
+      },
+      {
+        accountId: "acct_team",
+        slug: "team",
+        name: "Team",
+        role: "ENGINEER",
+        isPrimary: false
+      }
+    ]);
   });
 
   it("clears stale session activeAccountId when membership was removed", async () => {

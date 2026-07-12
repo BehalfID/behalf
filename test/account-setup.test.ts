@@ -289,7 +289,7 @@ describe("account setup API", () => {
     );
     const json = await response.json();
     expect(response.status).toBe(200);
-    expect(json.nextRoute).toBe("/dashboard/agents/new");
+    expect(json.nextRoute).toMatch(/^\/[^/]+\/dashboard\/agents\/new$/);
     expect(mocks.DeveloperUser.updateOne).toHaveBeenCalledWith(
       { userId: "dev_test" },
       expect.objectContaining({
@@ -384,9 +384,9 @@ describe("account setup API", () => {
 
 describe("account setup routing", () => {
   it("signup success routes to onboarding in auth client", async () => {
-    const source = await import("fs/promises").then((fs) =>
-      fs.readFile("/workspace/app/auth-client.tsx", "utf8")
-    );
+    const { readFile } = await import("fs/promises");
+    const { join } = await import("path");
+    const source = await readFile(join(process.cwd(), "app/auth-client.tsx"), "utf8");
     expect(source).toMatch(/\/onboarding/);
     expect(source).toContain("redirectPath");
   });

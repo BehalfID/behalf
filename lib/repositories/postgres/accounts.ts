@@ -10,6 +10,16 @@ export async function findAccountById(db: BehalfPostgresDb, accountId: string) {
   );
 }
 
+export async function findAccountBySlug(db: BehalfPostgresDb, slug: string) {
+  const normalized = slug.trim().toLowerCase();
+  if (!normalized) return null;
+  return (
+    (await db.query.accounts.findFirst({
+      where: eq(accounts.slug, normalized)
+    })) ?? null
+  );
+}
+
 export async function resetVerificationPeriod(
   db: BehalfPostgresDb,
   accountId: string,

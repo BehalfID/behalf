@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ButtonLink, EmptyState, PageHeader } from "@/components/ui";
+import { resolveDashboardFetchPath } from "@/lib/workspaceClient";
 import { DecisionIndicator, OpsDrawerLink, OpsLogEventCard } from "./OpsEventPrimitives";
 import {
   formatOpsDate,
@@ -21,7 +22,10 @@ type LogsResponse = {
 };
 
 async function fetchLogs(path: string): Promise<LogsResponse> {
-  const response = await fetch(path, { credentials: "include", headers: { Accept: "application/json" } });
+  const response = await fetch(resolveDashboardFetchPath(path), {
+    credentials: "include",
+    headers: { Accept: "application/json" }
+  });
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as { error?: string } | null;
     throw new Error(body?.error ?? `Request failed with ${response.status}`);
@@ -105,7 +109,11 @@ function LogDetailDrawer({ log, onClose }: { log: OpsLog; onClose: () => void })
         {log.approvalId ? (
           <section className="ops-drawer__section">
             <h3 className="ops-drawer__section-title">Approval request</h3>
-            <OpsDrawerLink href={`/dashboard/approvals?highlight=${encodeURIComponent(log.approvalId)}`}>
+            <OpsDrawerLink
+              href={resolveDashboardFetchPath(
+                `/dashboard/approvals?highlight=${encodeURIComponent(log.approvalId)}`
+              )}
+            >
               Open approval queue
             </OpsDrawerLink>
             <p className="ops-drawer__hint"><code>{log.approvalId}</code></p>
@@ -181,7 +189,7 @@ export function OpsLogConsole({
     if (risk) params.set("risk", risk);
     if (range === "24h") params.set("from", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
     if (range === "7d") params.set("from", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
-    return `/api/dashboard/logs?${params.toString()}`;
+    return resolveDashboardFetchPath(`/api/dashboard/logs?${params.toString()}`);
   }, [action, agentId, compact, decision, environment, initialLimit, range, risk, search]);
 
   const reload = useCallback(async () => {

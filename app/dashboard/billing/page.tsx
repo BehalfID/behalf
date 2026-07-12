@@ -2,6 +2,9 @@ import { redirect } from "next/navigation";
 import { connectToDatabase } from "@/lib/db";
 import { getCurrentDeveloperContext } from "@/lib/developerAuth";
 import { shouldForceAccountSetup } from "@/lib/onboardingRedirect";
+import { workspaceDashboardHref } from "@/lib/workspaceSlug";
+import { ensureAccountHasSlug } from "@/lib/workspaceSlugServer";
+import { findAccountByIdLean } from "@/lib/repositories/accounts";
 import { normalizePlan } from "@/lib/plans";
 import { countBillableSeats } from "@/lib/quota";
 import Account from "@/models/Account";
@@ -17,9 +20,16 @@ export default async function BillingPage() {
   if (!user) redirect("/login");
   if (await shouldForceAccountSetup(user.userId)) redirect("/onboarding");
 
+  const accountId = context?.activeAccountId ?? user.primaryAccountId;
+  if (accountId) {
+    const account = await findAccountByIdLean(accountId, "accountId slug name companyName");
+    let slug = account?.slug?.trim().toLowerCase() || null;
+    if (!slug) slug = await ensureAccountHasSlug(accountId);
+    if (slug) redirect(workspaceDashboardHref(slug, "/billing"));
+  }
+
   await connectToDatabase();
 
-  const accountId = context?.activeAccountId ?? user.primaryAccountId;
   const account = accountId
     ? await Account.findOne({ accountId }).lean()
     : null;

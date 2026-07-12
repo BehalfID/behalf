@@ -1,11 +1,18 @@
 import { NextResponse, type NextRequest } from "next/server";
 import createMiddleware from "next-intl/middleware";
 import { routing } from "./i18n/routing";
+import {
+  WORKSPACE_SLUG_HEADER,
+  WORKSPACE_SLUG_PATTERN,
+  isReservedWorkspaceSlug,
+  validateWorkspaceSlug
+} from "./lib/workspaceSlug";
 
 const intlMiddleware = createMiddleware(routing);
 
 // Paths that skip locale routing (console, dashboard, auth helpers, etc.)
-const intlBypassPattern = /^\/(api|dashboard|console|passport|authenticate|logout|onboarding|design-system|invite)(\/|$)/;
+const intlBypassPattern =
+  /^\/(api|dashboard|console|passport|authenticate|logout|onboarding|design-system|invite|workspace)(\/|$)/;
 
 // 'unsafe-inline' is retained for style-src only — React/Next.js inline styles
 // require it. For script-src, 'unsafe-inline' is dropped in favour of a per-request
@@ -62,6 +69,56 @@ export function shouldBypassProxy(pathname: string) {
   );
 }
 
+/**
+ * Public workspace URLs:
+ *   /<slug>/dashboard[/...]  →  /workspace/<slug>/dashboard[/...]
+ *   /<slug>/api/dashboard/... →  /api/dashboard/... + trusted slug header
+ *
+ * Reserved first segments and invalid slugs are never rewritten.
+ */
+export function matchWorkspacePublicPath(pathname: string): {
+  slug: string;
+  kind: "dashboard" | "api";
+  suffix: string;
+} | null {
+  const parts = pathname.split("/").filter(Boolean);
+  if (parts.length < 2) return null;
+
+  const slug = parts[0]?.toLowerCase() ?? "";
+  if (!slug || isReservedWorkspaceSlug(slug) || !WORKSPACE_SLUG_PATTERN.test(slug)) {
+    return null;
+  }
+  if (validateWorkspaceSlug(slug) !== null) return null;
+
+  if (parts[1] === "dashboard") {
+    const suffix = parts.length > 2 ? `/${parts.slice(2).join("/")}` : "";
+    return { slug, kind: "dashboard", suffix };
+  }
+
+  if (parts[1] === "api" && (parts[2] === "dashboard" || parts[2] === "billing")) {
+    const suffix = `/${parts.slice(1).join("/")}`;
+    return { slug, kind: "api", suffix };
+  }
+
+  return null;
+}
+
+export function buildWorkspaceRewritePath(match: {
+  slug: string;
+  kind: "dashboard" | "api";
+  suffix: string;
+}): string {
+  if (match.kind === "dashboard") {
+    return `/workspace/${match.slug}/dashboard${match.suffix}`;
+  }
+  return match.suffix;
+}
+
+function withCsp(response: NextResponse, nonce: string, isDev: boolean) {
+  response.headers.set("Content-Security-Policy", buildCsp(nonce, isDev));
+  return response;
+}
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -76,8 +133,27 @@ export function proxy(request: NextRequest) {
 
   // Inject the nonce into the request headers so Next.js server components
   // (and the RSC streaming runtime) can read it via headers().get("x-nonce").
+  // Strip any client-supplied workspace slug header so only proxy rewrites can set it.
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
+  requestHeaders.delete(WORKSPACE_SLUG_HEADER);
+
+  const workspaceMatch = matchWorkspacePublicPath(pathname);
+  if (workspaceMatch) {
+    const rewritePath = buildWorkspaceRewritePath(workspaceMatch);
+    const rewriteUrl = request.nextUrl.clone();
+    rewriteUrl.pathname = rewritePath;
+    // Preserve query string via clone.
+
+    if (workspaceMatch.kind === "api") {
+      requestHeaders.set(WORKSPACE_SLUG_HEADER, workspaceMatch.slug);
+    }
+
+    const response = NextResponse.rewrite(rewriteUrl, {
+      request: { headers: requestHeaders }
+    });
+    return withCsp(response, nonce, isDev);
+  }
 
   // Run next-intl locale routing for public pages.
   if (!intlBypassPattern.test(pathname)) {
@@ -98,7 +174,7 @@ export function proxy(request: NextRequest) {
       const response = NextResponse.rewrite(new URL(rewriteUrl), {
         request: { headers: requestHeaders }
       });
-      intlResponse.cookies.getAll().forEach(c => response.cookies.set(c.name, c.value, c));
+      intlResponse.cookies.getAll().forEach((c) => response.cookies.set(c.name, c.value, c));
       response.headers.set("Content-Security-Policy", buildCsp(nonce, isDev));
       return response;
     }
@@ -106,7 +182,7 @@ export function proxy(request: NextRequest) {
     // Pure pass-through: replace with our nonce-injected response and carry over
     // any cookies next-intl set (e.g. the locale-preference cookie).
     const response = NextResponse.next({ request: { headers: requestHeaders } });
-    intlResponse.cookies.getAll().forEach(c => response.cookies.set(c.name, c.value, c));
+    intlResponse.cookies.getAll().forEach((c) => response.cookies.set(c.name, c.value, c));
     response.headers.set("Content-Security-Policy", buildCsp(nonce, isDev));
     return response;
   }

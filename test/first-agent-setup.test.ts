@@ -344,9 +344,9 @@ describe("POST /api/dashboard/agents/first-setup", () => {
 
 describe("first agent setup route registration", () => {
   it("registers the guided setup page", async () => {
-    const page = await import("fs/promises").then((fs) =>
-      fs.readFile("/workspace/app/dashboard/agents/new/page.tsx", "utf8")
-    );
+    const { readFile } = await import("fs/promises");
+    const { join } = await import("path");
+    const page = await readFile(join(process.cwd(), "app/dashboard/agents/new/page.tsx"), "utf8");
     expect(page).toContain('view="first-agent"');
   });
 });

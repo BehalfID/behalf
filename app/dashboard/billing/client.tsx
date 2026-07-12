@@ -17,6 +17,8 @@ import {
   getUsageLimitState,
   getUsageStatusLabel
 } from "@/lib/usageDisplay";
+import { resolveDashboardFetchPath } from "@/lib/workspaceClient";
+import { useOptionalWorkspace } from "@/components/workspace/WorkspaceProvider";
 
 type BillingProps = {
   plan: Plan;
@@ -28,6 +30,8 @@ type BillingProps = {
   protectedRepoCount: number;
   verificationCount: number;
   verificationPeriodStart: string;
+  /** When true, skip the outer dashboard shell (already provided by workspace layout). */
+  embedded?: boolean;
 };
 
 function formatDate(value: string) {
@@ -82,8 +86,10 @@ export function BillingClient({
   seatCount,
   protectedRepoCount,
   verificationCount,
-  verificationPeriodStart
+  verificationPeriodStart,
+  embedded = false
 }: BillingProps) {
+  const workspace = useOptionalWorkspace();
   const [loading, setLoading] = useState<"checkout" | "portal" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const entitlements = getPlanEntitlements(plan);
@@ -93,7 +99,7 @@ export function BillingClient({
     setLoading("checkout");
     setError(null);
     try {
-      const res = await fetch("/api/billing/checkout", { method: "POST" });
+      const res = await fetch(resolveDashboardFetchPath("/api/billing/checkout"), { method: "POST" });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Something went wrong. Please try again.");
@@ -111,7 +117,7 @@ export function BillingClient({
     setLoading("portal");
     setError(null);
     try {
-      const res = await fetch("/api/billing/portal", { method: "POST" });
+      const res = await fetch(resolveDashboardFetchPath("/api/billing/portal"), { method: "POST" });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Something went wrong. Please try again.");
@@ -125,8 +131,8 @@ export function BillingClient({
     }
   }, []);
 
-  return (
-    <DashboardShellLayout>
+  const content = (
+    <>
       <PageHeader
         eyebrow="Developer portal"
         title="Billing"
@@ -273,8 +279,14 @@ export function BillingClient({
           />
         ) : null}
       </section>
-    </DashboardShellLayout>
+    </>
   );
+
+  const wrapShell = !embedded && !workspace;
+  if (wrapShell) {
+    return <DashboardShellLayout>{content}</DashboardShellLayout>;
+  }
+  return content;
 }
 
 function EnterpriseSection() {
@@ -288,7 +300,7 @@ function EnterpriseSection() {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch("/api/billing/enterprise-inquiry", {
+      const res = await fetch(resolveDashboardFetchPath("/api/billing/enterprise-inquiry"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form)

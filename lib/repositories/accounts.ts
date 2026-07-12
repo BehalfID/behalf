@@ -8,10 +8,31 @@ export async function findAccountById(accountId: string) {
 export async function findAccountByIdLean(
   accountId: string,
   select?: string
-): Promise<Pick<AccountDocument, "accountId" | "name"> | null> {
+): Promise<Pick<AccountDocument, "accountId" | "name" | "slug" | "companyName"> | null> {
   const query = Account.findOne({ accountId });
   if (select) {
     query.select(select);
+  } else {
+    query.select("accountId name slug companyName");
+  }
+  return query.lean();
+}
+
+export async function findAccountBySlug(slug: string) {
+  return Account.findOne({ slug });
+}
+
+export async function findAccountBySlugLean(
+  slug: string,
+  select?: string
+): Promise<Pick<AccountDocument, "accountId" | "name" | "slug" | "companyName"> | null> {
+  const normalized = slug.trim().toLowerCase();
+  if (!normalized) return null;
+  const query = Account.findOne({ slug: normalized });
+  if (select) {
+    query.select(select);
+  } else {
+    query.select("accountId name slug companyName");
   }
   return query.lean();
 }
