@@ -125,7 +125,7 @@ For the Trajectus pilot, the installed CLI must report **0.2.9 or newer**. If `b
 | Method | Command | Notes |
 |---|---|---|
 | npm (supported on Windows) | `npm install -g @behalfid/cli` | Preferred Windows path |
-| curl / `install.sh` (macOS / Linux only) | `curl -fsSL https://behalfid.com/install.sh \| sh` | Optional pin (assign to `sh`, not `curl`): `curl -fsSL https://behalfid.com/install.sh \| BEHALF_VERSION=v0.2.9 sh` |
+| curl / `install.sh` (macOS / Linux only) | `curl -fsSL https://behalfid.com/install.sh \| sh` | Optional pin (assign to `sh`, not `curl`): `curl -fsSL https://behalfid.com/install.sh \| BEHALF_VERSION=v0.2.10 sh` |
 | Homebrew (macOS only) | `brew install BehalfID/tap/behalf` | Not for Windows/Linux |
 | Local pack (dev) | From repo: `npm run build` in `packages/cli`, then `npm pack` / `npm install -g ./behalfid-cli-*.tgz` — record tarball version | |
 | Verify (required) | `behalf --version` | Must be `0.2.9` or newer |

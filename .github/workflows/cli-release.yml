@@ -35,7 +35,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing version tag to release (e.g. v0.2.9). Must already exist on the remote."
+        description: "Existing version tag to release (e.g. v0.2.10). Must already exist on the remote."
         required: true
         type: string
 
@@ -65,16 +65,12 @@ jobs:
             TAG="$REF_NAME"
           fi
           # Strict validation before the tag is written to GITHUB_OUTPUT: exact
-          # stable semantic version only (rejects v0.2.9-beta, v0.2, v0.2.9/../x).
+          # stable semantic version only (rejects v0.2.10-beta, v0.2, v0.2.10/../x).
           if ! printf '%s\n' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
             echo "Invalid release tag: $TAG. Expected vX.Y.Z."
             exit 1
           fi
           VERSION="${TAG#v}"
-          if [ "$VERSION" != "0.2.9" ]; then
-            echo "This release workflow is pinned to package version 0.2.9 (got: $VERSION)"
-            exit 1
-          fi
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
@@ -144,7 +140,8 @@ jobs:
             test/verify.test.ts \
             test/verify-cli-artifact.test.ts \
             test/render-homebrew-formula.test.ts \
-            test/install-sh.test.ts
+            test/install-sh.test.ts \
+            test/cli-standalone-version.test.ts
 
       - name: Pack and verify npm tarball
         id: pack
@@ -158,20 +155,16 @@ jobs:
 
       # Build standalone binaries via Bun compile (cross-compilation)
       - name: Build binaries
-        working-directory: packages/cli
         run: |
           set -euo pipefail
-          mkdir -p bin
-          bun build src/index.ts --compile --outfile bin/behalf-linux-x64   --target bun-linux-x64
-          bun build src/index.ts --compile --outfile bin/behalf-linux-arm64 --target bun-linux-arm64
-          bun build src/index.ts --compile --outfile bin/behalf-darwin-x64  --target bun-darwin-x64
-          bun build src/index.ts --compile --outfile bin/behalf-darwin-arm64 --target bun-darwin-arm64
-          bun build src/index.ts --compile --outfile bin/behalf-windows-x64.exe --target bun-windows-x64
+          chmod +x scripts/release/build-cli-binaries.sh
+          scripts/release/build-cli-binaries.sh
 
       - name: Package binaries and checksums
         working-directory: packages/cli/bin
         run: |
           set -euo pipefail
+          VERSION="${{ steps.version.outputs.version }}"
           for f in behalf-linux-x64 behalf-linux-arm64 behalf-darwin-x64 behalf-darwin-arm64; do
             test -f "$f"
             cp "$f" behalf
@@ -184,8 +177,8 @@ jobs:
           rm behalf.exe
 
           LINUX_VER=$(./behalf-linux-x64 --version | tr -d '\r')
-          if [ "$LINUX_VER" != "${{ steps.version.outputs.version }}" ]; then
-            echo "Linux x64 binary --version was '$LINUX_VER', expected ${{ steps.version.outputs.version }}"
+          if [ "$LINUX_VER" != "$VERSION" ]; then
+            echo "Linux x64 binary --version was '$LINUX_VER', expected $VERSION"
             exit 1
           fi
 
