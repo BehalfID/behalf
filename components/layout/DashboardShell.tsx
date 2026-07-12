@@ -4,11 +4,11 @@ import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Logo, ThemeToggle } from "@/components/ui";
-import { useOptionalWorkspace } from "@/components/workspace/WorkspaceProvider";
-import { resolveDashboardFetchPath } from "@/lib/workspaceClient";
+import { useDashboardApi, useOptionalWorkspace } from "@/components/workspace/WorkspaceProvider";
 import {
   extractDashboardSubpath,
-  workspaceDashboardHref
+  workspaceDashboardHref,
+  workspaceApiHref
 } from "@/lib/workspaceSlug";
 
 const dashboardNavItems = [
@@ -51,6 +51,7 @@ type WorkspaceAccount = {
 function WorkspaceSwitcher({ workspaceSlug }: { workspaceSlug?: string | null }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { fetch: dashboardFetch } = useDashboardApi();
   const [accounts, setAccounts] = useState<WorkspaceAccount[]>([]);
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
   const [switching, setSwitching] = useState(false);
@@ -59,9 +60,13 @@ function WorkspaceSwitcher({ workspaceSlug }: { workspaceSlug?: string | null })
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(resolveDashboardFetchPath("/api/dashboard/accounts"), {
-          credentials: "include"
-        });
+        // Prefer explicit prop/context slug; fall back to useDashboardApi when unscoped.
+        const path = workspaceSlug
+          ? workspaceApiHref(workspaceSlug, "/api/dashboard/accounts")
+          : "/api/dashboard/accounts";
+        const res = workspaceSlug
+          ? await fetch(path, { credentials: "include" })
+          : await dashboardFetch(path);
         if (!res.ok || cancelled) return;
         const body = (await res.json()) as {
           activeAccountId: string | null;
@@ -76,7 +81,7 @@ function WorkspaceSwitcher({ workspaceSlug }: { workspaceSlug?: string | null })
     return () => {
       cancelled = true;
     };
-  }, [workspaceSlug]);
+  }, [workspaceSlug, dashboardFetch]);
 
   if (accounts.length <= 1) return null;
 
@@ -86,12 +91,20 @@ function WorkspaceSwitcher({ workspaceSlug }: { workspaceSlug?: string | null })
     if (!target?.slug) return;
     setSwitching(true);
     try {
-      const res = await fetch(resolveDashboardFetchPath("/api/dashboard/accounts/switch"), {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountId })
-      });
+      const path = workspaceSlug
+        ? workspaceApiHref(workspaceSlug, "/api/dashboard/accounts/switch")
+        : "/api/dashboard/accounts/switch";
+      const res = workspaceSlug
+        ? await fetch(path, {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ accountId })
+          })
+        : await dashboardFetch(path, {
+            method: "POST",
+            body: JSON.stringify({ accountId })
+          });
       if (!res.ok) throw new Error("switch failed");
       const body = (await res.json()) as { ok: boolean; activeAccountId: string; slug?: string | null };
       const nextSlug = body.slug ?? target.slug;

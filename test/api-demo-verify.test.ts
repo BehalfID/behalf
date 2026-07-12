@@ -34,7 +34,7 @@ function makeResult(overrides: Record<string, unknown> = {}) {
     reason: "Action allowed by active permission.",
     risk: "low" as const,
     timestamp: "2026-01-01T00:00:00.000Z",
-    scenarioId: "allowed-read" as const,
+    scenarioId: "github-read-allowed" as const,
     ...overrides
   };
 }
@@ -48,7 +48,7 @@ describe("POST /api/demo/verify", () => {
   it("returns 429 when rate limited", async () => {
     routeMocks.checkDemoRateLimit.mockResolvedValue({ limited: true });
     const { POST } = await import("@/app/api/demo/verify/route");
-    const res = await POST(demoRequest({ scenarioId: "allowed-read" }));
+    const res = await POST(demoRequest({ scenarioId: "github-read-allowed" }));
     expect(res.status).toBe(429);
   });
 
@@ -82,7 +82,7 @@ describe("POST /api/demo/verify", () => {
   it("returns allowed decision with real requestId", async () => {
     routeMocks.runDemoScenario.mockReturnValue(makeResult({ allowed: true }));
     const { POST } = await import("@/app/api/demo/verify/route");
-    const res = await POST(demoRequest({ scenarioId: "allowed-read" }));
+    const res = await POST(demoRequest({ scenarioId: "github-read-allowed" }));
     expect(res.status).toBe(200);
     const data = await res.json() as Record<string, unknown>;
     expect(data.allowed).toBe(true);
@@ -93,33 +93,33 @@ describe("POST /api/demo/verify", () => {
     expect(data.timestamp).toBe("2026-01-01T00:00:00.000Z");
   });
 
-  it("returns denied decision for over-limit purchase", async () => {
+  it("returns denied decision for migration-denied", async () => {
     routeMocks.runDemoScenario.mockReturnValue(makeResult({
       allowed: false,
       approvalRequired: false,
-      reason: "Amount exceeds maxAmount constraint.",
+      reason: "No active permission exists for this action.",
       risk: "high",
-      scenarioId: "over-limit-purchase"
+      scenarioId: "migration-denied"
     }));
     const { POST } = await import("@/app/api/demo/verify/route");
-    const res = await POST(demoRequest({ scenarioId: "over-limit-purchase" }));
+    const res = await POST(demoRequest({ scenarioId: "migration-denied" }));
     expect(res.status).toBe(200);
     const data = await res.json() as Record<string, unknown>;
     expect(data.allowed).toBe(false);
     expect(data.approvalRequired).toBe(false);
-    expect(data.reason).toBe("Amount exceeds maxAmount constraint.");
+    expect(data.reason).toBe("No active permission exists for this action.");
   });
 
-  it("returns needs_approval decision for approval-purchase scenario", async () => {
+  it("returns needs_approval decision for deploy-approval scenario", async () => {
     routeMocks.runDemoScenario.mockReturnValue(makeResult({
       allowed: false,
       approvalRequired: true,
       reason: "Permission requires approval before execution.",
       risk: "medium",
-      scenarioId: "approval-purchase"
+      scenarioId: "deploy-approval"
     }));
     const { POST } = await import("@/app/api/demo/verify/route");
-    const res = await POST(demoRequest({ scenarioId: "approval-purchase" }));
+    const res = await POST(demoRequest({ scenarioId: "deploy-approval" }));
     expect(res.status).toBe(200);
     const data = await res.json() as Record<string, unknown>;
     expect(data.allowed).toBe(false);
@@ -129,7 +129,7 @@ describe("POST /api/demo/verify", () => {
 
   it("passes scenarioId to runDemoScenario", async () => {
     const { POST } = await import("@/app/api/demo/verify/route");
-    await POST(demoRequest({ scenarioId: "blocked-action" }));
-    expect(routeMocks.runDemoScenario).toHaveBeenCalledWith("blocked-action");
+    await POST(demoRequest({ scenarioId: "push-main-denied" }));
+    expect(routeMocks.runDemoScenario).toHaveBeenCalledWith("push-main-denied");
   });
 });

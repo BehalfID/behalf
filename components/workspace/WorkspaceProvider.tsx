@@ -1,7 +1,13 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, type ReactNode } from "react";
-import { setActiveWorkspaceSlug } from "@/lib/workspaceClient";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  type ReactNode
+} from "react";
+import { resolveDashboardFetchPath, workspaceApiJson as scopedApiJson } from "@/lib/workspaceClient";
 import {
   workspaceApiHref,
   workspaceDashboardBasePath,
@@ -12,8 +18,9 @@ export type WorkspaceContextValue = {
   workspaceSlug: string;
   workspaceBasePath: string;
   workspaceHref: (subpath?: string) => string;
-  workspaceApi: (path: string, init?: RequestInit) => Promise<Response>;
   workspaceApiPath: (path: string) => string;
+  workspaceApi: (path: string, init?: RequestInit) => Promise<Response>;
+  workspaceApiJson: <T>(path: string, init?: RequestInit) => Promise<T>;
 };
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
@@ -25,13 +32,13 @@ export function WorkspaceProvider({
   workspaceSlug: string;
   children: ReactNode;
 }) {
-  useEffect(() => {
-    setActiveWorkspaceSlug(workspaceSlug);
-    return () => setActiveWorkspaceSlug(null);
-  }, [workspaceSlug]);
-
   const workspaceApiPath = useCallback(
     (path: string) => workspaceApiHref(workspaceSlug, path),
+    [workspaceSlug]
+  );
+
+  const workspaceHref = useCallback(
+    (subpath = "") => workspaceDashboardHref(workspaceSlug, subpath),
     [workspaceSlug]
   );
 
@@ -51,15 +58,23 @@ export function WorkspaceProvider({
     [workspaceSlug]
   );
 
+  const workspaceApiJson = useCallback(
+    async <T,>(path: string, init?: RequestInit): Promise<T> => {
+      return scopedApiJson<T>(workspaceSlug, path, init);
+    },
+    [workspaceSlug]
+  );
+
   const value = useMemo<WorkspaceContextValue>(
     () => ({
       workspaceSlug,
       workspaceBasePath: workspaceDashboardBasePath(workspaceSlug),
-      workspaceHref: (subpath = "") => workspaceDashboardHref(workspaceSlug, subpath),
+      workspaceHref,
+      workspaceApiPath,
       workspaceApi,
-      workspaceApiPath
+      workspaceApiJson
     }),
-    [workspaceSlug, workspaceApi, workspaceApiPath]
+    [workspaceSlug, workspaceHref, workspaceApiPath, workspaceApi, workspaceApiJson]
   );
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
@@ -75,4 +90,82 @@ export function useWorkspace(): WorkspaceContextValue {
 
 export function useOptionalWorkspace(): WorkspaceContextValue | null {
   return useContext(WorkspaceContext);
+}
+
+export type DashboardPaths = {
+  workspaceSlug: string | null;
+  /** Resolve /dashboard/... or /api/dashboard/... against the active workspace when present. */
+  href: (path: string) => string;
+  apiPath: (path: string) => string;
+};
+
+/**
+ * Path helpers bound to WorkspaceProvider when present.
+ * Without a provider, returns legacy /dashboard and /api/dashboard paths unchanged.
+ * Slug is read synchronously from context — no useEffect / module globals.
+ */
+export function useDashboardPaths(): DashboardPaths {
+  const ctx = useOptionalWorkspace();
+  const workspaceSlug = ctx?.workspaceSlug ?? null;
+
+  return useMemo(
+    () => ({
+      workspaceSlug,
+      href: (path: string) => resolveDashboardFetchPath(path, workspaceSlug),
+      apiPath: (path: string) => resolveDashboardFetchPath(path, workspaceSlug)
+    }),
+    [workspaceSlug]
+  );
+}
+
+export type DashboardApi = DashboardPaths & {
+  fetch: (path: string, init?: RequestInit) => Promise<Response>;
+  apiJson: <T>(path: string, init?: RequestInit) => Promise<T>;
+};
+
+/**
+ * Fetch helpers bound to the current workspace context.
+ * Prefer this for all dashboard mutations and reads from React trees.
+ */
+export function useDashboardApi(): DashboardApi {
+  const paths = useDashboardPaths();
+
+  const fetchBound = useCallback(
+    async (path: string, init?: RequestInit) => {
+      return fetch(paths.apiPath(path), {
+        ...init,
+        credentials: "include",
+        headers: {
+          Accept: "application/json",
+          ...(init?.body ? { "Content-Type": "application/json" } : {}),
+          ...init?.headers
+        }
+      });
+    },
+    [paths]
+  );
+
+  const apiJson = useCallback(
+    async <T,>(path: string, init?: RequestInit): Promise<T> => {
+      const response = await fetchBound(path, init);
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as
+          | { error?: string; upgradeHint?: string }
+          | null;
+        const hint = body?.upgradeHint ? ` ${body.upgradeHint}` : "";
+        throw new Error(`${body?.error ?? `Request failed with ${response.status}`}${hint}`);
+      }
+      return response.json() as Promise<T>;
+    },
+    [fetchBound]
+  );
+
+  return useMemo(
+    () => ({
+      ...paths,
+      fetch: fetchBound,
+      apiJson
+    }),
+    [paths, fetchBound, apiJson]
+  );
 }

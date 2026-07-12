@@ -2,13 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ButtonLink, EmptyState, PageHeader } from "@/components/ui";
-import { resolveDashboardFetchPath } from "@/lib/workspaceClient";
+import { useDashboardApi, useDashboardPaths } from "@/components/workspace/WorkspaceProvider";
 import { DecisionIndicator, OpsDrawerLink, OpsLogEventCard } from "./OpsEventPrimitives";
 import {
   formatOpsDate,
   formatOpsTime,
   logDecisionLabel,
-  logDecisionShortLabel,
   approvalRequiredMetricLabel,
   logDecisionTone,
   type OpsLog,
@@ -21,19 +20,8 @@ type LogsResponse = {
   pagination?: { limit: number; page: number; total: number; hasMore: boolean };
 };
 
-async function fetchLogs(path: string): Promise<LogsResponse> {
-  const response = await fetch(resolveDashboardFetchPath(path), {
-    credentials: "include",
-    headers: { Accept: "application/json" }
-  });
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(body?.error ?? `Request failed with ${response.status}`);
-  }
-  return response.json() as Promise<LogsResponse>;
-}
-
 function LogDetailDrawer({ log, onClose }: { log: OpsLog; onClose: () => void }) {
+  const { href } = useDashboardPaths();
   const [copied, setCopied] = useState<string | null>(null);
   const tone = logDecisionTone(log);
 
@@ -110,9 +98,7 @@ function LogDetailDrawer({ log, onClose }: { log: OpsLog; onClose: () => void })
           <section className="ops-drawer__section">
             <h3 className="ops-drawer__section-title">Approval request</h3>
             <OpsDrawerLink
-              href={resolveDashboardFetchPath(
-                `/dashboard/approvals?highlight=${encodeURIComponent(log.approvalId)}`
-              )}
+              href={href(`/dashboard/approvals?highlight=${encodeURIComponent(log.approvalId)}`)}
             >
               Open approval queue
             </OpsDrawerLink>
@@ -166,6 +152,7 @@ export function OpsLogConsole({
   initialSearch?: string;
   initialAgentId?: string;
 }) {
+  const { apiJson, apiPath } = useDashboardApi();
   const [search, setSearch] = useState(initialSearch ?? "");
   const [decision, setDecision] = useState("");
   const [agentId, setAgentId] = useState(initialAgentId ?? "");
@@ -189,20 +176,20 @@ export function OpsLogConsole({
     if (risk) params.set("risk", risk);
     if (range === "24h") params.set("from", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
     if (range === "7d") params.set("from", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
-    return resolveDashboardFetchPath(`/api/dashboard/logs?${params.toString()}`);
+    return `/api/dashboard/logs?${params.toString()}`;
   }, [action, agentId, compact, decision, environment, initialLimit, range, risk, search]);
 
   const reload = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      setData(await fetchLogs(path));
+      setData(await apiJson<LogsResponse>(path));
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Request failed.");
     } finally {
       setLoading(false);
     }
-  }, [path]);
+  }, [apiJson, path]);
 
   useEffect(() => {
     void reload();
@@ -216,7 +203,8 @@ export function OpsLogConsole({
     if (match) setSelected(match);
   }, [initialSearch, logs]);
 
-  const exportHref = `${path}${path.includes("?") ? "&" : "?"}format=csv`;
+  const resolvedPath = apiPath(path);
+  const exportHref = `${resolvedPath}${resolvedPath.includes("?") ? "&" : "?"}format=csv`;
   const hasFilters = Boolean(search || decision || agentId || action || environment || risk || range);
 
   return (

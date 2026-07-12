@@ -12,106 +12,122 @@ import { config } from "dotenv";
 import { pathToFileURL } from "node:url";
 import mongoose from "mongoose";
 import { connectToDatabase } from "@/lib/db";
+import { validateWorkspaceSlug } from "@/lib/workspaceSlug";
 import {
-  accountIdSlugSuffix,
-  normalizeWorkspaceSlug,
-  validateWorkspaceSlug,
-  WORKSPACE_SLUG_MAX_LENGTH,
-  WORKSPACE_SLUG_PATTERN,
-  isReservedWorkspaceSlug
-} from "@/lib/workspaceSlug";
-import { generateUniqueWorkspaceSlug } from "@/lib/workspaceSlugServer";
+  assignSlugWithDuplicateRetry,
+  isMongoDuplicateKeyError
+} from "@/lib/workspaceSlugServer";
 import Account from "@/models/Account";
 
 config({ path: ".env.local" });
 config();
 
-type RowStatus =
-  | "skip-valid"
-  | "would-write"
-  | "wrote"
-  | "collision"
-  | "invalid-existing"
-  | "invalid-proposed";
+export type BackfillTotals = {
+  scanned: number;
+  alreadyValid: number;
+  proposed: number;
+  wrote: number;
+  collisionResolved: number;
+  invalid: number;
+  errors: number;
+};
 
-type AccountRow = {
+export type AccountRow = {
   accountId: string;
   name: string;
   companyName?: string | null;
   slug?: string | null;
 };
 
-function withAccountSuffix(base: string, accountId: string): string {
-  const suffix = accountIdSlugSuffix(accountId);
-  const sep = "-";
-  const maxBase = WORKSPACE_SLUG_MAX_LENGTH - sep.length - suffix.length;
-  const trimmedBase =
-    base.slice(0, Math.max(1, maxBase)).replace(/-+$/g, "") || "workspace";
-  const candidate = `${trimmedBase}${sep}${suffix}`;
-  if (isReservedWorkspaceSlug(candidate) || !WORKSPACE_SLUG_PATTERN.test(candidate)) {
-    return `workspace-${suffix}`.slice(0, WORKSPACE_SLUG_MAX_LENGTH);
-  }
-  return candidate;
-}
+export type BackfillDeps = {
+  confirm: boolean;
+  requireMongoUri?: boolean;
+  getMongoUri?: () => string | undefined;
+  connect?: () => Promise<void>;
+  listAccounts?: () => Promise<AccountRow[]>;
+  updateSlug?: (
+    accountId: string,
+    slug: string
+  ) => Promise<{ matchedCount: number; modifiedCount: number }>;
+  findSlug?: (accountId: string) => Promise<string | null>;
+  log?: (line: string) => void;
+};
 
-function printRow(
-  accountId: string,
-  name: string,
-  proposedSlug: string,
-  status: RowStatus
-) {
-  console.log(`${accountId}\t${name}\t${proposedSlug}\t${status}`);
-}
-
-async function proposeSlug(
-  account: AccountRow,
-  claimed: Map<string, string>
-): Promise<{ slug: string; status: "ok" | "collision" | "invalid-proposed" }> {
-  const seed =
+function seedForAccount(account: AccountRow): string {
+  return (
     (typeof account.companyName === "string" && account.companyName.trim()) ||
     (typeof account.name === "string" && account.name.trim()) ||
-    "workspace";
-
-  let proposed = await generateUniqueWorkspaceSlug(seed, account.accountId);
-  const owner = claimed.get(proposed);
-  if (owner && owner !== account.accountId) {
-    proposed = withAccountSuffix(normalizeWorkspaceSlug(seed), account.accountId);
-  }
-
-  const stillOwned = claimed.get(proposed);
-  if (stillOwned && stillOwned !== account.accountId) {
-    return { slug: proposed, status: "collision" };
-  }
-
-  if (validateWorkspaceSlug(proposed)) {
-    return { slug: proposed, status: "invalid-proposed" };
-  }
-
-  return { slug: proposed, status: "ok" };
+    "workspace"
+  );
 }
 
-async function main() {
-  const confirm = process.argv.includes("--confirm");
+function emptyTotals(): BackfillTotals {
+  return {
+    scanned: 0,
+    alreadyValid: 0,
+    proposed: 0,
+    wrote: 0,
+    collisionResolved: 0,
+    invalid: 0,
+    errors: 0
+  };
+}
+
+export async function runWorkspaceSlugBackfill(deps: BackfillDeps): Promise<BackfillTotals> {
+  const log = deps.log ?? ((line: string) => console.log(line));
+  const confirm = deps.confirm;
+  const requireMongoUri = deps.requireMongoUri !== false;
+  const getMongoUri = deps.getMongoUri ?? (() => process.env.MONGODB_URI);
+  const totals = emptyTotals();
+
+  if (requireMongoUri && !getMongoUri()?.trim()) {
+    throw new Error("MONGODB_URI is required. No writes were performed.");
+  }
+
   const mode = confirm ? "WRITE" : "DRY-RUN";
-  console.log(`workspace-slugs:backfill (${mode})`);
-  console.log("accountId\tname\tproposedSlug\tstatus");
+  log(`workspace-slugs:backfill (${mode})`);
 
-  await connectToDatabase();
+  if (deps.connect) {
+    await deps.connect();
+  } else {
+    await connectToDatabase();
+  }
 
-  const accounts = (await Account.find({})
-    .select("accountId name companyName slug")
-    .lean()) as AccountRow[];
+  const listAccounts =
+    deps.listAccounts ??
+    (async () =>
+      (await Account.find({}).select("accountId name companyName slug").lean()) as AccountRow[]);
 
+  const updateSlug =
+    deps.updateSlug ??
+    (async (accountId: string, slug: string) => {
+      const result = await Account.updateOne(
+        {
+          accountId,
+          $or: [{ slug: { $exists: false } }, { slug: null }, { slug: "" }]
+        },
+        { $set: { slug } }
+      );
+      return { matchedCount: result.matchedCount, modifiedCount: result.modifiedCount };
+    });
+
+  const findSlug =
+    deps.findSlug ??
+    (async (accountId: string) => {
+      const refreshed = await Account.findOne({ accountId }).select("slug").lean();
+      return typeof refreshed?.slug === "string" ? refreshed.slug.trim().toLowerCase() : null;
+    });
+
+  const accounts = await listAccounts();
   const claimed = new Map<string, string>();
-  let failures = 0;
-  let writes = 0;
-  let skips = 0;
-  let pending = 0;
 
   for (const account of accounts) {
+    totals.scanned += 1;
+
     if (!account.accountId || !account.name) {
-      printRow(account.accountId ?? "(missing)", account.name ?? "(missing)", "", "invalid-existing");
-      failures += 1;
+      totals.invalid += 1;
+      totals.errors += 1;
+      log(`row\tstatus=invalid-existing\treason=missing-id-or-name`);
       continue;
     }
 
@@ -122,71 +138,126 @@ async function main() {
       if (!validateWorkspaceSlug(existing)) {
         const owner = claimed.get(existing);
         if (owner && owner !== account.accountId) {
-          printRow(account.accountId, account.name, existing, "collision");
-          failures += 1;
+          totals.invalid += 1;
+          totals.errors += 1;
+          log(`row\tstatus=collision\tslug=${existing}`);
           continue;
         }
         claimed.set(existing, account.accountId);
-        printRow(account.accountId, account.name, existing, "skip-valid");
-        skips += 1;
+        totals.alreadyValid += 1;
+        log(`row\tstatus=skip-valid\tslug=${existing}`);
         continue;
       }
 
-      // Existing slug is present but invalid — never overwrite; fail closed.
-      printRow(account.accountId, account.name, existing, "invalid-existing");
-      failures += 1;
+      totals.invalid += 1;
+      totals.errors += 1;
+      log(`row\tstatus=invalid-existing\tslug=${existing}`);
       continue;
     }
 
-    const result = await proposeSlug(account, claimed);
-    if (result.status !== "ok") {
-      printRow(account.accountId, account.name, result.slug, result.status);
-      failures += 1;
-      continue;
-    }
-
-    claimed.set(result.slug, account.accountId);
+    const seed = seedForAccount(account);
 
     if (!confirm) {
-      printRow(account.accountId, account.name, result.slug, "would-write");
-      pending += 1;
-      continue;
-    }
-
-    const updated = await Account.updateOne(
-      {
-        accountId: account.accountId,
-        $or: [{ slug: { $exists: false } }, { slug: null }, { slug: "" }]
-      },
-      { $set: { slug: result.slug } }
-    );
-
-    if (updated.modifiedCount !== 1) {
-      // Another writer may have set a slug; re-read and fail closed if unexpected.
-      const refreshed = await Account.findOne({ accountId: account.accountId })
-        .select("slug")
-        .lean();
-      const current =
-        typeof refreshed?.slug === "string" ? refreshed.slug.trim().toLowerCase() : "";
-      if (current && !validateWorkspaceSlug(current)) {
-        printRow(account.accountId, account.name, current, "skip-valid");
-        skips += 1;
-        continue;
+      try {
+        const { generateUniqueWorkspaceSlug } = await import("@/lib/workspaceSlugServer");
+        let proposed = await generateUniqueWorkspaceSlug(seed, account.accountId);
+        const owner = claimed.get(proposed);
+        if (owner && owner !== account.accountId) {
+          // Force next deterministic candidate by pretending the base is taken.
+          const candidatesModule = await import("@/lib/workspaceSlugServer");
+          const candidates = candidatesModule.buildWorkspaceSlugCandidates(seed, account.accountId);
+          proposed =
+            candidates.find((candidate) => {
+              const claimOwner = claimed.get(candidate);
+              return !claimOwner || claimOwner === account.accountId;
+            }) ?? proposed;
+          totals.collisionResolved += 1;
+        }
+        if (validateWorkspaceSlug(proposed)) {
+          totals.invalid += 1;
+          totals.errors += 1;
+          log(`row\tstatus=invalid-proposed\tslug=${proposed}`);
+          continue;
+        }
+        const stillOwned = claimed.get(proposed);
+        if (stillOwned && stillOwned !== account.accountId) {
+          totals.invalid += 1;
+          totals.errors += 1;
+          log(`row\tstatus=collision\tslug=${proposed}`);
+          continue;
+        }
+        claimed.set(proposed, account.accountId);
+        totals.proposed += 1;
+        log(`row\tstatus=would-write\tslug=${proposed}`);
+      } catch (error) {
+        totals.errors += 1;
+        log(
+          `row\tstatus=error\treason=${error instanceof Error ? error.message : "allocation-failed"}`
+        );
       }
-      printRow(account.accountId, account.name, result.slug, "collision");
-      failures += 1;
       continue;
     }
 
-    printRow(account.accountId, account.name, result.slug, "wrote");
-    writes += 1;
+    try {
+      let collisionRetries = 0;
+      const assigned = await assignSlugWithDuplicateRetry(seed, account.accountId, async (slug) => {
+        try {
+          const updated = await updateSlug(account.accountId, slug);
+          if (updated.matchedCount === 0) {
+            const current = await findSlug(account.accountId);
+            if (current && !validateWorkspaceSlug(current)) {
+              return;
+            }
+            const err = new Error("E11000 duplicate key error collection: accounts index: slug");
+            (err as { code?: number }).code = 11000;
+            throw err;
+          }
+        } catch (error) {
+          if (isMongoDuplicateKeyError(error)) {
+            collisionRetries += 1;
+            throw error;
+          }
+          throw error;
+        }
+      });
+
+      if (collisionRetries > 0) {
+        totals.collisionResolved += 1;
+      }
+
+      const current = await findSlug(account.accountId);
+      const finalSlug = current && !validateWorkspaceSlug(current) ? current : assigned;
+      claimed.set(finalSlug, account.accountId);
+      totals.wrote += 1;
+      log(`row\tstatus=wrote\tslug=${finalSlug}`);
+    } catch (error) {
+      totals.errors += 1;
+      log(
+        `row\tstatus=error\treason=${error instanceof Error ? error.message : "write-failed"}`
+      );
+    }
   }
 
-  console.log(
-    `summary\tskips=${skips}\tpending=${pending}\twrites=${writes}\tfailures=${failures}`
+  log(
+    [
+      "summary",
+      `scanned=${totals.scanned}`,
+      `alreadyValid=${totals.alreadyValid}`,
+      `proposed=${totals.proposed}`,
+      `wrote=${totals.wrote}`,
+      `collisionResolved=${totals.collisionResolved}`,
+      `invalid=${totals.invalid}`,
+      `errors=${totals.errors}`
+    ].join("\t")
   );
 
-  if (failures > 0) {
+  return totals;
+}
+
+async function main() {
+  const confirm = process.argv.includes("--confirm");
+  const totals = await runWorkspaceSlugBackfill({ confirm });
+  if (totals.errors > 0 || totals.invalid > 0) {
     process.exitCode = 1;
   }
 }

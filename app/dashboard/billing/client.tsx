@@ -17,8 +17,7 @@ import {
   getUsageLimitState,
   getUsageStatusLabel
 } from "@/lib/usageDisplay";
-import { resolveDashboardFetchPath } from "@/lib/workspaceClient";
-import { useOptionalWorkspace } from "@/components/workspace/WorkspaceProvider";
+import { useDashboardApi, useOptionalWorkspace } from "@/components/workspace/WorkspaceProvider";
 
 type BillingProps = {
   plan: Plan;
@@ -90,6 +89,7 @@ export function BillingClient({
   embedded = false
 }: BillingProps) {
   const workspace = useOptionalWorkspace();
+  const { fetch: dashboardFetch } = useDashboardApi();
   const [loading, setLoading] = useState<"checkout" | "portal" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const entitlements = getPlanEntitlements(plan);
@@ -99,7 +99,7 @@ export function BillingClient({
     setLoading("checkout");
     setError(null);
     try {
-      const res = await fetch(resolveDashboardFetchPath("/api/billing/checkout"), { method: "POST" });
+      const res = await dashboardFetch("/api/billing/checkout", { method: "POST" });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Something went wrong. Please try again.");
@@ -111,13 +111,13 @@ export function BillingClient({
     } finally {
       setLoading(null);
     }
-  }, []);
+  }, [dashboardFetch]);
 
   const handlePortal = useCallback(async () => {
     setLoading("portal");
     setError(null);
     try {
-      const res = await fetch(resolveDashboardFetchPath("/api/billing/portal"), { method: "POST" });
+      const res = await dashboardFetch("/api/billing/portal", { method: "POST" });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Something went wrong. Please try again.");
@@ -129,7 +129,7 @@ export function BillingClient({
     } finally {
       setLoading(null);
     }
-  }, []);
+  }, [dashboardFetch]);
 
   const content = (
     <>
@@ -290,6 +290,7 @@ export function BillingClient({
 }
 
 function EnterpriseSection() {
+  const { fetch: dashboardFetch } = useDashboardApi();
   const [form, setForm] = useState({ name: "", email: "", company: "", message: "" });
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -300,9 +301,8 @@ function EnterpriseSection() {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch(resolveDashboardFetchPath("/api/billing/enterprise-inquiry"), {
+      const res = await dashboardFetch("/api/billing/enterprise-inquiry", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form)
       });
       const data = await res.json();
@@ -317,7 +317,7 @@ function EnterpriseSection() {
     } finally {
       setSubmitting(false);
     }
-  }, [form]);
+  }, [dashboardFetch, form]);
 
   return (
     <section className="billing-enterprise">

@@ -1,14 +1,75 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { WORKSPACE_SLUG_HEADER } from "@/lib/workspaceSlug";
+
+type Capture = {
+  kind: "next" | "rewrite" | "redirect";
+  url?: URL;
+  requestHeaders?: Headers;
+};
+
+const captures: Capture[] = [];
+
+function mockResponse(kind: Capture["kind"], url?: URL, init?: { request?: { headers?: Headers } }) {
+  captures.push({
+    kind,
+    url,
+    requestHeaders: init?.request?.headers
+  });
+  return {
+    status: 200,
+    headers: new Headers(),
+    cookies: { getAll: () => [], set: vi.fn() }
+  };
+}
 
 vi.mock("next/server", () => ({
-  NextResponse: { next: vi.fn(), redirect: vi.fn(), rewrite: vi.fn() }
+  NextResponse: {
+    next: vi.fn((init?: { request?: { headers?: Headers } }) => mockResponse("next", undefined, init)),
+    redirect: vi.fn((url: URL) => mockResponse("redirect", url)),
+    rewrite: vi.fn((url: URL, init?: { request?: { headers?: Headers } }) =>
+      mockResponse("rewrite", url, init)
+    )
+  }
 }));
-vi.mock("next-intl/middleware", () => ({ default: vi.fn(() => vi.fn()) }));
+
+vi.mock("next-intl/middleware", () => ({
+  default: vi.fn(() =>
+    vi.fn(() => ({
+      status: 200,
+      headers: new Headers(),
+      cookies: { getAll: () => [] }
+    }))
+  )
+}));
+
 vi.mock("@/i18n/routing", () => ({
   routing: { locales: ["en", "de", "es", "fr"], defaultLocale: "en", localePrefix: "as-needed" }
 }));
 
-import { buildWorkspaceRewritePath, matchWorkspacePublicPath } from "@/proxy";
+import { buildWorkspaceRewritePath, matchWorkspacePublicPath, proxy } from "@/proxy";
+
+function makeRequest(path: string, headers?: Record<string, string>) {
+  const url = new URL(path, "https://example.test");
+  const hdrs = new Headers(headers);
+  return {
+    nextUrl: {
+      pathname: url.pathname,
+      search: url.search,
+      hostname: url.hostname,
+      href: url.href,
+      clone() {
+        return new URL(url.href);
+      }
+    },
+    headers: hdrs,
+    url: url.href
+  } as never;
+}
+
+beforeEach(() => {
+  captures.length = 0;
+  vi.clearAllMocks();
+});
 
 describe("matchWorkspacePublicPath", () => {
   it("matches /<slug>/dashboard", () => {
@@ -75,16 +136,71 @@ describe("buildWorkspaceRewritePath", () => {
   });
 });
 
-describe("workspace rewrite query preservation", () => {
-  it("documents that pathname rewrite via nextUrl.clone keeps the search string", () => {
-    // Mirrors proxy.ts: rewriteUrl = request.nextUrl.clone(); rewriteUrl.pathname = ...
-    const original = new URL("http://example.test/trajectus/dashboard/agents?tab=all&q=1");
-    const match = matchWorkspacePublicPath(original.pathname);
-    expect(match).not.toBeNull();
-    const rewritePath = buildWorkspaceRewritePath(match!);
-    const cloned = new URL(original.href);
-    cloned.pathname = rewritePath;
-    expect(cloned.pathname).toBe("/workspace/trajectus/dashboard/agents");
-    expect(cloned.search).toBe("?tab=all&q=1");
+describe("proxy() workspace header trust boundary", () => {
+  it("strips forged client workspace slug header on direct /api/dashboard requests", () => {
+    proxy(
+      makeRequest("/api/dashboard/summary", {
+        [WORKSPACE_SLUG_HEADER]: "victim"
+      })
+    );
+
+    expect(captures.length).toBe(1);
+    expect(captures[0]?.kind).toBe("next");
+    expect(captures[0]?.requestHeaders?.get(WORKSPACE_SLUG_HEADER)).toBeNull();
+  });
+
+  it("sets trusted slug from path and ignores forged client header on scoped API", () => {
+    proxy(
+      makeRequest("/alpha/api/dashboard/summary", {
+        [WORKSPACE_SLUG_HEADER]: "victim"
+      })
+    );
+
+    expect(captures.length).toBe(1);
+    expect(captures[0]?.kind).toBe("rewrite");
+    expect(captures[0]?.url?.pathname).toBe("/api/dashboard/summary");
+    expect(captures[0]?.requestHeaders?.get(WORKSPACE_SLUG_HEADER)).toBe("alpha");
+  });
+
+  it("rewrites scoped billing API with trusted beta slug", () => {
+    proxy(makeRequest("/beta/api/billing/checkout"));
+
+    expect(captures.length).toBe(1);
+    expect(captures[0]?.kind).toBe("rewrite");
+    expect(captures[0]?.url?.pathname).toBe("/api/billing/checkout");
+    expect(captures[0]?.requestHeaders?.get(WORKSPACE_SLUG_HEADER)).toBe("beta");
+  });
+
+  it("never attaches a trusted workspace header for reserved, locale, static, auth, or marketing paths", () => {
+    const paths = [
+      "/api/health",
+      "/login",
+      "/docs/quickstart",
+      "/en/docs",
+      "/_next/static/chunk.js",
+      "/authenticate",
+      "/pricing"
+    ];
+
+    for (const path of paths) {
+      captures.length = 0;
+      proxy(
+        makeRequest(path, {
+          [WORKSPACE_SLUG_HEADER]: "victim"
+        })
+      );
+      for (const capture of captures) {
+        expect(capture.requestHeaders?.get(WORKSPACE_SLUG_HEADER) ?? null).toBeNull();
+      }
+    }
+  });
+
+  it("preserves query strings on workspace API rewrites", () => {
+    proxy(makeRequest("/alpha/api/dashboard/logs?limit=8&cursor=abc"));
+
+    expect(captures[0]?.kind).toBe("rewrite");
+    expect(captures[0]?.url?.pathname).toBe("/api/dashboard/logs");
+    expect(captures[0]?.url?.search).toBe("?limit=8&cursor=abc");
+    expect(captures[0]?.requestHeaders?.get(WORKSPACE_SLUG_HEADER)).toBe("alpha");
   });
 });

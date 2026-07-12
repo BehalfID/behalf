@@ -2,6 +2,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { stubCliHome } from "./helpers/stubCliHome";
 
 function tempDir(prefix: string) {
   return mkdtempSync(join(tmpdir(), prefix));
@@ -9,7 +10,7 @@ function tempDir(prefix: string) {
 
 async function loadLogsCommand(home: string) {
   vi.resetModules();
-  vi.stubEnv("HOME", home);
+  stubCliHome(home);
   vi.stubEnv("BEHALFID_BASE_URL", "http://localhost:3000");
   vi.stubEnv("BEHALFID_API_KEY", "bhf_sk_super_secret_value");
   return {

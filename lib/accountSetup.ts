@@ -362,7 +362,7 @@ export async function completeAccountSetup(
     typeof existingAccount?.slug === "string" ? existingAccount.slug.trim().toLowerCase() : "";
 
   const { validateWorkspaceSlug, workspaceDashboardHref } = await import("@/lib/workspaceSlug");
-  const { generateUniqueWorkspaceSlug } = await import("@/lib/workspaceSlugServer");
+  const { assignSlugWithDuplicateRetry } = await import("@/lib/workspaceSlugServer");
 
   const accountSet: Record<string, unknown> = {
     accountType: validated.account.accountType,
@@ -378,11 +378,13 @@ export async function completeAccountSetup(
   if (!slug) {
     const seed =
       validated.account.companyName?.trim() || validated.account.name?.trim() || "workspace";
-    slug = await generateUniqueWorkspaceSlug(seed, primaryAccountId);
-    accountSet.slug = slug;
+    slug = await assignSlugWithDuplicateRetry(seed, primaryAccountId, async (candidate) => {
+      accountSet.slug = candidate;
+      await Account.updateOne({ accountId: primaryAccountId }, { $set: accountSet });
+    });
+  } else {
+    await Account.updateOne({ accountId: primaryAccountId }, { $set: accountSet });
   }
-
-  await Account.updateOne({ accountId: primaryAccountId }, { $set: accountSet });
 
   const nextBase = getNextRouteForFirstSetupGoal(validated.account.onboarding.firstSetupGoal);
   const nextRoute =

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Button, EmptyState, PageHeader } from "@/components/ui";
+import { useDashboardPaths } from "@/components/workspace/WorkspaceProvider";
 import { DecisionIndicator, OpsApprovalCard, OpsApprovalQueueRow } from "./OpsEventPrimitives";
 import {
   formatPauseApprovalDetails,
@@ -25,6 +26,7 @@ export function OpsInboxConsole({
   onResolve: (approvalId: string, action: "approve" | "deny") => Promise<void>;
   dateFormatter: (value?: string | null) => string;
 }) {
+  const { href } = useDashboardPaths();
   const pending = (inbox.data?.pendingApprovals ?? []).filter((item) => item.status === "pending");
   const activeGrants = (inbox.data?.pendingApprovals ?? []).filter((item) => item.status === "approved");
   const denied = inbox.data?.deniedHighRisk ?? [];
@@ -44,7 +46,7 @@ export function OpsInboxConsole({
           <h2 className="ops-triage__title">Pending actions</h2>
           <div className="ops-triage__head-actions">
             {pending.length ? <span className="ops-triage__count">{pending.length} waiting</span> : null}
-            <Link href="/dashboard/approvals" className="ops-triage__link">Open queue</Link>
+            <Link href={href("/dashboard/approvals")} className="ops-triage__link">Open queue</Link>
           </div>
         </div>
         {!inbox.data ? (
@@ -117,7 +119,7 @@ export function OpsInboxConsole({
       <section className="ops-triage__section">
         <div className="ops-triage__head">
           <h2 className="ops-triage__title">Recent high-risk denials</h2>
-          <Link href="/dashboard/logs?decision=denied&risk=high" className="ops-triage__link">View in logs</Link>
+          <Link href={href("/dashboard/logs?decision=denied&risk=high")} className="ops-triage__link">View in logs</Link>
         </div>
         {!inbox.data ? (
           <p className="ops-console__empty">Loading denials…</p>

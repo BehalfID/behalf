@@ -12,7 +12,7 @@ import {
   type ControlProfile
 } from "@/lib/firstAgentSetup";
 import type { AgentTool } from "@/lib/onboarding";
-import { resolveDashboardFetchPath } from "@/lib/workspaceClient";
+import { useDashboardApi } from "@/components/workspace/WorkspaceProvider";
 import { AgentIdentityStep } from "./AgentIdentityStep";
 import { AgentSurfaceStep } from "./AgentSurfaceStep";
 import { AgentTokenStep } from "./AgentTokenStep";
@@ -42,23 +42,6 @@ type SetupApiResponse = {
   };
 };
 
-async function setupApi<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(resolveDashboardFetchPath(path), {
-    ...init,
-    credentials: "include",
-    headers: {
-      Accept: "application/json",
-      ...(init?.body ? { "Content-Type": "application/json" } : {}),
-      ...init?.headers
-    }
-  });
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(body?.error ?? `Request failed with ${response.status}`);
-  }
-  return response.json() as Promise<T>;
-}
-
 export function FirstAgentSetup({
   emailVerified,
   suggestedSurfaces = [],
@@ -68,6 +51,7 @@ export function FirstAgentSetup({
   suggestedSurfaces?: AgentTool[];
   focus?: string | null;
 }) {
+  const { apiJson } = useDashboardApi();
   const initialSurface = useMemo(() => {
     const first = suggestedSurfaces.find((tool) => tool !== "other");
     return (first ?? "") as AgentSurface | "";
@@ -127,7 +111,7 @@ export function FirstAgentSetup({
     setCreating(true);
     setError("");
     try {
-      const result = await setupApi<SetupApiResponse>("/api/dashboard/agents/first-setup", {
+      const result = await apiJson<SetupApiResponse>("/api/dashboard/agents/first-setup", {
         method: "POST",
         body: JSON.stringify({
           surface,
@@ -162,7 +146,7 @@ export function FirstAgentSetup({
     setRunningTest(true);
     setError("");
     try {
-      const result = await setupApi<TestDecisionResult & { approvalId?: string | null }>("/api/verify", {
+      const result = await apiJson<TestDecisionResult & { approvalId?: string | null }>("/api/verify", {
         method: "POST",
         headers: { Authorization: `Bearer ${apiKey}` },
         body: JSON.stringify({

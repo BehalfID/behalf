@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { policyCacheKey } from "../packages/cli/src/lib/profile/shims.js";
+import { stubCliHome } from "./helpers/stubCliHome";
 
 function tempHome() {
   return mkdtempSync(join(tmpdir(), "behalf-profile-"));
@@ -10,22 +11,28 @@ function tempHome() {
 
 async function loadProfileModules(home: string) {
   vi.resetModules();
-  vi.stubEnv("HOME", home);
+  stubCliHome(home);
   return import("../packages/cli/src/commands/profile.js");
 }
 
 async function loadPolicyModule(home: string) {
   vi.resetModules();
-  vi.stubEnv("HOME", home);
+  stubCliHome(home);
   return import("../packages/cli/src/lib/profile/policy.js");
 }
 
 function seedFakeBinary(home: string, tool: string): string {
   const binDir = join(home, "real-bin");
   mkdirSync(binDir, { recursive: true });
-  const binPath = join(binDir, tool);
-  writeFileSync(binPath, `#!/usr/bin/env bash\necho ${tool}\n`, { mode: 0o755 });
-  chmodSync(binPath, 0o755);
+  // Windows resolveOnPath only matches PATHEXT suffixes; use .cmd so tests find the fake.
+  const binName = process.platform === "win32" ? `${tool}.cmd` : tool;
+  const binPath = join(binDir, binName);
+  const body =
+    process.platform === "win32"
+      ? `@echo off\r\necho ${tool}\r\n`
+      : `#!/usr/bin/env bash\necho ${tool}\n`;
+  writeFileSync(binPath, body, { mode: 0o755 });
+  if (process.platform !== "win32") chmodSync(binPath, 0o755);
   const currentPath = process.env.PATH ?? "";
   vi.stubEnv("PATH", `${binDir}${delimiter}${currentPath}`);
   return binPath;
@@ -81,9 +88,14 @@ describe("managed profile shims", () => {
     const home = tempHome();
     seedFakeBinary(home, "codex");
     const mod = await loadProfileModules(home);
-    const shimPath = join(home, ".behalf", "bin", "codex");
+    const ext = process.platform === "win32" ? ".cmd" : "";
+    const shimPath = join(home, ".behalf", "bin", `codex${ext}`);
     mkdirSync(join(home, ".behalf", "bin"), { recursive: true });
-    writeFileSync(shimPath, "#!/bin/bash\necho native\n", { mode: 0o755 });
+    writeFileSync(
+      shimPath,
+      process.platform === "win32" ? "@echo off\r\necho native\r\n" : "#!/bin/bash\necho native\n",
+      { mode: 0o755 }
+    );
 
     const result = mod.installShims({ tools: ["codex"] });
     expect(result[0]?.status).toBe("refused");
@@ -95,14 +107,19 @@ describe("managed profile shims", () => {
     const realPath = seedFakeBinary(home, "cursor");
     const mod = await loadProfileModules(home);
     mod.installShims({ tools: ["cursor"] });
-    expect(mod.resolveRealBinaryPath("cursor")).toBe(realPath);
+    expect(mod.resolveRealBinaryPath("cursor")?.toLowerCase()).toBe(realPath.toLowerCase());
   });
 
   it("warns when PATH ordering puts shims after real tool", async () => {
     const home = tempHome();
     const realDir = join(home, "real-bin");
     mkdirSync(realDir, { recursive: true });
-    writeFileSync(join(realDir, "claude"), "#!/bin/bash\n", { mode: 0o755 });
+    const binName = process.platform === "win32" ? "claude.cmd" : "claude";
+    writeFileSync(
+      join(realDir, binName),
+      process.platform === "win32" ? "@echo off\r\n" : "#!/bin/bash\n",
+      { mode: 0o755 }
+    );
     const shimDir = join(home, ".behalf", "bin");
     mkdirSync(shimDir, { recursive: true });
     vi.stubEnv("PATH", `${realDir}${delimiter}${shimDir}`);
@@ -141,7 +158,7 @@ describe("session policy hardening", () => {
   it("does not let a local pause lease file bypass required server policy", async () => {
     const home = tempHome();
     writeFakePauseLease(home);
-    vi.stubEnv("HOME", home);
+    stubCliHome(home);
     vi.stubEnv("BEHALF" + "ID_BASE_URL", "https://example.test");
 
     vi.stubGlobal(
@@ -172,7 +189,7 @@ describe("session policy hardening", () => {
   it("does not downgrade cached required policy when server is unavailable", async () => {
     const home = tempHome();
     writeFakePauseLease(home);
-    vi.stubEnv("HOME", home);
+    stubCliHome(home);
     vi.stubEnv("BEHALF" + "ID_BASE_URL", "https://example.test");
 
     const policyMod = await loadPolicyModule(home);
@@ -208,7 +225,7 @@ describe("session policy hardening", () => {
 describe("profile simulate command", () => {
   it("calls simulate endpoint with detected repo hash", async () => {
     const home = tempHome();
-    vi.stubEnv("HOME", home);
+    stubCliHome(home);
     vi.stubEnv("BEHALF" + "ID_BASE_URL", "https://example.test");
 
     const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
@@ -247,7 +264,7 @@ describe("profile simulate command", () => {
 
   it("JSON output contains mode, reason, and matchedRule", async () => {
     const home = tempHome();
-    vi.stubEnv("HOME", home);
+    stubCliHome(home);
     vi.stubEnv("BEHALF" + "ID_BASE_URL", "https://example.test");
     vi.stubEnv("BEHALF_JSON", "1");
 
@@ -285,7 +302,7 @@ describe("profile simulate command", () => {
   it("does not write a local pause lease during simulation", async () => {
     const home = tempHome();
     writeFakePauseLease(home);
-    vi.stubEnv("HOME", home);
+    stubCliHome(home);
     vi.stubEnv("BEHALF" + "ID_BASE_URL", "https://example.test");
 
     vi.stubGlobal(

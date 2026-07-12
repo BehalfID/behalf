@@ -16,7 +16,6 @@ import {
 } from "@/components/dashboard/opsLogTypes";
 import { CLI_NPM_INSTALL_COMMAND } from "@/lib/cliInstallCommands";
 import { DashboardShellLayout } from "@/components/layout/DashboardShell";
-import { useOptionalWorkspace } from "@/components/workspace/WorkspaceProvider";
 import { Badge, Button, ButtonLink, Card, CodeBlock, EmptyState, PageHeader, StatCard } from "@/components/ui";
 import {
   CountedUsageLimitTile,
@@ -24,11 +23,7 @@ import {
   WebhookUsageLimitTile
 } from "@/components/usage/UsageLimitTile";
 import { SCOPE_TEMPLATES } from "@/lib/scopeTemplates";
-import { resolveDashboardFetchPath } from "@/lib/workspaceClient";
-
-function dHref(path: string) {
-  return resolveDashboardFetchPath(path);
-}
+import { useDashboardApi, useDashboardPaths, useOptionalWorkspace } from "@/components/workspace/WorkspaceProvider";
 import { getRequiredRoleLabel } from "@/lib/authority";
 import { classifyPermissionRisk } from "@/lib/permissionRisk";
 import { POLICY_TEMPLATES, POLICY_CATEGORY_LABELS, type PolicyTemplate } from "@/lib/policyTemplates";
@@ -345,37 +340,24 @@ const dashboardUseCaseContent: Record<OnboardingUseCase, {
   }
 };
 
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(resolveDashboardFetchPath(path), {
-    ...init,
-    credentials: "include",
-    headers: { Accept: "application/json", ...(init?.body ? { "Content-Type": "application/json" } : {}), ...init?.headers }
-  });
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as { error?: string; upgradeHint?: string } | null;
-    const hint = body?.upgradeHint ? ` ${body.upgradeHint}` : "";
-    throw new Error(`${body?.error ?? `Request failed with ${response.status}`}${hint}`);
-  }
-  return response.json() as Promise<T>;
-}
-
 function useResource<T>(path: string) {
+  const { apiJson, workspaceSlug } = useDashboardApi();
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState("");
   const reload = useCallback(async () => {
     try {
       setError("");
-      setData(await api<T>(path));
+      setData(await apiJson<T>(path));
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Request failed.");
     }
-  }, [path]);
+  }, [path, apiJson]);
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
         setError("");
-        const result = await api<T>(path);
+        const result = await apiJson<T>(path);
         if (!cancelled) setData(result);
       } catch (requestError) {
         if (!cancelled) setError(requestError instanceof Error ? requestError.message : "Request failed.");
@@ -385,9 +367,15 @@ function useResource<T>(path: string) {
     return () => {
       cancelled = true;
     };
-  }, [path]);
+  }, [path, apiJson, workspaceSlug]);
   return { data, error, reload };
 }
+
+async function legacyUnscopedApiRemoved(): Promise<never> {
+  throw new Error("Use useDashboardApi().apiJson inside React components.");
+}
+
+void legacyUnscopedApiRemoved;
 
 function date(value?: string | null) {
   return value ? new Intl.DateTimeFormat("en", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value)) : "Never";
@@ -499,6 +487,7 @@ function FirstAgentSetupViewInner({ emailVerified }: { emailVerified: boolean })
 }
 
 function HomeView() {
+  const { href: dHref } = useDashboardPaths();
   const summary = useResource<{
     totalAgents: number;
     activePermissions: number;
@@ -610,7 +599,7 @@ function HomeView() {
                     className="ops-feed__row"
                     href={
                       pauseApproval
-                        ? `/dashboard/approvals?highlight=${item.approvalId}`
+                        ? dHref(`/dashboard/approvals?highlight=${item.approvalId}`)
                         : dHref("/dashboard/approvals")
                     }
                     key={item.approvalId}
@@ -747,6 +736,7 @@ function formatUsageDate(value: string) {
 }
 
 function PlanUsagePanel({ usage }: { usage: UsageSummary }) {
+  const { href: dHref } = useDashboardPaths();
   return (
     <section className="dashboard-panel plan-usage-panel">
       <div className="dashboard-section-header">
@@ -792,6 +782,7 @@ function PlanUsagePanel({ usage }: { usage: UsageSummary }) {
 }
 
 function AgentsView() {
+  const { href: dHref } = useDashboardPaths();
   const resource = useResource<{ agents: Agent[] }>("/api/dashboard/agents");
   const agents = resource.data?.agents ?? [];
   return (
@@ -813,7 +804,7 @@ function AgentsView() {
         </Card>
       ) : null}
       {agents.length > 0 ? (
-        <Rows items={agents} href={(agent) => `/dashboard/agents/${agent.agentId}`} title={(agent) => agent.name} meta={(agent) => `${agent.provider} / ${agent.status}`} />
+        <Rows items={agents} href={(agent) => dHref(`/dashboard/agents/${agent.agentId}`)} title={(agent) => agent.name} meta={(agent) => `${agent.provider} / ${agent.status}`} />
       ) : null}
     </>
   );
@@ -827,6 +818,7 @@ function sitePaths(value: string) {
 }
 
 function SitesView() {
+  const { apiJson: api } = useDashboardApi();
   const resource = useResource<{ sites: Site[] }>("/api/dashboard/sites");
   const sites = resource.data?.sites ?? [];
   const [siteId, setSiteId] = useState("");
@@ -888,6 +880,7 @@ function SitesView() {
 }
 
 function SiteDetailView({ siteId, onChanged }: { siteId: string; onChanged: () => Promise<void> }) {
+  const { apiJson: api } = useDashboardApi();
   const detail = useResource<{ site: Site; rules: SiteRule[]; logs: SiteLog[]; keys: SiteGuardKey[] }>(`/api/dashboard/sites/${siteId}`);
   const [name, setName] = useState("");
   const [signal, setSignal] = useState("");
@@ -1136,6 +1129,8 @@ function SiteGuardIntegrationPanel({ site, hasKeys, rawKey }: {
 }
 
 function OnboardingView() {
+  const { apiJson: api } = useDashboardApi();
+  const { apiPath, href: dHref } = useDashboardPaths();
   // Shared developer path state
   const [step, setStep] = useState(1);
   const [apiKey, setApiKey] = useState("");
@@ -1448,7 +1443,7 @@ function OnboardingView() {
     setDraftErrorCode("");
     setDraftLoading(true);
     try {
-      const res = await fetch(resolveDashboardFetchPath("/api/dashboard/onboarding/draft-permissions"), {
+      const res = await fetch(apiPath("/api/dashboard/onboarding/draft-permissions"), {
         method: "POST",
         credentials: "include",
         headers: { Accept: "application/json", "Content-Type": "application/json" },
@@ -1840,7 +1835,7 @@ ${regularPassportUrl || "[passport link]"}`;
               <h2>Passport created</h2>
               <p>Your permission passport is live. Copy the instructions below and paste them into your AI assistant.</p>
               <div className="agent-passport__header">
-                <ButtonLink href={`/dashboard/agents/${regularAgent.agentId}`}>Open agent</ButtonLink>
+                <ButtonLink href={dHref(`/dashboard/agents/${regularAgent.agentId}`)}>Open agent</ButtonLink>
                 {regularPassportUrl ? <ButtonLink href={regularPassportUrl}>Open passport</ButtonLink> : null}
               </div>
             </Card>
@@ -2046,7 +2041,7 @@ ${regularPassportUrl || "[passport link]"}`;
           <Card className="dashboard-panel">
             <h2>{decision?.allowed ? "Allowed" : "Denied"}</h2>
             <p>{decision?.reason}</p>
-            <div className="agent-passport__header"><ButtonLink href={`/dashboard/agents/${agent.agentId}`}>Open agent</ButtonLink>{passportUrl ? <ButtonLink href={passportUrl}>Open passport</ButtonLink> : null}</div>
+            <div className="agent-passport__header"><ButtonLink href={dHref(`/dashboard/agents/${agent.agentId}`)}>Open agent</ButtonLink>{passportUrl ? <ButtonLink href={passportUrl}>Open passport</ButtonLink> : null}</div>
           </Card>
           <Card className="dashboard-panel">
             <h2>Manual test mode</h2>
@@ -2081,6 +2076,7 @@ const result = await behalf.verify({
 }
 
 function AgentView({ agentId }: { agentId: string }) {
+  const { apiJson: api } = useDashboardApi();
   const detail = useResource<{ agent: Agent; permissions: Permission[]; logs: Log[]; workspaceAuthority?: WorkspaceAuthority | null }>(`/api/dashboard/agents/${agentId}`);
   const [secret, setSecret] = useState("");
   const [passportUrl, setPassportUrl] = useState("");
@@ -2516,6 +2512,8 @@ function AgentView({ agentId }: { agentId: string }) {
 }
 
 function WebhooksView() {
+  const { apiJson: api } = useDashboardApi();
+  const { href: dHref } = useDashboardPaths();
   const resource = useResource<{ webhooks: Webhook[]; eventTypes: string[]; plan: Plan; webhooksEnabled: boolean; upgradeHint: string | null }>("/api/dashboard/webhooks");
   const [url, setUrl] = useState("");
   const [secret, setSecret] = useState("");
@@ -2565,12 +2563,13 @@ function WebhooksView() {
         {webhookError ? <p className="form-error" role="alert">{webhookError}</p> : null}
         {secret ? <Secret value={secret} label="Signing secret" /> : null}
       </Card>
-      <Rows items={resource.data?.webhooks ?? []} href={(w) => `/dashboard/webhooks/${w.webhookId}`} title={(w) => w.url} meta={(w) => `${w.status} / ${w.events.join(", ")}`} />
+      <Rows items={resource.data?.webhooks ?? []} href={(w) => dHref(`/dashboard/webhooks/${w.webhookId}`)} title={(w) => w.url} meta={(w) => `${w.status} / ${w.events.join(", ")}`} />
     </>
   );
 }
 
 function WebhookView({ webhookId }: { webhookId: string }) {
+  const { apiJson: api } = useDashboardApi();
   const detail = useResource<{ webhook: Webhook; deliveries: Delivery[] }>(`/api/dashboard/webhooks/${webhookId}`);
   const [secret, setSecret] = useState("");
   const rotate = async () => setSecret((await api<{ secret: string }>(`/api/dashboard/webhooks/${webhookId}/rotate-secret`, { method: "POST" })).secret);
@@ -2674,6 +2673,7 @@ function approvalActionLabel(action: string, vendor?: string | null) {
 
 
 function InboxView() {
+  const { apiJson: api } = useDashboardApi();
   const inbox = useResource<{ pendingApprovals: ApprovalRequest[]; deniedHighRisk: Log[]; workspaceAuthority?: WorkspaceAuthority | null }>("/api/dashboard/inbox");
   const [working, setWorking] = useState<string | null>(null);
   const [resolveError, setResolveError] = useState("");
@@ -2703,6 +2703,7 @@ function InboxView() {
 }
 
 function MembersPanel() {
+  const { apiJson: api } = useDashboardApi();
   const members = useResource<{
     members: AccountMember[];
     pendingInvites: PendingInvite[];
@@ -2853,6 +2854,8 @@ function MembersPanel() {
 }
 
 function SettingsView() {
+  const { apiJson: api } = useDashboardApi();
+  const { href: dHref } = useDashboardPaths();
   const settings = useResource<{
     email: string;
     appUrl: string;
@@ -3257,6 +3260,7 @@ const DOC_CARDS = [
 ];
 
 function DashboardDocs() {
+  const { href: dHref } = useDashboardPaths();
   return (
     <>
       <Header title="Integration docs" description="Open implementation guides and API references." />

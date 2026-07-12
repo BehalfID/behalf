@@ -5,22 +5,10 @@ import {
 } from "@/lib/workspaceSlug";
 
 /**
- * Module-level active workspace slug for the current browser tab.
- * Set by WorkspaceProvider so existing dashboard fetch helpers can resolve
- * /api/dashboard/* → /<slug>/api/dashboard/* without per-call threading.
- * Each tab has its own JS realm, so multi-tab isolation is preserved.
+ * Pure path helpers for workspace-scoped dashboard URLs.
+ * The slug must be passed explicitly — never read from module-global state.
  */
-let activeWorkspaceSlug: string | null = null;
-
-export function setActiveWorkspaceSlug(slug: string | null) {
-  activeWorkspaceSlug = slug;
-}
-
-export function getActiveWorkspaceSlug(): string | null {
-  return activeWorkspaceSlug;
-}
-
-export function resolveDashboardFetchPath(path: string, slug = activeWorkspaceSlug): string {
+export function resolveDashboardFetchPath(path: string, slug: string | null | undefined): string {
   if (!slug) return path;
   if (path.startsWith("/api/dashboard") || path.startsWith("/api/billing")) {
     return workspaceApiHref(slug, path);
@@ -73,17 +61,4 @@ export async function workspaceApiJson<T>(
     throw new Error(`${body?.error ?? `Request failed with ${response.status}`}${hint}`);
   }
   return response.json() as Promise<T>;
-}
-
-/** Dashboard fetch that scopes to the active workspace slug when present. */
-export async function dashboardFetch(path: string, init?: RequestInit): Promise<Response> {
-  return fetch(resolveDashboardFetchPath(path), {
-    ...init,
-    credentials: "include",
-    headers: {
-      Accept: "application/json",
-      ...(init?.body ? { "Content-Type": "application/json" } : {}),
-      ...init?.headers
-    }
-  });
 }

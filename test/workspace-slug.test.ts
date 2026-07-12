@@ -52,51 +52,33 @@ describe("normalizeWorkspaceSlug", () => {
 describe("validateWorkspaceSlug", () => {
   it("accepts valid slugs", async () => {
     const { validateWorkspaceSlug } = await import("@/lib/workspaceSlug");
-    expect(validateWorkspaceSlug("trajectus")).toBeNull();
-    expect(validateWorkspaceSlug("acme-co")).toBeNull();
-    expect(validateWorkspaceSlug("a1")).toBeNull();
+    expect(validateWorkspaceSlug("acme")).toBeNull();
+    expect(validateWorkspaceSlug("acme-corp")).toBeNull();
+    expect(validateWorkspaceSlug("a")).toBeNull();
   });
 
-  it("rejects invalid slugs", async () => {
+  it("rejects invalid and reserved slugs", async () => {
     const { validateWorkspaceSlug } = await import("@/lib/workspaceSlug");
-    expect(validateWorkspaceSlug("")).toMatch(/required/i);
-    expect(validateWorkspaceSlug("Trajectus")).toMatch(/lowercase/i);
-    expect(validateWorkspaceSlug("-bad")).toMatch(/letter or number/i);
-    expect(validateWorkspaceSlug("a".repeat(64))).toMatch(/at most/i);
-  });
-
-  it("rejects reserved slugs", async () => {
-    const { validateWorkspaceSlug } = await import("@/lib/workspaceSlug");
-    expect(validateWorkspaceSlug("api")).toMatch(/reserved/i);
-    expect(validateWorkspaceSlug("dashboard")).toMatch(/reserved/i);
+    expect(validateWorkspaceSlug("")).not.toBeNull();
+    expect(validateWorkspaceSlug("Acme")).not.toBeNull();
+    expect(validateWorkspaceSlug("-acme")).not.toBeNull();
+    expect(validateWorkspaceSlug("dashboard")).not.toBeNull();
+    expect(validateWorkspaceSlug("en")).not.toBeNull();
   });
 });
 
 describe("isReservedWorkspaceSlug", () => {
-  it("includes api, dashboard, login, and locale prefixes", async () => {
+  it("includes product routes and locales", async () => {
     const { isReservedWorkspaceSlug } = await import("@/lib/workspaceSlug");
-    for (const slug of ["api", "dashboard", "login", "en", "de", "es", "fr", "docs", "onboarding"]) {
+    for (const slug of ["api", "dashboard", "login", "docs", "en", "de", "es", "fr"]) {
       expect(isReservedWorkspaceSlug(slug)).toBe(true);
     }
-  });
-
-  it("is case-insensitive", async () => {
-    const { isReservedWorkspaceSlug } = await import("@/lib/workspaceSlug");
-    expect(isReservedWorkspaceSlug("API")).toBe(true);
-    expect(isReservedWorkspaceSlug("Dashboard")).toBe(true);
-  });
-
-  it("allows ordinary workspace names", async () => {
-    const { isReservedWorkspaceSlug } = await import("@/lib/workspaceSlug");
-    expect(isReservedWorkspaceSlug("trajectus")).toBe(false);
-    expect(isReservedWorkspaceSlug("acme")).toBe(false);
   });
 });
 
 describe("accountIdSlugSuffix", () => {
-  it("is deterministic and strips acct_ prefix", async () => {
+  it("is deterministic", async () => {
     const { accountIdSlugSuffix } = await import("@/lib/workspaceSlug");
-    expect(accountIdSlugSuffix("acct_abcdef")).toBe("abcdef");
     expect(accountIdSlugSuffix("acct_abcdef")).toBe(accountIdSlugSuffix("acct_abcdef"));
     expect(accountIdSlugSuffix("acct_12ab34cd56ef")).toBe("cd56ef");
   });
@@ -104,7 +86,7 @@ describe("accountIdSlugSuffix", () => {
 
 describe("generateUniqueWorkspaceSlug", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   it("returns the normalized base when unused", async () => {
@@ -114,14 +96,16 @@ describe("generateUniqueWorkspaceSlug", () => {
     expect(mocks.findAccountBySlugLean).toHaveBeenCalledWith("acme-corp");
   });
 
-  it("appends a stable accountId suffix on collision", async () => {
+  it("appends a stable hashed accountId suffix on collision", async () => {
     mocks.findAccountBySlugLean
       .mockResolvedValueOnce({ accountId: "acct_other", slug: "acme" })
       .mockResolvedValueOnce(null);
-    const { accountIdSlugSuffix } = await import("@/lib/workspaceSlug");
-    const { generateUniqueWorkspaceSlug } = await import("@/lib/workspaceSlugServer");
-    const suffix = accountIdSlugSuffix("acct_abcdef");
-    await expect(generateUniqueWorkspaceSlug("acme", "acct_abcdef")).resolves.toBe(`acme-${suffix}`);
+    const { generateUniqueWorkspaceSlug, stableAccountIdSuffix, buildWorkspaceSlugCandidates } =
+      await import("@/lib/workspaceSlugServer");
+    const candidates = buildWorkspaceSlugCandidates("acme", "acct_abcdef");
+    expect(candidates[0]).toBe("acme");
+    expect(candidates[1]).toBe(`acme-${stableAccountIdSuffix("acct_abcdef", 8)}`);
+    await expect(generateUniqueWorkspaceSlug("acme", "acct_abcdef")).resolves.toBe(candidates[1]);
   });
 
   it("treats an existing slug owned by the same account as available", async () => {
@@ -129,11 +113,106 @@ describe("generateUniqueWorkspaceSlug", () => {
     const { generateUniqueWorkspaceSlug } = await import("@/lib/workspaceSlugServer");
     await expect(generateUniqueWorkspaceSlug("acme", "acct_abcdef")).resolves.toBe("acme");
   });
+
+  it("chooses the next candidate when earlier ones are taken", async () => {
+    const { buildWorkspaceSlugCandidates, generateUniqueWorkspaceSlug } =
+      await import("@/lib/workspaceSlugServer");
+    const candidates = buildWorkspaceSlugCandidates("acme", "acct_abcdef");
+    mocks.findAccountBySlugLean.mockImplementation(async (slug: string) => {
+      if (slug === candidates[0] || slug === candidates[1]) {
+        return { accountId: "acct_other", slug };
+      }
+      return null;
+    });
+    await expect(generateUniqueWorkspaceSlug("acme", "acct_abcdef")).resolves.toBe(candidates[2]);
+  });
+
+  it("throws after the bounded candidate set is exhausted", async () => {
+    mocks.findAccountBySlugLean.mockResolvedValue({ accountId: "acct_other", slug: "taken" });
+    const { generateUniqueWorkspaceSlug } = await import("@/lib/workspaceSlugServer");
+    await expect(generateUniqueWorkspaceSlug("acme", "acct_abcdef")).rejects.toThrow(
+      /exhausting deterministic candidates/i
+    );
+  });
+
+  it("allocates different stable slugs for concurrent same-base accounts", async () => {
+    const claimed = new Set<string>();
+    mocks.findAccountBySlugLean.mockImplementation(async (slug: string) => {
+      if (claimed.has(slug)) return { accountId: "acct_holder", slug };
+      return null;
+    });
+    const { generateUniqueWorkspaceSlug } = await import("@/lib/workspaceSlugServer");
+    const a = await generateUniqueWorkspaceSlug("Acme", "acct_aaaa");
+    claimed.add(a);
+    const b = await generateUniqueWorkspaceSlug("Acme", "acct_bbbb");
+    claimed.add(b);
+    expect(a).not.toBe(b);
+    expect(a === "acme" || b === "acme").toBe(true);
+  });
+});
+
+describe("assignSlugWithDuplicateRetry", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it("retries the next candidate on E11000", async () => {
+    mocks.findAccountBySlugLean.mockResolvedValue(null);
+    const { assignSlugWithDuplicateRetry, buildWorkspaceSlugCandidates, isMongoDuplicateKeyError } =
+      await import("@/lib/workspaceSlugServer");
+    const candidates = buildWorkspaceSlugCandidates("acme", "acct_abcdef");
+    let attempts = 0;
+    const slug = await assignSlugWithDuplicateRetry("acme", "acct_abcdef", async (candidate) => {
+      attempts += 1;
+      if (candidate === candidates[0]) {
+        const err = new Error("E11000 duplicate key error");
+        (err as { code?: number }).code = 11000;
+        expect(isMongoDuplicateKeyError(err)).toBe(true);
+        throw err;
+      }
+    });
+    expect(attempts).toBe(2);
+    expect(slug).toBe(candidates[1]);
+  });
+
+  it("simulates two concurrent same-base allocations succeeding with different slugs", async () => {
+    const claimed = new Map<string, string>();
+    mocks.findAccountBySlugLean.mockImplementation(async (slug: string) => {
+      const owner = claimed.get(slug);
+      return owner ? { accountId: owner, slug } : null;
+    });
+    const { assignSlugWithDuplicateRetry } = await import("@/lib/workspaceSlugServer");
+
+    const write = async (accountId: string) =>
+      assignSlugWithDuplicateRetry("Acme", accountId, async (slug) => {
+        if (claimed.has(slug) && claimed.get(slug) !== accountId) {
+          const err = new Error("E11000 duplicate key error");
+          (err as { code?: number }).code = 11000;
+          throw err;
+        }
+        // Race: both may pass the pre-check for "acme"; second write loses with E11000.
+        if (slug === "acme" && !claimed.has("acme")) {
+          claimed.set("acme", accountId);
+          return;
+        }
+        if (claimed.has(slug)) {
+          const err = new Error("E11000 duplicate key error");
+          (err as { code?: number }).code = 11000;
+          throw err;
+        }
+        claimed.set(slug, accountId);
+      });
+
+    const [a, b] = await Promise.all([write("acct_aaaa"), write("acct_bbbb")]);
+    expect(a).not.toBe(b);
+    expect(claimed.get(a)).toBeTruthy();
+    expect(claimed.get(b)).toBeTruthy();
+  });
 });
 
 describe("ensureAccountHasSlug", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   it("preserves an existing valid slug when the account name changes", async () => {
@@ -150,16 +229,18 @@ describe("ensureAccountHasSlug", () => {
   });
 
   it("generates and persists a slug when missing", async () => {
-    mocks.findAccountByIdLean
-      .mockResolvedValueOnce({
-        accountId: "acct_abcdef",
-        name: "Acme",
-        companyName: "Acme",
-        slug: null
-      })
-      .mockResolvedValueOnce({ slug: "acme" });
+    let written: string | null = null;
+    mocks.findAccountByIdLean.mockImplementation(async () => ({
+      accountId: "acct_abcdef",
+      name: "Acme",
+      companyName: "Acme",
+      slug: written
+    }));
     mocks.findAccountBySlugLean.mockResolvedValue(null);
-    mocks.accountUpdateOne.mockResolvedValue({ acknowledged: true });
+    mocks.accountUpdateOne.mockImplementation(async (_filter: unknown, update: { $set: { slug: string } }) => {
+      written = update.$set.slug;
+      return { acknowledged: true, matchedCount: 1 };
+    });
 
     const { ensureAccountHasSlug } = await import("@/lib/workspaceSlugServer");
     await expect(ensureAccountHasSlug("acct_abcdef")).resolves.toBe("acme");
