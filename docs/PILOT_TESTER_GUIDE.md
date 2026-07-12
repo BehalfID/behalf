@@ -34,14 +34,14 @@ Network or missing local config causes the hook to **fail open** (allow with a s
 
 ## Installation
 
-Pick one method. Tell the operator which you used. For the Trajectus pilot, require **0.2.9 or newer**. If the version is older, **stop and contact the operator**.
+Pick one method. Tell the operator which you used. For the Trajectus pilot, require **0.2.11 or newer**. If the version is older, **stop and contact the operator**.
 
 ```bash
 # npm — supported on Windows (and macOS / Linux)
 npm install -g @behalfid/cli
 
 # install.sh — macOS / Linux only (optional pin; the pin is assigned to sh, not curl)
-# curl -fsSL https://behalfid.com/install.sh | BEHALF_VERSION=v0.2.10 sh
+# curl -fsSL https://behalfid.com/install.sh | BEHALF_VERSION=v0.2.11 sh
 curl -fsSL https://behalfid.com/install.sh | sh
 
 # Homebrew — macOS only

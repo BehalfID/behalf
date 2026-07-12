@@ -6,10 +6,10 @@ Do not treat this directory as an installable tap. Release automation regenerate
 
 ```bash
 node scripts/release/render-homebrew-formula.mjs \
-  --version 0.2.9 \
-  --darwin-arm64-url https://github.com/BehalfID/behalf/releases/download/v0.2.9/behalf-darwin-arm64.tar.gz \
+  --version 0.2.11 \
+  --darwin-arm64-url https://github.com/BehalfID/behalf/releases/download/v0.2.11/behalf-darwin-arm64.tar.gz \
   --darwin-arm64-sha256 <sha256> \
-  --darwin-x64-url https://github.com/BehalfID/behalf/releases/download/v0.2.9/behalf-darwin-x64.tar.gz \
+  --darwin-x64-url https://github.com/BehalfID/behalf/releases/download/v0.2.11/behalf-darwin-x64.tar.gz \
   --darwin-x64-sha256 <sha256>
 ```
 

@@ -12,7 +12,7 @@ function sha256File(path: string) {
 }
 
 describe("verify-cli-artifact", () => {
-  it("accepts a locally packed CLI tarball for 0.2.10", () => {
+  it("accepts a locally packed CLI tarball for 0.2.11", () => {
     const build = spawnSync("npm", ["run", "build:cli"], {
       encoding: "utf8",
       shell: process.platform === "win32",
@@ -27,10 +27,10 @@ describe("verify-cli-artifact", () => {
     expect(pack.status, pack.stderr + pack.stdout).toBe(0);
     const meta = JSON.parse(pack.stdout) as Array<{ filename: string }>;
     const filename = meta[0]?.filename;
-    expect(filename).toMatch(/behalfid-cli-0\.2\.10\.tgz$/);
+    expect(filename).toMatch(/behalfid-cli-0\.2\.11\.tgz$/);
     const tarball = join(process.cwd(), "packages", "cli", filename);
 
-    const verify = spawnSync(process.execPath, [VERIFIER, tarball, "0.2.10"], {
+    const verify = spawnSync(process.execPath, [VERIFIER, tarball, "0.2.11"], {
       encoding: "utf8",
     });
     expect(verify.status, verify.stderr + verify.stdout).toBe(0);
@@ -46,15 +46,15 @@ describe("verify-cli-artifact", () => {
       mkdirSync(join(pkg, "dist", "commands"), { recursive: true });
       writeFileSync(
         join(pkg, "package.json"),
-        JSON.stringify({ name: "@behalfid/cli", version: "0.2.10" })
+        JSON.stringify({ name: "@behalfid/cli", version: "0.2.11" })
       );
-      writeFileSync(join(pkg, "dist", "index.js"), "console.log('0.2.10')\n");
+      writeFileSync(join(pkg, "dist", "index.js"), "console.log('0.2.11')\n");
       writeFileSync(join(pkg, "dist", "commands", "hook.js"), "export const x = 1;\n");
       const tarball = join(dir, "bad.tgz");
       const tar = spawnSync("tar", ["-czf", tarball, "-C", dir, "package"], { encoding: "utf8" });
       expect(tar.status).toBe(0);
 
-      const verify = spawnSync(process.execPath, [VERIFIER, tarball, "0.2.10"], {
+      const verify = spawnSync(process.execPath, [VERIFIER, tarball, "0.2.11"], {
         encoding: "utf8",
       });
       expect(verify.status).not.toBe(0);
