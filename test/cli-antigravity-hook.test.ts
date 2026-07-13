@@ -147,6 +147,7 @@ describe("mapAntigravityToolToAction", () => {
     const { hook } = await loadHookModules(tempDir("behalf-home-"));
 
     expect(hook.mapAntigravityToolToAction("list_directory")).toBeNull();
+    expect(hook.mapAntigravityToolToAction("grep_search")).toBeNull();
     expect(hook.mapAntigravityToolToAction("search_file_content")).toBeNull();
     expect(hook.mapAntigravityToolToAction("   ")).toBeNull();
   });
@@ -246,12 +247,22 @@ describe("runAntigravityHook decisions", () => {
     expect(err.text).toMatch(/approval required/i);
   });
 
-  it("passes documented read-only tools through without verification in both modes", async () => {
+  it("allowlists exactly the two metadata-only filesystem tools", async () => {
+    const { hook } = await loadHookModules(tempDir("behalf-home-"));
+
+    expect([...hook.ANTIGRAVITY_READONLY_TOOLS].sort()).toEqual(["glob", "list_directory"]);
+    expect(hook.isAntigravityReadonlyTool("list_directory")).toBe(true);
+    expect(hook.isAntigravityReadonlyTool("glob")).toBe(true);
+    expect(hook.isAntigravityReadonlyTool("grep_search")).toBe(false);
+    expect(hook.isAntigravityReadonlyTool("search_file_content")).toBe(false);
+  });
+
+  it("passes list_directory and glob through without verification in both modes", async () => {
     const { hook, config } = await loadHookModules(tempDir("behalf-home-"));
     configured(config);
     const verify = vi.fn(async () => ({ allowed: false, reason: "should not be called" }));
 
-    for (const tool of ["list_directory", "glob", "grep_search", "search_file_content"]) {
+    for (const tool of ["list_directory", "glob"]) {
       for (const enforcement of ["advisory", "required"] as const) {
         const { code, out, err } = runGate(hook, {
           payload: { tool_name: tool, tool_input: { pattern: "x" } },
@@ -265,6 +276,29 @@ describe("runAntigravityHook decisions", () => {
     }
     expect(verify).not.toHaveBeenCalled();
   });
+
+  it.each(["grep_search", "search_file_content"])(
+    "%s denies in required mode, warns in advisory mode, and never verifies while unmapped",
+    async (tool) => {
+      const { hook, config } = await loadHookModules(tempDir("behalf-home-"));
+      configured(config);
+      const verify = vi.fn(async () => ({ allowed: true, reason: "should not be called" }));
+      const payload = { tool_name: tool, tool_input: {} };
+
+      const required = runGate(hook, { payload, verify, enforcement: "required" });
+      expect(await required.code).toBe(2);
+      expect(JSON.parse(required.out.text).decision).toBe("deny");
+      expect(required.err.text).toMatch(new RegExp(`unrecognized tool "${tool}"`));
+
+      const advisory = runGate(hook, { payload, verify, enforcement: "advisory" });
+      expect(await advisory.code).toBe(0);
+      expect(JSON.parse(advisory.out.text)).toEqual({});
+      expect(advisory.err.text).toMatch(new RegExp(`unrecognized tool "${tool}"`));
+      expect(advisory.err.text).toMatch(/allowing without verification/i);
+
+      expect(verify).not.toHaveBeenCalled();
+    }
+  );
 
   it("allows unknown tools with an explicit warning in advisory mode", async () => {
     const { hook, config } = await loadHookModules(tempDir("behalf-home-"));

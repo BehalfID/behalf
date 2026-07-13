@@ -564,8 +564,8 @@ export function extractAntigravityToolInput(input: AntigravityHookInput): Antigr
 /**
  * Tools that pass through WITHOUT verification even in required mode.
  *
- * Every entry must be independently documented as a read-only local
- * search/list operation — never inferred from the name alone. Evidence
+ * Every entry must be independently documented as a metadata-only local
+ * listing operation — never inferred from the name alone. Evidence
  * (official Gemini CLI tool reference, the Apache-2.0 upstream of the
  * Antigravity CLI — docs/tools/file-system.md):
  *
@@ -573,12 +573,12 @@ export function extractAntigravityToolInput(input: AntigravityHookInput): Antigr
  *                         directly within a specified path." (read)
  *   glob                 "Finds files matching specific glob patterns
  *                         across the workspace." (read)
- *   grep_search          "Searches for a regular expression pattern within
- *                         the content of files in a specified directory." (read)
- *   search_file_content  Former documented name of grep_search ("Searches
- *                         for text within files using grep or ripgrep");
- *                         retained for Antigravity CLI builds forked before
- *                         the upstream rename.
+ *
+ * These tools expose filesystem metadata such as names and directory
+ * structure, but do not directly return file contents. Content-search tools
+ * (grep_search and search_file_content) are intentionally excluded until live
+ * payload captures establish their path/search-root argument schemas and they
+ * can be mapped to read_file without guessing constraint-relevant fields.
  *
  * Any other unmapped tool is denied in required mode and allowed with an
  * explicit warning in advisory mode.
@@ -586,8 +586,6 @@ export function extractAntigravityToolInput(input: AntigravityHookInput): Antigr
 export const ANTIGRAVITY_READONLY_TOOLS = new Set([
   "list_directory",
   "glob",
-  "grep_search",
-  "search_file_content",
 ]);
 
 export function isAntigravityReadonlyTool(toolName: string): boolean {
@@ -631,7 +629,7 @@ export function extractAntigravityMcpServer(input: AntigravityHookInput): string
  *
  * Tolerant of casing, whitespace, and namespace/prefix wrappers, mirroring
  * mapToolToAction. Returns null for unmapped tools; the gate then applies the
- * unknown-tool policy (documented read-only allowlist passes through, other
+ * unknown-tool policy (the metadata-only allowlist passes through, other
  * unknown tools warn in advisory mode and DENY in required mode).
  */
 /**
@@ -907,7 +905,7 @@ export type AntigravityHookDeps = {
  *   payloads, unrecognized tools, and missing target arguments fail OPEN
  *   with an explicit stderr warning.
  *   required: all of those fail CLOSED (deny). In particular, unrecognized
- *   tools are denied by default (only the documented read-only allowlist in
+ *   tools are denied by default (only the metadata-only allowlist in
  *   ANTIGRAVITY_READONLY_TOOLS passes through), and actions whose minimum
  *   binding arguments are missing or malformed are denied locally rather
  *   than verified without a target. Oversized policy context fails CLOSED
@@ -998,7 +996,7 @@ export async function runAntigravityHook(deps: AntigravityHookDeps = {}): Promis
   );
   if (!mapped) {
     if (isAntigravityReadonlyTool(toolName)) {
-      // Documented read-only local search/list operation (see
+      // Documented metadata-only local listing operation (see
       // ANTIGRAVITY_READONLY_TOOLS) — passes through in both modes.
       trace("allowlisted read-only tool");
       return allow();

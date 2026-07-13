@@ -3,7 +3,7 @@
 Status as of 2026-07-13. Covers BehalfID's integration with Google Antigravity
 (the Antigravity IDE / "Antigravity 2.0" and the `agy` CLI).
 
-> **Status: enforcement candidate — not yet validated live.** The PreToolUse
+> **Status: enforcement candidate pending live canary validation.** The PreToolUse
 > gate is implemented and unit-tested, but no live denied-action canary has
 > been run against a real Antigravity install from this repository. Until the
 > canary results in "Live validation" below are recorded, describe this
@@ -104,14 +104,24 @@ A tool name that does not map to a BehalfID action is **not** assumed safe:
 - **`required` mode: unknown tools are denied by default.** A new, renamed,
   plugin-supplied, or undocumented tool cannot bypass the gate. The only
   exceptions are the tools below, each independently documented as a
-  read-only local search/list operation (never inferred from the name):
+  metadata-only local listing operation (never inferred from the name):
 
   | Allowlisted tool | Evidence (official Gemini CLI tool reference, the Apache-2.0 upstream of the Antigravity CLI) |
   |---|---|
   | `list_directory` | "Lists the names of files and subdirectories directly within a specified path." (docs/tools/file-system.md, read) |
   | `glob` | "Finds files matching specific glob patterns across the workspace." (docs/tools/file-system.md, read) |
-  | `grep_search` | "Searches for a regular expression pattern within the content of files in a specified directory." (docs/tools/file-system.md, read) |
-  | `search_file_content` | Former documented name of `grep_search` ("Searches for text within files using grep or ripgrep"); retained for CLI builds forked before the upstream rename. |
+
+  These tools still expose filesystem metadata such as names and directory
+  structure, even though they do not directly return file contents.
+
+- **`grep_search` and `search_file_content` are intentionally unmapped.** They
+  search file contents and therefore must be subject to `read_file`
+  permissions, `allowedPaths`, `deniedPaths`, approvals, and verification
+  logging. Their path or search-root argument schemas have not been
+  established by a live Antigravity payload capture. Until they are captured,
+  the gate does not guess their argument fields: `required` mode denies them
+  as unrecognized, while `advisory` mode warns and continues without calling
+  `/api/verify`. A future mapping to `read_file` requires captured schemas.
 
 - **`advisory` mode: unknown tools are allowed with an explicit stderr
   warning** ("unrecognized tool … — allowing without verification"), so the
@@ -189,7 +199,8 @@ server canonicalizes paths against it.
 | Tool arguments not a JSON object | Allowed with warning (treated as missing) | **Blocked** |
 | Missing/empty binding argument (command, path, URL, MCP server) | Verified without target, with warning | **Blocked locally** |
 | Unknown tool (not mapped, not allowlisted) | Allowed with warning, no verification | **Blocked** |
-| Documented read-only tool (`list_directory`, `glob`, `grep_search`, `search_file_content`) | Allowed (no verify call) | Allowed (no verify call) |
+| Content-search tool pending payload capture (`grep_search`, `search_file_content`) | Allowed with warning, no verification | **Blocked as unrecognized** |
+| Metadata-only allowlisted tool (`list_directory`, `glob`) | Allowed (no verify call) | Allowed (no verify call) |
 
 `advisory` matches the Claude Code PreToolUse hook posture (denials block; an
 outage never bricks the agent). `required` fails closed everywhere the gate
@@ -238,14 +249,21 @@ denied.
 Run this after every install or Antigravity upgrade — config file locations
 and hook semantics are controlled by Google and can change between releases:
 
-1. `behalf antigravity status` → gate installed, credentials configured.
-2. Ensure the agent has **no** `execute_command` permission (or add a
-   `deniedCommands` entry for a marker like `behalfid-canary`).
-3. In Antigravity, ask the agent to run `echo behalfid-canary`.
-4. Expected: the tool call is blocked and the agent reports the BehalfID
-   denial reason. `behalf logs tail` shows the denied `execute_command`
-   verification.
-5. If the command executes, the hook is not being invoked — see
+1. Create and configure a dedicated test agent. Give it exactly one active
+   `execute_command` permission for `shell`; confirm there is no other
+   applicable `execute_command` permission.
+2. In Antigravity, ask the agent to run `echo ok`. Confirm the command executes
+   and `behalf logs tail` shows an allowed `execute_command` verification.
+3. Revoke that unrestricted permission with
+   `behalf permissions revoke <permission_id>`. Confirm it is no longer active.
+4. Only after revocation, create its constrained replacement:
+   `behalf permissions create <agent_id> --action execute_command -r shell --denied-commands behalfid-canary`.
+5. Confirm the replacement is the dedicated agent's only applicable active
+   `execute_command` permission and contains the denied marker.
+6. In Antigravity, ask the agent to run `echo behalfid-canary`.
+7. Expected: the tool call is blocked, the command produces no output, and
+   `behalf logs tail` shows the denied `execute_command` verification.
+8. If the command executes, the hook is not being invoked — see
    Troubleshooting. **Do not treat the integration as enforced until the
    canary blocks.**
 
@@ -399,14 +417,17 @@ Run on a machine with Antigravity installed. Prerequisites once:
 
 ```bash
 npm install -g @behalfid/cli
-behalf init                        # test agent; writes ~/.behalf/config.json
+behalf agents create --name "Antigravity Canary" --save
 behalf permissions create <agent_id> --action execute_command -r shell
 behalf antigravity install
 # restart the Antigravity IDE and any running `agy` sessions
 behalf antigravity status
 ```
 
-Then execute each step and record it in the results template below.
+Use this dedicated agent only for validation. Before proceeding, confirm it
+has exactly one applicable active `execute_command` permission: the permission
+created above. Record that permission's ID, then execute each step and record
+it in the results template below.
 
 1. **Capture a sanitized PreToolUse payload from `agy`.** Add the
    `behalfid-capture` entry from "Capturing real hook payloads" above to
@@ -417,11 +438,13 @@ Then execute each step and record it in the results template below.
 2. **Allowed command executes.** In `agy`: ask the agent to run `echo ok`.
    Expect execution, and an allowed `execute_command` entry in
    `behalf logs tail`.
-3. **Denied command does not execute.** Add a denied command:
-   `behalf permissions create <agent_id> --action execute_command -r shell --denied-commands behalfid-canary`
-   (or edit the existing permission in the dashboard). Ask the agent to run
-   `echo behalfid-canary`. Expect: the tool call is blocked, the string
-   `behalfid-canary` never appears in command output, and a denied entry
+3. **Denied command does not execute.** Revoke the permission used in step 2:
+   `behalf permissions revoke <permission_id>`. Confirm it is inactive before
+   creating the constrained replacement:
+   `behalf permissions create <agent_id> --action execute_command -r shell --denied-commands behalfid-canary`.
+   Confirm the replacement is the only applicable active `execute_command`
+   permission, then ask the agent to run `echo behalfid-canary`. Expect: the
+   tool call is blocked, no command output is produced, and a denied entry
    appears in `behalf logs tail`.
 4. **Required mode fails closed when BehalfID is unreachable.**
    `behalf antigravity install --enforce`, then make the API unreachable
@@ -444,13 +467,27 @@ Then execute each step and record it in the results template below.
    the browser surface. Record whether a PreToolUse event fired (check
    `behalf logs tail` for a `browse_web` verification, or use the capture
    hook), and whether a denied `browse_web` permission blocks it.
-10. **MCP server starts independently of the hook.**
-    `behalf antigravity uninstall && behalf antigravity install --skip-mcp`
-    proves the hook installs alone; then `behalf antigravity install` and, in
-    Antigravity's MCP panel, confirm the `behalfid` server lists
-    `verify_action` and `get_permissions` with the hook entry removed from
-    hooks.json (temporarily uninstall the hook, keep MCP, restart, check the
-    tools respond).
+10. **MCP server starts independently of the hook.** Start from a normal
+    `behalf antigravity install`, with both the hook and MCP registration
+    present. Back up the hook configuration:
+
+    ```bash
+    cp ~/.gemini/config/hooks.json ~/.gemini/config/hooks.json.mcp-canary.bak
+    ```
+
+    Manually edit `~/.gemini/config/hooks.json` as valid JSON and remove only
+    its top-level `behalfid` hook namespace. Do not change the MCP config;
+    confirm `mcpServers.behalfid` remains in the active Antigravity MCP
+    configuration. Restart Antigravity and confirm `verify_action` and
+    `get_permissions` remain available and respond. Restore the exact hook
+    configuration and restart again:
+
+    ```bash
+    cp ~/.gemini/config/hooks.json.mcp-canary.bak ~/.gemini/config/hooks.json
+    ```
+
+    Do **not** use `behalf antigravity uninstall` for this test: that command
+    removes both the hook and the BehalfID MCP registration.
 
 Finally: `behalf antigravity uninstall`, restart, and confirm the canary
 command executes again (hook fully removed, rollback verified).
@@ -466,12 +503,15 @@ Antigravity version: ................ (agy --version / IDE About)
 Operating system:    ................
 BehalfID CLI:        ................ (behalf --version)
 Date:                ................
+Canary agent ID:     ................ (dedicated test agent)
+Allowed permission:  ................ (step 2; revoked before step 3)
+Denied permission:   ................ (step 3; the sole active replacement)
 ```
 
 | # | Surface (CLI/IDE/subagent/background/browser) | Tool name | Hook fired? | BehalfID received verification? (`behalf logs`) | Execution occurred? | Expected | Actual | Pass? |
 |---|---|---|---|---|---|---|---|---|
-| 2 | CLI | run_shell_command | | | | allowed + executed | | |
-| 3 | CLI | run_shell_command (canary) | | | | blocked, not executed | | |
+| 2 | CLI | run_shell_command (single unrestricted permission) | | | | allowed + executed | | |
+| 3 | CLI | run_shell_command (sole constrained replacement permission) | | | | blocked, not executed | | |
 | 4 | CLI, required, API down | run_shell_command | | | | blocked locally, not executed | | |
 | 5 | CLI, required | (unknown tool) | | | | blocked, not executed | | |
 | 6a | IDE | (repeat 2) | | | | allowed + executed | | |

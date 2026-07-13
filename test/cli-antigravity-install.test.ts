@@ -227,10 +227,11 @@ describe("installer write robustness", () => {
     const path = antigravity.antigravityHooksPath(home);
     writeFileEnsuringDir(path, JSON.stringify({}));
     chmodSync(path, 0o640);
+    const modeBeforeRewrite = statSync(path).mode & 0o777;
 
     const result = antigravity.installAntigravityHook(home);
     expect(result.ok).toBe(true);
-    expect(statSync(path).mode & 0o777).toBe(0o640);
+    expect(statSync(path).mode & 0o777).toBe(modeBeforeRewrite);
   });
 
   it("leaves no temp files behind after a successful write", async () => {
