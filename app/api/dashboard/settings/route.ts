@@ -45,6 +45,7 @@ export async function GET(request: NextRequest) {
     appUrl: process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin,
     apiUsage: apiUsageSummary(auth.account),
     dangerZone: accountDeletionSupportMessage(),
+    workspaceSlug: auth.account && "slug" in auth.account ? (auth.account as { slug?: string | null }).slug ?? null : null,
     delegatedPermissions: actor
       ? {
           role: actor.role,

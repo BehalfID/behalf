@@ -40,6 +40,7 @@ export const CORE_TABLES = [
 /** Indexes that must exist after the v1 migration (by stable SQL name). */
 export const CRITICAL_INDEX_NAMES = [
   "accounts_plan_idx",
+  "accounts_slug_uq",
   "accounts_stripe_customer_id_uq",
   "developer_users_email_lower_uq",
   "account_memberships_account_user_uq",
@@ -71,8 +72,17 @@ export function isPostgresRepositoryContractsEnabled(): boolean {
   );
 }
 
-function migrationSqlPath(): string {
-  return join(process.cwd(), "drizzle/0000_initial_behalf_schema.sql");
+function migrationSqlPaths(): string[] {
+  return [
+    join(process.cwd(), "drizzle/0000_initial_behalf_schema.sql"),
+    join(process.cwd(), "drizzle/0001_workspace_slug.sql")
+  ];
+}
+
+function readMigrationSql(): string {
+  return migrationSqlPaths()
+    .map((path) => readFileSync(path, "utf8"))
+    .join("\n");
 }
 
 function createSmokeSchemaName(): string {
@@ -109,7 +119,7 @@ export async function setupPostgresContractTestSchema(
     connect_timeout: 15
   });
 
-  const migrationSql = readFileSync(migrationSqlPath(), "utf8");
+  const migrationSql = readMigrationSql();
 
   await sql`CREATE SCHEMA ${sql(schemaName)}`;
   await sql`SET search_path TO ${sql(schemaName)}`;
@@ -166,7 +176,7 @@ export async function runPostgresMigrationSmoke(url?: string): Promise<SmokeTest
   });
 
   try {
-    const migrationSql = readFileSync(migrationSqlPath(), "utf8");
+    const migrationSql = readMigrationSql();
 
     await sql`CREATE SCHEMA ${sql(schemaName)}`;
     await sql`SET search_path TO ${sql(schemaName)}`;

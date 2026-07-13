@@ -23,5 +23,10 @@ export async function POST(request: NextRequest) {
     return jsonError(result.error, 403);
   }
 
-  return NextResponse.json({ ok: true, activeAccountId: result.accountId });
+  return NextResponse.json({
+    ok: true,
+    activeAccountId: result.accountId,
+    slug: result.slug,
+    name: result.name
+  });
 }

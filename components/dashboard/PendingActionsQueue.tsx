@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { EmptyState, PageHeader } from "@/components/ui";
+import { useDashboardApi } from "@/components/workspace/WorkspaceProvider";
 import { OpsApprovalCard, OpsApprovalQueueRow } from "./OpsEventPrimitives";
 import { type OpsApprovalRequest } from "./opsLogTypes";
 
@@ -9,19 +10,6 @@ type ApprovalsResponse = {
   approvals: OpsApprovalRequest[];
   workspaceAuthority?: { roleLabel: string } | null;
 };
-
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
-    ...init,
-    credentials: "include",
-    headers: { Accept: "application/json", ...(init?.body ? { "Content-Type": "application/json" } : {}), ...init?.headers }
-  });
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(body?.error ?? `Request failed with ${response.status}`);
-  }
-  return response.json() as Promise<T>;
-}
 
 export function PendingActionsQueue({
   title = "Pending actions",
@@ -34,6 +22,7 @@ export function PendingActionsQueue({
   compact?: boolean;
   highlightApprovalId?: string | null;
 }) {
+  const { apiJson } = useDashboardApi();
   const [data, setData] = useState<ApprovalsResponse | null>(null);
   const [error, setError] = useState("");
   const [working, setWorking] = useState<string | null>(null);
@@ -41,11 +30,11 @@ export function PendingActionsQueue({
   const reload = useCallback(async () => {
     setError("");
     try {
-      setData(await api<ApprovalsResponse>("/api/dashboard/approvals?status=pending"));
+      setData(await apiJson<ApprovalsResponse>("/api/dashboard/approvals?status=pending"));
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Request failed.");
     }
-  }, []);
+  }, [apiJson]);
 
   useEffect(() => {
     void reload();
@@ -55,7 +44,7 @@ export function PendingActionsQueue({
     setWorking(approvalId);
     setError("");
     try {
-      await api(`/api/dashboard/approvals/${approvalId}/${action}`, { method: "POST" });
+      await apiJson(`/api/dashboard/approvals/${approvalId}/${action}`, { method: "POST" });
       await reload();
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Action failed.");

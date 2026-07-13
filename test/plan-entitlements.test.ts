@@ -19,6 +19,7 @@ import {
   isBillableWorkspaceRole,
   WORKSPACE_ROLES
 } from "@/lib/authority";
+import { repoPath } from "./helpers/repoPath";
 
 describe("plan entitlements source of truth", () => {
   it("defines all plans", () => {
@@ -161,8 +162,8 @@ describe("plan entitlements source of truth", () => {
 
 describe("webhook entitlement UI copy", () => {
   it("does not render disabled webhooks as Available on the dashboard usage panel", async () => {
-    const dashboardSource = await readFile("/workspace/app/dashboard/client.tsx", "utf8");
-    const tileSource = await readFile("/workspace/components/usage/UsageLimitTile.tsx", "utf8");
+    const dashboardSource = await readFile(repoPath("app", "dashboard", "client.tsx"), "utf8");
+    const tileSource = await readFile(repoPath("components", "usage", "UsageLimitTile.tsx"), "utf8");
     expect(dashboardSource).toContain("WebhookUsageLimitTile");
     expect(tileSource).toContain('getWebhookValue(enabled)');
     expect(tileSource).not.toMatch(/webhooksEnabled \? "Enabled" : "Available"/);
@@ -170,9 +171,9 @@ describe("webhook entitlement UI copy", () => {
   });
 
   it("renders disabled webhooks as Upgrade required on the billing usage surface", async () => {
-    const billingSource = await readFile("/workspace/app/dashboard/billing/client.tsx", "utf8");
-    const tileSource = await readFile("/workspace/components/usage/UsageLimitTile.tsx", "utf8");
-    const usageDisplaySource = await readFile("/workspace/lib/usageDisplay.ts", "utf8");
+    const billingSource = await readFile(repoPath("app", "dashboard", "billing", "client.tsx"), "utf8");
+    const tileSource = await readFile(repoPath("components", "usage", "UsageLimitTile.tsx"), "utf8");
+    const usageDisplaySource = await readFile(repoPath("lib", "usageDisplay.ts"), "utf8");
     expect(billingSource).toContain("WebhookUsageLimitTile");
     expect(tileSource).toContain("getWebhookHelper(enabled)");
     expect(usageDisplaySource).toContain('"Upgrade to Pro to enable webhook delivery."');

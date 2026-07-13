@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { stubCliHome } from "./helpers/stubCliHome";
 
 function tempHome() {
   return mkdtempSync(join(tmpdir(), "behalf-pause-approval-"));
@@ -20,21 +21,21 @@ function seedCliConfig(home: string) {
 
 async function loadPolicyModule(home: string) {
   vi.resetModules();
-  vi.stubEnv("HOME", home);
+  stubCliHome(home);
   vi.stubEnv("BEHALF" + "ID_BASE_URL", "https://example.test");
   return import("../packages/cli/src/lib/profile/policy.js");
 }
 
 async function loadPauseApprovalModule(home: string) {
   vi.resetModules();
-  vi.stubEnv("HOME", home);
+  stubCliHome(home);
   vi.stubEnv("BEHALF" + "ID_BASE_URL", "https://example.test");
   return import("../packages/cli/src/lib/profile/pause-approval.js");
 }
 
 async function loadProfileModule(home: string) {
   vi.resetModules();
-  vi.stubEnv("HOME", home);
+  stubCliHome(home);
   vi.stubEnv("BEHALF" + "ID_BASE_URL", "https://example.test");
   return import("../packages/cli/src/commands/profile.js");
 }

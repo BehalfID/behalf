@@ -59,6 +59,7 @@ export const accounts = pgTable(
   "accounts",
   {
     accountId: text("account_id").primaryKey(),
+    slug: text("slug"),
     name: text("name").notNull(),
     accountType: text("account_type"),
     companyName: text("company_name"),
@@ -85,6 +86,10 @@ export const accounts = pgTable(
   },
   (table) => [
     check("accounts_name_length", sql`length(${table.name}) <= 120`),
+    check(
+      "accounts_slug_length",
+      sql`${table.slug} IS NULL OR length(${table.slug}) <= 63`
+    ),
     check("accounts_plan_check", sql`${table.plan} IN (${sql.raw(sqlInList(ACCOUNT_PLANS))})`),
     check(
       "accounts_account_type_check",
@@ -96,6 +101,9 @@ export const accounts = pgTable(
     ),
     check("accounts_verification_count_nonneg", sql`${table.verificationCount} >= 0`),
     index("accounts_plan_idx").on(table.plan),
+    uniqueIndex("accounts_slug_uq")
+      .on(table.slug)
+      .where(sql`${table.slug} IS NOT NULL`),
     uniqueIndex("accounts_stripe_customer_id_uq")
       .on(table.stripeCustomerId)
       .where(sql`${table.stripeCustomerId} IS NOT NULL`)

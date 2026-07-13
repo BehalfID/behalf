@@ -16,7 +16,7 @@ BehalfID is currently a prototype. It is suitable for local demos and constraine
 - Console mutation routes reject missing or mismatched `Origin` headers for configured localhost/Vercel origins.
 - Developer portal accounts store scrypt password hashes, not plaintext passwords.
 - Developer portal sessions are DB-backed, stored as token hashes, expire automatically, and use HTTP-only cookies.
-- `/dashboard/*` and `/api/dashboard/*` require a developer session and scope resources by `developerUserId`.
+- `/dashboard/*` and `/api/dashboard/*` require a developer session and scope resources by workspace membership / `accountId`. Workspace-scoped public URLs (`/<slug>/dashboard/*`, `/<slug>/api/dashboard/*`) are rolling out; see `docs/WORKSPACE_URLS.md`.
 - Dashboard mutation routes reject missing or mismatched `Origin` headers.
 - Anonymous `POST /api/agents` is disabled unless `BEHALFID_PUBLIC_AGENT_CREATION=true`.
 - Setup-token protected routes compare `BEHALFID_SETUP_TOKEN` server-side and never expose it to client JavaScript.

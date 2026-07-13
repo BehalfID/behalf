@@ -35,6 +35,8 @@ The script checks `/api/health`, checks `/api/health/db` when a setup token is p
 
 ## Developer Portal Demo
 
+> Workspace-scoped dashboard URLs (`/<slug>/dashboard/...`) are rolling out. Until that path is deployed and verified, continue using `/dashboard/...` (it temporarily redirects to the workspace URL when slugs are available). See [WORKSPACE_URLS.md](./WORKSPACE_URLS.md).
+
 1. Open `http://localhost:3000/signup`.
 2. Create a developer account with an email and a password of at least 10 characters.
 3. Open `/dashboard/onboarding`.

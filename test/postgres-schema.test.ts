@@ -40,7 +40,7 @@ const EXPECTED_SQL_TABLE_NAMES = [
 ];
 
 const CRITICAL_COLUMNS: Record<string, string[]> = {
-  accounts: ["accountId", "plan", "verificationCount"],
+  accounts: ["accountId", "slug", "plan", "verificationCount"],
   developerUsers: ["userId", "email", "passwordHash"],
   developerSessions: ["sessionId", "userId", "tokenHash", "expiresAt"],
   developerApiTokens: ["tokenId", "userId", "accountId", "tokenHash"],

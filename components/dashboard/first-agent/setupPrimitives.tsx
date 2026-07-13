@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { useDashboardPaths } from "@/components/workspace/WorkspaceProvider";
 
 const STEP_LABELS = [
   "Surface",
@@ -25,12 +26,13 @@ export function FirstAgentSetupShell({
   onBack?: () => void;
   backDisabled?: boolean;
 }) {
+  const { href } = useDashboardPaths();
   const progress = Math.round((step / STEP_LABELS.length) * 100);
 
   return (
     <div className="setup-flow first-agent-setup">
       <header className="setup-flow__bar">
-        <Link href="/dashboard" className="site-logo" aria-label="BehalfID dashboard"> {/* pragma: allowlist secret */}
+        <Link href={href("/dashboard")} className="site-logo" aria-label="BehalfID dashboard"> {/* pragma: allowlist secret */}
           <strong>BehalfID</strong> {/* pragma: allowlist secret */}
           <small>First agent setup</small>
         </Link>

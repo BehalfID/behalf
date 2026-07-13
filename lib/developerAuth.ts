@@ -3,10 +3,11 @@ import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import { promisify } from "util";
 import { connectToDatabase } from "@/lib/db";
-import { resolveActiveAccountId } from "@/lib/accountContext";
+import { requireWorkspaceMembershipBySlug, resolveActiveAccountId } from "@/lib/accountContext";
 import { createPublicId } from "@/lib/ids";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { jsonError } from "@/lib/responses";
+import { WORKSPACE_SLUG_HEADER } from "@/lib/workspaceSlug";
 import Account, { type AccountDocument } from "@/models/Account";
 import DeveloperSession from "@/models/DeveloperSession";
 import DeveloperUser, { type DeveloperUserDocument } from "@/models/DeveloperUser";
@@ -174,15 +175,40 @@ export async function getCurrentDeveloperContext() {
   return getDeveloperFromToken(cookieStore.get(COOKIE_NAME)?.value);
 }
 
+function readTrustedWorkspaceSlug(request: NextRequest): string | null {
+  const slug = request.headers.get(WORKSPACE_SLUG_HEADER)?.trim().toLowerCase() ?? "";
+  return slug || null;
+}
+
+/**
+ * Authenticate a dashboard API request.
+ * When the proxy attaches a trusted workspace slug header, tenancy is taken from
+ * that slug (membership-verified) for this request only — session activeAccountId
+ * is ignored. Legacy requests without a slug keep session-scoped behavior.
+ */
 export async function requireDeveloperApi(request: NextRequest) {
   const limit = await checkRateLimit(request);
   if (limit.limited) {
-    return { user: null, account: null, activeAccountId: null, session: null, error: rateLimitError() };
+    return {
+      user: null,
+      account: null,
+      activeAccountId: null,
+      session: null,
+      workspaceSlug: null,
+      error: rateLimitError()
+    };
   }
 
   const originError = requireDashboardMutationOrigin(request);
   if (originError) {
-    return { user: null, account: null, activeAccountId: null, session: null, error: originError };
+    return {
+      user: null,
+      account: null,
+      activeAccountId: null,
+      session: null,
+      workspaceSlug: null,
+      error: originError
+    };
   }
 
   const context = await getDeveloperFromToken(request.cookies.get(COOKIE_NAME)?.value);
@@ -192,11 +218,12 @@ export async function requireDeveloperApi(request: NextRequest) {
       account: null,
       activeAccountId: null,
       session: null,
+      workspaceSlug: null,
       error: jsonError("Developer authentication required.", 401)
     };
   }
 
-  const { user, session, activeAccountId } = context;
+  const { user, session } = context;
 
   const pathname = request.nextUrl.pathname;
   const isAccountSetupApi = pathname.startsWith("/api/onboarding/");
@@ -210,15 +237,50 @@ export async function requireDeveloperApi(request: NextRequest) {
       account: null,
       activeAccountId: null,
       session: null,
+      workspaceSlug: null,
       error: jsonError("Email verification required. Check your inbox or resend the verification email.", 403)
     };
   }
 
+  const workspaceSlug = readTrustedWorkspaceSlug(request);
+  if (workspaceSlug) {
+    const resolved = await requireWorkspaceMembershipBySlug(user.userId, workspaceSlug);
+    if ("error" in resolved) {
+      return {
+        user: null,
+        account: null,
+        activeAccountId: null,
+        session: null,
+        workspaceSlug: null,
+        error: resolved.error
+      };
+    }
+
+    const account = await Account.findOne({ accountId: resolved.workspace.accountId }).lean();
+    return {
+      user,
+      account,
+      activeAccountId: resolved.workspace.accountId,
+      session,
+      workspaceSlug: resolved.workspace.slug,
+      error: null
+    };
+  }
+
+  const { activeAccountId } = context;
   const account = activeAccountId
     ? await Account.findOne({ accountId: activeAccountId }).lean()
     : null;
 
-  return { user, account, activeAccountId, session, error: null };
+  return { user, account, activeAccountId, session, workspaceSlug: null, error: null };
+}
+
+/**
+ * Prefer this for workspace-scoped dashboard APIs. Equivalent to requireDeveloperApi
+ * when the trusted slug header is present; documents intent for callers.
+ */
+export async function requireWorkspaceDeveloperApi(request: NextRequest) {
+  return requireDeveloperApi(request);
 }
 
 /** Like requireDeveloperApi but also requires emailVerified (or pre-verification account). */
@@ -231,6 +293,7 @@ export async function requireVerifiedDeveloperApi(request: NextRequest) {
       account: null,
       activeAccountId: null,
       session: null,
+      workspaceSlug: null,
       error: jsonError("Email verification required. Check your inbox or resend the verification email.", 403)
     };
   }

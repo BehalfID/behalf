@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Button, ButtonLink, Card, PageHeader } from "@/components/ui";
+import { useDashboardApi } from "@/components/workspace/WorkspaceProvider";
 import { haptic } from "@/lib/haptic";
 import type { ManagedProfileActivityEvent } from "@/lib/cliAuditActivityTypes";
 import { MANAGED_PROFILE_ONBOARDING_STEPS } from "@/lib/managedProfileOnboarding";
@@ -177,28 +178,12 @@ function OnboardingCommandGroup({ commands }: { commands: string[] }) {
   );
 }
 
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
-    ...init,
-    credentials: "include",
-    headers: {
-      Accept: "application/json",
-      ...(init?.body ? { "Content-Type": "application/json" } : {}),
-      ...init?.headers,
-    },
-  });
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(body?.error ?? `Request failed with ${response.status}`);
-  }
-  return response.json() as Promise<T>;
-}
-
 function emptyProtectedRepo() {
   return { repoHash: "", label: "", mode: "required" as PolicyMode, enabled: true };
 }
 
 export function ManagedProfilesView() {
+  const { apiJson, href } = useDashboardApi();
   const [loading, setLoading] = useState(true);
   const [canEdit, setCanEdit] = useState(false);
   const [form, setForm] = useState<ManagedProfilePolicy | null>(null);
@@ -215,11 +200,11 @@ export function ManagedProfilesView() {
   const [activityLoaded, setActivityLoaded] = useState(false);
   const [activityFetchFailed, setActivityFetchFailed] = useState(false);
 
-  const loadPolicy = async () => {
+  const loadPolicy = useCallback(async () => {
     setLoading(true);
     setSaveError("");
     try {
-      const data = await api<ManagedProfilesResponse>("/api/dashboard/managed-profiles");
+      const data = await apiJson<ManagedProfilesResponse>("/api/dashboard/managed-profiles");
       setForm(data.policy);
       setCanEdit(data.canEdit);
     } catch (err) {
@@ -227,12 +212,12 @@ export function ManagedProfilesView() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiJson]);
 
-  const loadLastActivity = async () => {
+  const loadLastActivity = useCallback(async () => {
     setActivityFetchFailed(false);
     try {
-      const data = await api<{ events: ManagedProfileActivityEvent[] }>(
+      const data = await apiJson<{ events: ManagedProfileActivityEvent[] }>(
         "/api/dashboard/managed-profiles/activity?limit=1"
       );
       setLastActivity(data.events[0] ?? null);
@@ -242,14 +227,14 @@ export function ManagedProfilesView() {
     } finally {
       setActivityLoaded(true);
     }
-  };
+  }, [apiJson]);
 
   useEffect(() => {
     queueMicrotask(() => {
       void loadPolicy();
       void loadLastActivity();
     });
-  }, []);
+  }, [loadPolicy, loadLastActivity]);
 
   const savePolicy = async (event: FormEvent) => {
     event.preventDefault();
@@ -278,7 +263,7 @@ export function ManagedProfilesView() {
           })),
         pausePolicy: form.pausePolicy,
       };
-      const result = await api<{ policy: ManagedProfilePolicy }>("/api/dashboard/managed-profiles", {
+      const result = await apiJson<{ policy: ManagedProfilePolicy }>("/api/dashboard/managed-profiles", {
         method: "PUT",
         body: JSON.stringify(payload),
       });
@@ -315,7 +300,7 @@ export function ManagedProfilesView() {
     setSimulateError("");
     setSimulateResult(null);
     try {
-      const result = await api<PolicySimulationResult>("/api/cli/session-policy/simulate", {
+      const result = await apiJson<PolicySimulationResult>("/api/cli/session-policy/simulate", {
         method: "POST",
         body: JSON.stringify({
           tool: simulateTool,
@@ -392,7 +377,10 @@ export function ManagedProfilesView() {
         title="Managed profiles"
         description="Control when local coding agents run unmanaged, managed, or required."
         action={
-          <ButtonLink href="/dashboard/managed-profiles/activity" variant="secondary">
+          <ButtonLink
+            href={href("/dashboard/managed-profiles/activity")}
+            variant="secondary"
+          >
             View activity
           </ButtonLink>
         }
@@ -451,7 +439,7 @@ export function ManagedProfilesView() {
           <Link
             className="managed-profile-onboarding-action"
             data-testid="managed-profile-onboarding-activity-link"
-            href="/dashboard/managed-profiles/activity"
+            href={href("/dashboard/managed-profiles/activity")}
           >
             View activity
           </Link>
@@ -537,8 +525,10 @@ export function ManagedProfilesView() {
               <p className="ops-empty">
                 This repo hash is not enrolled as a protected repo. Add it under Protected repos or
                 use{" "}
-                <Link href="/dashboard/managed-profiles/activity">Managed Profile Activity</Link> to
-                enroll from recent CLI activity.
+                <Link href={href("/dashboard/managed-profiles/activity")}>
+                  Managed Profile Activity
+                </Link>{" "}
+                to enroll from recent CLI activity.
               </p>
             ) : null}
           </div>
@@ -734,7 +724,10 @@ export function ManagedProfilesView() {
           </p>
           <p className="ops-empty">
             You can also add protected repos from{" "}
-            <Link href="/dashboard/managed-profiles/activity">Managed Profile Activity</Link> after running{" "}
+            <Link href={href("/dashboard/managed-profiles/activity")}>
+              Managed Profile Activity
+            </Link>{" "}
+            after running{" "}
             <code>behalf profile status</code> or launching a managed tool.
           </p>
           {form.protectedRepos.map((repo, index) => (

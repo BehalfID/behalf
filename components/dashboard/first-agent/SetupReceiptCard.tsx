@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { DecisionIndicator } from "@/components/dashboard/OpsEventPrimitives";
+import { useDashboardPaths } from "@/components/workspace/WorkspaceProvider";
 import type { TestDecisionResult } from "./TestDecisionStep";
 
 export function SetupReceiptCard({ result }: { result: TestDecisionResult }) {
+  const { href } = useDashboardPaths();
   const logLike = {
     allowed: result.allowed,
     approvalRequired: Boolean(result.approvalRequired),
@@ -33,7 +35,7 @@ export function SetupReceiptCard({ result }: { result: TestDecisionResult }) {
           <div className="setup-review__row">
             <dt>Approval</dt>
             <dd>
-              <Link href={`/dashboard/approvals?highlight=${encodeURIComponent(result.approvalId)}`}>
+              <Link href={href(`/dashboard/approvals?highlight=${encodeURIComponent(result.approvalId)}`)}>
                 Open pending approval
               </Link>
             </dd>
@@ -53,11 +55,12 @@ export function LogsHandoffStep({
   agentId?: string;
   onCopy: (value: string, label: string) => void;
 }) {
+  const { href } = useDashboardPaths();
   const logsHref = requestId
-    ? `/dashboard/logs?search=${encodeURIComponent(requestId)}`
+    ? href(`/dashboard/logs?search=${encodeURIComponent(requestId)}`)
     : agentId
-      ? `/dashboard/logs?agentId=${encodeURIComponent(agentId)}`
-      : "/dashboard/logs";
+      ? href(`/dashboard/logs?agentId=${encodeURIComponent(agentId)}`)
+      : href("/dashboard/logs");
 
   return (
     <>
@@ -83,7 +86,7 @@ export function LogsHandoffStep({
           <Link className="ui-button ui-button--primary" href={logsHref}>
             Open audit logs
           </Link>
-          <Link className="ui-button ui-button--ghost" href="/dashboard">
+          <Link className="ui-button ui-button--ghost" href={href("/dashboard")}>
             Return to control plane
           </Link>
         </div>

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readFile } from "node:fs/promises";
+import { repoPath } from "./helpers/repoPath";
 
 const mocks = vi.hoisted(() => ({
   requireDeveloperApi: vi.fn(),
@@ -393,13 +394,13 @@ describe("session-policy audit recording", () => {
 
 describe("managed profile activity dashboard UI", () => {
   it("activity route renders ProtectedDashboard activity view", async () => {
-    const source = await readFile("/workspace/app/dashboard/managed-profiles/activity/page.tsx", "utf8");
+    const source = await readFile(repoPath("app", "dashboard", "managed-profiles", "activity", "page.tsx"), "utf8");
     expect(source).toContain('view="managed-profiles-activity"');
     expect(source).toContain("Managed profile activity");
   });
 
   it("includes empty state copy and CLI suggestion", async () => {
-    const source = await readFile("/workspace/components/dashboard/ManagedProfileActivityView.tsx", "utf8");
+    const source = await readFile(repoPath("components", "dashboard", "ManagedProfileActivityView.tsx"), "utf8");
     expect(source).toContain("No managed profile activity yet");
     expect(source).toContain("behalf profile status --tool claude");
     expect(source).toContain("managed-activity-empty");
@@ -436,7 +437,7 @@ describe("managed profile activity dashboard UI", () => {
   });
 
   it("renders loaded event type, mode, tool, and reason columns", async () => {
-    const source = await readFile("/workspace/components/dashboard/ManagedProfileActivityView.tsx", "utf8");
+    const source = await readFile(repoPath("components", "dashboard", "ManagedProfileActivityView.tsx"), "utf8");
     expect(source).toContain("eventTypeLabel(event.eventType)");
     expect(source).toContain("modeLabel(event.mode)");
     expect(source).toContain("{event.tool ??");
@@ -444,13 +445,13 @@ describe("managed profile activity dashboard UI", () => {
   });
 
   it("includes load more pagination control", async () => {
-    const source = await readFile("/workspace/components/dashboard/ManagedProfileActivityView.tsx", "utf8");
+    const source = await readFile(repoPath("components", "dashboard", "ManagedProfileActivityView.tsx"), "utf8");
     expect(source).toContain("Load more");
     expect(source).toContain("loadMore");
   });
 
   it("includes protect repo action and enrollment form", async () => {
-    const source = await readFile("/workspace/components/dashboard/ManagedProfileActivityView.tsx", "utf8");
+    const source = await readFile(repoPath("components", "dashboard", "ManagedProfileActivityView.tsx"), "utf8");
     expect(source).toContain("Protect repo");
     expect(source).toContain("Add protected repo");
     expect(source).toContain("placeholder=\"Production repo\"");
@@ -459,14 +460,14 @@ describe("managed profile activity dashboard UI", () => {
   });
 
   it("managed profiles page links to activity for repo enrollment", async () => {
-    const source = await readFile("/workspace/components/dashboard/ManagedProfilesView.tsx", "utf8");
+    const source = await readFile(repoPath("components", "dashboard", "ManagedProfilesView.tsx"), "utf8");
     expect(source).toContain("You can also add protected repos from");
     expect(source).toContain("/dashboard/managed-profiles/activity");
     expect(source).toContain("Managed Profile Activity");
   });
 
   it("reads policy.enabled and repo enabled when building protected repo status", async () => {
-    const source = await readFile("/workspace/components/dashboard/ManagedProfileActivityView.tsx", "utf8");
+    const source = await readFile(repoPath("components", "dashboard", "ManagedProfileActivityView.tsx"), "utf8");
     expect(source).toContain("policy.enabled");
     expect(source).toContain("repo.enabled === false");
     expect(source).toContain("buildProtectedRepoStatusByHash");
@@ -474,15 +475,15 @@ describe("managed profile activity dashboard UI", () => {
   });
 
   it("shows disabled and policy-disabled states with edit policy links", async () => {
-    const source = await readFile("/workspace/components/dashboard/ManagedProfileActivityView.tsx", "utf8");
+    const source = await readFile(repoPath("components", "dashboard", "ManagedProfileActivityView.tsx"), "utf8");
     expect(source).toContain("Disabled in policy");
     expect(source).toContain("Policy disabled");
-    expect(source).toContain('href="/dashboard/managed-profiles"');
+    expect(source).toContain('href("/dashboard/managed-profiles")');
     expect(source).toContain("Edit policy");
   });
 
   it("only treats enabled repos as enforced protected", async () => {
-    const source = await readFile("/workspace/components/dashboard/ManagedProfileActivityView.tsx", "utf8");
+    const source = await readFile(repoPath("components", "dashboard", "ManagedProfileActivityView.tsx"), "utf8");
     expect(source).toContain('"enforced"');
     expect(source).toContain('"disabled-entry"');
     expect(source).toContain('"policy-disabled"');
@@ -492,7 +493,7 @@ describe("managed profile activity dashboard UI", () => {
   });
 
   it("shows protect repo only for unconfigured repos when canEdit", async () => {
-    const source = await readFile("/workspace/components/dashboard/ManagedProfileActivityView.tsx", "utf8");
+    const source = await readFile(repoPath("components", "dashboard", "ManagedProfileActivityView.tsx"), "utf8");
     expect(source).toContain("Protect repo");
     expect(source).toContain("if (!canEdit) return <>—</>;");
     expect(source).toContain("buildProtectedRepoStatusByHash(body.policy)");

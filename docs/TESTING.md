@@ -44,6 +44,7 @@ Current coverage includes:
 - Secret redaction for best-effort last-used update failures and CLI error output.
 - Verification log filtering, date-range retention floor behavior, summary counts, dashboard developer scoping, console account scoping, pagination metadata, CSV export redaction, and CLI log filter/output redaction.
 - Site Guard path wildcard matching, blocked-path precedence, deny-by-default logic, disabled site/rule behavior, log creation, metadata redaction, fail-closed lookup handling, and check-route auth/input/response coverage.
+- Workspace URL routing v1: slug normalize/validate/reserve rules, membership resolution by slug, trusted `x-behalf-workspace-slug` API scoping, and proxy public-path rewrite helpers (see `docs/WORKSPACE_URLS.md`).
 
 ## MongoDB integration coverage
 

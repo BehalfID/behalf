@@ -1,6 +1,8 @@
 export {
   findAccountById,
   findAccountByIdLean,
+  findAccountBySlug,
+  findAccountBySlugLean,
   incrementVerificationCount,
   resetVerificationPeriod
 } from "@/lib/repositories/accounts";

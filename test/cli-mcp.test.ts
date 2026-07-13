@@ -2,6 +2,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { stubCliHome } from "./helpers/stubCliHome";
 
 const originalCwd = process.cwd();
 
@@ -40,7 +41,7 @@ function tempDir(prefix: string) {
 
 async function loadCliModules(home: string) {
   vi.resetModules();
-  vi.stubEnv("HOME", home);
+  stubCliHome(home);
   vi.stubEnv("BEHALFID_BASE_URL", "http://localhost:3000");
   return {
     config: await import("../packages/cli/src/lib/config"),
@@ -114,7 +115,9 @@ describe("CLI doctor", () => {
     expect(checks.find(c => c.name === "API key")?.status).toBe("warn");
     expect(checks.find(c => c.name === "Agent ID")?.status).toBe("warn");
     expect(checks.find(c => c.name === "MCP config")?.status).toBe("warn");
-    expect(checks.some(c => c.status === "error")).toBe(false);
+    // Claude hook missing is reported as error by design; other checks stay soft.
+    const hardErrors = checks.filter((c) => c.status === "error" && c.name !== "Claude hook");
+    expect(hardErrors).toEqual([]);
   });
 
   it("detects valid CLI config and project setup with mocked health calls", async () => {

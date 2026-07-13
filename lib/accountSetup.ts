@@ -342,7 +342,66 @@ export async function completeAccountSetup(
 
   await connectToDatabase();
 
-  await DeveloperUser.updateOne(
+  const existingAccount = await Account.findOne({ accountId: primaryAccountId })
+    .select("slug")
+    .lean();
+  const existingSlug =
+    typeof existingAccount?.slug === "string" ? existingAccount.slug.trim().toLowerCase() : "";
+
+  const { validateWorkspaceSlug, workspaceDashboardHref } = await import("@/lib/workspaceSlug");
+  const {
+    assignSlugWithDuplicateRetry,
+    resolvePermanentWorkspaceSlugSeed
+  } = await import("@/lib/workspaceSlugServer");
+
+  const accountSet: Record<string, unknown> = {
+    accountType: validated.account.accountType,
+    companyName: validated.account.companyName ?? null,
+    name: validated.account.name,
+    website: validated.account.website ?? null,
+    teamSize: validated.account.teamSize ?? null,
+    onboarding: validated.account.onboarding
+  };
+
+  // Preserve populated valid slugs; assign only when missing/invalid.
+  let slug = existingSlug && validateWorkspaceSlug(existingSlug) === null ? existingSlug : "";
+
+  try {
+    if (!slug) {
+      const seed = resolvePermanentWorkspaceSlugSeed({
+        accountType: validated.account.accountType,
+        companyName: validated.account.companyName,
+        name: validated.account.name
+      });
+      slug = await assignSlugWithDuplicateRetry(seed, primaryAccountId, async (candidate) => {
+        accountSet.slug = candidate;
+        const result = await Account.updateOne({ accountId: primaryAccountId }, { $set: accountSet });
+        if (result.matchedCount === 0) {
+          throw new Error("Account update failed during slug assignment.");
+        }
+      });
+    } else {
+      const result = await Account.updateOne({ accountId: primaryAccountId }, { $set: accountSet });
+      if (result.matchedCount === 0) {
+        return { error: "Account update failed.", status: 500 };
+      }
+    }
+
+    const refreshed = await Account.findOne({ accountId: primaryAccountId }).select("slug").lean();
+    const persistedSlug =
+      typeof refreshed?.slug === "string" ? refreshed.slug.trim().toLowerCase() : "";
+    if (!persistedSlug || validateWorkspaceSlug(persistedSlug) !== null) {
+      throw new Error("Slug persistence verification failed.");
+    }
+    slug = persistedSlug;
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Workspace slug assignment failed.",
+      status: 500
+    };
+  }
+
+  const userResult = await DeveloperUser.updateOne(
     { userId },
     {
       $set: {
@@ -354,23 +413,18 @@ export async function completeAccountSetup(
       }
     }
   );
+  if (userResult.matchedCount === 0) {
+    return { error: "Profile update failed.", status: 500 };
+  }
 
-  await Account.updateOne(
-    { accountId: primaryAccountId },
-    {
-      $set: {
-        accountType: validated.account.accountType,
-        companyName: validated.account.companyName ?? null,
-        name: validated.account.name,
-        website: validated.account.website ?? null,
-        teamSize: validated.account.teamSize ?? null,
-        onboarding: validated.account.onboarding
-      }
-    }
-  );
+  const nextBase = getNextRouteForFirstSetupGoal(validated.account.onboarding.firstSetupGoal);
+  const nextRoute =
+    slug && nextBase.startsWith("/dashboard")
+      ? workspaceDashboardHref(slug, nextBase.slice("/dashboard".length) || "")
+      : nextBase;
 
   return {
     error: null,
-    nextRoute: getNextRouteForFirstSetupGoal(validated.account.onboarding.firstSetupGoal)
+    nextRoute
   };
 }

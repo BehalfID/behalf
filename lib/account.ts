@@ -1,5 +1,6 @@
 import { ensureAccountMembership } from "@/lib/delegatedAuth";
 import { createPublicId } from "@/lib/ids";
+import { assignSlugWithDuplicateRetry } from "@/lib/workspaceSlugServer";
 import Account from "@/models/Account";
 import Agent from "@/models/Agent";
 import DeveloperUser from "@/models/DeveloperUser";
@@ -10,10 +11,14 @@ export const DEFAULT_ACCOUNT_NAME = "Prototype Admin";
 
 export async function createDeveloperAccount(userId: string, email: string) {
   const name = email.split("@")[0]?.trim() || email;
-  const account = await Account.create({
-    accountId: createPublicId("acct"),
-    name
-  });
+  const accountId = createPublicId("acct");
+  // Omit slug entirely so the sparse unique index does not see slug:null.
+  // Permanent slug is assigned at onboarding completion — never from the email local part.
+  await Account.create({ accountId, name });
+  const account = await Account.findOne({ accountId });
+  if (!account) {
+    throw new Error("Failed to create developer account.");
+  }
   await DeveloperUser.updateOne({ userId }, { $set: { primaryAccountId: account.accountId } });
   await ensureAccountMembership(userId, account.accountId);
   return account;
@@ -22,10 +27,21 @@ export async function createDeveloperAccount(userId: string, email: string) {
 export async function getDefaultAccount() {
   let account = await Account.findOne({ name: DEFAULT_ACCOUNT_NAME });
   if (!account) {
-    account = await Account.create({
-      accountId: createPublicId("acct"),
-      name: DEFAULT_ACCOUNT_NAME
+    const accountId = createPublicId("acct");
+    await assignSlugWithDuplicateRetry(DEFAULT_ACCOUNT_NAME, accountId, async (candidate) => {
+      await Account.create({
+        accountId,
+        name: DEFAULT_ACCOUNT_NAME,
+        slug: candidate
+      });
     });
+    account = await Account.findOne({ accountId });
+    if (!account) {
+      account = await Account.findOne({ name: DEFAULT_ACCOUNT_NAME });
+    }
+    if (!account) {
+      throw new Error("Failed to create default account.");
+    }
   }
 
   return account;

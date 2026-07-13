@@ -149,6 +149,7 @@ const mocks = vi.hoisted(() => ({
   requireDeveloperApi: vi.fn(),
   getWorkspaceActor: vi.fn(),
   canManageMembers: vi.fn(),
+  findAccountBySlugLean: vi.fn(),
   DeveloperUser: {
     findOne: vi.fn(),
     updateOne: vi.fn()
@@ -160,6 +161,10 @@ const mocks = vi.hoisted(() => ({
   AccountMembership: {
     findOne: vi.fn()
   }
+}));
+
+vi.mock("@/lib/repositories/accounts", () => ({
+  findAccountBySlugLean: mocks.findAccountBySlugLean
 }));
 
 vi.mock("@/lib/developerAuth", () => ({
@@ -196,6 +201,7 @@ function jsonRequest(url: string, init?: RequestInit) {
 describe("account setup API", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.findAccountBySlugLean.mockResolvedValue(null);
     mocks.requireDeveloperApi.mockResolvedValue({
       user: {
         userId: "dev_test",
@@ -258,7 +264,7 @@ describe("account setup API", () => {
     expect(response.status).toBe(400);
   });
 
-  it("sets onboardingCompletedAt on completion", async () => {
+  it("sets onboardingCompletedAt on completion after account slug assignment", async () => {
     const { POST } = await import("@/app/api/onboarding/account-setup/complete/route");
     mocks.requireDeveloperApi.mockResolvedValue({
       user: {
@@ -269,6 +275,22 @@ describe("account setup API", () => {
       },
       account: { accountId: "acct_test", name: "Workspace" },
       error: null
+    });
+    mocks.Account.findOne.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        lean: vi.fn()
+          .mockResolvedValueOnce({ slug: null })
+          .mockResolvedValueOnce({ slug: "engines-inc" })
+      }),
+      lean: vi.fn().mockResolvedValue({
+        accountId: "acct_test",
+        name: "Workspace",
+        accountType: null,
+        companyName: null,
+        website: null,
+        teamSize: null,
+        onboarding: null
+      })
     });
 
     const response = await POST(
@@ -289,7 +311,8 @@ describe("account setup API", () => {
     );
     const json = await response.json();
     expect(response.status).toBe(200);
-    expect(json.nextRoute).toBe("/dashboard/agents/new");
+    expect(json.nextRoute).toMatch(/^\/[^/]+\/dashboard\/agents\/new$/);
+    expect(mocks.Account.updateOne).toHaveBeenCalledBefore(mocks.DeveloperUser.updateOne);
     expect(mocks.DeveloperUser.updateOne).toHaveBeenCalledWith(
       { userId: "dev_test" },
       expect.objectContaining({
@@ -384,9 +407,9 @@ describe("account setup API", () => {
 
 describe("account setup routing", () => {
   it("signup success routes to onboarding in auth client", async () => {
-    const source = await import("fs/promises").then((fs) =>
-      fs.readFile("/workspace/app/auth-client.tsx", "utf8")
-    );
+    const { readFile } = await import("fs/promises");
+    const { join } = await import("path");
+    const source = await readFile(join(process.cwd(), "app/auth-client.tsx"), "utf8");
     expect(source).toMatch(/\/onboarding/);
     expect(source).toContain("redirectPath");
   });

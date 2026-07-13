@@ -3,6 +3,16 @@ import mongoose, { Schema, type InferSchemaType, type Model } from "mongoose";
 const AccountSchema = new Schema(
   {
     accountId: { type: String, required: true, unique: true, index: true },
+    /** Stable human-facing workspace URL identity. Immutable after assignment in v1. */
+    slug: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      maxlength: 63,
+      unique: true,
+      sparse: true,
+      index: true
+    },
     name: { type: String, required: true, trim: true, maxlength: 120 },
     accountType: {
       type: String,

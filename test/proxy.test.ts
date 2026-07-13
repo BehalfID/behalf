@@ -4,7 +4,9 @@ vi.mock("next/server", () => ({
   NextResponse: { next: vi.fn(), redirect: vi.fn() },
 }));
 vi.mock("next-intl/middleware", () => ({ default: vi.fn(() => vi.fn()) }));
-vi.mock("@/i18n/routing", () => ({ routing: {} }));
+vi.mock("@/i18n/routing", () => ({
+  routing: { locales: ["en", "de", "es", "fr"], defaultLocale: "en", localePrefix: "as-needed" }
+}));
 
 import { shouldBypassProxy } from "@/proxy";
 

@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ButtonLink, EmptyState, PageHeader } from "@/components/ui";
+import { useDashboardApi, useDashboardPaths } from "@/components/workspace/WorkspaceProvider";
 import { DecisionIndicator, OpsDrawerLink, OpsLogEventCard } from "./OpsEventPrimitives";
 import {
   formatOpsDate,
   formatOpsTime,
   logDecisionLabel,
-  logDecisionShortLabel,
   approvalRequiredMetricLabel,
   logDecisionTone,
   type OpsLog,
@@ -20,16 +20,8 @@ type LogsResponse = {
   pagination?: { limit: number; page: number; total: number; hasMore: boolean };
 };
 
-async function fetchLogs(path: string): Promise<LogsResponse> {
-  const response = await fetch(path, { credentials: "include", headers: { Accept: "application/json" } });
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(body?.error ?? `Request failed with ${response.status}`);
-  }
-  return response.json() as Promise<LogsResponse>;
-}
-
 function LogDetailDrawer({ log, onClose }: { log: OpsLog; onClose: () => void }) {
+  const { href } = useDashboardPaths();
   const [copied, setCopied] = useState<string | null>(null);
   const tone = logDecisionTone(log);
 
@@ -105,7 +97,9 @@ function LogDetailDrawer({ log, onClose }: { log: OpsLog; onClose: () => void })
         {log.approvalId ? (
           <section className="ops-drawer__section">
             <h3 className="ops-drawer__section-title">Approval request</h3>
-            <OpsDrawerLink href={`/dashboard/approvals?highlight=${encodeURIComponent(log.approvalId)}`}>
+            <OpsDrawerLink
+              href={href(`/dashboard/approvals?highlight=${encodeURIComponent(log.approvalId)}`)}
+            >
               Open approval queue
             </OpsDrawerLink>
             <p className="ops-drawer__hint"><code>{log.approvalId}</code></p>
@@ -158,6 +152,7 @@ export function OpsLogConsole({
   initialSearch?: string;
   initialAgentId?: string;
 }) {
+  const { apiJson, apiPath } = useDashboardApi();
   const [search, setSearch] = useState(initialSearch ?? "");
   const [decision, setDecision] = useState("");
   const [agentId, setAgentId] = useState(initialAgentId ?? "");
@@ -188,13 +183,13 @@ export function OpsLogConsole({
     setLoading(true);
     setError("");
     try {
-      setData(await fetchLogs(path));
+      setData(await apiJson<LogsResponse>(path));
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Request failed.");
     } finally {
       setLoading(false);
     }
-  }, [path]);
+  }, [apiJson, path]);
 
   useEffect(() => {
     void reload();
@@ -208,7 +203,8 @@ export function OpsLogConsole({
     if (match) setSelected(match);
   }, [initialSearch, logs]);
 
-  const exportHref = `${path}${path.includes("?") ? "&" : "?"}format=csv`;
+  const resolvedPath = apiPath(path);
+  const exportHref = `${resolvedPath}${resolvedPath.includes("?") ? "&" : "?"}format=csv`;
   const hasFilters = Boolean(search || decision || agentId || action || environment || risk || range);
 
   return (
