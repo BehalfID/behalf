@@ -38,6 +38,15 @@ jobs:
       - name: Build CLI
         run: npm run build:cli
 
+      - name: Full unit test suite
+        run: npx vitest run
+
+      - name: Workspace slug Mongo integration
+        run: >
+          npx vitest run
+          --config vitest.integration.config.ts
+          test/integration/workspace-slug-sparse.integration.test.ts
+
       - name: Verify CLI package provenance metadata
         run: |
           set -euo pipefail
