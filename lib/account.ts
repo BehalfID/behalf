@@ -12,8 +12,9 @@ export const DEFAULT_ACCOUNT_NAME = "Prototype Admin";
 export async function createDeveloperAccount(userId: string, email: string) {
   const name = email.split("@")[0]?.trim() || email;
   const accountId = createPublicId("acct");
-  // Slug is assigned at onboarding completion — not from the email local part.
-  await Account.create({ accountId, name, slug: null });
+  // Omit slug entirely so the sparse unique index does not see slug:null.
+  // Permanent slug is assigned at onboarding completion — never from the email local part.
+  await Account.create({ accountId, name });
   const account = await Account.findOne({ accountId });
   if (!account) {
     throw new Error("Failed to create developer account.");

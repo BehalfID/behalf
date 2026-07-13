@@ -154,22 +154,31 @@ type AccountBackfillRow = {
   name?: string | null;
   createdAt?: Date | string | null;
   verificationCount?: number | null;
-  onboarding?: { firstSetupGoal?: string | null } | null;
 };
 
-/** True when a missing slug may be backfilled (legacy / post-onboarding), not mid-signup. */
+/**
+ * True when a missing slug may be backfilled (legacy / post-onboarding), not mid-signup.
+ *
+ * Partial onboarding fields (accountType, onboarding.firstSetupGoal) are NOT sufficient —
+ * those can be written before onboardingCompletedAt is set.
+ *
+ * Strong signals only:
+ * - created before ACCOUNT_SETUP_LAUNCH;
+ * - OWNER membership with DeveloperUser.onboardingCompletedAt;
+ * - existing agents;
+ * - recorded verification activity (verificationCount > 0).
+ */
 export async function isAccountEligibleForSlugBackfill(accountId: string): Promise<boolean> {
   const account = (await findAccountByIdLean(
     accountId,
-    "accountId accountType companyName name createdAt verificationCount onboarding slug"
+    "accountId accountType companyName name createdAt verificationCount slug"
   )) as AccountBackfillRow | null;
   if (!account) return false;
 
   const existing = typeof account.slug === "string" ? account.slug.trim().toLowerCase() : "";
+  // Valid existing slug is handled by ensureAccountHasSlug before eligibility;
+  // do not treat "already has slug" as a backfill signal here.
   if (existing && !validateWorkspaceSlug(existing)) return false;
-
-  if (account.accountType) return true;
-  if (account.onboarding?.firstSetupGoal) return true;
 
   const createdAt = account.createdAt ? new Date(account.createdAt) : null;
   if (createdAt && createdAt < ACCOUNT_SETUP_LAUNCH) return true;

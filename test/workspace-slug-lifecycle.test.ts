@@ -118,19 +118,55 @@ describe("resolvePermanentWorkspaceSlugSeed", () => {
 describe("createDeveloperAccount", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.accountCreate.mockResolvedValue({ accountId: "acct_new" });
-    accountFindOneLean({ accountId: "acct_new", name: "leeza", slug: null });
     mocks.developerUserUpdateOne.mockResolvedValue({});
     mocks.ensureAccountMembership.mockResolvedValue(undefined);
   });
 
-  it("creates an account without assigning a slug", async () => {
+  it("creates an account payload with no own slug property", async () => {
+    mocks.accountCreate.mockImplementation(async (doc: Record<string, unknown>) => doc);
+    mocks.accountFindOne.mockImplementation((query: { accountId: string }) => ({
+      // Mimic a Mongo document that never received a slug key.
+      then: undefined,
+      ...query,
+      name: "leeza"
+    }));
+    // Account.findOne returns a thenable-like in production; provide a resolved doc.
+    mocks.accountFindOne.mockResolvedValue({ accountId: "acct_a", name: "leeza" });
+
     const { createDeveloperAccount } = await import("@/lib/account");
-    const account = await createDeveloperAccount("dev_leeza", "leeza@trajectus.com");
-    expect(mocks.accountCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ accountId: expect.any(String), name: "leeza", slug: null })
+    await createDeveloperAccount("dev_leeza", "leeza@trajectus.com");
+
+    expect(mocks.accountCreate).toHaveBeenCalledTimes(1);
+    const payload = mocks.accountCreate.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(Object.prototype.hasOwnProperty.call(payload, "slug")).toBe(false);
+    expect(payload).toEqual(
+      expect.objectContaining({ accountId: expect.any(String), name: "leeza" })
     );
-    expect(account.slug ?? null).toBeNull();
+    expect(mocks.findAccountBySlugLean).not.toHaveBeenCalled();
+  });
+
+  it("creates two separate incomplete accounts without slug allocation", async () => {
+    const created: Record<string, unknown>[] = [];
+    mocks.accountCreate.mockImplementation(async (doc: Record<string, unknown>) => {
+      created.push({ ...doc });
+      return doc;
+    });
+    mocks.accountFindOne.mockImplementation(async (query: { accountId: string }) => {
+      const match = created.find((row) => row.accountId === query.accountId);
+      return match ? { ...match } : null;
+    });
+
+    const { createDeveloperAccount } = await import("@/lib/account");
+    const a = await createDeveloperAccount("dev_a", "alice@example.com");
+    const b = await createDeveloperAccount("dev_b", "bob@example.com");
+
+    expect(created).toHaveLength(2);
+    for (const row of created) {
+      expect(Object.prototype.hasOwnProperty.call(row, "slug")).toBe(false);
+    }
+    expect(a.accountId).not.toBe(b.accountId);
+    expect(Object.prototype.hasOwnProperty.call(a, "slug")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(b, "slug")).toBe(false);
     expect(mocks.findAccountBySlugLean).not.toHaveBeenCalled();
   });
 });
@@ -190,11 +226,61 @@ describe("completeAccountSetup slug lifecycle", () => {
         $set: expect.objectContaining({ slug: "trajectus", companyName: "Trajectus" })
       })
     );
-    expect(mocks.developerUserUpdateOne).toHaveBeenCalledWith(
-      { userId: "dev_leeza" },
-      expect.objectContaining({
-        $set: expect.objectContaining({ onboardingCompletedAt: expect.any(Date) })
+  });
+
+  it("assigns permanent slugs for two previously incomplete accounts", async () => {
+    const { completeAccountSetup } = await import("@/lib/accountSetup");
+    const { stableAccountIdSuffix } = await import("@/lib/workspaceSlugServer");
+
+    mocks.getWorkspaceActor.mockResolvedValue({
+      userId: "dev_a",
+      accountId: "acct_aaaa",
+      role: "OWNER",
+      authorityLevel: 100
+    });
+    let slugA: string | undefined;
+    mocks.accountFindOne.mockImplementation(() => ({
+      select: vi.fn().mockReturnValue({
+        lean: vi.fn().mockImplementation(async () => ({ accountId: "acct_aaaa", slug: slugA }))
       })
+    }));
+    mocks.accountUpdateOne.mockImplementation(async (_f: unknown, update: { $set: { slug?: string } }) => {
+      if (update.$set.slug) slugA = update.$set.slug;
+      return { matchedCount: 1, modifiedCount: 1 };
+    });
+    const first = await completeAccountSetup("dev_a", "acct_aaaa", {
+      ...completionBody,
+      companyName: "Acme"
+    });
+    expect(first.error).toBeNull();
+    expect(first.nextRoute).toBe("/acme/dashboard/agents/new");
+
+    mocks.getWorkspaceActor.mockResolvedValue({
+      userId: "dev_b",
+      accountId: "acct_bbbb",
+      role: "OWNER",
+      authorityLevel: 100
+    });
+    mocks.findAccountBySlugLean.mockImplementation(async (slug: string) =>
+      slug === "acme" ? { accountId: "acct_aaaa", slug } : null
+    );
+    let slugB: string | undefined;
+    mocks.accountFindOne.mockImplementation(() => ({
+      select: vi.fn().mockReturnValue({
+        lean: vi.fn().mockImplementation(async () => ({ accountId: "acct_bbbb", slug: slugB }))
+      })
+    }));
+    mocks.accountUpdateOne.mockImplementation(async (_f: unknown, update: { $set: { slug?: string } }) => {
+      if (update.$set.slug) slugB = update.$set.slug;
+      return { matchedCount: 1, modifiedCount: 1 };
+    });
+    const second = await completeAccountSetup("dev_b", "acct_bbbb", {
+      ...completionBody,
+      companyName: "Acme"
+    });
+    expect(second.error).toBeNull();
+    expect(second.nextRoute).toBe(
+      `/acme-${stableAccountIdSuffix("acct_bbbb", 8)}/dashboard/agents/new`
     );
   });
 
@@ -283,56 +369,110 @@ describe("completeAccountSetup slug lifecycle", () => {
 });
 
 describe("ensureAccountHasSlug backfill eligibility", () => {
+  const partialOnboardingAccount = {
+    accountId: "acct_partial",
+    name: "leeza",
+    companyName: "Trajectus",
+    slug: undefined,
+    accountType: "business",
+    createdAt: "2026-07-03T00:00:00.000Z",
+    verificationCount: 0,
+    onboarding: { firstSetupGoal: "create_agent" }
+  };
+
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.agentCountDocuments.mockResolvedValue(0);
-    mocks.membershipFind.mockResolvedValue([]);
-    mocks.developerUserFindOne.mockResolvedValue(null);
+    mocks.membershipFind.mockResolvedValue([{ userId: "dev_owner" }]);
+    mocks.developerUserFindOne.mockResolvedValue({ onboardingCompletedAt: null });
   });
 
-  it("returns null for incomplete new accounts without assigning a slug", async () => {
-    mocks.findAccountByIdLean.mockResolvedValue({
-      accountId: "acct_new",
-      name: "leeza",
-      companyName: null,
-      slug: null,
-      accountType: null,
-      createdAt: "2026-07-03T00:00:00.000Z",
-      verificationCount: 0,
-      onboarding: null
-    });
-    const { ensureAccountHasSlug } = await import("@/lib/workspaceSlugServer");
-    await expect(ensureAccountHasSlug("acct_new")).resolves.toBeNull();
+  it("denies backfill for partial onboarding without owner completion", async () => {
+    mocks.findAccountByIdLean.mockResolvedValue(partialOnboardingAccount);
+    const { isAccountEligibleForSlugBackfill, ensureAccountHasSlug } = await import(
+      "@/lib/workspaceSlugServer"
+    );
+    await expect(isAccountEligibleForSlugBackfill("acct_partial")).resolves.toBe(false);
+    await expect(ensureAccountHasSlug("acct_partial")).resolves.toBeNull();
     expect(mocks.accountUpdateOne).not.toHaveBeenCalled();
   });
 
-  it("backfills eligible legacy accounts from companyName not email local part", async () => {
-    mocks.findAccountByIdLean
-      .mockResolvedValueOnce({
-        accountId: "acct_legacy",
-        name: "leeza",
-        companyName: "Acme",
-        slug: null,
-        accountType: "business",
-        createdAt: "2026-07-03T00:00:00.000Z",
-        verificationCount: 0,
-        onboarding: { firstSetupGoal: "create_agent" }
-      })
-      .mockResolvedValueOnce({
-        accountId: "acct_legacy",
-        name: "leeza",
-        companyName: "Acme",
-        slug: null,
-        accountType: "business",
-        createdAt: "2026-07-03T00:00:00.000Z",
-        verificationCount: 0,
-        onboarding: { firstSetupGoal: "create_agent" }
-      })
-      .mockResolvedValue({ slug: "acme" });
+  it("allows backfill once owner onboardingCompletedAt is populated", async () => {
+    mocks.findAccountByIdLean.mockImplementation(async (_id: string, fields?: string) => {
+      if (typeof fields === "string" && fields === "slug") {
+        return { slug: "trajectus" };
+      }
+      return { ...partialOnboardingAccount };
+    });
+    mocks.developerUserFindOne.mockResolvedValue({
+      onboardingCompletedAt: "2026-07-12T00:00:00.000Z"
+    });
     mocks.findAccountBySlugLean.mockResolvedValue(null);
     mocks.accountUpdateOne.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
 
+    const { isAccountEligibleForSlugBackfill, ensureAccountHasSlug } = await import(
+      "@/lib/workspaceSlugServer"
+    );
+    await expect(isAccountEligibleForSlugBackfill("acct_partial")).resolves.toBe(true);
+    await expect(ensureAccountHasSlug("acct_partial")).resolves.toBe("trajectus");
+  });
+
+  it("allows pre-launch legacy accounts without onboardingCompletedAt", async () => {
+    mocks.findAccountByIdLean.mockResolvedValue({
+      accountId: "acct_legacy",
+      name: "Legacy Co",
+      companyName: "Legacy Co",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      verificationCount: 0
+    });
+    mocks.membershipFind.mockResolvedValue([]);
+    mocks.agentCountDocuments.mockResolvedValue(0);
+    const { isAccountEligibleForSlugBackfill } = await import("@/lib/workspaceSlugServer");
+    await expect(isAccountEligibleForSlugBackfill("acct_legacy")).resolves.toBe(true);
+  });
+
+  it("allows accounts with existing agent activity", async () => {
+    mocks.findAccountByIdLean.mockResolvedValue({
+      accountId: "acct_agents",
+      name: "leeza",
+      companyName: "Trajectus",
+      accountType: "business",
+      createdAt: "2026-07-03T00:00:00.000Z",
+      verificationCount: 0
+    });
+    mocks.agentCountDocuments.mockResolvedValue(2);
+    mocks.membershipFind.mockResolvedValue([]);
+    const { isAccountEligibleForSlugBackfill } = await import("@/lib/workspaceSlugServer");
+    await expect(isAccountEligibleForSlugBackfill("acct_agents")).resolves.toBe(true);
+  });
+
+  it("allows accounts with verification activity", async () => {
+    mocks.findAccountByIdLean.mockResolvedValue({
+      accountId: "acct_verify",
+      name: "leeza",
+      companyName: "Trajectus",
+      accountType: "business",
+      createdAt: "2026-07-03T00:00:00.000Z",
+      verificationCount: 3
+    });
+    mocks.agentCountDocuments.mockResolvedValue(0);
+    mocks.membershipFind.mockResolvedValue([]);
+    const { isAccountEligibleForSlugBackfill } = await import("@/lib/workspaceSlugServer");
+    await expect(isAccountEligibleForSlugBackfill("acct_verify")).resolves.toBe(true);
+  });
+
+  it("returns an existing valid slug without rewriting it", async () => {
+    mocks.findAccountByIdLean.mockResolvedValue({
+      accountId: "acct_locked",
+      name: "Renamed",
+      companyName: "Renamed LLC",
+      slug: "trajectus",
+      accountType: "business",
+      createdAt: "2026-07-03T00:00:00.000Z",
+      verificationCount: 0
+    });
     const { ensureAccountHasSlug } = await import("@/lib/workspaceSlugServer");
-    await expect(ensureAccountHasSlug("acct_legacy")).resolves.toBe("acme");
+    await expect(ensureAccountHasSlug("acct_locked")).resolves.toBe("trajectus");
+    expect(mocks.accountUpdateOne).not.toHaveBeenCalled();
   });
 });

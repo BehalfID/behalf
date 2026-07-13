@@ -236,7 +236,8 @@ describe("ensureAccountHasSlug", () => {
       companyName: "Acme",
       slug: written,
       accountType: "business",
-      onboarding: { firstSetupGoal: "create_agent" }
+      createdAt: "2026-07-03T00:00:00.000Z",
+      verificationCount: 1
     }));
     mocks.findAccountBySlugLean.mockResolvedValue(null);
     mocks.accountUpdateOne.mockImplementation(async (_filter: unknown, update: { $set: { slug: string } }) => {
