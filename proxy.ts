@@ -55,7 +55,15 @@ function isLocalDev(request: NextRequest) {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
 }
 
-const bypassAssetPattern = /\.(ico|png|jpg|jpeg|svg|webp|css|js|map)$/i;
+const staticAssetExtensionPattern = /\.(ico|png|jpg|jpeg|svg|webp|css|js|map)$/i;
+
+function isStaticAssetPath(pathname: string): boolean {
+  // Extension-like resource IDs under /api/** must still pass through sanitization.
+  if (pathname.startsWith("/api/")) return false;
+  const parts = pathname.split("/").filter(Boolean);
+  if (parts.length >= 2 && parts[1] === "api") return false;
+  return staticAssetExtensionPattern.test(pathname);
+}
 
 export function shouldBypassProxy(pathname: string) {
   return (
@@ -65,7 +73,7 @@ export function shouldBypassProxy(pathname: string) {
     pathname === "/robots.txt" ||
     pathname === "/sitemap.xml" ||
     pathname.startsWith("/_next/") ||
-    bypassAssetPattern.test(pathname)
+    isStaticAssetPath(pathname)
   );
 }
 
@@ -194,6 +202,10 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!api/health$|api/health/db$|robots\\.txt$|sitemap\\.xml$|_next/|.*\\.(?:ico|png|jpg|jpeg|svg|webp|css|js|map)$).*)"
+    // All API routes — including extension-like resource identifiers.
+    "/api/:path*",
+    "/:slug/api/:path*",
+    // Remaining app routes except health, sitemap, _next, and non-API static assets.
+    "/((?!api/health$|api/health/db$|robots\\.txt$|sitemap\\.xml$|_next/)(?!.*\\.(?:ico|png|jpg|jpeg|svg|webp|css|js|map)$).*)"
   ]
 };

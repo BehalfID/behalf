@@ -203,4 +203,59 @@ describe("proxy() workspace header trust boundary", () => {
     expect(captures[0]?.url?.search).toBe("?limit=8&cursor=abc");
     expect(captures[0]?.requestHeaders?.get(WORKSPACE_SLUG_HEADER)).toBe("alpha");
   });
+
+  it("strips forged header on direct API paths with extension-like resource ids", () => {
+    proxy(
+      makeRequest("/api/dashboard/agents/example.js", {
+        [WORKSPACE_SLUG_HEADER]: "victim"
+      })
+    );
+
+    expect(captures[0]?.kind).toBe("next");
+    expect(captures[0]?.requestHeaders?.get(WORKSPACE_SLUG_HEADER)).toBeNull();
+  });
+
+  it("rewrites scoped API paths with extension-like resource ids and trusted slug", () => {
+    proxy(
+      makeRequest("/alpha/api/dashboard/agents/example.js", {
+        [WORKSPACE_SLUG_HEADER]: "victim"
+      })
+    );
+
+    expect(captures[0]?.kind).toBe("rewrite");
+    expect(captures[0]?.url?.pathname).toBe("/api/dashboard/agents/example.js");
+    expect(captures[0]?.requestHeaders?.get(WORKSPACE_SLUG_HEADER)).toBe("alpha");
+  });
+
+  it("strips forged header on /api/dashboard/webhooks/example.map", () => {
+    proxy(
+      makeRequest("/api/dashboard/webhooks/example.map", {
+        [WORKSPACE_SLUG_HEADER]: "victim"
+      })
+    );
+
+    expect(captures[0]?.kind).toBe("next");
+    expect(captures[0]?.requestHeaders?.get(WORKSPACE_SLUG_HEADER)).toBeNull();
+  });
+
+  it("bypasses real static /_next/static/example.js without attaching workspace header", () => {
+    proxy(
+      makeRequest("/_next/static/example.js", {
+        [WORKSPACE_SLUG_HEADER]: "victim"
+      })
+    );
+
+    expect(captures[0]?.kind).toBe("next");
+    expect(captures[0]?.requestHeaders).toBeUndefined();
+  });
+});
+
+describe("shouldBypassProxy static vs API paths", () => {
+  it("does not bypass API routes whose final segment looks like a static extension", async () => {
+    const { shouldBypassProxy } = await import("@/proxy");
+    expect(shouldBypassProxy("/api/dashboard/agents/example.js")).toBe(false);
+    expect(shouldBypassProxy("/alpha/api/dashboard/agents/example.js")).toBe(false);
+    expect(shouldBypassProxy("/_next/static/example.js")).toBe(true);
+    expect(shouldBypassProxy("/assets/logo.png")).toBe(true);
+  });
 });

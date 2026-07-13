@@ -228,13 +228,15 @@ describe("ensureAccountHasSlug", () => {
     expect(mocks.findAccountBySlugLean).not.toHaveBeenCalled();
   });
 
-  it("generates and persists a slug when missing", async () => {
+  it("generates and persists a slug when missing for eligible accounts", async () => {
     let written: string | null = null;
     mocks.findAccountByIdLean.mockImplementation(async () => ({
       accountId: "acct_abcdef",
       name: "Acme",
       companyName: "Acme",
-      slug: written
+      slug: written,
+      accountType: "business",
+      onboarding: { firstSetupGoal: "create_agent" }
     }));
     mocks.findAccountBySlugLean.mockResolvedValue(null);
     mocks.accountUpdateOne.mockImplementation(async (_filter: unknown, update: { $set: { slug: string } }) => {
