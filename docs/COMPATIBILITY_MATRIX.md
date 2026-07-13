@@ -138,6 +138,23 @@ These are **compatibility adapters, not official partnerships**. No adapter in t
 
 **Approval grant integrity (agent_action):** Command and file-path approvals are bound to a deterministic SHA-256 fingerprint of the canonical target (exact command string; lexically canonicalized file path). Grants are consumed with a single atomic conditional update and are single-use. Legacy unbound command/file approvals cannot be approved or consumed. Generic purchase-style approvals retain action/vendor/amount binding. Managed Profiles pause approvals are unchanged. BehalfID does not interpret shell semantics or review file contents.
 
+### Google Antigravity PreToolUse gate (IDE + agy CLI)
+
+| Property | Value |
+|---|---|
+| Entry point | `behalf hook antigravity` (installed by `behalf antigravity install` into `~/.gemini/config/hooks.json` under the `behalfid` namespace) |
+| Official status | Pilot / experimental enforcement path — not a Google-certified integration |
+| Surfaces | Antigravity IDE and `agy` CLI (shared global hooks config) |
+| Mapped tools | write_to_file, replace_file_content, multi_replace_file_content, write_file, replace, edit_file, create_file, delete_file, remove_file → `write_file`; view_file, read_file, read_many_files, view_code_item → `read_file`; run_command, run_shell_command → `execute_command`; web_fetch, google_web_search, search_web, read_url_content, browser_* → `browse_web`; `mcp__*` / mcp_context → `mcp_tool`; task, agent, run_subagent, spawn_subagent, delegate_task → `spawn_agent` |
+| Policy transport | Sanitized `policyContext` only (`filePath` / `command` + `cwd` / `home`, `source: "antigravity"`); never file contents or replacement bodies |
+| Decision protocol | Allow: `{}` + exit 0 (never `decision:"allow"`, so Antigravity's native review prompts are preserved). Deny: `{"decision":"deny","reason"}` on stdout **and** exit 2 — blocks under both Antigravity decision conventions |
+| Enforcement modes | `advisory` (default): outages/malformed payloads fail open, denials still block. `required` (`--enforce`): fail closed on unreachable API, timeout, invalid/missing credentials, malformed or oversized payloads, missing tool name |
+| Fail-closed (both modes) | Oversized policy context (> 16 KB command/path) |
+| Credential path | `~/.behalf/config.json` only — Antigravity sanitizes hook env, so env vars never reach the gate |
+| MCP layer | Advisory `behalfid` entry (`behalf mcp start`) merged into `~/.gemini/config/mcp_config.json` (+ legacy `~/.gemini/antigravity/mcp_config.json` if present) |
+| Known limitations | Only tool calls Antigravity routes through PreToolUse hooks are checked; browser/background/subagent hook coverage unverified (run the docs/ANTIGRAVITY.md canary); local users can edit hooks.json; no post-execution outcome recording |
+| Before claiming production-ready | Run the canary validation on a live Antigravity install (IDE + CLI + subagent); re-verify config paths after each Antigravity release |
+
 ### LangChain
 
 | Property | Value |

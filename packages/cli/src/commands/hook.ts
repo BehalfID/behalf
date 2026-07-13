@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { apiRequest, resolveApiKey, resolveBaseUrl } from "../lib/client.js";
-import { readConfig } from "../lib/config.js";
+import { readConfig, readExtendedConfig } from "../lib/config.js";
 
 /**
  * The subset of the Claude Code PreToolUse hook payload we care about. Claude
@@ -42,6 +42,17 @@ export type ClaudePolicyContext = {
   home?: string;
   toolInput?: ClaudePolicyToolInput;
 };
+
+export type AntigravityPolicyContext = {
+  source: "antigravity";
+  toolName?: string;
+  cwd?: string;
+  home?: string;
+  toolInput?: ClaudePolicyToolInput;
+};
+
+/** Union of the per-provider policy contexts sent to /api/verify. */
+export type ProviderPolicyContext = ClaudePolicyContext | AntigravityPolicyContext;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -212,7 +223,7 @@ export function buildClaudePolicyContext(opts: {
  * accepted maximum. Callers must fail closed — do not omit the context and
  * proceed as though no constraints existed.
  */
-export function policyContextSizeError(policyContext: ClaudePolicyContext): string | null {
+export function policyContextSizeError(policyContext: ProviderPolicyContext): string | null {
   const size = Buffer.byteLength(JSON.stringify(policyContext), "utf8");
   if (size > POLICY_CONTEXT_MAX_BYTES) {
     return `policy context exceeds ${POLICY_CONTEXT_MAX_BYTES} byte limit (${size} bytes)`;
@@ -457,6 +468,437 @@ export async function runCursorHook(deps: CursorHookDeps = {}): Promise<number> 
   return 0;
 }
 
+// ── Google Antigravity PreToolUse gate ────────────────────────────────────────
+
+/**
+ * Enforcement posture for the Antigravity hook, persisted in ~/.behalf/config.json.
+ *
+ *   advisory  (default) — denials hard-block, but BehalfID outages, missing
+ *               credentials, and malformed payloads fail OPEN with a warning,
+ *               matching the Claude Code PreToolUse hook posture.
+ *   required  — the gate fails CLOSED whenever it cannot produce a positive
+ *               verification: BehalfID unreachable, API timeout, invalid or
+ *               missing credentials, malformed hook payload, or a missing tool
+ *               name. Suitable for enforced enterprise pilots.
+ *
+ * Stored in config (not env) because Antigravity executes hooks with a
+ * sanitized environment — arbitrary env vars do not reach the hook process.
+ */
+export type AntigravityEnforcement = "advisory" | "required";
+
+export function resolveAntigravityEnforcement(): AntigravityEnforcement {
+  const value = readExtendedConfig().antigravityEnforcement;
+  return value === "required" ? "required" : "advisory";
+}
+
+/** Hard cap on raw hook stdin; beyond this the payload is treated as malformed. */
+export const ANTIGRAVITY_MAX_STDIN_BYTES = 32 * 1024 * 1024;
+
+/** Deadline for the /api/verify round-trip made by the Antigravity gate. */
+export const ANTIGRAVITY_VERIFY_TIMEOUT_MS = 10_000;
+
+/**
+ * Defensive view of the Antigravity PreToolUse stdin payload. Antigravity
+ * follows the Gemini CLI / Claude Code hook convention (`tool_name` +
+ * `tool_input`); camelCase and nested `toolCall` variants are tolerated so a
+ * payload-shape drift downgrades to the documented fail-open/fail-closed
+ * behavior instead of misreading the call.
+ */
+type AntigravityHookInput = {
+  session_id?: string;
+  cwd?: string;
+  workspace_path?: string;
+  tool_name?: string;
+  toolName?: string;
+  tool_input?: unknown;
+  toolInput?: unknown;
+  toolCall?: unknown;
+  tool_call?: unknown;
+  mcp_context?: unknown;
+  mcpContext?: unknown;
+};
+
+export function extractAntigravityToolName(input: AntigravityHookInput): string | undefined {
+  const direct = readNonEmptyString(input.tool_name) ?? readNonEmptyString(input.toolName);
+  if (direct) return direct;
+  const call = isRecord(input.toolCall) ? input.toolCall : isRecord(input.tool_call) ? input.tool_call : undefined;
+  if (call) {
+    return readNonEmptyString(call.name) ?? readNonEmptyString(call.tool_name) ?? readNonEmptyString(call.toolName);
+  }
+  return undefined;
+}
+
+export function extractAntigravityToolInput(input: AntigravityHookInput): Record<string, unknown> {
+  if (isRecord(input.tool_input)) return input.tool_input;
+  if (isRecord(input.toolInput)) return input.toolInput;
+  const call = isRecord(input.toolCall) ? input.toolCall : isRecord(input.tool_call) ? input.tool_call : undefined;
+  if (call) {
+    if (isRecord(call.args)) return call.args;
+    if (isRecord(call.input)) return call.input;
+  }
+  return {};
+}
+
+/** MCP server name from the payload's mcp_context, when Antigravity provides one. */
+export function extractAntigravityMcpServer(input: AntigravityHookInput): string | undefined {
+  const ctx = isRecord(input.mcp_context) ? input.mcp_context : isRecord(input.mcpContext) ? input.mcpContext : undefined;
+  if (!ctx) return undefined;
+  return (
+    readNonEmptyString(ctx.server_name) ??
+    readNonEmptyString(ctx.serverName) ??
+    readNonEmptyString(ctx.server) ??
+    readNonEmptyString(ctx.name)
+  );
+}
+
+/**
+ * Map an Antigravity tool name (and its input) to a BehalfID action + resource.
+ *
+ * Antigravity's agent harness exposes Windsurf-heritage tool names
+ * (write_to_file, replace_file_content, run_command, view_file, …) while the
+ * CLI retains Gemini CLI-heritage names (write_file, replace,
+ * run_shell_command, read_file, web_fetch, google_web_search). Both families
+ * are mapped so the gate covers the IDE and the CLI:
+ *
+ *   write_to_file / replace_file_content / multi_replace_file_content /
+ *   write_file / replace / edit_file / create_file       → write_file on filesystem
+ *   delete_file / remove_file                            → write_file on filesystem (mutation)
+ *   view_file / read_file / read_many_files /
+ *   view_code_item                                       → read_file on filesystem
+ *   run_command / run_shell_command / bash / powershell  → execute_command on shell
+ *   web_fetch / google_web_search / search_web /
+ *   read_url_content / browser_* (prefix)                → browse_web on hostname (or "web")
+ *   mcp__<server>__<tool> or payload mcp_context         → mcp_tool on the MCP server name
+ *   task / agent / run_subagent / spawn_subagent /
+ *   delegate_task                                        → spawn_agent on agent
+ *
+ * Tolerant of casing, whitespace, and namespace/prefix wrappers, mirroring
+ * mapToolToAction. Returns null for tools with no BehalfID-gated equivalent
+ * (list_directory, glob, search_file_content, …); those pass through without a
+ * verify round-trip in both enforcement modes.
+ */
+export function mapAntigravityToolToAction(
+  toolName: string,
+  toolInput: Record<string, unknown> = {},
+  mcpServer?: string
+): ActionMap | null {
+  if (typeof toolName !== "string") return null;
+  const trimmed = toolName.trim();
+  if (!trimmed) return null;
+
+  if (mcpServer) {
+    return { action: "mcp_tool", resource: mcpServer };
+  }
+  if (/^mcp__/i.test(trimmed)) {
+    const server = trimmed.split("__")[1] || "mcp";
+    return { action: "mcp_tool", resource: server };
+  }
+
+  const base = (trimmed.split(/[:/.]|__/).pop() ?? trimmed).toLowerCase();
+
+  // IDE browser-subagent tools (browser_navigate, browser_click, …) are gated
+  // uniformly as browse_web; the URL-bearing ones contribute a hostname.
+  if (base.startsWith("browser_")) {
+    return { action: "browse_web", resource: antigravityHostnameFromInput(toolInput) };
+  }
+
+  switch (base) {
+    case "write_to_file":
+    case "replace_file_content":
+    case "multi_replace_file_content":
+    case "write_file":
+    case "replace":
+    case "edit_file":
+    case "create_file":
+    case "delete_file":
+    case "remove_file":
+      return { action: "write_file", resource: "filesystem" };
+    case "view_file":
+    case "read_file":
+    case "read_many_files":
+    case "view_code_item":
+      return { action: "read_file", resource: "filesystem" };
+    case "run_command":
+    case "run_shell_command":
+    case "bash":
+    case "powershell":
+      return { action: "execute_command", resource: "shell" };
+    case "web_fetch":
+    case "google_web_search":
+    case "search_web":
+    case "read_url_content":
+    case "webfetch":
+    case "websearch":
+      return { action: "browse_web", resource: antigravityHostnameFromInput(toolInput) };
+    case "task":
+    case "agent":
+    case "run_subagent":
+    case "spawn_subagent":
+    case "delegate_task":
+      return { action: "spawn_agent", resource: "agent" };
+    default:
+      return null;
+  }
+}
+
+function antigravityHostnameFromInput(toolInput: Record<string, unknown>): string {
+  const url =
+    readNonEmptyString(toolInput.url) ??
+    readNonEmptyString(toolInput.Url) ??
+    readNonEmptyString(toolInput.uri);
+  if (url) {
+    try {
+      return new URL(url).hostname || "web";
+    } catch {
+      return "web";
+    }
+  }
+  return "web";
+}
+
+function extractAntigravityFilePath(toolInput: Record<string, unknown>): string | undefined {
+  return (
+    readNonEmptyString(toolInput.file_path) ??
+    readNonEmptyString(toolInput.filePath) ??
+    readNonEmptyString(toolInput.path) ??
+    readNonEmptyString(toolInput.absolute_path) ??
+    readNonEmptyString(toolInput.absolutePath) ??
+    readNonEmptyString(toolInput.target_file) ??
+    readNonEmptyString(toolInput.targetFile) ??
+    readNonEmptyString(toolInput.TargetFile) ??
+    readNonEmptyString(toolInput.notebook_path) ??
+    readNonEmptyString(toolInput.notebookPath)
+  );
+}
+
+function extractAntigravityCommand(toolInput: Record<string, unknown>): string | undefined {
+  return (
+    readNonEmptyString(toolInput.command) ??
+    readNonEmptyString(toolInput.CommandLine) ??
+    readNonEmptyString(toolInput.commandLine) ??
+    readNonEmptyString(toolInput.command_line)
+  );
+}
+
+/**
+ * Build a sanitized, non-persisted policyContext for /api/verify from an
+ * Antigravity tool call. Same contract as buildClaudePolicyContext: only
+ * constraint-relevant fields (file path, command, cwd, home) are retained.
+ * File contents, replacement bodies, prompts, and every other tool_input field
+ * are never forwarded.
+ */
+export function buildAntigravityPolicyContext(opts: {
+  toolName: string;
+  action: string;
+  cwd?: string;
+  toolInput: Record<string, unknown>;
+  home?: string;
+}): AntigravityPolicyContext | null {
+  const toolInput: ClaudePolicyToolInput = {};
+  const filePath = extractAntigravityFilePath(opts.toolInput);
+  const command = extractAntigravityCommand(opts.toolInput);
+
+  if ((opts.action === "write_file" || opts.action === "read_file") && filePath) {
+    toolInput.filePath = filePath;
+  }
+  if (opts.action === "execute_command" && command) {
+    toolInput.command = command;
+  }
+
+  const hasToolInput = toolInput.filePath !== undefined || toolInput.command !== undefined;
+  const cwd = readNonEmptyString(opts.cwd);
+  const home =
+    toolInput.filePath !== undefined
+      ? readNonEmptyString(opts.home) ?? resolveHomeDir()
+      : undefined;
+
+  if (!hasToolInput && !cwd && !home) {
+    return null;
+  }
+
+  const ctx: AntigravityPolicyContext = {
+    source: "antigravity",
+    toolName: opts.toolName,
+  };
+  if (cwd) ctx.cwd = cwd;
+  if (home) ctx.home = home;
+  if (hasToolInput) ctx.toolInput = toolInput;
+  return ctx;
+}
+
+export type AntigravityHookDeps = {
+  stdin?: () => Promise<string>;
+  stdout?: Pick<NodeJS.WriteStream, "write">;
+  stderr?: Pick<NodeJS.WriteStream, "write">;
+  verify?: (body: Record<string, unknown>) => Promise<VerifyResult>;
+  enforcement?: AntigravityEnforcement;
+};
+
+/**
+ * The Antigravity PreToolUse gate. Reads an Antigravity tool call from stdin
+ * and verifies it with BehalfID. Speaks both halves of Antigravity's hook
+ * protocol so a deny holds across versions:
+ *
+ *   allow → print "{}" (explicit no-opinion) and exit 0. Never prints
+ *           {"decision":"allow"} — a positive allow could suppress
+ *           Antigravity's own native review/confirmation flow, and BehalfID
+ *           must never weaken the user's local review settings.
+ *   deny  → print {"decision":"deny","reason":...} on stdout, write the
+ *           reason to stderr, and exit 2. Stdout JSON is Antigravity's
+ *           documented decision channel; exit 2 is the inherited
+ *           Gemini CLI / Claude Code blocking signal. Either alone blocks.
+ *
+ * Enforcement posture comes from ~/.behalf/config.json (see
+ * resolveAntigravityEnforcement — Antigravity sanitizes hook env, so env vars
+ * cannot carry it):
+ *
+ *   advisory (default): missing config, network/API errors, and malformed
+ *   payloads fail OPEN with a stderr warning — parity with the Claude gate.
+ *   required: those same conditions fail CLOSED (deny). Oversized policy
+ *   context fails CLOSED in both modes.
+ */
+export async function runAntigravityHook(deps: AntigravityHookDeps = {}): Promise<number> {
+  const stdout = deps.stdout ?? process.stdout;
+  const stderr = deps.stderr ?? process.stderr;
+  const readInput = deps.stdin ?? readStdin;
+  const enforcement = deps.enforcement ?? resolveAntigravityEnforcement();
+  const required = enforcement === "required";
+  // Opt-in tracing. Note: Antigravity runs hooks with a sanitized environment,
+  // so BEHALFID_DEBUG only takes effect when the hook is run manually. Never
+  // dumps tool_input — it can contain file contents or secrets.
+  const debug = process.env.BEHALFID_DEBUG === "1";
+  const trace = (msg: string) => {
+    if (debug) stderr.write(`BehalfID[debug]: ${msg}\n`);
+  };
+
+  const allow = (): number => {
+    // "{}" is the documented no-opinion response; Antigravity's native
+    // permission flow still applies to the call.
+    stdout.write("{}\n");
+    return 0;
+  };
+  const deny = (reason: string): number => {
+    stdout.write(JSON.stringify({ decision: "deny", reason }) + "\n");
+    stderr.write(`BehalfID: ${reason}\n`);
+    return 2;
+  };
+  const failOpenOrClosed = (problem: string): number => {
+    if (required) {
+      return deny(`${problem} — failing closed (enforcement is required).`);
+    }
+    stderr.write(`BehalfID: ${problem} — allowing (fail open).\n`);
+    return allow();
+  };
+
+  let raw = "";
+  let input: AntigravityHookInput;
+  try {
+    raw = await readInput();
+    if (Buffer.byteLength(raw, "utf8") > ANTIGRAVITY_MAX_STDIN_BYTES) {
+      trace(`stdin exceeds ${ANTIGRAVITY_MAX_STDIN_BYTES} bytes`);
+      return failOpenOrClosed("hook payload exceeds the safe size limit");
+    }
+    input = raw.trim() ? (JSON.parse(raw) as AntigravityHookInput) : {};
+  } catch {
+    trace(`could not parse ${raw.length} bytes of stdin as JSON`);
+    return failOpenOrClosed("could not parse hook input");
+  }
+  if (!isRecord(input)) {
+    trace(`stdin parsed to ${typeof input}, expected an object`);
+    return failOpenOrClosed("hook input is not a JSON object");
+  }
+  trace(`payload keys: [${Object.keys(input).join(", ")}]`);
+
+  const toolName = extractAntigravityToolName(input);
+  trace(`received tool name=${JSON.stringify(toolName)}`);
+  if (!toolName) {
+    return failOpenOrClosed("hook payload has no tool name");
+  }
+
+  const toolInput = extractAntigravityToolInput(input);
+  const mcpServer = extractAntigravityMcpServer(input);
+
+  const mapped = mapAntigravityToolToAction(toolName, toolInput, mcpServer);
+  trace(
+    `mapped ${JSON.stringify(toolName)} → ${mapped ? `${mapped.action} on ${mapped.resource}` : "null (no BehalfID-gated equivalent)"}`
+  );
+  if (!mapped) return allow(); // tool has no BehalfID-gated equivalent
+
+  const config = readConfig();
+  const agentId = config.agentId ?? process.env.BEHALFID_AGENT_ID;
+  const apiKey = resolveApiKey();
+  const baseUrl = resolveBaseUrl();
+
+  if (!agentId || !apiKey) {
+    trace(`not configured: agentId=${agentId ? "set" : "missing"} apiKey=${apiKey ? "set" : "missing"}`);
+    return failOpenOrClosed("not configured (agent ID or API key missing)");
+  }
+
+  const policyContext = buildAntigravityPolicyContext({
+    toolName,
+    action: mapped.action,
+    cwd: readNonEmptyString(input.cwd) ?? readNonEmptyString(input.workspace_path),
+    toolInput,
+  });
+
+  if (policyContext) {
+    const sizeErr = policyContextSizeError(policyContext);
+    if (sizeErr) {
+      trace(`policy context blocked: ${sizeErr}`);
+      // Oversized local policy input fails CLOSED in both modes: proceeding
+      // without constraint arguments would silently weaken path/command
+      // evaluation.
+      return deny("blocked — policy context too large to evaluate safely.");
+    }
+    if (policyContext.toolInput?.command !== undefined) trace("policy context: command present");
+    if (policyContext.toolInput?.filePath !== undefined) trace("policy context: file path present");
+    if (policyContext.cwd) trace("policy context: cwd present");
+  }
+
+  let result: VerifyResult;
+  try {
+    const body: Record<string, unknown> = {
+      agentId,
+      action: mapped.action,
+      vendor: mapped.resource,
+    };
+    if (policyContext) {
+      body.policyContext = policyContext;
+    }
+    // Debug must never print commands, paths, file contents, or credentials.
+    trace(
+      `POST ${baseUrl}/api/verify action=${mapped.action} vendor=${mapped.resource} policyContext=${policyContext ? "present" : "absent"}`
+    );
+    result = deps.verify
+      ? await deps.verify(body)
+      : await apiRequest<VerifyResult>("/api/verify", {
+          method: "POST",
+          body,
+          apiKey,
+          baseUrl,
+          timeoutMs: ANTIGRAVITY_VERIFY_TIMEOUT_MS,
+        });
+    trace(
+      `verify → allowed=${result.allowed} approvalRequired=${result.approvalRequired ?? false} reason=${JSON.stringify(result.reason)}`
+    );
+  } catch (err) {
+    return failOpenOrClosed(
+      `verification unavailable (${err instanceof Error ? err.message : String(err)})`
+    );
+  }
+
+  if (result.allowed) return allow();
+
+  const reason = result.reason ?? "Action not permitted.";
+  const needsApproval = result.approvalRequired === true || /approval/i.test(reason);
+  if (needsApproval) {
+    return deny(
+      "approval required. Visit your BehalfID Action Inbox to approve, then retry the action."
+    );
+  }
+  return deny(`blocked — ${reason}`);
+}
+
 export function hookCommand() {
   const cmd = new Command("hook").description(
     "internal hooks for AI tools (invoked by Claude Code, not run directly)"
@@ -474,6 +916,13 @@ export function hookCommand() {
     .description("Cursor beforeShellExecution gate: read a shell command on stdin and emit Cursor's JSON deny/allow decision")
     .action(async () => {
       process.exit(await runCursorHook());
+    });
+
+  cmd
+    .command("antigravity")
+    .description("Antigravity PreToolUse gate: read an Antigravity tool call on stdin and verify it with BehalfID")
+    .action(async () => {
+      process.exit(await runAntigravityHook());
     });
 
   return cmd;

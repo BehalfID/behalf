@@ -9,6 +9,8 @@ import {
   hasCodexPreToolUseHook,
   hasCursorBeforeShellHook,
 } from "./run.js";
+import { getAntigravityHookStatus, hasAntigravityMcpServer } from "../lib/antigravity.js";
+import { resolveAntigravityEnforcement } from "./hook.js";
 import { isJsonMode, printJson, runAction } from "../lib/output.js";
 
 type Check = {
@@ -191,6 +193,38 @@ export async function runDoctorChecks(cwd = process.cwd()): Promise<Check[]> {
       ? "BehalfID beforeShellExecution hook installed in ~/.cursor/hooks.json"
       : "BehalfID beforeShellExecution hook not found in ~/.cursor/hooks.json",
     fix: "Run `behalf cursor` to install it.",
+  });
+
+  const antigravityHook = getAntigravityHookStatus();
+  if (antigravityHook.status === "ok") {
+    checks.push({
+      name: "Antigravity hook",
+      status: "ok",
+      detail: `BehalfID PreToolUse gate installed in ${antigravityHook.path} (${resolveAntigravityEnforcement()} mode)`,
+    });
+  } else if (antigravityHook.status === "missing") {
+    checks.push({
+      name: "Antigravity hook",
+      status: "warn",
+      detail: `BehalfID PreToolUse gate not found in ${antigravityHook.path}`,
+      fix: "Run `behalf antigravity install` if you use Google Antigravity.",
+    });
+  } else {
+    checks.push({
+      name: "Antigravity hook",
+      status: "error",
+      detail: `${antigravityHook.path} is ${antigravityHook.status}; BehalfID enforcement cannot be verified`,
+      fix: "Repair or back up the file, then run `behalf antigravity install` again.",
+    });
+  }
+
+  checks.push({
+    name: "Antigravity MCP",
+    status: hasAntigravityMcpServer() ? "ok" : "warn",
+    detail: hasAntigravityMcpServer()
+      ? "BehalfID MCP server configured in Antigravity's mcp_config.json"
+      : "BehalfID MCP server not found in Antigravity's mcp_config.json",
+    fix: "Run `behalf antigravity install` if you use Google Antigravity.",
   });
 
   const cursorOnPath = isOnPath("cursor");

@@ -20,6 +20,11 @@ export type ExtendedConfig = Config & {
   lastPolicyCacheKey?: string;
   pauseLeaseId?: string;
   policyCache?: unknown;
+  /**
+   * Enforcement posture for the Antigravity PreToolUse gate. Read from disk
+   * (not env) because Antigravity runs hooks with a sanitized environment.
+   */
+  antigravityEnforcement?: "advisory" | "required";
 };
 
 function ensureDir() {

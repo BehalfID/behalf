@@ -22,6 +22,7 @@ import { webhooksCommand } from "./commands/webhooks.js";
 import { doctorCommand } from "./commands/doctor.js";
 import { scanCommand } from "./commands/scan.js";
 import { hookCommand } from "./commands/hook.js";
+import { antigravityCommand } from "./commands/antigravity.js";
 import {
   profileCommand,
   shimLaunchCommand,
@@ -82,6 +83,8 @@ Examples:
   behalfid profile status                         show shim and policy status  // pragma: allowlist secret
   behalfid pause --duration 30m --reason "..."    request a policy-approved pause lease  // pragma: allowlist secret
   behalfid mcp init                               set up BehalfID enforcement in this directory
+  behalfid antigravity install                    install the Antigravity PreToolUse gate + MCP server
+  behalfid antigravity status                     show Antigravity hook and enforcement status
   behalfid scan                                   inspect repo and suggest BehalfID policies
   behalfid scan --json                            machine-readable policy suggestions
 `
@@ -113,6 +116,7 @@ program.addCommand(pauseCommand());
 program.addCommand(resumeCommand());
 program.addCommand(scanCommand());
 program.addCommand(hookCommand());
+program.addCommand(antigravityCommand());
 
 program.parseAsync(["", "", ...filteredArgs]).catch(err => {
   if (jsonMode) {
