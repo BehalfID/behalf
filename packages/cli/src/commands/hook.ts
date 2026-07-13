@@ -1,6 +1,8 @@
+import { appendFileSync, existsSync, mkdirSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { Command } from "commander";
 import { apiRequest, resolveApiKey, resolveBaseUrl } from "../lib/client.js";
-import { readConfig, readExtendedConfig } from "../lib/config.js";
+import { CONFIG_DIR_PATH, readConfig, readExtendedConfig } from "../lib/config.js";
 
 /**
  * The subset of the Claude Code PreToolUse hook payload we care about. Claude
@@ -528,15 +530,69 @@ export function extractAntigravityToolName(input: AntigravityHookInput): string 
   return undefined;
 }
 
-export function extractAntigravityToolInput(input: AntigravityHookInput): Record<string, unknown> {
-  if (isRecord(input.tool_input)) return input.tool_input;
-  if (isRecord(input.toolInput)) return input.toolInput;
-  const call = isRecord(input.toolCall) ? input.toolCall : isRecord(input.tool_call) ? input.tool_call : undefined;
-  if (call) {
-    if (isRecord(call.args)) return call.args;
-    if (isRecord(call.input)) return call.input;
+export type AntigravityToolInputResult =
+  | { ok: true; toolInput: Record<string, unknown> }
+  | { ok: false };
+
+/**
+ * Extract the tool arguments object. Distinguishes "absent" (no argument
+ * field at all — legitimate for zero-argument tools) from "malformed" (an
+ * argument field is present but is not a JSON object). Malformed input is
+ * never silently converted to `{}` — callers fail closed in required mode
+ * and warn in advisory mode.
+ */
+export function extractAntigravityToolInput(input: AntigravityHookInput): AntigravityToolInputResult {
+  if (input.tool_input !== undefined) {
+    return isRecord(input.tool_input) ? { ok: true, toolInput: input.tool_input } : { ok: false };
   }
-  return {};
+  if (input.toolInput !== undefined) {
+    return isRecord(input.toolInput) ? { ok: true, toolInput: input.toolInput } : { ok: false };
+  }
+  const rawCall = input.toolCall ?? input.tool_call;
+  if (rawCall !== undefined) {
+    if (!isRecord(rawCall)) return { ok: false };
+    if (rawCall.args !== undefined) {
+      return isRecord(rawCall.args) ? { ok: true, toolInput: rawCall.args } : { ok: false };
+    }
+    if (rawCall.input !== undefined) {
+      return isRecord(rawCall.input) ? { ok: true, toolInput: rawCall.input } : { ok: false };
+    }
+  }
+  return { ok: true, toolInput: {} };
+}
+
+/**
+ * Tools that pass through WITHOUT verification even in required mode.
+ *
+ * Every entry must be independently documented as a read-only local
+ * search/list operation — never inferred from the name alone. Evidence
+ * (official Gemini CLI tool reference, the Apache-2.0 upstream of the
+ * Antigravity CLI — docs/tools/file-system.md):
+ *
+ *   list_directory       "Lists the names of files and subdirectories
+ *                         directly within a specified path." (read)
+ *   glob                 "Finds files matching specific glob patterns
+ *                         across the workspace." (read)
+ *   grep_search          "Searches for a regular expression pattern within
+ *                         the content of files in a specified directory." (read)
+ *   search_file_content  Former documented name of grep_search ("Searches
+ *                         for text within files using grep or ripgrep");
+ *                         retained for Antigravity CLI builds forked before
+ *                         the upstream rename.
+ *
+ * Any other unmapped tool is denied in required mode and allowed with an
+ * explicit warning in advisory mode.
+ */
+export const ANTIGRAVITY_READONLY_TOOLS = new Set([
+  "list_directory",
+  "glob",
+  "grep_search",
+  "search_file_content",
+]);
+
+export function isAntigravityReadonlyTool(toolName: string): boolean {
+  const base = (toolName.trim().split(/[:/.]|__/).pop() ?? toolName).toLowerCase();
+  return ANTIGRAVITY_READONLY_TOOLS.has(base);
 }
 
 /** MCP server name from the payload's mcp_context, when Antigravity provides one. */
@@ -568,15 +624,38 @@ export function extractAntigravityMcpServer(input: AntigravityHookInput): string
  *   run_command / run_shell_command / bash / powershell  → execute_command on shell
  *   web_fetch / google_web_search / search_web /
  *   read_url_content / browser_* (prefix)                → browse_web on hostname (or "web")
- *   mcp__<server>__<tool> or payload mcp_context         → mcp_tool on the MCP server name
+ *   mcp_{server}_{tool}, mcp__{server}__{tool}, or
+ *   payload mcp_context                                  → mcp_tool on the MCP server name
  *   task / agent / run_subagent / spawn_subagent /
  *   delegate_task                                        → spawn_agent on agent
  *
  * Tolerant of casing, whitespace, and namespace/prefix wrappers, mirroring
- * mapToolToAction. Returns null for tools with no BehalfID-gated equivalent
- * (list_directory, glob, search_file_content, …); those pass through without a
- * verify round-trip in both enforcement modes.
+ * mapToolToAction. Returns null for unmapped tools; the gate then applies the
+ * unknown-tool policy (documented read-only allowlist passes through, other
+ * unknown tools warn in advisory mode and DENY in required mode).
  */
+/**
+ * Extract the MCP server name from an MCP-prefixed tool name. Two formats:
+ *
+ *   mcp_{serverName}_{toolName}  — documented Gemini CLI FQN (server names
+ *                                  must not contain underscores upstream)
+ *   mcp__{server}__{tool}        — Claude Code-style convention, kept as a
+ *                                  provisional compatibility alias
+ *
+ * Returns "" when the name is MCP-prefixed but the server segment cannot be
+ * extracted; callers treat "" as a missing server identity.
+ */
+export function mcpServerFromToolName(trimmed: string): string | null {
+  if (/^mcp__/i.test(trimmed)) {
+    return trimmed.split("__")[1] || "";
+  }
+  if (/^mcp_/i.test(trimmed)) {
+    const rest = trimmed.slice("mcp_".length);
+    return rest.split("_")[0] || "";
+  }
+  return null;
+}
+
 export function mapAntigravityToolToAction(
   toolName: string,
   toolInput: Record<string, unknown> = {},
@@ -589,9 +668,11 @@ export function mapAntigravityToolToAction(
   if (mcpServer) {
     return { action: "mcp_tool", resource: mcpServer };
   }
-  if (/^mcp__/i.test(trimmed)) {
-    const server = trimmed.split("__")[1] || "mcp";
-    return { action: "mcp_tool", resource: server };
+  const parsedServer = mcpServerFromToolName(trimmed);
+  if (parsedServer !== null) {
+    // "" signals an MCP call whose server identity could not be determined;
+    // the gate treats that as a missing binding argument.
+    return { action: "mcp_tool", resource: parsedServer };
   }
 
   const base = (trimmed.split(/[:/.]|__/).pop() ?? trimmed).toLowerCase();
@@ -726,6 +807,76 @@ export function buildAntigravityPolicyContext(opts: {
   return ctx;
 }
 
+export type AntigravityBindingResult = { ok: true } | { ok: false; problem: string };
+
+/**
+ * Validate that the arguments needed to identify a mapped action are present.
+ * A target-dependent verification must never be sent with an absent target
+ * and then described as enforced — required mode denies locally instead, and
+ * advisory mode proceeds only with an explicit warning.
+ *
+ * Minimum binding fields per action:
+ *   execute_command         non-empty command string
+ *   write_file / read_file  non-empty file path
+ *   browse_web              URL for URL-navigation tools (read_url_content,
+ *                           browser_navigate); URL or prompt for web_fetch
+ *                           (its documented argument is a URL-carrying
+ *                           prompt); non-empty query for search tools; other
+ *                           browser interactions carry no target argument
+ *   mcp_tool                non-empty MCP server identity (from mcp_context
+ *                           or the tool-name FQN)
+ *   spawn_agent             none (the action itself is the policy target)
+ */
+export function validateAntigravityBinding(
+  mapped: ActionMap,
+  toolName: string,
+  toolInput: Record<string, unknown>
+): AntigravityBindingResult {
+  const base = (toolName.trim().split(/[:/.]|__/).pop() ?? toolName).toLowerCase();
+
+  switch (mapped.action) {
+    case "execute_command":
+      if (!extractAntigravityCommand(toolInput)) {
+        return { ok: false, problem: `shell command argument is missing or empty for ${base}` };
+      }
+      return { ok: true };
+    case "write_file":
+    case "read_file":
+      if (!extractAntigravityFilePath(toolInput)) {
+        return { ok: false, problem: `file path argument is missing or empty for ${base}` };
+      }
+      return { ok: true };
+    case "browse_web": {
+      const hasUrl = Boolean(
+        readNonEmptyString(toolInput.url) ??
+          readNonEmptyString(toolInput.Url) ??
+          readNonEmptyString(toolInput.uri)
+      );
+      if (base === "read_url_content" || base === "browser_navigate") {
+        return hasUrl ? { ok: true } : { ok: false, problem: `URL argument is missing for ${base}` };
+      }
+      if (base === "web_fetch" || base === "webfetch") {
+        return hasUrl || Boolean(readNonEmptyString(toolInput.prompt))
+          ? { ok: true }
+          : { ok: false, problem: `URL or prompt argument is missing for ${base}` };
+      }
+      if (base === "google_web_search" || base === "search_web" || base === "websearch") {
+        return readNonEmptyString(toolInput.query) ?? readNonEmptyString(toolInput.q)
+          ? { ok: true }
+          : { ok: false, problem: `search query argument is missing for ${base}` };
+      }
+      return { ok: true };
+    }
+    case "mcp_tool":
+      if (!mapped.resource) {
+        return { ok: false, problem: `MCP server identity could not be determined for ${base}` };
+      }
+      return { ok: true };
+    default:
+      return { ok: true };
+  }
+}
+
 export type AntigravityHookDeps = {
   stdin?: () => Promise<string>;
   stdout?: Pick<NodeJS.WriteStream, "write">;
@@ -752,10 +903,15 @@ export type AntigravityHookDeps = {
  * resolveAntigravityEnforcement — Antigravity sanitizes hook env, so env vars
  * cannot carry it):
  *
- *   advisory (default): missing config, network/API errors, and malformed
- *   payloads fail OPEN with a stderr warning — parity with the Claude gate.
- *   required: those same conditions fail CLOSED (deny). Oversized policy
- *   context fails CLOSED in both modes.
+ *   advisory (default): missing config, network/API errors, malformed
+ *   payloads, unrecognized tools, and missing target arguments fail OPEN
+ *   with an explicit stderr warning.
+ *   required: all of those fail CLOSED (deny). In particular, unrecognized
+ *   tools are denied by default (only the documented read-only allowlist in
+ *   ANTIGRAVITY_READONLY_TOOLS passes through), and actions whose minimum
+ *   binding arguments are missing or malformed are denied locally rather
+ *   than verified without a target. Oversized policy context fails CLOSED
+ *   in both modes.
  */
 export async function runAntigravityHook(deps: AntigravityHookDeps = {}): Promise<number> {
   const stdout = deps.stdout ?? process.stdout;
@@ -815,14 +971,64 @@ export async function runAntigravityHook(deps: AntigravityHookDeps = {}): Promis
     return failOpenOrClosed("hook payload has no tool name");
   }
 
-  const toolInput = extractAntigravityToolInput(input);
+  const inputResult = extractAntigravityToolInput(input);
+  let toolInput: Record<string, unknown>;
+  if (inputResult.ok) {
+    toolInput = inputResult.toolInput;
+  } else {
+    // An argument field is present but is not a JSON object. Never silently
+    // convert this to {} — required mode fails closed; advisory continues
+    // with an explicit warning and no claim of full evaluation.
+    trace("tool arguments present but not a JSON object");
+    if (required) {
+      return deny(
+        `tool arguments for "${toolName}" are not a JSON object — failing closed (enforcement is required).`
+      );
+    }
+    stderr.write(
+      `BehalfID: tool arguments for "${toolName}" are not a JSON object — treating as missing; target policy constraints cannot be evaluated.\n`
+    );
+    toolInput = {};
+  }
   const mcpServer = extractAntigravityMcpServer(input);
 
   const mapped = mapAntigravityToolToAction(toolName, toolInput, mcpServer);
   trace(
-    `mapped ${JSON.stringify(toolName)} → ${mapped ? `${mapped.action} on ${mapped.resource}` : "null (no BehalfID-gated equivalent)"}`
+    `mapped ${JSON.stringify(toolName)} → ${mapped ? `${mapped.action} on ${mapped.resource || "(unknown)"}` : "null (unmapped tool)"}`
   );
-  if (!mapped) return allow(); // tool has no BehalfID-gated equivalent
+  if (!mapped) {
+    if (isAntigravityReadonlyTool(toolName)) {
+      // Documented read-only local search/list operation (see
+      // ANTIGRAVITY_READONLY_TOOLS) — passes through in both modes.
+      trace("allowlisted read-only tool");
+      return allow();
+    }
+    // Unknown tool. New, renamed, plugin-supplied, or undocumented tools must
+    // not bypass a required-mode gate; a name alone is not evidence of safety.
+    if (required) {
+      return deny(
+        `unrecognized tool "${toolName}" is not permitted while enforcement is required. Add a BehalfID mapping or use advisory mode.`
+      );
+    }
+    stderr.write(
+      `BehalfID: unrecognized tool "${toolName}" — allowing without verification (advisory mode).\n`
+    );
+    return allow();
+  }
+
+  const binding = validateAntigravityBinding(mapped, toolName, toolInput);
+  if (!binding.ok) {
+    trace(`binding validation failed: ${binding.problem}`);
+    if (required) {
+      return deny(`${binding.problem} — failing closed (enforcement is required).`);
+    }
+    stderr.write(
+      `BehalfID: ${binding.problem} — verifying without target arguments; target policy constraints cannot be evaluated.\n`
+    );
+  }
+  // Advisory fallback for MCP calls whose server identity is unknown: verify
+  // against the generic "mcp" resource rather than sending an empty vendor.
+  const vendor = mapped.resource || "mcp";
 
   const config = readConfig();
   const agentId = config.agentId ?? process.env.BEHALFID_AGENT_ID;
@@ -860,14 +1066,14 @@ export async function runAntigravityHook(deps: AntigravityHookDeps = {}): Promis
     const body: Record<string, unknown> = {
       agentId,
       action: mapped.action,
-      vendor: mapped.resource,
+      vendor,
     };
     if (policyContext) {
       body.policyContext = policyContext;
     }
     // Debug must never print commands, paths, file contents, or credentials.
     trace(
-      `POST ${baseUrl}/api/verify action=${mapped.action} vendor=${mapped.resource} policyContext=${policyContext ? "present" : "absent"}`
+      `POST ${baseUrl}/api/verify action=${mapped.action} vendor=${vendor} policyContext=${policyContext ? "present" : "absent"}`
     );
     result = deps.verify
       ? await deps.verify(body)
@@ -899,6 +1105,113 @@ export async function runAntigravityHook(deps: AntigravityHookDeps = {}): Promis
   return deny(`blocked — ${reason}`);
 }
 
+// ── Antigravity payload schema capture (diagnostic) ──────────────────────────
+
+/** Default JSONL file for sanitized hook payload schema captures. */
+export function defaultCaptureFile(): string {
+  return join(CONFIG_DIR_PATH, "antigravity-captures.jsonl");
+}
+
+function jsonTypeName(value: unknown): string {
+  if (value === null) return "null";
+  if (Array.isArray(value)) return "array";
+  return typeof value;
+}
+
+/** Field name → JSON type name. Argument VALUES are never recorded. */
+export function describeArgumentTypes(record: Record<string, unknown>): Record<string, string> {
+  const shape: Record<string, string> = {};
+  for (const key of Object.keys(record)) {
+    shape[key] = jsonTypeName(record[key]);
+  }
+  return shape;
+}
+
+export type CaptureSchemaDeps = {
+  stdin?: () => Promise<string>;
+  stdout?: Pick<NodeJS.WriteStream, "write">;
+  stderr?: Pick<NodeJS.WriteStream, "write">;
+  append?: (line: string) => void;
+};
+
+/**
+ * Diagnostic hook used to capture the REAL shape of Antigravity's PreToolUse
+ * payloads (see docs/ANTIGRAVITY.md "Capturing real hook payloads"). Records
+ * only schema: the event name, top-level field names, the tool name, and
+ * argument field names with their JSON types. Argument values, prompts, file
+ * contents, paths, and credentials are never written.
+ *
+ * Always prints "{}" and exits 0 — the capture hook never blocks, never
+ * verifies, and never alters agent behavior. It is a temporary diagnostic,
+ * not an enforcement surface.
+ */
+export async function runCaptureSchemaHook(
+  outFile?: string,
+  deps: CaptureSchemaDeps = {}
+): Promise<number> {
+  const stdout = deps.stdout ?? process.stdout;
+  const stderr = deps.stderr ?? process.stderr;
+  const readInput = deps.stdin ?? readStdin;
+  const target = outFile || defaultCaptureFile();
+
+  try {
+    const raw = await readInput();
+    let record: Record<string, unknown>;
+    if (Buffer.byteLength(raw, "utf8") > ANTIGRAVITY_MAX_STDIN_BYTES) {
+      record = { capturedAt: new Date().toISOString(), error: "payload exceeded size limit" };
+    } else {
+      let parsed: unknown;
+      try {
+        parsed = raw.trim() ? JSON.parse(raw) : {};
+      } catch {
+        parsed = undefined;
+      }
+      if (!isRecord(parsed)) {
+        record = {
+          capturedAt: new Date().toISOString(),
+          error: "payload was not a JSON object",
+          payloadBytes: Buffer.byteLength(raw, "utf8"),
+        };
+      } else {
+        const input = parsed as AntigravityHookInput;
+        const inputResult = extractAntigravityToolInput(input);
+        const call = isRecord(input.toolCall) ? input.toolCall : isRecord(input.tool_call) ? input.tool_call : undefined;
+        const mcpCtx = isRecord(input.mcp_context) ? input.mcp_context : isRecord(input.mcpContext) ? input.mcpContext : undefined;
+        record = {
+          capturedAt: new Date().toISOString(),
+          eventName:
+            readNonEmptyString((parsed as Record<string, unknown>).hook_event_name) ??
+            readNonEmptyString((parsed as Record<string, unknown>).hookEventName) ??
+            null,
+          topLevelKeys: Object.keys(parsed),
+          toolName: extractAntigravityToolName(input) ?? null,
+          toolInputPresence: inputResult.ok ? (Object.keys(inputResult.toolInput).length > 0 ? "object" : "absent-or-empty") : "malformed",
+          argumentTypes: inputResult.ok ? describeArgumentTypes(inputResult.toolInput) : null,
+          nestedCallKeys: call ? Object.keys(call) : null,
+          mcpContextKeys: mcpCtx ? Object.keys(mcpCtx) : null,
+          payloadBytes: Buffer.byteLength(raw, "utf8"),
+        };
+      }
+    }
+
+    const line = JSON.stringify(record) + "\n";
+    if (deps.append) {
+      deps.append(line);
+    } else {
+      const dir = dirname(target);
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+      appendFileSync(target, line, { mode: 0o600 });
+    }
+  } catch (err) {
+    stderr.write(
+      `BehalfID: capture failed (${err instanceof Error ? err.message : String(err)}) — allowing.\n`
+    );
+  }
+
+  stdout.write("{}\n");
+  return 0;
+}
+
 export function hookCommand() {
   const cmd = new Command("hook").description(
     "internal hooks for AI tools (invoked by Claude Code, not run directly)"
@@ -923,6 +1236,16 @@ export function hookCommand() {
     .description("Antigravity PreToolUse gate: read an Antigravity tool call on stdin and verify it with BehalfID")
     .action(async () => {
       process.exit(await runAntigravityHook());
+    });
+
+  cmd
+    .command("capture-schema")
+    .description(
+      "diagnostic: record the sanitized SCHEMA of a hook payload (field names and JSON types only, never values) and allow the call"
+    )
+    .option("--out <file>", "append captures to this JSONL file (default: ~/.behalf/antigravity-captures.jsonl)")
+    .action(async (opts: { out?: string }) => {
+      process.exit(await runCaptureSchemaHook(opts.out));
     });
 
   return cmd;

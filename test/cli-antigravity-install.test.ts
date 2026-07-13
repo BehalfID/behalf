@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -187,6 +187,94 @@ describe("installAntigravityMcpServer", () => {
       const shared = JSON.parse(readFileSync(sharedPath, "utf-8"));
       expect(shared.mcpServers?.behalfid).toBeUndefined();
     }
+  });
+});
+
+describe("installer write robustness", () => {
+  it("creates a .behalfid.bak backup before modifying an existing file", async () => {
+    const home = tempDir("behalf-home-");
+    const { antigravity } = await loadModules(home);
+    const path = antigravity.antigravityHooksPath(home);
+    const original = JSON.stringify({
+      cmux: { PreToolUse: [{ matcher: ".*", hooks: [{ type: "command", command: "cmux hooks feed" }] }] },
+    });
+    writeFileEnsuringDir(path, original);
+
+    const result = antigravity.installAntigravityHook(home);
+    expect(result.ok).toBe(true);
+
+    const backupPath = path + antigravity.ANTIGRAVITY_BACKUP_SUFFIX;
+    expect(existsSync(backupPath)).toBe(true);
+    // The backup is the pre-change content — a full manual rollback point.
+    expect(readFileSync(backupPath, "utf-8")).toBe(original);
+    const restored = JSON.parse(readFileSync(backupPath, "utf-8"));
+    expect(restored.behalfid).toBeUndefined();
+  });
+
+  it("does not create a backup when creating a brand-new file", async () => {
+    const home = tempDir("behalf-home-");
+    const { antigravity } = await loadModules(home);
+
+    antigravity.installAntigravityHook(home);
+    const path = antigravity.antigravityHooksPath(home);
+    expect(existsSync(path)).toBe(true);
+    expect(existsSync(path + antigravity.ANTIGRAVITY_BACKUP_SUFFIX)).toBe(false);
+  });
+
+  it("preserves existing file permissions across a rewrite", async () => {
+    const home = tempDir("behalf-home-");
+    const { antigravity } = await loadModules(home);
+    const path = antigravity.antigravityHooksPath(home);
+    writeFileEnsuringDir(path, JSON.stringify({}));
+    chmodSync(path, 0o640);
+
+    const result = antigravity.installAntigravityHook(home);
+    expect(result.ok).toBe(true);
+    expect(statSync(path).mode & 0o777).toBe(0o640);
+  });
+
+  it("leaves no temp files behind after a successful write", async () => {
+    const home = tempDir("behalf-home-");
+    const { antigravity } = await loadModules(home);
+
+    antigravity.installAntigravityHook(home);
+    antigravity.installAntigravityMcpServer(home);
+
+    const configDir = dirname(antigravity.antigravityHooksPath(home));
+    const leftovers = readdirSync(configDir).filter((f) => f.includes("behalfid-tmp"));
+    expect(leftovers).toEqual([]);
+  });
+
+  it("leaves the original file intact when the atomic rename fails mid-write", async () => {
+    const home = tempDir("behalf-home-");
+    vi.resetModules();
+    vi.stubEnv("HOME", home);
+    vi.stubEnv("USERPROFILE", home);
+    vi.doMock("node:fs", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("node:fs")>();
+      return {
+        ...actual,
+        renameSync: () => {
+          throw new Error("EIO: simulated interrupted rename");
+        },
+      };
+    });
+    const antigravity = await import("../packages/cli/src/lib/antigravity");
+    const path = antigravity.antigravityHooksPath(home);
+    const original = JSON.stringify({ other: { PreToolUse: [] } });
+    writeFileEnsuringDir(path, original);
+
+    const result = antigravity.installAntigravityHook(home);
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.code).toBe("unwritable");
+    // Never a truncated or partial target file.
+    expect(readFileSync(path, "utf-8")).toBe(original);
+    // Temp file cleaned up.
+    const leftovers = readdirSync(dirname(path)).filter((f) => f.includes("behalfid-tmp"));
+    expect(leftovers).toEqual([]);
+
+    vi.doUnmock("node:fs");
+    vi.resetModules();
   });
 });
 

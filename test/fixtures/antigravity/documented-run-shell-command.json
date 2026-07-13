@@ -1,0 +1,12 @@
+{
+  "description": "Gemini-heritage shell tool call with the documented snake_case BeforeTool/PreToolUse envelope",
+  "provenance": "documented",
+  "source": "gemini-cli docs/hooks/reference.md (tool_name, tool_input, session_id, cwd) + docs/tools/shell.md (run_shell_command, command)",
+  "payload": {
+    "session_id": "sess-fixture",
+    "cwd": "/tmp/example-workspace",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "run_shell_command",
+    "tool_input": { "command": "echo ok" }
+  }
+}

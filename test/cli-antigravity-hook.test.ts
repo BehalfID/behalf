@@ -109,13 +109,22 @@ describe("mapAntigravityToolToAction", () => {
       .toEqual({ action: "browse_web", resource: "web" });
   });
 
-  it("maps MCP tools via the mcp__ prefix and via mcp_context server names", async () => {
+  it("maps MCP tools via the documented mcp_{server}_{tool} FQN, the mcp__ alias, and mcp_context", async () => {
     const { hook } = await loadHookModules(tempDir("behalf-home-"));
 
+    // Documented Gemini CLI FQN format (single underscores).
+    expect(hook.mapAntigravityToolToAction("mcp_github_search_issues"))
+      .toEqual({ action: "mcp_tool", resource: "github" });
+    // Claude Code-style provisional alias.
     expect(hook.mapAntigravityToolToAction("mcp__github__search_issues"))
       .toEqual({ action: "mcp_tool", resource: "github" });
+    // mcp_context server name from the payload.
     expect(hook.mapAntigravityToolToAction("search_issues", {}, "github"))
       .toEqual({ action: "mcp_tool", resource: "github" });
+    // MCP-prefixed but no extractable server: resource is "" so the gate can
+    // treat the server identity as a missing binding argument.
+    expect(hook.mapAntigravityToolToAction("mcp____tool"))
+      .toEqual({ action: "mcp_tool", resource: "" });
   });
 
   it("maps subagent tools to spawn_agent", async () => {
@@ -237,19 +246,61 @@ describe("runAntigravityHook decisions", () => {
     expect(err.text).toMatch(/approval required/i);
   });
 
-  it("passes unknown tools through without a verify round-trip in both modes", async () => {
+  it("passes documented read-only tools through without verification in both modes", async () => {
     const { hook, config } = await loadHookModules(tempDir("behalf-home-"));
     configured(config);
     const verify = vi.fn(async () => ({ allowed: false, reason: "should not be called" }));
 
-    for (const enforcement of ["advisory", "required"] as const) {
-      const { code, out } = runGate(hook, {
-        payload: { tool_name: "list_directory", tool_input: { path: "/tmp" } },
+    for (const tool of ["list_directory", "glob", "grep_search", "search_file_content"]) {
+      for (const enforcement of ["advisory", "required"] as const) {
+        const { code, out, err } = runGate(hook, {
+          payload: { tool_name: tool, tool_input: { pattern: "x" } },
+          verify,
+          enforcement,
+        });
+        expect(await code).toBe(0);
+        expect(JSON.parse(out.text)).toEqual({});
+        expect(err.text).toBe("");
+      }
+    }
+    expect(verify).not.toHaveBeenCalled();
+  });
+
+  it("allows unknown tools with an explicit warning in advisory mode", async () => {
+    const { hook, config } = await loadHookModules(tempDir("behalf-home-"));
+    configured(config);
+    const verify = vi.fn(async () => ({ allowed: false, reason: "should not be called" }));
+
+    const { code, out, err } = runGate(hook, {
+      payload: { tool_name: "brand_new_google_tool", tool_input: { anything: 1 } },
+      verify,
+      enforcement: "advisory",
+    });
+
+    expect(await code).toBe(0);
+    expect(JSON.parse(out.text)).toEqual({});
+    expect(err.text).toMatch(/unrecognized tool "brand_new_google_tool"/);
+    expect(err.text).toMatch(/without verification/i);
+    expect(verify).not.toHaveBeenCalled();
+  });
+
+  it("DENIES unknown tools by default in required mode", async () => {
+    const { hook, config } = await loadHookModules(tempDir("behalf-home-"));
+    configured(config);
+    const verify = vi.fn(async () => ({ allowed: true, reason: "should not be called" }));
+
+    // A renamed, plugin-supplied, or undocumented tool must not bypass the gate.
+    for (const tool of ["brand_new_google_tool", "plugin_mutating_tool", "save_memory"]) {
+      const { code, out, err } = runGate(hook, {
+        payload: { tool_name: tool, tool_input: {} },
         verify,
-        enforcement,
+        enforcement: "required",
       });
-      expect(await code).toBe(0);
-      expect(JSON.parse(out.text)).toEqual({});
+      expect(await code).toBe(2);
+      const decision = JSON.parse(out.text);
+      expect(decision.decision).toBe("deny");
+      expect(decision.reason).toContain(tool);
+      expect(err.text).toMatch(/unrecognized tool/);
     }
     expect(verify).not.toHaveBeenCalled();
   });
@@ -347,22 +398,223 @@ describe("runAntigravityHook payload handling", () => {
     );
   });
 
-  it("still verifies file writes when the path argument is missing (server decides)", async () => {
+  it("advisory mode verifies a pathless file write only with an explicit warning", async () => {
     const { hook, config } = await loadHookModules(tempDir("behalf-home-"));
     configured(config);
     const verify = vi.fn(async () => ({ allowed: true, reason: "ok" }));
 
-    const { code } = runGate(hook, {
+    const { code, err } = runGate(hook, {
       payload: { tool_name: "write_to_file", tool_input: {}, cwd: "/repo" },
       verify,
+      enforcement: "advisory",
     });
 
     expect(await code).toBe(0);
+    expect(err.text).toMatch(/file path argument is missing/i);
+    expect(err.text).toMatch(/cannot be evaluated/i);
     const body = verify.mock.calls[0][0] as { action: string; policyContext: { toolInput?: unknown } };
     expect(body.action).toBe("write_file");
     // No usable path: policyContext carries only cwd. Server-side path
     // constraints fail closed on a missing path (path_not_permitted).
     expect(body.policyContext.toolInput).toBeUndefined();
+  });
+});
+
+describe("runAntigravityHook binding-argument validation", () => {
+  async function loadConfigured() {
+    const mods = await loadHookModules(tempDir("behalf-home-"));
+    configured(mods.config);
+    return mods;
+  }
+
+  /**
+   * For each payload: required mode must deny locally (no verify round-trip);
+   * advisory mode must warn, then verify without the target and follow the
+   * server decision.
+   */
+  async function expectBindingFailure(
+    hook: HookModule,
+    payload: unknown,
+    problemPattern: RegExp
+  ) {
+    const requiredVerify = vi.fn(async () => ({ allowed: true, reason: "should not be called" }));
+    const required = runGate(hook, { payload, verify: requiredVerify, enforcement: "required" });
+    expect(await required.code).toBe(2);
+    expect(JSON.parse(required.out.text).decision).toBe("deny");
+    expect(required.err.text).toMatch(problemPattern);
+    expect(required.err.text).toMatch(/failing closed/i);
+    expect(requiredVerify).not.toHaveBeenCalled();
+
+    const advisoryVerify = vi.fn(async () => ({ allowed: true, reason: "ok" }));
+    const advisory = runGate(hook, { payload, verify: advisoryVerify, enforcement: "advisory" });
+    expect(await advisory.code).toBe(0);
+    expect(advisory.err.text).toMatch(problemPattern);
+    expect(advisory.err.text).toMatch(/cannot be evaluated/i);
+    expect(advisoryVerify).toHaveBeenCalledTimes(1);
+  }
+
+  it("run_command with no command argument", async () => {
+    const { hook } = await loadConfigured();
+    await expectBindingFailure(
+      hook,
+      { tool_name: "run_command", tool_input: {} },
+      /shell command argument is missing or empty/i
+    );
+  });
+
+  it("run_command with an empty command argument", async () => {
+    const { hook } = await loadConfigured();
+    await expectBindingFailure(
+      hook,
+      { tool_name: "run_command", tool_input: { command: "   " } },
+      /shell command argument is missing or empty/i
+    );
+  });
+
+  it("file mutation with no path argument", async () => {
+    const { hook } = await loadConfigured();
+    await expectBindingFailure(
+      hook,
+      { tool_name: "replace_file_content", tool_input: { ReplacementContent: "x" } },
+      /file path argument is missing or empty/i
+    );
+  });
+
+  it("file mutation with an empty path argument", async () => {
+    const { hook } = await loadConfigured();
+    await expectBindingFailure(
+      hook,
+      { tool_name: "write_to_file", tool_input: { file_path: "" } },
+      /file path argument is missing or empty/i
+    );
+  });
+
+  it("file read with no path argument", async () => {
+    const { hook } = await loadConfigured();
+    await expectBindingFailure(
+      hook,
+      { tool_name: "view_file", tool_input: {} },
+      /file path argument is missing or empty/i
+    );
+  });
+
+  it("URL navigation tools with no URL argument", async () => {
+    const { hook } = await loadConfigured();
+    await expectBindingFailure(
+      hook,
+      { tool_name: "read_url_content", tool_input: {} },
+      /URL argument is missing/
+    );
+    await expectBindingFailure(
+      hook,
+      { tool_name: "browser_navigate", tool_input: {} },
+      /URL argument is missing/
+    );
+  });
+
+  it("web_fetch accepts its documented URL-carrying prompt argument", async () => {
+    const { hook } = await loadConfigured();
+    const verify = vi.fn(async () => ({ allowed: true, reason: "ok" }));
+
+    const { code, err } = runGate(hook, {
+      payload: { tool_name: "web_fetch", tool_input: { prompt: "summarize https://example.com" } },
+      verify,
+      enforcement: "required",
+    });
+    expect(await code).toBe(0);
+    expect(err.text).toBe("");
+
+    await expectBindingFailure(
+      hook,
+      { tool_name: "web_fetch", tool_input: {} },
+      /URL or prompt argument is missing/
+    );
+  });
+
+  it("search tools require a query", async () => {
+    const { hook } = await loadConfigured();
+    await expectBindingFailure(
+      hook,
+      { tool_name: "google_web_search", tool_input: {} },
+      /search query argument is missing/
+    );
+  });
+
+  it("browser interactions without a URL contract are not URL-gated", async () => {
+    const { hook } = await loadConfigured();
+    const verify = vi.fn(async () => ({ allowed: true, reason: "ok" }));
+
+    const { code } = runGate(hook, {
+      payload: { tool_name: "browser_click", tool_input: { selector: "#btn" } },
+      verify,
+      enforcement: "required",
+    });
+    expect(await code).toBe(0);
+    expect(verify).toHaveBeenCalledWith(expect.objectContaining({ action: "browse_web", vendor: "web" }));
+  });
+
+  it("MCP calls without a trustworthy server identity", async () => {
+    const { hook } = await loadConfigured();
+    await expectBindingFailure(
+      hook,
+      { tool_name: "mcp____tool", tool_input: {} },
+      /MCP server identity could not be determined/
+    );
+  });
+
+  it("advisory MCP fallback verifies against the generic mcp resource", async () => {
+    const { hook } = await loadConfigured();
+    const verify = vi.fn(async () => ({ allowed: true, reason: "ok" }));
+
+    const { code } = runGate(hook, {
+      payload: { tool_name: "mcp____tool", tool_input: {} },
+      verify,
+      enforcement: "advisory",
+    });
+    expect(await code).toBe(0);
+    expect(verify).toHaveBeenCalledWith(expect.objectContaining({ action: "mcp_tool", vendor: "mcp" }));
+  });
+
+  it("non-object tool_input is malformed: required denies, advisory warns and continues", async () => {
+    const { hook } = await loadConfigured();
+
+    const requiredVerify = vi.fn(async () => ({ allowed: true, reason: "should not be called" }));
+    const required = runGate(hook, {
+      payload: { tool_name: "run_command", tool_input: "rm -rf /" },
+      verify: requiredVerify,
+      enforcement: "required",
+    });
+    expect(await required.code).toBe(2);
+    expect(required.err.text).toMatch(/not a JSON object/i);
+    expect(requiredVerify).not.toHaveBeenCalled();
+
+    const advisoryVerify = vi.fn(async () => ({ allowed: true, reason: "ok" }));
+    const advisory = runGate(hook, {
+      payload: { tool_name: "run_command", tool_input: "rm -rf /" },
+      verify: advisoryVerify,
+      enforcement: "advisory",
+    });
+    expect(await advisory.code).toBe(0);
+    expect(advisory.err.text).toMatch(/not a JSON object/i);
+    // Advisory continues, but with the malformed input treated as missing —
+    // the command binding warning fires too and no command is forwarded.
+    expect(advisory.err.text).toMatch(/shell command argument is missing/i);
+    const body = advisoryVerify.mock.calls[0][0] as { policyContext?: { toolInput?: unknown } };
+    expect(body.policyContext?.toolInput).toBeUndefined();
+  });
+
+  it("malformed nested toolCall.args is treated the same way", async () => {
+    const { hook } = await loadConfigured();
+
+    const requiredVerify = vi.fn(async () => ({ allowed: true, reason: "should not be called" }));
+    const required = runGate(hook, {
+      payload: { toolCall: { name: "run_command", args: ["rm", "-rf", "/"] } },
+      verify: requiredVerify,
+      enforcement: "required",
+    });
+    expect(await required.code).toBe(2);
+    expect(required.err.text).toMatch(/not a JSON object/i);
+    expect(requiredVerify).not.toHaveBeenCalled();
   });
 });
 

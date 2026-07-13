@@ -1,4 +1,14 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -96,13 +106,43 @@ function readJsonFile<T extends Record<string, unknown>>(path: string): ReadJson
   }
 }
 
+/** Suffix for the pre-change backup written next to each modified config file. */
+export const ANTIGRAVITY_BACKUP_SUFFIX = ".behalfid.bak";
+
+/**
+ * Atomically replace a JSON config file: write to a temp file in the same
+ * directory, then rename over the target, so an interruption can never leave
+ * a truncated file. When the target already exists, its permissions are
+ * preserved and a backup copy is written to `<path>.behalfid.bak` first
+ * (manual rollback: move the backup over the file).
+ */
 function writeJsonFile(path: string, data: Record<string, unknown>): boolean {
+  const tmp = `${path}.behalfid-tmp-${process.pid}-${Date.now()}`;
   try {
     const dir = dirname(path);
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-    writeFileSync(path, JSON.stringify(data, null, 2) + "\n");
+
+    let mode: number | undefined;
+    if (existsSync(path)) {
+      mode = statSync(path).mode & 0o777;
+      const backup = path + ANTIGRAVITY_BACKUP_SUFFIX;
+      copyFileSync(path, backup);
+      try {
+        chmodSync(backup, mode);
+      } catch {
+        // Backup exists with default mode; not worth failing the write over.
+      }
+    }
+
+    writeFileSync(tmp, JSON.stringify(data, null, 2) + "\n", mode !== undefined ? { mode } : {});
+    renameSync(tmp, path);
     return true;
   } catch {
+    try {
+      if (existsSync(tmp)) unlinkSync(tmp);
+    } catch {
+      // Leave the temp file behind rather than mask the original failure.
+    }
     return false;
   }
 }
@@ -221,6 +261,10 @@ export function uninstallAntigravityHook(home = homedir()): AntigravityUninstall
   }
 
   if (!writeJsonFile(path, file)) return { path, status: "unwritable" };
+  const verify = readJsonFile<AntigravityHooksFile>(path);
+  if (!verify.ok || hooksFileHasBehalfEntry(verify.data)) {
+    return { path, status: "unwritable" };
+  }
   return { path, status: "removed" };
 }
 
@@ -277,6 +321,11 @@ export function installAntigravityMcpServer(home = homedir()): AntigravityInstal
     file.mcpServers = servers;
 
     if (!writeJsonFile(path, file)) return { path, ok: false, changed: false, code: "unwritable" };
+
+    const verify = readJsonFile<McpConfigFile>(path);
+    if (!verify.ok || !mcpFileHasBehalfServer(verify.data)) {
+      return { path, ok: false, changed: false, code: "unverified" };
+    }
     return { path, ok: true, changed: true };
   });
 }
@@ -295,6 +344,10 @@ export function uninstallAntigravityMcpServer(home = homedir()): AntigravityUnin
     file.mcpServers = servers;
 
     if (!writeJsonFile(path, file)) return { path, status: "unwritable" };
+    const verify = readJsonFile<McpConfigFile>(path);
+    if (!verify.ok || mcpFileHasBehalfServer(verify.data)) {
+      return { path, status: "unwritable" };
+    }
     return { path, status: "removed" };
   });
 }

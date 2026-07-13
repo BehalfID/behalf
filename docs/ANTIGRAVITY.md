@@ -3,6 +3,14 @@
 Status as of 2026-07-13. Covers BehalfID's integration with Google Antigravity
 (the Antigravity IDE / "Antigravity 2.0" and the `agy` CLI).
 
+> **Status: enforcement candidate — not yet validated live.** The PreToolUse
+> gate is implemented and unit-tested, but no live denied-action canary has
+> been run against a real Antigravity install from this repository. Until the
+> canary results in "Live validation" below are recorded, describe this
+> integration as an *enforcement candidate*, not as enforced. The advisory
+> MCP layer is available. `required` mode governs only actions that
+> Antigravity actually routes through a functioning `PreToolUse` hook.
+
 ## What Antigravity is (verified)
 
 Google Antigravity is Google's agent-first development platform:
@@ -52,9 +60,9 @@ which demonstrates that a non-zero PreToolUse hook exit blocks all tool calls).
 
 `behalf antigravity install` sets up two layers:
 
-1. **Enforced layer — PreToolUse gate.** A `behalfid` namespace entry in
-   `~/.gemini/config/hooks.json` runs `behalf hook antigravity` before every
-   tool call in the IDE and the CLI. The gate:
+1. **Enforcement-candidate layer — PreToolUse gate.** A `behalfid` namespace
+   entry in `~/.gemini/config/hooks.json` runs `behalf hook antigravity`
+   before every tool call in the IDE and the CLI. The gate:
    - normalizes the Antigravity tool call to a BehalfID action
      (see mapping below),
    - builds a sanitized `policyContext` containing only the file path or
@@ -86,11 +94,49 @@ Gemini-heritage names in the CLI. Both are mapped:
 | `view_file`, `read_file`, `read_many_files`, `view_code_item` | `read_file` | `filesystem` |
 | `run_command`, `run_shell_command` | `execute_command` | `shell` |
 | `web_fetch`, `google_web_search`, `search_web`, `read_url_content`, `browser_*` | `browse_web` | request hostname, or `web` |
-| `mcp__<server>__<tool>`, or any tool with an `mcp_context` server name | `mcp_tool` | MCP server name |
+| `mcp_{server}_{tool}` (documented FQN), `mcp__{server}__{tool}` (provisional alias), or any tool with an `mcp_context` server name | `mcp_tool` | MCP server name |
 | `task`, `agent`, `run_subagent`, `spawn_subagent`, `delegate_task` | `spawn_agent` | `agent` |
 
-Unmapped tools (`list_directory`, `glob`, `search_file_content`, …) pass
-through without a verify round-trip in both enforcement modes.
+### Unknown tools
+
+A tool name that does not map to a BehalfID action is **not** assumed safe:
+
+- **`required` mode: unknown tools are denied by default.** A new, renamed,
+  plugin-supplied, or undocumented tool cannot bypass the gate. The only
+  exceptions are the tools below, each independently documented as a
+  read-only local search/list operation (never inferred from the name):
+
+  | Allowlisted tool | Evidence (official Gemini CLI tool reference, the Apache-2.0 upstream of the Antigravity CLI) |
+  |---|---|
+  | `list_directory` | "Lists the names of files and subdirectories directly within a specified path." (docs/tools/file-system.md, read) |
+  | `glob` | "Finds files matching specific glob patterns across the workspace." (docs/tools/file-system.md, read) |
+  | `grep_search` | "Searches for a regular expression pattern within the content of files in a specified directory." (docs/tools/file-system.md, read) |
+  | `search_file_content` | Former documented name of `grep_search` ("Searches for text within files using grep or ripgrep"); retained for CLI builds forked before the upstream rename. |
+
+- **`advisory` mode: unknown tools are allowed with an explicit stderr
+  warning** ("unrecognized tool … — allowing without verification"), so the
+  gap is visible instead of silent.
+
+### Required binding arguments
+
+For mapped actions, the gate requires the arguments that identify the action
+before it will verify. A target-dependent verification is never sent with an
+absent target and then described as evaluated:
+
+| Action | Minimum binding argument |
+|---|---|
+| `execute_command` | non-empty command string |
+| `write_file` / `read_file` | non-empty file path |
+| `browse_web` | URL for `read_url_content` / `browser_navigate`; URL **or** prompt for `web_fetch` (its documented argument is a URL-carrying `prompt`); non-empty query for search tools; other `browser_*` interactions carry no target argument |
+| `mcp_tool` | non-empty MCP server identity (from `mcp_context` or the tool-name FQN) |
+| `spawn_agent` | none — the action itself is the policy target |
+
+When a binding argument is missing, empty, or the tool arguments are not a
+JSON object (including nested `toolCall.args`): `required` mode **denies
+locally** without calling BehalfID; `advisory` mode warns that target policy
+constraints cannot be evaluated and verifies the action-level permission
+only. Note that a local deny in `required` mode produces no server-side
+verification log entry — the block is visible in the Antigravity transcript.
 
 ## Installation
 
@@ -140,16 +186,21 @@ server canonicalizes paths against it.
 | Invalid or missing credentials | Allowed with warning | **Blocked** |
 | Malformed or oversized hook payload | Allowed with warning | **Blocked** |
 | Payload missing a tool name | Allowed with warning | **Blocked** |
-| Tool with no BehalfID-gated equivalent | Allowed (no verify call) | Allowed (no verify call) |
+| Tool arguments not a JSON object | Allowed with warning (treated as missing) | **Blocked** |
+| Missing/empty binding argument (command, path, URL, MCP server) | Verified without target, with warning | **Blocked locally** |
+| Unknown tool (not mapped, not allowlisted) | Allowed with warning, no verification | **Blocked** |
+| Documented read-only tool (`list_directory`, `glob`, `grep_search`, `search_file_content`) | Allowed (no verify call) | Allowed (no verify call) |
 
 `advisory` matches the Claude Code PreToolUse hook posture (denials block; an
-outage never bricks the agent). `required` satisfies fail-closed enterprise
-enforcement. The mode is stored in `~/.behalf/config.json`
-(`antigravityEnforcement`) and shown by `behalf antigravity status` and
-`behalf doctor`.
+outage never bricks the agent). `required` fails closed everywhere the gate
+cannot produce a positive verification. The mode is stored in
+`~/.behalf/config.json` (`antigravityEnforcement`) and shown by
+`behalf antigravity status` and `behalf doctor`.
 
 Do not describe the MCP layer as enforcement. Only the PreToolUse gate blocks
-actions, and only `required` mode fails closed on outages.
+actions, only `required` mode fails closed on outages, and `required` mode
+governs only actions that Antigravity actually routes through a functioning
+PreToolUse hook — which is exactly what the live canary below verifies.
 
 ## Example policy
 
@@ -214,6 +265,48 @@ behalf logs list --limit 50
 or the dashboard's Activity view. Approval decisions appear in the Action
 Inbox with the bound command/path preview (secrets redacted server-side).
 
+## Payload formats and provenance
+
+The gate parses several payload shapes defensively. They are **not** equally
+trustworthy. Three tiers (mirrored in `test/fixtures/antigravity/`):
+
+| Tier | Shapes | Basis |
+|---|---|---|
+| **Documented** | snake_case envelope (`tool_name`, `tool_input`, `session_id`, `cwd`, `mcp_context`); Gemini-heritage tool names (`run_shell_command` + `command`, `write_file` + `file_path`, `read_file` + `absolute_path`, `web_fetch` + `prompt`, `google_web_search` + `query`); MCP FQN `mcp_{server}_{tool}` | Official Gemini CLI hooks + tool references (the Apache-2.0 upstream of the Antigravity CLI) |
+| **Captured** | none yet | Live `agy` / IDE sessions via `behalf hook capture-schema` — **no captures exist in this repo yet** |
+| **Provisional** | camelCase variants (`toolName`, `toolInput`), nested `toolCall.args`, Windsurf-heritage IDE tool names (`write_to_file`, `run_command`, `view_file`, `TargetFile`/`CommandLine` argument aliases), `mcp__{server}__{tool}`, `browser_*` | Compatibility guesses inherited from Gemini/Claude/Windsurf conventions and secondary write-ups. Tolerated so shape drift degrades to the documented fail-open/fail-closed behavior instead of a misread — but never treat provisional coverage as evidence of live compatibility |
+
+### Capturing real hook payloads
+
+`behalf hook capture-schema` is a diagnostic hook that records only the
+payload **schema** — event name, top-level field names, the tool name, and
+argument field names with their JSON types. Argument values, prompts, file
+contents, paths, and credentials are never written. It always allows the call
+and never verifies anything; remove it when done.
+
+1. Temporarily add a capture entry alongside the gate in
+   `~/.gemini/config/hooks.json`:
+
+   ```json
+   "behalfid-capture": {
+     "PreToolUse": [
+       { "matcher": ".*",
+         "hooks": [ { "type": "command", "command": "behalf hook capture-schema" } ] }
+     ]
+   }
+   ```
+
+2. Restart Antigravity, run a short session exercising the tools you care
+   about (a file write, a shell command, a browser action, a subagent task,
+   an MCP tool).
+3. Inspect `~/.behalf/antigravity-captures.jsonl` (one JSON line per tool
+   call).
+4. Remove the `behalfid-capture` entry and restart.
+5. Turn interesting schemas into fixtures under
+   `test/fixtures/antigravity/captured/` following the sanitization rules in
+   `test/fixtures/antigravity/README.md`, and promote the corresponding tool
+   names/aliases from provisional to captured.
+
 ## Troubleshooting
 
 | Symptom | Likely cause / fix |
@@ -233,9 +326,14 @@ behalf antigravity uninstall
 
 Removes the `behalfid` hooks namespace and the `behalfid` MCP entries, leaves
 every other entry untouched, and clears the stored enforcement mode. Restart
-Antigravity sessions to drop the hook. Manual rollback: delete the `behalfid`
-keys from `~/.gemini/config/hooks.json` and the `mcpServers.behalfid` entries
-from the MCP config files.
+Antigravity sessions to drop the hook.
+
+All config writes are atomic (temp file + rename — an interruption can never
+leave a truncated file), preserve the target file's permissions, and write a
+pre-change backup to `<file>.behalfid.bak` before modifying an existing file.
+Full manual rollback: `mv <file>.behalfid.bak <file>` for each modified file,
+or delete the `behalfid` keys from `~/.gemini/config/hooks.json` and the
+`mcpServers.behalfid` entries from the MCP config files.
 
 ## Known limitations
 
@@ -269,35 +367,116 @@ from the MCP config files.
 
 ## Validation matrix
 
-Populated only with facts verified during this integration (2026-07-13).
-"Needs canary" = supported by the shared config architecture but not yet
-validated end-to-end against a live Antigravity install from this repo.
+Populated only with facts verified as of 2026-07-13. "Enforced" is reserved
+for a surface on which a live denied-action canary has demonstrated that
+execution did not occur — **no surface qualifies yet**.
 
-| Surface | MCP available | Pre-action enforcement | Post-action audit | Fail-closed possible | Status |
-|---|---|---|---|---|---|
-| Desktop (Antigravity IDE) | Yes (documented) | PreToolUse hooks (documented; shared hooks.json) | Decision-time verification log only | Yes — deny on hook error + `required` mode | Implemented; needs canary |
-| IDE (editor agent panel) | Yes (documented) | Same shared hooks.json | Decision-time verification log only | Yes | Implemented; needs canary |
-| CLI (`agy`) | Yes (documented) | PreToolUse hooks (verified in the wild: non-zero exit blocks tool calls) | Decision-time verification log only | Yes | Implemented; needs canary |
-| Hosted/API | Unverified | No local hook surface | No | No | Not supported |
-| Background agents | Shares config | Not officially documented | Decision-time log if hooks fire | Unknown | Unverified — canary required |
-| Subagents | Shares config | Nested tool confirmations documented; hook firing not documented | Decision-time log if hooks fire | Unknown | Unverified — canary required |
+| Capability / surface | Status |
+|---|---|
+| Advisory MCP | **Available** (config layer implemented; stdio server is the existing `behalf mcp start`) |
+| PreToolUse enforcement candidate | **Implemented** (gate + installer + unit tests; decision protocol per documented conventions and real-world hook evidence) |
+| CLI (`agy`) enforcement | **Pending live canary** |
+| IDE enforcement | **Pending live canary** |
+| Browser tools | **Unverified** (hook coverage of IDE browser actions unknown) |
+| Background tasks | **Unverified** (hook firing not officially documented) |
+| Subagents | **Unverified** (nested tool confirmations documented; hook firing not documented) |
+| Plugins | **Unverified** (no public manifest spec; plugin-supplied tools are denied by default in `required` mode) |
+| Hosted/API agents | **Unsupported** (no local hook surface) |
 
-## Manual validation guide
+Detail per surface:
 
-On a machine with Antigravity installed:
+| Surface | MCP available | Pre-action gate | Post-action audit | Fail-closed possible |
+|---|---|---|---|---|
+| Desktop/IDE (Antigravity) | Yes (documented) | PreToolUse hooks (documented; shared hooks.json) — pending canary | Decision-time verification log only | Yes — deny on hook error + `required` mode — pending canary |
+| CLI (`agy`) | Yes (documented) | PreToolUse hooks (real-world evidence: non-zero hook exit blocks tool calls) — pending canary | Decision-time verification log only | Yes — pending canary |
+| Hosted/API | Unverified | No local hook surface | No | No |
+| Background agents | Shares config | Unknown — canary required | Decision-time log if hooks fire | Unknown |
+| Subagents | Shares config | Unknown — canary required | Decision-time log if hooks fire | Unknown |
 
-1. `behalf init` with a test agent; create an `execute_command` permission
-   with `deniedCommands: ["behalfid-canary"]`.
-2. `behalf antigravity install` → restart Antigravity.
-3. Allowed path: ask the agent to run `ls`. Expect execution and an allowed
-   `execute_command` entry in `behalf logs tail`.
-4. Denied path: ask it to run `echo behalfid-canary`. Expect a block.
-5. Approval path: mark `write_file` `--requires-approval`, ask the agent to
-   write a file, approve in the Action Inbox, ask it to retry. Expect block →
-   approve → allowed once → blocked again on a third attempt.
-6. `behalf antigravity install --enforce`, stop the BehalfID API, retry `ls`.
-   Expect a "failing closed" block. Restart the API, expect allow.
-7. Repeat step 4 inside a subagent task and (IDE) with a browser action to
-   record actual coverage for the matrix above.
-8. `behalf antigravity uninstall` → restart → confirm the canary executes
-   again (hook fully removed).
+## Live validation (required before any enforcement claim)
+
+Run on a machine with Antigravity installed. Prerequisites once:
+
+```bash
+npm install -g @behalfid/cli
+behalf init                        # test agent; writes ~/.behalf/config.json
+behalf permissions create <agent_id> --action execute_command -r shell
+behalf antigravity install
+# restart the Antigravity IDE and any running `agy` sessions
+behalf antigravity status
+```
+
+Then execute each step and record it in the results template below.
+
+1. **Capture a sanitized PreToolUse payload from `agy`.** Add the
+   `behalfid-capture` entry from "Capturing real hook payloads" above to
+   `~/.gemini/config/hooks.json`, restart, then in `agy` ask the agent to run
+   `echo capture-test` and to write a scratch file. Verify schema lines in
+   `~/.behalf/antigravity-captures.jsonl` contain field names/types only.
+   Remove the capture entry afterwards.
+2. **Allowed command executes.** In `agy`: ask the agent to run `echo ok`.
+   Expect execution, and an allowed `execute_command` entry in
+   `behalf logs tail`.
+3. **Denied command does not execute.** Add a denied command:
+   `behalf permissions create <agent_id> --action execute_command -r shell --denied-commands behalfid-canary`
+   (or edit the existing permission in the dashboard). Ask the agent to run
+   `echo behalfid-canary`. Expect: the tool call is blocked, the string
+   `behalfid-canary` never appears in command output, and a denied entry
+   appears in `behalf logs tail`.
+4. **Required mode fails closed when BehalfID is unreachable.**
+   `behalf antigravity install --enforce`, then make the API unreachable
+   (stop the local instance, or `behalf config set base-url http://127.0.0.1:9`).
+   Ask the agent to run `echo ok`. Expect a block with a "failing closed"
+   reason and no execution. Restore the base URL afterwards.
+5. **Unknown tool blocks in required mode.** With `--enforce` active, ask the
+   agent to use a memory/save operation or any tool outside the mapped set
+   (e.g. "save a memory that my favorite color is blue" → `save_memory`).
+   Expect a block naming the unrecognized tool. (In advisory mode the same
+   call should warn and proceed.)
+6. **Repeat steps 2–5 in the Antigravity IDE** (editor agent panel and the
+   agent manager surface).
+7. **Repeat step 3 inside a subagent.** Ask the agent to delegate the canary
+   command to a subagent task. Record whether the hook fired at the subagent
+   depth.
+8. **Repeat step 3 inside a background task.** Ask the agent to run the
+   canary as a background/async task. Record whether the hook fired.
+9. **Test at least one browser action.** Ask the IDE agent to open a page in
+   the browser surface. Record whether a PreToolUse event fired (check
+   `behalf logs tail` for a `browse_web` verification, or use the capture
+   hook), and whether a denied `browse_web` permission blocks it.
+10. **MCP server starts independently of the hook.**
+    `behalf antigravity uninstall && behalf antigravity install --skip-mcp`
+    proves the hook installs alone; then `behalf antigravity install` and, in
+    Antigravity's MCP panel, confirm the `behalfid` server lists
+    `verify_action` and `get_permissions` with the hook entry removed from
+    hooks.json (temporarily uninstall the hook, keep MCP, restart, check the
+    tools respond).
+
+Finally: `behalf antigravity uninstall`, restart, and confirm the canary
+command executes again (hook fully removed, rollback verified).
+
+### Validation results template
+
+Copy one row per test run. Only after the denied-action rows show
+"hook fired: yes / executed: no" on a surface may that surface be labeled
+enforced.
+
+```
+Antigravity version: ................ (agy --version / IDE About)
+Operating system:    ................
+BehalfID CLI:        ................ (behalf --version)
+Date:                ................
+```
+
+| # | Surface (CLI/IDE/subagent/background/browser) | Tool name | Hook fired? | BehalfID received verification? (`behalf logs`) | Execution occurred? | Expected | Actual | Pass? |
+|---|---|---|---|---|---|---|---|---|
+| 2 | CLI | run_shell_command | | | | allowed + executed | | |
+| 3 | CLI | run_shell_command (canary) | | | | blocked, not executed | | |
+| 4 | CLI, required, API down | run_shell_command | | | | blocked locally, not executed | | |
+| 5 | CLI, required | (unknown tool) | | | | blocked, not executed | | |
+| 6a | IDE | (repeat 2) | | | | allowed + executed | | |
+| 6b | IDE | (repeat 3) | | | | blocked, not executed | | |
+| 7 | Subagent | (canary) | | | | blocked, not executed | | |
+| 8 | Background task | (canary) | | | | blocked, not executed | | |
+| 9 | Browser | (browser action) | | | | verification logged | | |
+| 10 | MCP | verify_action | n/a | | n/a | tools respond without hook | | |

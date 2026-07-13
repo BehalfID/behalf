@@ -1,0 +1,12 @@
+{
+  "description": "Gemini-heritage file write with documented envelope and file_path argument",
+  "provenance": "documented",
+  "source": "gemini-cli docs/hooks/reference.md + docs/tools/file-system.md (write_file)",
+  "payload": {
+    "session_id": "sess-fixture",
+    "cwd": "/tmp/example-workspace",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "write_file",
+    "tool_input": { "file_path": "/tmp/example-workspace/example.txt", "content": "placeholder" }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "description": "camelCase nested toolCall envelope variant — a defensive compatibility guess, not observed in any documentation or live session",
+  "provenance": "provisional",
+  "source": "Inferred from secondary write-ups mentioning toolCall.args; kept so a payload-shape drift degrades to documented fail-open/fail-closed behavior instead of a misread. Replace with a captured fixture once available.",
+  "payload": {
+    "hook_event_name": "PreToolUse",
+    "cwd": "/tmp/example-workspace",
+    "toolCall": { "name": "run_command", "args": { "command": "echo ok" } }
+  }
+}

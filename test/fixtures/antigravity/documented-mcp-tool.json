@@ -1,0 +1,13 @@
+{
+  "description": "MCP tool call using the documented mcp_{serverName}_{toolName} FQN and the documented mcp_context input field",
+  "provenance": "documented",
+  "source": "gemini-cli docs/tools/mcp-server.md (FQN format) + docs/hooks/reference.md (mcp_context on BeforeTool input)",
+  "payload": {
+    "session_id": "sess-fixture",
+    "cwd": "/tmp/example-workspace",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "mcp_examplesrv_do_thing",
+    "tool_input": { "arg": "placeholder" },
+    "mcp_context": { "server_name": "examplesrv" }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "description": "Windsurf-heritage IDE write tool with PascalCase argument aliases — NOT confirmed against a live Antigravity IDE",
+  "provenance": "provisional",
+  "source": "Windsurf Cascade tool-naming convention (write_to_file, TargetFile); Antigravity IDE is a Windsurf-derived fork. Replace with a captured-ide fixture once available.",
+  "payload": {
+    "session_id": "sess-fixture",
+    "cwd": "/tmp/example-workspace",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "write_to_file",
+    "tool_input": { "TargetFile": "/tmp/example-workspace/example.txt", "CodeContent": "placeholder" }
+  }
+}
