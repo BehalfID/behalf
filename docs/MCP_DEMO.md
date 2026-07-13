@@ -12,7 +12,7 @@ The MCP path does not add provider-native integrations. It gives local tools a p
 
 ## Setup
 
-1. Start the BehalfID app locally, or use `https://behalfid.com`.
+1. Start the BehalfID app locally, or use `https://www.behalfid.com`.
 2. Create an agent in `/dashboard/agents`, `/dashboard/onboarding`, or `/console/agents`.
 3. Add a coding-agent-style permission. Example:
 

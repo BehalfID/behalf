@@ -106,7 +106,7 @@ export async function runDoctorChecks(cwd = process.cwd()): Promise<Check[]> {
     name: "Base URL",
     status: parsedBaseUrl && ["http:", "https:"].includes(parsedBaseUrl.protocol) ? "ok" : "error",
     detail: baseUrl,
-    fix: "Run `behalf config set base-url https://behalfid.com` or your local app URL.",
+    fix: "Run `behalf config set base-url https://www.behalfid.com` or your local app URL.",
   });
 
   if (parsedBaseUrl) {

@@ -119,7 +119,8 @@ export function permissionsCommand() {
           body,
           baseUrl,
           developerToken: opts.developerToken,
-          skipAuth: true
+          skipAuth: Boolean(opts.developerToken),
+          skipApiKey: true
         });
 
         if (isJsonMode()) printJson(data);
@@ -138,7 +139,13 @@ export function permissionsCommand() {
         const baseUrl = resolveBaseUrl();
         const data = await apiRequest<{ revoked: boolean }>(
           `/api/permissions/${encodeURIComponent(permissionId)}/revoke`,
-          { method: "POST", baseUrl, developerToken: opts.developerToken, skipAuth: true }
+          {
+            method: "POST",
+            baseUrl,
+            developerToken: opts.developerToken,
+            skipAuth: Boolean(opts.developerToken),
+            skipApiKey: true
+          }
         );
 
         if (isJsonMode()) printJson(data);

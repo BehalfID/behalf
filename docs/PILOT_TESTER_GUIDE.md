@@ -41,8 +41,8 @@ Pick one method. Tell the operator which you used. For the Trajectus pilot, requ
 npm install -g @behalfid/cli
 
 # install.sh — macOS / Linux only (optional pin; the pin is assigned to sh, not curl)
-# curl -fsSL https://behalfid.com/install.sh | BEHALF_VERSION=v0.2.11 sh
-curl -fsSL https://behalfid.com/install.sh | sh
+# curl -fsSL https://www.behalfid.com/install.sh | BEHALF_VERSION=v0.2.11 sh
+curl -fsSL https://www.behalfid.com/install.sh | sh
 
 # Homebrew — macOS only
 brew install BehalfID/tap/behalf
@@ -70,7 +70,7 @@ behalf whoami
 Then configure **your** dedicated agent (values from the operator — never share the API key):
 
 ```bash
-behalf config set base-url https://behalfid.com
+behalf config set base-url https://www.behalfid.com
 behalf config set agent-id agent_test
 behalf config set api-key bhf_sk_REDACTED
 ```

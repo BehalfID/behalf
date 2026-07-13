@@ -42,7 +42,7 @@ BEHALFID_LOG_METADATA=true
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-For production, set `NEXT_PUBLIC_APP_URL=https://behalfid.com` in Vercel.
+For production, set `NEXT_PUBLIC_APP_URL=https://www.behalfid.com` in Vercel.
 
 Then open:
 
@@ -120,7 +120,7 @@ import { BehalfID } from "@behalfid/sdk";
 
 const behalf = new BehalfID({
   apiKey: process.env.BEHALFID_API_KEY,
-  baseUrl: "https://behalfid.com"
+  baseUrl: "https://www.behalfid.com"
 });
 
 const result = await behalf.verify({
@@ -144,7 +144,7 @@ Use the CLI/MCP path when a local AI coding agent should inspect permissions and
 # Install (npm is the supported Windows path; install.sh is macOS/Linux; Homebrew is macOS)
 npm install -g @behalfid/cli
 # install.sh with optional version pin (assign the pin to sh, not curl):
-#   curl -fsSL https://behalfid.com/install.sh | BEHALF_VERSION=v0.2.11 sh
+#   curl -fsSL https://www.behalfid.com/install.sh | BEHALF_VERSION=v0.2.11 sh
 behalf --version   # Trajectus pilot: require 0.2.11 or newer
 
 behalf config set agent-id agent_xxx
@@ -286,17 +286,17 @@ See [docs/PRODUCTION.md](docs/PRODUCTION.md) for the full production checklist.
 Production URL target:
 
 ```txt
-https://behalfid.com
+https://www.behalfid.com
 ```
 
-Vercel preview and fallback deployment URLs may still exist, but `https://behalfid.com` is the canonical public domain.
+Vercel preview and fallback deployment URLs may still exist, but `https://www.behalfid.com` is the canonical public domain.
 
 After changing domains:
 
-1. Update Vercel environment variables, including `NEXT_PUBLIC_APP_URL=https://behalfid.com`.
+1. Update Vercel environment variables, including `NEXT_PUBLIC_APP_URL=https://www.behalfid.com`.
 2. Redeploy the app.
 3. Test generated passport links from `/dashboard/agents/[agentId]`.
-4. Test SDK examples against `https://behalfid.com`.
+4. Test SDK examples against `https://www.behalfid.com`.
 5. Inspect Open Graph and canonical metadata for the production domain.
 
 ## Security Notes

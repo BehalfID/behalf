@@ -4,7 +4,7 @@ Base URLs:
 
 ```txt
 http://localhost:3000
-https://behalfid.com
+https://www.behalfid.com
 ```
 
 Agent protected public endpoints require:
@@ -1261,7 +1261,7 @@ import { BehalfID } from "@behalfid/sdk";
 
 const behalf = new BehalfID({
   apiKey: process.env.BEHALFID_API_KEY,
-  baseUrl: "https://behalfid.com"
+  baseUrl: "https://www.behalfid.com"
 });
 
 const result = await behalf.verify({

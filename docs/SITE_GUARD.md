@@ -272,13 +272,13 @@ app.get("/admin/:page?", siteGuard(), adminHandler);
 
 ```bash
 # Allowed path:
-curl https://behalfid.com/api/site-guard/check \
+curl https://www.behalfid.com/api/site-guard/check \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $SITE_GUARD_KEY" \
   -d '{"path": "/docs/getting-started", "userAgent": "ExampleBot/1.0"}'
 
 # Blocked path:
-curl https://behalfid.com/api/site-guard/check \
+curl https://www.behalfid.com/api/site-guard/check \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $SITE_GUARD_KEY" \
   -d '{"path": "/admin/settings", "userAgent": "ExampleBot/1.0"}'

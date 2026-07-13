@@ -1,6 +1,6 @@
 import { readConfig, readSession } from "./config.js";
 
-export const DEFAULT_BASE_URL = "https://behalfid.com";
+export const DEFAULT_BASE_URL = "https://www.behalfid.com";
 
 export type RequestOptions = {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
@@ -9,6 +9,8 @@ export type RequestOptions = {
   developerToken?: string;
   baseUrl?: string;
   skipAuth?: boolean;
+  /** Omit configured agent bearer auth while retaining a saved developer session. */
+  skipApiKey?: boolean;
   onHeaders?: (headers: Headers) => void;
   /** Abort the request if it takes longer than this many milliseconds. */
   timeoutMs?: number;
@@ -42,7 +44,7 @@ export async function apiRequest<T = unknown>(
   opts: RequestOptions = {}
 ): Promise<T> {
   const baseUrl = resolveBaseUrl(opts.baseUrl);
-  const apiKey = opts.skipAuth ? undefined : opts.apiKey ?? resolveApiKey();
+  const apiKey = opts.skipAuth || opts.skipApiKey ? undefined : opts.apiKey ?? resolveApiKey();
   const session = opts.skipAuth ? null : readSession();
 
   const headers: Record<string, string> = {

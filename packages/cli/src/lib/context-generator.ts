@@ -118,7 +118,7 @@ export function generateContextMd(detail: AgentDetail, updatedAt?: string): stri
     `\`\`\``,
     ``,
     `---`,
-    `*Updated ${timestamp} · Agent \`${agent.agentId}\` · [BehalfID](https://behalfid.com)*`
+    `*Updated ${timestamp} · Agent \`${agent.agentId}\` · [BehalfID](https://www.behalfid.com)*`
   );
 
   return lines.join("\n");

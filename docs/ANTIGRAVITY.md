@@ -336,6 +336,14 @@ and never verifies anything; remove it when done.
 | Hook works in CLI but not IDE (or vice versa) | Both read `~/.gemini/config/hooks.json`, but only for trusted folders; restart the surface that misses the hook and re-run the canary on it. |
 | Debug tracing | Run the gate manually: `echo '{"tool_name":"run_command","tool_input":{"command":"ls"}}' | BEHALFID_DEBUG=1 behalf hook antigravity`. (The env var does not propagate through Antigravity's sanitized hook environment.) |
 
+Windows follow-up: one live device-login run printed
+`Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c`
+immediately after authorization. The login browser launcher uses a detached,
+unreferenced `cmd /c start` child, but the assertion has not been reproduced in
+the CLI test harness and is not conclusively attributable to that child. The
+launcher remains unchanged pending a minimal reproduction with recorded Node
+and CLI versions.
+
 ## Removal / rollback
 
 ```bash

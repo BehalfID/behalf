@@ -10,7 +10,7 @@ Set these in Vercel Production before deploying:
 MONGODB_URI=
 BEHALFID_ADMIN_PASSWORD=
 BEHALFID_SETUP_TOKEN=
-NEXT_PUBLIC_APP_URL=https://behalfid.com
+NEXT_PUBLIC_APP_URL=https://www.behalfid.com
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
 STRIPE_PRO_PRICE_ID=
@@ -80,7 +80,7 @@ Notes:
 1. Import the GitHub repository into Vercel.
 2. Add all required Production env vars.
 3. Add optional env vars for billing checkout, Redis, webhooks, and Ollama as needed.
-4. Set `NEXT_PUBLIC_APP_URL` to the production domain, for example `https://behalfid.com`.
+4. Set `NEXT_PUBLIC_APP_URL` to the production domain, for example `https://www.behalfid.com`.
 5. Redeploy after changing env vars.
 
 ## MongoDB Atlas
@@ -109,7 +109,7 @@ If either variable is missing, BehalfID intentionally falls back to per-process 
 4. Create a Stripe webhook endpoint for:
 
 ```txt
-https://behalfid.com/api/billing/webhook
+https://www.behalfid.com/api/billing/webhook
 ```
 
 5. Subscribe to `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, and `invoice.payment_failed`.
@@ -197,7 +197,7 @@ git diff --check
 For a running deployment, also run:
 
 ```bash
-APP_URL=https://behalfid.com BEHALFID_SETUP_TOKEN=<token> scripts/diagnose-prod-db.sh
+APP_URL=https://www.behalfid.com BEHALFID_SETUP_TOKEN=<token> scripts/diagnose-prod-db.sh
 ```
 
 ## Known Warnings
