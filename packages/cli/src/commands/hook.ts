@@ -29,6 +29,8 @@ type ActionMap = { action: string; resource: string };
 
 /** Max serialized size for policyContext sent to /api/verify (must match server). */
 export const POLICY_CONTEXT_MAX_BYTES = 16 * 1024;
+/** Bound action-time verification latency before applying the documented outage fallback. */
+export const PRE_TOOL_USE_VERIFY_TIMEOUT_MS = 5_000;
 
 export type ClaudePolicyToolInput = {
   filePath?: string;
@@ -241,12 +243,13 @@ export type PreToolUseDeps = {
  *   0 → allow the tool call to proceed
  *   2 → block the tool call (deny or approval-required)
  *
- * Fails OPEN (returns 0 with a warning) on missing config or network/API
- * errors, so a BehalfID outage never bricks the agent.
+ * Fails OPEN (returns 0 with a warning) on missing config or bounded
+ * network/API errors, so a BehalfID outage does not indefinitely block the
+ * agent.
  *
- * Malformed or oversized local policy input fails CLOSED (exit 2): that is not
- * a network outage, and proceeding without constraint arguments would silently
- * weaken path/command evaluation.
+ * Malformed, missing-target, or oversized local policy input fails CLOSED
+ * (exit 2): that is not a network outage, and proceeding without constraint
+ * arguments would silently weaken path/command evaluation.
  */
 export async function runPreToolUse(deps: PreToolUseDeps = {}): Promise<number> {
   const stderr = deps.stderr ?? process.stderr;
@@ -264,32 +267,50 @@ export async function runPreToolUse(deps: PreToolUseDeps = {}): Promise<number> 
   let input: HookInput;
   try {
     raw = await readInput();
-    input = raw.trim() ? (JSON.parse(raw) as HookInput) : {};
+    const parsed: unknown = JSON.parse(raw);
+    if (!isRecord(parsed)) throw new Error("hook input must be an object");
+    input = parsed as HookInput;
   } catch {
     trace(`could not parse ${raw.length} bytes of stdin as JSON`);
-    stderr.write("BehalfID: could not parse hook input — allowing (fail open).\n");
-    return 0;
+    stderr.write("BehalfID: blocked — malformed hook input.\n");
+    return 2;
   }
-  trace(`payload keys: [${Object.keys(input).join(", ")}]`);
+  trace("parsed hook payload");
 
-  const toolName = input.tool_name ?? input.toolName;
+  const toolName = readNonEmptyString(input.tool_name) ?? readNonEmptyString(input.toolName);
   trace(`received tool_name=${JSON.stringify(toolName)}`);
   if (!toolName) {
-    trace("no tool_name in payload — allowing (fail open)");
-    return 0;
+    trace("no usable tool_name in payload — blocking malformed input");
+    stderr.write("BehalfID: blocked — malformed hook input.\n");
+    return 2;
   }
 
   const rawToolInput = input.tool_input;
-  const toolInput: Record<string, unknown> = isRecord(rawToolInput) ? rawToolInput : {};
   if (rawToolInput !== undefined && !isRecord(rawToolInput)) {
-    trace(`tool_input is ${typeof rawToolInput}, not an object — ignoring fields`);
+    trace(`tool_input is ${typeof rawToolInput}, not an object — blocking malformed input`);
+    stderr.write("BehalfID: blocked — malformed tool arguments.\n");
+    return 2;
   }
+  const toolInput: Record<string, unknown> = rawToolInput ?? {};
 
   const mapped = mapToolToAction(toolName, toolInput);
   trace(
     `mapped ${JSON.stringify(toolName)} → ${mapped ? `${mapped.action} on ${mapped.resource}` : "null (no BehalfID-gated equivalent)"}`
   );
   if (!mapped) return 0; // tool has no BehalfID-gated equivalent
+
+  const missingCommand =
+    mapped.action === "execute_command" && extractCommand(toolInput) === undefined;
+  const missingFilePath =
+    (mapped.action === "write_file" || mapped.action === "read_file") &&
+    extractFilePath(toolInput) === undefined;
+  if (missingCommand || missingFilePath) {
+    trace(
+      `mapped ${mapped.action} input is missing its required policy target — blocking malformed input`
+    );
+    stderr.write("BehalfID: blocked — required tool arguments are missing.\n");
+    return 2;
+  }
 
   const config = readConfig();
   const agentId = config.agentId ?? process.env.BEHALFID_AGENT_ID;
@@ -339,20 +360,24 @@ export async function runPreToolUse(deps: PreToolUseDeps = {}): Promise<number> 
     if (policyContext) {
       body.policyContext = policyContext;
     }
-    // Debug must never print commands, paths, file contents, or credentials.
+    // Debug must never print URLs, commands, paths, file contents, or credentials.
     trace(
-      `POST ${baseUrl}/api/verify action=${mapped.action} vendor=${mapped.resource} policyContext=${policyContext ? "present" : "absent"}`
+      `POST /api/verify action=${mapped.action} vendor=${mapped.resource} policyContext=${policyContext ? "present" : "absent"}`
     );
     result = deps.verify
       ? await deps.verify(body)
-      : await apiRequest<VerifyResult>("/api/verify", { method: "POST", body, apiKey, baseUrl });
+      : await apiRequest<VerifyResult>("/api/verify", {
+          method: "POST",
+          body,
+          apiKey,
+          baseUrl,
+          timeoutMs: PRE_TOOL_USE_VERIFY_TIMEOUT_MS,
+        });
     trace(
-      `verify → allowed=${result.allowed} approvalRequired=${result.approvalRequired ?? false} reason=${JSON.stringify(result.reason)}`
+      `verify → allowed=${result.allowed} approvalRequired=${result.approvalRequired ?? false}`
     );
-  } catch (err) {
-    stderr.write(
-      `BehalfID: verification unavailable (${err instanceof Error ? err.message : String(err)}) — allowing (fail open).\n`
-    );
+  } catch {
+    stderr.write("BehalfID: verification unavailable — allowing (fail open).\n");
     return 0;
   }
 
@@ -363,7 +388,7 @@ export async function runPreToolUse(deps: PreToolUseDeps = {}): Promise<number> 
   if (needsApproval) {
     stderr.write("BehalfID: approval required. Visit your Action Inbox to approve.\n");
   } else {
-    stderr.write(`BehalfID: blocked — ${reason}\n`);
+    stderr.write("BehalfID: blocked by policy.\n");
   }
   // Exit 2 is Claude Code's blocking signal for PreToolUse hooks: stderr is fed
   // back to the agent and the tool call is hard-blocked.

@@ -78,7 +78,7 @@ Error responses, webhook payloads, worker summaries, SDK errors, and CLI errors 
 - CLI/MCP path: use `behalf mcp init`, `behalf claude`, or `behalf codex` to add permission context and `verify_action` to local coding agents.
 - Site Guard path: call `/api/site-guard/check` from website middleware before serving protected routes.
 
-The CLI/MCP path is documented in [MCP_DEMO.md](MCP_DEMO.md). It does not change the core verify API: denied, approval-required, or unavailable verification must fail closed before execution.
+The advisory CLI/MCP path is documented in [MCP_DEMO.md](MCP_DEMO.md). Its model instructions say not to execute after denied, approval-required, or unavailable verification, but the MCP server does not intercept tools. Action-time hook/wrapper outage behavior is integration-specific; the Claude Code `PreToolUse` hook is documented below.
 
 ## POST /api/agents
 
@@ -228,7 +228,7 @@ Permissions may include `constraints.allowedPaths`, `constraints.deniedPaths`, a
 - Command constraints apply to `execute_command`. `deniedCommands` entries are **literal substrings** of the full command string (not regexes or shell globs), so a denied token is detected inside compound commands such as `npm test && rm -rf /tmp/build`. Empty or whitespace-only entries are ignored. When `deniedCommands` is non-empty and no usable command is supplied, verification fails closed with `command_blocked`.
 - Argument-level denials are hard constraints: they are evaluated before approval resolution and cannot be bypassed by an approval grant.
 
-Claude Code tool calls routed through the installed BehalfID PreToolUse hook are checked against matching BehalfID permissions before execution. The hook forwards only sanitized policy-relevant fields via `policyContext` (never Write contents or Edit replacement bodies). Network or service unavailability in the hook still fails open so a BehalfID outage does not brick the agent; malformed or oversized local policy input fails closed because the action cannot be safely evaluated.
+Claude Code tool calls routed through the installed BehalfID PreToolUse hook are checked against matching BehalfID permissions before execution. The hook forwards only sanitized policy-relevant fields via `policyContext` (never Write contents or Edit replacement bodies). Missing config and network/service errors, including the bounded five-second verify timeout, fail open with a generic warning; malformed, missing-target, or oversized local policy input fails closed because the action cannot be safely evaluated.
 
 Allowed response:
 

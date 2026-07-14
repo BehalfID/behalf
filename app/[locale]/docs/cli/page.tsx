@@ -11,7 +11,7 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "docs" });
-  return { title: `${t("cli")} — BehalfID`, description: "Install the BehalfID CLI to manage agents, verify actions, enforce permissions via MCP, and launch AI tools with enforcement active.", alternates: { canonical: "/docs/cli" } };
+  return { title: `${t("cli")} — BehalfID`, description: "Install the BehalfID CLI, action-time hooks, advisory MCP tools, and optional Managed Profiles launch policy.", alternates: { canonical: "/docs/cli" } };
 }
 
 export default async function CliDocsPage({ params }: { params: Promise<{ locale: string }> }) {
@@ -22,7 +22,7 @@ export default async function CliDocsPage({ params }: { params: Promise<{ locale
   return (
     <DocsShell
       title="behalf CLI"
-      description="Install the BehalfID CLI to manage agents, verify actions, enforce permissions via MCP, and launch AI tools with enforcement active."
+      description="Install the BehalfID CLI, action-time hooks, advisory MCP tools, and optional Managed Profiles launch policy."
       previous={{ href: "/docs/quickstart", label: t("quickstart") }}
       next={{ href: "/docs/deploy-approvals", label: t("deployApprovals") }}
     >
@@ -42,8 +42,9 @@ export default async function CliDocsPage({ params }: { params: Promise<{ locale
   --action deploy --resource vercel.com \\
   --requires-approval`}</CodeBlock>
 
-      <h2>Set up MCP enforcement</h2>
+      <h2>Set up the advisory MCP server</h2>
       <CodeBlock label="terminal">{`behalf mcp init && behalf claude`}</CodeBlock>
+      <p>The MCP server supplies model tools and context; the Claude Code PreToolUse hook is the separate action-time gate.</p>
 
       <h2>Verify from the CLI</h2>
       <CodeBlock label="terminal">{`behalf verify --agent agent_xxx --action deploy --vendor vercel.com`}</CodeBlock>

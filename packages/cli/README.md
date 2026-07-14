@@ -92,7 +92,7 @@ Enroll protected repos from:
 - **Managed profiles** → Protected repos (`/dashboard/managed-profiles`)
 - **Managed Profile Activity** — enroll directly from an activity row after a shim launch
 
-Set per-repo mode to `managed` or `required`. In `required` mode, the CLI fails closed when policy cannot be verified.
+Set per-repo mode to `managed` or `required`. A live `required` decision enforces launch prerequisites. During an outage, only a fresh cached `required` decision refuses launch; missing or expired cache can fall back to unmanaged mode.
 
 ## Required-mode pause approval
 

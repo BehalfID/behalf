@@ -1,174 +1,145 @@
-# Trajectus Pilot — Tester Guide
+# Trajectus Claude Code pilot tester guide
 
-Short guide for an invited Trajectus engineer. Follow this without live assistance when possible. Operator runbook: [PILOT_REHEARSAL.md](PILOT_REHEARSAL.md). Results: [PILOT_RESULTS_TEMPLATE.md](PILOT_RESULTS_TEMPLATE.md).
+This is the short path for a Trajectus engineer testing BehalfID with enterprise Claude Code on Windows PowerShell. The operator owns permission transitions and evidence review. Deep operator detail is in [PILOT_REHEARSAL.md](PILOT_REHEARSAL.md); record results in [PILOT_RESULTS_TEMPLATE.md](PILOT_RESULTS_TEMPLATE.md).
 
----
+## What is being tested
 
-## What BehalfID does in this pilot
+The Claude Code `PreToolUse` hook is the action-time gate. It runs `behalf hook pre-tool-use` before supported Claude tools and blocks a denied or approval-required call with exit code `2`.
 
-BehalfID checks whether your Claude Code agent is allowed to perform certain actions (shell commands, file writes/reads, and other mapped tools) against permissions your workspace defines. When a permission requires approval, the action pauses until a **different** workspace user approves it in the Action Inbox.
+Managed Profiles is a separate, optional launch-time shim. The BehalfID MCP server is advisory context and is not enforcement. An MCP response or a server-side denied row does not by itself prove that a shell command was prevented from running.
 
-> Claude Code tool calls routed through the installed BehalfID PreToolUse hook are checked against BehalfID permissions before execution.
+Known boundary: if BehalfID agent config or `/api/verify` is unavailable, the action-time hook warns and fails open after a bounded timeout. Do not describe this pilot path as universally fail-closed.
 
-## What it does not do
+## 1. Install or verify the CLI
 
-- It does **not** intercept every possible Claude Code behavior — only tools the hook maps and receives.
-- It does **not** enforce Claude Desktop.
-- It does **not** secure tools that are not routed through the hook (for example Glob, Grep, TodoWrite, and Monitor without a shell command — see [COMPATIBILITY_MATRIX.md](COMPATIBILITY_MATRIX.md)).
-- It does **not** stop someone who intentionally removes or bypasses the local hook. That is outside the current hard security boundary and should be governed with organizational device controls in a production deployment.
-- It does **not** guarantee that every possible secret in a command string is redacted from approval previews — known key formats are best-effort.
+The supported Windows install is npm:
 
----
-
-## Supported enforcement boundary
-
-| In scope | Out of scope |
-|---|---|
-| PreToolUse hook → `behalf hook pre-tool-use` → `POST /api/verify` | Direct Claude binary use with hook removed |
-| Mapped tools (Write/Edit/Bash/PowerShell/Read/…; Monitor **with** `command`) | Unmapped tools; Claude Desktop |
-| Server-side allow/deny/approval decisions | Tamper-resistant endpoint security on the laptop |
-
-Network or missing local config causes the hook to **fail open** (allow with a stderr warning) so a BehalfID outage does not brick Claude. Treat that as a known boundary, not a silent “all clear.”
-
----
-
-## Installation
-
-Pick one method. Tell the operator which you used. For the Trajectus pilot, require **0.2.11 or newer**. If the version is older, **stop and contact the operator**.
-
-```bash
-# npm — supported on Windows (and macOS / Linux)
+```powershell
 npm install -g @behalfid/cli
-
-# install.sh — macOS / Linux only (optional pin; the pin is assigned to sh, not curl)
-# curl -fsSL https://behalfid.com/install.sh | BEHALF_VERSION=v0.2.11 sh
-curl -fsSL https://behalfid.com/install.sh | sh
-
-# Homebrew — macOS only
-brew install BehalfID/tap/behalf
-```
-
-Verify (required):
-
-```bash
+Get-Command behalf -All | Select-Object CommandType, Name, Source, Version
 behalf --version
+Get-Command claude -All | Select-Object CommandType, Name, Source, Version
+claude --version
 ```
 
-Record the **installation channel** and the exact version string in your results. If the operator gives you a locally packed CLI tarball instead, install that and record the version string.
+Use the operator-approved CLI build/version. Record the exact versions and resolved paths.
 
-More detail: [CLI docs](/docs/cli).
+## 2. Configure the dedicated pilot agent
 
----
+Use only the canary agent and base URL supplied through the secure pilot channel:
 
-## Authentication and agent config
-
-```bash
+```powershell
 behalf login
 behalf whoami
+behalf config set base-url <operator-approved-url>
+behalf config set agent-id <canary-agent-id>
+behalf config set api-key <canary-agent-key-from-secure-channel>
 ```
 
-Then configure **your** dedicated agent (values from the operator — never share the API key):
+Do not paste the key into chat, screenshots, tickets, shell history captures, or this repository. Never run `behalf config list`, `behalf config get api-key`, `Get-ChildItem Env:`, or print the complete config/settings files during evidence collection.
 
-```bash
-behalf config set base-url https://behalfid.com
-behalf config set agent-id agent_test
-behalf config set api-key bhf_sk_REDACTED
-```
+## 3. Confirm the Claude Code hook
 
-Use the real base URL for the pilot deploy if it is not production. Do not commit config or keys.
+Launch once through BehalfID, then run doctor:
 
-Optional project MCP context (complementary; the PreToolUse hook is the hard gate for this pilot):
-
-```bash
-behalf mcp init
-```
-
----
-
-## Hook installation
-
-```bash
+```powershell
 behalf claude
-```
-
-This launches Claude Code and installs the BehalfID PreToolUse hook into `~/.claude/settings.json` if needed (`behalf hook pre-tool-use`).
-
-Confirm:
-
-```bash
 behalf doctor
 ```
 
-Doctor should report the Claude PreToolUse hook as installed.
+Doctor must find `behalf hook pre-tool-use` in `~/.claude/settings.json`. In Claude, open `/hooks` and confirm the `PreToolUse` hook is actually loaded. Enterprise policy can reject user-level hooks even when the file entry exists, so both checks are required.
 
----
+## 4. Run one allowed action
 
-## How approval requests appear
+After the operator confirms the canary permission is in non-approval mode, ask Claude:
 
-1. You ask Claude to run a mapped action that needs approval (for example a shell command or a write under `pilot-sandbox/`).
-2. The hook blocks the tool (Claude sees a denial / approval-required message). CLI stderr may say to visit the Action Inbox.
-3. Your **approver** (separate user, separate browser profile) opens **Action Inbox** (`/dashboard/inbox` or `/<workspace-slug>/dashboard/inbox`) or **Approvals** (`/dashboard/approvals` or `/<workspace-slug>/dashboard/approvals`) in the correct workspace. Workspace-scoped URLs are rolling out; use `/dashboard/...` until operators confirm the new shape is live (see `docs/WORKSPACE_URLS.md`).
-4. They review the preview and approve or deny.
+```text
+Use the real shell tool to run exactly this harmless command. Do not simulate it:
+echo behalfid-allowed
+```
 
-You cannot approve your own requests.
+Pass criteria: Claude invokes the real shell tool, the shell result contains `behalfid-allowed`, and BehalfID Activity/Logs shows an allowed `execute_command` on `shell` with a request ID and matching timestamp.
 
----
+## 5. Run one denied action
 
-## How to retry after approval
+Ask Claude:
 
-After the approver approves, ask Claude to **retry the same action** (same command text or same file path). A different command or file path requires a new approval.
+```text
+Use the real shell tool to attempt exactly this harmless command. Do not claim it ran unless a shell result exists:
+echo behalfid-denied-canary
+```
 
-Each successful use of an approval grant is **single-use** and **time-limited** (default 30 minutes). A second retry of the same action needs a new approval.
+Pass criteria: the real shell tool is attempted, the hook blocks it, Activity/Logs shows a denied `execute_command` on `shell`, and the marker does not appear in the shell-result area. The command can appear in Claude's proposed tool call or prose; label that separately. A denied log row without non-execution proof is not enough.
 
----
+## 6. Request one approval-gated action
 
-## What appears in the approval preview
+Wait for the operator to confirm the earlier non-approval permission is no longer active and the intended `execute_command` / `shell` permission now requires approval.
 
-Approvers see:
+Ask Claude to run exactly:
 
-- Action and resource (for example `execute_command` / `shell`)
-- A **bounded** preview of the command or file path
-- Best-effort redaction of known secret patterns (BehalfID keys, Bearer tokens, etc.)
+```text
+echo behalfid-approval-canary
+```
 
-They should **not** see raw API keys from your config, full file contents from Write/Edit, or a raw `policyContext` dump.
+Then:
 
----
+1. Confirm the first attempt is blocked with approval required and no shell output.
+2. Open Action Inbox and check the exact preview `echo behalfid-approval-canary`.
+3. Attempt approval as the requester. It must be disabled or rejected.
+4. Have the authorized second user approve from a separate browser profile/device.
+5. Retry the identical command. It may execute once.
+6. Retry it again without a new approval. It must be blocked.
+7. Try `echo behalfid-approval-canary-changed`. It must create/require a different approval and must not reuse the original grant.
 
-## How to report a blocked action
+Capture request ID, approval ID, permission ID, timestamps, the consumed/used state, and proof that only one retry produced shell output.
 
-Send the operator:
+## 7. Review Activity and Action Inbox
 
-1. Approximate time (with timezone)
-2. What you asked Claude to do (no real secrets)
-3. Whether Claude/hook said blocked vs approval required
-4. `requestId` if shown
-5. Screenshot of the error or Inbox row (redact keys)
-6. OS + `behalf --version` + Claude Code version
+Use the workspace dashboard:
 
----
+- Activity/Logs: correlate allowed, denied, and approval-required decisions by request ID and timestamp.
+- Action Inbox/Approvals: confirm the exact command preview, requester self-approval block, second-user resolution, and used/consumed state.
 
-## Support contact
+Optional sanitized CLI view:
 
-- Pilot operator: (name/channel provided in the invite)
-- Product support: [support@behalfid.com](mailto:support@behalfid.com)
+```powershell
+behalf --json logs list <canary-agent-id> --action execute_command --limit 20
+```
 
----
+Do not save complete config, environment, cookies, or any secret-bearing output.
 
-## Uninstall or disable the pilot integration
+## 8. Report friction or defects
 
-To stop local enforcement:
+For each issue, send the operator:
 
-1. Remove or disable the BehalfID PreToolUse hook entry in `~/.claude/settings.json` (or ask the operator for a verified snippet).
-2. Clear agent credentials if you will not continue testing:
+- ISO timestamp and timezone
+- Windows, PowerShell, BehalfID CLI, and Claude Code versions
+- resolved CLI/Claude paths and whether a Managed Profiles shim was first in PATH
+- canary step and observed behavior
+- request/approval/permission IDs, but no API key
+- sanitized terminal capture or screenshot
+- whether the marker appeared in a proposed tool call, agent prose, or actual shell output
 
-   ```bash
-   behalf logout
-   ```
+Stop the pilot immediately for actual execution of a denied command, self-approval success, approval reuse by changed command text, cross-workspace evidence, or more than one consumer of a single grant.
 
-   Also remove `api-key` / `agent-id` from `~/.behalf/config.json` if still present.
+## Troubleshooting
 
-3. Optionally uninstall the CLI (`npm uninstall -g @behalfid/cli`, or remove the binary from your install method).
+### Doctor finds the hook but Claude `/hooks` does not
 
-4. If you installed Managed Profile shims for other testing, `behalf profile uninstall` removes those shims — that is separate from the Claude PreToolUse hook.
+Enterprise Claude policy may set `allowManagedHooksOnly`. Send the sanitized doctor result and `/hooks` capture to the Trajectus Claude administrator. Do not edit managed policy yourself.
 
-Removing the hook disables BehalfID checks for Claude Code on that machine. Organizational policy may still require the hook to remain installed.
+### No verification row appears
+
+Confirm the tool was a real supported shell call, the hook appears in `/hooks`, the canary agent ID is correct, and the test did not run through an unmapped tool. Glob, Grep, and TodoWrite are not shell enforcement canaries.
+
+### The hook says verification unavailable
+
+The action-time hook fails open in this state. Stop the enforcement canary, restore the operator-approved base URL/network, and rerun. Record the outage separately; do not count it as an allow/deny pass.
+
+### Approval preview differs
+
+Do not approve it. Approval is bound to the exact complete command. Capture the preview and request ID, then report the mismatch.
+
+### Cleanup
+
+Follow the operator's cleanup authorization. Revoke/remove only named canary permissions; do not create or rotate keys, delete the agent, change members, or alter billing unless separately authorized. Preserve sanitized evidence and confirm it contains no API keys, cookies, tokens, or full config files.

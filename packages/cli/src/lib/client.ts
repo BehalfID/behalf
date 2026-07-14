@@ -62,39 +62,44 @@ export async function apiRequest<T = unknown>(
       ? setTimeout(() => controller.abort(), timeoutMs)
       : undefined;
 
-  let response: Response;
   try {
-    response = await fetch(`${baseUrl}${path}`, {
-      method: opts.method ?? "GET",
-      headers,
-      body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
-      signal: controller?.signal,
-    });
-  } catch {
+    let response: Response;
+    try {
+      response = await fetch(`${baseUrl}${path}`, {
+        method: opts.method ?? "GET",
+        headers,
+        body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+        signal: controller?.signal,
+      });
+    } catch {
+      if (controller?.signal.aborted) {
+        throw new Error(`Request timed out after ${timeoutMs}ms.`);
+      }
+      throw new Error("Network request failed. Check your connection and base URL.");
+    }
+
+    if (opts.onHeaders) opts.onHeaders(response.headers);
+
+    const body = await response.json().catch(() => null);
     if (controller?.signal.aborted) {
       throw new Error(`Request timed out after ${timeoutMs}ms.`);
     }
-    throw new Error("Network request failed. Check your connection and base URL.");
+
+    if (!response.ok) {
+      const message =
+        typeof body === "object" &&
+        body !== null &&
+        "error" in body &&
+        typeof (body as Record<string, unknown>).error === "string"
+          ? (body as Record<string, string>).error
+          : `Request failed with status ${response.status}.`;
+      throw new Error(message);
+    }
+
+    if (body === null) throw new Error("Expected JSON response.");
+
+    return body as T;
   } finally {
     if (timer) clearTimeout(timer);
   }
-
-  if (opts.onHeaders) opts.onHeaders(response.headers);
-
-  const body = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    const message =
-      typeof body === "object" &&
-      body !== null &&
-      "error" in body &&
-      typeof (body as Record<string, unknown>).error === "string"
-        ? (body as Record<string, string>).error
-        : `Request failed with status ${response.status}.`;
-    throw new Error(message);
-  }
-
-  if (body === null) throw new Error("Expected JSON response.");
-
-  return body as T;
 }
