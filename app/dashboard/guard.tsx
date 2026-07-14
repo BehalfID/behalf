@@ -5,6 +5,7 @@ import { extractDashboardSubpath, workspaceDashboardHref } from "@/lib/workspace
 import { ensureAccountHasSlug } from "@/lib/workspaceSlugServer";
 import { findAccountByIdLean } from "@/lib/repositories/accounts";
 import { DashboardShell } from "./client";
+import type { AgentDetailSection } from "@/components/dashboard/agent-detail/types";
 
 /**
  * Legacy /dashboard/* entry. Temporarily redirects authenticated users to
@@ -12,7 +13,8 @@ import { DashboardShell } from "./client";
  */
 export async function ProtectedDashboard({
   view,
-  id
+  id,
+  agentSection = "overview"
 }: {
   view:
     | "home"
@@ -31,6 +33,7 @@ export async function ProtectedDashboard({
     | "managed-profiles"
     | "managed-profiles-activity";
   id?: string;
+  agentSection?: AgentDetailSection;
 }) {
   const context = await getCurrentDeveloperContext();
   if (!context?.user) redirect("/login");
@@ -45,7 +48,7 @@ export async function ProtectedDashboard({
     }
     if (slug) {
       // Reconstruct subpath from view for the temporary redirect.
-      const subpath = legacyViewToSubpath(view, id);
+      const subpath = legacyViewToSubpath(view, id, agentSection);
       redirect(workspaceDashboardHref(slug, subpath));
     }
   }
@@ -56,6 +59,7 @@ export async function ProtectedDashboard({
     <DashboardShell
       view={view}
       id={id}
+      agentSection={agentSection}
       emailVerified={context.user.emailVerified !== false}
       showSetupBanner={showSetupBanner}
     />
@@ -64,13 +68,16 @@ export async function ProtectedDashboard({
 
 function legacyViewToSubpath(
   view: string,
-  id?: string
+  id?: string,
+  agentSection: AgentDetailSection = "overview"
 ): string {
   switch (view) {
     case "home":
       return "";
     case "agent":
-      return id ? `/agents/${id}` : "/agents";
+      return id
+        ? `/agents/${id}${agentSection === "overview" ? "" : `/${agentSection}`}`
+        : "/agents";
     case "webhook":
       return id ? `/webhooks/${id}` : "/webhooks";
     case "first-agent":
