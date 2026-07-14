@@ -1210,7 +1210,19 @@ export async function runCaptureSchemaHook(
   return 0;
 }
 
-export function hookCommand() {
+export type HookCommandRunners = {
+  preToolUse: () => Promise<number>;
+  cursor: () => Promise<number>;
+  antigravity: () => Promise<number>;
+  captureSchema: (outFile?: string) => Promise<number>;
+};
+
+export function hookCommand(runners: HookCommandRunners = {
+  preToolUse: runPreToolUse,
+  cursor: runCursorHook,
+  antigravity: runAntigravityHook,
+  captureSchema: runCaptureSchemaHook,
+}) {
   const cmd = new Command("hook").description(
     "internal hooks for AI tools (invoked by Claude Code, not run directly)"
   );
@@ -1219,21 +1231,21 @@ export function hookCommand() {
     .command("pre-tool-use")
     .description("PreToolUse gate: read a Claude Code tool call on stdin and verify it with BehalfID")
     .action(async () => {
-      process.exit(await runPreToolUse());
+      process.exitCode = await runners.preToolUse();
     });
 
   cmd
     .command("cursor")
     .description("Cursor beforeShellExecution gate: read a shell command on stdin and emit Cursor's JSON deny/allow decision")
     .action(async () => {
-      process.exit(await runCursorHook());
+      process.exitCode = await runners.cursor();
     });
 
   cmd
     .command("antigravity")
     .description("Antigravity PreToolUse gate: read an Antigravity tool call on stdin and verify it with BehalfID")
     .action(async () => {
-      process.exit(await runAntigravityHook());
+      process.exitCode = await runners.antigravity();
     });
 
   cmd
@@ -1243,7 +1255,7 @@ export function hookCommand() {
     )
     .option("--out <file>", "append captures to this JSONL file (default: ~/.behalf/antigravity-captures.jsonl)")
     .action(async (opts: { out?: string }) => {
-      process.exit(await runCaptureSchemaHook(opts.out));
+      process.exitCode = await runners.captureSchema(opts.out);
     });
 
   return cmd;

@@ -4,12 +4,13 @@ Status as of 2026-07-13. Covers BehalfID's integration with Google Antigravity
 (the Antigravity IDE / "Antigravity 2.0" and the `agy` CLI).
 
 > **Status: enforcement candidate pending live canary validation.** The PreToolUse
-> gate is implemented and unit-tested, but no live denied-action canary has
-> been run against a real Antigravity install from this repository. Until the
-> canary results in "Live validation" below are recorded, describe this
-> integration as an *enforcement candidate*, not as enforced. The advisory
-> MCP layer is available. `required` mode governs only actions that
-> Antigravity actually routes through a functioning `PreToolUse` hook.
+> gate is implemented and tested, but the first live denied `agy` canary failed:
+> BehalfID returned `command_blocked` and the hook emitted its deny response,
+> then the Windows hook process crashed during forced shutdown. Until a patched
+> live canary proves the denied command did not execute, describe this
+> integration as an *enforcement candidate*, not as enforced. The advisory MCP
+> layer is available. `required` mode governs only actions that Antigravity
+> actually routes through a functioning `PreToolUse` hook.
 
 ## What Antigravity is (verified)
 
@@ -336,13 +337,15 @@ and never verifies anything; remove it when done.
 | Hook works in CLI but not IDE (or vice versa) | Both read `~/.gemini/config/hooks.json`, but only for trusted folders; restart the surface that misses the hook and re-run the canary on it. |
 | Debug tracing | Run the gate manually: `echo '{"tool_name":"run_command","tool_input":{"command":"ls"}}' | BEHALFID_DEBUG=1 behalf hook antigravity`. (The env var does not propagate through Antigravity's sanitized hook environment.) |
 
-Windows follow-up: one live device-login run printed
-`Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c`
-immediately after authorization. The login browser launcher uses a detached,
-unreferenced `cmd /c start` child, but the assertion has not been reproduced in
-the CLI test harness and is not conclusively attributable to that child. The
-launcher remains unchanged pending a minimal reproduction with recorded Node
-and CLI versions.
+Confirmed Windows hook shutdown defect: hook subcommands used
+`process.exit(await handler())`. After a verification fetch returned a denial,
+the forced exit ran while Node/libuv handles were closing, emitted
+`Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c`,
+and replaced the intended exit code 2 with crash status `-1073740791`. Hook
+subcommands now assign `process.exitCode = await handler()` so Node drains
+cleanly. The built-CLI regression exits normally with code 2, but the live
+`agy` denied canary must still be repeated to prove the command does not
+execute in Antigravity.
 
 ## Removal / rollback
 
@@ -401,7 +404,7 @@ execution did not occur — **no surface qualifies yet**.
 |---|---|
 | Advisory MCP | **Available** (config layer implemented; stdio server is the existing `behalf mcp start`) |
 | PreToolUse enforcement candidate | **Implemented** (gate + installer + unit tests; decision protocol per documented conventions and real-world hook evidence) |
-| CLI (`agy`) enforcement | **Pending live canary** |
+| CLI (`agy`) enforcement | **Pending repeated live canary** (first denial reached BehalfID, then the hook process crashed after emitting deny) |
 | IDE enforcement | **Pending live canary** |
 | Browser tools | **Unverified** (hook coverage of IDE browser actions unknown) |
 | Background tasks | **Unverified** (hook firing not officially documented) |
@@ -436,6 +439,13 @@ Use this dedicated agent only for validation. Before proceeding, confirm it
 has exactly one applicable active `execute_command` permission: the permission
 created above. Record that permission's ID, then execute each step and record
 it in the results template below.
+
+The first live `agy` run of step 3 is a recorded **failure**, not enforcement
+evidence: BehalfID logged `command_blocked` and the hook printed valid deny
+JSON plus the denial reason, but immediate `process.exit` triggered the Windows
+libuv assertion and crash code `-1073740791`. Repeat step 3 with a CLI build
+containing the graceful `process.exitCode` fix and confirm that the command did
+not execute. Server-side denial alone is insufficient.
 
 1. **Capture a sanitized PreToolUse payload from `agy`.** Add the
    `behalfid-capture` entry from "Capturing real hook payloads" above to
