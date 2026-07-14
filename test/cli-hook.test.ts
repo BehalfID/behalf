@@ -102,6 +102,8 @@ describe("mapToolToAction", () => {
     expect(hook.mapToolToAction("anthropic.Edit")).toEqual({ action: "write_file", resource: "filesystem" });
     expect(hook.mapToolToAction("core/MultiEdit")).toEqual({ action: "write_file", resource: "filesystem" });
     expect(hook.mapToolToAction("ns__Read")).toEqual({ action: "read_file", resource: "filesystem" });
+    expect(hook.mapToolToAction("CLAUDE.BASH")).toEqual({ action: "execute_command", resource: "shell" });
+    expect(hook.mapToolToAction("tool:powerSHELL")).toEqual({ action: "execute_command", resource: "shell" });
   });
 
   it("still does not over-match distinct tools or empty input", async () => {
@@ -153,7 +155,8 @@ describe("runPreToolUse", () => {
     });
 
     expect(code).toBe(2);
-    expect(err.text).toContain("BehalfID: blocked — Action is blocked by this permission.");
+    expect(err.text).toContain("BehalfID: blocked by policy.");
+    expect(err.text).not.toContain("Action is blocked by this permission.");
   });
 
   it("exits 2 with the Action Inbox message when approval is required", async () => {
@@ -179,13 +182,15 @@ describe("runPreToolUse", () => {
     const err = stderrCollector();
 
     const code = await hook.runPreToolUse({
-      stdin: async () => JSON.stringify({ tool_name: "Write", tool_input: {} }),
-      verify: async () => { throw new Error("Network request failed."); },
+      stdin: async () => JSON.stringify({ tool_name: "Bash", tool_input: { command: "echo safe" } }),
+      verify: async () => { throw new Error("Network request failed with SECRET_CREDENTIAL."); },
       stderr: err.sink,
     });
 
     expect(code).toBe(0);
     expect(err.text).toContain("verification unavailable");
+    expect(err.text).toContain("allowing (fail open)");
+    expect(err.text).not.toContain("SECRET_CREDENTIAL");
   });
 
   it("fails open (exit 0) when the CLI is not configured", async () => {
@@ -195,7 +200,7 @@ describe("runPreToolUse", () => {
     const err = stderrCollector();
 
     const code = await hook.runPreToolUse({
-      stdin: async () => JSON.stringify({ tool_name: "Write", tool_input: {} }),
+      stdin: async () => JSON.stringify({ tool_name: "Bash", tool_input: { command: "echo safe" } }),
       verify,
       stderr: err.sink,
     });
@@ -463,22 +468,53 @@ describe("runPreToolUse", () => {
     );
   });
 
-  it("malformed or non-object tool_input does not crash", async () => {
+  it("fails closed on malformed JSON, non-object payloads, or a missing tool name", async () => {
     const home = tempDir("behalf-home-");
     const { hook, config } = await loadHookModules(home);
     configured(config, home);
-    const verify = vi.fn(async () => ({ allowed: true, reason: "ok", requestId: "req_m" }));
+    const verify = vi.fn();
 
-    const code = await hook.runPreToolUse({
-      stdin: async () => JSON.stringify({ tool_name: "Write", tool_input: "not-an-object" }),
-      verify,
-      stderr: stderrCollector().sink,
-    });
+    for (const raw of ["", "{", "null", "[]", JSON.stringify({ tool_input: {} })]) {
+      const err = stderrCollector();
+      const code = await hook.runPreToolUse({
+        stdin: async () => raw,
+        verify,
+        stderr: err.sink,
+      });
 
-    expect(code).toBe(0);
-    expect(verify).toHaveBeenCalledWith(
-      expect.objectContaining({ action: "write_file", vendor: "filesystem" })
-    );
+      expect(code).toBe(2);
+      expect(err.text).toContain("malformed hook input");
+    }
+    expect(verify).not.toHaveBeenCalled();
+  });
+
+  it("fails closed on malformed or missing command/path tool arguments", async () => {
+    const home = tempDir("behalf-home-");
+    const { hook, config } = await loadHookModules(home);
+    configured(config, home);
+    const verify = vi.fn();
+
+    const payloads = [
+      { tool_name: "Bash", tool_input: "not-an-object" },
+      { tool_name: "PowerShell", tool_input: [] },
+      { tool_name: "Bash", tool_input: {} },
+      { tool_name: "Write", tool_input: { content: "SECRET_FILE_BODY" } },
+      { tool_name: "Read" },
+    ];
+
+    for (const payload of payloads) {
+      const err = stderrCollector();
+      const code = await hook.runPreToolUse({
+        stdin: async () => JSON.stringify(payload),
+        verify,
+        stderr: err.sink,
+      });
+
+      expect(code).toBe(2);
+      expect(err.text).toMatch(/malformed tool arguments|required tool arguments are missing/);
+      expect(err.text).not.toContain("SECRET_FILE_BODY");
+    }
+    expect(verify).not.toHaveBeenCalled();
   });
 
   it("oversized local policy input fails closed with exit 2", async () => {
@@ -504,28 +540,79 @@ describe("runPreToolUse", () => {
     expect(err.text).toContain("policy context too large");
   });
 
-  it("debug tracing does not contain raw command text or file contents", async () => {
+  it("debug and deny output do not contain commands, paths, prompts, credentials, or server reasons", async () => {
     const home = tempDir("behalf-home-");
     const { hook, config } = await loadHookModules(home);
     configured(config, home);
     vi.stubEnv("BEHALFID_DEBUG", "1");
+    vi.stubEnv("BEHALFID_BASE_URL", "http://SECRET_URL_CREDENTIAL@localhost:3000");
     const err = stderrCollector();
 
-    await hook.runPreToolUse({
+    const code = await hook.runPreToolUse({
       stdin: async () =>
         JSON.stringify({
           cwd: "/workspace/secret-cwd",
           tool_name: "Bash",
-          tool_input: { command: "rm -rf /SECRET_COMMAND_TOKEN" },
+          tool_input: {
+            command: "echo SECRET_COMMAND_TOKEN",
+            file_path: "/workspace/SECRET_PATH",
+            prompt: "SECRET_PROMPT",
+          },
         }),
-      verify: async () => ({ allowed: true, reason: "ok", requestId: "req_dbg" }),
+      verify: async () => ({
+        allowed: false,
+        reason: "SECRET_SERVER_REASON",
+        requestId: "req_dbg",
+      }),
       stderr: err.sink,
     });
 
+    expect(code).toBe(2);
     expect(err.text).toContain("policy context: command present");
     expect(err.text).not.toContain("SECRET_COMMAND_TOKEN");
-    expect(err.text).not.toContain("rm -rf");
     expect(err.text).not.toContain("secret-cwd");
+    expect(err.text).not.toContain("SECRET_PATH");
+    expect(err.text).not.toContain("SECRET_PROMPT");
+    expect(err.text).not.toContain("SECRET_URL_CREDENTIAL");
+    expect(err.text).not.toContain("bhf_sk_testsecret12345");
+    expect(err.text).not.toContain("SECRET_SERVER_REASON");
+  });
+
+  it("bounds a stalled verify request and applies the documented fail-open outage result", async () => {
+    const home = tempDir("behalf-home-");
+    const { hook, config } = await loadHookModules(home);
+    configured(config, home);
+    const err = stderrCollector();
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init?: RequestInit) => ({
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        json: () =>
+          new Promise<unknown>((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () => {
+              reject(new Error("SECRET_TIMEOUT_DETAIL"));
+            });
+          }),
+      }) as Response)
+    );
+
+    try {
+      const pending = hook.runPreToolUse({
+        stdin: async () =>
+          JSON.stringify({ tool_name: "Bash", tool_input: { command: "echo safe" } }),
+        stderr: err.sink,
+      });
+      await vi.advanceTimersByTimeAsync(hook.PRE_TOOL_USE_VERIFY_TIMEOUT_MS);
+
+      expect(await pending).toBe(0);
+      expect(err.text).toContain("verification unavailable");
+      expect(err.text).not.toContain("SECRET_TIMEOUT_DETAIL");
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("a real Claude-shaped payload reaches verify with action, vendor, and policy context", async () => {
@@ -646,6 +733,7 @@ describe("installClaudePreToolUseHook", () => {
 describe("behalf claude refuses launch without verified hook", () => {
   it("does not spawn Claude when settings.json is malformed", async () => {
     const home = tempDir("behalf-home-");
+    process.chdir(tempDir("behalf-project-"));
     const { run, config } = await loadHookModules(home);
     const { mkdirSync } = await import("node:fs");
     mkdirSync(join(home, ".claude"), { recursive: true });
@@ -664,7 +752,7 @@ describe("behalf claude refuses launch without verified hook", () => {
     const out = stderrCollector();
     let spawned = false;
     const code = await run.launchTool("claude", [], {
-      spawn: ((..._args: unknown[]) => {
+      spawn: (() => {
         spawned = true;
         return { status: 0, signal: null, output: [], pid: 0, stdout: Buffer.alloc(0), stderr: Buffer.alloc(0) };
       }) as typeof import("node:child_process").spawnSync,
@@ -684,6 +772,7 @@ describe("behalf claude refuses launch without verified hook", () => {
 
   it("launches when settings are valid and preserves unrelated hooks", async () => {
     const home = tempDir("behalf-home-");
+    process.chdir(tempDir("behalf-project-"));
     const { run, config } = await loadHookModules(home);
     const { mkdirSync } = await import("node:fs");
     mkdirSync(join(home, ".claude"), { recursive: true });
@@ -728,6 +817,7 @@ describe("behalf claude refuses launch without verified hook", () => {
 
   it("treats an existing valid BehalfID hook as success without rewriting", async () => {
     const home = tempDir("behalf-home-");
+    process.chdir(tempDir("behalf-project-"));
     const { run, config } = await loadHookModules(home);
     run.installClaudePreToolUseHook(home);
     const before = readFileSync(join(home, ".claude", "settings.json"), "utf-8");
@@ -745,7 +835,7 @@ describe("behalf claude refuses launch without verified hook", () => {
     const out = stderrCollector();
     let spawned = false;
     const code = await run.launchTool("claude", [], {
-      spawn: ((..._args: unknown[]) => {
+      spawn: (() => {
         spawned = true;
         return { status: 0, signal: null, output: [], pid: 0, stdout: Buffer.alloc(0), stderr: Buffer.alloc(0) };
       }) as typeof import("node:child_process").spawnSync,

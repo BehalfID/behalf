@@ -1,150 +1,141 @@
-# Trajectus Pilot — Results Template
+# Trajectus Claude Code live-validation results
 
-Copy this file (or duplicate the sections) for each rehearsal run. Sanitize before sharing outside the operator channel.
+Complete from [PILOT_REHEARSAL.md](PILOT_REHEARSAL.md). Store only sanitized evidence.
 
-Related: [PILOT_REHEARSAL.md](PILOT_REHEARSAL.md) · [PILOT_TESTER_GUIDE.md](PILOT_TESTER_GUIDE.md)
+## Current checkpoint
 
----
+- Allowed canary: **passed** on Windows Claude Code 2.1.209 after rebuild/relink. Claude invoked the real shell tool for `echo behalfid-allowed`, real shell output appeared, BehalfID recorded an allowed decision (`req_8MLJRFhKUgTVeYpj`), and there was no hook error or libuv assertion.
+- Denied canary: **passed**. Claude attempted the real shell tool for `echo behalfid-canary`, the hook reported `BehalfID: blocked by policy.`, no shell-result output contained the marker, and BehalfID recorded a denied `command_blocked` decision (`req_qkBkxJ1tCPtkZ-WU`) with no hook crash.
+- Approval-required canary: **paused / not run**. The current agent-detail dashboard does not provide a clear, safe permission replacement/editing workflow. Do not claim this canary passed.
+- Follow-up scope: dashboard information architecture and permission-management UX will be handled in a separate PR.
 
-## Metadata
+## Environment
 
-| Field | Value |
+| Field | Result |
 |---|---|
-| Rehearsal date | |
-| Deployed commit | |
-| CLI version / source | (e.g. `@behalfid/cli@x.y.z` from npm / local pack path) |
-| Operating system | |
+| Date/time + timezone | |
+| Operator | |
+| Requester user/role | |
+| Approver user/role | |
+| Workspace/account ID | |
+| Canary agent ID | |
+| Git branch | |
+| Git commit SHA | |
+| Working tree clean | yes / no |
+| Windows version | |
+| PowerShell version | |
+| BehalfID CLI version | |
+| Resolved `behalf` path(s) | |
 | Claude Code version | |
-| Requester | |
-| Approver | |
-| Workspace | `acct_test` (replace with real id in private notes only) |
-| Disposable repository | |
-| Start time | |
-| End time | |
+| Resolved real Claude path | |
+| Managed Profiles shim present/first in PATH | |
+| Claude `/hooks` shows BehalfID `PreToolUse` | yes / no |
+| CLI install channel | npm / local pack / other |
 
----
+## Permission states
 
-## Summary
-
-| Field | Value |
-|---|---|
-| Overall pass/fail | |
-| P0 findings | (count + short titles) |
-| P1 findings | |
-| Recommendation | proceed / proceed with conditions / stop |
-
-Narrative (2–4 sentences):
-
-```txt
-
-```
-
----
-
-## Scenario table
-
-| ID | Scenario | Expected | Observed | Pass/Fail | Request ID | Approval ID | Latency | Evidence | Notes |
-|---|---|---|---|---|---|---|---|---|---|
-| 1 | Clean CLI installation | | | | | | | | |
-| 2 | Hook installation and doctor verification | | | | | | | | |
-| 3 | Exact command approval | | | | | | | | |
-| 4 | Command substitution rejection | | | | | | | | |
-| 5 | Single-use grant rejection on second retry | | | | | | | | |
-| 6 | Concurrent retry behavior | At most one allow | | | | | | | |
-| 7 | Exact file-path approval | | | | | | | | |
-| 8 | File-path substitution rejection | | | | | | | | |
-| 9 | Canonically equivalent path retry | | | | | | | | |
-| 10 | Denied-command precedence | | | | | | | | |
-| 11 | Denied-path precedence | | | | | | | | |
-| 12 | Self-approval rejection | | | | | | | | |
-| 13 | Insufficient-authority rejection | | | | | | | | |
-| 14 | Approval expiry | | | | | | | | |
-| 15 | Secret-redacted command preview | | | | | | | | |
-| 16 | Truncated command preview | | | | | | | | |
-| 17 | Verification-log inspection | | | | | | | | |
-| 18 | Workspace tenant-isolation check | | | | | | | | |
-| 19 | Missing local configuration behavior | Fail open understood | | | | | | | |
-| 20 | API/service-unavailability behavior | Fail open understood | | | | | | | |
-| 21 | Unmapped-tool observation | | | | | | | | |
-| 22 | Actual Monitor usage observation | | | | | | | | |
-
----
-
-## Timing metrics
-
-| Metric | Value |
-|---|---|
-| Setup duration | |
-| Median Action Inbox visibility latency | (request blocked → visible to approver) |
-| Median approval-to-retry latency | (approve → successful retry) |
-| Total retries | |
-| Failed retries | |
-| Unexpected bypasses | (mapped tool executed without expected deny/approval) |
-
----
-
-## Tool observations
-
-List every Claude tool observed during the rehearsal.
-
-| Tool name | Mapped action | Verified | Expected behavior | Actual behavior | Pilot relevance |
+| Phase | Permission ID | Action/resource | `requiresApproval` | `deniedCommands` | Other matching permission absent? |
 |---|---|---|---|---|---|
-| | | yes/no | | | |
-| Monitor | execute_command if `command` set; else unmapped | | | | Dedicated row — fill even if not seen |
+| Allowed + denied | | `execute_command` / `shell` | false | `behalfid-canary` | |
+| Approval | | `execute_command` / `shell` | true | `behalfid-canary` | |
 
-Add rows as needed (Bash, PowerShell, Write, Edit, Read, Agent, Task, WebFetch, WebSearch, mcp__*, Glob, Grep, …).
+Do not record an API key.
 
----
+## Canary results
 
-## Security review
+| Canary | Expected | Observed | Pass/Fail | Request ID(s) | Timestamp(s) | Evidence reference |
+|---|---|---|---|---|---|---|
+| Allowed `echo behalfid-allowed` | Real shell invocation, output appears, allowed `execute_command` / `shell` row | Real shell invoked and output appeared; allowed decision; no hook error/assertion | Pass | `req_8MLJRFhKUgTVeYpj` | | Live Claude and Activity evidence |
+| Denied `echo behalfid-canary` | Real shell attempted, hook blocks, no shell output, denied row | Real shell attempted; generic policy block; no marker in shell-result output; `command_blocked`; no crash | Pass | `req_qkBkxJ1tCPtkZ-WU` | | Live Claude and Activity evidence |
+| Approval first attempt | No shell output, exact preview, approval required | Not attempted; safe permission replacement/editing workflow unavailable | Paused | | | Dashboard UX blocker |
+| Requester self-approval | Disabled or rejected | Not run | Paused | | | Separate-PR dependency |
+| Second-user approval | Correct preview approved by authorized different user | Not run | Paused | | | Separate-PR dependency |
+| Identical retry | Exactly one shell execution; grant marked used/consumed | Not run | Paused | | | Separate-PR dependency |
+| Second identical retry | Blocked; new approval required; no shell output | Not run | Paused | | | Separate-PR dependency |
+| Changed command retry | Original grant not reused; separate pending request | Not run | Paused | | | Separate-PR dependency |
 
-Explicit yes/no (use “n/a” only if scenario not run; explain in notes):
+## Approval evidence
 
-| Question | Yes/No |
+Not collected. Approval-required validation is paused pending a separate dashboard information-architecture and permission-management UX PR.
+
+| Field | Result |
 |---|---|
-| Requester self-approval blocked | |
-| Command substitution blocked | |
-| File substitution blocked | |
-| Grants single-use | |
-| Grants time-limited | |
-| Hard constraints precede approvals | |
-| Tenant isolation maintained | |
-| Secrets absent from stored evidence | |
-| Raw policyContext absent from logs | |
-| Local fail-open boundaries understood | |
+| Approval ID | |
+| Original request ID | |
+| Exact preview | |
+| Preview screenshot reference | |
+| Requester rejection evidence | |
+| Approver + role | |
+| Approved at | |
+| Grant expires at | |
+| Used/consumed at | |
+| Allowed retry request ID | |
+| Blocked repeat request ID | |
+| Changed-command request/approval ID | |
+| Concurrent retry: number allowed | |
 
----
+## Outage observations
 
-## Follow-up decision
+| Layer | State tested | Expected contract | Observed | Pass/Fail | Evidence |
+|---|---|---|---|---|---|
+| Action-time `PreToolUse` hook | `/api/verify` refused/timed out | Generic warning, bounded fail-open, harmless command executes, no verification row | | | |
+| Managed Profiles shim | Record live/cache state | Fresh cached `required` refuses; fresh non-required reuses; no usable cache falls back unmanaged | | | |
+| Advisory MCP server | Availability only | MCP failure is advisory and is not shell non-execution proof | | | |
 
-One block per finding:
+Do not fill a Managed Profiles result unless that exact state was tested. Do not infer one layer's result from another.
 
-### Finding: _(title)_
+## Evidence checklist
 
-| Field | Value |
+- [ ] Versions and resolved binary paths
+- [ ] ISO timestamps and timezone
+- [ ] Agent and permission IDs; no API key
+- [ ] Request IDs and allowed/denied/approval-required decisions
+- [ ] Action `execute_command` and resource/vendor `shell`
+- [ ] Claude tool-call and shell-result captures
+- [ ] Proof the denied marker was not shell output
+- [ ] Action Inbox exact preview
+- [ ] Requester self-approval rejection
+- [ ] Second-user approval and grant consumption
+- [ ] Exactly one allowed retry plus blocked identical/changed retries
+- [ ] Cleanup results
+- [ ] Evidence scanned for keys, tokens, cookies, and complete config dumps
+
+## Cleanup
+
+| Item | Result |
+|---|---|
+| Canary permission IDs revoked/removed as authorized | |
+| Temporary agent disposition (only if explicitly authorized) | |
+| Base URL/process environment restored | |
+| Hook configuration restored/retained | |
+| Tracked `.mcp.json` unchanged | |
+| Sanitized evidence preserved | |
+| Secret-bearing output absent | |
+
+## Friction and defects
+
+### Finding: _title_
+
+| Field | Detail |
 |---|---|
 | Severity | P0 / P1 / P2 / P3 |
-| Owner | |
-| Required before pilot? | yes / no |
+| Step | |
+| Expected | |
+| Observed | |
+| Request/approval IDs | |
+| Evidence | |
 | Workaround | |
-| Target date | |
+| Owner / follow-up | |
 
-### Finding: _(title)_
+Duplicate the finding block as needed.
 
-| Field | Value |
+## Decision
+
+| Field | Result |
 |---|---|
-| Severity | |
-| Owner | |
-| Required before pilot? | |
-| Workaround | |
-| Target date | |
-
----
-
-## Sign-off
-
-| Role | Name | Date | Signature / ack |
-|---|---|---|---|
-| Operator | | | |
-| Requester | | | |
-| Approver | | | |
+| Go / conditional go / stop | |
+| Unverified claims | |
+| Conditions and owners | |
+| Operator sign-off | |
+| Requester sign-off | |
+| Approver sign-off | |

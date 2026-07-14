@@ -130,8 +130,8 @@ These are **compatibility adapters, not official partnerships**. No adapter in t
 | Mapped tools | Write, Edit, MultiEdit, NotebookEdit → `write_file`; Read → `read_file`; Bash, PowerShell, Monitor(with `command`) → `execute_command`; Agent, Task → `spawn_agent`; WebFetch, WebSearch → `browse_web`; `mcp__*` → `mcp_tool` |
 | Policy transport | Sanitized `policyContext` only (`filePath` / `command` + `cwd` / `home`); never Write contents or Edit replacement bodies |
 | Constraint evaluation | `allowedPaths` / `deniedPaths` / `deniedCommands` via `/api/verify` |
-| Fail-open | Network/config unavailability |
-| Fail-closed | Oversized or unevaluable local policy input; missing path/command when those constraints apply |
+| Fail-open | Missing config; network/API errors and the bounded five-second verify timeout |
+| Fail-closed | Malformed root/tool input, missing command/path for mapped shell/file tools, and oversized local policy input |
 | Intentionally unmapped | Monitor without a shell `command` (e.g. WebSocket-only); Glob, Grep, TodoWrite, and other non-governed tools |
 | Known limitations | Not universal Claude Code security — only tool calls routed through the installed PreToolUse hook are checked. |
 | Before claiming production-ready | Expand Monitor coverage only when a clean existing action mapping exists |

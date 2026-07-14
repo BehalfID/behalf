@@ -2,7 +2,7 @@
 
 BehalfID stops coding agents from running dangerous commands without your approval.
 
-Wire it into Claude Code, Codex, or Cursor via the CLI/MCP path, or into any custom agent via the SDK. Once integrated, BehalfID intercepts production deploys, database migrations, git pushes to main, file deletions, billing API calls, and any other action you flag. Denied actions fail closed before they execute. Every decision is logged.
+Wire action-time hooks into supported coding agents with the CLI, expose advisory permission tools through MCP, or wrap custom-agent execution with the SDK. Hook/wrapper integrations can intercept production deploys, database migrations, git pushes to main, file deletions, billing API calls, and other mapped actions; their documented outage semantics differ by integration. Every verification decision that reaches BehalfID is logged.
 
 This project includes the CLI/MCP server, the JavaScript SDK, a public permission API, a developer portal at `/dashboard`, and the password-protected admin console at `/console`.
 
@@ -154,7 +154,7 @@ behalf doctor
 behalf claude   # or: behalf codex
 ```
 
-`behalf mcp init` creates `.behalf/context.md` and merges a BehalfID server entry into `.mcp.json`. Denied verification results, approval-required results, and unavailable verification all fail closed: the agent must not execute the action. See [docs/MCP_DEMO.md](docs/MCP_DEMO.md).
+`behalf mcp init` creates `.behalf/context.md` and merges a BehalfID server entry into `.mcp.json`. The MCP server is advisory: its instructions tell the model not to execute after denied, approval-required, or unavailable verification, but it does not intercept another tool. Claude Code action-time enforcement comes from the separate `PreToolUse` hook installed by `behalf claude`; its network/config outage path currently fails open. See [docs/MCP_DEMO.md](docs/MCP_DEMO.md) and [docs/COMPATIBILITY_MATRIX.md](docs/COMPATIBILITY_MATRIX.md).
 
 ## Site Guard MVP
 

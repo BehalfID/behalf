@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { CLI_NPM_INSTALL_COMMAND } from "@/lib/cliInstallCommands";
 import { CodeBlock, DocsShell } from "../content";
 
 export const metadata: Metadata = {
   title: "Coding Agent Quickstart (CLI & MCP) — BehalfID",
-  description: "Stop Claude Code, Codex, and Cursor from running dangerous commands without approval. Install the behalf CLI, wire up MCP enforcement or Managed Profiles shims, and launch coding agents with workspace policy active.",
+  description: "Install BehalfID action-time hooks, advisory MCP tools, and optional Managed Profiles launch policy for Claude Code, Codex, and Cursor.",
   alternates: { canonical: "/docs/cli" }
 };
 
@@ -12,7 +13,7 @@ export default function CliDocsPage() {
   return (
     <DocsShell
       title="Coding agent quickstart (CLI & MCP)"
-      description="Stop Claude Code, Codex, and Cursor from deploying to production, deleting files, or pushing to main without your approval. Install the CLI, wire up MCP enforcement or Managed Profiles shims, and launch your agent with workspace policy active — all in under five minutes."
+      description="Install the CLI, add action-time hooks where supported, expose advisory MCP tools, and optionally apply Managed Profiles launch policy."
       previous={{ href: "/docs", label: "Overview" }}
       next={{ href: "/docs/deploy-approvals", label: "Deploy approvals" }}
     >
@@ -88,11 +89,16 @@ behalf verify agent_xxx --action purchase --vendor amazon.com --amount 25`}</Cod
       <h2>Logs</h2>
       <CodeBlock label="terminal">{`behalf logs agent_xxx`}</CodeBlock>
 
-      <h2>MCP enforcement</h2>
+      <h2>Advisory MCP server</h2>
       <p>
         BehalfID ships a Model Context Protocol (MCP) server that makes real-time
         <code> verify_action</code> and <code> get_permissions</code> available to any AI tool that supports MCP. Run{" "}
         <code>behalf mcp init</code> once per project to wire it in.
+      </p>
+      <p>
+        The MCP server is advisory: it gives the model tools and instructions, but it does not
+        intercept another tool&apos;s execution. For Claude Code shell/file enforcement, use and verify
+        the separate <code>PreToolUse</code> hook installed by <code>behalf claude</code>.
       </p>
       <CodeBlock label="terminal">{`behalf config set agent-id agent_xxx
 behalf config set api-key bhf_sk_xxx
@@ -120,7 +126,7 @@ behalf mcp init`}</CodeBlock>
 }`}</CodeBlock>
       <p>
         The MCP server exposes <code>get_permissions</code> for inspection and
-        <code> verify_action</code> for enforcement. The context file instructs the AI to call
+        <code> verify_action</code> for explicit advisory checks. The context file instructs the AI to call
         <code> verify_action</code> before risky or permissioned actions, stop on denied decisions,
         fail closed if verification is unavailable, and pause when approval is required.
       </p>
@@ -129,17 +135,18 @@ behalf mcp init --refresh   # force-refresh the permissions cache from the serve
 behalf mcp init --dry-run   # preview what would be written without writing
 behalf doctor               # diagnose CLI and MCP setup`}</CodeBlock>
 
-      <h2>Launch AI tools with enforcement</h2>
+      <h2>Launch AI tools with BehalfID setup</h2>
       <p>
         The <code>behalf claude</code>, <code>behalf codex</code>, and <code>behalf run</code> commands
         fetch the latest permissions, write <code>.behalf/context.md</code> and <code>.mcp.json</code>,
-        and then launch the tool — so enforcement is always current when the session starts.
+        install supported action-time hooks, and then launch the tool. The context and MCP server are
+        advisory; the Claude <code>PreToolUse</code> hook is the action-time gate.
         The launcher prints the agent, base URL, context file, MCP config, and command it is
         about to run. It does not print API keys.
       </p>
-      <CodeBlock label="terminal">{`behalf claude              # launch Claude Code with enforcement active
-behalf codex               # launch Codex CLI with enforcement active
-behalf run cursor          # launch Cursor with enforcement active
+      <CodeBlock label="terminal">{`behalf claude              # install/verify the Claude PreToolUse hook, then launch
+behalf codex               # configure supported Codex hook/MCP setup, then launch
+behalf run cursor          # configure supported Cursor hook/MCP setup, then launch
 behalf claude --resume     # pass extra flags straight through to the tool`}</CodeBlock>
 
       <p>
@@ -172,14 +179,14 @@ behalf profile simulate --tool claude
 claude`}</CodeBlock>
       <p>
         Ensure <code>~/.behalf/bin</code> is early in PATH. Enable Managed Profiles policy in the{" "}
-        <a href="/dashboard/managed-profiles">dashboard</a> before expecting enforcement.
+        <Link href="/dashboard/managed-profiles">dashboard</Link> before expecting enforcement.
       </p>
 
       <h3>Dashboard setup</h3>
       <p>
-        The <a href="/dashboard/managed-profiles">Managed profiles</a> onboarding card walks through
+        The <Link href="/dashboard/managed-profiles">Managed profiles</Link> onboarding card walks through
         the same install → status → simulate → launch flow. After your first shim launch, enroll
-        protected repos from <a href="/dashboard/managed-profiles/activity">Managed Profile Activity</a>{" "}
+        protected repos from <Link href="/dashboard/managed-profiles/activity">Managed Profile Activity</Link>{" "}
         using repo hashes — not raw git remotes or local paths.
       </p>
 
@@ -211,15 +218,15 @@ behalf profile simulate --tool codex --repo 0123456789abcdef --branch main`}</Co
 behalf pause status apr_example`}</CodeBlock>
       <p>
         When pause approval is required, the CLI prints an approval id and dashboard link. Approvers
-        review at <a href="/dashboard/approvals">Approvals</a> or{" "}
-        <a href="/dashboard/inbox">Needs attention</a>.
+        review at <Link href="/dashboard/approvals">Approvals</Link> or{" "}
+        <Link href="/dashboard/inbox">Needs attention</Link>.
       </p>
 
       <h3>Privacy</h3>
       <p>
         Activity and approvals show repo hashes, tool, branch, and device id — not raw git remotes,
         local source paths, home directories, or secrets. See{" "}
-        <a href="/docs/demo-script">Demo script</a> for a 2–3 minute recording walkthrough and launch
+        <Link href="/docs/demo-script">Demo script</Link> for a 2–3 minute recording walkthrough and launch
         checklist.
       </p>
       <p>
@@ -270,12 +277,12 @@ behalf pause status apr_example`}</CodeBlock>
         <li>
           <strong>Activity not appearing after launch</strong> — Confirm PATH order (shim, not real binary),
           authentication, and that Managed Profiles policy is enabled in the dashboard. Wait a few seconds and
-          refresh <a href="/dashboard/managed-profiles/activity">Activity</a>.
+          refresh <Link href="/dashboard/managed-profiles/activity">Activity</Link>.
         </li>
       </ul>
       <p>
         For a printable pass/fail checklist, see the{" "}
-        <a href="/docs/demo-script">fresh-workspace smoke test</a>.
+        <Link href="/docs/demo-script">fresh-workspace smoke test</Link>.
       </p>
 
       <h2>Deploy approval workflow</h2>
@@ -304,7 +311,7 @@ behalf permissions create agent_xxx \\
   --allowed "promote staging to production" \\
   --requires-approval`}</CodeBlock>
 
-      <h3>2. Launch your AI tool with enforcement active</h3>
+      <h3>2. Launch your AI tool with BehalfID setup</h3>
       <CodeBlock label="terminal">{`behalf config set agent-id agent_xxx
 behalf config set api-key bhf_sk_xxx
 behalf mcp init
@@ -312,11 +319,12 @@ behalf claude       # or: behalf codex`}</CodeBlock>
 
       <h3>3. The approval flow in practice</h3>
       <p>
-        When the agent attempts a production deploy, the MCP server calls{" "}
-        <code>verify_action(action: "deploy_production", vendor: "vercel.com")</code>.
+        In this advisory MCP example, when the agent attempts a production deploy, it calls{" "}
+        <code>verify_action(action: &quot;deploy_production&quot;, vendor: &quot;vercel.com&quot;)</code>.
         BehalfID returns <code>{`"allowed": false, "reason": "Permission requires approval before execution."`}</code>.
         The agent pauses and reports the <code>requestId</code>. You approve in the dashboard
-        or via webhook, then the agent retries — now allowed.
+        or via webhook, then the agent retries — now allowed. This model-mediated flow is not the
+        Claude Code action-time hook and should not be used as proof of shell non-execution.
       </p>
       <CodeBlock label="what the agent sees">{`verify_action("deploy_production", "vercel.com")
 
@@ -336,7 +344,7 @@ behalf claude       # or: behalf codex`}</CodeBlock>
       <p>
         Every verify call — allowed, denied, and approval-required — is logged with a stable{" "}
         <code>requestId</code>. Filter by decision type in the{" "}
-        <a href="/dashboard/logs">Logs view</a> or export as CSV for post-mortems.
+        <Link href="/dashboard/logs">Logs view</Link> or export as CSV for post-mortems.
       </p>
       <CodeBlock label="terminal">{`behalf logs agent_xxx          # tail recent verification decisions`}</CodeBlock>
 
