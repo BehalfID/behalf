@@ -35,6 +35,9 @@ const PermissionSchema = new Schema(
     },
     /** Minimum workspace authority level required to grant or manage this permission. */
     requiredAuthorityLevel: { type: Number, min: 0, max: 100, index: true },
+    /** Audit links for create-and-retire permission replacement. */
+    replacesPermissionId: { type: String, index: true },
+    replacedByPermissionId: { type: String, index: true },
     createdBy: { type: String, index: true },
     updatedBy: { type: String },
     lastUsedAt: { type: Date }

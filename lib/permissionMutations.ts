@@ -1,7 +1,7 @@
 import { classifyPermissionRisk, type PermissionClassificationInput } from "@/lib/permissionRisk";
 import {
   canCreatePermission,
-  getWorkspaceActor,
+  canUpdatePermission,
   permissionGrantForbidden,
   viewerMutationForbidden,
   type WorkspaceActor
@@ -185,6 +185,157 @@ export async function createPermissionForAgent(options: {
   );
 
   return { permissionId, status: "active", requiredAuthorityLevel };
+}
+
+/**
+ * Replaces an active permission without claiming cross-document transaction
+ * support from the current Mongo topology. The old permission is conditionally
+ * retired first, so there is never a duplicate-active window. If creation of
+ * the replacement fails, the old permission is explicitly reactivated.
+ */
+export async function replacePermissionForAgent(options: {
+  actor: WorkspaceActor;
+  userId: string;
+  agentId: string;
+  permissionId: string;
+  body: PermissionBody;
+}) {
+  if (options.actor.authorityLevel <= 10) {
+    return { error: viewerMutationForbidden() };
+  }
+
+  const existing = await Permission.findOne({
+    ...accountScopeFilter(options.actor.accountId),
+    agentId: options.agentId,
+    permissionId: options.permissionId
+  });
+  if (!existing) return { error: jsonError("Permission not found.", 404) };
+  if (existing.status !== "active") {
+    return { error: jsonError("Only active permissions can be replaced.", 409) };
+  }
+
+  const parsed = await parsePermissionBody(options.body);
+  if ("error" in parsed && parsed.error) return { error: parsed.error };
+  if (!parsed.classificationInput || !parsed.action || !parsed.metadata) {
+    return { error: jsonError("Invalid permission payload.") };
+  }
+  if (!canUpdatePermission(options.actor, existing, parsed.classificationInput)) {
+    return { error: permissionGrantForbidden() };
+  }
+
+  const { requiredAuthorityLevel } = classifyPermissionRisk(parsed.classificationInput);
+  const replacementPermissionId = createPublicId("perm");
+  const existingUpdatedBy = existing.updatedBy;
+  const overlapCandidates = await Permission.find({
+    ...accountScopeFilter(options.actor.accountId),
+    agentId: options.agentId,
+    action: parsed.action,
+    status: "active",
+    permissionId: { $ne: options.permissionId }
+  })
+    .select("-_id permissionId resource")
+    .lean<Array<{ permissionId: string; resource?: string | null }>>();
+  const targetResource = parsed.metadata.resource?.trim().toLowerCase() ?? "";
+  const overlapPermissionIds = overlapCandidates
+    .filter((permission) => (permission.resource?.trim().toLowerCase() ?? "") === targetResource)
+    .map((permission) => permission.permissionId);
+
+  const retired = await Permission.findOneAndUpdate(
+    {
+      ...accountScopeFilter(options.actor.accountId),
+      agentId: options.agentId,
+      permissionId: options.permissionId,
+      status: "active"
+    },
+    {
+      $set: {
+        status: "revoked",
+        updatedBy: options.userId,
+        replacedByPermissionId: replacementPermissionId
+      }
+    },
+    { returnDocument: "after" }
+  );
+  if (!retired) {
+    return { error: jsonError("Permission changed before it could be replaced. Refresh and try again.", 409) };
+  }
+
+  try {
+    await Permission.create({
+      permissionId: replacementPermissionId,
+      accountId: options.actor.accountId,
+      developerUserId: options.userId,
+      createdBy: options.userId,
+      agentId: options.agentId,
+      action: parsed.action,
+      description: parsed.description,
+      ...parsed.metadata,
+      requiredAuthorityLevel,
+      constraints: parsed.constraints,
+      replacesPermissionId: options.permissionId,
+      status: "active"
+    });
+  } catch {
+    try {
+      await Permission.updateOne(
+        {
+          ...accountScopeFilter(options.actor.accountId),
+          agentId: options.agentId,
+          permissionId: options.permissionId,
+          status: "revoked",
+          replacedByPermissionId: replacementPermissionId
+        },
+        {
+          $set: {
+            status: "active",
+            ...(existingUpdatedBy ? { updatedBy: existingUpdatedBy } : {})
+          },
+          $unset: {
+            replacedByPermissionId: "",
+            ...(!existingUpdatedBy ? { updatedBy: "" } : {})
+          }
+        }
+      );
+    } catch {
+      return {
+        error: jsonError(
+          "Replacement creation failed and the original permission could not be restored. No duplicate active permission was created.",
+          500
+        )
+      };
+    }
+    return {
+      error: jsonError("Replacement creation failed. The original permission was restored and remains active.", 500)
+    };
+  }
+
+  await Promise.allSettled([
+    emitWebhookEvent(
+      createWebhookEvent(options.actor.accountId, "permission.revoked", {
+        permissionId: options.permissionId,
+        agentId: options.agentId,
+        action: existing.action,
+        replacedByPermissionId: replacementPermissionId
+      }, options.userId)
+    ),
+    emitWebhookEvent(
+      createWebhookEvent(options.actor.accountId, "permission.created", {
+        permissionId: replacementPermissionId,
+        agentId: options.agentId,
+        action: parsed.action,
+        replacesPermissionId: options.permissionId
+      }, options.userId)
+    )
+  ]);
+
+  return {
+    retiredPermissionId: options.permissionId,
+    retiredStatus: "revoked" as const,
+    permissionId: replacementPermissionId,
+    status: "active" as const,
+    requiredAuthorityLevel,
+    overlapPermissionIds
+  };
 }
 
 export async function applyPermissionProfile(options: {
