@@ -491,14 +491,14 @@ export function hookCommand() {
     .command("pre-tool-use")
     .description("PreToolUse gate: read a Claude Code tool call on stdin and verify it with BehalfID")
     .action(async () => {
-      process.exit(await runPreToolUse());
+      process.exitCode = await runPreToolUse();
     });
 
   cmd
     .command("cursor")
     .description("Cursor beforeShellExecution gate: read a shell command on stdin and emit Cursor's JSON deny/allow decision")
     .action(async () => {
-      process.exit(await runCursorHook());
+      process.exitCode = await runCursorHook();
     });
 
   return cmd;

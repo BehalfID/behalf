@@ -2,6 +2,13 @@
 
 Complete from [PILOT_REHEARSAL.md](PILOT_REHEARSAL.md). Store only sanitized evidence.
 
+## Current checkpoint
+
+- Observed on Windows Claude Code 2.1.209: effective user `PreToolUse` hook loaded, real Bash invoked, allowed `execute_command` / `shell` verification recorded, and `echo behalfid-allowed` produced real shell output.
+- Result: **not yet a clean pass**. The hook process hit a Windows Node/libuv shutdown assertion after completed verification and execution, and Claude treated the abnormal exit as non-blocking.
+- Blocked next steps: denied and approval-required live canaries must wait until the graceful-shutdown fix is rebuilt and relinked and the allowed canary is repeated with a normal hook exit.
+- Do not claim Claude enforcement passed from the allowed decision and command output alone.
+
 ## Environment
 
 | Field | Result |

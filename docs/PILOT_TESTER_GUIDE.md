@@ -2,6 +2,10 @@
 
 This is the short path for a Trajectus engineer testing BehalfID with enterprise Claude Code on Windows PowerShell. The operator owns permission transitions and evidence review. Deep operator detail is in [PILOT_REHEARSAL.md](PILOT_REHEARSAL.md); record results in [PILOT_RESULTS_TEMPLATE.md](PILOT_RESULTS_TEMPLATE.md).
 
+## Current checkpoint
+
+Windows Claude Code 2.1.209 successfully loaded the hook, completed an allowed BehalfID verification, and executed `echo behalfid-allowed`, but the hook process then hit a Windows Node/libuv shutdown assertion. That run is not a clean pass. Do not begin the denied or approval-required steps until the operator confirms the graceful-shutdown fix was rebuilt and relinked, and a repeated allowed canary exits normally without the assertion.
+
 ## What is being tested
 
 The Claude Code `PreToolUse` hook is the action-time gate. It runs `behalf hook pre-tool-use` before supported Claude tools and blocks a denied or approval-required call with exit code `2`.

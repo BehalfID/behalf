@@ -4,6 +4,12 @@ Internal runbook for Jasper to validate the existing BehalfID Claude Code path o
 
 Record results in [PILOT_RESULTS_TEMPLATE.md](PILOT_RESULTS_TEMPLATE.md). Give the tester the shorter [PILOT_TESTER_GUIDE.md](PILOT_TESTER_GUIDE.md).
 
+## Current live-validation status
+
+The first Windows Claude Code 2.1.209 allowed canary proved that Claude loaded the effective user `PreToolUse` hook, invoked the real Bash tool, BehalfID recorded an allowed `execute_command` / `shell` verification, and `echo behalfid-allowed` executed. The canary did **not** pass cleanly: after the completed verification and command execution, the hook process hit a Windows Node/libuv shutdown assertion caused by immediate `process.exit(...)` termination. Claude treated the abnormal exit as non-blocking.
+
+Do not resume denied or approval-required live canaries until the CLI has been rebuilt and relinked with the graceful hook-shutdown fix, and the allowed canary has been repeated with a normal hook exit and no libuv assertion. The observed allow decision and shell output are useful evidence, but they are not yet a passing Claude enforcement result.
+
 ## Enforcement architecture and outage contract
 
 These are three separate layers:
