@@ -295,8 +295,13 @@ describe("doctor Antigravity checks", () => {
     antigravity.installAntigravityMcpServer(home);
 
     const after = await doctor.runDoctorChecks(project);
-    expect(after.find((c) => c.name === "Antigravity hook")?.status).toBe("ok");
-    expect(after.find((c) => c.name === "Antigravity MCP")?.status).toBe("ok");
+    const hookAfter = after.find((c) => c.name === "Antigravity hook");
+    expect(hookAfter?.status).toBe("warn");
+    expect(hookAfter?.detail).toContain("enforcement is unsupported on tested Antigravity CLI 1.1.2");
+    expect(hookAfter?.detail).toContain("denied actions may still execute");
+    const mcpAfter = after.find((c) => c.name === "Antigravity MCP");
+    expect(mcpAfter?.status).toBe("ok");
+    expect(mcpAfter?.detail).toContain("Advisory BehalfID MCP server");
   });
 
   it("reports a malformed hooks file as an error", async () => {

@@ -199,21 +199,21 @@ export async function runDoctorChecks(cwd = process.cwd()): Promise<Check[]> {
   if (antigravityHook.status === "ok") {
     checks.push({
       name: "Antigravity hook",
-      status: "ok",
-      detail: `BehalfID PreToolUse gate installed in ${antigravityHook.path} (${resolveAntigravityEnforcement()} mode)`,
+      status: "warn",
+      detail: `BehalfID PreToolUse verification/audit hook installed in ${antigravityHook.path} (${resolveAntigravityEnforcement()} decision mode); enforcement is unsupported on tested Antigravity CLI 1.1.2 and denied actions may still execute`,
     });
   } else if (antigravityHook.status === "missing") {
     checks.push({
       name: "Antigravity hook",
       status: "warn",
-      detail: `BehalfID PreToolUse gate not found in ${antigravityHook.path}`,
+      detail: `BehalfID PreToolUse verification/audit hook not found in ${antigravityHook.path}`,
       fix: "Run `behalf antigravity install` if you use Google Antigravity.",
     });
   } else {
     checks.push({
       name: "Antigravity hook",
       status: "error",
-      detail: `${antigravityHook.path} is ${antigravityHook.status}; BehalfID enforcement cannot be verified`,
+      detail: `${antigravityHook.path} is ${antigravityHook.status}; BehalfID verification and audit integration cannot be checked`,
       fix: "Repair or back up the file, then run `behalf antigravity install` again.",
     });
   }
@@ -222,8 +222,8 @@ export async function runDoctorChecks(cwd = process.cwd()): Promise<Check[]> {
     name: "Antigravity MCP",
     status: hasAntigravityMcpServer() ? "ok" : "warn",
     detail: hasAntigravityMcpServer()
-      ? "BehalfID MCP server configured in Antigravity's mcp_config.json"
-      : "BehalfID MCP server not found in Antigravity's mcp_config.json",
+      ? "Advisory BehalfID MCP server configured in Antigravity's mcp_config.json"
+      : "Advisory BehalfID MCP server not found in Antigravity's mcp_config.json",
     fix: "Run `behalf antigravity install` if you use Google Antigravity.",
   });
 

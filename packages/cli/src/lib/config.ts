@@ -21,8 +21,9 @@ export type ExtendedConfig = Config & {
   pauseLeaseId?: string;
   policyCache?: unknown;
   /**
-   * Enforcement posture for the Antigravity PreToolUse gate. Read from disk
-   * (not env) because Antigravity runs hooks with a sanitized environment.
+   * Legacy Antigravity hook decision posture. This changes hook responses,
+   * not host execution enforcement. Read from disk because Antigravity runs
+   * hooks with a sanitized environment.
    */
   antigravityEnforcement?: "advisory" | "required";
 };

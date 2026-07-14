@@ -83,8 +83,8 @@ Examples:
   behalfid profile status                         show shim and policy status  // pragma: allowlist secret
   behalfid pause --duration 30m --reason "..."    request a policy-approved pause lease  // pragma: allowlist secret
   behalfid mcp init                               set up BehalfID enforcement in this directory
-  behalfid antigravity install                    install the Antigravity PreToolUse gate + MCP server
-  behalfid antigravity status                     show Antigravity hook and enforcement status
+  behalfid antigravity install                    install Antigravity verification/audit hook + advisory MCP
+  behalfid antigravity status                     show Antigravity verification and audit status
   behalfid scan                                   inspect repo and suggest BehalfID policies
   behalfid scan --json                            machine-readable policy suggestions
 `

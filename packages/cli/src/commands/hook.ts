@@ -470,18 +470,19 @@ export async function runCursorHook(deps: CursorHookDeps = {}): Promise<number> 
   return 0;
 }
 
-// ── Google Antigravity PreToolUse gate ────────────────────────────────────────
+// ── Google Antigravity PreToolUse verification hook ──────────────────────────
 
 /**
- * Enforcement posture for the Antigravity hook, persisted in ~/.behalf/config.json.
+ * Decision posture for the Antigravity hook, persisted in ~/.behalf/config.json.
  *
- *   advisory  (default) — denials hard-block, but BehalfID outages, missing
- *               credentials, and malformed payloads fail OPEN with a warning,
- *               matching the Claude Code PreToolUse hook posture.
- *   required  — the gate fails CLOSED whenever it cannot produce a positive
- *               verification: BehalfID unreachable, API timeout, invalid or
- *               missing credentials, malformed hook payload, or a missing tool
- *               name. Suitable for enforced enterprise pilots.
+ *   advisory  (default) — verified denials return a deny response, but BehalfID
+ *               outages, missing credentials, and malformed payloads return an
+ *               allow response with a warning.
+ *   required  (legacy) — the hook returns a deny response whenever it cannot
+ *               produce a positive verification.
+ *
+ * This controls hook output only. Tested agy 1.1.2 ignored valid deny JSON and
+ * exit 2, so neither mode is a host execution boundary.
  *
  * Stored in config (not env) because Antigravity executes hooks with a
  * sanitized environment — arbitrary env vars do not reach the hook process.
@@ -496,7 +497,7 @@ export function resolveAntigravityEnforcement(): AntigravityEnforcement {
 /** Hard cap on raw hook stdin; beyond this the payload is treated as malformed. */
 export const ANTIGRAVITY_MAX_STDIN_BYTES = 32 * 1024 * 1024;
 
-/** Deadline for the /api/verify round-trip made by the Antigravity gate. */
+/** Deadline for the /api/verify round-trip made by the Antigravity hook. */
 export const ANTIGRAVITY_VERIFY_TIMEOUT_MS = 10_000;
 
 /**
@@ -884,9 +885,8 @@ export type AntigravityHookDeps = {
 };
 
 /**
- * The Antigravity PreToolUse gate. Reads an Antigravity tool call from stdin
- * and verifies it with BehalfID. Speaks both halves of Antigravity's hook
- * protocol so a deny holds across versions:
+ * The Antigravity PreToolUse verification hook. Reads an Antigravity tool call
+ * from stdin and verifies it with BehalfID:
  *
  *   allow → print "{}" (explicit no-opinion) and exit 0. Never prints
  *           {"decision":"allow"} — a positive allow could suppress
@@ -895,21 +895,25 @@ export type AntigravityHookDeps = {
  *   deny  → print {"decision":"deny","reason":...} on stdout, write the
  *           reason to stderr, and exit 2. Stdout JSON is Antigravity's
  *           documented decision channel; exit 2 is the inherited
- *           Gemini CLI / Claude Code blocking signal. Either alone blocks.
+ *           Gemini CLI / Claude Code blocking signal.
  *
- * Enforcement posture comes from ~/.behalf/config.json (see
+ * Tested agy 1.1.2 invoked this hook but ignored a valid deny response and
+ * clean exit 2. These return values describe the hook decision, not host
+ * execution enforcement.
+ *
+ * Decision posture comes from ~/.behalf/config.json (see
  * resolveAntigravityEnforcement — Antigravity sanitizes hook env, so env vars
  * cannot carry it):
  *
  *   advisory (default): missing config, network/API errors, malformed
  *   payloads, unrecognized tools, and missing target arguments fail OPEN
  *   with an explicit stderr warning.
- *   required: all of those fail CLOSED (deny). In particular, unrecognized
+ *   required (legacy): all of those return deny. In particular, unrecognized
  *   tools are denied by default (only the metadata-only allowlist in
  *   ANTIGRAVITY_READONLY_TOOLS passes through), and actions whose minimum
  *   binding arguments are missing or malformed are denied locally rather
- *   than verified without a target. Oversized policy context fails CLOSED
- *   in both modes.
+ *   than verified without a target. Oversized policy context returns deny in
+ *   both modes.
  */
 export async function runAntigravityHook(deps: AntigravityHookDeps = {}): Promise<number> {
   const stdout = deps.stdout ?? process.stdout;
@@ -1243,7 +1247,7 @@ export function hookCommand(runners: HookCommandRunners = {
 
   cmd
     .command("antigravity")
-    .description("Antigravity PreToolUse gate: read an Antigravity tool call on stdin and verify it with BehalfID")
+    .description("Antigravity PreToolUse verification/audit hook: read a tool call on stdin and verify it")
     .action(async () => {
       process.exitCode = await runners.antigravity();
     });

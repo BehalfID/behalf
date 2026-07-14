@@ -3,14 +3,16 @@
 Status as of 2026-07-13. Covers BehalfID's integration with Google Antigravity
 (the Antigravity IDE / "Antigravity 2.0" and the `agy` CLI).
 
-> **Status: enforcement candidate pending live canary validation.** The PreToolUse
-> gate is implemented and tested, but the first live denied `agy` canary failed:
-> BehalfID returned `command_blocked` and the hook emitted its deny response,
-> then the Windows hook process crashed during forced shutdown. Until a patched
-> live canary proves the denied command did not execute, describe this
-> integration as an *enforcement candidate*, not as enforced. The advisory MCP
-> layer is available. `required` mode governs only actions that Antigravity
-> actually routes through a functioning `PreToolUse` hook.
+> **Status: verification and audit integration; enforcement unsupported on
+> tested Antigravity CLI 1.1.2.** A Windows live canary proved that `agy` loads
+> and invokes the enabled global PreToolUse hook and that BehalfID records the
+> verification. The allowed canary executed and logged an allowed decision.
+> The first denied canary exposed a forced-exit crash, which was fixed. On the
+> repeated denied canary, the hook returned valid deny JSON and clean exit code
+> 2 and BehalfID logged `command_blocked`, but `agy` still executed the command.
+> Denied actions may therefore execute. Do not rely on this integration as an
+> execution boundary. The MCP layer is advisory, and no Antigravity surface is
+> currently classified as enforced.
 
 ## What Antigravity is (verified)
 
@@ -34,14 +36,15 @@ The IDE and CLI share configuration under `~/.gemini/`:
 | `~/.gemini/antigravity/mcp_config.json` | Earlier per-product MCP config path |
 | `<workspace>/.agents/hooks.json` | Workspace-local hooks (only loaded for trusted folders) |
 
-Antigravity supports **PreToolUse / PostToolUse command hooks**: before every
-tool call, the harness pipes a JSON payload to the configured command on stdin
-and blocks the call when the hook returns `{"decision":"deny", ...}` on stdout
-or exits non-zero (exit 2 is the canonical blocking signal, inherited from the
-Gemini CLI / Claude Code convention). A denied PreToolUse hook aborts the tool
-call before execution. Hooks run with a **sanitized environment** — only a
-whitelist of variables reaches the hook process, so BehalfID's gate reads all
-configuration from `~/.behalf/config.json`, never from env vars.
+Antigravity supports **PreToolUse / PostToolUse command hooks**: before a tool
+call, the harness pipes a JSON payload to the configured command on stdin. The
+documented convention treats `{"decision":"deny", ...}` or non-zero exit as a
+blocking result. **Tested `agy` 1.1.2 on Windows did not honor that contract:**
+it invoked the hook and caused a denied server verification, then executed the
+command despite valid deny JSON and clean exit code 2. Hooks run with a
+**sanitized environment** — only a whitelist of variables reaches the hook
+process, so BehalfID's hook reads configuration from
+`~/.behalf/config.json`, never from env vars.
 
 Antigravity supports **MCP servers** (stdio via `command`/`args`, remote HTTP
 via `serverUrl`/`headers`) in both the IDE and the CLI. MCP is advisory:
@@ -53,17 +56,18 @@ Sources: [Gemini CLI → Antigravity CLI transition (official)](https://github.c
 [Gemini CLI hooks reference (Apache-2.0 upstream of the Antigravity CLI)](https://github.com/google-gemini/gemini-cli/tree/main/docs/hooks),
 [GitHub MCP server Antigravity install guide](https://github.com/github/github-mcp-server/blob/main/docs/installation-guides/install-antigravity.md),
 [Antigravity hooks documentation](https://antigravity.google/docs/hooks),
-plus real-world hook integrations validated against the shipping product
-(e.g. [manaflow-ai/cmux#4768](https://github.com/manaflow-ai/cmux/issues/4768),
-which demonstrates that a non-zero PreToolUse hook exit blocks all tool calls).
+plus real-world hook integrations against the shipping product (e.g.
+[manaflow-ai/cmux#4768](https://github.com/manaflow-ai/cmux/issues/4768)). These
+sources describe the intended protocol; the failed live canary below is the
+authority for BehalfID's `agy` 1.1.2 enforcement classification.
 
 ## What BehalfID installs
 
 `behalf antigravity install` sets up two layers:
 
-1. **Enforcement-candidate layer — PreToolUse gate.** A `behalfid` namespace
+1. **Verification and audit layer — PreToolUse hook.** A `behalfid` namespace
    entry in `~/.gemini/config/hooks.json` runs `behalf hook antigravity`
-   before every tool call in the IDE and the CLI. The gate:
+   before every tool call in the IDE and the CLI. The hook:
    - normalizes the Antigravity tool call to a BehalfID action
      (see mapping below),
    - builds a sanitized `policyContext` containing only the file path or
@@ -71,13 +75,13 @@ which demonstrates that a non-zero PreToolUse hook exit blocks all tool calls).
      prompts are never forwarded,
    - calls `POST /api/verify`, which evaluates permissions,
      `allowedPaths`/`deniedPaths`/`deniedCommands` constraints, and the
-     approval gate, and writes a verification log entry,
-   - allows with `{}` (an explicit no-opinion — the gate never emits
+     approval policy, and writes a verification log entry,
+   - allows with `{}` (an explicit no-opinion — the hook never emits
      `{"decision":"allow"}`, so Antigravity's own review prompts are never
      suppressed), or
-   - denies with `{"decision":"deny","reason":…}` on stdout **and** exit
-     code 2, so the block holds under both of Antigravity's decision
-     conventions.
+   - returns `{"decision":"deny","reason":…}` on stdout **and** exit code 2
+     for a denied verification. This is a valid hook denial response, but
+     tested `agy` 1.1.2 ignored it and executed the command.
 2. **Advisory layer — MCP server.** A `behalfid` entry
    (`behalf mcp start`, stdio) in Antigravity's MCP config exposing
    `verify_action` and `get_permissions` so agents can check permissions and
@@ -102,10 +106,12 @@ Gemini-heritage names in the CLI. Both are mapped:
 
 A tool name that does not map to a BehalfID action is **not** assumed safe:
 
-- **`required` mode: unknown tools are denied by default.** A new, renamed,
-  plugin-supplied, or undocumented tool cannot bypass the gate. The only
-  exceptions are the tools below, each independently documented as a
-  metadata-only local listing operation (never inferred from the name):
+- **Legacy `required` handler mode returns a denial for unknown tools.** A new,
+  renamed, plugin-supplied, or undocumented tool does not receive a positive
+  verification. This handler response does not stop execution on tested `agy`
+  1.1.2. The only allowlisted exceptions are the tools below, each
+  independently documented as a metadata-only local listing operation (never
+  inferred from the name):
 
   | Allowlisted tool | Evidence (official Gemini CLI tool reference, the Apache-2.0 upstream of the Antigravity CLI) |
   |---|---|
@@ -120,9 +126,10 @@ A tool name that does not map to a BehalfID action is **not** assumed safe:
   permissions, `allowedPaths`, `deniedPaths`, approvals, and verification
   logging. Their path or search-root argument schemas have not been
   established by a live Antigravity payload capture. Until they are captured,
-  the gate does not guess their argument fields: `required` mode denies them
-  as unrecognized, while `advisory` mode warns and continues without calling
-  `/api/verify`. A future mapping to `read_file` requires captured schemas.
+  the hook does not guess their argument fields: legacy `required` mode
+  returns an unrecognized-tool denial, while `advisory` mode warns and
+  continues without calling `/api/verify`. A future mapping to `read_file`
+  requires captured schemas.
 
 - **`advisory` mode: unknown tools are allowed with an explicit stderr
   warning** ("unrecognized tool … — allowing without verification"), so the
@@ -130,7 +137,7 @@ A tool name that does not map to a BehalfID action is **not** assumed safe:
 
 ### Required binding arguments
 
-For mapped actions, the gate requires the arguments that identify the action
+For mapped actions, the hook requires the arguments that identify the action
 before it will verify. A target-dependent verification is never sent with an
 absent target and then described as evaluated:
 
@@ -143,11 +150,11 @@ absent target and then described as evaluated:
 | `spawn_agent` | none — the action itself is the policy target |
 
 When a binding argument is missing, empty, or the tool arguments are not a
-JSON object (including nested `toolCall.args`): `required` mode **denies
-locally** without calling BehalfID; `advisory` mode warns that target policy
-constraints cannot be evaluated and verifies the action-level permission
-only. Note that a local deny in `required` mode produces no server-side
-verification log entry — the block is visible in the Antigravity transcript.
+JSON object (including nested `toolCall.args`), the legacy `required` handler
+mode returns a local denial without calling BehalfID; `advisory` mode warns
+that target policy constraints cannot be evaluated and verifies the
+action-level permission only. A local denial produces no server-side log and,
+on tested `agy` 1.1.2, is not an execution boundary.
 
 ## Installation
 
@@ -155,9 +162,11 @@ verification log entry — the block is visible in the Antigravity transcript.
 npm install -g @behalfid/cli     # provides the `behalf` binary
 behalf init                      # configure agent ID + API key (~/.behalf/config.json)
 behalf antigravity install       # advisory-outage mode (default)
-# or
-behalf antigravity install --enforce   # required mode: fail closed on outages
 ```
+
+`behalf antigravity install --enforce` is rejected. Live validation showed
+that `agy` 1.1.2 ignored a valid denial, so the option cannot truthfully offer
+fail-closed execution behavior.
 
 Restart the Antigravity IDE and any running `agy` sessions afterwards — hooks
 are loaded at session start.
@@ -165,7 +174,7 @@ are loaded at session start.
 Other commands:
 
 ```bash
-behalf antigravity status        # hook / MCP / enforcement status
+behalf antigravity status        # verification / audit / advisory MCP status
 behalf antigravity install --dry-run
 behalf antigravity install --skip-mcp
 behalf antigravity uninstall
@@ -174,10 +183,10 @@ behalf doctor                    # includes Antigravity hook + MCP checks
 
 ## Authentication
 
-The gate authenticates to BehalfID with the agent API key (`bhf_sk_…`) from
+The hook authenticates to BehalfID with the agent API key (`bhf_sk_…`) from
 `~/.behalf/config.json` (written by `behalf init` or
 `behalf config set api-key …`). Environment variables are **not** a supported
-credential path for the Antigravity gate: Antigravity executes hooks with a
+credential path for the Antigravity hook: Antigravity executes hooks with a
 sanitized environment, so `BEHALFID_API_KEY` would silently never arrive.
 The config file is written with mode `0600`.
 
@@ -186,38 +195,37 @@ workspace resolution happens server-side from the API key). Repository and
 workspace identity travel as `cwd` inside the sanitized policy context; the
 server canonicalizes paths against it.
 
-## Advisory vs. required (enforced) mode
+## Hook decision modes (not host enforcement)
 
-| Condition | `advisory` (default) | `required` (`--enforce`) |
+The handler has advisory and legacy required decision modes. These describe
+the hook's output when verification cannot complete; they do not establish
+what the host will execute.
+
+| Condition | `advisory` (default) hook response | Legacy `required` hook response |
 |---|---|---|
-| BehalfID denies the action | **Blocked** | **Blocked** |
-| Approval required, not yet granted | **Blocked** (retry after approving) | **Blocked** (retry after approving) |
-| Oversized policy context (> 16 KB path/command) | **Blocked** | **Blocked** |
-| BehalfID unreachable / API timeout (10 s) | Allowed with warning | **Blocked** |
-| Invalid or missing credentials | Allowed with warning | **Blocked** |
-| Malformed or oversized hook payload | Allowed with warning | **Blocked** |
-| Payload missing a tool name | Allowed with warning | **Blocked** |
-| Tool arguments not a JSON object | Allowed with warning (treated as missing) | **Blocked** |
-| Missing/empty binding argument (command, path, URL, MCP server) | Verified without target, with warning | **Blocked locally** |
-| Unknown tool (not mapped, not allowlisted) | Allowed with warning, no verification | **Blocked** |
-| Content-search tool pending payload capture (`grep_search`, `search_file_content`) | Allowed with warning, no verification | **Blocked as unrecognized** |
+| BehalfID denies the action | Deny JSON + exit 2; `agy` may execute | Deny JSON + exit 2; `agy` may execute |
+| Approval required, not yet granted | Deny JSON + exit 2; `agy` may execute | Deny JSON + exit 2; `agy` may execute |
+| Oversized policy context (> 16 KB path/command) | Deny JSON + exit 2; `agy` may execute | Deny JSON + exit 2; `agy` may execute |
+| BehalfID unreachable / API timeout (10 s) | Allowed with warning | Deny JSON + exit 2; `agy` may execute |
+| Invalid or missing credentials | Allowed with warning | Deny JSON + exit 2; `agy` may execute |
+| Malformed or oversized hook payload | Allowed with warning | Deny JSON + exit 2; `agy` may execute |
+| Payload missing a tool name | Allowed with warning | Deny JSON + exit 2; `agy` may execute |
+| Tool arguments not a JSON object | Allowed with warning (treated as missing) | Deny JSON + exit 2; `agy` may execute |
+| Missing/empty binding argument (command, path, URL, MCP server) | Verified without target, with warning | Local deny JSON + exit 2; `agy` may execute |
+| Unknown tool (not mapped, not allowlisted) | Allowed with warning, no verification | Unrecognized-tool deny + exit 2; `agy` may execute |
+| Content-search tool pending payload capture (`grep_search`, `search_file_content`) | Allowed with warning, no verification | Unrecognized-tool deny + exit 2; `agy` may execute |
 | Metadata-only allowlisted tool (`list_directory`, `glob`) | Allowed (no verify call) | Allowed (no verify call) |
 
-`advisory` matches the Claude Code PreToolUse hook posture (denials block; an
-outage never bricks the agent). `required` fails closed everywhere the gate
-cannot produce a positive verification. The mode is stored in
-`~/.behalf/config.json` (`antigravityEnforcement`) and shown by
-`behalf antigravity status` and `behalf doctor`.
-
-Do not describe the MCP layer as enforcement. Only the PreToolUse gate blocks
-actions, only `required` mode fails closed on outages, and `required` mode
-governs only actions that Antigravity actually routes through a functioning
-PreToolUse hook — which is exactly what the live canary below verifies.
+New `behalf antigravity install --enforce` requests are rejected. Existing config
+may still contain `antigravityEnforcement: "required"` from an older CLI and
+will change handler output, but it does not create a fail-closed host boundary.
+`behalf antigravity status` and `behalf doctor` report enforcement as
+unsupported. The MCP layer is explicitly advisory.
 
 ## Example policy
 
-Gate shell commands and file writes for an agent, requiring approval for
-writes outside `src/`:
+Verify and audit shell commands and file writes for an agent. This example
+requests approval for writes outside `src/`:
 
 ```bash
 behalf permissions create agent_xxx --action execute_command -r shell
@@ -226,12 +234,17 @@ behalf permissions create agent_xxx --action write_file -r filesystem \
 behalf permissions create agent_xxx --action read_file -r filesystem
 ```
 
-Any Antigravity tool call that maps to an action with no active permission is
-denied.
+Any Antigravity tool call that maps to an action with no active permission
+produces a denied verification and a deny hook response. Tested `agy` 1.1.2
+may still execute it.
 
-## How approvals work
+## How advisory approvals work
 
-1. The agent attempts a gated action; the gate blocks it with
+On tested `agy` 1.1.2 this flow records and communicates approval state, but
+cannot prevent execution before approval because the host ignored a valid
+denial.
+
+1. The agent attempts a mapped action; the hook returns
    "approval required. Visit your BehalfID Action Inbox to approve, then retry
    the action."
 2. A pending approval request appears in the Action Inbox, **bound to the
@@ -245,36 +258,76 @@ denied.
    creates a new pending request. A second identical retry after consumption
    requires a new approval.
 
-## How to verify enforcement (canary test)
+## Live canary conclusion
 
-Run this after every install or Antigravity upgrade — config file locations
-and hook semantics are controlled by Google and can change between releases:
+The Windows `agy` 1.1.2 canary is conclusive:
 
-1. Create and configure a dedicated test agent. Give it exactly one active
-   `execute_command` permission for `shell`; confirm there is no other
-   applicable `execute_command` permission.
-2. In Antigravity, ask the agent to run `echo ok`. Confirm the command executes
-   and `behalf logs tail` shows an allowed `execute_command` verification.
-3. Revoke that unrestricted permission with
-   `behalf permissions revoke <permission_id>`. Confirm it is no longer active.
-4. Only after revocation, create its constrained replacement:
-   `behalf permissions create <agent_id> --action execute_command -r shell --denied-commands behalfid-canary`.
-5. Confirm the replacement is the dedicated agent's only applicable active
-   `execute_command` permission and contains the denied marker.
-6. In Antigravity, ask the agent to run `echo behalfid-canary`.
-7. Expected: the tool call is blocked, the command produces no output, and
-   `behalf logs tail` shows the denied `execute_command` verification.
-8. If the command executes, the hook is not being invoked — see
-   Troubleshooting. **Do not treat the integration as enforced until the
-   canary blocks.**
+1. The `/hooks panel` showed the global `[behalfid] .*` PreToolUse hook loaded,
+   enabled, and containing one hook.
+2. The allowed command canary executed and produced an allowed
+   `execute_command` verification.
+3. The initial denied canary produced a server-side `command_blocked`
+   decision and valid deny output, then exposed the Windows forced-exit/libuv
+   crash. That result was inconclusive about host blocking.
+4. Commit `ac1b948657f6c6de4f7a1fa27fcda431bfb8b881` replaced forced exit with
+   graceful `process.exitCode`; the standalone built hook then emitted valid
+   deny JSON, wrote the denial to stderr, and exited cleanly with code 2.
+5. A fresh `agy` session repeated `echo behalfid-canary`. BehalfID recorded a
+   distinct denied verification for that exact live attempt (`execute_command`,
+   vendor `shell`, reason `command_blocked`). Nevertheless, `agy` executed the
+   command and printed `behalfid-canary`.
 
-For `required` mode, additionally verify fail-closed: stop or firewall the
-BehalfID API, retry the canary, and confirm the call is blocked with a
-"failing closed" reason.
+This proves the hook was loaded and invoked; missing configuration, stale
+session state, and hook-loading failure are ruled out. Tested `agy` 1.1.2 is
+observed and audited but **non-enforcing**. A future protocol or hook event may
+only be adopted after official Antigravity documentation or a successful
+host-only live blocking canary.
+
+## Upstream issue template (secret-free)
+
+**Title:** Windows `agy` 1.1.2 executes a tool after enabled PreToolUse hook
+returns deny JSON and exit 2
+
+**Environment:** Antigravity CLI 1.1.2 on Windows; global PreToolUse hook shown
+as enabled in `/hooks panel`.
+
+Create `C:/tmp/antigravity-deny-repro.mjs`:
+
+```js
+process.stdout.write('{"decision":"deny","reason":"canary denied"}\n');
+process.stderr.write('canary denied\n');
+process.exitCode = 2;
+```
+
+Add an enabled global hook in `~/.gemini/config/hooks.json`:
+
+```json
+{
+  "blocking-repro": {
+    "PreToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          { "type": "command", "command": "node C:/tmp/antigravity-deny-repro.mjs" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Restart `agy`, confirm the hook is enabled in `/hooks panel`, and ask it to run
+`echo antigravity-hook-canary`. Running the hook directly emits valid deny
+JSON and exits normally with code 2. **Expected:** `agy` does not execute the
+command. **Observed with the equivalent BehalfID hook:** the hook ran and a
+distinct denied verification was recorded, but `agy` executed the command and
+printed the marker. This reproduction contains no BehalfID URL, agent ID, API
+key, cookie, command content beyond the public canary marker, or other secret.
 
 ## Inspecting activity
 
-Every gated tool call (allowed or denied) produces a verification log entry:
+Every mapped tool call that reaches BehalfID (allowed or denied) produces a
+verification log entry:
 
 ```bash
 behalf logs tail            # live stream
@@ -286,14 +339,14 @@ Inbox with the bound command/path preview (secrets redacted server-side).
 
 ## Payload formats and provenance
 
-The gate parses several payload shapes defensively. They are **not** equally
+The hook parses several payload shapes defensively. They are **not** equally
 trustworthy. Three tiers (mirrored in `test/fixtures/antigravity/`):
 
 | Tier | Shapes | Basis |
 |---|---|---|
 | **Documented** | snake_case envelope (`tool_name`, `tool_input`, `session_id`, `cwd`, `mcp_context`); Gemini-heritage tool names (`run_shell_command` + `command`, `write_file` + `file_path`, `read_file` + `absolute_path`, `web_fetch` + `prompt`, `google_web_search` + `query`); MCP FQN `mcp_{server}_{tool}` | Official Gemini CLI hooks + tool references (the Apache-2.0 upstream of the Antigravity CLI) |
 | **Captured** | none yet | Live `agy` / IDE sessions via `behalf hook capture-schema` — **no captures exist in this repo yet** |
-| **Provisional** | camelCase variants (`toolName`, `toolInput`), nested `toolCall.args`, Windsurf-heritage IDE tool names (`write_to_file`, `run_command`, `view_file`, `TargetFile`/`CommandLine` argument aliases), `mcp__{server}__{tool}`, `browser_*` | Compatibility guesses inherited from Gemini/Claude/Windsurf conventions and secondary write-ups. Tolerated so shape drift degrades to the documented fail-open/fail-closed behavior instead of a misread — but never treat provisional coverage as evidence of live compatibility |
+| **Provisional** | camelCase variants (`toolName`, `toolInput`), nested `toolCall.args`, Windsurf-heritage IDE tool names (`write_to_file`, `run_command`, `view_file`, `TargetFile`/`CommandLine` argument aliases), `mcp__{server}__{tool}`, `browser_*` | Compatibility guesses inherited from Gemini/Claude/Windsurf conventions and secondary write-ups. Tolerated so shape drift follows the documented handler response behavior instead of a misread — but never treat provisional coverage as evidence of live compatibility |
 
 ### Capturing real hook payloads
 
@@ -303,7 +356,7 @@ argument field names with their JSON types. Argument values, prompts, file
 contents, paths, and credentials are never written. It always allows the call
 and never verifies anything; remove it when done.
 
-1. Temporarily add a capture entry alongside the gate in
+1. Temporarily add a capture entry alongside the verification hook in
    `~/.gemini/config/hooks.json`:
 
    ```json
@@ -330,12 +383,12 @@ and never verifies anything; remove it when done.
 
 | Symptom | Likely cause / fix |
 |---|---|
-| Canary command executes unblocked | Antigravity session started before install (restart it); hook file location changed in a newer Antigravity release (re-verify against current docs); workspace not trusted. |
-| Every tool call blocked with a BehalfID reason | `required` mode with BehalfID unreachable or credentials invalid. Fix connectivity/credentials, or `behalf antigravity install --advisory`. |
-| "not configured (agent ID or API key missing)" warnings | Run `behalf init` — the gate reads `~/.behalf/config.json`, not env vars. |
+| Denied canary command executes | This is the confirmed `agy` 1.1.2 behavior even when the enabled hook runs, BehalfID denies, and the hook returns valid deny JSON plus exit 2. Treat the integration as verification/audit only. |
+| Hook returns a local denial for every call | A legacy `required` config may be active while BehalfID is unreachable or credentials are invalid. Fix connectivity/credentials, or run `behalf antigravity install --advisory`; do not assume the host honors the denial. |
+| "not configured (agent ID or API key missing)" warnings | Run `behalf init` — the hook reads `~/.behalf/config.json`, not env vars. |
 | Install fails with "not valid JSON" | Repair or back up the reported file; BehalfID never overwrites malformed config. |
 | Hook works in CLI but not IDE (or vice versa) | Both read `~/.gemini/config/hooks.json`, but only for trusted folders; restart the surface that misses the hook and re-run the canary on it. |
-| Debug tracing | Run the gate manually: `echo '{"tool_name":"run_command","tool_input":{"command":"ls"}}' | BEHALFID_DEBUG=1 behalf hook antigravity`. (The env var does not propagate through Antigravity's sanitized hook environment.) |
+| Debug tracing | Run the hook manually: `echo '{"tool_name":"run_command","tool_input":{"command":"ls"}}' | BEHALFID_DEBUG=1 behalf hook antigravity`. (The env var does not propagate through Antigravity's sanitized hook environment.) |
 
 Confirmed Windows hook shutdown defect: hook subcommands used
 `process.exit(await handler())`. After a verification fetch returned a denial,
@@ -343,9 +396,10 @@ the forced exit ran while Node/libuv handles were closing, emitted
 `Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c`,
 and replaced the intended exit code 2 with crash status `-1073740791`. Hook
 subcommands now assign `process.exitCode = await handler()` so Node drains
-cleanly. The built-CLI regression exits normally with code 2, but the live
-`agy` denied canary must still be repeated to prove the command does not
-execute in Antigravity.
+cleanly. The built-CLI regression exits normally with code 2 and the repeated
+live canary no longer hit the assertion. The repeated canary still failed
+enforcement: `agy` 1.1.2 ignored the valid deny result and executed the
+command.
 
 ## Removal / rollback
 
@@ -354,8 +408,8 @@ behalf antigravity uninstall
 ```
 
 Removes the `behalfid` hooks namespace and the `behalfid` MCP entries, leaves
-every other entry untouched, and clears the stored enforcement mode. Restart
-Antigravity sessions to drop the hook.
+every other entry untouched, and clears the stored legacy hook decision mode.
+Restart Antigravity sessions to drop the hook.
 
 All config writes are atomic (temp file + rename — an interruption can never
 leave a truncated file), preserve the target file's permissions, and write a
@@ -366,16 +420,15 @@ or delete the `behalfid` keys from `~/.gemini/config/hooks.json` and the
 
 ## Known limitations
 
-- **The gate governs tool calls that Antigravity routes through PreToolUse
-  hooks.** Anything Antigravity executes without firing PreToolUse is not
-  seen. Hook coverage of IDE browser actions, background agents, and internal
-  tools has not been independently verified — run the canary on each surface
-  you rely on.
+- **The hook verifies and audits calls that Antigravity routes through
+  PreToolUse. It does not govern execution on tested `agy` 1.1.2.** Anything
+  Antigravity executes without firing PreToolUse is not seen at all. Hook
+  coverage of IDE browser actions, background agents, and internal tools has
+  not been independently verified.
 - **A user with local file access can remove the hook** (edit
   `~/.gemini/config/hooks.json`). Antigravity has no documented org-managed,
   tamper-proof hook deployment. This is the same trust boundary as the Claude
-  Code integration: enforcement binds the agent, not a hostile human on the
-  same machine.
+  Code integration. Local configuration is not tamper-resistant.
 - **Workspace-local hooks are not managed.** BehalfID installs globally;
   `<workspace>/.agents/hooks.json` is left to the user.
 - **No post-execution outcome recording.** Audit evidence is decision-time
@@ -392,39 +445,41 @@ or delete the `behalfid` keys from `~/.gemini/config/hooks.json` and the
   no local hooks file; it is out of scope for this integration.
 - Antigravity's own permission system (`settings.json` `permission.allow`,
   "Always Approve", execution modes) is independent of and complementary to
-  BehalfID; the gate never modifies it.
+  BehalfID; the hook never modifies it.
 
 ## Validation matrix
 
-Populated only with facts verified as of 2026-07-13. "Enforced" is reserved
-for a surface on which a live denied-action canary has demonstrated that
-execution did not occur — **no surface qualifies yet**.
+Populated only with facts verified as of 2026-07-13. The `agy` 1.1.2 denied
+canary demonstrated execution after a valid denial, so that surface is
+explicitly non-enforcing. No other Antigravity surface qualifies as enforced.
 
 | Capability / surface | Status |
 |---|---|
-| Advisory MCP | **Available** (config layer implemented; stdio server is the existing `behalf mcp start`) |
-| PreToolUse enforcement candidate | **Implemented** (gate + installer + unit tests; decision protocol per documented conventions and real-world hook evidence) |
-| CLI (`agy`) enforcement | **Pending repeated live canary** (first denial reached BehalfID, then the hook process crashed after emitting deny) |
-| IDE enforcement | **Pending live canary** |
+| Advisory MCP | **Available, advisory only** (config layer implemented; stdio server is the existing `behalf mcp start`) |
+| PreToolUse verification and audit | **Implemented and observed live** (hook invoked; allowed and denied server verifications recorded) |
+| CLI (`agy`) enforcement | **Unsupported on tested 1.1.2** (valid deny JSON + clean exit 2 ignored; command executed) |
+| IDE enforcement | **Unvalidated and unsupported as a claim** |
 | Browser tools | **Unverified** (hook coverage of IDE browser actions unknown) |
 | Background tasks | **Unverified** (hook firing not officially documented) |
 | Subagents | **Unverified** (nested tool confirmations documented; hook firing not documented) |
-| Plugins | **Unverified** (no public manifest spec; plugin-supplied tools are denied by default in `required` mode) |
+| Plugins | **Unverified** (no public manifest spec; legacy `required` handler mode returns local denials for unknown tools, but host enforcement is unproven) |
 | Hosted/API agents | **Unsupported** (no local hook surface) |
 
 Detail per surface:
 
-| Surface | MCP available | Pre-action gate | Post-action audit | Fail-closed possible |
+| Surface | MCP available | Pre-action verification | Audit | Execution boundary |
 |---|---|---|---|---|
-| Desktop/IDE (Antigravity) | Yes (documented) | PreToolUse hooks (documented; shared hooks.json) — pending canary | Decision-time verification log only | Yes — deny on hook error + `required` mode — pending canary |
-| CLI (`agy`) | Yes (documented) | PreToolUse hooks (real-world evidence: non-zero hook exit blocks tool calls) — pending canary | Decision-time verification log only | Yes — pending canary |
+| Desktop/IDE (Antigravity) | Yes (advisory) | PreToolUse hooks (documented; shared hooks.json) — pending IDE canary | Decision-time verification log only | Unvalidated; do not rely on it |
+| CLI (`agy`) | Yes (advisory) | PreToolUse hook observed live | Allowed and denied decision-time logs observed | **No on tested 1.1.2** |
 | Hosted/API | Unverified | No local hook surface | No | No |
-| Background agents | Shares config | Unknown — canary required | Decision-time log if hooks fire | Unknown |
-| Subagents | Shares config | Unknown — canary required | Decision-time log if hooks fire | Unknown |
+| Background agents | Shares config | Unknown — canary required | Decision-time log if hooks fire | Unknown; do not rely on it |
+| Subagents | Shares config | Unknown — canary required | Decision-time log if hooks fire | Unknown; do not rely on it |
 
-## Live validation (required before any enforcement claim)
+## Future validation and MCP independence
 
-Run on a machine with Antigravity installed. Prerequisites once:
+The failed `agy` 1.1.2 canary is definitive for that version; repeating it
+cannot establish enforcement. Use this procedure only to audit a later host
+version or an independently tested IDE surface. Prerequisites once:
 
 ```bash
 npm install -g @behalfid/cli
@@ -440,12 +495,10 @@ has exactly one applicable active `execute_command` permission: the permission
 created above. Record that permission's ID, then execute each step and record
 it in the results template below.
 
-The first live `agy` run of step 3 is a recorded **failure**, not enforcement
-evidence: BehalfID logged `command_blocked` and the hook printed valid deny
-JSON plus the denial reason, but immediate `process.exit` triggered the Windows
-libuv assertion and crash code `-1073740791`. Repeat step 3 with a CLI build
-containing the graceful `process.exitCode` fix and confirm that the command did
-not execute. Server-side denial alone is insufficient.
+For `agy` 1.1.2, steps 2 and 3 have already been completed: the allowed action
+executed and logged an allowed verification; the repeated denied action logged
+`command_blocked` but also executed. Server-side denial and valid hook output
+are audit evidence, not enforcement evidence.
 
 1. **Capture a sanitized PreToolUse payload from `agy`.** Add the
    `behalfid-capture` entry from "Capturing real hook payloads" above to
@@ -453,7 +506,8 @@ not execute. Server-side denial alone is insufficient.
    `echo capture-test` and to write a scratch file. Verify schema lines in
    `~/.behalf/antigravity-captures.jsonl` contain field names/types only.
    Remove the capture entry afterwards.
-2. **Allowed command executes.** In `agy`: ask the agent to run `echo ok`.
+2. **Allowed command executes.** In the surface under test, ask the agent to
+   run `echo ok`.
    Expect execution, and an allowed `execute_command` entry in
    `behalf logs tail`.
 3. **Denied command does not execute.** Revoke the permission used in step 2:
@@ -461,31 +515,25 @@ not execute. Server-side denial alone is insufficient.
    creating the constrained replacement:
    `behalf permissions create <agent_id> --action execute_command -r shell --denied-commands behalfid-canary`.
    Confirm the replacement is the only applicable active `execute_command`
-   permission, then ask the agent to run `echo behalfid-canary`. Expect: the
-   tool call is blocked, no command output is produced, and a denied entry
-   appears in `behalf logs tail`.
-4. **Required mode fails closed when BehalfID is unreachable.**
-   `behalf antigravity install --enforce`, then make the API unreachable
-   (stop the local instance, or `behalf config set base-url http://127.0.0.1:9`).
-   Ask the agent to run `echo ok`. Expect a block with a "failing closed"
-   reason and no execution. Restore the base URL afterwards.
-5. **Unknown tool blocks in required mode.** With `--enforce` active, ask the
-   agent to use a memory/save operation or any tool outside the mapped set
-   (e.g. "save a memory that my favorite color is blue" → `save_memory`).
-   Expect a block naming the unrecognized tool. (In advisory mode the same
-   call should warn and proceed.)
-6. **Repeat steps 2–5 in the Antigravity IDE** (editor agent panel and the
+   permission, then ask the agent to run `echo behalfid-canary`. Record the
+   deny verification, hook output/exit, and whether the command executes.
+   Only `hook fired: yes / executed: no` establishes a boundary for a new
+   surface or host version. Tested `agy` 1.1.2 produced `executed: yes`.
+4. **Confirm `--enforce` is rejected.** Run
+   `behalf antigravity install --enforce`. Expect an unsupported/live-canary-
+   failed error and no configuration change.
+5. **Repeat steps 2–3 in the Antigravity IDE** (editor agent panel and the
    agent manager surface).
-7. **Repeat step 3 inside a subagent.** Ask the agent to delegate the canary
+6. **Repeat step 3 inside a subagent.** Ask the agent to delegate the canary
    command to a subagent task. Record whether the hook fired at the subagent
    depth.
-8. **Repeat step 3 inside a background task.** Ask the agent to run the
+7. **Repeat step 3 inside a background task.** Ask the agent to run the
    canary as a background/async task. Record whether the hook fired.
-9. **Test at least one browser action.** Ask the IDE agent to open a page in
+8. **Test at least one browser action.** Ask the IDE agent to open a page in
    the browser surface. Record whether a PreToolUse event fired (check
    `behalf logs tail` for a `browse_web` verification, or use the capture
-   hook), and whether a denied `browse_web` permission blocks it.
-10. **MCP server starts independently of the hook.** Start from a normal
+   hook), the deny response, and whether execution still occurs.
+9. **MCP server starts independently of the hook.** Start from a normal
     `behalf antigravity install`, with both the hook and MCP registration
     present. Back up the hook configuration:
 
@@ -512,9 +560,10 @@ command executes again (hook fully removed, rollback verified).
 
 ### Validation results template
 
-Copy one row per test run. Only after the denied-action rows show
-"hook fired: yes / executed: no" on a surface may that surface be labeled
-enforced.
+Copy one row per test run. The recorded `agy` 1.1.2 result is "hook fired: yes
+/ executed: yes" and must remain classified non-enforcing. Only a later host
+version or different surface showing "hook fired: yes / executed: no" may be
+considered for a surface-specific enforcement claim.
 
 ```
 Antigravity version: ................ (agy --version / IDE About)
@@ -528,13 +577,12 @@ Denied permission:   ................ (step 3; the sole active replacement)
 
 | # | Surface (CLI/IDE/subagent/background/browser) | Tool name | Hook fired? | BehalfID received verification? (`behalf logs`) | Execution occurred? | Expected | Actual | Pass? |
 |---|---|---|---|---|---|---|---|---|
-| 2 | CLI | run_shell_command (single unrestricted permission) | | | | allowed + executed | | |
-| 3 | CLI | run_shell_command (sole constrained replacement permission) | | | | blocked, not executed | | |
-| 4 | CLI, required, API down | run_shell_command | | | | blocked locally, not executed | | |
-| 5 | CLI, required | (unknown tool) | | | | blocked, not executed | | |
-| 6a | IDE | (repeat 2) | | | | allowed + executed | | |
-| 6b | IDE | (repeat 3) | | | | blocked, not executed | | |
-| 7 | Subagent | (canary) | | | | blocked, not executed | | |
-| 8 | Background task | (canary) | | | | blocked, not executed | | |
-| 9 | Browser | (browser action) | | | | verification logged | | |
-| 10 | MCP | verify_action | n/a | | n/a | tools respond without hook | | |
+| 2 | CLI 1.1.2 (recorded) | run_shell_command (single unrestricted permission) | yes | allowed | yes | allowed + executed | allowed + executed | yes |
+| 3 | CLI 1.1.2 (recorded) | run_shell_command (sole constrained replacement permission) | yes | denied: command_blocked | **yes** | deny emitted; host must not execute | command executed | **no** |
+| 4 | CLI | `--enforce` install | n/a | n/a | n/a | option rejected, config unchanged | | |
+| 5a | IDE | (repeat 2) | | | | allowed + executed | | |
+| 5b | IDE | (repeat 3) | | | | deny emitted, not executed | | |
+| 6 | Subagent | (canary) | | | | record execution outcome | | |
+| 7 | Background task | (canary) | | | | record execution outcome | | |
+| 8 | Browser | (browser action) | | | | verification logged; record outcome | | |
+| 9 | MCP | verify_action | n/a | | n/a | advisory tools respond without hook | | |
