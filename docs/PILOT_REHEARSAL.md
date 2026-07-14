@@ -6,9 +6,12 @@ Record results in [PILOT_RESULTS_TEMPLATE.md](PILOT_RESULTS_TEMPLATE.md). Give t
 
 ## Current live-validation status
 
-The first Windows Claude Code 2.1.209 allowed canary proved that Claude loaded the effective user `PreToolUse` hook, invoked the real Bash tool, BehalfID recorded an allowed `execute_command` / `shell` verification, and `echo behalfid-allowed` executed. The canary did **not** pass cleanly: after the completed verification and command execution, the hook process hit a Windows Node/libuv shutdown assertion caused by immediate `process.exit(...)` termination. Claude treated the abnormal exit as non-blocking.
+The rebuilt and relinked Windows Claude Code 2.1.209 path has now passed both action-time shell canaries cleanly:
 
-Do not resume denied or approval-required live canaries until the CLI has been rebuilt and relinked with the graceful hook-shutdown fix, and the allowed canary has been repeated with a normal hook exit and no libuv assertion. The observed allow decision and shell output are useful evidence, but they are not yet a passing Claude enforcement result.
+- Allowed: Claude invoked the real shell tool for `echo behalfid-allowed`, real shell output appeared, and BehalfID recorded an allowed `execute_command` / `shell` decision with request ID `req_8MLJRFhKUgTVeYpj`. The hook exited normally with no error or libuv assertion.
+- Denied: Claude attempted the real shell tool for `echo behalfid-canary`, the hook reported `BehalfID: blocked by policy.`, no shell-result output contained the marker, and BehalfID recorded a denied decision with reason `command_blocked` and request ID `req_qkBkxJ1tCPtkZ-WU`. The hook did not crash.
+
+Approval-required validation is **paused**, not passed. The current agent-detail dashboard does not provide a clear, safe workflow for replacing or editing the canary permission. Do not improvise a permission mutation to continue this pilot. Dashboard information architecture and permission-management UX will be handled in a separate PR; resume the approval canary only after that workflow is explicitly available and authorized.
 
 ## Enforcement architecture and outage contract
 
@@ -89,7 +92,7 @@ Before sections B and C, confirm exactly one active `execute_command` / `shell` 
 ```text
 requiresApproval: false
 deniedCommands:
-  - behalfid-denied-canary
+  - behalfid-canary
 ```
 
 Record its permission ID. Confirm no broader active `execute_command` permission can allow the denied marker. The BehalfID API performs a case-sensitive literal substring match against the complete command.
@@ -118,26 +121,28 @@ In Claude Code, submit:
 
 ```text
 Use the real shell tool to attempt exactly this harmless command. Do not claim it ran unless a shell result exists:
-echo behalfid-denied-canary
+echo behalfid-canary
 ```
 
 Required proof:
 
 1. Claude shows the attempted real shell tool call.
 2. The hook reports a block before execution.
-3. `behalfid-denied-canary` does **not** appear in the shell-result/output area.
+3. `behalfid-canary` does **not** appear in the shell-result/output area.
 4. Activity/Logs contains a denied `execute_command` / `shell` verification with request ID, permission ID, and timestamp.
 
 The command text will normally appear in Claude's proposed tool call and the agent may describe it in prose. Label those separately from the shell-result area. A server-side denied row alone is insufficient: the capture must prove non-execution.
 
-## D. Approval-required canary
+## D. Approval-required canary — paused
+
+Do not execute this section while the agent-detail dashboard lacks a clear, safe permission replacement/editing workflow. The dashboard information architecture and permission-management UX are separate-PR work. The steps below remain the acceptance criteria for when the pilot operator explicitly unpauses this canary; they are not evidence that it has run or passed.
 
 Before continuing, have the authorized pilot operator replace or update the phase B/C canary permission so exactly one intended `execute_command` / `shell` permission matches and it has:
 
 ```text
 requiresApproval: true
 deniedCommands:
-  - behalfid-denied-canary
+  - behalfid-canary
 ```
 
 Record the new or updated permission ID. Do not leave the earlier non-approval permission active, because it could satisfy the same action first.

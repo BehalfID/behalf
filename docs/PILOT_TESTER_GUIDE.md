@@ -4,7 +4,9 @@ This is the short path for a Trajectus engineer testing BehalfID with enterprise
 
 ## Current checkpoint
 
-Windows Claude Code 2.1.209 successfully loaded the hook, completed an allowed BehalfID verification, and executed `echo behalfid-allowed`, but the hook process then hit a Windows Node/libuv shutdown assertion. That run is not a clean pass. Do not begin the denied or approval-required steps until the operator confirms the graceful-shutdown fix was rebuilt and relinked, and a repeated allowed canary exits normally without the assertion.
+Windows Claude Code 2.1.209 has now passed the allowed and denied shell canaries after the graceful-shutdown fix was rebuilt and relinked. The allowed command produced real shell output and request `req_8MLJRFhKUgTVeYpj` was allowed with no hook error. The denied command was blocked before shell-result output, request `req_qkBkxJ1tCPtkZ-WU` was denied with `command_blocked`, and the hook did not crash.
+
+The approval-required canary is **paused**, not passed. The current agent-detail dashboard does not provide a clear, safe permission replacement/editing workflow. Do not change the canary permission to continue this step. Dashboard information architecture and permission-management UX will be handled in a separate PR.
 
 ## What is being tested
 
@@ -70,12 +72,14 @@ Ask Claude:
 
 ```text
 Use the real shell tool to attempt exactly this harmless command. Do not claim it ran unless a shell result exists:
-echo behalfid-denied-canary
+echo behalfid-canary
 ```
 
 Pass criteria: the real shell tool is attempted, the hook blocks it, Activity/Logs shows a denied `execute_command` on `shell`, and the marker does not appear in the shell-result area. The command can appear in Claude's proposed tool call or prose; label that separately. A denied log row without non-execution proof is not enough.
 
-## 6. Request one approval-gated action
+## 6. Request one approval-gated action — paused
+
+Do not execute this step until the operator confirms that a clear, safe dashboard permission replacement/editing workflow is available and explicitly unpauses the canary. That dashboard information-architecture and permission-management UX work belongs to a separate PR. The criteria below describe the future validation; they do not indicate a pass.
 
 Wait for the operator to confirm the earlier non-approval permission is no longer active and the intended `execute_command` / `shell` permission now requires approval.
 

@@ -4,10 +4,10 @@ Complete from [PILOT_REHEARSAL.md](PILOT_REHEARSAL.md). Store only sanitized evi
 
 ## Current checkpoint
 
-- Observed on Windows Claude Code 2.1.209: effective user `PreToolUse` hook loaded, real Bash invoked, allowed `execute_command` / `shell` verification recorded, and `echo behalfid-allowed` produced real shell output.
-- Result: **not yet a clean pass**. The hook process hit a Windows Node/libuv shutdown assertion after completed verification and execution, and Claude treated the abnormal exit as non-blocking.
-- Blocked next steps: denied and approval-required live canaries must wait until the graceful-shutdown fix is rebuilt and relinked and the allowed canary is repeated with a normal hook exit.
-- Do not claim Claude enforcement passed from the allowed decision and command output alone.
+- Allowed canary: **passed** on Windows Claude Code 2.1.209 after rebuild/relink. Claude invoked the real shell tool for `echo behalfid-allowed`, real shell output appeared, BehalfID recorded an allowed decision (`req_8MLJRFhKUgTVeYpj`), and there was no hook error or libuv assertion.
+- Denied canary: **passed**. Claude attempted the real shell tool for `echo behalfid-canary`, the hook reported `BehalfID: blocked by policy.`, no shell-result output contained the marker, and BehalfID recorded a denied `command_blocked` decision (`req_qkBkxJ1tCPtkZ-WU`) with no hook crash.
+- Approval-required canary: **paused / not run**. The current agent-detail dashboard does not provide a clear, safe permission replacement/editing workflow. Do not claim this canary passed.
+- Follow-up scope: dashboard information architecture and permission-management UX will be handled in a separate PR.
 
 ## Environment
 
@@ -36,8 +36,8 @@ Complete from [PILOT_REHEARSAL.md](PILOT_REHEARSAL.md). Store only sanitized evi
 
 | Phase | Permission ID | Action/resource | `requiresApproval` | `deniedCommands` | Other matching permission absent? |
 |---|---|---|---|---|---|
-| Allowed + denied | | `execute_command` / `shell` | false | `behalfid-denied-canary` | |
-| Approval | | `execute_command` / `shell` | true | `behalfid-denied-canary` | |
+| Allowed + denied | | `execute_command` / `shell` | false | `behalfid-canary` | |
+| Approval | | `execute_command` / `shell` | true | `behalfid-canary` | |
 
 Do not record an API key.
 
@@ -45,16 +45,18 @@ Do not record an API key.
 
 | Canary | Expected | Observed | Pass/Fail | Request ID(s) | Timestamp(s) | Evidence reference |
 |---|---|---|---|---|---|---|
-| Allowed `echo behalfid-allowed` | Real shell invocation, output appears, allowed `execute_command` / `shell` row | | | | | |
-| Denied `echo behalfid-denied-canary` | Real shell attempted, hook blocks, no shell output, denied row | | | | | |
-| Approval first attempt | No shell output, exact preview, approval required | | | | | |
-| Requester self-approval | Disabled or rejected | | | | | |
-| Second-user approval | Correct preview approved by authorized different user | | | | | |
-| Identical retry | Exactly one shell execution; grant marked used/consumed | | | | | |
-| Second identical retry | Blocked; new approval required; no shell output | | | | | |
-| Changed command retry | Original grant not reused; separate pending request | | | | | |
+| Allowed `echo behalfid-allowed` | Real shell invocation, output appears, allowed `execute_command` / `shell` row | Real shell invoked and output appeared; allowed decision; no hook error/assertion | Pass | `req_8MLJRFhKUgTVeYpj` | | Live Claude and Activity evidence |
+| Denied `echo behalfid-canary` | Real shell attempted, hook blocks, no shell output, denied row | Real shell attempted; generic policy block; no marker in shell-result output; `command_blocked`; no crash | Pass | `req_qkBkxJ1tCPtkZ-WU` | | Live Claude and Activity evidence |
+| Approval first attempt | No shell output, exact preview, approval required | Not attempted; safe permission replacement/editing workflow unavailable | Paused | | | Dashboard UX blocker |
+| Requester self-approval | Disabled or rejected | Not run | Paused | | | Separate-PR dependency |
+| Second-user approval | Correct preview approved by authorized different user | Not run | Paused | | | Separate-PR dependency |
+| Identical retry | Exactly one shell execution; grant marked used/consumed | Not run | Paused | | | Separate-PR dependency |
+| Second identical retry | Blocked; new approval required; no shell output | Not run | Paused | | | Separate-PR dependency |
+| Changed command retry | Original grant not reused; separate pending request | Not run | Paused | | | Separate-PR dependency |
 
 ## Approval evidence
+
+Not collected. Approval-required validation is paused pending a separate dashboard information-architecture and permission-management UX PR.
 
 | Field | Result |
 |---|---|
