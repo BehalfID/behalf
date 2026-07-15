@@ -55,18 +55,10 @@ export function HeroAuthorizationDemo() {
       <div className={styles.heroGrid}>
         {/* Left: copy */}
         <div className={styles.heroText}>
-          <Link href="/docs/deploy-approvals" className={styles.announce}>
-            <span className={styles.announceDot} />
-            <span>
-              <span className={styles.announceTag}>New — </span>Deploy approval workflows
-            </span>
-            <ArrowRightIcon size={14} />
-          </Link>
-
           <h1 className={styles.h1}>Control what your AI agents are allowed to do.</h1>
           <p className={styles.heroSub}>
-            BehalfID gives every AI agent a distinct identity, scoped permissions, human approval gates, and an
-            auditable record of every attempted action.
+            Give every AI agent an identity, define exactly what it may do, and require approval before sensitive
+            actions execute.
           </p>
 
           <div className={styles.heroActions}>

@@ -4,15 +4,8 @@ import { MarketingNavbar } from "@/components/marketing-v2/MarketingNavbar";
 import { HeroAuthorizationDemo } from "@/components/marketing-v2/HeroAuthorizationDemo";
 import { TrustStrip } from "@/components/marketing-v2/TrustStrip";
 import { ProblemSection } from "@/components/marketing-v2/ProblemSection";
-import { HowItWorks } from "@/components/marketing-v2/HowItWorks";
-import { PermissionPolicyDemo } from "@/components/marketing-v2/PermissionPolicyDemo";
-import { ApprovalWorkflowDemo } from "@/components/marketing-v2/ApprovalWorkflowDemo";
-import { VerificationLogDemo } from "@/components/marketing-v2/VerificationLogDemo";
-import { ManagedProfileDemo } from "@/components/marketing-v2/ManagedProfileDemo";
-import { DeveloperIntegration } from "@/components/marketing-v2/DeveloperIntegration";
+import { ProductShowcase } from "@/components/marketing-v2/ProductShowcase";
 import { EnterpriseGovernance } from "@/components/marketing-v2/EnterpriseGovernance";
-import { SecurityPrinciples } from "@/components/marketing-v2/SecurityPrinciples";
-import { AuthorizationComparison } from "@/components/marketing-v2/AuthorizationComparison";
 import { FinalCTA } from "@/components/marketing-v2/FinalCTA";
 import { MarketingFooter } from "@/components/marketing-v2/MarketingFooter";
 
@@ -31,22 +24,15 @@ export default function HomeV2Page() {
         Skip to main content
       </a>
       <p className={styles.previewBanner}>
-        Preview — redesign draft at /home-v2. The production homepage is unchanged.
+        Preview: /home-v2. Production is unchanged.
       </p>
       <MarketingNavbar />
       <main id="v2-main">
         <HeroAuthorizationDemo />
         <TrustStrip />
         <ProblemSection />
-        <HowItWorks />
-        <PermissionPolicyDemo />
-        <ApprovalWorkflowDemo />
-        <VerificationLogDemo />
-        <ManagedProfileDemo />
-        <DeveloperIntegration />
+        <ProductShowcase />
         <EnterpriseGovernance />
-        <SecurityPrinciples />
-        <AuthorizationComparison />
         <FinalCTA />
       </main>
       <MarketingFooter />
