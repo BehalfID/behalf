@@ -17,7 +17,6 @@ export function TrustStrip() {
                   <Icon size={22} />
                 </div>
                 <h3 className={styles.trustTitle}>{item.title}</h3>
-                <p className={styles.trustText}>{item.text}</p>
               </div>
             );
           })}

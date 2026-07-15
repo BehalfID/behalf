@@ -62,22 +62,10 @@ export const HERO_SCENARIOS: DecisionScenario[] = [
 ];
 
 export const TRUST_ITEMS = [
-  {
-    title: "Fail-closed enforcement",
-    text: "If authorization cannot be determined safely, the action is denied rather than allowed."
-  },
-  {
-    title: "Human approval gates",
-    text: "Sensitive actions pause before execution until an authorized person approves them."
-  },
-  {
-    title: "Scoped agent permissions",
-    text: "Each agent gets its own identity with explicit allowed and blocked actions."
-  },
-  {
-    title: "Complete decision logs",
-    text: "Every allow, deny, and approval decision is recorded with its matched policy and reason."
-  }
+  { title: "Fail-closed enforcement" },
+  { title: "Human approval gates" },
+  { title: "Scoped agent permissions" },
+  { title: "Auditable decision records" }
 ] as const;
 
 export const PROBLEMS = [
@@ -279,33 +267,23 @@ export const DEV_INTEGRATIONS: DevIntegration[] = [
 export const ENTERPRISE_FEATURES = [
   {
     icon: "building",
-    title: "Workspace governance",
-    text: "Manage every agent, permission, and policy for your organization from one control plane."
+    title: "Centralized governance",
+    text: "Manage identities, permissions, and approvals from one workspace."
   },
   {
     icon: "route",
     title: "Delegated authority",
-    text: "Assign roles from Owner to Viewer. Authority levels decide who can create permissions and approve requests."
+    text: "Assign who can define policy and approve sensitive requests."
   },
   {
     icon: "lock",
-    title: "Protected repositories",
-    text: "Mark sensitive repositories so destructive actions against them are blocked or require approval."
+    title: "Protected resources",
+    text: "Place production systems and repositories behind explicit controls."
   },
   {
     icon: "list",
-    title: "Centralized policy",
-    text: "Define reusable policies once and apply them across agents instead of configuring each in isolation."
-  },
-  {
-    icon: "shield",
-    title: "Security logs",
-    text: "Every decision is retained with its policy, reason, and approval status for security and audit review."
-  },
-  {
-    icon: "layers",
-    title: "Plan-based controls",
-    text: "Governance features scale with your plan, with enterprise pilots available for larger teams."
+    title: "Auditable decisions",
+    text: "Retain the evidence behind every allow, deny, and approval."
   }
 ] as const;
 
@@ -330,50 +308,11 @@ export const COMPARISON = [
   }
 ] as const;
 
-export const FOOTER_GROUPS = [
-  {
-    heading: "Product",
-    links: [
-      { label: "Sandbox", href: "/sandbox" },
-      { label: "Design partners", href: "/design-partners" },
-      { label: "Security", href: "/security" },
-      { label: "Status", href: "/status" },
-      { label: "Get started", href: "/signup" }
-    ]
-  },
-  {
-    heading: "Developers",
-    links: [
-      { label: "Documentation", href: "/docs" },
-      { label: "Quickstart", href: "/docs/quickstart" },
-      { label: "SDK reference", href: "/docs/sdk" },
-      { label: "CLI & MCP", href: "/docs/cli" },
-      { label: "API reference", href: "/docs/api" }
-    ]
-  },
-  {
-    heading: "Resources",
-    links: [
-      { label: "Deploy approvals", href: "/docs/deploy-approvals" },
-      { label: "Concepts", href: "/docs/concepts" },
-      { label: "Webhooks", href: "/docs/webhooks" },
-      { label: "Blog", href: "/blog" }
-    ]
-  },
-  {
-    heading: "Company",
-    links: [
-      { label: "Security", href: "/security" },
-      { label: "Compliance", href: "/compliance" },
-      { label: "Contact", href: "mailto:support@behalfid.com" }
-    ]
-  },
-  {
-    heading: "Legal",
-    links: [
-      { label: "Legal hub", href: "/legal" },
-      { label: "Privacy", href: "/privacy" },
-      { label: "Terms", href: "/terms" }
-    ]
-  }
+export const FOOTER_LINKS = [
+  { label: "Documentation", href: "/docs" },
+  { label: "Security", href: "/security" },
+  { label: "Status", href: "/status" },
+  { label: "Privacy", href: "/privacy" },
+  { label: "Terms", href: "/terms" },
+  { label: "Contact", href: "mailto:support@behalfid.com" }
 ] as const;

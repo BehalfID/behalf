@@ -6,8 +6,8 @@ import Image from "next/image";
 import styles from "@/app/home-v2/home-v2.module.css";
 
 const NAV_LINKS = [
-  { label: "Product", href: "#how-it-works" },
-  { label: "Developers", href: "#developers" },
+  { label: "Product", href: "#product-showcase" },
+  { label: "Enterprise", href: "#enterprise" },
   { label: "Security", href: "/security" },
   { label: "Docs", href: "/docs" }
 ] as const;
@@ -34,10 +34,6 @@ export function MarketingNavbar() {
               {l.label}
             </Link>
           ))}
-          {/* Pricing has no dedicated route yet — shown as non-interactive in preview */}
-          <span className={styles.navDisabled} aria-disabled="true" title="Pricing page not available in preview">
-            Pricing
-          </span>
         </nav>
 
         <div className={styles.navActions}>
