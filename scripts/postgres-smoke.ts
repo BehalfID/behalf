@@ -58,6 +58,14 @@ export const CRITICAL_INDEX_NAMES = [
   "cli_audit_activities_account_created_idx"
 ] as const;
 
+export const VERIFICATION_LOG_MAINTENANCE_FUNCTIONS = [
+  "behalf_ensure_verification_log_partitions",
+  "behalf_purge_verification_logs",
+  "behalf_drop_expired_verification_log_partitions",
+  "behalf_run_verification_log_retention",
+  "behalf_schedule_verification_log_maintenance"
+] as const;
+
 export function resolveSmokeTestUrl(): string | undefined {
   return process.env.POSTGRES_TEST_URL ?? process.env.DATABASE_URL ?? process.env.POSTGRES_URL;
 }
@@ -156,7 +164,14 @@ export type SmokeTestResult = {
   tables: string[];
   indexes: string[];
   rlsEnabledTables: string[];
-  verificationLogsUnpartitioned: boolean;
+  verificationLogsPartitioned: boolean;
+  verificationLogPartitions: string[];
+  verificationLogCompositePrimaryKey: boolean;
+  verificationLogCompositeRequestUnique: boolean;
+  verificationLogMaintenanceFunctions: string[];
+  verificationLogRetentionPurgedRows: number;
+  verificationLogRetentionRemainingIds: string[];
+  verificationLogCronSkippedWhenUnavailable: boolean;
 };
 
 export async function runPostgresMigrationSmoke(url?: string): Promise<SmokeTestResult> {
@@ -183,11 +198,15 @@ export async function runPostgresMigrationSmoke(url?: string): Promise<SmokeTest
     await sql.unsafe(migrationSql);
 
     const tables = await sql<{ table_name: string }[]>`
-      SELECT table_name
-      FROM information_schema.tables
-      WHERE table_schema = ${schemaName}
-        AND table_type = 'BASE TABLE'
-      ORDER BY table_name
+      SELECT c.relname AS table_name
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = ${schemaName}
+        AND c.relkind IN ('r', 'p')
+        AND NOT EXISTS (
+          SELECT 1 FROM pg_inherits WHERE inhrelid = c.oid
+        )
+      ORDER BY c.relname
     `;
 
     const rlsRows = await sql<{ relname: string }[]>`
@@ -195,7 +214,7 @@ export async function runPostgresMigrationSmoke(url?: string): Promise<SmokeTest
       FROM pg_class c
       JOIN pg_namespace n ON n.oid = c.relnamespace
       WHERE n.nspname = ${schemaName}
-        AND c.relkind = 'r'
+        AND c.relkind IN ('r', 'p')
         AND c.relrowsecurity = true
       ORDER BY c.relname
     `;
@@ -223,17 +242,120 @@ export async function runPostgresMigrationSmoke(url?: string): Promise<SmokeTest
       JOIN pg_namespace n ON n.oid = parent.relnamespace
       WHERE n.nspname = ${schemaName}
         AND parent.relname = 'verification_logs'
+      ORDER BY c.relname
     `;
 
-    const verificationLogsUnpartitioned =
-      verificationLogsRow?.relkind === "r" && childPartitions.length === 0;
+    const constraintRows = await sql<{ contype: string; definition: string }[]>`
+      SELECT con.contype, pg_get_constraintdef(con.oid) AS definition
+      FROM pg_constraint AS con
+      JOIN pg_class AS table_class ON table_class.oid = con.conrelid
+      JOIN pg_namespace AS table_namespace ON table_namespace.oid = table_class.relnamespace
+      WHERE table_namespace.nspname = ${schemaName}
+        AND table_class.relname = 'verification_logs'
+        AND con.contype IN ('p', 'u')
+    `;
+
+    const maintenanceFunctionRows = await sql<{ proname: string }[]>`
+      SELECT DISTINCT procedure.proname
+      FROM pg_proc AS procedure
+      JOIN pg_namespace AS procedure_namespace ON procedure_namespace.oid = procedure.pronamespace
+      WHERE procedure_namespace.nspname = ${schemaName}
+        AND procedure.proname = ANY(${VERIFICATION_LOG_MAINTENANCE_FUNCTIONS as unknown as string[]})
+      ORDER BY procedure.proname
+    `;
+
+    const normalizedConstraints = constraintRows.map((row) => ({
+      ...row,
+      definition: row.definition.replace(/"/g, "").replace(/\s+/g, " ")
+    }));
+    const verificationLogsPartitioned =
+      verificationLogsRow?.relkind === "p" && childPartitions.length > 1;
+    const verificationLogCompositePrimaryKey = normalizedConstraints.some(
+      (row) => row.contype === "p" && row.definition === "PRIMARY KEY (log_id, created_at)"
+    );
+    const verificationLogCompositeRequestUnique = normalizedConstraints.some(
+      (row) => row.contype === "u" && row.definition === "UNIQUE (request_id, created_at)"
+    );
+
+    await sql`
+      INSERT INTO ${sql(schemaName)}.accounts (account_id, name, plan)
+      VALUES ('acct_retention_smoke', 'Retention smoke', 'free')
+    `;
+    await sql`
+      INSERT INTO ${sql(schemaName)}.verification_logs (
+        log_id,
+        request_id,
+        account_id,
+        agent_id,
+        action,
+        allowed,
+        reason,
+        risk,
+        created_at,
+        updated_at
+      )
+      VALUES
+        (
+          'log_retention_expired',
+          'req_retention_expired',
+          'acct_retention_smoke',
+          'agent_retention_smoke',
+          'read_file',
+          true,
+          'expired smoke row',
+          'low',
+          CURRENT_TIMESTAMP - interval '40 days',
+          CURRENT_TIMESTAMP - interval '40 days'
+        ),
+        (
+          'log_retention_current',
+          'req_retention_current',
+          'acct_retention_smoke',
+          'agent_retention_smoke',
+          'read_file',
+          true,
+          'current smoke row',
+          'low',
+          CURRENT_TIMESTAMP,
+          CURRENT_TIMESTAMP
+        )
+    `;
+
+    const [retentionResult] = await sql<{
+      result: { purgedRows: number; droppedPartitions: number };
+    }[]>`
+      SELECT ${sql(schemaName)}.behalf_run_verification_log_retention(
+        ${schemaName},
+        100,
+        30,
+        1
+      ) AS result
+    `;
+    const remainingRetentionRows = await sql<{ log_id: string }[]>`
+      SELECT log_id
+      FROM ${sql(schemaName)}.verification_logs
+      WHERE account_id = 'acct_retention_smoke'
+      ORDER BY log_id
+    `;
+    const [cronScheduleResult] = await sql<{ scheduled: boolean }[]>`
+      SELECT ${sql(schemaName)}.behalf_schedule_verification_log_maintenance(
+        ${schemaName}
+      ) AS scheduled
+    `;
 
     return {
       schemaName,
       tables: tables.map((row) => row.table_name),
       indexes: indexRows.map((row) => row.indexname),
       rlsEnabledTables: rlsRows.map((row) => row.relname),
-      verificationLogsUnpartitioned
+      verificationLogsPartitioned,
+      verificationLogPartitions: childPartitions.map((row) => row.relname),
+      verificationLogCompositePrimaryKey,
+      verificationLogCompositeRequestUnique,
+      verificationLogMaintenanceFunctions: maintenanceFunctionRows.map((row) => row.proname),
+      verificationLogRetentionPurgedRows: Number(retentionResult?.result.purgedRows ?? 0),
+      verificationLogRetentionRemainingIds: remainingRetentionRows.map((row) => row.log_id),
+      verificationLogCronSkippedWhenUnavailable: cronScheduleResult?.scheduled === false
     };
   } finally {
     try {
@@ -265,10 +387,46 @@ export async function assertSmokeTestExpectations(result: SmokeTestResult): Prom
     throw new Error("managed_profile_protected_repos unique (account_id, repo_hash) index missing");
   }
 
-  if (!result.verificationLogsUnpartitioned) {
+  if (!result.verificationLogsPartitioned) {
+    throw new Error("verification_logs must be a partitioned table with monthly child partitions");
+  }
+
+  const currentMonthPartition =
+    `verification_logs_${new Date().toISOString().slice(0, 7).replace("-", "_")}`;
+  if (!result.verificationLogPartitions.includes(currentMonthPartition)) {
+    throw new Error(`Current verification log partition missing: ${currentMonthPartition}`);
+  }
+  if (!result.verificationLogPartitions.includes("verification_logs_default")) {
+    throw new Error("verification_logs default partition missing");
+  }
+  if (!result.verificationLogCompositePrimaryKey) {
+    throw new Error("verification_logs composite primary key (log_id, created_at) missing");
+  }
+  if (!result.verificationLogCompositeRequestUnique) {
+    throw new Error("verification_logs composite request uniqueness (request_id, created_at) missing");
+  }
+
+  const missingMaintenanceFunctions = VERIFICATION_LOG_MAINTENANCE_FUNCTIONS.filter(
+    (name) => !result.verificationLogMaintenanceFunctions.includes(name)
+  );
+  if (missingMaintenanceFunctions.length > 0) {
     throw new Error(
-      "verification_logs must exist and remain unpartitioned in v1 (ordinary table, no child partitions)"
+      `Missing verification log maintenance functions: ${missingMaintenanceFunctions.join(", ")}`
     );
+  }
+  if (result.verificationLogRetentionPurgedRows !== 1) {
+    throw new Error(
+      `Expected retention smoke to purge one row, got ${result.verificationLogRetentionPurgedRows}`
+    );
+  }
+  if (
+    result.verificationLogRetentionRemainingIds.length !== 1 ||
+    result.verificationLogRetentionRemainingIds[0] !== "log_retention_current"
+  ) {
+    throw new Error("Verification log retention removed the wrong smoke rows");
+  }
+  if (!result.verificationLogCronSkippedWhenUnavailable) {
+    throw new Error("pg_cron scheduler should return false when pg_cron is unavailable");
   }
 }
 

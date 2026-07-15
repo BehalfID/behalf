@@ -747,9 +747,10 @@ No GIN index on `metadata`/`payload` initially — nothing queries into them.
 
 ### 11.3 Monthly partitioning
 
-Recommended: **declarative range partitioning on `created_at` by month**, at minimum for
-`verification_logs` (the plan's monthly-verification quota already aligns naturally with
-calendar months, see `verificationPeriodStart()` in `lib/plans.ts`).
+Implemented in the initial Postgres migration: **declarative range partitioning on
+`created_at` by UTC month** for `verification_logs` (the plan's monthly-verification
+quota aligns naturally with calendar months, see `verificationPeriodStart()` in
+`lib/plans.ts`).
 
 - Retention becomes `DROP TABLE verification_logs_2026_01` — instant, no vacuum churn —
   instead of `DELETE` storms.
@@ -758,21 +759,23 @@ calendar months, see `verificationPeriodStart()` in `lib/plans.ts`).
   guarantee for `request_id` is preserved in practice because IDs are random
   (`createPublicId`) and inserted exactly once; the repository treats `request_id`
   lookups as unique.
-- Use `pg_partman` (available on Supabase) or a `pg_cron` job to pre-create partitions.
-- **Decision point:** if launch volume is modest (< a few million rows/month), it is
-  acceptable to start unpartitioned and convert later — but converting later requires a
-  table rewrite, so partitioning `verification_logs` from day one is the cheaper insurance.
-  `cli_audit_logs` / `site_access_logs` / `webhook_deliveries` can start unpartitioned
-  and adopt the same layout when they grow.
+- `behalf_ensure_verification_log_partitions` pre-creates the current/future monthly
+  partitions; the guarded scheduler installs a daily `pg_cron` job when the extension is
+  enabled.
+- A default partition is retained only as an ingestion fail-safe for out-of-window
+  timestamps.
+- `cli_audit_logs` / `site_access_logs` / `webhook_deliveries` remain unpartitioned and
+  can adopt the same layout when they grow.
 
 ### 11.4 Archive/delete strategy
 
-1. Nightly `pg_cron` job computes, per account plan, the retention cutoff.
-2. For partitioned tables: detach + export partitions wholly older than the maximum
-   retention (365d + grace) to Supabase Storage / S3 as Parquet or CSV
-   (`COPY … TO`), then drop.
-3. For row-level purges inside the newest droppable window (mixed plans in one
-   partition): batched `DELETE … WHERE account_id = $1 AND created_at < $2 LIMIT n`.
+1. The implemented nightly `pg_cron` job computes each row's cutoff from the account plan
+   and adds a 30-day grace window.
+2. `behalf_purge_verification_logs` deletes in bounded batches, including mixed-plan
+   partitions; missing/deleted accounts receive the longest retention.
+3. `behalf_drop_expired_verification_log_partitions` drops only empty monthly partitions
+   wholly older than 365 days plus grace. Archive/export before drop remains an operator
+   requirement when long-term audit storage is enabled.
 4. Advanced audit exports (`advancedAuditExportsEnabled` on business/enterprise plans)
    read from the archive, keeping the hot tables small.
 
