@@ -1,0 +1,6 @@
+[mcp_servers.behalfid]
+command = "behalf"
+args = [
+    "mcp",
+    "start",
+]
