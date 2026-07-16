@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { FormAlert } from "@/components/auth/AuthShell";
+import { OnboardingIntro } from "@/components/onboarding/OnboardingShell";
 import { DecisionIndicator } from "@/components/dashboard/OpsEventPrimitives";
 import { useDashboardPaths } from "@/components/workspace/WorkspaceProvider";
 import type { TestDecisionResult } from "./TestDecisionStep";
@@ -64,10 +66,12 @@ export function LogsHandoffStep({
 
   return (
     <>
-      <h1 className="setup-heading setup-flow__question">Review the event in audit logs</h1>
-      <p className="setup-flow__helper">
-        Your test decision is recorded in the operational logs console. Open it to inspect the full receipt, metadata, and linked approval if one was created.
-      </p>
+      <OnboardingIntro
+        eyebrow="Agent setup · Complete"
+        title="Your first agent is ready"
+        description="The test decision is recorded in audit logs. Open the event to inspect its receipt, metadata, and linked approval when one was created."
+      />
+      <FormAlert tone="success">Agent identity, credential, control profile, and approval gates are active.</FormAlert>
       <section className="first-agent-receipt ops-panel">
         {requestId ? (
           <dl className="setup-review__list">

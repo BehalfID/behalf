@@ -6,6 +6,7 @@ import { CookieBanner } from "@/components/ui";
 import { getLocale } from "next-intl/server";
 import "./globals.css";
 import "./design-system-foundation.css";
+import "./auth-onboarding.css";
 
 const inter = Inter({
   subsets: ["latin"],

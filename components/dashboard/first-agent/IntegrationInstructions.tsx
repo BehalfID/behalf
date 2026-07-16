@@ -22,7 +22,7 @@ export function IntegrationInstructions({
 
   return (
     <>
-      <SetupStepIntro title={instructions.title} helper={instructions.body}>
+      <SetupStepIntro title={instructions.title} helper={`${instructions.body} Keep the API key in your secret manager; do not place it in source control.`}>
         <div className="first-agent-integration">
           <p className="cx-label">Environment variable</p>
           <CodeBlock>{instructions.envBlock}</CodeBlock>
