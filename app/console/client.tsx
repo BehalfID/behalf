@@ -1,10 +1,12 @@
 "use client";
+/* eslint-disable @next/next/no-html-link-for-pages -- Preserve existing full-page console navigation semantics. */
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { ConsoleShellLayout } from "@/components/layout/ConsoleShell";
-import { Button, ButtonLink, CodeBlock, EmptyState, Logo, PageHeader, StatCard } from "@/components/ui";
+import { DecisionIndicator } from "@/components/dashboard/OpsEventPrimitives";
+import { Button, ButtonLink, CodeBlock, DashboardState, EmptyState, Logo, PageHeader, RiskIndicator, StatCard } from "@/components/ui";
 
 type Agent = {
   agentId: string;
@@ -54,6 +56,8 @@ type VerificationLog = {
   amount?: number;
   vendor?: string;
   allowed: boolean;
+  approvalRequired?: boolean;
+  shadow?: boolean;
   reason: string;
   risk: "low" | "medium" | "high";
   createdAt?: string;
@@ -107,7 +111,11 @@ type AgentDetail = {
 };
 
 type AgentsResponse = { agents: Agent[] };
-type LogsResponse = { logs: VerificationLog[]; summary: LogSummary };
+type LogsResponse = {
+  logs: VerificationLog[];
+  summary: LogSummary;
+  pagination?: { limit: number; page: number; total: number; hasMore: boolean };
+};
 type SiteGuardSite = {
   siteId: string;
   developerUserId?: string;
@@ -685,6 +693,8 @@ function TodoList() {
 
   // Load from localStorage on mount
   useEffect(() => {
+    // Preserve the established synchronous hydration from the console's local store.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setItems(loadTodos());
   }, []);
 
@@ -1157,36 +1167,69 @@ function LogsView() {
   }, [action, agentId, allowed, requestId, risk]);
   const logs = useApiResource<LogsResponse>(path);
   const exportHref = `${path}${path.includes("?") ? "&" : "?"}format=csv`;
+  const activeFilters = [
+    agentId ? `Agent: ${agentId}` : null,
+    allowed ? `Decision: ${allowed === "true" ? "Allowed" : "Denied"}` : null,
+    action ? `Action: ${action}` : null,
+    risk ? `Risk: ${risk}` : null,
+    requestId ? `Request: ${requestId}` : null
+  ].filter((item): item is string => Boolean(item));
+  const hasFilters = activeFilters.length > 0;
+
+  const resetFilters = () => {
+    setAgentId("");
+    setAllowed("");
+    setAction("");
+    setRisk("");
+    setRequestId("");
+  };
 
   return (
-    <>
-      <Header title="Logs" action={<ButtonLink href={exportHref}>Export CSV</ButtonLink>} />
-      <div className="console-toolbar">
-        <input aria-label="Filter by agent ID" onChange={(event) => setAgentId(event.target.value)} placeholder="agent_xxx" value={agentId} />
-        <select aria-label="Allowed filter" onChange={(event) => setAllowed(event.target.value)} value={allowed}>
+    <div className="ops-console console-decision-console">
+      <PageHeader
+        eyebrow="Console · Decision history"
+        title="Verification logs"
+        description="Read-only verification records for the configured console account."
+        action={<ButtonLink href={exportHref} variant="outline" size="small">Export CSV</ButtonLink>}
+        className="console-header"
+      />
+      <form className="console-toolbar console-decision-toolbar" role="search" onSubmit={(event) => { event.preventDefault(); void logs.reload(); }}>
+        <label><span>Agent ID</span><input onChange={(event) => setAgentId(event.target.value)} placeholder="agent_xxx" value={agentId} /></label>
+        <label><span>Decision</span><select onChange={(event) => setAllowed(event.target.value)} value={allowed}>
           <option value="">All decisions</option>
           <option value="true">Allowed</option>
           <option value="false">Denied</option>
-        </select>
-        <input aria-label="Filter by action" onChange={(event) => setAction(event.target.value)} placeholder="action" value={action} />
-        <select aria-label="Risk filter" onChange={(event) => setRisk(event.target.value)} value={risk}>
+        </select></label>
+        <label><span>Action</span><input onChange={(event) => setAction(event.target.value)} placeholder="action" value={action} /></label>
+        <label><span>Risk</span><select onChange={(event) => setRisk(event.target.value)} value={risk}>
           <option value="">All risk</option>
           <option value="low">Low</option>
           <option value="medium">Medium</option>
           <option value="high">High</option>
-        </select>
-        <input aria-label="Filter by request ID" onChange={(event) => setRequestId(event.target.value)} placeholder="req_xxx" value={requestId} />
-        <Button onClick={logs.reload} type="button">Refresh</Button>
-      </div>
+        </select></label>
+        <label><span>Request ID</span><input onChange={(event) => setRequestId(event.target.value)} placeholder="req_xxx" value={requestId} /></label>
+        <div className="console-decision-toolbar__actions">
+          <span aria-live="polite">{hasFilters ? `${activeFilters.length} active` : "No active filters"}</span>
+          <Button onClick={resetFilters} disabled={!hasFilters} type="button" variant="ghost" size="small">Reset</Button>
+          <Button type="submit" variant="secondary" size="small">Apply filters</Button>
+        </div>
+        {hasFilters ? <ul className="ops-active-filters" aria-label="Active console filters">{activeFilters.map((filter) => <li key={filter}>{filter}</li>)}</ul> : null}
+      </form>
       <ResourceState resource={logs}>
         {(data) => (
           <>
             <LogSummaryStrip summary={data.summary} />
-            <LogList logs={data.logs} />
+            <LogList logs={data.logs} emptyText={hasFilters ? "No verification records match these filters." : "No verification records found."} />
+            {data.pagination ? (
+              <div className={`ops-results-boundary${data.pagination.hasMore ? " ops-results-boundary--truncated" : ""}`} role="status">
+                <span>Showing {data.logs.length} of {data.pagination.total} matching records.</span>
+                {data.pagination.hasMore ? <span>More records exist beyond this result page; narrow the filters to inspect them here.</span> : null}
+              </div>
+            ) : null}
           </>
         )}
       </ResourceState>
-    </>
+    </div>
   );
 }
 
@@ -1561,39 +1604,76 @@ function PermissionList({ items, onRevoke }: { items: Permission[]; onRevoke: (i
   );
 }
 
-function LogList({ logs, compact = false }: { logs: VerificationLog[]; compact?: boolean }) {
-  if (!logs.length) return <EmptyState className="console-empty">No logs found.</EmptyState>;
+function LogList({
+  logs,
+  compact = false,
+  emptyText = "No verification records found."
+}: {
+  logs: VerificationLog[];
+  compact?: boolean;
+  emptyText?: string;
+}) {
+  if (!logs.length) {
+    return <DashboardState className="console-empty" kind="empty" title="No decision history" description={emptyText} />;
+  }
+  if (compact) {
+    return (
+      <div className="console-decision-compact ops-console" role="list" aria-label="Recent verification decisions">
+        {logs.map((log) => (
+          <article className="console-decision-compact__row" key={log.requestId} role="listitem">
+            <div><DecisionIndicator log={log} compact /><time dateTime={log.createdAt}>{formatDate(log.createdAt)}</time></div>
+            <p><strong>{log.agentName || log.agentId}</strong><code>{log.action}</code></p>
+            <p>{log.reason}</p>
+          </article>
+        ))}
+      </div>
+    );
+  }
   return (
-    <div className={compact ? "console-list console-list--compact" : "console-list console-log-list"}>
-      {logs.map((log) => (
-        <div className="console-list__item" key={log.requestId}>
-          <span>
-            <strong>{log.action}</strong>
-            <small>{log.agentName || log.agentId} / {log.vendor || "no resource"}{typeof log.amount === "number" ? ` / $${log.amount}` : ""}</small>
-            <small>{log.reason}</small>
-            {!compact ? <small>{log.requestId} / account {log.accountId ?? "unknown"} / developer {log.developerUserId ?? "unknown"}</small> : null}
-          </span>
-          <span className={statusClass(log.allowed ? "allowed" : "denied")}>
-            {log.allowed ? "allowed" : "denied"}
-          </span>
-          {!compact ? <span className={statusClass(log.risk)}>{log.risk}</span> : null}
-          <span>{formatDate(log.createdAt)}</span>
-        </div>
-      ))}
+    <div className="console-decision-table-wrap">
+      <table className="console-decision-table">
+        <caption className="sr-only">Administrative verification decision history</caption>
+        <thead><tr>
+          <th scope="col">Time</th>
+          <th scope="col">Decision</th>
+          <th scope="col">Identity and action</th>
+          <th scope="col">Target</th>
+          <th scope="col">Policy</th>
+          <th scope="col">Reason</th>
+          <th scope="col">Technical identifiers</th>
+        </tr></thead>
+        <tbody>
+          {logs.map((log) => (
+            <tr key={log.requestId}>
+              <td className="console-decision-table__time"><time dateTime={log.createdAt}>{formatDate(log.createdAt)}</time></td>
+              <td className="console-decision-table__status"><DecisionIndicator log={log} compact /><RiskIndicator risk={log.risk} /></td>
+              <td className="console-decision-table__event"><strong>{log.agentName || log.agentId}</strong><code>{log.action}</code></td>
+              <td>{log.vendor || "—"}{typeof log.amount === "number" ? <small>${log.amount}</small> : null}</td>
+              <td>{log.permissionId ? <code title={log.permissionId}>{log.permissionId}</code> : "—"}</td>
+              <td className="console-decision-table__reason">{log.reason}</td>
+              <td className="console-decision-table__identifiers">
+                <code title={log.requestId}>{log.requestId}</code>
+                <small>Account <code>{log.accountId ?? "unknown"}</code></small>
+                <small>Developer <code>{log.developerUserId ?? "unknown"}</code></small>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
 
 function LogSummaryStrip({ summary }: { summary: LogSummary }) {
   return (
-    <section className="console-metrics console-log-summary" aria-label="Log summary">
-      <Metric label="Total" value={summary.total} />
-      <Metric label="Allowed" value={summary.allowed} />
-      <Metric label="Denied" value={summary.denied} />
-      <Metric label="High risk" value={summary.highRisk} />
-      <Metric label="Approval required" value={summary.approvalRequired} />
-      <Metric label="Top vendor" value={summary.topVendor ?? "None"} />
-    </section>
+    <dl className="ops-metrics console-log-summary" aria-label="Verification log summary">
+      <div><dt>Total</dt><dd>{summary.total}</dd></div>
+      <div className="ops-metrics__item--allowed"><dt>Allowed</dt><dd>{summary.allowed}</dd></div>
+      <div className="ops-metrics__item--denied"><dt>Denied</dt><dd>{summary.denied}</dd></div>
+      <div><dt>High risk</dt><dd>{summary.highRisk}</dd></div>
+      <div className="ops-metrics__item--approval"><dt>Approval required</dt><dd>{summary.approvalRequired}</dd></div>
+      <div><dt>Top vendor</dt><dd>{summary.topVendor ?? "None"}</dd></div>
+    </dl>
   );
 }
 
@@ -1821,6 +1901,8 @@ function StatusView() {
 
   const staleEvents = useMemo(() => {
     if (!eventsData?.events.length) return 0;
+    // Preserve the existing current-time comparison whenever event data changes.
+    // eslint-disable-next-line react-hooks/purity
     const oneHourAgo = Date.now() - 60 * 60 * 1000;
     return eventsData.events.filter((e) => e.createdAt && new Date(e.createdAt).getTime() < oneHourAgo).length;
   }, [eventsData]);

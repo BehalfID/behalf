@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { OpsLogConsole } from "@/components/dashboard/OpsLogConsole";
 import { PendingActionsQueue } from "@/components/dashboard/PendingActionsQueue";
+import { DecisionIndicator } from "@/components/dashboard/OpsEventPrimitives";
 import { FirstAgentSetup } from "@/components/dashboard/first-agent/FirstAgentSetup";
 import { ManagedProfilesView } from "@/components/dashboard/ManagedProfilesView";
 import { ManagedProfileActivityView } from "@/components/dashboard/ManagedProfileActivityView";
@@ -28,7 +29,7 @@ import {
 } from "@/components/dashboard/opsLogTypes";
 import { CLI_NPM_INSTALL_COMMAND } from "@/lib/cliInstallCommands";
 import { DashboardShellLayout } from "@/components/layout/DashboardShell";
-import { Badge, Button, ButtonLink, Card, CodeBlock, DashboardState, EmptyState, PageHeader, StatCard } from "@/components/ui";
+import { Badge, Button, ButtonLink, Card, CodeBlock, DashboardState, EmptyState, PageHeader, RiskIndicator } from "@/components/ui";
 import {
   CountedUsageLimitTile,
   InfoUsageLimitTile,
@@ -121,15 +122,6 @@ type Log = {
   reason: string;
   risk: "low" | "medium" | "high";
   createdAt?: string;
-};
-type LogSummary = {
-  total: number;
-  allowed: number;
-  denied: number;
-  highRisk: number;
-  approvalRequired: number;
-  topDeniedAction: string | null;
-  topVendor: string | null;
 };
 type Webhook = { webhookId: string; url: string; events: string[]; status: string; secretPreview: string; lastTriggeredAt?: string | null };
 type Delivery = { deliveryId: string; eventType: string; eventId: string; status: string; error?: string; attempt: number; maxAttempts?: number; createdAt?: string };
@@ -2678,10 +2670,17 @@ function AgentView({ agentId }: { agentId: string }) {
         <div className="agent-section-heading">
           <div>
             <h2>Recent activity</h2>
-            <p>Review the latest verification decisions already returned by this agent detail view.</p>
+            <p>The latest verification decisions for this identity, kept separate from the full workspace history.</p>
           </div>
+          <ButtonLink
+            href={dHref(`/dashboard/logs?agentId=${encodeURIComponent(agentId)}`)}
+            variant="outline"
+            size="small"
+          >
+            Open workspace logs
+          </ButtonLink>
         </div>
-        <section className="agent-activity-panel">
+        <section className="agent-activity-panel ops-console" aria-label={`${agent.name} verification activity`}>
           <LogList logs={detail.data?.logs ?? []} />
         </section>
         {(detail.data?.logs.length ?? 0) === 25 ? <p className="permission-truncation-note">Showing the latest 25 verification events returned by this agent detail view. Older events remain available in Audit logs.</p> : null}
@@ -2845,24 +2844,25 @@ function canGrantPermissionAuthority(workspaceAuthority: WorkspaceAuthority | nu
   return workspaceAuthority.authorityLevel >= requiredAuthorityLevel;
 }
 
-function approvalActionLabel(action: string, vendor?: string | null) {
-  const base = action.replace(/_/g, " ");
-  return vendor ? `${base} → ${vendor}` : base;
-}
-
-
 function InboxView() {
   const { apiJson: api } = useDashboardApi();
   const inbox = useResource<{ pendingApprovals: ApprovalRequest[]; deniedHighRisk: Log[]; workspaceAuthority?: WorkspaceAuthority | null }>("/api/dashboard/inbox");
-  const [working, setWorking] = useState<string | null>(null);
+  const [working, setWorking] = useState<{ approvalId: string; action: "approve" | "deny" } | null>(null);
   const [resolveError, setResolveError] = useState("");
+  const [statusMessage, setStatusMessage] = useState("");
 
   const resolve = async (approvalId: string, action: "approve" | "deny") => {
-    setWorking(approvalId);
+    setWorking({ approvalId, action });
     setResolveError("");
+    setStatusMessage("");
     try {
       await api(`/api/dashboard/approvals/${approvalId}/${action}`, { method: "POST" });
       await inbox.reload();
+      setStatusMessage(
+        action === "approve"
+          ? "Request approved. The grant remains bound to the original request and can be consumed once."
+          : "Request denied. The agent action remains blocked."
+      );
     } catch (e) {
       setResolveError(e instanceof Error ? e.message : "Action failed.");
     } finally {
@@ -2875,6 +2875,7 @@ function InboxView() {
       inbox={inbox}
       working={working}
       resolveError={resolveError}
+      statusMessage={statusMessage}
       onResolve={resolve}
       dateFormatter={date}
     />
@@ -3503,10 +3504,6 @@ function Header({
   );
 }
 
-function Metric({ label, value }: { label: string; value: number | string }) {
-  return <StatCard label={label} value={value} />;
-}
-
 function Rows<T>({ items, href, title, meta }: { items: T[]; href: (item: T) => string; title: (item: T) => string; meta: (item: T) => string }) {
   if (!items.length) return <EmptyState className="dashboard-empty">Nothing here yet.</EmptyState>;
   return <div className="dashboard-list">{items.map((item) => <Link href={href(item)} key={href(item)}><span><strong>{title(item)}</strong><small>{meta(item)}</small></span></Link>)}</div>;
@@ -3555,7 +3552,7 @@ function DenyReceipt({ log, onClose }: { log: Log; onClose: () => void }) {
   };
 
   return (
-    <div className="deny-receipt" role="region" aria-label="Deny receipt">
+    <div className="deny-receipt" id={`receipt-${log.requestId}`} role="region" aria-label="Deny receipt">
       <div className="deny-receipt__header">
         <span className={`console-status ${approvalReq ? "console-status--approval" : "console-status--denied"}`}>
           {decisionLabel}
@@ -3579,54 +3576,64 @@ function DenyReceipt({ log, onClose }: { log: Log; onClose: () => void }) {
 function LogList({ logs, approvalFilter }: { logs: Log[]; approvalFilter?: boolean }) {
   const [openReceipt, setOpenReceipt] = useState<string | null>(null);
   const filtered = approvalFilter ? logs.filter(isApprovalRequired) : logs;
-  if (!filtered.length) return <EmptyState className="dashboard-empty">{approvalFilter ? "No approval-required decisions found." : "No logs yet."}</EmptyState>;
+  if (!filtered.length) {
+    return (
+      <DashboardState
+        kind="empty"
+        title={approvalFilter ? "No approval-required decisions" : "No activity for this agent"}
+        description={approvalFilter
+          ? "This agent has no approval-required records in the returned history."
+          : "Verification decisions will appear here after this agent calls verify()."}
+      />
+    );
+  }
   return (
-    <div className="dashboard-list dashboard-log-list">
+    <div className="agent-decision-list" role="list" aria-label="Agent decision history">
       {filtered.map((log) => {
         const approvalReq = isApprovalRequired(log);
         const isDenied = !log.allowed;
         const showReceipt = openReceipt === log.requestId;
         return (
-          <div key={log.requestId}>
-            <span>
-              <strong>{log.action}</strong>
-              <small>{log.agentName || log.agentId} / {log.vendor || "no resource"}{typeof log.amount === "number" ? ` / $${log.amount}` : ""}</small>
-              <small>{log.reason}</small>
-              <small>{log.requestId}</small>
+          <article className="agent-decision-row" key={log.requestId} role="listitem">
+            <div className="agent-decision-row__time">
+              <time dateTime={log.createdAt}>{date(log.createdAt)}</time>
+            </div>
+            <div className="agent-decision-row__decision">
+              <DecisionIndicator log={log} compact />
+              <RiskIndicator risk={log.risk} />
+            </div>
+            <div className="agent-decision-row__event">
+              <code>{log.action}</code>
+              <span>
+                {log.vendor || "No target recorded"}
+                {typeof log.amount === "number" ? ` · $${log.amount}` : ""}
+              </span>
+            </div>
+            <div className="agent-decision-row__reason">
+              <p>{log.reason}</p>
+              <code title={log.requestId}>{log.requestId}</code>
+            </div>
+            <div className="agent-decision-row__action">
               {isDenied ? (
-                <button
+                <Button
                   className="deny-receipt__toggle"
                   type="button"
+                  variant="ghost"
+                  size="small"
                   onClick={() => setOpenReceipt(showReceipt ? null : log.requestId)}
                   aria-expanded={showReceipt}
+                  aria-controls={`receipt-${log.requestId}`}
                 >
                   {showReceipt ? "Hide receipt" : "View receipt"}
-                </button>
+                </Button>
               ) : null}
-            </span>
-            {approvalReq
-              ? <span className="console-status console-status--approval">approval required</span>
-              : <span className={log.allowed ? "console-status console-status--allowed" : "console-status console-status--denied"}>{log.allowed ? "allowed" : "denied"}</span>}
-            <span className={`console-status console-status--${log.risk}`}>{log.risk}</span>
-            <span>{date(log.createdAt)}</span>
+            </div>
             {showReceipt ? <DenyReceipt log={log} onClose={() => setOpenReceipt(null)} /> : null}
-          </div>
+            <span className="sr-only">{approvalReq ? "This action required approval." : null}</span>
+          </article>
         );
       })}
     </div>
-  );
-}
-
-function LogSummaryStrip({ summary }: { summary: LogSummary }) {
-  return (
-    <section className="dashboard-metrics dashboard-log-summary" aria-label="Log summary">
-      <Metric label="Total" value={summary.total} />
-      <Metric label="Allowed" value={summary.allowed} />
-      <Metric label="Denied" value={summary.denied} />
-      <Metric label="High risk" value={summary.highRisk} />
-      <Metric label="Approval required" value={summary.approvalRequired} />
-      <Metric label="Top denied" value={summary.topDeniedAction ?? "None"} />
-    </section>
   );
 }
 
