@@ -11,6 +11,17 @@ import { ManagedProfilesView } from "@/components/dashboard/ManagedProfilesView"
 import { ManagedProfileActivityView } from "@/components/dashboard/ManagedProfileActivityView";
 import { OpsInboxConsole } from "@/components/dashboard/OpsInboxConsole";
 import {
+  DeliveryStatusBadge,
+  DestructiveSettingsSection,
+  MemberRoleBadge,
+  OperationsNavigation,
+  SecretLifecycleNotice,
+  SettingsNavigation,
+  SettingsSection,
+  SiteGuardStatus,
+  WebhookStatusBadge
+} from "@/components/dashboard/OperationsPrimitives";
+import {
   ConnectionStatusBadge,
   IntegrationPathBadge
 } from "@/components/dashboard/ProfileIntegrationPrimitives";
@@ -33,7 +44,7 @@ import {
 } from "@/components/dashboard/opsLogTypes";
 import { CLI_NPM_INSTALL_COMMAND } from "@/lib/cliInstallCommands";
 import { DashboardShellLayout } from "@/components/layout/DashboardShell";
-import { Badge, Button, ButtonLink, Card, CodeBlock, DashboardState, EmptyState, PageHeader, RiskIndicator } from "@/components/ui";
+import { Badge, Button, ButtonLink, Card, CodeBlock, DashboardState, PageHeader, RiskIndicator } from "@/components/ui";
 import {
   CountedUsageLimitTile,
   InfoUsageLimitTile,
@@ -127,8 +138,8 @@ type Log = {
   risk: "low" | "medium" | "high";
   createdAt?: string;
 };
-type Webhook = { webhookId: string; url: string; events: string[]; status: string; secretPreview: string; lastTriggeredAt?: string | null };
-type Delivery = { deliveryId: string; eventType: string; eventId: string; status: string; error?: string; attempt: number; maxAttempts?: number; createdAt?: string };
+type Webhook = { webhookId: string; url: string; events: string[]; status: string; secretPreview: string; lastTriggeredAt?: string | null; createdAt?: string };
+type Delivery = { deliveryId: string; eventType: string; eventId: string; status: string; httpStatus?: number; error?: string; attempt: number; nextRetryAt?: string | null; maxAttempts?: number; createdAt?: string };
 type DeveloperToken = { tokenId: string; name: string; tokenPreview?: string | null; createdAt?: string; lastUsedAt?: string | null };
 type Site = { siteId: string; name: string; domain: string; status: "active" | "disabled"; createdAt?: string };
 type SiteRule = {
@@ -204,6 +215,7 @@ type AccountMember = {
   email: string | null;
   role: string;
   status: "active";
+  createdAt?: string;
 };
 type PendingInvite = {
   inviteId: string;
@@ -211,6 +223,7 @@ type PendingInvite = {
   role: string;
   status: "pending";
   acceptUrl?: string | null;
+  createdAt?: string;
 };
 type AgentProvider = "custom" | "ollie" | "chatgpt" | "claude" | "gemini" | "zapier" | "make" | "langchain" | "openai" | "other";
 type ProviderSelection = AgentProvider | "";
@@ -890,35 +903,73 @@ function SitesView() {
 
   return (
     <>
-      <Header title="Site Guard" description="Block or allow AI agents from accessing your website paths." action={<ButtonLink href="/docs/site-guard">Integration docs</ButtonLink>} />
-      {resource.error ? <p className="form-error" role="alert">{resource.error}</p> : null}
+      <Header
+        eyebrow="Workspace administration"
+        title="Site Guard"
+        description="Enforce server-side route policy for identified AI agents before protected content is served."
+        action={<ButtonLink href="/docs/site-guard">Integration docs</ButtonLink>}
+      />
+      <OperationsNavigation current="site-guard" />
+      {!resource.data && !resource.error ? (
+        <DashboardState kind="loading" title="Loading Site Guard" description="Retrieving protected sites, rules, keys, and recent checks." />
+      ) : null}
+      {resource.error ? <DashboardState kind="error" title="Site Guard could not be loaded" description={resource.error} /> : null}
       {siteError ? <p className="form-error" role="alert">{siteError}</p> : null}
-      <div className="dashboard-grid">
-        <Card className="dashboard-panel">
-          <div className="dashboard-section-header">
-            <div>
-              <h2>Sites</h2>
-              <p>Checks are deny-by-default until an active rule allows the path.</p>
+      {resource.data ? (
+        <>
+          <section className="site-guard-intro" aria-label="Site Guard enforcement model">
+            <div><strong>Server-side boundary</strong><p>Call Site Guard before returning a protected route. Site keys must never enter client code.</p></div>
+            <div><strong>Deny by default</strong><p>A path is allowed only when an active rule matches the agent signal and explicitly allows it.</p></div>
+            <div><strong>Fail closed</strong><p>Missing sites, disabled sites, required approvals, lookup failures, and unmatched rules deny access.</p></div>
+          </section>
+          <div className="site-guard-master">
+            <SettingsSection
+              id="site-guard-sites"
+              eyebrow="Protected resources"
+              title="Sites"
+              description="Choose a configured domain or register another server-side enforcement boundary."
+            >
+              <div className="site-directory">
+                {sites.map((site) => (
+                  <button
+                    aria-pressed={selectedSiteId === site.siteId}
+                    className="site-directory__row"
+                    key={site.siteId}
+                    onClick={() => setSiteId(site.siteId)}
+                    type="button"
+                  >
+                    <span>
+                      <strong>{site.name}</strong>
+                      <small>{site.domain}</small>
+                    </span>
+                    <SiteGuardStatus status={site.status} />
+                  </button>
+                ))}
+              </div>
+              {!sites.length ? (
+                <DashboardState
+                  className="dashboard-empty"
+                  kind="empty"
+                  title="No Site Guard sites"
+                  description="Register a domain to create its server-side route policy boundary."
+                />
+              ) : null}
+              <div className="settings-subsection">
+                <h3>Register a site</h3>
+                <p>The domain identifies the protected site; route enforcement begins when your server calls the Site Guard check endpoint.</p>
+                <form className="operations-form-grid" onSubmit={createSite}>
+                  <label><span>Name</span><input onChange={(event) => setName(event.target.value)} placeholder="Docs site" required value={name} /></label>
+                  <label><span>Domain</span><input inputMode="url" onChange={(event) => setDomain(event.target.value)} placeholder="docs.example.com" required value={domain} /></label>
+                  <div className="setup-actions"><Button variant="primary" type="submit">Create site</Button></div>
+                </form>
+              </div>
+            </SettingsSection>
+            <div className="site-guard-detail">
+              {selectedSiteId ? <SiteDetailView siteId={selectedSiteId} onChanged={resource.reload} /> : null}
             </div>
           </div>
-          <div className="dashboard-list">
-            {sites.map((site) => (
-              <button className="dashboard-list-row" key={site.siteId} onClick={() => setSiteId(site.siteId)} type="button">
-                <strong>{site.name}</strong>
-                <small>{site.domain} / {site.status} / {site.siteId}</small>
-              </button>
-            ))}
-          </div>
-          {!sites.length && resource.data ? <EmptyState className="dashboard-empty">No Site Guard sites yet.</EmptyState> : null}
-        </Card>
-        <form className="dashboard-panel dashboard-form-card" onSubmit={createSite}>
-          <h2>Create site</h2>
-          <label><span>Name</span><input onChange={(event) => setName(event.target.value)} placeholder="Docs site" required value={name} /></label>
-          <label><span>Domain</span><input onChange={(event) => setDomain(event.target.value)} placeholder="docs.example.com" required value={domain} /></label>
-          <div><Button variant="primary" type="submit">Create site</Button></div>
-        </form>
-      </div>
-      {selectedSiteId ? <SiteDetailView siteId={selectedSiteId} onChanged={resource.reload} /> : null}
+        </>
+      ) : null}
     </>
   );
 }
@@ -977,115 +1028,193 @@ function SiteDetailView({ siteId, onChanged }: { siteId: string; onChanged: () =
 
   const revokeKey = async (keyId: string) => {
     try {
+      setKeyError("");
       await api(`/api/dashboard/sites/${siteId}/keys/${keyId}`, { method: "DELETE" });
       if (newKeyData?.keyId === keyId) setNewKeyData(null);
       await detail.reload();
-    } catch {
-      // revoke errors are surfaced inline
+    } catch (requestError) {
+      setKeyError(requestError instanceof Error ? requestError.message : "Key revocation failed.");
     }
   };
 
   const setSiteStatus = async (status: Site["status"]) => {
-    await api(`/api/dashboard/sites/${siteId}`, { method: "PATCH", body: JSON.stringify({ status }) });
-    await Promise.all([detail.reload(), onChanged()]);
+    try {
+      setDetailError("");
+      await api(`/api/dashboard/sites/${siteId}`, { method: "PATCH", body: JSON.stringify({ status }) });
+      await Promise.all([detail.reload(), onChanged()]);
+    } catch (requestError) {
+      setDetailError(requestError instanceof Error ? requestError.message : "Site status update failed.");
+    }
   };
 
   const setRuleStatus = async (rule: SiteRule) => {
-    await api(`/api/dashboard/sites/${siteId}/rules/${rule.ruleId}`, {
-      method: "PATCH",
-      body: JSON.stringify({ status: rule.status === "active" ? "disabled" : "active" })
-    });
-    await detail.reload();
+    try {
+      setDetailError("");
+      await api(`/api/dashboard/sites/${siteId}/rules/${rule.ruleId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: rule.status === "active" ? "disabled" : "active" })
+      });
+      await detail.reload();
+    } catch (requestError) {
+      setDetailError(requestError instanceof Error ? requestError.message : "Rule status update failed.");
+    }
   };
 
-  if (detail.error) return <p className="form-error" role="alert">{detail.error}</p>;
+  if (detail.error) return <DashboardState kind="error" title="Site configuration could not be loaded" description={detail.error} />;
   const site = detail.data?.site;
-  if (!site) return null;
+  if (!site) return <DashboardState kind="loading" title="Loading site configuration" description="Retrieving enforcement rules, site keys, and recent checks." />;
 
   const hasKeys = (detail.data?.keys ?? []).some((k) => k.status === "active");
 
   return (
     <>
-      <section className="dashboard-grid">
-        <Card className="dashboard-panel">
-          <div className="dashboard-section-header">
+      <div className="site-guard-detail__header">
+        <div>
+          <SiteGuardStatus status={site.status} />
+          <h2>{site.name}</h2>
+          <code>{site.domain} · {site.siteId}</code>
+        </div>
+        <Button
+          onClick={() => void setSiteStatus(site.status === "active" ? "disabled" : "active")}
+          variant={site.status === "active" ? "danger" : "primary"}
+        >
+          {site.status === "active" ? "Disable site" : "Enable site"}
+        </Button>
+      </div>
+      {site.status === "disabled" ? (
+        <div className="operations-notice operations-notice--danger" role="status">
+          <strong>This site is disabled.</strong>
+          Site Guard checks for this site are denied until the site is enabled again.
+        </div>
+      ) : null}
+      {detailError ? <p className="form-error" role="alert">{detailError}</p> : null}
+      <div className="site-guard-tabs">
+        <section className="site-guard-group" aria-labelledby={`site-keys-${site.siteId}`}>
+          <div className="site-guard-group__header">
             <div>
-              <p className="section-kicker">{site.siteId}</p>
-              <h2>{site.name}</h2>
-              <p>{site.domain} · <Badge>{site.status}</Badge></p>
+              <h3 id={`site-keys-${site.siteId}`}>Site keys</h3>
+              <p>Server-only credentials scoped to this site. The raw key is available only at creation.</p>
             </div>
-            <Button onClick={() => void setSiteStatus(site.status === "active" ? "disabled" : "active")}>
-              {site.status === "active" ? "Disable" : "Enable"}
-            </Button>
+            <Badge variant={hasKeys ? "success" : "warning"}>{hasKeys ? "Key ready" : "Key required"}</Badge>
           </div>
-          <h3>Site keys</h3>
-          <p>Use a site key (<code>bhf_site_...</code>) in <code>Authorization: Bearer</code> to scope requests to this site only. Keys are narrower than developer tokens.</p>
+          {keyError ? <p className="form-error" role="alert">{keyError}</p> : null}
           {newKeyData ? (
-            <div className="secret-panel">
-              <strong>Key created — copy now, it will not be shown again.</strong>
-              <code>{newKeyData.rawKey}</code>
-              <Button onClick={() => setNewKeyData(null)}>Dismiss</Button>
-            </div>
+            <>
+              <SecretLifecycleNotice
+                description="Copy this server-only key now. BehalfID stores only its hash, so it cannot be recovered after you dismiss it."
+                label="Site key created"
+                value={newKeyData.rawKey}
+              />
+              <div className="setup-actions"><Button onClick={() => setNewKeyData(null)} size="small" type="button">Dismiss key</Button></div>
+            </>
           ) : null}
-          <div className="dashboard-list">
+          <div className="site-guard-list">
             {(detail.data?.keys ?? []).map((key) => (
-              <div key={key.keyId}>
-                <span>
-                  <strong>{key.name} <Badge>{key.status}</Badge></strong>
-                  <small>{key.keyPreview} / {key.status === "active" && key.lastUsedAt ? `last used ${date(key.lastUsedAt)}` : "never used"}</small>
-                </span>
-                {key.status === "active" ? <Button onClick={() => void revokeKey(key.keyId)}>Revoke</Button> : null}
+              <div className="site-guard-row" key={key.keyId}>
+                <div className="site-guard-row__identity">
+                  <strong>{key.name}</strong>
+                  <div className="site-guard-row__meta">
+                    <span><code>{key.keyPreview}</code></span>
+                    <span>{key.status === "active" && key.lastUsedAt ? `Last used ${date(key.lastUsedAt)}` : "Never used"}</span>
+                    <span>Created {date(key.createdAt)}</span>
+                  </div>
+                </div>
+                <div className="site-guard-row__actions">
+                  <Badge variant={key.status === "active" ? "success" : "outline"}>{key.status}</Badge>
+                  {key.status === "active" ? <Button onClick={() => void revokeKey(key.keyId)} size="small" variant="danger">Revoke</Button> : null}
+                </div>
               </div>
             ))}
           </div>
-          {!(detail.data?.keys ?? []).length && detail.data ? <EmptyState className="dashboard-empty">No site keys yet.</EmptyState> : null}
-          <h3>Rules</h3>
-          <div className="dashboard-list">
+          {!(detail.data?.keys ?? []).length ? <DashboardState className="dashboard-empty" kind="empty" title="No site keys" description="Create a server-only key before integrating this site." /> : null}
+        </section>
+
+        <section className="site-guard-group" aria-labelledby={`site-rules-${site.siteId}`}>
+          <div className="site-guard-group__header">
+            <div>
+              <h3 id={`site-rules-${site.siteId}`}>Route rules</h3>
+              <p>Rules match an agent signal, block listed paths first, and allow only explicitly listed paths.</p>
+            </div>
+            <Badge variant="outline">{detail.data?.rules.length ?? 0} configured</Badge>
+          </div>
+          <div className="site-guard-list">
             {detail.data?.rules.map((rule) => (
-              <div key={rule.ruleId}>
-                <span>
-                  <strong>{rule.name} <Badge>{rule.status}</Badge></strong>
-                  <small>{rule.agentIdentifier || rule.userAgentPattern} / allow {rule.allowedPaths.join(", ") || "none"} / block {rule.blockedPaths.join(", ") || "none"}</small>
-                </span>
-                <Button onClick={() => void setRuleStatus(rule)}>{rule.status === "active" ? "Disable" : "Enable"}</Button>
+              <div className="site-guard-row" key={rule.ruleId}>
+                <div className="site-guard-row__identity">
+                  <strong>{rule.name}</strong>
+                  <div className="site-guard-row__meta">
+                    <span>Signal <code>{rule.agentIdentifier || rule.userAgentPattern}</code></span>
+                    <span>{rule.requiresApproval ? "Approval required" : "Direct decision"}</span>
+                  </div>
+                  <div className="site-guard-row__details">
+                    <div className="site-path-list" aria-label="Allowed paths">
+                      <span className="sr-only">Allowed paths:</span>
+                      {rule.allowedPaths.length ? rule.allowedPaths.map((path) => <code key={`allow-${path}`}>allow {path}</code>) : <code>allow none</code>}
+                    </div>
+                    <div className="site-path-list" aria-label="Blocked paths">
+                      <span className="sr-only">Blocked paths:</span>
+                      {rule.blockedPaths.length ? rule.blockedPaths.map((path) => <code key={`block-${path}`}>block {path}</code>) : <code>block none</code>}
+                    </div>
+                  </div>
+                </div>
+                <div className="site-guard-row__actions">
+                  <Badge variant={rule.status === "active" ? "success" : "outline"}>{rule.status}</Badge>
+                  <Button onClick={() => void setRuleStatus(rule)} size="small">{rule.status === "active" ? "Disable" : "Enable"}</Button>
+                </div>
               </div>
             ))}
           </div>
-          {!(detail.data?.rules ?? []).length && detail.data ? <EmptyState className="dashboard-empty">No rules yet. Add a rule to allow specific paths.</EmptyState> : null}
-          <h3>Recent checks</h3>
-          <div className="dashboard-list">
+          {!(detail.data?.rules ?? []).length ? <DashboardState className="dashboard-empty" kind="empty" title="No route rules" description="Without an active matching rule, Site Guard denies access." /> : null}
+        </section>
+
+        <section className="site-guard-group" aria-labelledby={`site-checks-${site.siteId}`}>
+          <div className="site-guard-group__header">
+            <div>
+              <h3 id={`site-checks-${site.siteId}`}>Recent checks</h3>
+              <p>The latest 25 recorded decisions for this site. This view does not imply continuous health monitoring.</p>
+            </div>
+          </div>
+          <div className="site-guard-list">
             {detail.data?.logs.map((log) => (
-              <div key={log.requestId}>
-                <span>
-                  <strong>{log.allowed ? "Allowed" : "Denied"} {log.path}</strong>
-                  <small>{log.reason} · {log.requestId} · {date(log.createdAt)}</small>
-                </span>
-                <Badge>{log.risk} risk</Badge>
+              <div className="site-guard-row" key={log.requestId}>
+                <div className="site-guard-row__identity">
+                  <div className="site-guard-check__decision">
+                    <Badge variant={log.allowed ? "success" : "destructive"}>{log.allowed ? "Allowed" : "Denied"}</Badge>
+                    <strong><code>{log.path}</code></strong>
+                  </div>
+                  <div className="site-guard-row__meta">
+                    <span>{log.reason}</span>
+                    <span><code>{log.requestId}</code></span>
+                    <span>{date(log.createdAt)}</span>
+                  </div>
+                </div>
+                <Badge variant={log.risk === "high" ? "destructive" : log.risk === "medium" ? "warning" : "success"}>{log.risk} risk</Badge>
               </div>
             ))}
           </div>
-          {!(detail.data?.logs ?? []).length && detail.data ? <EmptyState className="dashboard-empty">No recent checks.</EmptyState> : null}
-        </Card>
-        <div className="dashboard-side-forms">
-          <form className="dashboard-panel dashboard-form-card" onSubmit={createKey}>
-            <h2>Create site key</h2>
-            {keyError ? <p className="form-error" role="alert">{keyError}</p> : null}
-            <label><span>Name</span><input onChange={(event) => setKeyName(event.target.value)} placeholder="Middleware key" required value={keyName} /></label>
-            <div><Button variant="primary" type="submit">Create key</Button></div>
+          {!(detail.data?.logs ?? []).length ? <DashboardState className="dashboard-empty" kind="empty" title="No checks recorded" description="Decisions appear after your server calls Site Guard for this site." /> : null}
+        </section>
+      </div>
+
+      <div className="site-guard-side-forms">
+        <SettingsSection id={`create-site-key-${site.siteId}`} eyebrow="Developer access" title="Create site key" description="Name the server or environment that will hold this credential.">
+          <form className="operations-form-grid" onSubmit={createKey}>
+            <label className="operations-form-grid__wide"><span>Key name</span><input maxLength={120} onChange={(event) => setKeyName(event.target.value)} placeholder="Production middleware" required value={keyName} /></label>
+            <div className="setup-actions"><Button variant="primary" type="submit">Create key</Button></div>
           </form>
-          <form className="dashboard-panel dashboard-form-card" onSubmit={createRule}>
-            <h2>Add rule</h2>
-            {detailError ? <p className="form-error" role="alert">{detailError}</p> : null}
-            <label><span>Name</span><input onChange={(event) => setName(event.target.value)} required value={name} /></label>
+        </SettingsSection>
+        <SettingsSection id={`create-site-rule-${site.siteId}`} eyebrow="Enforcement" title="Add route rule" description="Identify the agent, then declare the absolute paths this rule allows or blocks.">
+          <form className="operations-form-grid" onSubmit={createRule}>
+            <label><span>Rule name</span><input onChange={(event) => setName(event.target.value)} required value={name} /></label>
             <label><span>Agent identifier</span><input onChange={(event) => setSignal(event.target.value)} placeholder="crawler_alpha" value={signal} /></label>
             <label><span>User-Agent pattern</span><input onChange={(event) => setPattern(event.target.value)} placeholder="ExampleBot/*" value={pattern} /></label>
-            <label><span>Allowed paths</span><textarea onChange={(event) => setAllowedPaths(event.target.value)} rows={3} value={allowedPaths} /></label>
-            <label><span>Blocked paths</span><textarea onChange={(event) => setBlockedPaths(event.target.value)} rows={3} value={blockedPaths} /></label>
-            <label><span><input checked={requiresApproval} onChange={(event) => setRequiresApproval(event.target.checked)} type="checkbox" /> Require approval</span></label>
-            <div><Button variant="primary" type="submit">Add rule</Button></div>
+            <label><span>Allowed paths</span><textarea onChange={(event) => setAllowedPaths(event.target.value)} rows={3} value={allowedPaths} /><small className="field-help">Comma- or line-separated absolute path globs.</small></label>
+            <label><span>Blocked paths</span><textarea onChange={(event) => setBlockedPaths(event.target.value)} rows={3} value={blockedPaths} /><small className="field-help">Blocked paths take precedence over allowed paths.</small></label>
+            <label className="setup-check setup-check--setting operations-form-grid__wide"><input checked={requiresApproval} onChange={(event) => setRequiresApproval(event.target.checked)} type="checkbox" /><span className="setup-check__body"><span className="setup-check__label">Require approval</span><span className="setup-check__hint">Matching allowed paths remain denied until approval is available.</span></span></label>
+            <div className="setup-actions"><Button variant="primary" type="submit">Add rule</Button></div>
           </form>
-        </div>
-      </section>
+        </SettingsSection>
+      </div>
       <SiteGuardIntegrationPanel
         site={site}
         hasKeys={hasKeys}
@@ -1106,24 +1235,22 @@ function SiteGuardIntegrationPanel({ site, hasKeys, rawKey }: {
   const expressSnippet = buildSiteGuardExpressSnippet();
 
   return (
-    <section className="dashboard-panel">
-      <div className="dashboard-section-header">
-        <div>
-          <p className="section-kicker">{site.name} · {site.domain}</p>
-          <h2>Use this site</h2>
-          <p>Use a site key server-side before serving protected routes.</p>
-        </div>
-        <ButtonLink href="/docs/site-guard">Docs</ButtonLink>
-      </div>
-
-      <div className="review-notice review-notice--warning">
+    <SettingsSection
+      action={<ButtonLink href="/docs/site-guard">Docs</ButtonLink>}
+      className="site-guard-integration"
+      description="Call the check endpoint from server middleware before returning a route that Site Guard governs."
+      eyebrow={`${site.name} · ${site.domain}`}
+      id={`site-integration-${site.siteId}`}
+      title="Integrate this site"
+    >
+      <div className="operations-notice operations-notice--warning">
         <strong>Never expose <code>SITE_GUARD_KEY</code> in browser or client code.</strong>
         {" "}Site keys are server-side only. Do not include them in client bundles, environment
         variables visible to the browser, or any response sent to end users or crawlers.
       </div>
 
       {!hasKeys ? (
-        <div className="review-notice">
+        <div className="operations-notice">
           <strong>Create a site key to use these snippets.</strong>
           <p className="field-help">
             Create a key using the form above. Copy it immediately after creation — it will not
@@ -1133,42 +1260,38 @@ function SiteGuardIntegrationPanel({ site, hasKeys, rawKey }: {
         </div>
       ) : null}
 
-      <h3>1. Add to your environment</h3>
-      <p className="field-help">
-        {rawKey
-          ? "Your new key is shown below. Copy it now — it will not be shown again after you dismiss the banner above."
-          : "Create a site key above, copy it immediately, then add it to your server environment."}
-      </p>
-      <CodeBlock label=".env">{envSnippet}</CodeBlock>
+      <div className="site-guard-integration__steps">
+        <div className="site-guard-integration__step">
+          <h3>Add the server environment variable</h3>
+          <p className="field-help">
+            {rawKey
+              ? "Your new key is included below. Copy it before dismissing the one-time key notice."
+              : "Create a site key above, copy it immediately, then add it to your server environment."}
+          </p>
+          <CodeBlock label=".env">{envSnippet}</CodeBlock>
+        </div>
 
-      <h3>2. Test with curl</h3>
-      <p className="field-help">
-        Confirm the key works from a terminal before adding it to your middleware.
-        Set <code>SITE_GUARD_KEY</code> in your shell, then run:
-      </p>
-      <CodeBlock label="terminal">{curlSnippet}</CodeBlock>
+        <div className="site-guard-integration__step">
+          <h3>Test the enforcement decision</h3>
+          <p className="field-help">Set <code>SITE_GUARD_KEY</code> in your shell, then confirm the endpoint returns the expected allow or deny decision.</p>
+          <CodeBlock label="terminal">{curlSnippet}</CodeBlock>
+        </div>
 
-      <h3>3a. Next.js middleware</h3>
-      <p className="field-help">
-        Place <code>middleware.ts</code> at the project root (same level as <code>app/</code>).
-        It runs server-side before any route handler.{" "}
-        See <code>examples/site-guard-nextjs/</code> for the full example with a reusable helper.
-      </p>
-      <CodeBlock label="middleware.ts">{nextjsSnippet}</CodeBlock>
-
-      <h3>3b. Express middleware</h3>
-      <p className="field-help">
-        Wrap your routes with <code>siteGuard()</code> before the handler.{" "}
-        See <code>examples/site-guard-express/</code> for the full example.
-      </p>
-      <CodeBlock label="src/siteGuard.ts">{expressSnippet}</CodeBlock>
+        <div className="site-guard-integration__step">
+          <h3>Add server middleware</h3>
+          <p className="field-help">Choose the implementation that matches the protected application. Both examples deny on a failed check.</p>
+          <CodeBlock label="middleware.ts">{nextjsSnippet}</CodeBlock>
+          <div className="site-guard-integration__code-spacer" />
+          <CodeBlock label="src/siteGuard.ts">{expressSnippet}</CodeBlock>
+        </div>
+      </div>
 
       <p className="field-help" style={{ marginTop: 16 }}>
         <Link href="/docs/site-guard">Site Guard docs</Link>
         {" · "}
         Full examples: <code>examples/site-guard-nextjs</code>, <code>examples/site-guard-express</code>
       </p>
-    </section>
+    </SettingsSection>
   );
 }
 
@@ -2761,10 +2884,12 @@ function WebhooksView() {
   const [url, setUrl] = useState("");
   const [secret, setSecret] = useState("");
   const [webhookError, setWebhookError] = useState("");
+  const [creating, setCreating] = useState(false);
   const events = useMemo(() => ["verification.allowed", "verification.denied", "agent.key_rotated", "permission.revoked"], []);
   const create = async (event: FormEvent) => {
     event.preventDefault();
     setWebhookError("");
+    setCreating(true);
     try {
       const result = await api<{ secret: string }>("/api/dashboard/webhooks", { method: "POST", body: JSON.stringify({ url, events }) });
       setSecret(result.secret);
@@ -2772,82 +2897,248 @@ function WebhooksView() {
       await resource.reload();
     } catch (err) {
       setWebhookError(err instanceof Error ? err.message : "Webhook creation failed.");
+    } finally {
+      setCreating(false);
     }
   };
   const webhooksEnabled = resource.data?.webhooksEnabled ?? false;
   return (
     <>
-      <Header title="Webhooks" description="Manage event delivery endpoints and signing secrets." action={webhooksEnabled ? <ButtonLink variant="secondary" href={dHref("/dashboard/billing")}>Manage billing</ButtonLink> : undefined} />
-      {resource.error ? <p className="form-error" role="alert">{resource.error}</p> : null}
-      {!webhooksEnabled ? (
-        <Card className="dashboard-panel webhook-gate-card">
-          <div className="dashboard-section-header">
-            <div>
-              <div className="agent-passport__header">
-                <Badge>Free plan</Badge>
-                <Badge>Webhooks disabled</Badge>
+      <Header
+        eyebrow="Workspace administration"
+        title="Webhooks"
+        description="Deliver signed workspace events to endpoints you operate."
+        action={webhooksEnabled ? <ButtonLink variant="secondary" href={dHref("/dashboard/billing")}>Manage billing</ButtonLink> : undefined}
+      />
+      <OperationsNavigation current="webhooks" />
+      {!resource.data && !resource.error ? <DashboardState kind="loading" title="Loading webhooks" description="Retrieving endpoint status and delivery configuration." /> : null}
+      {resource.error ? <DashboardState kind="error" title="Webhooks could not be loaded" description={resource.error} /> : null}
+      {resource.data ? (
+        <>
+          {!webhooksEnabled ? (
+            <SettingsSection
+              action={<ButtonLink variant="primary" href={dHref("/dashboard/billing")}>Upgrade to Pro</ButtonLink>}
+              className="webhook-gate-card"
+              description="Endpoint creation and delivery are unavailable on the current plan. Existing endpoint records remain visible below."
+              eyebrow={`${resource.data.plan.charAt(0).toUpperCase()}${resource.data.plan.slice(1)} plan`}
+              id="webhook-plan-access"
+              title="Webhook delivery is not included"
+              tone="restricted"
+            >
+              <div className="operations-notice operations-notice--warning">
+                <strong>{resource.data.upgradeHint ?? "Upgrade to enable webhook delivery."}</strong>
+                Verification continues independently; this plan gate does not change verification decisions.
               </div>
-              <h2>Webhooks require Pro.</h2>
-              <p>Free accounts can create agents and call verify, but webhook delivery is disabled until the account upgrades. Existing endpoints stay disabled after downgrade so verification still fails closed without silent delivery.</p>
+            </SettingsSection>
+          ) : null}
+
+          <SettingsSection
+            description="The signing secret proves that a request came from BehalfID. This dashboard flow subscribes new endpoints to the four events shown here."
+            eyebrow="Endpoint configuration"
+            id="create-webhook"
+            title="Create webhook"
+            tone={webhooksEnabled ? "default" : "restricted"}
+          >
+            <div className="webhook-create-layout">
+              <form className="operations-form-grid" onSubmit={create}>
+                <label className="operations-form-grid__wide">
+                  <span>Endpoint URL</span>
+                  <input autoCapitalize="none" autoCorrect="off" disabled={!webhooksEnabled || creating} inputMode="url" onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com/webhooks/behalfid" required type="url" value={url} />
+                  <small className="field-help">Production endpoints must use HTTPS and cannot include URL credentials.</small>
+                </label>
+                <div className="setup-actions"><Button disabled={!webhooksEnabled} loading={creating} variant="primary">Create webhook</Button></div>
+              </form>
+              <div>
+                <p className="settings-section__eyebrow">Subscribed events</p>
+                <div className="webhook-event-set">
+                  {events.map((eventType) => <code key={eventType}>{eventType}</code>)}
+                </div>
+              </div>
             </div>
-            <ButtonLink variant="primary" href={dHref("/dashboard/billing")}>Upgrade to Pro</ButtonLink>
-          </div>
-        </Card>
+            {webhookError ? <p className="form-error" role="alert">{webhookError}</p> : null}
+            {secret ? (
+              <SecretLifecycleNotice
+                description="Copy this signing secret now. BehalfID stores only a hash and will show only a masked preview after you leave this state. Use it to verify webhook signatures."
+                label="Signing secret"
+                value={secret}
+              />
+            ) : null}
+          </SettingsSection>
+
+          <SettingsSection
+            description="Status, subscribed events, and the latest recorded trigger time for each configured endpoint."
+            eyebrow="Delivery destinations"
+            id="webhook-endpoints"
+            title="Endpoints"
+          >
+            {resource.data.webhooks.length ? (
+              <div className="webhook-directory">
+                {resource.data.webhooks.map((webhook) => (
+                  <Link className="webhook-directory__row" href={dHref(`/dashboard/webhooks/${webhook.webhookId}`)} key={webhook.webhookId}>
+                    <div className="webhook-directory__identity">
+                      <code>{webhook.url}</code>
+                      <div className="webhook-directory__meta">
+                        <span>Created {date(webhook.createdAt)}</span>
+                        <span><code>{webhook.webhookId}</code></span>
+                      </div>
+                    </div>
+                    <div className="webhook-directory__events">{webhook.events.length} events · {webhook.events.join(", ")}</div>
+                    <div className="webhook-directory__status">
+                      <WebhookStatusBadge status={webhook.status} />
+                      <small>Last delivery {date(webhook.lastTriggeredAt)}</small>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <DashboardState className="dashboard-empty" kind="empty" title="No webhook endpoints" description={webhooksEnabled ? "Create an endpoint to receive the subscribed signed events." : "Endpoint creation becomes available on a plan with webhook delivery."} />
+            )}
+          </SettingsSection>
+        </>
       ) : null}
-      <Card className="dashboard-panel webhook-form-card">
-        <h2>Create webhook</h2>
-        <form className="inline-form" onSubmit={create}>
-          <label>
-            <span>Endpoint URL</span>
-            <input disabled={!webhooksEnabled} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com/webhooks/behalfid" required value={url} />
-          </label>
-          <Button disabled={!webhooksEnabled} variant="primary">Create</Button>
-        </form>
-        {webhookError ? <p className="form-error" role="alert">{webhookError}</p> : null}
-        {secret ? <Secret value={secret} label="Signing secret" /> : null}
-      </Card>
-      <Rows items={resource.data?.webhooks ?? []} href={(w) => dHref(`/dashboard/webhooks/${w.webhookId}`)} title={(w) => w.url} meta={(w) => `${w.status} / ${w.events.join(", ")}`} />
     </>
   );
 }
 
 function WebhookView({ webhookId }: { webhookId: string }) {
   const { apiJson: api } = useDashboardApi();
+  const { href: dHref } = useDashboardPaths();
   const detail = useResource<{ webhook: Webhook; deliveries: Delivery[] }>(`/api/dashboard/webhooks/${webhookId}`);
   const [secret, setSecret] = useState("");
-  const rotate = async () => setSecret((await api<{ secret: string }>(`/api/dashboard/webhooks/${webhookId}/rotate-secret`, { method: "POST" })).secret);
-  const setStatus = async (status: "enable" | "disable") => { await api(`/api/dashboard/webhooks/${webhookId}/${status}`, { method: "POST" }); await detail.reload(); };
+  const [actionError, setActionError] = useState("");
+  const [working, setWorking] = useState<"rotate" | "enable" | "disable" | null>(null);
+  const rotate = async () => {
+    setWorking("rotate");
+    setActionError("");
+    try {
+      setSecret((await api<{ secret: string }>(`/api/dashboard/webhooks/${webhookId}/rotate-secret`, { method: "POST" })).secret);
+      await detail.reload();
+    } catch (requestError) {
+      setActionError(requestError instanceof Error ? requestError.message : "Secret rotation failed.");
+    } finally {
+      setWorking(null);
+    }
+  };
+  const setStatus = async (status: "enable" | "disable") => {
+    setWorking(status);
+    setActionError("");
+    try {
+      await api(`/api/dashboard/webhooks/${webhookId}/${status}`, { method: "POST" });
+      await detail.reload();
+    } catch (requestError) {
+      setActionError(requestError instanceof Error ? requestError.message : `Webhook ${status} failed.`);
+    } finally {
+      setWorking(null);
+    }
+  };
   const webhook = detail.data?.webhook;
   return (
     <>
-      <Header title="Webhook" description={webhook?.url ?? ""} action={<div className="form-actions"><Button onClick={rotate}>Rotate secret</Button>{webhook?.status === "active" ? <Button onClick={() => setStatus("disable")}>Disable</Button> : <Button onClick={() => setStatus("enable")}>Enable</Button>}</div>} />
-      {secret ? <Secret value={secret} label="Rotated signing secret" /> : null}
+      <Header
+        action={<ButtonLink href={dHref("/dashboard/webhooks")}>All endpoints</ButtonLink>}
+        eyebrow="Workspace administration"
+        title="Webhook endpoint"
+        description="Inspect endpoint configuration, signing-secret lifecycle, and recorded delivery attempts."
+      />
+      <OperationsNavigation current="webhooks" />
+      {!detail.data && !detail.error ? <DashboardState kind="loading" title="Loading webhook" description="Retrieving endpoint metadata and recent deliveries." /> : null}
+      {detail.error ? <DashboardState kind="error" title="Webhook could not be loaded" description={detail.error} /> : null}
+      {actionError ? <p className="form-error" role="alert">{actionError}</p> : null}
       {webhook ? (
-        <Card className="dashboard-panel">
-          <div className="dashboard-section-header">
-            <div>
-              <strong>{webhook.url}</strong>
-              <p className="field-help">Secret preview: {webhook.secretPreview}</p>
+        <>
+          <SettingsSection
+            action={<WebhookStatusBadge status={webhook.status} />}
+            description="The endpoint URL and subscribed events are read-only in this dashboard flow."
+            eyebrow="Endpoint configuration"
+            id="webhook-endpoint-detail"
+            title={<code>{webhook.url}</code>}
+          >
+            <div className="webhook-detail-summary">
+              <dl className="settings-summary">
+                <div><dt>Webhook ID</dt><dd><code>{webhook.webhookId}</code></dd></div>
+                <div><dt>Endpoint URL</dt><dd><code>{webhook.url}</code></dd></div>
+                <div><dt>Created</dt><dd>{date(webhook.createdAt)}</dd></div>
+                <div><dt>Last delivery</dt><dd>{date(webhook.lastTriggeredAt)}</dd></div>
+                <div><dt>Secret preview</dt><dd><code>{webhook.secretPreview}</code></dd></div>
+              </dl>
+              <div>
+                <p className="settings-section__eyebrow">Subscribed events</p>
+                <div className="webhook-event-set">
+                  {webhook.events.map((eventType) => <code key={eventType}>{eventType}</code>)}
+                </div>
+              </div>
             </div>
-            <Badge>{webhook.status}</Badge>
-          </div>
-        </Card>
+            {secret ? (
+              <SecretLifecycleNotice
+                description="Copy the new signing secret now. The previous secret stopped signing new deliveries when rotation completed, and this value cannot be recovered later."
+                label="Rotated signing secret"
+                value={secret}
+              />
+            ) : null}
+          </SettingsSection>
+
+          <SettingsSection
+            description="These controls immediately affect delivery configuration. No endpoint deletion action exists in this dashboard."
+            eyebrow="Sensitive controls"
+            id="webhook-sensitive-controls"
+            title="Secret and endpoint status"
+            tone="danger"
+          >
+            <div className="settings-page-content">
+              <DestructiveSettingsSection
+                action={<Button loading={working === "rotate"} onClick={() => void rotate()} variant="danger">Rotate secret</Button>}
+                consequence="Rotation replaces the signing secret used for future deliveries. Update the endpoint verifier with the new one-time value immediately."
+                title="Rotate signing secret"
+              />
+              {webhook.status === "active" ? (
+                <DestructiveSettingsSection
+                  action={<Button loading={working === "disable"} onClick={() => void setStatus("disable")} variant="danger">Disable endpoint</Button>}
+                  consequence="Disabling stops this endpoint from receiving subscribed events until it is enabled again."
+                  title="Disable webhook delivery"
+                />
+              ) : (
+                <div className="settings-callout">
+                  <strong>Endpoint delivery is disabled.</strong>
+                  Enable it to resume delivery for subscribed events. Plan enforcement still applies.
+                  <div className="setup-actions"><Button loading={working === "enable"} onClick={() => void setStatus("enable")} variant="primary">Enable endpoint</Button></div>
+                </div>
+              )}
+            </div>
+          </SettingsSection>
+
+          <SettingsSection
+            description="The latest 50 delivery records returned for this endpoint, including retry attempt and failure details when available."
+            eyebrow="Delivery observability"
+            id="webhook-delivery-history"
+            title="Delivery history"
+          >
+            {detail.data?.deliveries.length ? (
+              <div className="webhook-delivery-list">
+                {detail.data.deliveries.map((delivery) => (
+                  <article className="webhook-delivery-row" key={delivery.deliveryId}>
+                    <div className="webhook-delivery-row__identity">
+                      <strong><code>{delivery.eventType}</code></strong>
+                      <div className="webhook-delivery-row__meta">
+                        <span><code>{delivery.eventId}</code></span>
+                        <span>Attempt {delivery.attempt}{delivery.maxAttempts ? ` of ${delivery.maxAttempts}` : ""}</span>
+                        <span>{date(delivery.createdAt)}</span>
+                        {delivery.nextRetryAt ? <span>Retry {date(delivery.nextRetryAt)}</span> : null}
+                      </div>
+                    </div>
+                    <div className="webhook-delivery-row__status">
+                      <DeliveryStatusBadge status={delivery.status} />
+                      <small>{delivery.httpStatus ? `HTTP ${delivery.httpStatus}` : "No HTTP status"}</small>
+                    </div>
+                    {delivery.error ? <p className="webhook-delivery-row__error">{delivery.error}</p> : null}
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <DashboardState className="dashboard-empty" kind="empty" title="No deliveries recorded" description="Delivery attempts appear after a subscribed event reaches this endpoint." />
+            )}
+          </SettingsSection>
+        </>
       ) : null}
-      <section className="dashboard-panel">
-        <h2>Delivery history</h2>
-        <div className="dashboard-list">
-          {(detail.data?.deliveries ?? []).map((d) => (
-            <div key={d.deliveryId}>
-              <span>
-                <strong>{d.eventType}</strong>
-                <small>{d.eventId} · attempt {d.attempt}{d.error ? ` · ${d.error}` : ""}</small>
-              </span>
-              <Badge>{d.status}</Badge>
-            </div>
-          ))}
-        </div>
-        {!(detail.data?.deliveries ?? []).length && detail.data ? <EmptyState className="dashboard-empty">No deliveries yet.</EmptyState> : null}
-      </section>
     </>
   );
 }
@@ -3013,37 +3304,47 @@ function MembersPanel() {
   };
 
   return (
-    <Card className="dashboard-panel">
-      <div className="dashboard-section-header">
-        <div>
-          <h2>Delegated Permissions</h2>
-          <p className="field-help">Your role controls which agent permissions you can grant or approve. You can only assign roles below your own.</p>
-          <p className="field-help">
-            If someone already has a BehalfID account, they are added to this workspace immediately. New email addresses receive a pending invite and a shareable invite link.
-          </p>
-        </div>
-      </div>
+    <SettingsSection
+      description="Workspace roles define who can manage membership and the maximum authority available for agent permissions and approvals."
+      eyebrow="Workspace-level"
+      id="members"
+      title="Members and roles"
+      tone={members.data && !members.data.canManageMembers ? "restricted" : "default"}
+    >
+      {!members.data && !members.error ? <DashboardState kind="loading" title="Loading members" description="Retrieving active memberships and pending invitations." /> : null}
+      {members.error ? <DashboardState kind="error" title="Members could not be loaded" description={members.error} /> : null}
       {members.data?.workspaceAuthority ? (
-        <p className="field-help">
-          Your role: <strong>{members.data.workspaceAuthority.roleLabel}</strong> (authority {members.data.workspaceAuthority.authorityLevel})
-        </p>
+        <div className="settings-callout">
+          <strong>Your authority: {members.data.workspaceAuthority.roleLabel} · level {members.data.workspaceAuthority.authorityLevel}</strong>
+          {members.data.canManageMembers
+            ? "You can assign roles below your own authority. The server applies self-removal and last-owner protections."
+            : "Your role cannot change workspace membership. Member data is limited by the workspace visibility rules."}
+        </div>
       ) : null}
-      {memberError ? <p className="form-error">{memberError}</p> : null}
+      {memberError ? <p className="form-error" role="alert">{memberError}</p> : null}
       {lastInviteUrl ? (
-        <p className="field-help">
-          Share this invite link: <code className="invite-link">{lastInviteUrl}</code>
-        </p>
+        <div className="invite-receipt" role="status">
+          <strong>Invitation created</strong>
+          <span>Share this invite link with the intended recipient:</span>
+          <code className="invite-link">{lastInviteUrl}</code>
+        </div>
       ) : null}
-      <div className="dashboard-list">
+      <div className="member-directory" aria-label="Active workspace members">
         {(members.data?.members ?? []).map((member) => (
-          <div key={member.membershipId} className="member-row member-row--active">
-            <span>
+          <div key={member.membershipId} className="member-directory__row member-row member-row--active">
+            <div className="member-directory__identity">
               <strong>{member.email ?? member.userId}</strong>
-              <small>{member.role} · active member</small>
-            </span>
+              <div className="member-directory__meta">
+                <span>Active member</span>
+                <span><code>{member.userId}</code></span>
+                <span>Joined {date(member.createdAt)}</span>
+              </div>
+            </div>
             {members.data?.canManageMembers ? (
-              <span className="approval-actions">
+              <div className="member-directory__actions">
+                <MemberRoleBadge role={member.role} />
                 <select
+                  aria-label={`Role for ${member.email ?? member.userId}`}
                   value={member.role}
                   onChange={(event) => void updateRole(member.membershipId, event.target.value)}
                 >
@@ -3052,49 +3353,58 @@ function MembersPanel() {
                   <option value="ENGINEER">Engineer</option>
                   <option value="VIEWER">Viewer</option>
                 </select>
-                <Button type="button" onClick={() => void removeMember(member.membershipId)}>Remove</Button>
-              </span>
-            ) : null}
+                <Button type="button" variant="danger" onClick={() => void removeMember(member.membershipId)}>Remove</Button>
+              </div>
+            ) : <MemberRoleBadge role={member.role} />}
+            {members.data?.canManageMembers ? <p className="member-directory__consequence">Removing a member ends their workspace membership; server-side owner and authority safeguards still apply.</p> : null}
           </div>
         ))}
       </div>
       {(members.data?.pendingInvites ?? []).length > 0 ? (
-        <>
+        <div className="settings-subsection">
           <h3>Pending invites</h3>
-          <div className="dashboard-list">
+          <p>Invited addresses remain pending until accepted or revoked.</p>
+          <div className="member-directory">
             {members.data?.pendingInvites.map((invite) => (
-              <div key={invite.inviteId} className="member-row member-row--pending">
-                <span>
+              <div key={invite.inviteId} className="member-directory__row member-row member-row--pending">
+                <div className="member-directory__identity">
                   <strong>{invite.email}</strong>
-                  <small>{invite.role} · pending invite</small>
-                </span>
+                  <div className="member-directory__meta"><span>Pending invite</span><span>Created {date(invite.createdAt)}</span></div>
+                </div>
                 {members.data?.canManageMembers ? (
-                  <Button type="button" onClick={() => void revokeInvite(invite.inviteId)}>Revoke</Button>
-                ) : null}
+                  <div className="member-directory__actions">
+                    <MemberRoleBadge role={invite.role} />
+                    <Button type="button" variant="danger" onClick={() => void revokeInvite(invite.inviteId)}>Revoke invite</Button>
+                  </div>
+                ) : <MemberRoleBadge role={invite.role} />}
               </div>
             ))}
           </div>
-        </>
+        </div>
       ) : null}
       {members.data?.canManageMembers ? (
-        <form className="inline-form" onSubmit={addMember}>
-          <label>
-            <span>Email</span>
-            <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="engineer@company.com" />
-          </label>
-          <label>
-            <span>Role</span>
-            <select value={role} onChange={(event) => setRole(event.target.value)}>
-              <option value="ENGINEERING_LEAD">Engineering Lead</option>
-              <option value="SENIOR_ENGINEER">Senior Engineer</option>
-              <option value="ENGINEER">Engineer</option>
-              <option value="VIEWER">Viewer</option>
-            </select>
-          </label>
-          <Button variant="primary" type="submit">Add member</Button>
-        </form>
+        <div className="settings-subsection">
+          <h3>Add member</h3>
+          <p>Existing BehalfID users join immediately. New addresses receive a pending invitation and shareable link.</p>
+          <form className="operations-form-grid" onSubmit={addMember}>
+            <label>
+              <span>Email</span>
+              <input autoComplete="email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="engineer@company.com" />
+            </label>
+            <label>
+              <span>Role</span>
+              <select value={role} onChange={(event) => setRole(event.target.value)}>
+                <option value="ENGINEERING_LEAD">Engineering Lead</option>
+                <option value="SENIOR_ENGINEER">Senior Engineer</option>
+                <option value="ENGINEER">Engineer</option>
+                <option value="VIEWER">Viewer</option>
+              </select>
+            </label>
+            <div className="setup-actions"><Button variant="primary" type="submit">Add member</Button></div>
+          </form>
+        </div>
       ) : null}
-    </Card>
+    </SettingsSection>
   );
 }
 
@@ -3156,6 +3466,8 @@ function SettingsView() {
   });
   const [saveMessage, setSaveMessage] = useState("");
   const [saveError, setSaveError] = useState("");
+  const [tokenError, setTokenError] = useState("");
+  const [tokenWorking, setTokenWorking] = useState<string | null>(null);
 
   const workspaceSlug =
     workspace?.workspaceSlug ?? settings.data?.workspaceSlug ?? null;
@@ -3243,24 +3555,41 @@ function SettingsView() {
 
   const createToken = async (event: FormEvent) => {
     event.preventDefault();
-    const result = await api<{ token: string }>("/api/dashboard/tokens", {
-      method: "POST",
-      body: JSON.stringify({ name: tokenName })
-    });
-    setNewToken(result.token);
-    setTokenName("");
-    await tokens.reload();
+    setTokenError("");
+    setTokenWorking("create");
+    try {
+      const result = await api<{ token: string }>("/api/dashboard/tokens", {
+        method: "POST",
+        body: JSON.stringify({ name: tokenName })
+      });
+      setNewToken(result.token);
+      setTokenName("");
+      await tokens.reload();
+    } catch (requestError) {
+      setTokenError(requestError instanceof Error ? requestError.message : "Could not create developer token.");
+    } finally {
+      setTokenWorking(null);
+    }
   };
 
   const revokeToken = async (tokenId: string) => {
-    await api(`/api/dashboard/tokens/${tokenId}`, { method: "DELETE" });
-    await tokens.reload();
+    setTokenError("");
+    setTokenWorking(tokenId);
+    try {
+      await api(`/api/dashboard/tokens/${tokenId}`, { method: "DELETE" });
+      await tokens.reload();
+    } catch (requestError) {
+      setTokenError(requestError instanceof Error ? requestError.message : "Could not revoke developer token.");
+    } finally {
+      setTokenWorking(null);
+    }
   };
 
   if (!settings.data && !settings.error) {
     return (
       <>
-        <Header eyebrow="Workspace" title="Settings" description="Manage account details and developer tokens." />
+        <Header eyebrow="Workspace administration" title="Settings" description="Manage account identity, workspace policy context, membership, and developer access." />
+        <OperationsNavigation current="settings" />
         <DashboardState kind="loading" title="Loading settings" description="Retrieving workspace and account settings." />
       </>
     );
@@ -3269,7 +3598,8 @@ function SettingsView() {
   if (settings.error) {
     return (
       <>
-        <Header eyebrow="Workspace" title="Settings" description="Manage account details and developer tokens." />
+        <Header eyebrow="Workspace administration" title="Settings" description="Manage account identity, workspace policy context, membership, and developer access." />
+        <OperationsNavigation current="settings" />
         <DashboardState kind="error" title="Settings could not be loaded" description={settings.error} />
       </>
     );
@@ -3277,24 +3607,37 @@ function SettingsView() {
 
   return (
     <>
-      <Header eyebrow="Workspace" title="Settings" description="Manage account details and developer tokens." />
+      <Header eyebrow="Workspace administration" title="Settings" description="Manage account identity, workspace policy context, membership, and developer access." />
+      <OperationsNavigation current="settings" />
       {saveMessage ? <p className="setup-banner" role="status">{saveMessage}</p> : null}
       {saveError ? <p className="form-error" role="alert">{saveError}</p> : null}
-      <Card className="dashboard-panel">
-        <div className="dashboard-section-header">
-          <h2>Managed profiles</h2>
-        </div>
+      <div className="settings-page-layout">
+        <SettingsNavigation items={[
+          { href: "#managed-security", label: "Security", detail: "Managed local sessions" },
+          { href: "#account", label: "Account", detail: "Your personal profile" },
+          { href: "#workspace", label: "Workspace", detail: "Shared identity and context" },
+          { href: "#members", label: "Members & roles", detail: "Authority and invitations" },
+          { href: "#developer-access", label: "Developer access", detail: "API tokens and usage" },
+          { href: "#danger-zone", label: "Destructive actions", detail: "Account deletion support" }
+        ]} />
+        <div className="settings-page-content">
+      <SettingsSection
+        action={<ButtonLink href={dHref("/dashboard/managed-profiles")} variant="secondary">Open managed profiles</ButtonLink>}
+        description="Configure whether supported local Claude, Codex, and Cursor sessions run unmanaged, managed, or required."
+        eyebrow="Security controls"
+        id="managed-security"
+        title="Managed profiles"
+      >
         <p className="field-help">
-          Configure when local Claude, Codex, and Cursor sessions run unmanaged, managed, or required.
+          Managed profile policy has its own workspace view, activity history, plan enforcement, and authority checks.
         </p>
-        <ButtonLink href={dHref("/dashboard/managed-profiles")} variant="secondary">
-          Open managed profiles
-        </ButtonLink>
-      </Card>
-      <Card className="dashboard-panel">
-        <div className="dashboard-section-header">
-          <h2>Profile</h2>
-        </div>
+      </SettingsSection>
+      <SettingsSection
+        description="Personal contact details belong to your BehalfID account and follow you across workspace access."
+        eyebrow="Account-level"
+        id="account"
+        title="Your profile"
+      >
         <form className="setup-form" onSubmit={saveProfile}>
           <label>
             <span>First name</span>
@@ -3320,47 +3663,50 @@ function SettingsView() {
             <Button type="submit" variant="primary">Save profile</Button>
           </div>
         </form>
-      </Card>
-      <Card className="dashboard-panel">
-        <div className="dashboard-section-header">
-          <h2>Workspace</h2>
-        </div>
+      </SettingsSection>
+      <SettingsSection
+        description="Shared workspace identity and onboarding context used across the control plane."
+        eyebrow="Workspace-level"
+        id="workspace"
+        title="Workspace profile"
+        tone={settings.data?.canEditAccountFields ? "default" : "restricted"}
+      >
         {workspaceUrl ? (
-          <div className="account-details" style={{ marginBottom: "1rem" }}>
-            <div className="account-details__row">
-              <span className="account-details__label">Workspace URL</span>
-              <span className="account-details__value" style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+          <dl className="settings-summary">
+            <div>
+              <dt>Workspace URL</dt>
+              <dd className="settings-summary__value-action">
                 <code>{workspaceUrl}</code>
-                <Button type="button" variant="secondary" onClick={() => void copyWorkspaceUrl()}>
+                <Button aria-label="Copy workspace URL" size="small" type="button" variant="secondary" onClick={() => void copyWorkspaceUrl()}>
                   {copiedUrl ? "Copied" : "Copy"}
                 </Button>
-              </span>
+              </dd>
             </div>
-            <p className="field-help">Stable workspace address. Slug changes are not available in this release.</p>
-          </div>
+          </dl>
         ) : null}
         {settings.data ? (
-          <div className="account-details">
-            <div className="account-details__row">
-              <span className="account-details__label">Account type</span>
-              <span className="account-details__value">
+          <dl className="settings-summary">
+            <div>
+              <dt>Account type</dt>
+              <dd>
                 {settings.data.account?.accountType === "business"
                   ? "Business / team"
                   : settings.data.account?.accountType === "individual"
                     ? "Individual"
                     : "Not set"}
-              </span>
+              </dd>
             </div>
-            <div className="account-details__row">
-              <span className="account-details__label">Delegated Permissions role</span>
-              <span className="account-details__value">
+            <div>
+              <dt>Your workspace authority</dt>
+              <dd>
                 {settings.data.delegatedPermissions
                   ? `${settings.data.delegatedPermissions.roleLabel} (authority ${settings.data.delegatedPermissions.authorityLevel})`
                   : "Owner (authority 100)"}
-              </span>
+              </dd>
             </div>
-          </div>
+          </dl>
         ) : null}
+        <p className="field-help">The workspace URL is stable; slug changes are not available in this release.</p>
         {settings.data?.canEditAccountFields ? (
           <form className="setup-form" onSubmit={saveAccount}>
             {settings.data.account?.accountType === "business" ? (
@@ -3447,69 +3793,90 @@ function SettingsView() {
             </div>
           </form>
         ) : (
-          <p className="field-help">Workspace fields can be edited by Owners and Engineering Leads.</p>
+          <div className="restricted-notice" role="status">
+            <strong>Workspace editing is restricted.</strong>
+            Owners and Engineering Leads can update these shared fields. Your account profile remains independently editable above.
+          </div>
         )}
-      </Card>
-      <Card className="dashboard-panel">
-        <div className="dashboard-section-header">
-          <h2>Account</h2>
-        </div>
-        {settings.data ? (
-          <div className="account-details">
-            <div className="account-details__row">
-              <span className="account-details__label">App URL</span>
-              <span className="account-details__value">{settings.data.appUrl}</span>
-            </div>
-            <div className="account-details__row">
-              <span className="account-details__label">API usage</span>
-              <span className="account-details__value">{settings.data.apiUsage}</span>
-            </div>
-            <div className="account-details__row">
-              <span className="account-details__label">Danger zone</span>
-              <span className="account-details__value">
-                {settings.data.dangerZone.includes(SUPPORT_EMAIL) ? (
-                  <>
-                    {settings.data.dangerZone.slice(0, settings.data.dangerZone.indexOf(SUPPORT_EMAIL))}
-                    <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
-                    {settings.data.dangerZone.slice(settings.data.dangerZone.indexOf(SUPPORT_EMAIL) + SUPPORT_EMAIL.length)}
-                  </>
-                ) : (
-                  settings.data.dangerZone
-                )}
-              </span>
-            </div>
-          </div>
-        ) : null}
-      </Card>
+      </SettingsSection>
       <MembersPanel />
-      <section className="dashboard-panel">
-        <div className="dashboard-section-header">
-          <div>
-            <h2>Developer API tokens</h2>
-            <p className="field-help">Account-scoped credentials for SDK/API calls that need developer context. Tokens are shown once and stored hashed.</p>
+      <SettingsSection
+        description="Personal developer credentials for SDK and API calls that require developer context. Raw token values are never listed again."
+        eyebrow="Account-level"
+        id="developer-access"
+        title="Developer API tokens"
+      >
+        <dl className="settings-summary">
+          <div><dt>API base URL</dt><dd><code>{settings.data?.appUrl}</code></dd></div>
+          <div><dt>Verification usage</dt><dd>{settings.data?.apiUsage}</dd></div>
+          <div><dt>Token limit</dt><dd>Up to 10 developer tokens per user</dd></div>
+        </dl>
+        {tokenError ? <p className="form-error" role="alert">{tokenError}</p> : null}
+        <div className="settings-subsection">
+          <h3>Create token</h3>
+          <p>Use a name that identifies the environment or workflow holding the credential.</p>
+          <form className="operations-form-grid" onSubmit={createToken}>
+            <label className="operations-form-grid__wide">
+              <span>Token name</span>
+              <input disabled={tokenWorking !== null} maxLength={120} onChange={(event) => setTokenName(event.target.value)} placeholder="CI, local dev, staging" required value={tokenName} />
+            </label>
+            <div className="setup-actions"><Button loading={tokenWorking === "create"} variant="primary" type="submit">Create token</Button></div>
+          </form>
+        </div>
+        {newToken ? (
+          <SecretLifecycleNotice
+            description="Copy this token now. BehalfID stores only its hash and masked preview, so this value cannot be recovered later."
+            label="Developer API token"
+            value={newToken}
+          />
+        ) : null}
+        <div className="settings-subsection">
+          <h3>Issued tokens</h3>
+          <p>Metadata and masked previews are safe to review here; raw credential material is not returned.</p>
+          {!tokens.data && !tokens.error ? <DashboardState kind="loading" title="Loading developer tokens" description="Retrieving token metadata without raw credentials." /> : null}
+          {tokens.error ? <DashboardState kind="error" title="Developer tokens could not be loaded" description={tokens.error} /> : null}
+          <div className="developer-token-list">
+            {(tokens.data?.tokens ?? []).map((token) => (
+              <div className="developer-token-row" key={token.tokenId}>
+                <div className="developer-token-row__identity">
+                  <strong>{token.name}</strong>
+                  <div className="developer-token-row__meta">
+                    <span><code>{token.tokenPreview ?? "Preview unavailable"}</code></span>
+                    <span>Created {date(token.createdAt)}</span>
+                    <span>Last used {date(token.lastUsedAt)}</span>
+                    <span>Active</span>
+                  </div>
+                </div>
+                <div className="developer-token-row__actions">
+                  <Button loading={tokenWorking === token.tokenId} onClick={() => void revokeToken(token.tokenId)} type="button" variant="danger">Revoke</Button>
+                </div>
+                <p className="developer-token-row__consequence">Revocation immediately stops this token from authenticating future API requests.</p>
+              </div>
+            ))}
           </div>
+          {tokens.data && tokens.data.tokens.length === 0 ? <DashboardState className="dashboard-empty" kind="empty" title="No developer tokens" description="Create a token when a developer workflow needs account-authenticated API access." /> : null}
         </div>
-        <form className="inline-form" onSubmit={createToken}>
-          <label>
-            <span>Token name</span>
-            <input maxLength={120} onChange={(event) => setTokenName(event.target.value)} placeholder="CI, local dev, staging" required value={tokenName} />
-          </label>
-          <Button variant="primary" type="submit">Create token</Button>
-        </form>
-        {newToken ? <Secret label="Developer API token" value={newToken} /> : null}
-        <div className="dashboard-list">
-          {(tokens.data?.tokens ?? []).map((token) => (
-            <div key={token.tokenId}>
-              <span>
-                <strong>{token.name}</strong>
-                <small>{token.tokenPreview ?? "Preview unavailable"} · created {date(token.createdAt)} · last used {date(token.lastUsedAt)}</small>
-              </span>
-              <Button onClick={() => revokeToken(token.tokenId)} type="button">Revoke</Button>
-            </div>
-          ))}
+      </SettingsSection>
+      <SettingsSection
+        description="Account deletion is handled through support in this release. No self-service deletion request is available on this page."
+        eyebrow="Destructive actions"
+        id="danger-zone"
+        title="Account deletion"
+        tone="danger"
+      >
+        <DestructiveSettingsSection
+          consequence={settings.data?.dangerZone.includes(SUPPORT_EMAIL) ? (
+            <>
+              {settings.data.dangerZone.slice(0, settings.data.dangerZone.indexOf(SUPPORT_EMAIL))}
+              <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
+              {settings.data.dangerZone.slice(settings.data.dangerZone.indexOf(SUPPORT_EMAIL) + SUPPORT_EMAIL.length)}
+            </>
+          ) : settings.data?.dangerZone}
+          title="Delete account and workspace data"
+        />
+      </SettingsSection>
         </div>
-        {tokens.data && tokens.data.tokens.length === 0 ? <EmptyState className="dashboard-empty">No developer tokens yet.</EmptyState> : null}
-      </section>
+      </div>
     </>
   );
 }
@@ -3567,11 +3934,6 @@ function Header({
       className="dashboard-header"
     />
   );
-}
-
-function Rows<T>({ items, href, title, meta }: { items: T[]; href: (item: T) => string; title: (item: T) => string; meta: (item: T) => string }) {
-  if (!items.length) return <EmptyState className="dashboard-empty">Nothing here yet.</EmptyState>;
-  return <div className="dashboard-list">{items.map((item) => <Link href={href(item)} key={href(item)}><span><strong>{title(item)}</strong><small>{meta(item)}</small></span></Link>)}</div>;
 }
 
 const APPROVAL_REQUIRED_REASON = "Permission requires approval before execution.";
@@ -3703,7 +4065,13 @@ function LogList({ logs, approvalFilter }: { logs: Log[]; approvalFilter?: boole
 }
 
 function Secret({ label, value }: { label: string; value: string }) {
-  return <div className="secret-panel"><strong>{label}</strong><p>Shown once. Store it now.</p><code>{value}</code></div>;
+  return (
+    <SecretLifecycleNotice
+      description="Shown once. Store it securely now; only a non-sensitive preview or hash remains available afterward."
+      label={label}
+      value={value}
+    />
+  );
 }
 
 function actionToPermTemplate(action: string): PermissionTemplate {
