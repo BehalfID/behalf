@@ -8,6 +8,7 @@ import "./globals.css";
 import "./design-system-foundation.css";
 import "./auth-onboarding.css";
 import "./dashboard-shell.css";
+import "./agents-permissions.css";
 
 const inter = Inter({
   subsets: ["latin"],

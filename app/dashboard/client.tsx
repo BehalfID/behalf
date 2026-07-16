@@ -10,6 +10,18 @@ import { ManagedProfilesView } from "@/components/dashboard/ManagedProfilesView"
 import { ManagedProfileActivityView } from "@/components/dashboard/ManagedProfileActivityView";
 import { OpsInboxConsole } from "@/components/dashboard/OpsInboxConsole";
 import {
+  AgentDetailNavigation,
+  AgentIdentityHeader,
+  AgentListTable,
+  AgentSectionPanel,
+  PermissionFormSection,
+  PermissionSummary,
+  PermissionTemplateCard,
+  permissionEffectiveStatus,
+  permissionIsBroad,
+  type AgentDetailSection
+} from "@/components/dashboard/agents/AgentManagement";
+import {
   formatPauseApprovalDetails,
   formatPauseApprovalTitle,
   isManagedProfilePauseApproval,
@@ -78,8 +90,18 @@ type Permission = {
   requiresApproval?: boolean;
   notes?: string;
   template?: PermissionTemplate;
-  constraints?: { maxAmount?: number; allowedVendors?: string[]; expiresAt?: string };
+  constraints?: {
+    maxAmount?: number;
+    allowedVendors?: string[];
+    expiresAt?: string;
+    allowedPaths?: string[];
+    deniedPaths?: string[];
+    deniedCommands?: string[];
+  };
   requiredAuthorityLevel?: number;
+  lastUsedAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 };
 type WorkspaceAuthority = {
   role: string;
@@ -793,26 +815,44 @@ function AgentsView() {
   const agents = resource.data?.agents ?? [];
   return (
     <>
-      <Header eyebrow="Agents & access" title="Agents" description="Manage the AI agents BehalfID enforces permissions for." action={<ButtonLink variant="primary" href={dHref("/dashboard/agents/new")}>Add agent</ButtonLink>} /> {/* pragma: allowlist secret */}
+      <Header
+        action={<ButtonLink variant="primary" href={dHref("/dashboard/agents/new")}>Add agent</ButtonLink>}
+        description="Manage the identities BehalfID evaluates before an agent can act in this workspace."
+        eyebrow="Agents & access"
+        title="Agents"
+      /> {/* pragma: allowlist secret */}
       {!resource.data && !resource.error ? <DashboardState kind="loading" title="Loading agents" description="Retrieving agent identities for this workspace." /> : null}
       {resource.error ? <DashboardState kind="error" title="Agents could not be loaded" description={resource.error} /> : null}
       {!agents.length && resource.data ? (
-        <Card className="dashboard-panel onboarding-callout">
-          <h2>Create your first controlled agent.</h2>
-          <p>An agent is the AI system or workflow BehalfID identifies before it tries to browse, buy, email, book, edit, or access data. API keys identify it; permissions define what it may do.</p>
-          <div className="permission-template-grid permission-template-grid--nested">
+        <section className="agents-empty">
+          <DashboardState
+            action={<ButtonLink variant="primary" href={dHref("/dashboard/agents/new")}>Set up your first agent</ButtonLink>}
+            description="Register an agent identity, store its one-time credential, and attach a narrow permission policy before the first action is verified."
+            kind="empty"
+            title="No agents in this workspace"
+          />
+          <div className="agents-empty__examples" aria-label="Common agent policy examples">
+            <p>Common starting points</p>
             {FIRST_AGENT_EXAMPLES.map((example) => (
-              <div className="permission-template" key={example.title}>
+              <div key={example.title}>
                 <strong>{example.title}</strong>
                 <span>{example.body}</span>
               </div>
             ))}
           </div>
-          <div><ButtonLink variant="primary" href={dHref("/dashboard/agents/new")}>Set up your first agent</ButtonLink></div>
-        </Card>
+        </section>
       ) : null}
       {agents.length > 0 ? (
-        <Rows items={agents} href={(agent) => dHref(`/dashboard/agents/${agent.agentId}`)} title={(agent) => agent.name} meta={(agent) => `${agent.provider} / ${agent.status}`} />
+        <section className="agents-index" aria-label="Workspace agents">
+          <div className="agents-index__context">
+            <p><strong>Identity comes first.</strong> Open an agent to review its credential state, exact permission constraints, integrations, and verification activity.</p>
+            <span className="agents-index__count">{agents.length} {agents.length === 1 ? "agent" : "agents"}</span>
+          </div>
+          <AgentListTable
+            agents={agents}
+            hrefForAgent={(agent) => dHref(`/dashboard/agents/${agent.agentId}`)}
+          />
+        </section>
       ) : null}
     </>
   );
@@ -2085,10 +2125,11 @@ const result = await behalf.verify({
 
 function AgentView({ agentId }: { agentId: string }) {
   const { apiJson: api } = useDashboardApi();
-  const { href: dHref } = useDashboardPaths();
+  const { href: dHref, workspaceSlug } = useDashboardPaths();
   const detail = useResource<{ agent: Agent; permissions: Permission[]; logs: Log[]; workspaceAuthority?: WorkspaceAuthority | null }>(`/api/dashboard/agents/${agentId}`);
   const [secret, setSecret] = useState("");
   const [passportUrl, setPassportUrl] = useState("");
+  const [activeSection, setActiveSection] = useState<AgentDetailSection>("overview");
   const [form, setForm] = useState({
     template: "" as PermissionTemplate | "",
     action: "",
@@ -2180,7 +2221,6 @@ function AgentView({ agentId }: { agentId: string }) {
   };
 
   const rotate = async () => {
-    if (!window.confirm("Rotate this agent API key? The old key will stop working immediately.")) return;
     setSecret((await api<{ apiKey: string }>(`/api/dashboard/agents/${agentId}/rotate-key`, { method: "POST" })).apiKey);
     await detail.reload();
   };
@@ -2217,6 +2257,13 @@ function AgentView({ agentId }: { agentId: string }) {
     ? canGrantPermissionAuthority(workspaceAuthority, permissionAuthority.requiredAuthorityLevel)
     : true;
   const hasPermissions = permissions.some((permission) => permission.status === "active");
+  const effectiveActivePermissions = permissions.filter((permission) => permissionEffectiveStatus(permission) === "active");
+  const approvalRequiredPermissions = effectiveActivePermissions.filter((permission) => permission.requiresApproval);
+  const broadPermissions = effectiveActivePermissions.filter(permissionIsBroad);
+  const selectedPolicyTemplate = POLICY_TEMPLATES.find((template) => template.id === activePolicyTemplateId);
+  const selectedMultiTemplate = selectedPolicyTemplate && selectedPolicyTemplate.permissions.length > 1
+    ? selectedPolicyTemplate
+    : null;
 
   if (agent && !guidelinesInitialized) {
     setGuidelines(agent.guidelines ?? []);
@@ -2240,20 +2287,14 @@ function AgentView({ agentId }: { agentId: string }) {
     await detail.reload();
   };
 
-  const agentHeader = (
-    <Header
-      breadcrumb={<><Link href={dHref("/dashboard/agents")}>Agents</Link><span aria-hidden="true">/</span><span aria-current="page">{agent?.name ?? "Agent detail"}</span></>}
-      title={agent?.name ?? "Agent"}
-      description={agent?.description ?? "Agent credentials, permissions, and verification logs."}
-      action={agent ? <div className="form-actions"><Button onClick={rotate}>Rotate key</Button>{agent.status === "active" ? <Button onClick={() => setStatus("disable")}>Disable</Button> : <Button onClick={() => setStatus("enable")}>Enable</Button>}</div> : undefined}
-      status={agent ? <Badge variant={agent.status === "active" ? "success" : "neutral"}>{agent.status}</Badge> : undefined}
-    />
-  );
-
   if (!detail.data) {
     return (
       <>
-        {agentHeader}
+        <Header
+          breadcrumb={<><Link href={dHref("/dashboard/agents")}>Agents</Link><span aria-hidden="true">/</span><span aria-current="page">Agent detail</span></>}
+          description="Agent identity, permission policy, integrations, and activity."
+          title="Agent"
+        />
         {detail.error ? (
           <DashboardState kind="error" title="Agent could not be loaded" description={detail.error} />
         ) : (
@@ -2263,70 +2304,125 @@ function AgentView({ agentId }: { agentId: string }) {
     );
   }
 
+  if (!agent) {
+    return (
+      <>
+        <Header title="Agent" description="Agent identity, permission policy, integrations, and activity." />
+        <DashboardState kind="error" title="Agent could not be loaded" description="The detail response did not include an agent record." />
+      </>
+    );
+  }
+
   return (
     <>
-      {agentHeader}
+      <AgentIdentityHeader
+        agent={agent}
+        backHref={dHref("/dashboard/agents")}
+        onRotateKey={rotate}
+        onSetStatus={setStatus}
+        tabs={<AgentDetailNavigation active={activeSection} onChange={setActiveSection} />}
+        workspaceLabel={workspaceSlug ?? "Current workspace"}
+      />
       {secret ? <Secret value={secret} label="Rotated API key" /> : null}
-      {agent ? (
-        <Card className="dashboard-panel agent-passport">
-          <div className="agent-passport__header">
-            <span className="console-status console-status--active">{agent.agentType === "connected" ? "Connected" : "Native"}</span>
-            <span className="console-status">{agent.provider}</span>
-            <span className="console-status">{agent.connectionStatus}</span>
+      <AgentSectionPanel active={activeSection} section="overview">
+        <div className="agent-section-heading">
+          <div>
+            <h2>Identity and credential posture</h2>
+            <p>Review the stable record used for authorization and maintain the descriptive metadata shown across this workspace.</p>
           </div>
-          <p>{agent.agentType === "native" ? "Use this API key directly from your custom integration." : "Use this BehalfID credential to represent this external agent when your app verifies actions."}</p>
-          {agent.agentType === "connected" ? <p>The agent description explains the agent&apos;s purpose. Permissions define what it is actually allowed to do.</p> : null}
-          {agent.agentType === "connected" ? <p>Connected agents are manually represented today. Provider-native integrations are planned.</p> : null}
-          <p className="field-help">Rotating this key invalidates the old key immediately. The new key is shown once and BehalfID stores only a hash.</p>
-          <dl className="console-definition">
-            <div><dt>Agent ID</dt><dd>{agent.agentId}</dd></div>
-            <div><dt>Status</dt><dd>{agent.status}</dd></div>
-            <div><dt>Created</dt><dd>{date(agent.createdAt)}</dd></div>
-            <div><dt>Last used</dt><dd>{date(agent.lastUsedAt)}</dd></div>
-            <div><dt>Key rotated</dt><dd>{date(agent.keyRotatedAt)}</dd></div>
-          </dl>
-        </Card>
-      ) : null}
-      <form className="dashboard-panel agent-edit-form" onSubmit={updateProfile}>
+        </div>
+        <div className="agent-overview-grid">
+          <section className="agent-record-panel">
+            <div className="agent-panel-header">
+              <h2>Agent record</h2>
+              <p>{agent.agentType === "native" ? "This identity uses an API key from a custom integration." : "This identity represents an external agent when an application verifies actions."}</p>
+            </div>
+            <div className="agent-credential-posture" aria-label="Credential posture">
+              <div><span>Credential</span><strong>Stored as hash</strong></div>
+              <div><span>Last rotation</span><strong>{date(agent.keyRotatedAt)}</strong></div>
+              <div><span>Last verified use</span><strong>{date(agent.lastUsedAt)}</strong></div>
+            </div>
+            <p className="field-help">Rotating the credential invalidates the old key immediately. A new key is shown once.</p>
+            <dl className="agent-record-metadata">
+              <div><dt>Agent ID</dt><dd><code>{agent.agentId}</code></dd></div>
+              <div><dt>Type</dt><dd>{agent.agentType}</dd></div>
+              <div><dt>Provider</dt><dd>{agent.provider}</dd></div>
+              <div><dt>Connection</dt><dd>{agent.connectionStatus}</dd></div>
+              <div><dt>External reference</dt><dd>{agent.externalAgentLabel || "Not set"}</dd></div>
+              <div><dt>External ID</dt><dd>{agent.externalAgentId || "Not set"}</dd></div>
+              <div><dt>Created</dt><dd>{date(agent.createdAt)}</dd></div>
+            </dl>
+          </section>
+      <form className="agent-profile-form" onSubmit={updateProfile}>
+        <div className="agent-panel-header">
+          <h2>Profile</h2>
+          <p>Descriptive fields provide context. Permission records remain the source of authorization.</p>
+        </div>
         <label><span>Name</span><input value={profile.name ?? agent?.name ?? ""} onChange={(e) => setProfile({ ...profile, name: e.target.value })} /></label>
         <label><span>Provider</span><select value={profile.provider ?? agent?.provider ?? "custom"} onChange={(e) => setProfile({ ...profile, provider: e.target.value as AgentProvider })}>{providerOptions.map((provider) => <option key={provider.value} value={provider.value}>{provider.label}</option>)}</select></label>
         <label><span>Connection status</span><select value={profile.connectionStatus ?? agent?.connectionStatus ?? "manual"} onChange={(e) => setProfile({ ...profile, connectionStatus: e.target.value as Agent["connectionStatus"] })}><option value="manual">Manual</option><option value="connected">Connected</option><option value="disconnected">Disconnected</option></select></label>
         <label><span>External reference</span><input placeholder="Optional: workspace name, URL, handle, or internal label" value={profile.externalAgentLabel ?? agent?.externalAgentLabel ?? ""} onChange={(e) => setProfile({ ...profile, externalAgentLabel: e.target.value })} /></label>
-        <label className="agent-edit-form__full-col"><span>External ID</span><input value={profile.externalAgentId ?? agent?.externalAgentId ?? ""} onChange={(e) => setProfile({ ...profile, externalAgentId: e.target.value })} /></label>
-        <label className="agent-edit-form__full-col"><span>Description</span><textarea rows={3} value={profile.description ?? agent?.description ?? ""} onChange={(e) => setProfile({ ...profile, description: e.target.value })} /></label>
-        <div className="form-actions agent-edit-form__full-col">
+        <label className="agent-profile-form__full"><span>External ID</span><input value={profile.externalAgentId ?? agent?.externalAgentId ?? ""} onChange={(e) => setProfile({ ...profile, externalAgentId: e.target.value })} /></label>
+        <label className="agent-profile-form__full"><span>Description</span><textarea rows={3} value={profile.description ?? agent?.description ?? ""} onChange={(e) => setProfile({ ...profile, description: e.target.value })} /></label>
+        <div className="form-actions">
           <Button variant="primary" type="submit">Save profile</Button>
         </div>
       </form>
-      {agent ? (
-        <section className="onboarding-result-grid onboarding-result-grid--native">
-          <Card className="dashboard-panel">
-            <h2>{agent.agentType === "connected" ? "Manual test mode" : "Developer integration"}</h2>
+        </div>
+      </AgentSectionPanel>
+      <AgentSectionPanel active={activeSection} section="integrations">
+        <div className="agent-section-heading">
+          <div>
+            <h2>Integrations</h2>
+            <p>Use the existing passport and SDK paths without changing this agent&apos;s identity or policy.</p>
+          </div>
+        </div>
+        <section className="agent-integrations-grid">
+          <Card className="agent-integration-panel">
+            <div className="agent-panel-header">
+              <h2>{agent.agentType === "connected" ? "Manual test mode" : "Developer integration"}</h2>
+              <p>Credential and passport operations do not edit permission records.</p>
+            </div>
             <p>{agent.agentType === "connected" ? "Send this link to your agent so it can read the allowed scopes and ask you to verify actions. Automatic enforcement requires provider or app integration." : "Use this API key directly from your custom integration and call verify before actions happen."}</p>
-            <Button onClick={regeneratePassport} type="button">{agent.publicPassportEnabled ? "Regenerate passport link" : "Create passport link"}</Button>
+            <div className="agent-passport-actions"><Button onClick={regeneratePassport} type="button">{agent.publicPassportEnabled ? "Regenerate passport link" : "Create passport link"}</Button></div>
             {passportUrl ? <Secret value={passportUrl} label="Passport link" /> : null}
             {agent.agentType === "connected" ? <p className="field-help">Treat this passport link like a secret. Anyone with the token can view this agent&apos;s allowed scopes and run manual previews.</p> : null}
             {agent.agentType === "connected" ? <p className="field-help">Some agents cannot fetch passport links directly (e.g. Gemini memory, ChatGPT system prompts). If the agent cannot read the link, open the passport page and paste the Agent memory block into the agent instead.</p> : null}
             {agent.publicPassportTokenPreview ? <p>Current passport token: <code>{agent.publicPassportTokenPreview}</code></p> : null}
           </Card>
           {agent.agentType === "connected" ? (
-            <details className="dashboard-panel developer-integration-details">
+            <details className="agent-integration-panel developer-integration-details">
               <summary className="developer-integration-summary">For developers — SDK integration</summary>
               <p>When your app or provider can call BehalfID, use the SDK/API for automatic enforcement.</p>
               <CodeBlock label="verify.ts">{buildVerifySnippet(agent.agentId, detail.data?.permissions)}</CodeBlock>
             </details>
           ) : (
-            <Card className="dashboard-panel">
-              <h2>Manual testing</h2>
+            <Card className="agent-integration-panel">
+              <div className="agent-panel-header"><h2>Manual testing</h2></div>
               <p>Native agents can also use a passport link for manual allow/deny testing.</p>
               <CodeBlock label="verify.ts">{buildVerifySnippet(agent.agentId, detail.data?.permissions)}</CodeBlock>
             </Card>
           )}
         </section>
-      ) : null}
-      <section className="dashboard-panel">
-        <h2>Guidelines</h2>
-        <p className="field-help">Behavioral rules for this agent — things it should always or never do, regardless of which service it&apos;s accessing. These appear in the MCP context and permission passport.</p>
+      </AgentSectionPanel>
+      <AgentSectionPanel active={activeSection} section="permissions">
+        <div className="permission-section-heading">
+          <div>
+            <h2>Permission policy</h2>
+            <p>Inspect the effective policy first, then create a narrow additional permission when the agent needs new authority.</p>
+          </div>
+        </div>
+        <dl className="permission-posture" aria-label="Permission posture">
+          <div><dt>Active</dt><dd>{effectiveActivePermissions.length}</dd><small>Effective records</small></div>
+          <div><dt>Approval gates</dt><dd>{approvalRequiredPermissions.length}</dd><small>Active permissions</small></div>
+          <div><dt>Broad policies</dt><dd>{broadPermissions.length}</dd><small>Without stored constraints</small></div>
+          <div><dt>Your authority</dt><dd>{workspaceAuthority?.roleLabel ?? "Workspace member"}</dd><small>{workspaceAuthority ? `Level ${workspaceAuthority.authorityLevel}` : "Role unavailable"}</small></div>
+        </dl>
+        <section className="agent-guidelines-panel">
+        <div className="agent-panel-header">
+          <h2>Agent guidelines</h2>
+          <p>Behavioral guidance appears in MCP context and the permission passport. Permission records still determine authorization.</p>
+        </div>
         {guidelines.length > 0 ? (
           <ul className="guidelines-list">
             {guidelines.map((g, i) => (
@@ -2337,88 +2433,124 @@ function AgentView({ agentId }: { agentId: string }) {
             ))}
           </ul>
         ) : <p className="field-help">No guidelines yet.</p>}
-        <label>
-          <span>Add guideline</span>
-          <input
-            placeholder="e.g. Never commit directly to main, Always ask before deleting files"
-            value={newGuideline}
-            onChange={(e) => setNewGuideline(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addGuideline(); } }}
-            maxLength={500}
-          />
-          <small className="field-help">Press Enter or click Add. Max 20 guidelines, 500 characters each.</small>
-        </label>
-        <div className="form-actions">
-          <Button type="button" onClick={addGuideline} disabled={!newGuideline.trim() || guidelines.length >= 20}>Add</Button>
+        <div className="agent-guideline-composer">
+          <label>
+            <span>Add guideline</span>
+            <input
+              placeholder="e.g. Never commit directly to main, Always ask before deleting files"
+              value={newGuideline}
+              onChange={(e) => setNewGuideline(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addGuideline(); } }}
+              maxLength={500}
+            />
+            <small className="field-help">Press Enter or click Add. Max 20 guidelines, 500 characters each.</small>
+          </label>
+          <Button type="button" onClick={addGuideline} disabled={!newGuideline.trim() || guidelines.length >= 20}>Add guideline</Button>
+        </div>
+        <div className="agent-guideline-actions">
           <Button variant="primary" type="button" onClick={saveGuidelines}>Save guidelines</Button>
         </div>
       </section>
-      <form className="dashboard-panel" onSubmit={createPermission}>
-        <h2>Add permission</h2>
-        <p className="field-help">Permissions define which actions this agent can take. Start narrow: allow one useful action and explicitly block risky ones.</p>
-        {workspaceAuthority ? (
-          <p className="field-help">
-            Your delegated role: <strong>{workspaceAuthority.roleLabel}</strong> (authority {workspaceAuthority.authorityLevel})
-          </p>
-        ) : null}
-        {permissionAuthority ? (
-          <p className="field-help">
-            Requires: <strong>{getRequiredRoleLabel(permissionAuthority.requiredAuthorityLevel)}</strong>
-            {!canGrantSelectedPermission ? (
-              <span className="form-error"> — you do not have authority to grant this permission.</span>
-            ) : null}
-          </p>
-        ) : null}
-        <div className="policy-template-section">
-          <span className="field-label">Policy templates</span>
-          <p className="field-help">Pre-built policies for real developer workflows. Single-permission templates populate the form below for editing. Multi-permission templates are applied immediately.</p>
-          <div className="permission-template-grid permission-template-grid--nested">
+      <section className="permissions-panel" aria-labelledby="permission-records-heading">
+        <div className="permissions-panel__header">
+          <div>
+            <h2 id="permission-records-heading">Permission records</h2>
+            <p>Blocked actions and explicit constraints remain visible because they materially change the policy.</p>
+          </div>
+          <span className="permissions-panel__count">{permissions.length} {permissions.length === 1 ? "record" : "records"}</span>
+        </div>
+        {!permissions.length ? (
+          <DashboardState
+            className="permission-empty-state"
+            description="Create a narrow permission below before this agent can be allowed to take an action."
+            kind="empty"
+            title="No permission records"
+          />
+        ) : (
+          <div className="permission-list">
+            {permissions.map((permission) => (
+              <PermissionSummary key={permission.permissionId} onRevoke={revoke} permission={permission} />
+            ))}
+          </div>
+        )}
+      </section>
+      {permissions.length === 50 ? <p className="permission-truncation-note">Showing the latest 50 permission records returned by this agent detail view. Older records may not be included.</p> : null}
+      {workspaceAuthority?.authorityLevel === 10 ? (
+        <DashboardState
+          description="Viewers can inspect the effective policy and constraints, but cannot create permission records."
+          kind="access-denied"
+          title="Permission creation is restricted"
+        />
+      ) : (
+      <form className="permission-editor" id="permission-editor" onSubmit={createPermission}>
+        <div className="permission-editor__header">
+          <div>
+            <h2>Add permission</h2>
+            <p>Start narrow: identify the action and resource, make allowed and blocked actions explicit, then review approval and authority requirements.</p>
+          </div>
+          <div className="permission-editor__authority">
+            <span>Your delegated role</span>
+            <strong>{workspaceAuthority ? `${workspaceAuthority.roleLabel} · level ${workspaceAuthority.authorityLevel}` : "Workspace authority unavailable"}</strong>
+            {permissionAuthority ? <span>Proposed policy requires {getRequiredRoleLabel(permissionAuthority.requiredAuthorityLevel)}</span> : null}
+            {!canGrantSelectedPermission ? <p className="form-error" role="alert">You do not have authority to grant this permission.</p> : null}
+          </div>
+        </div>
+        <PermissionFormSection
+          description="Single-permission templates populate the editor for review. Multi-permission templates create each displayed record sequentially when applied."
+          legend="Choose a policy template"
+        >
+          <div className="policy-template-browser">
+          <div className="permission-template-cards">
             {POLICY_TEMPLATES.map((pt) => (
-              <button
+              <PermissionTemplateCard
+                active={activePolicyTemplateId === pt.id}
+                categoryLabel={POLICY_CATEGORY_LABELS[pt.category]}
                 key={pt.id}
-                type="button"
-                className={activePolicyTemplateId === pt.id ? "permission-template permission-template--active" : "permission-template"}
-                onClick={() => {
+                onSelect={() => {
                   if (pt.permissions.length === 1) {
                     applyPolicyTemplate(pt);
                   } else {
                     setActivePolicyTemplateId(activePolicyTemplateId === pt.id ? "" : pt.id);
                   }
                 }}
-              >
-                <strong>{pt.label}</strong>
-                <span>{pt.tagline}</span>
-                <small>{POLICY_CATEGORY_LABELS[pt.category]} · {pt.permissions.length === 1 ? "1 permission" : `${pt.permissions.length} permissions`}</small>
-              </button>
+                template={pt}
+              />
             ))}
           </div>
-          {activePolicyTemplateId && (() => {
-            const pt = POLICY_TEMPLATES.find((t) => t.id === activePolicyTemplateId);
-            if (!pt || pt.permissions.length <= 1) return null;
-            return (
-              <div className="policy-template-multi-preview dashboard-panel" style={{ marginTop: 12 }}>
-                <strong>Permissions that will be created:</strong>
-                <ul style={{ margin: "8px 0", paddingLeft: 18 }}>
-                  {pt.permissions.map((p, i) => (
-                    <li key={i}>
-                      <strong>{p.action}</strong> on <code>{p.resource}</code>{p.requiresApproval ? " — requires approval" : " — auto-allowed"}
-                    </li>
-                  ))}
-                </ul>
-                <p className="field-help">Blocks: {pt.blocks.join(", ")}.</p>
-                <Button type="button" variant="primary" onClick={() => applyPolicyTemplateAll(pt)} disabled={policyApplying}>
-                  {policyApplying ? "Applying…" : `Apply ${pt.permissions.length} permissions`}
-                </Button>
-                <Button type="button" onClick={() => setActivePolicyTemplateId("")}>Cancel</Button>
+          {selectedMultiTemplate ? (
+            <div className="policy-template-preview">
+              <div className="policy-template-preview__header">
+                <div>
+                  <strong>Applying this template creates {selectedMultiTemplate.permissions.length} separate permission records.</strong>
+                  <span>Records are created in the order shown. Review each action, approval gate, and resource before applying.</span>
+                </div>
+                <Badge variant="warning">Multiple records</Badge>
               </div>
-            );
-          })()}
-        </div>
+              <div className="policy-template-preview__records">
+                {selectedMultiTemplate.permissions.map((permission, index) => (
+                  <div className="policy-template-preview__record" key={`${permission.action}-${index}`}>
+                    <strong>{permission.action} on {permission.resource}</strong>
+                    <span>{permission.requiresApproval ? "Approval required" : "No approval required"}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="field-help">Important blocks: {selectedMultiTemplate.blocks.join(", ")}.</p>
+              <div className="policy-template-preview__actions">
+                <Button type="button" onClick={() => setActivePolicyTemplateId("")}>Cancel</Button>
+                <Button type="button" variant="primary" onClick={() => applyPolicyTemplateAll(selectedMultiTemplate)} disabled={policyApplying}>
+                  {policyApplying ? "Applying…" : `Apply ${selectedMultiTemplate.permissions.length} permissions`}
+                </Button>
+              </div>
+            </div>
+          ) : null}
+          </div>
+        </PermissionFormSection>
         {!hasPermissions ? (
-          <div className="permission-template-grid permission-template-grid--nested">
+          <PermissionFormSection description="Use a starting point to populate the same editor fields below. Nothing is created until you submit the form." legend="Starting points">
+          <div className="permission-template-cards">
             {FIRST_PERMISSION_EXAMPLES.map((example) => (
               <button
-                className="permission-template"
+                className="permission-template-card"
                 key={example}
                 type="button"
                 onClick={() => {
@@ -2437,7 +2569,9 @@ function AgentView({ agentId }: { agentId: string }) {
               </button>
             ))}
           </div>
+          </PermissionFormSection>
         ) : null}
+        <PermissionFormSection description="Templates only prefill this form. The submitted action and resource remain the stored policy target." legend="Action and target">
         <label>
           <span>Scope template</span>
           <select value={agentViewScopeId} onChange={(e) => {
@@ -2485,6 +2619,8 @@ function AgentView({ agentId }: { agentId: string }) {
           <span>Resource / service</span>
           <input placeholder="gmail.com, google-calendar, coachella.com" value={form.resource} onChange={(e) => setForm({ ...form, resource: e.target.value })} />
         </label>
+        </PermissionFormSection>
+        <PermissionFormSection description="Allowed actions narrow what can proceed. Blocked actions remain explicit deny signals." legend="Action boundaries">
         <label>
           <span>Allowed actions</span>
           <input placeholder="read labels, summarize docs, suggest times" value={form.allowedActions} onChange={(e) => setForm({ ...form, allowedActions: e.target.value })} />
@@ -2495,6 +2631,8 @@ function AgentView({ agentId }: { agentId: string }) {
           <input placeholder="send email, delete files, make purchases" value={form.blockedActions} onChange={(e) => setForm({ ...form, blockedActions: e.target.value })} />
           <small className="field-help">Comma-separated — what this agent must never do.</small>
         </label>
+        </PermissionFormSection>
+        <PermissionFormSection description="Review human approval, amount, expiration, and the authority implication before creating the record." legend="Approval and limits">
         {form.template !== "purchase" ? (
           <label>
             <span>Requires approval</span>
@@ -2514,17 +2652,17 @@ function AgentView({ agentId }: { agentId: string }) {
           <span>Expires at</span>
           <input type="datetime-local" value={form.expiresAt} onChange={(e) => setForm({ ...form, expiresAt: e.target.value })} />
         </label>
-        <Button variant="primary" type="submit" disabled={!canGrantSelectedPermission || workspaceAuthority?.authorityLevel === 10}>
+        </PermissionFormSection>
+        <div className="permission-editor__actions">
+          <p>Creating this permission adds a new active record. Existing permission records are not replaced or revoked.</p>
+        <Button variant={selectedMultiTemplate ? "outline" : "primary"} type="submit" disabled={!canGrantSelectedPermission || workspaceAuthority?.authorityLevel === 10}>
           Create permission
         </Button>
+        </div>
       </form>
-      <section className="dashboard-panel">
-        <h2>Permissions</h2>
-        {!permissions.length ? <EmptyState className="dashboard-empty">No permissions yet. Add one above before this agent can be allowed to do anything.</EmptyState> : null}
-        <div className="dashboard-list">{permissions.map((p) => <div key={p.permissionId}><span><strong>{p.action}</strong><small>{dashboardPermissionSummary(p)}{p.requiredAuthorityLevel != null ? ` · requires ${getRequiredRoleLabel(p.requiredAuthorityLevel)}` : ""}</small></span><Badge>{p.status}</Badge>{p.status === "active" ? <Button onClick={() => revoke(p.permissionId)}>Revoke</Button> : null}</div>)}</div>
-      </section>
+      )}
       {hasPermissions ? (
-        <section className="dashboard-panel">
+        <section className="agent-integration-panel">
           <div className="dashboard-section-header">
             <div>
               <h2>Try a verification</h2>
@@ -2535,10 +2673,19 @@ function AgentView({ agentId }: { agentId: string }) {
           <CodeBlock label="verify.ts">{buildVerifySnippet(agentId, permissions)}</CodeBlock>
         </section>
       ) : null}
-      <section className="dashboard-panel">
-        <h2>Recent logs</h2>
-        <LogList logs={detail.data?.logs ?? []} />
-      </section>
+      </AgentSectionPanel>
+      <AgentSectionPanel active={activeSection} section="activity">
+        <div className="agent-section-heading">
+          <div>
+            <h2>Recent activity</h2>
+            <p>Review the latest verification decisions already returned by this agent detail view.</p>
+          </div>
+        </div>
+        <section className="agent-activity-panel">
+          <LogList logs={detail.data?.logs ?? []} />
+        </section>
+        {(detail.data?.logs.length ?? 0) === 25 ? <p className="permission-truncation-note">Showing the latest 25 verification events returned by this agent detail view. Older events remain available in Audit logs.</p> : null}
+      </AgentSectionPanel>
     </>
   );
 }
@@ -3513,18 +3660,4 @@ const result = await behalf.verify({
   action: "${action}",
   vendor: "${vendor}"${metaBlock}
 });`;
-}
-
-function dashboardPermissionSummary(permission: Permission) {
-  const constraints = permission.constraints ?? {};
-  const parts = [
-    permission.resource ? `on ${permission.resource}` : null,
-    permission.allowedActions?.length ? `allows: ${permission.allowedActions.join(", ")}` : (permission.scope ?? null),
-    typeof constraints.maxAmount === "number" ? `max $${constraints.maxAmount}` : null,
-    permission.requiresApproval ? "requires approval" : null,
-    permission.blockedActions?.length ? `blocks: ${permission.blockedActions.join(", ")}` : null,
-    constraints.expiresAt ? `expires ${date(constraints.expiresAt)}` : null,
-    permission.status
-  ].filter(Boolean);
-  return parts.join(" / ") || permission.permissionId;
 }
