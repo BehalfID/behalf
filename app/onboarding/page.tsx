@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentDeveloper } from "@/lib/developerAuth";
+import { requiresEmailVerificationRedirect } from "@/lib/emailVerificationGuard";
 import { connectToDatabase } from "@/lib/db";
 import DeveloperUser from "@/models/DeveloperUser";
 import { AccountSetupClient } from "./client";
@@ -12,6 +13,7 @@ export const metadata: Metadata = {
 export default async function OnboardingPage() {
   const user = await getCurrentDeveloper();
   if (!user) redirect("/login");
+  if (requiresEmailVerificationRedirect(user)) redirect("/verify-email");
 
   await connectToDatabase();
   const fullUser = await DeveloperUser.findOne({ userId: user.userId })

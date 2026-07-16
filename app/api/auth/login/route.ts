@@ -41,7 +41,13 @@ export async function POST(request: NextRequest) {
   }
 
   const { token } = await createDeveloperSession(user.userId);
-  const response = NextResponse.json({ user: { userId: user.userId, email: user.email } });
+  const response = NextResponse.json({
+    user: {
+      userId: user.userId,
+      email: user.email,
+      emailVerified: user.emailVerified !== false
+    }
+  });
   setDeveloperSessionCookie(response, token);
   return response;
 }

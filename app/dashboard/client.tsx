@@ -15,6 +15,7 @@ import {
   isManagedProfilePauseApproval,
 } from "@/components/dashboard/opsLogTypes";
 import { CLI_NPM_INSTALL_COMMAND } from "@/lib/cliInstallCommands";
+import { SessionInactivityMonitor } from "@/components/auth/SessionInactivityMonitor";
 import { DashboardShellLayout } from "@/components/layout/DashboardShell";
 import { Badge, Button, ButtonLink, Card, CodeBlock, EmptyState, PageHeader, StatCard } from "@/components/ui";
 import {
@@ -45,7 +46,6 @@ import {
   type AgentTool,
   type ControlArea
 } from "@/lib/onboarding";
-import { SUPPORT_EMAIL } from "@/lib/support";
 
 type Agent = {
   agentId: string;
@@ -441,6 +441,7 @@ export function DashboardShell({
 }) {
   return (
     <DashboardShellLayout>
+      <SessionInactivityMonitor />
       <DashboardViews
         view={view}
         id={id}
@@ -2860,7 +2861,6 @@ function SettingsView() {
     email: string;
     appUrl: string;
     apiUsage: string;
-    dangerZone: string;
     workspaceSlug?: string | null;
     delegatedPermissions?: WorkspaceAuthority | null;
     profile?: {
@@ -2911,6 +2911,11 @@ function SettingsView() {
   });
   const [saveMessage, setSaveMessage] = useState("");
   const [saveError, setSaveError] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   const workspaceSlug =
     workspace?.workspaceSlug ?? settings.data?.workspaceSlug ?? null;
@@ -3008,6 +3013,25 @@ function SettingsView() {
   const revokeToken = async (tokenId: string) => {
     await api(`/api/dashboard/tokens/${tokenId}`, { method: "DELETE" });
     await tokens.reload();
+  };
+
+  const deleteAccount = async (event: FormEvent) => {
+    event.preventDefault();
+    setDeleteError("");
+    setDeleting(true);
+    try {
+      await api("/api/auth/account", {
+        method: "DELETE",
+        body: JSON.stringify({
+          password: deletePassword,
+          confirmation: deleteConfirmation
+        })
+      });
+      window.location.assign("/login?deleted=1");
+    } catch (requestError) {
+      setDeleteError(requestError instanceof Error ? requestError.message : "Failed to delete account.");
+      setDeleting(false);
+    }
   };
 
   return (
@@ -3202,17 +3226,58 @@ function SettingsView() {
             <div className="account-details__row">
               <span className="account-details__label">Danger zone</span>
               <span className="account-details__value">
-                {settings.data.dangerZone.includes(SUPPORT_EMAIL) ? (
-                  <>
-                    {settings.data.dangerZone.slice(0, settings.data.dangerZone.indexOf(SUPPORT_EMAIL))}
-                    <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
-                    {settings.data.dangerZone.slice(settings.data.dangerZone.indexOf(SUPPORT_EMAIL) + SUPPORT_EMAIL.length)}
-                  </>
-                ) : (
-                  settings.data.dangerZone
-                )}
+                Permanently delete your account and sole-owned workspace data. Shared workspaces keep their data; your membership is removed.
               </span>
             </div>
+            {!showDeleteConfirm ? (
+              <Button onClick={() => setShowDeleteConfirm(true)} type="button" variant="secondary">
+                Delete account
+              </Button>
+            ) : (
+              <form className="setup-form" onSubmit={deleteAccount}>
+                <p className="field-help">
+                  This action cannot be undone. Type <strong>DELETE</strong> and enter your password to confirm.
+                </p>
+                <label>
+                  <span>Confirmation</span>
+                  <input
+                    autoComplete="off"
+                    onChange={(event) => setDeleteConfirmation(event.target.value)}
+                    placeholder="DELETE"
+                    required
+                    value={deleteConfirmation}
+                  />
+                </label>
+                <label>
+                  <span>Password</span>
+                  <input
+                    autoComplete="current-password"
+                    onChange={(event) => setDeletePassword(event.target.value)}
+                    required
+                    type="password"
+                    value={deletePassword}
+                  />
+                </label>
+                {deleteError ? <p className="form-error" role="alert">{deleteError}</p> : null}
+                <div className="setup-actions">
+                  <Button disabled={deleting} type="submit" variant="primary">
+                    {deleting ? "Deleting…" : "Permanently delete account"}
+                  </Button>
+                  <Button
+                    disabled={deleting}
+                    onClick={() => {
+                      setShowDeleteConfirm(false);
+                      setDeletePassword("");
+                      setDeleteConfirmation("");
+                      setDeleteError("");
+                    }}
+                    type="button"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            )}
           </div>
         ) : null}
       </Card>

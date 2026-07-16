@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import {
   getCurrentDeveloper,
   getDeveloperFromToken,
+  isEmailVerified,
   requireDashboardMutationOrigin,
   requireDeveloperApi,
   type DeveloperAccount
@@ -62,6 +63,15 @@ export async function requireHumanDeveloperApi(request: NextRequest): Promise<Hu
     .lean();
   if (!user) {
     return { user: null, account: null, error: jsonError("Developer authentication required.", 401), authMethod: null };
+  }
+
+  if (!isEmailVerified(user.emailVerified)) {
+    return {
+      user: null,
+      account: null,
+      error: jsonError("Email verification required. Check your inbox or resend the verification email.", 403),
+      authMethod: null
+    };
   }
 
   const account = await Account.findOne({ accountId: tokenDoc.accountId }).lean();

@@ -8,6 +8,7 @@ import { createPublicId } from "@/lib/ids";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { jsonError } from "@/lib/responses";
 import { WORKSPACE_SLUG_HEADER } from "@/lib/workspaceSlug";
+import { isUnverifiedAuthApiPath } from "@/lib/emailVerificationGuard";
 import Account, { type AccountDocument } from "@/models/Account";
 import DeveloperSession from "@/models/DeveloperSession";
 import DeveloperUser, { type DeveloperUserDocument } from "@/models/DeveloperUser";
@@ -15,7 +16,11 @@ import DeveloperUser, { type DeveloperUserDocument } from "@/models/DeveloperUse
 const scryptAsync = promisify(crypto.scrypt);
 const COOKIE_NAME = "behalfid_developer";
 export { COOKIE_NAME as DEVELOPER_SESSION_COOKIE_NAME };
-const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 14;
+/** Sliding inactivity window before a session is invalidated. */
+export const SESSION_INACTIVITY_MS = 1000 * 60 * 60;
+/** Absolute maximum session lifetime from creation. */
+const SESSION_ABSOLUTE_TTL_MS = 1000 * 60 * 60 * 24 * 14;
+const SESSION_ACTIVITY_TOUCH_INTERVAL_MS = 1000 * 60;
 const MUTATION_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 export function normalizeEmail(email: string) {
@@ -70,13 +75,19 @@ export function isEmailVerified(emailVerified: boolean | null | undefined): bool
   return emailVerified !== false;
 }
 
+function sessionExpiryFromNow() {
+  return new Date(Date.now() + SESSION_INACTIVITY_MS);
+}
+
 export async function createDeveloperSession(userId: string) {
+  const now = new Date();
   const token = crypto.randomBytes(32).toString("base64url");
   const session = await DeveloperSession.create({
     sessionId: createPublicId("sess"),
     userId,
     tokenHash: hashSessionToken(token),
-    expiresAt: new Date(Date.now() + SESSION_TTL_MS)
+    expiresAt: sessionExpiryFromNow(),
+    lastActivityAt: now
   });
 
   return { token, session };
@@ -87,9 +98,63 @@ export function setDeveloperSessionCookie(response: NextResponse, token: string)
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    maxAge: Math.floor(SESSION_TTL_MS / 1000),
+    maxAge: Math.floor(SESSION_INACTIVITY_MS / 1000),
     path: "/"
   });
+}
+
+function isSessionInactive(lastActivityAt: Date | string | undefined, createdAt: Date | string | undefined) {
+  const now = Date.now();
+  const activityMs = lastActivityAt
+    ? new Date(lastActivityAt).getTime()
+    : createdAt
+      ? new Date(createdAt).getTime()
+      : now;
+
+  if (now - activityMs > SESSION_INACTIVITY_MS) {
+    return true;
+  }
+
+  const created = createdAt ? new Date(createdAt).getTime() : 0;
+  return created > 0 && now - created > SESSION_ABSOLUTE_TTL_MS;
+}
+
+async function touchDeveloperSession(session: {
+  sessionId: string;
+  lastActivityAt?: Date | string;
+}) {
+  const lastActivity = session.lastActivityAt ? new Date(session.lastActivityAt).getTime() : 0;
+  if (Date.now() - lastActivity < SESSION_ACTIVITY_TOUCH_INTERVAL_MS) {
+    return;
+  }
+
+  try {
+    await DeveloperSession.updateOne(
+      { sessionId: session.sessionId },
+      { $set: { lastActivityAt: new Date(), expiresAt: sessionExpiryFromNow() } }
+    );
+  } catch {
+    // Best-effort sliding refresh; auth still succeeds on this request.
+  }
+}
+
+export async function refreshDeveloperSessionActivity(token: string) {
+  await connectToDatabase();
+  const tokenHash = hashSessionToken(token);
+  const session = await DeveloperSession.findOne({
+    tokenHash,
+    expiresAt: { $gt: new Date() }
+  }).lean();
+
+  if (!session || isSessionInactive(session.lastActivityAt, session.createdAt)) {
+    if (session) {
+      await DeveloperSession.deleteOne({ sessionId: session.sessionId });
+    }
+    return null;
+  }
+
+  await touchDeveloperSession(session);
+  return session;
 }
 
 export function clearDeveloperSessionCookie(response: NextResponse) {
@@ -143,6 +208,13 @@ export async function getDeveloperFromToken(token?: string | null) {
   }).lean();
 
   if (!session) return null;
+
+  if (isSessionInactive(session.lastActivityAt, session.createdAt)) {
+    await DeveloperSession.deleteOne({ sessionId: session.sessionId });
+    return null;
+  }
+
+  await touchDeveloperSession(session);
   const user = await DeveloperUser.findOne({ userId: session.userId })
     .select("-_id userId email emailVerified onboardingUseCase primaryAccountId firstName lastName jobTitle onboardingCompletedAt createdAt updatedAt")
     .lean();
@@ -226,12 +298,7 @@ export async function requireDeveloperApi(request: NextRequest) {
   const { user, session } = context;
 
   const pathname = request.nextUrl.pathname;
-  const isAccountSetupApi = pathname.startsWith("/api/onboarding/");
-  if (
-    !isAccountSetupApi &&
-    MUTATION_METHODS.has(request.method) &&
-    !isEmailVerified(user.emailVerified)
-  ) {
+  if (!isEmailVerified(user.emailVerified) && !isUnverifiedAuthApiPath(pathname)) {
     return {
       user: null,
       account: null,
