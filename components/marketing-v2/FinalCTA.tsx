@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { ButtonLink } from "@/components/ui";
 import styles from "@/app/home-v2/home-v2.module.css";
 import { ArrowRightIcon } from "./icons";
 
@@ -14,13 +14,13 @@ export function FinalCTA() {
           executed.
         </p>
         <div className={styles.finalActions}>
-          <Link href="/signup" className={styles.btnPrimary}>
+          <ButtonLink href="/signup" size="large" variant="primary">
             Start securing agents
             <ArrowRightIcon size={16} />
-          </Link>
-          <Link href="/docs/concepts" className={styles.btnSecondary}>
+          </ButtonLink>
+          <ButtonLink href="/docs/concepts" size="large" variant="outline">
             Read the technical overview
-          </Link>
+          </ButtonLink>
         </div>
       </div>
     </section>

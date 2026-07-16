@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useRef, useState, type KeyboardEvent } from "react";
+import { ButtonLink, Card, Tab, TabList } from "@/components/ui";
 import styles from "@/app/home-v2/home-v2.module.css";
 import { HERO_SCENARIOS, type DecisionState } from "./data";
 import { ShieldIcon, CheckIcon, XIcon, PauseIcon, ArrowRightIcon } from "./icons";
@@ -45,10 +45,30 @@ function Verdict({ state, label }: { state: DecisionState; label: string }) {
 
 export function HeroAuthorizationDemo() {
   const [active, setActive] = useState<DecisionState>("approval");
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const scenario = HERO_SCENARIOS.find((s) => s.state === active) ?? HERO_SCENARIOS[0];
 
   const decisionClass =
     active === "allowed" ? styles.decisionAllow : active === "denied" ? styles.decisionDeny : styles.decisionWarn;
+
+  function selectFromKeyboard(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    let nextIndex = index;
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      nextIndex = (index + 1) % HERO_SCENARIOS.length;
+    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      nextIndex = (index - 1 + HERO_SCENARIOS.length) % HERO_SCENARIOS.length;
+    } else if (event.key === "Home") {
+      nextIndex = 0;
+    } else if (event.key === "End") {
+      nextIndex = HERO_SCENARIOS.length - 1;
+    } else {
+      return;
+    }
+
+    event.preventDefault();
+    setActive(HERO_SCENARIOS[nextIndex].state);
+    tabRefs.current[nextIndex]?.focus();
+  }
 
   return (
     <section className={`${styles.container} ${styles.hero}`}>
@@ -62,13 +82,13 @@ export function HeroAuthorizationDemo() {
           </p>
 
           <div className={styles.heroActions}>
-            <Link href="/signup" className={styles.btnPrimary}>
+            <ButtonLink href="/signup" size="large" variant="primary">
               Start securing agents
               <ArrowRightIcon size={16} />
-            </Link>
-            <Link href="/docs/concepts" className={styles.btnSecondary}>
+            </ButtonLink>
+            <ButtonLink href="/docs/concepts" size="large" variant="outline">
               Read the technical overview
-            </Link>
+            </ButtonLink>
           </div>
 
           <p className={styles.heroCredit}>
@@ -78,25 +98,29 @@ export function HeroAuthorizationDemo() {
         </div>
 
         {/* Right: interactive decision panel */}
-        <div className={styles.panel}>
+        <Card className={styles.panel} variant="elevated">
           <div className={styles.panelBar}>
             <span className={styles.panelTitle}>
               <span className={styles.panelDot} />
               behalf · verify
             </span>
-            <div className={styles.tabs} role="tablist" aria-label="Decision outcome">
-              {HERO_SCENARIOS.map((s) => (
-                <button
+            <TabList className={styles.tabs} label="Decision outcome" unstyled>
+              {HERO_SCENARIOS.map((s, index) => (
+                <Tab
                   key={s.state}
-                  role="tab"
-                  aria-selected={active === s.state}
+                  ref={(node) => {
+                    tabRefs.current[index] = node;
+                  }}
                   className={`${styles.tab} ${active === s.state ? TAB_CLASS[s.state] : ""}`}
                   onClick={() => setActive(s.state)}
+                  onKeyDown={(event) => selectFromKeyboard(event, index)}
+                  selected={active === s.state}
+                  unstyled
                 >
                   {s.tabLabel}
-                </button>
+                </Tab>
               ))}
-            </div>
+            </TabList>
           </div>
 
           <div className={styles.panelBody}>
@@ -150,7 +174,7 @@ export function HeroAuthorizationDemo() {
             <span className={styles.flowArrow}>→</span>
             <span className={styles.flowNode}>Allow · Deny · Approve</span>
           </div>
-        </div>
+        </Card>
       </div>
     </section>
   );

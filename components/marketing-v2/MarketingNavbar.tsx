@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import { ButtonLink, Logo } from "@/components/ui";
 import styles from "@/app/home-v2/home-v2.module.css";
 
 const NAV_LINKS = [
@@ -18,15 +18,7 @@ export function MarketingNavbar() {
   return (
     <header className={styles.nav}>
       <div className={styles.navInner}>
-        <Link href="/home-v2" className={styles.brand} aria-label="BehalfID home">
-          <span className={styles.brandMark}>
-            <Image src="/icon-transparent.png" alt="" width={20} height={20} />
-          </span>
-          <span>
-            Behalf<span className={styles.brandSlash}>/</span>
-            <span className={styles.brandId}>ID</span>
-          </span>
-        </Link>
+        <Logo className={styles.brand} href="/home-v2" markStyle="framed" />
 
         <nav className={styles.navLinks} aria-label="Primary">
           {NAV_LINKS.map((l) => (
@@ -40,9 +32,9 @@ export function MarketingNavbar() {
           <Link href="/login" className={styles.navSignin}>
             Sign in
           </Link>
-          <Link href="/signup" className={`${styles.btnPrimary} ${styles.navCta}`}>
+          <ButtonLink href="/signup" className={styles.navCta} variant="primary">
             Start securing agents
-          </Link>
+          </ButtonLink>
         </div>
 
         <button
@@ -73,12 +65,12 @@ export function MarketingNavbar() {
             </Link>
           ))}
           <div className={styles.drawerActions}>
-            <Link href="/login" className={`${styles.btnSecondary}`} onClick={() => setOpen(false)}>
+            <ButtonLink href="/login" onClick={() => setOpen(false)} size="large" variant="outline">
               Sign in
-            </Link>
-            <Link href="/signup" className={`${styles.btnPrimary}`} onClick={() => setOpen(false)}>
+            </ButtonLink>
+            <ButtonLink href="/signup" onClick={() => setOpen(false)} size="large" variant="primary">
               Get started
-            </Link>
+            </ButtonLink>
           </div>
         </div>
       )}

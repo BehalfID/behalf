@@ -1,4 +1,5 @@
 import styles from "@/app/home-v2/home-v2.module.css";
+import { Card } from "@/components/ui";
 import { LOG_ENTRIES } from "./data";
 
 const DOT_CLASS: Record<string, string> = {
@@ -17,7 +18,7 @@ const STATE_LABEL: Record<string, string> = {
 
 export function VerificationLogMockup() {
   return (
-    <div className={styles.panel}>
+    <Card className={styles.panel}>
       <div className={styles.profileHead}>
         <span className={styles.profileName}>
           Verification log
@@ -35,6 +36,6 @@ export function VerificationLogMockup() {
           <span className={styles.logTime}>{entry.detail} · {entry.time}</span>
         </div>
       ))}
-    </div>
+    </Card>
   );
 }

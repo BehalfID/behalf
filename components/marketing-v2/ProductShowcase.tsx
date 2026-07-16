@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, type KeyboardEvent } from "react";
+import { Tab, TabList, TabPanel } from "@/components/ui";
 import styles from "@/app/home-v2/home-v2.module.css";
 import { PermissionPolicyMockup } from "./PermissionPolicyDemo";
 import { ApprovalWorkflowMockup } from "./ApprovalWorkflowDemo";
@@ -75,45 +76,41 @@ export function ProductShowcase() {
       </div>
 
       <div className={styles.showcaseTabScroller}>
-        <div className={styles.showcaseTabs} role="tablist" aria-label="Product capabilities">
+        <TabList className={styles.showcaseTabs} label="Product capabilities" unstyled>
           {SHOWCASE_TABS.map((tab, index) => {
             const selected = tab.id === active;
 
             return (
-              <button
+              <Tab
                 key={tab.id}
                 ref={(node) => {
                   tabRefs.current[index] = node;
                 }}
                 id={`showcase-tab-${tab.id}`}
-                type="button"
-                role="tab"
-                aria-selected={selected}
                 aria-controls={`showcase-panel-${tab.id}`}
-                tabIndex={selected ? 0 : -1}
                 className={`${styles.showcaseTab} ${selected ? styles.showcaseTabActive : ""}`}
                 onClick={() => setActive(tab.id)}
                 onKeyDown={(event) => selectFromKeyboard(event, index)}
+                selected={selected}
+                unstyled
               >
                 {tab.label}
-              </button>
+              </Tab>
             );
           })}
-        </div>
+        </TabList>
       </div>
 
-      <div
+      <TabPanel
         id={`showcase-panel-${activeTab.id}`}
-        role="tabpanel"
         aria-labelledby={`showcase-tab-${activeTab.id}`}
-        tabIndex={0}
         className={styles.showcasePanel}
       >
         <p className={styles.showcaseSummary}>{activeTab.summary}</p>
         <div className={styles.showcaseMockup}>
           <ActivePanel />
         </div>
-      </div>
+      </TabPanel>
     </section>
   );
 }
