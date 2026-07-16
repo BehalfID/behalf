@@ -3,6 +3,7 @@ export * from "./Button";
 export * from "./Card";
 export * from "./CodeBlock";
 export * from "./DataDisplay";
+export * from "./DashboardState";
 export * from "./EmptyState";
 export * from "./Feedback";
 export * from "./Input";

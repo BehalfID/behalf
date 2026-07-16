@@ -16,7 +16,7 @@ import {
 } from "@/components/dashboard/opsLogTypes";
 import { CLI_NPM_INSTALL_COMMAND } from "@/lib/cliInstallCommands";
 import { DashboardShellLayout } from "@/components/layout/DashboardShell";
-import { Badge, Button, ButtonLink, Card, CodeBlock, EmptyState, PageHeader, StatCard } from "@/components/ui";
+import { Badge, Button, ButtonLink, Card, CodeBlock, DashboardState, EmptyState, PageHeader, StatCard } from "@/components/ui";
 import {
   CountedUsageLimitTile,
   InfoUsageLimitTile,
@@ -548,9 +548,15 @@ function HomeView() {
   return (
     <>
       <Header
+        eyebrow="Workspace overview"
         title="Control plane"
         description="Current state of agents, policies, and decisions in this workspace."
         action={<ButtonLink variant="primary" href={headerAction.href}>{headerAction.label}</ButtonLink>}
+        status={
+          <Badge variant={systemState.tone === "ok" ? "success" : systemState.tone === "warn" ? "warning" : "outline"}>
+            {systemState.label}
+          </Badge>
+        }
       />
       {summary.error ? <p className="form-error" role="alert">{summary.error}</p> : null}
 
@@ -787,7 +793,9 @@ function AgentsView() {
   const agents = resource.data?.agents ?? [];
   return (
     <>
-      <Header title="Agents" description="Manage the AI agents BehalfID enforces permissions for." action={<ButtonLink variant="primary" href={dHref("/dashboard/agents/new")}>Add agent</ButtonLink>} /> {/* pragma: allowlist secret */}
+      <Header eyebrow="Agents & access" title="Agents" description="Manage the AI agents BehalfID enforces permissions for." action={<ButtonLink variant="primary" href={dHref("/dashboard/agents/new")}>Add agent</ButtonLink>} /> {/* pragma: allowlist secret */}
+      {!resource.data && !resource.error ? <DashboardState kind="loading" title="Loading agents" description="Retrieving agent identities for this workspace." /> : null}
+      {resource.error ? <DashboardState kind="error" title="Agents could not be loaded" description={resource.error} /> : null}
       {!agents.length && resource.data ? (
         <Card className="dashboard-panel onboarding-callout">
           <h2>Create your first controlled agent.</h2>
@@ -2077,6 +2085,7 @@ const result = await behalf.verify({
 
 function AgentView({ agentId }: { agentId: string }) {
   const { apiJson: api } = useDashboardApi();
+  const { href: dHref } = useDashboardPaths();
   const detail = useResource<{ agent: Agent; permissions: Permission[]; logs: Log[]; workspaceAuthority?: WorkspaceAuthority | null }>(`/api/dashboard/agents/${agentId}`);
   const [secret, setSecret] = useState("");
   const [passportUrl, setPassportUrl] = useState("");
@@ -2231,9 +2240,32 @@ function AgentView({ agentId }: { agentId: string }) {
     await detail.reload();
   };
 
+  const agentHeader = (
+    <Header
+      breadcrumb={<><Link href={dHref("/dashboard/agents")}>Agents</Link><span aria-hidden="true">/</span><span aria-current="page">{agent?.name ?? "Agent detail"}</span></>}
+      title={agent?.name ?? "Agent"}
+      description={agent?.description ?? "Agent credentials, permissions, and verification logs."}
+      action={agent ? <div className="form-actions"><Button onClick={rotate}>Rotate key</Button>{agent.status === "active" ? <Button onClick={() => setStatus("disable")}>Disable</Button> : <Button onClick={() => setStatus("enable")}>Enable</Button>}</div> : undefined}
+      status={agent ? <Badge variant={agent.status === "active" ? "success" : "neutral"}>{agent.status}</Badge> : undefined}
+    />
+  );
+
+  if (!detail.data) {
+    return (
+      <>
+        {agentHeader}
+        {detail.error ? (
+          <DashboardState kind="error" title="Agent could not be loaded" description={detail.error} />
+        ) : (
+          <DashboardState kind="loading" title="Loading agent" description="Retrieving identity, permission, and activity details." />
+        )}
+      </>
+    );
+  }
+
   return (
     <>
-      <Header title={agent?.name ?? "Agent"} description={agent?.description ?? "Agent credentials, permissions, and verification logs."} action={<div className="form-actions"><Button onClick={rotate}>Rotate key</Button>{agent?.status === "active" ? <Button onClick={() => setStatus("disable")}>Disable</Button> : <Button onClick={() => setStatus("enable")}>Enable</Button>}</div>} />
+      {agentHeader}
       {secret ? <Secret value={secret} label="Rotated API key" /> : null}
       {agent ? (
         <Card className="dashboard-panel agent-passport">
@@ -2931,6 +2963,8 @@ function SettingsView() {
 
   useEffect(() => {
     if (!settings.data) return;
+    // The API response intentionally becomes the editable form snapshot.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setProfileForm({
       firstName: settings.data.profile?.firstName ?? "",
       lastName: settings.data.profile?.lastName ?? "",
@@ -3010,9 +3044,27 @@ function SettingsView() {
     await tokens.reload();
   };
 
+  if (!settings.data && !settings.error) {
+    return (
+      <>
+        <Header eyebrow="Workspace" title="Settings" description="Manage account details and developer tokens." />
+        <DashboardState kind="loading" title="Loading settings" description="Retrieving workspace and account settings." />
+      </>
+    );
+  }
+
+  if (settings.error) {
+    return (
+      <>
+        <Header eyebrow="Workspace" title="Settings" description="Manage account details and developer tokens." />
+        <DashboardState kind="error" title="Settings could not be loaded" description={settings.error} />
+      </>
+    );
+  }
+
   return (
     <>
-      <Header title="Settings" description="Manage account details and developer tokens." />
+      <Header eyebrow="Workspace" title="Settings" description="Manage account details and developer tokens." />
       {saveMessage ? <p className="setup-banner" role="status">{saveMessage}</p> : null}
       {saveError ? <p className="form-error" role="alert">{saveError}</p> : null}
       <Card className="dashboard-panel">
@@ -3276,8 +3328,32 @@ function DashboardDocs() {
   );
 }
 
-function Header({ title, description, action }: { title: string; description?: string; action?: React.ReactNode }) {
-  return <PageHeader title={title} description={description} action={action} className="dashboard-header" />;
+function Header({
+  title,
+  description,
+  action,
+  breadcrumb,
+  eyebrow,
+  status
+}: {
+  title: string;
+  description?: string;
+  action?: React.ReactNode;
+  breadcrumb?: React.ReactNode;
+  eyebrow?: string;
+  status?: React.ReactNode;
+}) {
+  return (
+    <PageHeader
+      title={title}
+      description={description}
+      action={action}
+      breadcrumb={breadcrumb}
+      eyebrow={eyebrow}
+      status={status}
+      className="dashboard-header"
+    />
+  );
 }
 
 function Metric({ label, value }: { label: string; value: number | string }) {
