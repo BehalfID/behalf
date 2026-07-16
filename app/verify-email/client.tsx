@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Logo } from "@/components/ui";
+import { AuthShell, AuthStateMark, AuthTaskHeader, FormAlert } from "@/components/auth/AuthShell";
+import { Button, ButtonLink, Field, FieldLabel, Input } from "@/components/ui";
 
-type State = "idle" | "verifying" | "success" | "error" | "resending" | "resent" | "code-entry" | "code-verifying";
+type State = "idle" | "verifying" | "success" | "error" | "resending" | "resent" | "code-verifying";
 
 const POLL_INTERVAL_MS = 3000;
 
@@ -75,13 +76,14 @@ export function VerifyEmailClient({ token }: { token?: string }) {
     return () => { cancelled = true; };
   }, [token]);
 
-  const submitCode = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submitCode = async (event: React.FormEvent) => {
+    event.preventDefault();
     const normalized = code.replace(/-/g, "").toUpperCase();
     if (normalized.length !== 8) {
       setMessage("Please enter a valid 8-character code (e.g. 1Z2X-9A8B).");
       return;
     }
+    setMessage("");
     setState("code-verifying");
     try {
       const res = await fetch("/api/auth/verify-email", {
@@ -123,96 +125,119 @@ export function VerifyEmailClient({ token }: { token?: string }) {
   };
 
   return (
-    <main id="main-content" className="auth-page" tabIndex={-1}>
-      <section className="auth-shell">
-        <div className="auth-context">
-          <Logo />
-          <div>
-            <p className="section-kicker">Email verification</p>
-            <h2>One more step.</h2>
-            <p>Verify your email address to enable API access, agent creation, and developer token management.</p>
-          </div>
-        </div>
-        <div className="auth-panel">
-          <p className="section-kicker">Account activation</p>
+    <AuthShell compact returnHref="/login" returnLabel="Back to login">
+      <section className="auth-task">
+        {state === "verifying" ? (
+          <>
+            <AuthStateMark tone="pending" />
+            <AuthTaskHeader
+              eyebrow="Account activation"
+              title="Verifying your email"
+              description="We’re checking the verification link. This should only take a moment."
+            />
+            <FormAlert tone="notice">Verification is in progress.</FormAlert>
+          </>
+        ) : null}
 
-          {state === "verifying" && (
-            <>
-              <h1>Verifying your email…</h1>
-              <p>Please wait.</p>
-            </>
-          )}
+        {state === "success" ? (
+          <>
+            <AuthStateMark tone="success" />
+            <AuthTaskHeader
+              eyebrow="Account activated"
+              title="Email verified"
+              description="Your email is confirmed. Agent creation and developer credentials are now available."
+            />
+            <ButtonLink href="/dashboard" variant="primary">Go to dashboard</ButtonLink>
+          </>
+        ) : null}
 
-          {state === "success" && (
-            <>
-              <h1>Email verified.</h1>
-              <p>Your account is now active. You can access the full developer dashboard.</p>
-              <Link href="/dashboard"><Button variant="primary">Go to dashboard</Button></Link>
-            </>
-          )}
+        {state === "error" ? (
+          <>
+            <AuthStateMark tone="error" />
+            <AuthTaskHeader
+              eyebrow="Verification unavailable"
+              title="We couldn’t verify this email"
+              description="The link or code may be invalid or expired. Request a new verification message to try again."
+            />
+            <FormAlert>{message}</FormAlert>
+            <Button variant="primary" onClick={resend} type="button">Resend verification email</Button>
+          </>
+        ) : null}
 
-          {state === "error" && (
-            <>
-              <h1>Verification failed.</h1>
-              <p className="form-error" role="alert">{message}</p>
-              <p>Your link may have expired. Request a new verification email below.</p>
-              <Button variant="primary" onClick={resend}>Resend verification email</Button>
-            </>
-          )}
-
-          {state === "idle" && (
-            <>
-              <h1>Check your email.</h1>
-              <p>A verification link and 8-character code were sent to your email address.</p>
-              <p>This page will automatically redirect once your email is verified.</p>
-              <form onSubmit={submitCode} style={{ margin: "24px 0" }}>
-                <label className="form-label" htmlFor="verify-code">Enter your verification code</label>
-                <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
-                  <input
-                    id="verify-code"
-                    className="form-input"
-                    type="text"
-                    inputMode="text"
+        {state === "idle" ? (
+          <>
+            <AuthTaskHeader
+              eyebrow="Account activation"
+              title="Verify your email"
+              description="Use the link or 8-character code from your verification message. This page will continue automatically when your email is confirmed."
+            />
+            <form onSubmit={submitCode}>
+              <div className="auth-task__code-row">
+                <Field>
+                  <FieldLabel htmlFor="verify-code">Verification code</FieldLabel>
+                  <Input
+                    aria-describedby={message ? "verification-code-error" : undefined}
                     autoComplete="one-time-code"
-                    placeholder="XXXX-XXXX"
-                    value={code}
-                    onChange={e => setCode(formatCode(e.target.value))}
+                    id="verify-code"
+                    inputMode="text"
                     maxLength={9}
-                    style={{ fontFamily: "monospace", letterSpacing: "0.1em", textTransform: "uppercase", flex: 1 }}
+                    onChange={(event) => setCode(formatCode(event.target.value))}
+                    placeholder="XXXX-XXXX"
+                    type="text"
+                    value={code}
                   />
-                  <Button variant="primary" type="submit">Verify</Button>
-                </div>
-                {message && <p className="form-error" role="alert" style={{ marginTop: "8px" }}>{message}</p>}
-              </form>
-              <p style={{ fontSize: "13px", color: "var(--color-muted, #71717a)" }}>Did not receive it? Check your spam folder, or <button className="link-btn" type="button" onClick={resend}>resend</button>.</p>
-            </>
-          )}
+                </Field>
+                <Button variant="primary" type="submit">Verify code</Button>
+              </div>
+            </form>
+            {message ? <FormAlert id="verification-code-error">{message}</FormAlert> : null}
+            <div className="auth-task__resend">
+              <p className="auth-task__meta">Need a new message?</p>
+              <Button onClick={resend} size="small" type="button" variant="ghost">Resend verification email</Button>
+            </div>
+          </>
+        ) : null}
 
-          {state === "code-verifying" && (
-            <>
-              <h1>Verifying code…</h1>
-              <p>Please wait.</p>
-            </>
-          )}
+        {state === "code-verifying" ? (
+          <>
+            <AuthStateMark tone="pending" />
+            <AuthTaskHeader
+              eyebrow="Account activation"
+              title="Checking your code"
+              description="We’re validating the code against your account."
+            />
+            <FormAlert tone="notice">Verification is in progress.</FormAlert>
+          </>
+        ) : null}
 
-          {state === "resending" && (
-            <>
-              <h1>Sending…</h1>
-            </>
-          )}
+        {state === "resending" ? (
+          <>
+            <AuthStateMark tone="pending" />
+            <AuthTaskHeader
+              eyebrow="Email verification"
+              title="Requesting a new message"
+              description="Keep this page open while the request completes."
+            />
+            <FormAlert tone="notice">Resend request is pending.</FormAlert>
+          </>
+        ) : null}
 
-          {state === "resent" && (
-            <>
-              <h1>Verification email sent.</h1>
-              <p>Check your inbox. This page will automatically redirect once your email is verified.</p>
-            </>
-          )}
+        {state === "resent" ? (
+          <>
+            <AuthStateMark tone="success" />
+            <AuthTaskHeader
+              eyebrow="Resend complete"
+              title="Verification message requested"
+              description="If your account still needs verification, check your inbox for a new link and code. This page will continue automatically after confirmation."
+            />
+            <FormAlert tone="success">The resend request completed.</FormAlert>
+          </>
+        ) : null}
 
-          <p className="auth-alt" style={{ marginTop: "24px" }}>
-            <Link href="/login">Back to login</Link>
-          </p>
-        </div>
+        <p className="auth-task__row auth-task__row--center">
+          <Link href="/login">Back to login</Link>
+        </p>
       </section>
-    </main>
+    </AuthShell>
   );
 }

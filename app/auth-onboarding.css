@@ -1,0 +1,1043 @@
+/* Authentication and initial-setup presentation.
+ * Behavioral selectors and route logic intentionally remain outside this layer. */
+
+.auth-entry,
+.journey-shell {
+  --auth-page: #f7f3ef;
+  --auth-rule: #e8dfd7;
+  --auth-copper: #c76f47;
+  min-height: 100dvh;
+  color: var(--text-primary);
+  background: var(--auth-page);
+}
+
+.journey-shell {
+  /* Keep legacy setup primitives on the same warm-light tokens when this
+   * shell is nested inside the dashboard's dark control-plane theme. */
+  --bg: var(--auth-page);
+  --panel: var(--surface-elevated);
+  --surface: var(--surface-elevated);
+  --surface-soft: var(--surface-muted);
+  --surface-elev: var(--surface-inset);
+  --text: var(--text-primary);
+  --text-2: var(--text-secondary);
+  --muted: var(--text-muted);
+  --muted-2: var(--text-subtle);
+  --border: var(--border-standard);
+  --border-strong: var(--border-strong-ui);
+}
+
+.auth-entry {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  padding: max(18px, env(safe-area-inset-top)) max(var(--page-gutter), env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(var(--page-gutter), env(safe-area-inset-left));
+}
+
+.auth-entry__header,
+.auth-entry__body,
+.auth-entry__footer {
+  width: min(1080px, 100%);
+  margin-inline: auto;
+}
+
+.auth-entry__header {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--auth-rule);
+}
+
+.auth-entry__return,
+.journey-header__exit {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 140ms ease;
+}
+
+.auth-entry__return:hover,
+.journey-header__exit:hover {
+  color: var(--text-primary);
+}
+
+.auth-entry__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
+  gap: clamp(64px, 9vw, 124px);
+  align-items: center;
+  padding-block: clamp(52px, 9vh, 104px);
+}
+
+.auth-entry--compact .auth-entry__body {
+  grid-template-columns: minmax(0, 520px);
+  justify-content: center;
+}
+
+.auth-entry__support,
+.auth-entry__task-wrap {
+  min-width: 0;
+}
+
+.auth-principle {
+  max-width: 560px;
+}
+
+.auth-eyebrow,
+.journey-eyebrow {
+  margin: 0;
+  color: var(--accent-strong);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.auth-principle h2 {
+  max-width: 14ch;
+  margin: 14px 0 0;
+  font-size: clamp(2.25rem, 5vw, 4rem);
+  font-weight: 750;
+  letter-spacing: -0.045em;
+  line-height: 0.99;
+  text-wrap: balance;
+}
+
+.auth-principle > p:not(.auth-eyebrow) {
+  max-width: 50ch;
+  margin: 22px 0 0;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  line-height: 1.65;
+  text-wrap: pretty;
+}
+
+.auth-principle__points {
+  display: grid;
+  margin: 36px 0 0;
+  border-top: 1px solid var(--auth-rule);
+}
+
+.auth-principle__points > div {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 18px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--auth-rule);
+}
+
+.auth-principle__points dt,
+.auth-principle__points dd {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.auth-principle__points dt {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.auth-principle__points dd {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.auth-task {
+  width: 100%;
+  display: grid;
+  gap: 20px;
+  padding: clamp(24px, 4vw, 36px);
+  border: 1px solid var(--border-standard);
+  border-radius: var(--radius-medium);
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-elevated);
+}
+
+form.auth-task {
+  margin: 0;
+}
+
+.auth-task__header {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 2px;
+}
+
+.auth-task__header h1 {
+  margin: 0;
+  font-size: clamp(1.75rem, 4vw, 2.2rem);
+  font-weight: 720;
+  letter-spacing: -0.035em;
+  line-height: 1.08;
+  text-wrap: balance;
+}
+
+.auth-task__header > p:not(.auth-eyebrow) {
+  max-width: 44ch;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.58;
+  text-wrap: pretty;
+}
+
+.auth-task__fields {
+  display: grid;
+  gap: 16px;
+}
+
+.auth-task .ui-button--primary,
+.auth-task__primary {
+  width: 100%;
+}
+
+.auth-task__row,
+.auth-task__meta,
+.auth-task__legal {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.auth-task__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.auth-task__row--center {
+  justify-content: center;
+  text-align: center;
+}
+
+.auth-task__resend {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.auth-task__row a,
+.auth-task__meta a,
+.auth-task__legal a,
+.auth-task a:not(.ui-button) {
+  color: var(--text-primary);
+  font-weight: 600;
+  text-underline-offset: 3px;
+}
+
+.auth-task__legal {
+  padding-top: 2px;
+  text-align: center;
+}
+
+.auth-task__code-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: end;
+}
+
+.auth-task__code-row .ui-input {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.auth-alert {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 11px 12px;
+  border: 1px solid var(--border-standard);
+  border-radius: var(--radius-small);
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.auth-alert--error {
+  border-color: var(--status-destructive-border);
+  background: var(--status-destructive-bg);
+  color: var(--text-destructive);
+}
+
+.auth-alert--success {
+  border-color: var(--status-success-border);
+  background: var(--status-success-bg);
+  color: var(--text-success);
+}
+
+.auth-alert--notice {
+  border-color: var(--accent-border);
+  background: var(--accent-wash);
+}
+
+.auth-alert__mark {
+  width: 19px;
+  height: 19px;
+  display: grid;
+  place-items: center;
+  margin-top: 1px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+
+.auth-state-mark {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--accent-border);
+  border-radius: 50%;
+  background: var(--accent-wash);
+  color: var(--accent-strong);
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  font-weight: 750;
+}
+
+.auth-state-mark--success {
+  border-color: var(--status-success-border);
+  background: var(--status-success-bg);
+  color: var(--text-success);
+}
+
+.auth-state-mark--error {
+  border-color: var(--status-destructive-border);
+  background: var(--status-destructive-bg);
+  color: var(--text-destructive);
+}
+
+.auth-state-mark--pending {
+  letter-spacing: 0.08em;
+}
+
+.auth-entry__footer {
+  display: flex;
+  justify-content: center;
+  gap: 9px;
+  padding-top: 16px;
+  border-top: 1px solid var(--auth-rule);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.auth-entry__footer a {
+  text-decoration: none;
+}
+
+.auth-entry__footer a:hover {
+  color: var(--text-primary);
+}
+
+/* Shared account and first-agent journey shell */
+.journey-shell {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  padding: max(18px, env(safe-area-inset-top)) max(var(--page-gutter-wide), env(safe-area-inset-right)) max(28px, env(safe-area-inset-bottom)) max(var(--page-gutter-wide), env(safe-area-inset-left));
+}
+
+.journey-shell--embedded {
+  width: 100%;
+  min-height: min(760px, calc(100dvh - 64px));
+  padding: 0;
+  border: 1px solid var(--border-standard);
+  border-radius: var(--radius-medium);
+  overflow: clip;
+}
+
+.journey-header,
+.journey-layout {
+  width: min(1180px, 100%);
+  margin-inline: auto;
+}
+
+.journey-header {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid var(--auth-rule);
+}
+
+.journey-shell--embedded .journey-header {
+  width: 100%;
+  padding: 0 24px;
+  background: var(--surface-elevated);
+}
+
+.journey-layout {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 820px);
+  gap: clamp(52px, 8vw, 108px);
+  justify-content: center;
+  align-content: start;
+  align-items: start;
+  padding-block: clamp(44px, 8vh, 84px);
+}
+
+.journey-shell--embedded .journey-layout {
+  width: 100%;
+  grid-template-columns: 184px minmax(0, 760px);
+  gap: clamp(36px, 5vw, 72px);
+  padding: 42px clamp(24px, 5vw, 64px) 56px;
+}
+
+.journey-progress {
+  min-width: 0;
+}
+
+.journey-progress__mobile,
+.journey-progress__track {
+  display: none;
+}
+
+.journey-progress ol {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.journey-progress li {
+  position: relative;
+  min-height: 46px;
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  color: var(--text-muted);
+}
+
+.journey-progress li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 26px;
+  bottom: 0;
+  left: 12px;
+  width: 1px;
+  background: var(--border-standard);
+}
+
+.journey-progress li > span {
+  position: relative;
+  z-index: 1;
+  width: 25px;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border-standard);
+  border-radius: 50%;
+  background: var(--auth-page);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.journey-progress li > strong {
+  padding-top: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.journey-progress li[data-status="current"] {
+  color: var(--text-primary);
+}
+
+.journey-progress li[data-status="current"] > span {
+  border-color: var(--text-primary);
+  background: var(--text-primary);
+  color: var(--text-inverse);
+}
+
+.journey-progress li[data-status="complete"] {
+  color: var(--text-secondary);
+}
+
+.journey-progress li[data-status="complete"] > span {
+  border-color: var(--accent-border);
+  background: var(--accent-muted);
+  color: var(--accent-strong);
+}
+
+.journey-task {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 24px;
+}
+
+.journey-intro {
+  display: grid;
+  gap: 12px;
+  padding-bottom: 4px;
+}
+
+.journey-intro h1 {
+  max-width: 18ch;
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 3.15rem);
+  font-weight: 740;
+  letter-spacing: -0.045em;
+  line-height: 1.02;
+  text-wrap: balance;
+}
+
+.journey-intro > p:not(.journey-eyebrow) {
+  max-width: 58ch;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.94rem;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+
+.journey-task .setup-banner,
+.journey-task .dashboard-banner {
+  margin: 0;
+  border-color: var(--accent-border);
+  background: var(--accent-wash);
+  color: var(--text-secondary);
+}
+
+.journey-task .setup-banner strong,
+.journey-task .dashboard-banner strong {
+  color: var(--text-primary);
+}
+
+.journey-task .setup-choices {
+  display: grid;
+  gap: 10px;
+}
+
+.journey-task .setup-choices--grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.journey-task .setup-choices--triple {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.journey-task .setup-choice {
+  width: 100%;
+  min-height: 72px;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 15px 16px;
+  border: 1px solid var(--border-standard);
+  border-radius: var(--radius-small);
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  box-shadow: var(--shadow-subtle);
+  transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+}
+
+.journey-task .setup-choice:hover {
+  border-color: var(--border-strong-ui);
+  background: var(--surface-inset);
+}
+
+.journey-task .setup-choice:focus-visible,
+.journey-task .setup-choice:has(input:focus-visible) {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+  box-shadow: var(--focus-ring);
+}
+
+.journey-task .setup-choice--active {
+  border-color: var(--accent-base);
+  background: var(--accent-wash);
+  box-shadow: 0 0 0 1px var(--accent-border);
+}
+
+.journey-task .setup-choice__mark {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  margin-top: 1px;
+  border: 1px solid var(--border-strong-ui);
+  border-radius: 4px;
+  background: var(--surface-elevated);
+  color: var(--accent-strong);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.journey-task .setup-choice__mark--radio {
+  border-radius: 50%;
+}
+
+.journey-task .setup-choice--active .setup-choice__mark {
+  border-color: var(--accent-base);
+  background: var(--accent-muted);
+}
+
+.journey-task .setup-choice__body {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.journey-task .setup-choice__body strong {
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  font-weight: 680;
+  line-height: 1.35;
+}
+
+.journey-task .setup-choice__body > span,
+.journey-task .setup-choice__hint {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  line-height: 1.48;
+  overflow-wrap: anywhere;
+}
+
+.journey-task .setup-choice__hint {
+  grid-column: auto;
+  width: fit-content;
+  margin-top: 3px;
+  padding: 3px 6px;
+  border: 1px solid var(--accent-border);
+  border-radius: 4px;
+  background: var(--accent-muted);
+  color: var(--accent-strong);
+  font-weight: 650;
+}
+
+.journey-task .setup-choice input[type="checkbox"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.journey-task .setup-form {
+  display: grid;
+  gap: 16px;
+  padding: clamp(20px, 4vw, 28px);
+  border: 1px solid var(--border-standard);
+  border-radius: var(--radius-medium);
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-subtle);
+}
+
+.journey-task .setup-form--follow {
+  margin-top: 0;
+}
+
+.journey-task .setup-form__row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.journey-task .setup-form label {
+  display: grid;
+  gap: 7px;
+  color: var(--text-secondary);
+  font-size: var(--type-label-size);
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.journey-task .setup-form label > span small {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.journey-task .setup-form input,
+.journey-task .setup-form select,
+.journey-task .setup-form textarea {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--border-standard);
+  border-radius: var(--radius-small);
+  padding: 0 12px;
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  box-shadow: var(--shadow-subtle);
+}
+
+.journey-task .setup-form textarea {
+  min-height: 96px;
+  padding-block: 10px;
+  resize: vertical;
+}
+
+.journey-task .setup-form input:focus-visible,
+.journey-task .setup-form select:focus-visible,
+.journey-task .setup-form textarea:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 1px;
+  border-color: var(--border-focus);
+  box-shadow: var(--focus-ring);
+}
+
+.journey-task .setup-form input:disabled {
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+.journey-task .setup-review,
+.journey-task .first-agent-token-panel,
+.journey-task .first-agent-integration,
+.journey-task .first-agent-receipt {
+  margin: 0;
+  padding: clamp(18px, 3vw, 24px);
+  border: 1px solid var(--border-standard);
+  border-radius: var(--radius-medium);
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-subtle);
+}
+
+.journey-task .setup-review__list {
+  display: grid;
+  margin: 0;
+}
+
+.journey-task .setup-review__row {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.35fr) minmax(0, 1fr);
+  gap: 18px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-standard);
+}
+
+.journey-task .setup-review__row:last-child {
+  border-bottom: 0;
+}
+
+.journey-task .setup-review__row dt,
+.journey-task .setup-review__row dd {
+  min-width: 0;
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.journey-task .setup-review__row dt {
+  color: var(--text-muted);
+}
+
+.journey-task .setup-review__row dd {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.journey-task .first-agent-integration,
+.journey-task .first-agent-token-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.journey-task .first-agent-token-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.journey-task .first-agent-token-panel__warning {
+  margin: 0;
+  color: var(--text-warning);
+}
+
+.journey-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.journey-task > .auth-alert + .journey-intro {
+  margin-top: -4px;
+}
+
+.journey-loading {
+  display: grid;
+  gap: 14px;
+  padding: 24px;
+  border: 1px solid var(--border-standard);
+  border-radius: var(--radius-medium);
+  background: var(--surface-elevated);
+  color: var(--text-secondary);
+}
+
+.journey-loading__line {
+  height: 10px;
+  border-radius: 4px;
+  background: var(--surface-muted);
+}
+
+.journey-loading__line:first-child { width: 42%; }
+.journey-loading__line:nth-child(2) { width: 76%; }
+.journey-loading__line:nth-child(3) { width: 62%; }
+
+.auth-task .invite-summary {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  border-top: 1px solid var(--border-standard);
+}
+
+.auth-task .invite-summary > div {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-standard);
+}
+
+.auth-task .invite-summary dt,
+.auth-task .invite-summary dd {
+  min-width: 0;
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.auth-task .invite-summary dt { color: var(--text-muted); }
+.auth-task .invite-summary dd { color: var(--text-primary); font-weight: 600; }
+
+.auth-task .invite-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+
+.auth-task .invite-actions > :first-child {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 900px) {
+  .auth-entry__body {
+    grid-template-columns: minmax(0, 520px);
+    justify-content: center;
+    gap: 30px;
+    padding-block: 42px 56px;
+  }
+
+  .auth-entry__support {
+    display: none;
+  }
+
+  .journey-layout,
+  .journey-shell--embedded .journey-layout {
+    grid-template-columns: 1fr;
+    gap: 30px;
+  }
+
+  .journey-progress__mobile {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+  }
+
+  .journey-progress__mobile strong {
+    color: var(--text-primary);
+    font-weight: 650;
+  }
+
+  .journey-progress__track {
+    height: 3px;
+    display: block;
+    margin-top: 10px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--border-standard);
+  }
+
+  .journey-progress__track > span {
+    height: 100%;
+    display: block;
+    border-radius: inherit;
+    background: var(--accent-base);
+    transition: width 180ms ease;
+  }
+
+  .journey-progress ol {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .auth-entry {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+
+  .auth-entry__header {
+    min-height: 44px;
+  }
+
+  .auth-entry__return {
+    font-size: 0;
+  }
+
+  .auth-entry__return span {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--border-standard);
+    border-radius: var(--radius-small);
+    font-size: 0.9rem;
+  }
+
+  .auth-entry__body {
+    align-items: start;
+    padding-block: 28px 40px;
+  }
+
+  .auth-task {
+    gap: 18px;
+    padding: 22px 18px 24px;
+  }
+
+  .auth-task__header h1 {
+    font-size: 1.75rem;
+  }
+
+  .auth-task__code-row {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-task__resend {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .auth-task__code-row .ui-button {
+    width: 100%;
+  }
+
+  .auth-entry__footer {
+    flex-wrap: wrap;
+  }
+
+  .journey-shell {
+    padding: max(14px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  }
+
+  .journey-shell--embedded {
+    min-height: 0;
+    padding: 0;
+    border-inline: 0;
+    border-radius: 0;
+  }
+
+  .journey-header {
+    min-height: 50px;
+  }
+
+  .journey-shell--embedded .journey-header {
+    padding-inline: 16px;
+  }
+
+  .journey-layout,
+  .journey-shell--embedded .journey-layout {
+    gap: 24px;
+    padding-block: 26px 34px;
+  }
+
+  .journey-shell--embedded .journey-layout {
+    padding-inline: 16px;
+  }
+
+  .journey-intro h1 {
+    font-size: 2rem;
+  }
+
+  .journey-task .setup-choices--grid,
+  .journey-task .setup-choices--triple,
+  .journey-task .setup-form__row {
+    grid-template-columns: 1fr;
+  }
+
+  .journey-task .setup-choice {
+    min-height: 68px;
+    padding: 14px;
+  }
+
+  .journey-task .setup-form,
+  .journey-task .setup-review,
+  .journey-task .first-agent-token-panel,
+  .journey-task .first-agent-integration,
+  .journey-task .first-agent-receipt {
+    padding: 17px 15px;
+  }
+
+  .journey-task .setup-review__row {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+
+  .journey-actions {
+    position: sticky;
+    z-index: 2;
+    bottom: max(0px, env(safe-area-inset-bottom));
+    margin-inline: -16px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border-standard);
+    background: var(--auth-page);
+  }
+
+  .journey-actions .ui-button--primary {
+    min-width: 132px;
+  }
+
+  .auth-task .invite-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-task .invite-actions > :first-child {
+    grid-column: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-entry__return,
+  .journey-header__exit,
+  .journey-task .setup-choice,
+  .journey-progress__track > span {
+    transition-duration: 0.01ms !important;
+  }
+}

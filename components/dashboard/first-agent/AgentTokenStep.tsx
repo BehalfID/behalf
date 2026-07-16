@@ -2,11 +2,24 @@
 
 import { useState } from "react";
 import { CodeBlock } from "@/components/ui";
+import {
+  AGENT_SURFACE_LABELS,
+  APPROVAL_GATE_LABELS,
+  CONTROL_PROFILE_LABELS,
+  type AgentEnvironment,
+  type AgentSurface,
+  type ApprovalGate,
+  type ControlProfile
+} from "@/lib/firstAgentSetup";
 import { SetupContinueRow, SetupStepIntro } from "./setupPrimitives";
 
 export function AgentTokenStep({
   apiKey,
   agentName,
+  surface,
+  environment,
+  controlProfile,
+  approvalGates,
   creating,
   onCreate,
   emailVerified,
@@ -14,6 +27,10 @@ export function AgentTokenStep({
 }: {
   apiKey: string;
   agentName: string;
+  surface: AgentSurface;
+  environment: AgentEnvironment;
+  controlProfile: ControlProfile;
+  approvalGates: ApprovalGate[];
   creating: boolean;
   onCreate: () => void;
   emailVerified: boolean;
@@ -32,7 +49,7 @@ export function AgentTokenStep({
     return (
       <>
         <SetupStepIntro
-          title="Create agent and issue token"
+          title="Review and create the agent"
           helper={
             emailVerified
               ? "BehalfID will create the agent, apply your profile and gates, and return a one-time API key." // pragma: allowlist secret
@@ -46,8 +63,24 @@ export function AgentTokenStep({
                 <dd>{agentName || "—"}</dd>
               </div>
               <div className="setup-review__row">
+                <dt>Surface</dt>
+                <dd>{AGENT_SURFACE_LABELS[surface]}</dd>
+              </div>
+              <div className="setup-review__row">
+                <dt>Environment</dt>
+                <dd>{environment.charAt(0).toUpperCase() + environment.slice(1)}</dd>
+              </div>
+              <div className="setup-review__row">
+                <dt>Control profile</dt>
+                <dd>{CONTROL_PROFILE_LABELS[controlProfile]}</dd>
+              </div>
+              <div className="setup-review__row">
+                <dt>Approval gates</dt>
+                <dd>{approvalGates.map((gate) => APPROVAL_GATE_LABELS[gate]).join(", ") || "—"}</dd>
+              </div>
+              <div className="setup-review__row">
                 <dt>Token policy</dt>
-                <dd>Shown once · never stored in browser state after you leave this flow</dd>
+                <dd>Shown once · store it before leaving this flow</dd>
               </div>
             </dl>
           </div>
@@ -56,6 +89,7 @@ export function AgentTokenStep({
           onContinue={onCreate}
           continueLabel={creating ? "Creating…" : "Create agent + token"}
           disabled={!emailVerified || creating || !agentName.trim()}
+          loading={creating}
           error={error}
         />
       </>

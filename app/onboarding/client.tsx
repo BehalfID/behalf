@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Button, Logo } from "@/components/ui";
+import { FormAlert } from "@/components/auth/AuthShell";
+import { OnboardingIntro, OnboardingShell, StepActions } from "@/components/onboarding/OnboardingShell";
+import { Input, Select } from "@/components/ui";
 import {
   AGENT_TOOL_LABELS,
   AGENT_TOOLS,
@@ -43,6 +45,15 @@ type SetupState = {
 };
 
 const STEP_COUNT = 6;
+
+const ACCOUNT_SETUP_STEPS = [
+  { label: "Workspace mode" },
+  { label: "Operator" },
+  { label: "Workspace" },
+  { label: "Agent surfaces" },
+  { label: "Controls" },
+  { label: "Next step" }
+] as const;
 
 const ACCOUNT_TYPE_OPTIONS: Array<{
   type: AccountType;
@@ -177,6 +188,8 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
   }, []);
 
   useEffect(() => {
+    // The loader owns the initial loading and draft hydration state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadState();
   }, [loadState]);
 
@@ -326,8 +339,6 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
     }
   };
 
-  const progressPct = ((step - 1) / (STEP_COUNT - 1)) * 100;
-
   const stepHeading = step === 1
     ? "Select workspace mode"
     : step === 2
@@ -356,41 +367,28 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
 
   if (loading) {
     return (
-      <main className="setup-flow">
-        <header className="setup-flow__bar">
-          <Logo />
-        </header>
-        <p className="setup-loading">Loading setup state…</p>
-      </main>
+      <OnboardingShell currentStep={1} label="Account setup" steps={ACCOUNT_SETUP_STEPS}>
+        <div className="journey-loading" role="status" aria-live="polite">
+          <span>Loading your saved setup</span>
+          <span className="journey-loading__line" aria-hidden="true" />
+          <span className="journey-loading__line" aria-hidden="true" />
+          <span className="journey-loading__line" aria-hidden="true" />
+        </div>
+      </OnboardingShell>
     );
   }
 
   return (
-    <main id="main-content" className="setup-flow" tabIndex={-1}>
-      <header className="setup-flow__bar">
-        <Logo />
-      </header>
-
-      <div className="setup-flow__progress" aria-label={`Step ${step} of ${STEP_COUNT}`}>
-        <span className="setup-flow__step-label">Step {step} of {STEP_COUNT}</span>
-        <div className="setup-flow__track" aria-hidden="true">
-          <span className="setup-flow__fill" style={{ width: `${progressPct}%` }} />
-        </div>
-      </div>
-
-      <section className="setup-flow__main">
+    <OnboardingShell currentStep={step} label="Account setup" steps={ACCOUNT_SETUP_STEPS}>
         {!emailVerified ? (
-          <div className="setup-banner" role="status">
+          <FormAlert tone="notice">
             <strong>Email not verified.</strong> Setup can be completed now; agent creation and API tokens remain locked until verification. <Link href="/verify-email">Verify email</Link>
-          </div>
+          </FormAlert>
         ) : null}
 
-        {error ? <p className="form-error setup-error" role="alert">{error}</p> : null}
+        {error ? <FormAlert>{error}</FormAlert> : null}
 
-        <div className="setup-flow__question">
-          <h1 className="setup-heading">{stepHeading}</h1>
-          <p className="setup-flow__helper">{stepHelper}</p>
-        </div>
+        <OnboardingIntro eyebrow={`Account setup · Step ${step}`} title={stepHeading} description={stepHelper} />
 
         {step === 1 ? (
           <div className="setup-choices">
@@ -419,25 +417,25 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
             <div className="setup-form__row">
               <label>
                 <span>First name</span>
-                <input autoComplete="given-name" onChange={(e) => update("firstName", e.target.value)} required value={form.firstName} />
+                <Input autoComplete="given-name" onChange={(e) => update("firstName", e.target.value)} required value={form.firstName} />
               </label>
               <label>
                 <span>Last name</span>
-                <input autoComplete="family-name" onChange={(e) => update("lastName", e.target.value)} required value={form.lastName} />
+                <Input autoComplete="family-name" onChange={(e) => update("lastName", e.target.value)} required value={form.lastName} />
               </label>
             </div>
             <label>
               <span>Email</span>
-              <input disabled readOnly value={form.email} />
+              <Input disabled readOnly value={form.email} />
             </label>
             <div className="setup-form__row">
               <label>
                 <span>Job title <small>(optional)</small></span>
-                <input autoComplete="organization-title" onChange={(e) => update("jobTitle", e.target.value)} value={form.jobTitle} />
+                <Input autoComplete="organization-title" onChange={(e) => update("jobTitle", e.target.value)} value={form.jobTitle} />
               </label>
               <label>
                 <span>Phone <small>(optional)</small></span>
-                <input autoComplete="tel" inputMode="tel" onChange={(e) => update("phone", e.target.value)} value={form.phone} />
+                <Input autoComplete="tel" inputMode="tel" onChange={(e) => update("phone", e.target.value)} value={form.phone} />
               </label>
             </div>
           </div>
@@ -450,33 +448,33 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
                 <div className="setup-form__row">
                   <label>
                     <span>Company name</span>
-                    <input onChange={(e) => update("companyName", e.target.value)} required value={form.companyName} />
+                    <Input onChange={(e) => update("companyName", e.target.value)} required value={form.companyName} />
                   </label>
                   <label>
                     <span>Workspace name</span>
-                    <input onChange={(e) => update("workspaceName", e.target.value)} required value={form.workspaceName} />
+                    <Input onChange={(e) => update("workspaceName", e.target.value)} required value={form.workspaceName} />
                   </label>
                 </div>
                 <div className="setup-form__row">
                   <label>
                     <span>Website <small>(optional)</small></span>
-                    <input onChange={(e) => update("website", e.target.value)} placeholder="example.com" value={form.website} />
+                    <Input onChange={(e) => update("website", e.target.value)} placeholder="example.com" value={form.website} />
                   </label>
                   <label>
                     <span>Team size <small>(optional)</small></span>
-                    <select onChange={(e) => update("teamSize", e.target.value as TeamSize | "")} value={form.teamSize}>
+                    <Select onChange={(e) => update("teamSize", e.target.value as TeamSize | "")} value={form.teamSize}>
                       <option value="">Select team size</option>
                       {TEAM_SIZES.map((size) => (
                         <option key={size} value={size}>{TEAM_SIZE_LABELS[size]}</option>
                       ))}
-                    </select>
+                    </Select>
                   </label>
                 </div>
               </>
             ) : (
               <label>
                 <span>Workspace name</span>
-                <input onChange={(e) => update("workspaceName", e.target.value)} required value={form.workspaceName} />
+                <Input onChange={(e) => update("workspaceName", e.target.value)} required value={form.workspaceName} />
               </label>
             )}
           </div>
@@ -506,7 +504,7 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
               <div className="setup-form setup-form--follow">
                 <label>
                   <span>Unlisted surface</span>
-                  <input onChange={(e) => update("agentToolsOther", e.target.value)} placeholder="Describe the agent or toolchain" value={form.agentToolsOther} />
+                  <Input onChange={(e) => update("agentToolsOther", e.target.value)} placeholder="Describe the agent or toolchain" value={form.agentToolsOther} />
                 </label>
               </div>
             ) : null}
@@ -538,7 +536,7 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
               <div className="setup-form setup-form--follow">
                 <label>
                   <span>Additional boundary</span>
-                  <input onChange={(e) => update("controlAreasOther", e.target.value)} placeholder="Describe what needs governing" value={form.controlAreasOther} />
+                  <Input onChange={(e) => update("controlAreasOther", e.target.value)} placeholder="Describe what needs governing" value={form.controlAreasOther} />
                 </label>
               </div>
             ) : null}
@@ -570,25 +568,16 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
           </>
         ) : null}
 
-        <footer className="setup-actions">
-          {step > 1 ? (
-            <Button disabled={saving || finishing} onClick={goBack} type="button" variant="ghost">
-              Back
-            </Button>
-          ) : (
-            <span />
-          )}
-          {step < STEP_COUNT ? (
-            <Button disabled={saving || finishing} onClick={() => void goNext()} type="button" variant="primary">
-              {saving ? "Saving…" : "Continue"}
-            </Button>
-          ) : (
-            <Button disabled={finishing} onClick={() => void finish()} type="button" variant="primary">
-              {finishing ? "Provisioning…" : "Complete setup"}
-            </Button>
-          )}
-        </footer>
-      </section>
-    </main>
+        <StepActions
+          backDisabled={saving || finishing}
+          continueDisabled={saving || finishing}
+          continueLabel={step < STEP_COUNT
+            ? saving ? "Saving…" : "Continue"
+            : finishing ? "Provisioning…" : "Complete setup"}
+          loading={saving || finishing}
+          onBack={step > 1 ? goBack : undefined}
+          onContinue={step < STEP_COUNT ? () => void goNext() : () => void finish()}
+        />
+    </OnboardingShell>
   );
 }
