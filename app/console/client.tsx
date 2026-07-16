@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { ConsoleShellLayout } from "@/components/layout/ConsoleShell";
 import { DecisionIndicator } from "@/components/dashboard/OpsEventPrimitives";
+import { ConnectionStatusBadge } from "@/components/dashboard/ProfileIntegrationPrimitives";
 import { Button, ButtonLink, CodeBlock, DashboardState, EmptyState, Logo, PageHeader, RiskIndicator, StatCard } from "@/components/ui";
 
 type Agent = {
@@ -1108,7 +1109,7 @@ function AgentDetailView({ agentId }: { agentId: string }) {
                 <div><dt>Agent ID</dt><dd>{data.agent.agentId}</dd></div>
                 <div><dt>Type</dt><dd><span className={statusClass(data.agent.agentType)}>{data.agent.agentType}</span></dd></div>
                 <div><dt>Provider</dt><dd>{data.agent.provider}</dd></div>
-                <div><dt>Connection</dt><dd>{data.agent.connectionStatus}</dd></div>
+                <div><dt>Connection</dt><dd><ConnectionStatusBadge status={data.agent.connectionStatus} /></dd></div>
                 <div><dt>External reference</dt><dd>{data.agent.externalAgentLabel || "Not set"}</dd></div>
                 <div><dt>External ID</dt><dd>{data.agent.externalAgentId || "Not set"}</dd></div>
                 <div><dt>Description</dt><dd>{data.agent.description || "Not set"}</dd></div>
@@ -1516,7 +1517,8 @@ function AgentTable({ agents }: { agents: Agent[] }) {
         <Link className="console-row" href={`/console/agents/${agent.agentId}`} key={agent.agentId}>
           <span>
             <strong>{agent.name}</strong>
-            <small>{agent.agentId} / {agent.agentType} / {agent.provider} / {agent.connectionStatus}</small>
+            <small>{agent.agentId} / {agent.agentType} / {agent.provider}</small>
+            <span className="console-row__connection"><ConnectionStatusBadge status={agent.connectionStatus} /></span>
           </span>
           <span className={statusClass(agent.status)}>{agent.status}</span>
           <span>{formatDate(agent.updatedAt)}</span>

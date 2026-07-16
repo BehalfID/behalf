@@ -10,6 +10,7 @@ import "./auth-onboarding.css";
 import "./dashboard-shell.css";
 import "./agents-permissions.css";
 import "./approvals-activity.css";
+import "./profiles-integrations.css";
 
 const inter = Inter({
   subsets: ["latin"],

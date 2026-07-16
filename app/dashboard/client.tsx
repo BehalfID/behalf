@@ -11,6 +11,10 @@ import { ManagedProfilesView } from "@/components/dashboard/ManagedProfilesView"
 import { ManagedProfileActivityView } from "@/components/dashboard/ManagedProfileActivityView";
 import { OpsInboxConsole } from "@/components/dashboard/OpsInboxConsole";
 import {
+  ConnectionStatusBadge,
+  IntegrationPathBadge
+} from "@/components/dashboard/ProfileIntegrationPrimitives";
+import {
   AgentDetailNavigation,
   AgentIdentityHeader,
   AgentListTable,
@@ -2366,36 +2370,97 @@ function AgentView({ agentId }: { agentId: string }) {
         <div className="agent-section-heading">
           <div>
             <h2>Integrations</h2>
-            <p>Use the existing passport and SDK paths without changing this agent&apos;s identity or policy.</p>
+            <p>Review the paths associated with this identity, what each path can enforce, and the next supported setup action.</p>
           </div>
+          <ButtonLink href={dHref("/dashboard/managed-profiles")} size="small" variant="outline">Workspace CLI policy</ButtonLink>
         </div>
+
+        <dl className="agent-integration-posture" aria-label="Integration posture">
+          <div>
+            <dt>Provider</dt>
+            <dd>{providerOptions.find((provider) => provider.value === agent.provider)?.label ?? agent.provider}</dd>
+            <small>Stored agent metadata</small>
+          </div>
+          <div>
+            <dt>Connection</dt>
+            <dd><ConnectionStatusBadge status={agent.connectionStatus} /></dd>
+            <small>Operator-maintained status</small>
+          </div>
+          <div>
+            <dt>Primary path</dt>
+            <dd><IntegrationPathBadge path={agent.agentType === "native" ? "action-time" : "manual"} /></dd>
+            <small>{agent.agentType === "native" ? "Your application calls verify" : "Passport-based review"}</small>
+          </div>
+          <div>
+            <dt>Last verified use</dt>
+            <dd>{date(agent.lastUsedAt)}</dd>
+            <small>Latest agent verification</small>
+          </div>
+          <div>
+            <dt>Managed profile</dt>
+            <dd>None stored</dd>
+            <small>CLI policy is workspace-scoped</small>
+          </div>
+        </dl>
+
+        {agent.connectionStatus === "disconnected" ? (
+          <div className="agent-integration-alert" role="status">
+            <div>
+              <strong>This agent is marked disconnected</strong>
+              <p>No live health check is available for this record. Update the stored connection metadata only after confirming the external setup.</p>
+            </div>
+            <Button onClick={() => setActiveSection("overview")} size="small" type="button" variant="outline">Review metadata</Button>
+          </div>
+        ) : null}
+
         <section className="agent-integrations-grid">
           <Card className="agent-integration-panel">
             <div className="agent-panel-header">
-              <h2>{agent.agentType === "connected" ? "Manual test mode" : "Developer integration"}</h2>
+              <div className="agent-integration-panel__title-row">
+                <div>
+                  <p className="ui-kicker">Primary path</p>
+                  <h2>{agent.agentType === "connected" ? "Manual test mode" : "Developer integration"}</h2>
+                </div>
+                <IntegrationPathBadge path={agent.agentType === "connected" ? "manual" : "action-time"} />
+              </div>
               <p>Credential and passport operations do not edit permission records.</p>
             </div>
-            <p>{agent.agentType === "connected" ? "Send this link to your agent so it can read the allowed scopes and ask you to verify actions. Automatic enforcement requires provider or app integration." : "Use this API key directly from your custom integration and call verify before actions happen."}</p>
+            <p>{agent.agentType === "connected" ? "Send the passport link to the external agent so it can read allowed scopes and request manual verification. This path does not intercept the external agent&apos;s tools." : "Use this identity&apos;s API key in your custom integration and call verify before the covered action executes."}</p>
+            <dl className="agent-integration-configuration">
+              <div><dt>Setup</dt><dd>{agent.publicPassportEnabled ? "Passport link created" : "Passport link not created"}</dd></div>
+              <div><dt>Policy source</dt><dd>Agent permission records</dd></div>
+              <div><dt>Automatic boundary</dt><dd>{agent.agentType === "connected" ? "Not provided by passport" : "Only where your application gates execution"}</dd></div>
+            </dl>
             <div className="agent-passport-actions"><Button onClick={regeneratePassport} type="button">{agent.publicPassportEnabled ? "Regenerate passport link" : "Create passport link"}</Button></div>
             {passportUrl ? <Secret value={passportUrl} label="Passport link" /> : null}
             {agent.agentType === "connected" ? <p className="field-help">Treat this passport link like a secret. Anyone with the token can view this agent&apos;s allowed scopes and run manual previews.</p> : null}
             {agent.agentType === "connected" ? <p className="field-help">Some agents cannot fetch passport links directly (e.g. Gemini memory, ChatGPT system prompts). If the agent cannot read the link, open the passport page and paste the Agent memory block into the agent instead.</p> : null}
-            {agent.publicPassportTokenPreview ? <p>Current passport token: <code>{agent.publicPassportTokenPreview}</code></p> : null}
+            {agent.publicPassportTokenPreview ? <p className="agent-integration-token">Current passport token: <code>{agent.publicPassportTokenPreview}</code></p> : null}
           </Card>
           {agent.agentType === "connected" ? (
             <details className="agent-integration-panel developer-integration-details">
-              <summary className="developer-integration-summary">For developers — SDK integration</summary>
-              <p>When your app or provider can call BehalfID, use the SDK/API for automatic enforcement.</p>
+              <summary className="developer-integration-summary">Optional developer path — SDK integration</summary>
+              <p>When an application you control can call BehalfID before execution, use the SDK/API as the action-time decision point.</p>
               <CodeBlock label="verify.ts">{buildVerifySnippet(agent.agentId, detail.data?.permissions)}</CodeBlock>
             </details>
           ) : (
             <Card className="agent-integration-panel">
-              <div className="agent-panel-header"><h2>Manual testing</h2></div>
-              <p>Native agents can also use a passport link for manual allow/deny testing.</p>
+              <div className="agent-panel-header">
+                <div className="agent-integration-panel__title-row">
+                  <div><p className="ui-kicker">Verification example</p><h2>SDK request</h2></div>
+                  <IntegrationPathBadge path="action-time" />
+                </div>
+              </div>
+              <p>Call verify before the covered tool or external action. A deny result only stops execution when your integration honors it at that boundary.</p>
               <CodeBlock label="verify.ts">{buildVerifySnippet(agent.agentId, detail.data?.permissions)}</CodeBlock>
             </Card>
           )}
         </section>
+        <aside className="agent-integration-boundary-note">
+          <strong>Workspace CLI policy is separate.</strong>
+          <span>Managed Profiles apply to supported local CLI launch shims and are not associated with this agent record.</span>
+          <Link href={dHref("/dashboard/managed-profiles")}>Review managed profiles</Link>
+        </aside>
       </AgentSectionPanel>
       <AgentSectionPanel active={activeSection} section="permissions">
         <div className="permission-section-heading">
