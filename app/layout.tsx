@@ -7,6 +7,7 @@ import { getLocale } from "next-intl/server";
 import "./globals.css";
 import "./design-system-foundation.css";
 import "./auth-onboarding.css";
+import "./dashboard-shell.css";
 
 const inter = Inter({
   subsets: ["latin"],
