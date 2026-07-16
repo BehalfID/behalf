@@ -7,6 +7,13 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { ConsoleShellLayout } from "@/components/layout/ConsoleShell";
 import { DecisionIndicator } from "@/components/dashboard/OpsEventPrimitives";
 import { ConnectionStatusBadge } from "@/components/dashboard/ProfileIntegrationPrimitives";
+import {
+  DeliveryStatusBadge,
+  DestructiveSettingsSection,
+  SecretLifecycleNotice,
+  SiteGuardStatus,
+  WebhookStatusBadge
+} from "@/components/dashboard/OperationsPrimitives";
 import { Button, ButtonLink, CodeBlock, DashboardState, EmptyState, Logo, PageHeader, RiskIndicator, StatCard } from "@/components/ui";
 
 type Agent = {
@@ -977,42 +984,50 @@ function SiteGuardView() {
 
   return (
     <>
-      <Header title="Site Guard" />
-      {sites.error ? <p className="form-error" role="alert">{sites.error.message}</p> : null}
-      {logs.error ? <p className="form-error" role="alert">{logs.error.message}</p> : null}
-      <section className="console-grid">
-        <div className="console-panel">
+      <Header title="Site Guard" description="Read-only operational view of site route-policy boundaries and their latest recorded enforcement checks." />
+      {sites.loading || logs.loading ? <DashboardState kind="loading" title="Loading Site Guard operations" description="Retrieving sites and recent check records." /> : null}
+      {sites.error || logs.error ? <DashboardState kind="error" title="Site Guard operations could not be loaded" description={sites.error?.message ?? logs.error?.message} /> : null}
+      {!sites.loading && !logs.loading && !sites.error && !logs.error ? (
+      <section className="console-operations-grid">
+        <div className="console-operations-section">
           <SectionTitle title="Sites" />
           <div className="console-list">
             {(sites.data?.sites ?? []).length === 0 ? (
               <div className="console-empty-state">
                 <strong>No protected sites yet</strong>
-                <p>Site Guard lets you control which domains can make verification requests to BehalfID. Register your app&apos;s domain to restrict API access to known origins.</p>
-                <p>Use the <code>POST /api/sites</code> endpoint or the BehalfID SDK to register a site. Once registered it will appear here and you can enable or disable it.</p>
+                <p>Site Guard evaluates identified AI agents against allow and block path rules before an application serves protected routes.</p>
+                <p>Sites, server-only keys, and rules are configured from the workspace Site Guard page. This console does not add capabilities or health signals.</p>
               </div>
             ) : (sites.data?.sites ?? []).map((site) => (
               <div className="console-list-row" key={site.siteId}>
-                <strong>{site.name}</strong>
-                <small>{site.domain} / {site.status} / {site.siteId}</small>
-                <button className="ui-button ui-button--secondary" onClick={() => void setStatus(site)} type="button">
+                <span>
+                  <strong>{site.name}</strong>
+                  <small><code>{site.domain}</code> · <code>{site.siteId}</code></small>
+                </span>
+                <SiteGuardStatus status={site.status} />
+                <Button variant={site.status === "active" ? "danger" : "primary"} onClick={() => void setStatus(site)} type="button">
                   {site.status === "active" ? "Disable" : "Enable"}
-                </button>
+                </Button>
               </div>
             ))}
           </div>
         </div>
-        <div className="console-panel">
+        <div className="console-operations-section">
           <SectionTitle title="Recent checks" />
           <div className="console-list">
-            {(logs.data?.logs ?? []).map((log) => (
+            {(logs.data?.logs ?? []).length ? (logs.data?.logs ?? []).map((log) => (
               <div className="console-list-row" key={log.requestId}>
-                <strong>{log.allowed ? "Allowed" : "Denied"} {log.path}</strong>
-                <small>{log.domain} / {log.reason} / {log.requestId}</small>
+                <span>
+                  <strong>{log.allowed ? "Allowed" : "Denied"} <code>{log.path}</code></strong>
+                  <small><code>{log.domain}</code> · {log.reason} · <code>{log.requestId}</code></small>
+                </span>
+                <span className={statusClass(log.allowed ? "success" : "failed")}>{log.allowed ? "allowed" : "denied"}</span>
               </div>
-            ))}
+            )) : <EmptyState className="console-empty">No Site Guard checks have been recorded.</EmptyState>}
           </div>
         </div>
       </section>
+      ) : null}
     </>
   );
 }
@@ -1239,34 +1254,46 @@ function WebhooksView() {
   const [url, setUrl] = useState("");
   const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
   const [oneTimeSecret, setOneTimeSecret] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const createWebhook = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const result = await apiFetch<{ webhook: Webhook; secret: string }>("/api/console/webhooks", {
-      method: "POST",
-      body: JSON.stringify({ url, events: selectedEvents })
-    });
-    setOneTimeSecret(result.secret);
-    setUrl("");
-    setSelectedEvents([]);
-    await webhooks.reload();
+    setSubmitting(true);
+    setActionError("");
+    try {
+      const result = await apiFetch<{ webhook: Webhook; secret: string }>("/api/console/webhooks", {
+        method: "POST",
+        body: JSON.stringify({ url, events: selectedEvents })
+      });
+      setOneTimeSecret(result.secret);
+      setUrl("");
+      setSelectedEvents([]);
+      await webhooks.reload();
+    } catch (requestError) {
+      setActionError((requestError as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <ResourceState resource={webhooks}>
       {(data) => (
         <>
-          <Header title="Webhooks" />
-          <section className="console-split">
-            <div>
+          <Header title="Webhooks" description="Operational endpoint inventory and creation controls for the console account scope." />
+          {actionError ? <p className="console-error" role="alert">{actionError}</p> : null}
+          <section className="console-operations-grid">
+            <div className="console-operations-section">
               <SectionTitle title="Endpoints" />
               <WebhookList webhooks={data.webhooks} />
             </div>
-            <form className="console-panel" onSubmit={createWebhook}>
+            <form className="console-operations-section" onSubmit={createWebhook}>
               <SectionTitle title="Create endpoint" />
               <label>
                 <span>URL</span>
-                <input onChange={(event) => setUrl(event.target.value)} placeholder="https://example.com/webhooks/behalfid" required type="url" value={url} />
+                <input autoCapitalize="none" autoCorrect="off" disabled={submitting} onChange={(event) => setUrl(event.target.value)} placeholder="https://example.com/webhooks/behalfid" required type="url" value={url} />
+                <small className="field-help">Production endpoints require HTTPS. URL credentials are rejected.</small>
               </label>
               <fieldset className="console-fieldset">
                 <legend>Events</legend>
@@ -1281,14 +1308,15 @@ function WebhooksView() {
                             : current.filter((item) => item !== eventType)
                         );
                       }}
+                      disabled={submitting}
                       type="checkbox"
                     />
                     <span>{eventType}</span>
                   </label>
                 ))}
               </fieldset>
-              <Button variant="primary" type="submit">Create webhook</Button>
-              {oneTimeSecret ? <SecretBox label="Signing secret" value={oneTimeSecret} /> : null}
+              <Button loading={submitting} variant="primary" type="submit">Create webhook</Button>
+              {oneTimeSecret ? <SecretBox description="Copy this signing secret now. Only its hash and masked preview remain available after this state." label="Signing secret" value={oneTimeSecret} /> : null}
             </form>
           </section>
         </>
@@ -1300,19 +1328,37 @@ function WebhooksView() {
 function WebhookDetailView({ webhookId }: { webhookId: string }) {
   const detail = useApiResource<WebhookDetail>(`/api/console/webhooks/${webhookId}`);
   const [oneTimeSecret, setOneTimeSecret] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [working, setWorking] = useState<"rotate" | "enable" | "disable" | null>(null);
 
   const setStatus = async (status: "enable" | "disable") => {
-    await apiFetch(`/api/console/webhooks/${webhookId}/${status}`, { method: "POST" });
-    await detail.reload();
+    setWorking(status);
+    setActionError("");
+    try {
+      await apiFetch(`/api/console/webhooks/${webhookId}/${status}`, { method: "POST" });
+      await detail.reload();
+    } catch (requestError) {
+      setActionError((requestError as Error).message);
+    } finally {
+      setWorking(null);
+    }
   };
 
   const rotateSecret = async () => {
-    const result = await apiFetch<{ webhookId: string; secret: string }>(
-      `/api/console/webhooks/${webhookId}/rotate-secret`,
-      { method: "POST" }
-    );
-    setOneTimeSecret(result.secret);
-    await detail.reload();
+    setWorking("rotate");
+    setActionError("");
+    try {
+      const result = await apiFetch<{ webhookId: string; secret: string }>(
+        `/api/console/webhooks/${webhookId}/rotate-secret`,
+        { method: "POST" }
+      );
+      setOneTimeSecret(result.secret);
+      await detail.reload();
+    } catch (requestError) {
+      setActionError((requestError as Error).message);
+    } finally {
+      setWorking(null);
+    }
   };
 
   return (
@@ -1321,38 +1367,50 @@ function WebhookDetailView({ webhookId }: { webhookId: string }) {
         <>
           <Header
             title="Webhook"
-            action={
-              <div className="console-actions">
-                <Button onClick={rotateSecret} type="button">Rotate secret</Button>
-                {data.webhook.status === "disabled" ? (
-                  <Button variant="primary" onClick={() => setStatus("enable")} type="button">Enable</Button>
-                ) : (
-                  <Button variant="danger" onClick={() => setStatus("disable")} type="button">Disable</Button>
-                )}
-              </div>
-            }
+            description="Endpoint configuration, signing-secret lifecycle, and recorded delivery attempts."
           />
-          <section className="console-detail">
-            <div className="console-panel">
+          {actionError ? <p className="console-error" role="alert">{actionError}</p> : null}
+          <section className="console-operations-grid">
+            <div className="console-operations-section">
               <SectionTitle title="Endpoint" />
               <dl className="console-definition">
-                <div><dt>Webhook ID</dt><dd>{data.webhook.webhookId}</dd></div>
-                <div><dt>URL</dt><dd>{data.webhook.url}</dd></div>
-                <div><dt>Status</dt><dd><span className={statusClass(data.webhook.status)}>{data.webhook.status}</span></dd></div>
-                <div><dt>Secret</dt><dd>{data.webhook.secretPreview}</dd></div>
+                <div><dt>Webhook ID</dt><dd><code>{data.webhook.webhookId}</code></dd></div>
+                <div><dt>URL</dt><dd><code>{data.webhook.url}</code></dd></div>
+                <div><dt>Status</dt><dd><WebhookStatusBadge status={data.webhook.status} /></dd></div>
+                <div><dt>Secret preview</dt><dd><code>{data.webhook.secretPreview}</code></dd></div>
                 <div><dt>Last triggered</dt><dd>{formatDate(data.webhook.lastTriggeredAt)}</dd></div>
+                <div><dt>Created</dt><dd>{formatDate(data.webhook.createdAt)}</dd></div>
               </dl>
-              {oneTimeSecret ? <SecretBox label="Rotated signing secret" value={oneTimeSecret} /> : null}
+              {oneTimeSecret ? <SecretBox description="Copy this value now. Rotation replaces the secret used for future signatures, and the new raw value cannot be recovered later." label="Rotated signing secret" value={oneTimeSecret} /> : null}
             </div>
-            <div className="console-panel">
+            <div className="console-operations-section">
               <SectionTitle title="Subscribed events" />
-              <ul className="console-bullets">
-                {data.webhook.events.map((eventType) => <li key={eventType}>{eventType}</li>)}
-              </ul>
+              <div className="webhook-event-set">{data.webhook.events.map((eventType) => <code key={eventType}>{eventType}</code>)}</div>
+            </div>
+            <div className="console-operations-section console-operations-section--wide">
+              <SectionTitle title="Sensitive controls" />
+              <div className="settings-page-content">
+                <DestructiveSettingsSection
+                  action={<Button loading={working === "rotate"} onClick={rotateSecret} type="button" variant="danger">Rotate secret</Button>}
+                  consequence="Future deliveries use the replacement secret immediately. Update the endpoint verifier with the one-time value."
+                  title="Rotate signing secret"
+                />
+                {data.webhook.status === "disabled" ? (
+                  <div className="settings-callout"><strong>Endpoint disabled</strong>Enable it to resume subscribed delivery.<div className="setup-actions"><Button loading={working === "enable"} variant="primary" onClick={() => setStatus("enable")} type="button">Enable endpoint</Button></div></div>
+                ) : (
+                  <DestructiveSettingsSection
+                    action={<Button loading={working === "disable"} variant="danger" onClick={() => setStatus("disable")} type="button">Disable endpoint</Button>}
+                    consequence="The endpoint stops receiving subscribed events until it is enabled again."
+                    title="Disable delivery"
+                  />
+                )}
+              </div>
             </div>
           </section>
-          <SectionTitle title="Recent deliveries" />
-          <DeliveryList deliveries={data.deliveries} />
+          <section className="console-operations-section" aria-labelledby="console-webhook-deliveries">
+            <h2 className="console-section-title" id="console-webhook-deliveries">Recent deliveries</h2>
+            <DeliveryList deliveries={data.deliveries} />
+          </section>
         </>
       )}
     </ResourceState>
@@ -1380,6 +1438,7 @@ function WebhookEventsView() {
         <>
           <Header
             title="Webhook events"
+            description="Inspect queue state, retry attempts, and dead-lettered events within the console account scope."
             action={<Button onClick={events.reload} type="button">Refresh</Button>}
           />
           <div className="console-filters">
@@ -1417,6 +1476,7 @@ function WebhookEventDetailView({ eventId }: { eventId: string }) {
         <>
           <Header
             title="Webhook event"
+            description="Inspect the stored event payload and delivery attempts; replay is available only for incomplete events."
             action={
               data.event.status !== "completed" ? (
                 <Button variant="primary" onClick={replay} type="button">Replay</Button>
@@ -1457,7 +1517,7 @@ function SettingsView() {
     <ResourceState resource={settings}>
       {(data) => (
         <>
-          <Header title="Settings" />
+          <Header title="Settings" description="Read-only environment posture, security warnings, and known operational limitations for this deployment." />
           {data.rateLimitMode === "memory" && data.environment !== "development" && (
             <div className="console-alert" role="alert">
               <span className="console-alert__icon">⚠</span>
@@ -1467,29 +1527,39 @@ function SettingsView() {
               </div>
             </div>
           )}
-          <section className="console-settings">
-            <dl className="console-definition">
-              <div><dt>App URL</dt><dd>{data.appUrl}</dd></div>
-              <div><dt>Environment</dt><dd>{data.environment}</dd></div>
-              <div><dt>MongoDB configured</dt><dd>{data.mongoConfigured ? "yes" : "no"}</dd></div>
-              <div><dt>DB health</dt><dd>{data.mongoStatus}</dd></div>
-              <div><dt>Public creation</dt><dd>{data.publicAgentCreation}</dd></div>
-              <div><dt>Setup token</dt><dd>{data.setupTokenConfigured ? "configured" : "not configured"}</dd></div>
-              <div><dt>Rate limit mode</dt><dd>{data.rateLimitMode}</dd></div>
-              <div><dt>Metadata logging</dt><dd>{data.metadataLogging}</dd></div>
-            </dl>
-            {data.securityWarnings.length ? (
-              <>
-                <SectionTitle title="Security warnings" />
+          <section className="console-operations-grid">
+            <div className="console-operations-section">
+              <SectionTitle title="Environment" />
+              <dl className="console-definition">
+                <div><dt>App URL</dt><dd><code>{data.appUrl}</code></dd></div>
+                <div><dt>Environment</dt><dd><span className={statusClass(data.environment)}>{data.environment}</span></dd></div>
+                <div><dt>MongoDB configured</dt><dd>{data.mongoConfigured ? "Yes" : "No"}</dd></div>
+                <div><dt>Database health</dt><dd>{data.mongoStatus}</dd></div>
+              </dl>
+            </div>
+            <div className="console-operations-section">
+              <SectionTitle title="Access and logging" />
+              <dl className="console-definition">
+                <div><dt>Public creation</dt><dd>{data.publicAgentCreation}</dd></div>
+                <div><dt>Setup token</dt><dd>{data.setupTokenConfigured ? "Configured" : "Not configured"}</dd></div>
+                <div><dt>Rate limit mode</dt><dd>{data.rateLimitMode}</dd></div>
+                <div><dt>Metadata logging</dt><dd>{data.metadataLogging}</dd></div>
+              </dl>
+            </div>
+            <div className="console-operations-section">
+              <SectionTitle title="Security warnings" />
+              {data.securityWarnings.length ? (
                 <ul className="console-bullets">
                   {data.securityWarnings.map((item) => <li key={item}>{item}</li>)}
                 </ul>
-              </>
-            ) : null}
-            <SectionTitle title="Known limitations" />
-            <ul className="console-bullets">
-              {data.limitations.map((item) => <li key={item}>{item}</li>)}
-            </ul>
+              ) : <div className="settings-callout"><strong>No reported security warnings</strong>The settings endpoint did not return a warning for this environment.</div>}
+            </div>
+            <div className="console-operations-section">
+              <SectionTitle title="Known limitations" />
+              <ul className="console-bullets">
+                {data.limitations.map((item) => <li key={item}>{item}</li>)}
+              </ul>
+            </div>
           </section>
         </>
       )}
@@ -1497,8 +1567,8 @@ function SettingsView() {
   );
 }
 
-function Header({ title, action }: { title: string; action?: React.ReactNode }) {
-  return <PageHeader eyebrow="Console" title={title} action={action} className="console-header" />;
+function Header({ title, action, description }: { title: string; action?: React.ReactNode; description?: string }) {
+  return <PageHeader eyebrow="Console" title={title} description={description} action={action} className="console-header console-operations-header" />;
 }
 
 function SectionTitle({ title }: { title: string }) {
@@ -1535,11 +1605,12 @@ function WebhookList({ webhooks }: { webhooks: Webhook[] }) {
       {webhooks.map((webhook) => (
         <Link className="console-row" href={`/console/webhooks/${webhook.webhookId}`} key={webhook.webhookId}>
           <span>
-            <strong>{webhook.url}</strong>
-            <small>{webhook.events.join(", ")}</small>
+            <strong className="console-webhook-url">{webhook.url}</strong>
+            <small>{webhook.events.length} events · {webhook.events.join(", ")}</small>
+            <small><code>{webhook.webhookId}</code> · created {formatDate(webhook.createdAt)}</small>
           </span>
-          <span className={statusClass(webhook.status)}>{webhook.status}</span>
-          <span>{formatDate(webhook.lastTriggeredAt)}</span>
+          <WebhookStatusBadge status={webhook.status} />
+          <span>Last delivery {formatDate(webhook.lastTriggeredAt)}</span>
         </Link>
       ))}
     </div>
@@ -1553,12 +1624,13 @@ function DeliveryList({ deliveries }: { deliveries: WebhookDelivery[] }) {
       {deliveries.map((delivery) => (
         <div className="console-list__item" key={delivery.deliveryId}>
           <span>
-            <strong>{delivery.eventType}</strong>
-            <small>{delivery.eventId}{delivery.error ? ` / ${delivery.error}` : ""}</small>
-            <small>Attempt {delivery.attempt}{delivery.maxAttempts ? ` of ${delivery.maxAttempts}` : ""}{delivery.nextRetryAt ? ` / retry ${formatDate(delivery.nextRetryAt)}` : ""}</small>
+            <strong><code>{delivery.eventType}</code></strong>
+            <small><code>{delivery.eventId}</code></small>
+            <small>Attempt {delivery.attempt}{delivery.maxAttempts ? ` of ${delivery.maxAttempts}` : ""}{delivery.nextRetryAt ? ` · retry ${formatDate(delivery.nextRetryAt)}` : ""}</small>
+            {delivery.error ? <small className="webhook-delivery-row__error">{delivery.error}</small> : null}
           </span>
-          <span className={statusClass(delivery.status)}>{delivery.status}</span>
-          <span>{delivery.httpStatus ?? "no status"}</span>
+          <DeliveryStatusBadge status={delivery.status} />
+          <span>{delivery.httpStatus ? `HTTP ${delivery.httpStatus}` : "No HTTP status"}</span>
         </div>
       ))}
     </div>
@@ -1679,23 +1751,14 @@ function LogSummaryStrip({ summary }: { summary: LogSummary }) {
   );
 }
 
-function SecretBox({ label, value }: { label: string; value: string }) {
-  const [copied, setCopied] = useState(false);
-
-  const copy = async () => {
-    await navigator.clipboard.writeText(value);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1600);
-  };
-
+function SecretBox({ label, value, description }: { label: string; value: string; description?: string }) {
   return (
     <div className="console-secret">
-      <strong>{label}</strong>
-      <p>This key is shown once. Store it now; the old key stops working after rotation.</p>
-      <code>{value}</code>
-      <Button onClick={copy} type="button">
-        {copied ? "Copied" : "Copy key"}
-      </Button>
+      <SecretLifecycleNotice
+        description={description ?? "This credential is shown once. Store it securely now; only hashed or masked material remains available later."}
+        label={label}
+        value={value}
+      />
     </div>
   );
 }
