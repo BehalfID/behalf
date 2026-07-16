@@ -2,10 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef } from "react";
-import { SESSION_INACTIVITY_MS } from "@/lib/developerAuth";
 
 const PING_DEBOUNCE_MS = 60_000;
 const CHECK_INTERVAL_MS = 30_000;
+const DEFAULT_INACTIVITY_MS = 60 * 60 * 1000;
 
 async function logoutDueToInactivity() {
   try {
@@ -31,10 +31,32 @@ export function SessionInactivityMonitor() {
   const lastActivityRef = useRef(Date.now());
   const lastPingRef = useRef(0);
   const pingInFlightRef = useRef(false);
+  const inactivityMsRef = useRef(DEFAULT_INACTIVITY_MS);
 
   const recordActivity = useCallback(() => {
     lastActivityRef.current = Date.now();
   }, []);
+
+  const checkSessionStatus = useCallback(async () => {
+    try {
+      const response = await fetch("/api/auth/session", {
+        credentials: "include"
+      });
+      if (!response.ok) {
+        router.replace("/login?reason=session-expired");
+        return;
+      }
+
+      const body = (await response.json()) as {
+        session?: { inactivityMs?: number };
+      };
+      if (typeof body.session?.inactivityMs === "number") {
+        inactivityMsRef.current = body.session.inactivityMs;
+      }
+    } catch {
+      // Ignore transient network errors; server-side checks remain authoritative.
+    }
+  }, [router]);
 
   const pingSession = useCallback(async () => {
     if (pingInFlightRef.current) return;
@@ -56,6 +78,8 @@ export function SessionInactivityMonitor() {
   }, [router]);
 
   useEffect(() => {
+    void checkSessionStatus();
+
     const events = ["mousemove", "mousedown", "keydown", "scroll", "touchstart"] as const;
 
     const onActivity = () => {
@@ -72,8 +96,10 @@ export function SessionInactivityMonitor() {
     }
 
     const interval = window.setInterval(() => {
+      void checkSessionStatus();
+
       const idleMs = Date.now() - lastActivityRef.current;
-      if (idleMs >= SESSION_INACTIVITY_MS) {
+      if (idleMs >= inactivityMsRef.current) {
         void logoutDueToInactivity();
       }
     }, CHECK_INTERVAL_MS);
@@ -84,7 +110,7 @@ export function SessionInactivityMonitor() {
       }
       window.clearInterval(interval);
     };
-  }, [pingSession, recordActivity]);
+  }, [checkSessionStatus, pingSession, recordActivity]);
 
   return null;
 }

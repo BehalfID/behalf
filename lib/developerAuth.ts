@@ -247,6 +247,29 @@ export async function getCurrentDeveloperContext() {
   return getDeveloperFromToken(cookieStore.get(COOKIE_NAME)?.value);
 }
 
+export type ServerSessionStatus = {
+  sessionId: string;
+  userId: string;
+  email: string;
+  emailVerified: boolean;
+  inactivityMs: number;
+};
+
+/** Read and validate the current developer session from request cookies (server-only). */
+export async function checkSessionOnServer(): Promise<ServerSessionStatus | null> {
+  const cookieStore = await cookies();
+  const context = await getDeveloperFromToken(cookieStore.get(COOKIE_NAME)?.value);
+  if (!context) return null;
+
+  return {
+    sessionId: context.session.sessionId,
+    userId: context.user.userId,
+    email: context.user.email,
+    emailVerified: context.user.emailVerified !== false,
+    inactivityMs: SESSION_INACTIVITY_MS
+  };
+}
+
 function readTrustedWorkspaceSlug(request: NextRequest): string | null {
   const slug = request.headers.get(WORKSPACE_SLUG_HEADER)?.trim().toLowerCase() ?? "";
   return slug || null;
