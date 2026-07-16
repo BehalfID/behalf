@@ -11,6 +11,7 @@ import {
 import { getRequiredRoleLabel } from "@/lib/authority";
 import { classifyPermissionRisk } from "@/lib/permissionRisk";
 import type { PolicyTemplate } from "@/lib/policyTemplates";
+import { ConnectionStatusBadge } from "@/components/dashboard/ProfileIntegrationPrimitives";
 import {
   permissionEffectiveStatus,
   permissionIsBroad,
@@ -97,16 +98,6 @@ export function AgentStatusBadge({ status }: { status: string }) {
     : normalized === "disabled"
       ? "neutral"
       : "warning";
-  return (
-    <Badge variant={variant}>
-      <span className="ui-status-dot" aria-hidden="true" />
-      {sentenceCase(status)}
-    </Badge>
-  );
-}
-
-function ConnectionStatusBadge({ status }: { status: AgentManagementRecord["connectionStatus"] }) {
-  const variant = status === "connected" ? "success" : status === "disconnected" ? "destructive" : "outline";
   return (
     <Badge variant={variant}>
       <span className="ui-status-dot" aria-hidden="true" />

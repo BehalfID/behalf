@@ -1,0 +1,1352 @@
+/* Managed Profiles and integration operations
+ * Loaded after the shared dashboard phases so these selectors can consume the
+ * design-system contract without changing legacy route behavior.
+ */
+
+.dashboard-shell .managed-profiles-page {
+  display: grid;
+  gap: 24px;
+}
+
+.dashboard-shell .managed-profile-header.ui-page-header {
+  margin-bottom: 0;
+}
+
+.dashboard-shell .managed-profile-identity-strip {
+  display: grid;
+  grid-template-columns: 1fr 0.75fr 1.15fr 1fr 1.1fr;
+  margin: -24px 0 0;
+  overflow: hidden;
+  border: 1px solid var(--border-standard);
+  border-top: 0;
+  border-radius: 0 0 var(--radius-medium) var(--radius-medium);
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-subtle);
+}
+
+.dashboard-shell .managed-profile-identity-strip > div {
+  min-width: 0;
+  padding: 13px 15px 14px;
+  border-right: 1px solid var(--border-subtle);
+}
+
+.dashboard-shell .managed-profile-identity-strip > div:last-child {
+  border-right: 0;
+}
+
+.dashboard-shell .managed-profile-identity-strip dt,
+.dashboard-shell .managed-profile-identity-strip dd {
+  margin: 0;
+}
+
+.dashboard-shell .managed-profile-identity-strip dt {
+  margin-bottom: 5px;
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.dashboard-shell .managed-profile-identity-strip dd {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 0.76rem;
+  font-weight: 620;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-shell .managed-profile-section-nav {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  max-width: 100%;
+  padding: 5px;
+  overflow-x: auto;
+  border: 1px solid var(--border-standard);
+  border-radius: var(--radius-small);
+  background: var(--surface-muted);
+  scrollbar-width: thin;
+}
+
+.dashboard-shell .managed-profile-section-nav a {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 620;
+  line-height: 1;
+  text-decoration: none;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.dashboard-shell .managed-profile-section-nav a:hover {
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+}
+
+.dashboard-shell .managed-profile-section-nav a:focus-visible,
+.dashboard-shell .managed-profile-onboarding-action:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.dashboard-shell .managed-profile-restricted.dashboard-state {
+  min-height: 0;
+  grid-template-columns: auto minmax(0, 1fr);
+  padding: 16px 18px;
+}
+
+.dashboard-shell .managed-profile-restricted .dashboard-state__mark {
+  width: 34px;
+  height: 34px;
+}
+
+.dashboard-shell .managed-profile-section {
+  display: grid;
+  gap: 18px;
+  scroll-margin-top: 24px;
+}
+
+.dashboard-shell .managed-profile-section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 13px;
+  border-bottom: 1px solid var(--border-standard);
+}
+
+.dashboard-shell .managed-profile-section-heading > div {
+  min-width: 0;
+}
+
+.dashboard-shell .managed-profile-section-heading .ui-kicker,
+.dashboard-shell .managed-profile-onboarding-header .ui-kicker {
+  margin-bottom: 7px;
+}
+
+.dashboard-shell .managed-profile-section-heading h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.08rem;
+  font-weight: 680;
+  letter-spacing: -0.018em;
+  line-height: 1.3;
+}
+
+.dashboard-shell .managed-profile-section-heading p:not(.ui-kicker) {
+  max-width: 68ch;
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.dashboard-shell .managed-profile-section-heading > label {
+  width: min(230px, 100%);
+}
+
+.dashboard-shell .managed-profile-overview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.dashboard-shell .managed-profile-posture.ui-card {
+  display: grid;
+  gap: 17px;
+  border: 1px solid var(--border-standard);
+  border-radius: var(--radius-medium);
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-subtle);
+}
+
+.dashboard-shell .managed-profile-posture__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.dashboard-shell .managed-profile-posture__label,
+.dashboard-shell .managed-profile-required-pause > span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.dashboard-shell .managed-profile-posture h3,
+.dashboard-shell .managed-profile-boundary h3,
+.dashboard-shell .managed-profile-mode h3,
+.dashboard-shell .managed-profile-editor-panel h3,
+.dashboard-shell .managed-profile-repo-empty__title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.96rem;
+  font-weight: 680;
+  letter-spacing: -0.012em;
+  line-height: 1.35;
+}
+
+.dashboard-shell .managed-profile-posture > p {
+  max-width: 62ch;
+  margin: -7px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.dashboard-shell .managed-profile-facts,
+.dashboard-shell .agent-integration-configuration {
+  display: grid;
+  margin: 0;
+  border-top: 1px solid var(--border-standard);
+}
+
+.dashboard-shell .managed-profile-facts > div,
+.dashboard-shell .agent-integration-configuration > div {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.65fr) minmax(0, 1.35fr);
+  gap: 16px;
+  align-items: center;
+  min-height: 44px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.dashboard-shell .managed-profile-facts > div:last-child,
+.dashboard-shell .agent-integration-configuration > div:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.dashboard-shell .managed-profile-facts dt,
+.dashboard-shell .managed-profile-facts dd,
+.dashboard-shell .agent-integration-configuration dt,
+.dashboard-shell .agent-integration-configuration dd {
+  margin: 0;
+}
+
+.dashboard-shell .managed-profile-facts dt,
+.dashboard-shell .agent-integration-configuration dt {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 650;
+}
+
+.dashboard-shell .managed-profile-facts dd,
+.dashboard-shell .agent-integration-configuration dd {
+  color: var(--text-primary);
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.dashboard-shell .managed-profile-boundary {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding: 22px 22px 24px;
+  border: 1px solid var(--accent-border);
+  border-left: 3px solid var(--accent-base);
+  border-radius: var(--radius-medium);
+  background: var(--accent-wash);
+}
+
+.dashboard-shell .managed-profile-boundary__eyebrow {
+  margin: 0;
+  color: var(--accent-text);
+  font-size: 0.66rem;
+  font-weight: 720;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.dashboard-shell .managed-profile-boundary > p:not(.managed-profile-boundary__eyebrow) {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.79rem;
+  line-height: 1.58;
+}
+
+.dashboard-shell .managed-profile-boundary__cache {
+  display: grid;
+  gap: 4px;
+  margin-top: 5px;
+  padding-top: 13px;
+  border-top: 1px solid var(--accent-border);
+}
+
+.dashboard-shell .managed-profile-boundary__cache strong {
+  color: var(--text-primary);
+  font-size: 0.74rem;
+}
+
+.dashboard-shell .managed-profile-boundary__cache span {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.dashboard-shell .managed-profile-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid var(--border-standard);
+  border-radius: var(--radius-medium);
+  background: var(--surface-muted);
+}
+
+.dashboard-shell .managed-profile-mode {
+  min-width: 0;
+  padding: 15px 17px 16px;
+  border-right: 1px solid var(--border-standard);
+}
+
+.dashboard-shell .managed-profile-mode:last-child {
+  border-right: 0;
+}
+
+.dashboard-shell .managed-profile-mode p {
+  margin: 9px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.73rem;
+  line-height: 1.5;
+}
+
+.dashboard-shell .managed-profile-onboarding.dashboard-panel {
+  gap: 18px;
+  margin: 0;
+  padding: 22px;
+  scroll-margin-top: 24px;
+  border-color: var(--border-standard);
+  border-radius: var(--radius-medium);
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-subtle);
+}
+
+.dashboard-shell .managed-profile-onboarding-header h2 {
+  color: var(--text-primary);
+  font-size: 1.08rem;
+  font-weight: 680;
+  letter-spacing: -0.018em;
+}
+
+.dashboard-shell .managed-profile-onboarding-subtitle {
+  max-width: 62ch;
+  margin-bottom: 0;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+.dashboard-shell .managed-profile-onboarding-status {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-standard);
+  border-radius: var(--radius-small);
+}
+
+.dashboard-shell .onboarding-status-chip {
+  padding: 11px 13px;
+  border: 0;
+  border-right: 1px solid var(--border-standard);
+  border-radius: 0;
+  background: var(--surface-muted);
+}
+
+.dashboard-shell .onboarding-status-chip:last-child {
+  border-right: 0;
+}
+
+.dashboard-shell .onboarding-status-chip__title {
+  color: var(--text-primary);
+  font-size: 0.74rem;
+  font-weight: 660;
+}
+
+.dashboard-shell .onboarding-status-chip__detail {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.dashboard-shell .managed-profile-onboarding-steps {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.dashboard-shell .managed-profile-onboarding-step {
+  display: grid;
+  gap: 11px;
+  align-content: start;
+  padding: 14px;
+  border-color: var(--border-standard);
+  border-radius: var(--radius-small);
+  background: var(--surface-muted);
+}
+
+.dashboard-shell .managed-profile-onboarding-step__head {
+  margin: 0;
+}
+
+.dashboard-shell .managed-profile-onboarding-step__badge {
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-small);
+  background: var(--accent-wash);
+  color: var(--accent-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.dashboard-shell .managed-profile-onboarding-step__copy h3,
+.dashboard-shell .managed-profile-onboarding-step h3 {
+  margin: 0 0 2px;
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 660;
+}
+
+.dashboard-shell .managed-profile-onboarding-step__copy p {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+}
+
+.dashboard-shell .onboarding-command-row {
+  min-width: 0;
+  padding: 6px 7px 6px 9px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--surface-inset);
+}
+
+.dashboard-shell .onboarding-command-row__text {
+  color: var(--text-primary);
+  font-size: 0.71rem;
+}
+
+.dashboard-shell .onboarding-command-row__copy {
+  border-color: var(--border-standard);
+  background: var(--surface-elevated);
+  color: var(--text-muted);
+}
+
+.dashboard-shell .managed-profile-onboarding-actions {
+  gap: 7px 9px;
+  padding: 0;
+}
+
+.dashboard-shell .managed-profile-onboarding-action {
+  padding: 6px 9px;
+  border-color: var(--border-standard);
+  border-radius: var(--radius-small);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+}
+
+.dashboard-shell .managed-profile-settings {
+  gap: 32px;
+}
+
+.dashboard-shell .managed-profile-settings input,
+.dashboard-shell .managed-profile-settings select,
+.dashboard-shell .managed-profile-simulator input,
+.dashboard-shell .managed-profile-simulator select {
+  border-color: var(--border-standard);
+  background: var(--surface-inset);
+  color: var(--text-primary);
+}
+
+.dashboard-shell .managed-profile-settings input:hover,
+.dashboard-shell .managed-profile-settings select:hover,
+.dashboard-shell .managed-profile-simulator input:hover,
+.dashboard-shell .managed-profile-simulator select:hover {
+  border-color: var(--border-strong-ui);
+}
+
+.dashboard-shell .managed-profile-settings input:focus-visible,
+.dashboard-shell .managed-profile-settings select:focus-visible,
+.dashboard-shell .managed-profile-simulator input:focus-visible,
+.dashboard-shell .managed-profile-simulator select:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 1px;
+  box-shadow: var(--focus-ring);
+}
+
+.dashboard-shell .managed-profile-table-shell {
+  border-color: var(--border-standard);
+  border-radius: var(--radius-medium);
+  background: var(--surface-elevated);
+}
+
+.dashboard-shell .managed-profile-table {
+  min-width: 790px;
+}
+
+.dashboard-shell .managed-profile-table .ui-table__head {
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.dashboard-shell .managed-profile-table .ui-table__cell {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  vertical-align: middle;
+}
+
+.dashboard-shell .managed-profile-table .ui-table__cell > strong,
+.dashboard-shell .managed-profile-tool-row .ui-table__cell:first-child strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  font-weight: 660;
+}
+
+.dashboard-shell .managed-profile-table .ui-table__cell > span,
+.dashboard-shell .managed-profile-tool-row .ui-table__cell:first-child span {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.dashboard-shell .managed-profile-table__muted {
+  color: var(--text-muted);
+}
+
+.dashboard-shell .managed-profile-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.dashboard-shell .managed-profile-rule-path {
+  max-width: 26ch;
+  color: var(--text-secondary);
+}
+
+.dashboard-shell .managed-profile-tool-select select {
+  min-width: 220px;
+  min-height: 34px;
+}
+
+.dashboard-shell .managed-profile-scope-note {
+  margin: -3px 0 0;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.dashboard-shell .managed-profile-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.78fr) minmax(0, 1.22fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.dashboard-shell .managed-profile-editor-panel.ui-card,
+.dashboard-shell .managed-profile-pause-panel.ui-card {
+  display: grid;
+  gap: 16px;
+  border: 1px solid var(--border-standard);
+  border-radius: var(--radius-medium);
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-subtle);
+}
+
+.dashboard-shell .managed-profile-editor-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 13px;
+  border-bottom: 1px solid var(--border-standard);
+}
+
+.dashboard-shell .managed-profile-editor-panel__header p {
+  max-width: 46ch;
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  line-height: 1.48;
+}
+
+.dashboard-shell .managed-profile-settings label.managed-profile-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid var(--border-standard);
+  border-radius: var(--radius-small);
+  background: var(--surface-muted);
+  cursor: pointer;
+}
+
+.dashboard-shell .managed-profile-settings label.managed-profile-toggle:has(input:checked) {
+  border-color: var(--accent-border);
+  background: var(--accent-wash);
+}
+
+.dashboard-shell .managed-profile-settings .setup-check input[type="checkbox"],
+.dashboard-shell .managed-profile-repo-status input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  min-height: 0;
+  margin: 1px 0 0;
+  padding: 0;
+  accent-color: var(--accent-base);
+}
+
+.dashboard-shell .managed-profile-settings label.managed-profile-toggle > span,
+.dashboard-shell .managed-profile-repo-status .setup-check > span {
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  font-weight: 620;
+  line-height: 1.35;
+}
+
+.dashboard-shell .managed-profile-editor-note {
+  margin: -4px 0 0;
+  color: var(--text-muted);
+  font-size: 0.71rem;
+  line-height: 1.48;
+}
+
+.dashboard-shell .managed-profile-day-grid {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.dashboard-shell .managed-profile-settings .managed-profile-day-grid .setup-check {
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 5px;
+  border: 1px solid var(--border-standard);
+  border-radius: 4px;
+  background: var(--surface-muted);
+}
+
+.dashboard-shell .managed-profile-day-grid .setup-check > span {
+  color: var(--text-secondary);
+  font-size: 0.65rem;
+}
+
+.dashboard-shell .managed-profile-time-grid,
+.dashboard-shell .managed-profile-mode-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dashboard-shell .managed-profile-section-heading--repos {
+  align-items: center;
+}
+
+.dashboard-shell .managed-profile-repo-help {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  padding: 13px 15px;
+  border: 1px solid var(--border-standard);
+  border-left: 3px solid var(--accent-base);
+  border-radius: var(--radius-small);
+  background: var(--surface-muted);
+}
+
+.dashboard-shell .managed-profile-repo-help p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+
+.dashboard-shell .managed-profile-repo-help code {
+  color: var(--text-primary);
+}
+
+.dashboard-shell .managed-profile-repo-help a,
+.dashboard-shell .agent-integration-boundary-note a {
+  color: var(--accent-text);
+}
+
+.dashboard-shell .managed-profile-repo-table {
+  min-width: 960px;
+}
+
+.dashboard-shell .managed-profile-repo-table .ui-table__cell {
+  padding: 12px 10px;
+}
+
+.dashboard-shell .managed-profile-repo-table input,
+.dashboard-shell .managed-profile-repo-table select {
+  min-height: 34px;
+}
+
+.dashboard-shell .managed-profile-repo-table .ui-table__cell:first-child {
+  width: 24%;
+}
+
+.dashboard-shell .managed-profile-repo-table .ui-table__cell:nth-child(2) {
+  width: 24%;
+}
+
+.dashboard-shell .managed-profile-repo-table .ui-table__cell:nth-child(3) {
+  width: 14%;
+}
+
+.dashboard-shell .managed-profile-repo-status {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+
+.dashboard-shell .managed-profile-repo-status .setup-check {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  border: 0;
+}
+
+.dashboard-shell .managed-profile-repo-empty.dashboard-empty {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  min-height: 0;
+  padding: 24px;
+  text-align: left;
+}
+
+.dashboard-shell .managed-profile-repo-empty p {
+  max-width: 60ch;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+}
+
+.dashboard-shell .managed-profile-pause-panel {
+  grid-template-columns: minmax(0, 1.25fr) minmax(260px, 0.75fr);
+}
+
+.dashboard-shell .managed-profile-pause-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dashboard-shell .managed-profile-duration {
+  padding: 10px 12px;
+  border: 1px solid var(--border-standard);
+  border-radius: var(--radius-small);
+  background: var(--surface-muted);
+}
+
+.dashboard-shell .managed-profile-required-pause {
+  display: grid;
+  align-content: start;
+  padding: 14px 15px;
+  border-left: 1px solid var(--border-standard);
+}
+
+.dashboard-shell .managed-profile-required-pause strong {
+  color: var(--text-primary);
+  font-size: 0.88rem;
+}
+
+.dashboard-shell .managed-profile-required-pause p {
+  margin: 7px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.dashboard-shell .managed-profile-simulator.dashboard-panel {
+  gap: 18px;
+  margin: 0;
+  padding: 20px;
+  scroll-margin-top: 24px;
+  border-color: var(--border-standard);
+  border-radius: var(--radius-medium);
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-subtle);
+}
+
+.dashboard-shell .managed-profile-simulator__fields {
+  display: grid;
+  grid-template-columns: 0.7fr 1.2fr 0.9fr auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.dashboard-shell .managed-profile-simulator__fields label {
+  display: grid;
+  gap: 5px;
+  color: var(--text-secondary);
+  font-size: 0.71rem;
+  font-weight: 620;
+}
+
+.dashboard-shell .managed-profile-simulator__result {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 18px;
+  padding: 16px;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-small);
+  background: var(--accent-wash);
+}
+
+.dashboard-shell .managed-profile-simulator__decision {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.dashboard-shell .managed-profile-simulator__decision > span {
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.dashboard-shell .managed-profile-simulator__result dl {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+}
+
+.dashboard-shell .managed-profile-simulator__result dl > div {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.dashboard-shell .managed-profile-simulator__result dt,
+.dashboard-shell .managed-profile-simulator__result dd {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.dashboard-shell .managed-profile-simulator__result dt {
+  color: var(--text-muted);
+  font-weight: 650;
+}
+
+.dashboard-shell .managed-profile-simulator__result dd {
+  color: var(--text-primary);
+}
+
+.dashboard-shell .managed-profile-simulator__notice {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--accent-border);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.dashboard-shell .managed-profile-savebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 15px 17px;
+  border: 1px solid var(--border-strong-ui);
+  border-radius: var(--radius-medium);
+  background: var(--surface-overlay);
+  box-shadow: var(--shadow-elevated);
+}
+
+.dashboard-shell .managed-profile-savebar > div {
+  display: grid;
+  gap: 3px;
+}
+
+.dashboard-shell .managed-profile-savebar strong {
+  color: var(--text-primary);
+  font-size: 0.78rem;
+}
+
+.dashboard-shell .managed-profile-savebar span {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  line-height: 1.4;
+}
+
+/* Agent integration operations */
+.dashboard-shell .agent-integration-posture {
+  display: grid;
+  grid-template-columns: 0.85fr 1fr 1.1fr 1fr 1fr;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-standard);
+  border-radius: var(--radius-medium);
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-subtle);
+}
+
+.dashboard-shell .agent-integration-posture > div {
+  min-width: 0;
+  padding: 13px 14px 14px;
+  border-right: 1px solid var(--border-subtle);
+}
+
+.dashboard-shell .agent-integration-posture > div:last-child {
+  border-right: 0;
+}
+
+.dashboard-shell .agent-integration-posture dt,
+.dashboard-shell .agent-integration-posture dd {
+  margin: 0;
+}
+
+.dashboard-shell .agent-integration-posture dt {
+  margin-bottom: 6px;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.dashboard-shell .agent-integration-posture dd {
+  min-height: 24px;
+  color: var(--text-primary);
+  font-size: 0.76rem;
+  font-weight: 630;
+  line-height: 1.4;
+}
+
+.dashboard-shell .agent-integration-posture small {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  line-height: 1.35;
+}
+
+.dashboard-shell .agent-integration-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 15px;
+  border: 1px solid var(--status-destructive-border);
+  border-left: 3px solid var(--text-destructive);
+  border-radius: var(--radius-small);
+  background: var(--status-destructive-bg);
+}
+
+.dashboard-shell .agent-integration-alert strong {
+  color: var(--text-primary);
+  font-size: 0.78rem;
+}
+
+.dashboard-shell .agent-integration-alert p {
+  margin: 3px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.71rem;
+  line-height: 1.45;
+}
+
+.dashboard-shell .agent-integration-panel__title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.dashboard-shell .agent-integration-panel__title-row .ui-kicker {
+  margin-bottom: 5px;
+}
+
+.dashboard-shell .agent-integration-panel > p:not(.field-help):not(.agent-integration-token),
+.dashboard-shell .developer-integration-details > p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.dashboard-shell .agent-integration-panel .agent-passport-actions {
+  padding-top: 2px;
+  border-top: 0;
+}
+
+.dashboard-shell .agent-integration-token {
+  margin: 0;
+  padding: 9px 11px;
+  border: 1px solid var(--border-standard);
+  border-radius: var(--radius-small);
+  background: var(--surface-inset);
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+}
+
+.dashboard-shell .agent-integration-token code {
+  color: var(--text-primary);
+}
+
+.dashboard-shell .agent-integration-boundary-note {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 9px 14px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-small);
+  background: var(--accent-wash);
+  font-size: 0.72rem;
+}
+
+.dashboard-shell .agent-integration-boundary-note strong {
+  color: var(--text-primary);
+}
+
+.dashboard-shell .agent-integration-boundary-note span {
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.dashboard-shell .agent-integration-boundary-note a {
+  font-weight: 650;
+  text-decoration: none;
+}
+
+/* Activity and administrative equivalents */
+.dashboard-shell .managed-activity-console .ops-events__table .ui-badge,
+.dashboard-shell .managed-activity-card .ui-badge {
+  white-space: nowrap;
+}
+
+.console-row__connection {
+  display: inline-flex;
+  margin-top: 7px;
+}
+
+.console-definition dd .ui-badge {
+  width: fit-content;
+}
+
+@media (max-width: 1120px) {
+  .dashboard-shell .managed-profile-identity-strip,
+  .dashboard-shell .agent-integration-posture {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .dashboard-shell .managed-profile-identity-strip > div:nth-child(3),
+  .dashboard-shell .agent-integration-posture > div:nth-child(3) {
+    border-right: 0;
+  }
+
+  .dashboard-shell .managed-profile-identity-strip > div:nth-child(n + 4),
+  .dashboard-shell .agent-integration-posture > div:nth-child(n + 4) {
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .dashboard-shell .managed-profile-identity-strip > div:last-child,
+  .dashboard-shell .agent-integration-posture > div:last-child {
+    grid-column: span 2;
+  }
+
+  .dashboard-shell .managed-profile-editor-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .dashboard-shell .managed-profile-overview-grid,
+  .dashboard-shell .managed-profile-pause-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-shell .managed-profile-required-pause {
+    padding-top: 15px;
+    border-top: 1px solid var(--border-standard);
+    border-left: 0;
+  }
+
+  .dashboard-shell .managed-profile-simulator__fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-shell .managed-profile-simulator__fields .ui-button {
+    width: fit-content;
+  }
+}
+
+@media (max-width: 859px) {
+  .dashboard-shell .managed-profile-section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .dashboard-shell .managed-profile-section-heading > label,
+  .dashboard-shell .managed-profile-section-heading .ui-button {
+    width: 100%;
+  }
+
+  .dashboard-shell .managed-profile-mode-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-shell .managed-profile-mode {
+    border-right: 0;
+    border-bottom: 1px solid var(--border-standard);
+  }
+
+  .dashboard-shell .managed-profile-mode:last-child {
+    border-bottom: 0;
+  }
+
+  .dashboard-shell .managed-profile-onboarding-steps,
+  .dashboard-shell .managed-profile-repo-help {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-shell .managed-profile-table-shell {
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .dashboard-shell .managed-profile-table,
+  .dashboard-shell .managed-profile-table tbody,
+  .dashboard-shell .managed-profile-table tr,
+  .dashboard-shell .managed-profile-table td {
+    width: 100%;
+    display: block;
+    min-width: 0;
+  }
+
+  .dashboard-shell .managed-profile-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .dashboard-shell .managed-profile-table tbody {
+    display: grid;
+    gap: 12px;
+  }
+
+  .dashboard-shell .managed-profile-table .ui-table-row {
+    display: grid;
+    overflow: hidden;
+    border: 1px solid var(--border-standard);
+    border-radius: var(--radius-medium);
+    background: var(--surface-elevated);
+    box-shadow: var(--shadow-subtle);
+  }
+
+  .dashboard-shell .managed-profile-table .ui-table__cell {
+    display: grid;
+    grid-template-columns: 118px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    width: 100%;
+    padding: 10px 13px;
+    border-bottom: 1px solid var(--border-subtle);
+    background: transparent;
+    text-align: left;
+  }
+
+  .dashboard-shell .managed-profile-table .ui-table__cell::before {
+    content: attr(data-label);
+    color: var(--text-muted);
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.045em;
+    text-transform: uppercase;
+  }
+
+  .dashboard-shell .managed-profile-table .ui-table__cell:last-child {
+    border-bottom: 0;
+  }
+
+  .dashboard-shell .managed-profile-table .ui-table__cell:first-child {
+    grid-template-columns: 1fr;
+    width: 100%;
+    padding: 14px 13px;
+    background: var(--surface-muted);
+  }
+
+  .dashboard-shell .managed-profile-table .ui-table__cell:first-child::before {
+    display: none;
+  }
+
+  .dashboard-shell .managed-profile-table .ui-table__cell:nth-child(2),
+  .dashboard-shell .managed-profile-table .ui-table__cell:nth-child(3) {
+    width: 100%;
+  }
+
+  .dashboard-shell .managed-profile-tool-select select,
+  .dashboard-shell .managed-profile-repo-table input,
+  .dashboard-shell .managed-profile-repo-table select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .dashboard-shell .agent-integration-posture {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-shell .agent-integration-posture > div:nth-child(2),
+  .dashboard-shell .agent-integration-posture > div:nth-child(4) {
+    border-right: 0;
+  }
+
+  .dashboard-shell .agent-integration-posture > div:nth-child(3) {
+    border-right: 1px solid var(--border-subtle);
+  }
+
+  .dashboard-shell .agent-integration-posture > div:nth-child(n + 3) {
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .dashboard-shell .agent-integration-posture > div:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .dashboard-shell .agent-integration-boundary-note {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboard-shell .managed-profile-identity-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-shell .managed-profile-identity-strip > div {
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .dashboard-shell .managed-profile-identity-strip > div:first-child,
+  .dashboard-shell .managed-profile-identity-strip > div:nth-child(2) {
+    border-top: 0;
+  }
+
+  .dashboard-shell .managed-profile-identity-strip > div:nth-child(2),
+  .dashboard-shell .managed-profile-identity-strip > div:nth-child(4) {
+    border-right: 0;
+  }
+
+  .dashboard-shell .managed-profile-identity-strip > div:nth-child(3) {
+    border-right: 1px solid var(--border-subtle);
+  }
+
+  .dashboard-shell .managed-profile-identity-strip > div:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .dashboard-shell .managed-profile-onboarding.dashboard-panel,
+  .dashboard-shell .managed-profile-simulator.dashboard-panel {
+    padding: 17px;
+  }
+
+  .dashboard-shell .managed-profile-onboarding-status,
+  .dashboard-shell .managed-profile-pause-controls,
+  .dashboard-shell .managed-profile-simulator__fields,
+  .dashboard-shell .managed-profile-simulator__result {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-shell .onboarding-status-chip {
+    border-right: 0;
+    border-bottom: 1px solid var(--border-standard);
+  }
+
+  .dashboard-shell .onboarding-status-chip:last-child {
+    border-bottom: 0;
+  }
+
+  .dashboard-shell .managed-profile-day-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .dashboard-shell .managed-profile-simulator__result dl > div {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+
+  .dashboard-shell .managed-profile-savebar,
+  .dashboard-shell .agent-integration-alert {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dashboard-shell .managed-profile-savebar .ui-button,
+  .dashboard-shell .agent-integration-alert .ui-button {
+    width: 100%;
+  }
+
+  .dashboard-shell .agent-integration-panel__title-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-shell .managed-profile-identity-strip,
+  .dashboard-shell .agent-integration-posture,
+  .dashboard-shell .managed-profile-time-grid,
+  .dashboard-shell .managed-profile-mode-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-shell .managed-profile-identity-strip > div,
+  .dashboard-shell .managed-profile-identity-strip > div:nth-child(3),
+  .dashboard-shell .agent-integration-posture > div,
+  .dashboard-shell .agent-integration-posture > div:nth-child(3) {
+    grid-column: auto;
+    border-top: 1px solid var(--border-subtle);
+    border-right: 0;
+  }
+
+  .dashboard-shell .managed-profile-identity-strip > div:first-child,
+  .dashboard-shell .agent-integration-posture > div:first-child {
+    border-top: 0;
+  }
+
+  .dashboard-shell .managed-profile-facts > div,
+  .dashboard-shell .agent-integration-configuration > div {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .dashboard-shell .managed-profile-table .ui-table__cell {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .dashboard-shell .managed-profile-table .ui-table__cell::before {
+    display: block;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-shell .managed-profile-section-nav a,
+  .dashboard-shell .managed-profile-onboarding-action {
+    transition: none;
+  }
+}
