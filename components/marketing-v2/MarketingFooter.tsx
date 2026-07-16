@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Image from "next/image";
+import { Logo } from "@/components/ui";
 import styles from "@/app/home-v2/home-v2.module.css";
 import { FOOTER_LINKS } from "./data";
 
@@ -8,15 +8,7 @@ export function MarketingFooter() {
     <footer className={styles.footer}>
       <div className={styles.container}>
         <div className={styles.footerMain}>
-          <Link href="/home-v2" className={styles.brand} aria-label="BehalfID home">
-            <span className={styles.brandMark}>
-              <Image src="/icon-transparent.png" alt="" width={20} height={20} />
-            </span>
-            <span>
-              Behalf<span className={styles.brandSlash}>/</span>
-              <span className={styles.brandId}>ID</span>
-            </span>
-          </Link>
+          <Logo className={styles.brand} href="/home-v2" markStyle="framed" />
 
           <nav aria-label="Footer">
             <ul className={styles.footerLinks}>

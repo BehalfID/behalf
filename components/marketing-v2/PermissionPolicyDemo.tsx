@@ -1,4 +1,5 @@
 import styles from "@/app/home-v2/home-v2.module.css";
+import { Card } from "@/components/ui";
 import { CheckIcon, XIcon } from "./icons";
 
 const ALLOWED = ["github.pull_requests.read", "vercel.deployments.create", "vercel.deployments.read"];
@@ -13,7 +14,7 @@ const CONSTRAINTS = [
 
 export function PermissionPolicyMockup() {
   return (
-    <div className={styles.panel}>
+    <Card className={styles.panel}>
       <div className={styles.profileHead}>
         <span className={styles.profileName}>
           Production Deployment Agent
@@ -54,6 +55,6 @@ export function PermissionPolicyMockup() {
           </div>
         ))}
       </div>
-    </div>
+    </Card>
   );
 }

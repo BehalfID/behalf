@@ -1,19 +1,20 @@
 import styles from "@/app/home-v2/home-v2.module.css";
+import { Badge, Card } from "@/components/ui";
 import { APPROVAL_INBOX } from "./data";
 import { CheckIcon, PauseIcon, UserIcon } from "./icons";
 
 export function ApprovalWorkflowMockup() {
   return (
-    <div className={styles.panel}>
+    <Card className={styles.panel}>
       <div className={styles.profileHead}>
         <span className={styles.profileName}>
           Approval inbox
           <span>1 action waiting on a human decision</span>
         </span>
-        <span className={`${styles.badge} ${styles.badgeWarn}`}>
+        <Badge className={`${styles.badge} ${styles.badgeWarn}`} variant="warning">
           <PauseIcon size={11} strokeWidth={2.4} />
           PENDING
-        </span>
+        </Badge>
       </div>
 
       {APPROVAL_INBOX.slice(0, 1).map((item) => (
@@ -23,7 +24,7 @@ export function ApprovalWorkflowMockup() {
               <UserIcon size={15} />
               {item.agent}
             </span>
-            <span className={`${styles.badge} ${styles.badgeWarn}`}>APPROVAL REQUIRED</span>
+            <Badge className={`${styles.badge} ${styles.badgeWarn}`} variant="warning">APPROVAL REQUIRED</Badge>
           </div>
           <div className={styles.inboxMeta}>
             <div>
@@ -55,6 +56,6 @@ export function ApprovalWorkflowMockup() {
       <p className={styles.inboxNote}>
         Requesters cannot self-approve. Grants are bound to one action and expire after use.
       </p>
-    </div>
+    </Card>
   );
 }

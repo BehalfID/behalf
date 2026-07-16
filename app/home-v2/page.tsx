@@ -19,15 +19,12 @@ export const metadata: Metadata = {
 
 export default function HomeV2Page() {
   return (
-    <div className={styles.root}>
-      <a href="#v2-main" className={styles.skipLink}>
-        Skip to main content
-      </a>
+    <div className={`${styles.root} ui-theme-light`}>
       <p className={styles.previewBanner}>
         Preview: /home-v2. Production is unchanged.
       </p>
       <MarketingNavbar />
-      <main id="v2-main">
+      <main id="main-content" tabIndex={-1}>
         <HeroAuthorizationDemo />
         <TrustStrip />
         <ProblemSection />

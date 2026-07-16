@@ -1,4 +1,5 @@
 import styles from "@/app/home-v2/home-v2.module.css";
+import { Badge, Card } from "@/components/ui";
 import { CheckIcon, XIcon, LockIcon } from "./icons";
 
 const ALLOWED_TOOLS = ["Read", "Search", "Edit approved repositories"];
@@ -7,13 +8,13 @@ const DENIED = ["Destructive shell commands", "Credential export", "Unapproved p
 
 export function ManagedProfileMockup() {
   return (
-    <div className={styles.panel}>
+    <Card className={styles.panel}>
       <div className={styles.profileHead}>
         <span className={styles.profileName}>
           Enterprise Claude Code
           <span>Managed coding-agent profile</span>
         </span>
-        <span className={`${styles.badge} ${styles.badgeAllow}`}>MODE · REQUIRED</span>
+        <Badge className={`${styles.badge} ${styles.badgeAllow}`} variant="success">MODE · REQUIRED</Badge>
       </div>
 
       <div className={styles.policyGroup}>
@@ -51,6 +52,6 @@ export function ManagedProfileMockup() {
           </div>
         ))}
       </div>
-    </div>
+    </Card>
   );
 }

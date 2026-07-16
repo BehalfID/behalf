@@ -5,6 +5,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { CookieBanner } from "@/components/ui";
 import { getLocale } from "next-intl/server";
 import "./globals.css";
+import "./design-system-foundation.css";
 
 const inter = Inter({
   subsets: ["latin"],
