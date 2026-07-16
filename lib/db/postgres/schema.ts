@@ -434,7 +434,7 @@ export const approvalRequests = pgTable(
 
 /**
  * High-volume append-only log table.
- * TODO: add monthly range partitioning on created_at when volume warrants it (see docs/DATABASE_MIGRATION.md §11.3).
+ * TODO: add monthly range partitioning on created_at when volume warrants it (see docs/DATABASE_MIGRATION.md §11.3). Tracked in behalfid/behalf#108.
  */
 export const verificationLogs = pgTable(
   "verification_logs",

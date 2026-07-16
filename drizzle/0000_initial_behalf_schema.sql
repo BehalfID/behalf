@@ -452,4 +452,5 @@ ALTER TABLE "cli_audit_activities" ENABLE ROW LEVEL SECURITY;
 --   - PK (log_id, created_at), UQ (request_id, created_at)
 --   - Pre-create monthly partitions via pg_partman or pg_cron
 -- See docs/DATABASE_MIGRATION.md §11.3 and docs/POSTGRES_SCHEMA.md
+-- Tracked in behalfid/behalf#108
 -- ---------------------------------------------------------------------------
