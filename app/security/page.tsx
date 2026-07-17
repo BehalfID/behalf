@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { PublicNav } from "@/components/layout/PublicNav";
 import { PublicFooter } from "@/components/layout/PublicFooter";
-import { ButtonLink, CodeBlock, SplitCTAButton } from "@/components/ui";
+import { PublicAuthSplitCTA } from "@/components/layout/PublicAuthSplitCTA";
+import { ButtonLink, CodeBlock } from "@/components/ui";
 
 export const metadata = {
   title: "Security and trust — BehalfID",
@@ -355,7 +356,7 @@ if (!result.allowed) {
               issue in the project repository.
             </p>
             <div className="hero__actions">
-              <SplitCTAButton leftLabel="Build" leftHref="/signup" rightLabel="Log In" rightHref="/login" />
+              <PublicAuthSplitCTA leftLabel="Build" leftHref="/signup" />
               <ButtonLink href="/docs">Docs</ButtonLink>
             </div>
           </div>
