@@ -12,6 +12,7 @@ import "./agents-permissions.css";
 import "./approvals-activity.css";
 import "./profiles-integrations.css";
 import "./settings-operations.css";
+import "./public-docs.css";
 
 const inter = Inter({
   subsets: ["latin"],
