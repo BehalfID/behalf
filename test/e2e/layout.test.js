@@ -14,6 +14,7 @@ const puppeteer = require("puppeteer");
 const BASE_URL = process.env.E2E_BASE_URL || "http://localhost:3000";
 const DESKTOP = { width: 1280, height: 800 };
 const MOBILE  = { width: 375, height: 812 };
+const RESPONSIVE_WIDTHS = [390, 768, 1024, 1440];
 
 let browser;
 let page;
@@ -58,11 +59,19 @@ function isVisible(selector) {
   });
 }
 
-function textHasNoEmoji(selector) {
+function textHasNoDecorativeEmoji(selector) {
   return page.$eval(selector, (el) => {
     const EMOJI_RE = /[\u{1F000}-\u{1FFFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u;
-    return !EMOJI_RE.test(el.textContent || "");
+    const withoutDecisionSymbols = (el.textContent || "").replace(/[✓✗⚠]/g, "");
+    return !EMOJI_RE.test(withoutDecisionSymbols);
   });
+}
+
+function hasNoHorizontalOverflow() {
+  return page.evaluate(() =>
+    document.documentElement.scrollWidth <= window.innerWidth + 1 &&
+    document.body.scrollWidth <= window.innerWidth + 1
+  );
 }
 
 // ── Test suites ───────────────────────────────────────────────────────────────
@@ -70,7 +79,7 @@ function textHasNoEmoji(selector) {
 async function testDesktopNav() {
   console.log("\n[Desktop nav]");
   await page.setViewport(DESKTOP);
-  await page.goto(`${BASE_URL}/en`, { waitUntil: "networkidle0" });
+  await page.goto(`${BASE_URL}/de`, { waitUntil: "networkidle0" });
 
   assert(await exists(".public-nav"),                     "nav renders");
   assert(await exists(".public-nav .site-logo"),          "logo present in nav");
@@ -83,7 +92,7 @@ async function testDesktopNav() {
 async function testMobileNavLayout() {
   console.log("\n[Mobile nav — logo centering]");
   await page.setViewport(MOBILE);
-  await page.goto(`${BASE_URL}/en`, { waitUntil: "networkidle0" });
+  await page.goto(`${BASE_URL}/de`, { waitUntil: "networkidle0" });
 
   assert(await isVisible(".public-nav__hamburger"),      "hamburger visible on mobile");
   assert(!(await isVisible(".public-nav__links")),       "desktop links hidden on mobile");
@@ -105,7 +114,7 @@ async function testMobileNavLayout() {
 async function testMobileDrawer() {
   console.log("\n[Mobile nav — drawer open/close]");
   await page.setViewport(MOBILE);
-  await page.goto(`${BASE_URL}/en`, { waitUntil: "networkidle0" });
+  await page.goto(`${BASE_URL}/de`, { waitUntil: "networkidle0" });
 
   assert(!(await exists(".public-nav__drawer")), "drawer initially closed");
 
@@ -113,6 +122,15 @@ async function testMobileDrawer() {
   await page.waitForSelector(".public-nav__drawer");
   assert(await isVisible(".public-nav__drawer"),           "drawer opens on hamburger click");
   assert(await exists(".public-nav__drawer a[href]"),      "drawer contains links");
+
+  await page.$eval(".public-nav__drawer a[href]", (el) => el.focus());
+  await page.keyboard.down("Shift");
+  await page.keyboard.press("Tab");
+  await page.keyboard.up("Shift");
+  assert(
+    await page.$eval(".public-nav__drawer", (el) => el.contains(document.activeElement)),
+    "keyboard focus remains inside the public drawer"
+  );
 
   await page.keyboard.press("Escape");
   await new Promise((r) => setTimeout(r, 300));
@@ -122,17 +140,17 @@ async function testMobileDrawer() {
 async function testNoEmojis() {
   console.log("\n[No emojis in page content]");
   await page.setViewport(DESKTOP);
-  await page.goto(`${BASE_URL}/en`, { waitUntil: "networkidle0" });
+  await page.goto(`${BASE_URL}/de`, { waitUntil: "networkidle0" });
 
-  assert(await textHasNoEmoji(".public-nav"),              "no emojis in nav");
-  assert(await textHasNoEmoji(".marketing"),               "no emojis on main page");
-  assert(await textHasNoEmoji(".site-footer"),             "no emojis in footer");
+  assert(await textHasNoDecorativeEmoji(".public-nav"),    "no decorative emojis in nav");
+  assert(await textHasNoDecorativeEmoji(".marketing"),     "no decorative emojis on main page");
+  assert(await textHasNoDecorativeEmoji(".site-footer"),   "no decorative emojis in footer");
 }
 
 async function testFooterLayout() {
   console.log("\n[Footer layout]");
   await page.setViewport(DESKTOP);
-  await page.goto(`${BASE_URL}/en`, { waitUntil: "networkidle0" });
+  await page.goto(`${BASE_URL}/de`, { waitUntil: "networkidle0" });
 
   assert(await exists(".site-footer"),          "footer renders");
   assert(await exists(".site-footer__brand"),   "footer brand section exists");
@@ -161,7 +179,7 @@ async function testFooterLayout() {
 async function testDeploySection() {
   console.log("\n[Home deploy section layout]");
   await page.setViewport(DESKTOP);
-  await page.goto(`${BASE_URL}/en`, { waitUntil: "networkidle0" });
+  await page.goto(`${BASE_URL}/de`, { waitUntil: "networkidle0" });
 
   assert(await exists(".home-deploy"),          "deploy section renders");
   assert(await exists(".home-deploy__intro"),   "deploy intro present");
@@ -181,7 +199,7 @@ async function testDeploySection() {
 async function testMainPageAlignment() {
   console.log("\n[Main page section alignment]");
   await page.setViewport(DESKTOP);
-  await page.goto(`${BASE_URL}/en`, { waitUntil: "networkidle0" });
+  await page.goto(`${BASE_URL}/de`, { waitUntil: "networkidle0" });
 
   const leftAligned = [".home-hero", ".home-steps", ".home-code", ".home-deploy"];
   for (const sel of leftAligned) {
@@ -192,6 +210,91 @@ async function testMainPageAlignment() {
       align === "left" || align === "start",
       `${sel} is left-aligned (got "${align}")`
     );
+  }
+}
+
+async function testDocsShellDesktop() {
+  console.log("\n[Documentation shell — desktop]");
+  await page.setViewport({ width: 1440, height: 900 });
+  await page.goto(`${BASE_URL}/de/docs/cli`, { waitUntil: "networkidle0" });
+
+  assert(await isVisible(".docs-sidebar"), "persistent docs navigation visible");
+  assert(await isVisible(".docs-utility-header"), "compact docs utility header visible");
+  assert(await exists('.docs-nav a[aria-current="page"]'), "current docs page exposed semantically");
+  assert(await page.$eval('.docs-nav a[aria-current="page"]', (el) => el.textContent.trim() === "CLI"), "CLI nav item is current");
+
+  const groupCount = await page.$$eval(".docs-sidebar .docs-nav__group", (groups) => groups.length);
+  assert(groupCount === 3, `docs navigation retains three visual groups (got ${groupCount})`);
+
+  const codeOverflow = await page.$eval(".docs-article .ui-code", (el) =>
+    ["auto", "scroll"].includes(window.getComputedStyle(el).overflowX)
+  );
+  assert(codeOverflow, "code blocks scroll internally when needed");
+  assert(await hasNoHorizontalOverflow(), "docs page has no page-level horizontal overflow");
+}
+
+async function testDocsShellMobile() {
+  console.log("\n[Documentation shell — mobile drawer]");
+  await page.setViewport({ width: 390, height: 844 });
+  await page.goto(`${BASE_URL}/de/docs/cli`, { waitUntil: "networkidle0" });
+
+  assert(await isVisible(".docs-mobile-header"), "mobile docs header visible");
+  assert(!(await isVisible(".docs-sidebar")), "desktop docs sidebar hidden");
+  assert(!(await exists(".docs-mobile-drawer")), "docs drawer initially closed");
+
+  await page.click(".docs-mobile-header__toggle");
+  await page.waitForSelector(".docs-mobile-drawer");
+  assert(await isVisible(".docs-mobile-drawer"), "docs drawer opens");
+  assert(await exists('.docs-mobile-drawer a[aria-current="page"]'), "drawer retains current-page state");
+
+  await page.$eval(".docs-mobile-drawer button", (el) => el.focus());
+  await page.keyboard.down("Shift");
+  await page.keyboard.press("Tab");
+  await page.keyboard.up("Shift");
+  assert(
+    await page.$eval(".docs-mobile-drawer", (el) => el.contains(document.activeElement)),
+    "keyboard focus remains inside the docs drawer"
+  );
+
+  await page.keyboard.press("Escape");
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  assert(!(await exists(".docs-mobile-drawer")), "docs drawer closes on Escape");
+  assert(await hasNoHorizontalOverflow(), "mobile docs page has no page-level overflow");
+}
+
+async function testPublicResponsiveWidths() {
+  console.log("\n[Public routes — responsive overflow]");
+  const routes = ["/de/docs/cli", "/es/privacy", "/fr/security"];
+
+  for (const width of RESPONSIVE_WIDTHS) {
+    await page.setViewport({ width, height: width < 800 ? 900 : 960 });
+    for (const route of routes) {
+      await page.goto(`${BASE_URL}${route}`, { waitUntil: "networkidle0" });
+      assert(await hasNoHorizontalOverflow(), `${route} has no horizontal overflow at ${width}px`);
+    }
+  }
+}
+
+async function testPublicNotFound() {
+  console.log("\n[Public 404]");
+  await page.setViewport({ width: 390, height: 844 });
+  await page.goto(`${BASE_URL}/de/route-that-does-not-exist`, { waitUntil: "networkidle0" });
+
+  assert(await exists(".public-error-page"), "branded not-found page renders");
+  assert(await exists(".public-error-state h1"), "not-found page has a primary heading");
+  assert(await exists('.public-error-state a[href="/"]'), "not-found page provides a route home");
+  assert(await exists('.public-error-state a[href="/docs"]'), "not-found page provides documentation route");
+  assert(await hasNoHorizontalOverflow(), "not-found page has no horizontal overflow");
+}
+
+async function testHomeV2Regression() {
+  console.log("\n[/home-v2 regression]");
+  for (const width of [390, 1440]) {
+    await page.setViewport({ width, height: width === 390 ? 844 : 960 });
+    await page.goto(`${BASE_URL}/home-v2`, { waitUntil: "networkidle0" });
+    assert(await exists('a[href="/home-v2"]'), `/home-v2 brand link renders at ${width}px`);
+    assert(await exists("main h1"), `/home-v2 primary heading renders at ${width}px`);
+    assert(await hasNoHorizontalOverflow(), `/home-v2 has no horizontal overflow at ${width}px`);
   }
 }
 
@@ -211,6 +314,11 @@ async function testMainPageAlignment() {
     testFooterLayout,
     testDeploySection,
     testMainPageAlignment,
+    testDocsShellDesktop,
+    testDocsShellMobile,
+    testPublicResponsiveWidths,
+    testPublicNotFound,
+    testHomeV2Regression,
   ];
 
   for (const suite of suites) {

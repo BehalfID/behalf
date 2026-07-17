@@ -2,11 +2,29 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
+import { usePathname } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import { Logo, ThemeToggle, SocialLinks, LanguageSwitcher } from "@/components/ui";
 
+const primaryLinks = [
+  { href: "/docs", key: "docs" },
+  { href: "/blog", key: "blog" },
+  { href: "/security", key: "security" },
+  { href: "/status", key: "status" }
+] as const;
+
+function normalizePublicPath(pathname: string) {
+  const normalized = pathname.replace(/^\/(en|de|es|fr)(?=\/|$)/, "");
+  return normalized || "/";
+}
+
+function isCurrentPath(pathname: string, href: string) {
+  return pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
+}
+
 export function PublicNav() {
   const t = useTranslations("nav");
+  const pathname = normalizePublicPath(usePathname());
   const [open, setOpen] = useState(false);
   const hamburgerRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
@@ -19,17 +37,19 @@ export function PublicNav() {
   useEffect(() => {
     if (!open) return;
 
-    const el = drawerRef.current;
+    const drawer = drawerRef.current;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
         close();
         return;
       }
 
-      if (e.key !== "Tab" || !el) return;
+      if (event.key !== "Tab" || !drawer) return;
       const focusable = Array.from(
-        el.querySelectorAll<HTMLElement>(
+        drawer.querySelectorAll<HTMLElement>(
           'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
         )
       );
@@ -37,39 +57,37 @@ export function PublicNav() {
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
 
-      if (e.shiftKey) {
-        if (document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        }
-      } else {
-        if (document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
       }
     };
 
     document.addEventListener("keydown", handleKeyDown);
+    drawer
+      ?.querySelector<HTMLElement>('a[href], button:not([disabled])')
+      ?.focus();
 
-    const firstFocusable = el?.querySelector<HTMLElement>(
-      'a[href], button:not([disabled])'
-    );
-    firstFocusable?.focus();
-
-    return () => document.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
   }, [open, close]);
 
   return (
-    <>
-      <nav className="public-nav">
+    <header className="public-header">
+      <nav className="public-nav" aria-label="Primary">
         <button
           ref={hamburgerRef}
           className="public-nav__hamburger"
-          onClick={() => setOpen((o) => !o)}
+          onClick={() => setOpen((value) => !value)}
           aria-label={open ? t("closeMenu") : t("openMenu")}
           aria-expanded={open}
           aria-controls="public-nav-drawer"
+          type="button"
         >
           {open ? (
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
@@ -82,53 +100,81 @@ export function PublicNav() {
           )}
         </button>
 
-        <Logo />
+        <Logo markStyle="framed" />
 
         <div className="public-nav__links">
-          <Link href="/docs">{t("docs")}</Link>
-          <Link href="/blog">{t("blog")}</Link>
-          <Link href="/security">{t("security")}</Link>
-          <Link href="/status">{t("status")}</Link>
+          <div className="public-nav__primary">
+            {primaryLinks.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={isCurrentPath(pathname, item.href) ? "page" : undefined}
+              >
+                {t(item.key)}
+              </Link>
+            ))}
+          </div>
           <LanguageSwitcher />
           <ThemeToggle />
           <div className="public-nav__actions">
-            <Link href="/signup" className="nav-action nav-action--primary">Get started →</Link>
             <Link href="/login" className="nav-action nav-action--text">Sign in</Link>
+            <Link href="/signup" className="nav-action nav-action--primary">Get started</Link>
           </div>
         </div>
 
-        {/* Mobile-only CTA: shown when public-nav__links is hidden */}
         <div className="public-nav__mobile-cta">
-          <Link href="/signup" className="nav-action nav-action--primary">Get started →</Link>
+          <Link href="/signup" className="nav-action nav-action--primary">Get started</Link>
         </div>
       </nav>
 
-      {open && (
-        <div
-          id="public-nav-drawer"
-          ref={drawerRef}
-          className="public-nav__drawer"
-          role="dialog"
-          aria-label={t("navigationMenu")}
-          aria-modal="true"
-        >
-          <Link href="/docs" onClick={close}>{t("docs")}</Link>
-          <Link href="/blog" onClick={close}>{t("blog")}</Link>
-          <Link href="/security" onClick={close}>{t("security")}</Link>
-          <Link href="/status" onClick={close}>{t("status")}</Link>
-          <Link href="/compliance" onClick={close}>{t("compliance")}</Link>
-          <Link href="/login" onClick={close}>{t("login")}</Link>
-          <div className="public-nav__drawer-row">
-            <span>{t("theme")}</span>
-            <ThemeToggle />
+      {open ? (
+        <>
+          <button
+            type="button"
+            className="public-nav__backdrop"
+            aria-label={t("closeMenu")}
+            tabIndex={-1}
+            onClick={close}
+          />
+          <div
+            id="public-nav-drawer"
+            ref={drawerRef}
+            className="public-nav__drawer"
+            role="dialog"
+            aria-label={t("navigationMenu")}
+            aria-modal="true"
+          >
+            <div className="public-nav__drawer-heading">
+              <span>{t("navigationMenu")}</span>
+              <span>BehalfID</span>
+            </div>
+            {primaryLinks.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={close}
+                aria-current={isCurrentPath(pathname, item.href) ? "page" : undefined}
+              >
+                {t(item.key)}
+              </Link>
+            ))}
+            <Link href="/compliance" onClick={close} aria-current={pathname === "/compliance" ? "page" : undefined}>
+              {t("compliance")}
+            </Link>
+            <Link href="/login" onClick={close}>{t("login")}</Link>
+            <Link href="/signup" onClick={close} className="public-nav__drawer-cta">Get started</Link>
+            <div className="public-nav__drawer-row">
+              <span>{t("theme")}</span>
+              <ThemeToggle />
+            </div>
+            <div className="public-nav__drawer-row">
+              <span>{t("language")}</span>
+              <LanguageSwitcher />
+            </div>
+            <SocialLinks className="social-links--drawer" />
           </div>
-          <div className="public-nav__drawer-row">
-            <span>{t("language")}</span>
-            <LanguageSwitcher />
-          </div>
-          <SocialLinks className="social-links--drawer" />
-        </div>
-      )}
-    </>
+        </>
+      ) : null}
+    </header>
   );
 }
