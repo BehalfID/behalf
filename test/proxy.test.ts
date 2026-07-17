@@ -8,7 +8,7 @@ vi.mock("@/i18n/routing", () => ({
   routing: { locales: ["en", "de", "es", "fr"], defaultLocale: "en", localePrefix: "as-needed" }
 }));
 
-import { shouldBypassProxy } from "@/proxy";
+import { shouldBypassIntl, shouldBypassProxy } from "@/proxy";
 
 describe("proxy public bypasses", () => {
   it("bypasses health and static requests", () => {
@@ -21,5 +21,12 @@ describe("proxy public bypasses", () => {
 
   it("keeps dashboard requests on the proxy path", () => {
     expect(shouldBypassProxy("/dashboard")).toBe(false);
+  });
+
+  it("keeps internal and redirect routes out of locale rewriting", () => {
+    expect(shouldBypassIntl("/home-v2")).toBe(true);
+    expect(shouldBypassIntl("/design-system/foundation")).toBe(true);
+    expect(shouldBypassIntl("/")).toBe(false);
+    expect(shouldBypassIntl("/de")).toBe(false);
   });
 });

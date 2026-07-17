@@ -4,6 +4,7 @@ import {
   AGENT_ENVIRONMENTS,
   type AgentEnvironment
 } from "@/lib/firstAgentSetup";
+import { Input, Select, Textarea } from "@/components/ui";
 import { SetupContinueRow, SetupStepIntro } from "./setupPrimitives";
 
 export function AgentIdentityStep({
@@ -28,8 +29,8 @@ export function AgentIdentityStep({
   return (
     <>
       <SetupStepIntro
-        title="Name this agent"
-        helper="Use a name your team will recognize in logs, approvals, and audit exports."
+        title="Define the agent identity"
+        helper="This identity appears on every decision, approval request, and audit record. Use a name your team can distinguish from a person or service account."
       >
         <form
           className="setup-form setup-form--follow"
@@ -42,7 +43,7 @@ export function AgentIdentityStep({
             <span>
               Agent name <small>Required</small>
             </span>
-            <input
+            <Input
               value={name}
               onChange={(event) => onNameChange(event.target.value)}
               placeholder="Production deploy agent"
@@ -54,7 +55,7 @@ export function AgentIdentityStep({
             <span>
               Description <small>Optional</small>
             </span>
-            <textarea
+            <Textarea
               value={description}
               onChange={(event) => onDescriptionChange(event.target.value)}
               placeholder="Controls production deploys from Cursor and GitHub Actions."
@@ -66,13 +67,13 @@ export function AgentIdentityStep({
             <span>
               Default environment <small>Used for test decisions and log context</small>
             </span>
-            <select value={environment} onChange={(event) => onEnvironmentChange(event.target.value as AgentEnvironment)}>
+            <Select value={environment} onChange={(event) => onEnvironmentChange(event.target.value as AgentEnvironment)}>
               {AGENT_ENVIRONMENTS.map((env) => (
                 <option key={env} value={env}>
                   {env.charAt(0).toUpperCase() + env.slice(1)}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         </form>
       </SetupStepIntro>

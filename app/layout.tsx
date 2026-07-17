@@ -5,6 +5,14 @@ import { Analytics } from "@vercel/analytics/next";
 import { CookieBanner } from "@/components/ui";
 import { getLocale } from "next-intl/server";
 import "./globals.css";
+import "./design-system-foundation.css";
+import "./auth-onboarding.css";
+import "./dashboard-shell.css";
+import "./agents-permissions.css";
+import "./approvals-activity.css";
+import "./profiles-integrations.css";
+import "./settings-operations.css";
+import "./public-docs.css";
 
 const inter = Inter({
   subsets: ["latin"],

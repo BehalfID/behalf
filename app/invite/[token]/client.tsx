@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Logo } from "@/components/ui";
+import { AuthPrinciple, AuthShell, AuthStateMark, AuthTaskHeader, FormAlert } from "@/components/auth/AuthShell";
+import { Button, ButtonLink } from "@/components/ui";
 import { getRoleLabel, isWorkspaceRole } from "@/lib/authority";
 
 type InvitePreview = {
@@ -103,80 +103,119 @@ export function InviteClient({ token }: { token: string }) {
 
   const loginHref = `/login?next=${encodeURIComponent(`/invite/${encodeURIComponent(token)}`)}`;
   const signupHref = `/signup?next=${encodeURIComponent(`/invite/${encodeURIComponent(token)}`)}&email=${encodeURIComponent(invite?.email ?? "")}`;
+  const roleLabel = invite
+    ? isWorkspaceRole(invite.role) ? getRoleLabel(invite.role) : invite.role
+    : "";
 
   return (
-    <main id="main-content" className="auth-page invite-page" tabIndex={-1}>
-      <section className="auth-shell invite-shell">
-        <div className="auth-context">
-          <Logo />
-          <div>
-            <p className="section-kicker">Workspace invite</p>
-            <h2>Join a shared BehalfID workspace.</h2> {/* pragma: allowlist secret */}
-            <p>Accept an invite to collaborate on agents, permissions, approvals, and audit logs.</p>
-          </div>
-        </div>
-        <div className="auth-panel invite-panel">
-          {state === "loading" ? <p>Loading invite…</p> : null}
+    <AuthShell
+      compact={!invite}
+      support={invite ? (
+        <AuthPrinciple
+          eyebrow="Workspace membership"
+          title="Access begins with an explicit invitation."
+          description="Membership is tied to the invited account and role. BehalfID verifies both before adding access."
+          points={[
+            { label: "Workspace", value: invite.accountName },
+            { label: "Role", value: roleLabel },
+            { label: "Account", value: invite.email }
+          ]}
+        />
+      ) : undefined}
+    >
+      <section className="auth-task">
+        {state === "loading" ? (
+          <>
+            <AuthStateMark tone="pending" />
+            <AuthTaskHeader
+              eyebrow="Workspace invitation"
+              title="Loading invitation"
+              description="We’re checking the invitation before showing workspace details."
+            />
+            <FormAlert tone="notice">Invitation lookup is in progress.</FormAlert>
+          </>
+        ) : null}
 
-          {invite && state !== "loading" ? (
-            <>
-              <p className="section-kicker">Invitation</p>
-              <h1>{invite.accountName}</h1>
-              <p className="invite-meta">
-                Invited as <strong>{isWorkspaceRole(invite.role) ? getRoleLabel(invite.role) : invite.role}</strong>
-                {" · "}
-                <span>{invite.email}</span>
-              </p>
+        {invite && state !== "loading" ? (
+          <>
+            <AuthTaskHeader
+              eyebrow="Workspace invitation"
+              title={`Join ${invite.accountName}`}
+              description="Review the account and role below, then accept with the invited email address."
+            />
+            <dl className="invite-summary">
+              <div><dt>Workspace</dt><dd>{invite.accountName}</dd></div>
+              <div><dt>Role</dt><dd>{roleLabel}</dd></div>
+              <div><dt>Invited email</dt><dd>{invite.email}</dd></div>
+            </dl>
 
-              {state === "ready" || state === "accepting" ? (
-                <>
-                  <p>Sign in with <strong>{invite.email}</strong> to join this workspace.</p>
-                  <div className="invite-actions">
-                    <Button variant="primary" type="button" disabled={state === "accepting"} onClick={() => void acceptInvite()}>
-                      {state === "accepting" ? "Accepting…" : "Accept invite"}
-                    </Button>
-                    <Link className="ui-button ui-button--secondary" href={loginHref}>Log in</Link>
-                    <Link className="ui-button ui-button--secondary" href={signupHref}>Create account</Link>
-                  </div>
-                </>
-              ) : null}
+            {state === "ready" || state === "accepting" ? (
+              <>
+                <p className="auth-task__meta">You must be signed in with <strong>{invite.email}</strong> and have a verified email to join.</p>
+                <div className="invite-actions">
+                  <Button
+                    loading={state === "accepting"}
+                    variant="primary"
+                    type="button"
+                    onClick={() => void acceptInvite()}
+                  >
+                    {state === "accepting" ? "Accepting invitation…" : "Accept invitation"}
+                  </Button>
+                  <ButtonLink href={loginHref} variant="outline">Log in</ButtonLink>
+                  <ButtonLink href={signupHref} variant="outline">Create account</ButtonLink>
+                </div>
+              </>
+            ) : null}
 
-              {state === "login_required" ? (
-                <>
-                  <p>Log in or create an account with <strong>{invite.email}</strong> to accept this invite.</p>
-                  <div className="invite-actions">
-                    <Link className="ui-button ui-button--primary" href={loginHref}>Log in</Link>
-                    <Link className="ui-button ui-button--secondary" href={signupHref}>Create account</Link>
-                  </div>
-                </>
-              ) : null}
+            {state === "login_required" ? (
+              <>
+                <FormAlert tone="notice">Sign in or create an account with <strong>{invite.email}</strong> before accepting.</FormAlert>
+                <div className="invite-actions">
+                  <ButtonLink href={loginHref} variant="primary">Log in</ButtonLink>
+                  <ButtonLink href={signupHref} variant="outline">Create account</ButtonLink>
+                </div>
+              </>
+            ) : null}
 
-              {state === "accepted" ? (
-                <p className="invite-success">Invite accepted. Redirecting to dashboard…</p>
-              ) : null}
+            {state === "accepted" ? (
+              <>
+                <AuthStateMark tone="success" />
+                <FormAlert tone="success">Invitation accepted. Redirecting to your dashboard.</FormAlert>
+              </>
+            ) : null}
 
-              {state === "already" ? (
-                <>
-                  <p className="invite-success">You already have access to this workspace.</p>
-                  <Link className="ui-button ui-button--primary" href="/dashboard">Go to dashboard</Link>
-                </>
-              ) : null}
+            {state === "already" ? (
+              <>
+                <AuthStateMark tone="success" />
+                <FormAlert tone="success">You already have access to this workspace.</FormAlert>
+                <ButtonLink href="/dashboard" variant="primary">Go to dashboard</ButtonLink>
+              </>
+            ) : null}
 
-              {state === "error" && message ? (
-                <p className="form-error" role="alert">{message}</p>
-              ) : null}
-            </>
-          ) : null}
+            {state === "error" && message ? (
+              <>
+                <FormAlert>{message}</FormAlert>
+                {message.startsWith("Email verification required") ? (
+                  <ButtonLink href="/verify-email" variant="primary">Verify email</ButtonLink>
+                ) : null}
+              </>
+            ) : null}
+          </>
+        ) : null}
 
-          {!invite && state === "error" ? (
-            <>
-              <h1>Invite unavailable</h1>
-              <p className="form-error" role="alert">{message}</p>
-              <Link className="ui-button ui-button--secondary" href="/login">Log in</Link>
-            </>
-          ) : null}
-        </div>
+        {!invite && state === "error" ? (
+          <>
+            <AuthStateMark tone="error" />
+            <AuthTaskHeader
+              eyebrow="Workspace invitation"
+              title="Invitation unavailable"
+              description="This link could not be loaded. It may be invalid, expired, or no longer active."
+            />
+            <FormAlert>{message}</FormAlert>
+            <ButtonLink href="/login" variant="outline">Go to login</ButtonLink>
+          </>
+        ) : null}
       </section>
-    </main>
+    </AuthShell>
   );
 }

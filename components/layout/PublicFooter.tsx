@@ -1,4 +1,5 @@
 import { useTranslations } from "next-intl";
+import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { SocialLinks } from "@/components/ui";
 
@@ -8,8 +9,19 @@ export function PublicFooter() {
     <footer className="site-footer">
       <div className="site-footer__inner">
         <div className="site-footer__brand">
-          <Link href="/" className="site-footer__logo">
-            Behalf<span>ID</span>
+          <Link
+            href="/"
+            className="site-footer__logo site-logo site-logo--full site-logo--framed"
+            aria-label="BehalfID home"
+          >
+            <span className="site-logo__mark" aria-hidden="true">
+              <Image src="/icon-transparent.png" alt="" width={26} height={26} className="site-logo__icon" />
+            </span>
+            <span className="site-logo__wordmark">
+              <strong className="site-logo__text">
+                Behalf<span className="site-logo__slash">/</span><span className="site-logo__id">ID</span>
+              </strong>
+            </span>
           </Link>
           <p className="site-footer__tagline">
             {t("tagline").split("\n").map((line, i) => (
@@ -17,7 +29,7 @@ export function PublicFooter() {
             ))}
           </p>
           <p className="site-footer__copy">© {new Date().getFullYear()} BehalfID</p>
-          <p className="site-footer__status">All systems operational</p>
+          <Link href="/status" className="site-footer__status">All systems operational</Link>
           <SocialLinks className="social-links--footer" />
         </div>
         <nav className="site-footer__cols" aria-label="Footer navigation">

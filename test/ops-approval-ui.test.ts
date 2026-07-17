@@ -3,7 +3,9 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  approvalStatusLabel,
   formatApprovalTargetLabel,
+  getApprovalDisplayStatus,
   isLegacyUnboundApproval,
   type OpsApprovalRequest
 } from "@/components/dashboard/opsLogTypes";
@@ -60,5 +62,25 @@ describe("Action Inbox approval target labels", () => {
         })
       )
     ).toBe(true);
+  });
+
+  it("presents stored and derived approval lifecycle states distinctly", () => {
+    const now = new Date("2026-07-15T18:00:00.000Z").getTime();
+
+    expect(getApprovalDisplayStatus(approval({ status: "pending" }), now)).toBe("pending");
+    expect(getApprovalDisplayStatus(approval({
+      status: "approved",
+      grantExpiresAt: "2026-07-15T18:30:00.000Z"
+    }), now)).toBe("approved");
+    expect(getApprovalDisplayStatus(approval({
+      status: "approved",
+      grantExpiresAt: "2026-07-15T17:59:00.000Z"
+    }), now)).toBe("expired");
+    expect(getApprovalDisplayStatus(approval({ status: "denied" }), now)).toBe("denied");
+    expect(getApprovalDisplayStatus(approval({ status: "used" }), now)).toBe("consumed");
+
+    expect(approvalStatusLabel("pending")).toBe("Pending approval");
+    expect(approvalStatusLabel("denied")).toBe("Denied by approver");
+    expect(approvalStatusLabel("consumed")).toBe("Consumed");
   });
 });

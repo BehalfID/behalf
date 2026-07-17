@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 
 const baseUrl = "https://behalfid.com";
-const lastModified = new Date("2026-05-08T00:00:00.000Z");
+const lastModified = new Date("2026-07-16T00:00:00.000Z");
 
 const routes: Array<{
   path: string;
