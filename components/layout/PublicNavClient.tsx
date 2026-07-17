@@ -117,7 +117,7 @@ export function PublicNavClient({ authAction }: { authAction: PublicAuthActionVa
             ))}
           </div>
           <LanguageSwitcher />
-          <ThemeToggle />
+          <ThemeToggle allowSystem />
           <div className="public-nav__actions">
             <PublicAuthAction
               action={authAction}
@@ -179,7 +179,7 @@ export function PublicNavClient({ authAction }: { authAction: PublicAuthActionVa
             <Link href="/signup" onClick={close} className="public-nav__drawer-cta">Get started</Link>
             <div className="public-nav__drawer-row">
               <span>{t("theme")}</span>
-              <ThemeToggle />
+              <ThemeToggle allowSystem />
             </div>
             <div className="public-nav__drawer-row">
               <span>{t("language")}</span>

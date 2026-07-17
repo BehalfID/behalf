@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { PublicAuthAction } from "@/components/layout/PublicAuthAction";
-import { ButtonLink, Logo } from "@/components/ui";
+import { ButtonLink, Logo, ThemeToggle } from "@/components/ui";
 import styles from "@/app/home-v2/home-v2.module.css";
 import type { PublicAuthAction as PublicAuthActionValue } from "@/lib/publicAuthAction";
 
@@ -31,6 +31,7 @@ export function MarketingNavbarClient({ authAction }: { authAction: PublicAuthAc
         </nav>
 
         <div className={styles.navActions}>
+          <ThemeToggle allowSystem />
           <PublicAuthAction action={authAction} className={styles.navSignin} />
           <ButtonLink href="/signup" className={styles.navCta} variant="primary">
             Start securing agents
@@ -64,6 +65,10 @@ export function MarketingNavbarClient({ authAction }: { authAction: PublicAuthAc
               {l.label}
             </Link>
           ))}
+          <div className={styles.drawerTheme}>
+            <span>Appearance</span>
+            <ThemeToggle allowSystem />
+          </div>
           <div className={styles.drawerActions}>
             <PublicAuthAction
               action={authAction}

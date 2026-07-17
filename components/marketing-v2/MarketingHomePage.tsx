@@ -56,7 +56,7 @@ const jsonLd = {
 
 export function MarketingHomePage() {
   return (
-    <div className={`${styles.root} ui-theme-light`}>
+    <div className={styles.root}>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
