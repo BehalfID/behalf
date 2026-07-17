@@ -75,6 +75,28 @@ function hasNoHorizontalOverflow() {
   );
 }
 
+async function createThemePage({ storedTheme = null, systemTheme = "light" } = {}) {
+  const context = await browser.createBrowserContext();
+  const themePage = await context.newPage();
+  await themePage.emulateMediaFeatures([
+    { name: "prefers-color-scheme", value: systemTheme },
+  ]);
+  await themePage.evaluateOnNewDocument((stored) => {
+    if (stored === null) localStorage.removeItem("theme");
+    else localStorage.setItem("theme", stored);
+
+    window.__behalfThemeMutations = [];
+    const setAttribute = Element.prototype.setAttribute;
+    Element.prototype.setAttribute = function setAttributeWithThemeProbe(name, value) {
+      if (this.tagName === "HTML" && name === "data-theme") {
+        window.__behalfThemeMutations.push(value);
+      }
+      return setAttribute.call(this, name, value);
+    };
+  }, storedTheme);
+  return { context, themePage };
+}
+
 // ── Test suites ───────────────────────────────────────────────────────────────
 
 async function testDesktopNav() {
@@ -181,7 +203,7 @@ async function testCanonicalHomepage() {
   console.log("\n[Canonical homepage cutover]");
 
   for (const route of ["/", "/de"]) {
-    for (const width of [390, 1440]) {
+    for (const width of RESPONSIVE_WIDTHS) {
       await page.setViewport({ width, height: width === 390 ? 844 : 960 });
       await page.goto(`${BASE_URL}${route}`, { waitUntil: "networkidle0" });
 
@@ -214,6 +236,32 @@ async function testHomepageInteractions() {
     "End selects the Denied authorization state"
   );
 
+  for (const state of [
+    { tab: "Approval", verdict: "approval required" },
+    { tab: "Allowed", verdict: "allowed" },
+    { tab: "Denied", verdict: "denied" },
+  ]) {
+    await page.$$eval(decisionTabs, (tabs, label) => {
+      tabs.find((tab) => tab.textContent.trim() === label)?.click();
+    }, state.tab);
+    const decisionState = await page.$eval(
+      '[role="tablist"][aria-label="Decision outcome"]',
+      (tablist, expected) => {
+        const panel = tablist.parentElement?.parentElement;
+        const selected = tablist.querySelector('[role="tab"][aria-selected="true"]');
+        return {
+          selected: selected?.textContent.trim(),
+          hasVerdict: (panel?.textContent || "").toLowerCase().includes(expected),
+          hasIcon: Boolean(panel?.querySelector("svg")),
+        };
+      },
+      state.verdict
+    );
+    assert(decisionState.selected === state.tab, `${state.tab} remains visibly and semantically selected`);
+    assert(decisionState.hasVerdict, `${state.tab} exposes a textual decision meaning`);
+    assert(decisionState.hasIcon, `${state.tab} retains a non-color decision icon`);
+  }
+
   const managedProfileTab = '[role="tablist"][aria-label="Product capabilities"] [role="tab"]:last-child';
   await page.click(managedProfileTab);
   assert(
@@ -233,7 +281,73 @@ async function testHomepageMobileNavigation() {
   await page.waitForSelector("#marketing-drawer");
   assert(await isVisible("#marketing-drawer"), "homepage drawer opens");
   assert(await exists('#marketing-drawer a[href="/signup"]'), "homepage drawer keeps the signup CTA");
+  assert(await isVisible('#marketing-drawer select[aria-label="Theme preference"]'), "homepage drawer keeps the theme control");
   assert(await hasNoHorizontalOverflow(), "homepage drawer has no page-level overflow");
+}
+
+async function testHomepageThemeInitialization() {
+  console.log("\n[Homepage theme initialization]");
+
+  const scenarios = [
+    { route: "/", storedTheme: null, systemTheme: "dark", expected: "dark", label: "system dark" },
+    { route: "/", storedTheme: null, systemTheme: "light", expected: "light", label: "system light" },
+    { route: "/", storedTheme: "light", systemTheme: "dark", expected: "light", label: "explicit light" },
+    { route: "/", storedTheme: "dark", systemTheme: "light", expected: "dark", label: "explicit dark" },
+    { route: "/de", storedTheme: null, systemTheme: "dark", expected: "dark", label: "locale system dark" },
+    { route: "/de", storedTheme: "system", systemTheme: "light", expected: "light", label: "legacy system value" },
+  ];
+
+  for (const scenario of scenarios) {
+    const { context, themePage } = await createThemePage(scenario);
+    try {
+      await themePage.setViewport({ width: 1024, height: 900 });
+      await themePage.goto(`${BASE_URL}${scenario.route}`, { waitUntil: "networkidle0" });
+      const result = await themePage.evaluate(() => ({
+        theme: document.documentElement.getAttribute("data-theme"),
+        mutations: window.__behalfThemeMutations,
+      }));
+      assert(result.theme === scenario.expected, `${scenario.label} resolves to ${scenario.expected}`);
+      assert(result.mutations[0] === scenario.expected, `${scenario.label} applies the correct first observed theme`);
+    } finally {
+      await context.close();
+    }
+  }
+}
+
+async function testHomepageThemeControlAndLiveSystemChanges() {
+  console.log("\n[Homepage theme control and live system changes]");
+  const { context, themePage } = await createThemePage({ storedTheme: null, systemTheme: "light" });
+
+  try {
+    await themePage.setViewport({ width: 1440, height: 960 });
+    await themePage.goto(`${BASE_URL}/`, { waitUntil: "networkidle0" });
+    const control = 'header select[aria-label="Theme preference"]';
+
+    await themePage.focus(control);
+    await themePage.emulateMediaFeatures([{ name: "prefers-color-scheme", value: "dark" }]);
+    await themePage.waitForFunction(() => document.documentElement.getAttribute("data-theme") === "dark");
+    assert(await themePage.$eval(control, (el) => document.activeElement === el), "system change does not steal focus");
+    assert(await themePage.evaluate(() => localStorage.getItem("theme") === null), "automatic mode keeps the theme key absent");
+
+    await themePage.select(control, "light");
+    assert(await themePage.evaluate(() => localStorage.getItem("theme") === "light"), "Light stores the existing explicit value");
+    await themePage.emulateMediaFeatures([{ name: "prefers-color-scheme", value: "dark" }]);
+    assert(await themePage.evaluate(() => document.documentElement.getAttribute("data-theme") === "light"), "explicit light overrides system dark");
+
+    await themePage.emulateMediaFeatures([{ name: "prefers-color-scheme", value: "light" }]);
+    await themePage.select(control, "dark");
+    assert(await themePage.evaluate(() => localStorage.getItem("theme") === "dark"), "Dark stores the existing explicit value");
+    assert(await themePage.evaluate(() => document.documentElement.getAttribute("data-theme") === "dark"), "explicit dark overrides system light");
+
+    await themePage.select(control, "system");
+    assert(await themePage.evaluate(() => localStorage.getItem("theme") === null), "System removes the existing theme key");
+    assert(await themePage.evaluate(() => document.documentElement.getAttribute("data-theme") === "light"), "System immediately follows current light preference");
+    await themePage.emulateMediaFeatures([{ name: "prefers-color-scheme", value: "dark" }]);
+    await themePage.waitForFunction(() => document.documentElement.getAttribute("data-theme") === "dark");
+    assert(true, "System reacts to an operating-system change without reload");
+  } finally {
+    await context.close();
+  }
 }
 
 async function testDocsShellDesktop() {
@@ -342,6 +456,8 @@ async function testHomeV2Redirect() {
     testCanonicalHomepage,
     testHomepageInteractions,
     testHomepageMobileNavigation,
+    testHomepageThemeInitialization,
+    testHomepageThemeControlAndLiveSystemChanges,
     testDocsShellDesktop,
     testDocsShellMobile,
     testPublicResponsiveWidths,

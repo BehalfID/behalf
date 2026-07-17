@@ -159,7 +159,7 @@ describe("design-system foundation", () => {
   it("promotes the redesigned homepage without retaining a divergent preview", () => {
     expect(homeSource).toContain("MarketingHomePage");
     expect(localeHomeSource).toContain("MarketingHomePage");
-    expect(marketingHomeSource).toContain("ui-theme-light");
+    expect(marketingHomeSource).not.toContain("ui-theme-light");
     expect(marketingHomeSource).toContain('id="main-content"');
     expect(marketingHomeSource).not.toMatch(/preview|production is unchanged/i);
     expect(redirectSource).toContain('permanentRedirect("/")');
