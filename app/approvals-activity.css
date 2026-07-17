@@ -926,7 +926,7 @@ html[data-theme="light"] .ops-console {
 
 /* Decision detail drawer */
 .ops-drawer__backdrop {
-  background: rgba(15, 10, 7, 0.58);
+  background: var(--surface-scrim);
   backdrop-filter: blur(2px);
 }
 

@@ -36,19 +36,32 @@ describe("design-system foundation", () => {
       "--surface-page",
       "--surface-elevated",
       "--surface-muted",
+      "--surface-sidebar",
+      "--surface-header",
+      "--surface-selected",
+      "--surface-inverse",
+      "--surface-scrim",
       "--surface-dark",
       "--surface-inset",
       "--text-primary",
       "--text-secondary",
       "--text-muted",
+      "--text-link",
+      "--text-accent",
       "--text-inverse",
       "--text-destructive",
       "--text-success",
       "--text-warning",
       "--border-subtle",
       "--border-standard",
+      "--border-selected",
       "--border-focus",
       "--border-destructive",
+      "--status-neutral-text",
+      "--status-disabled-text",
+      "--status-experimental-text",
+      "--status-active-text",
+      "--status-disconnected-text",
       "--accent-base: #d88a63",
       "--radius-small",
       "--radius-medium",
@@ -57,6 +70,10 @@ describe("design-system foundation", () => {
       "--shadow-elevated",
       "--shadow-overlay",
       "--focus-ring",
+      "--control-primary-bg",
+      "--control-outline-bg",
+      "--control-ghost-hover",
+      "--control-destructive-bg",
       "--page-gutter-mobile",
       "--content-max-width",
       "--dashboard-content-max-width",
@@ -77,6 +94,14 @@ describe("design-system foundation", () => {
     expect(foundationCss).toContain('html[data-theme="light"]');
     expect(foundationCss).toContain(".ui-theme-light");
     expect(foundationCss).toContain("@media (prefers-reduced-motion: reduce)");
+  });
+
+  it("keeps application dark surfaces neutral and bridges legacy shell aliases", () => {
+    expect(foundationCss).toContain("--surface-page: #0c0d0f");
+    expect(foundationCss).toContain("--border-standard: #2b2e33");
+    expect(foundationCss).toContain(".console-shell");
+    expect(foundationCss).toContain(".docs-page");
+    expect(foundationCss).not.toMatch(/#(?:0f0d0c|171310|211a16|382c26|4a3a32|3a2e28)\b/i);
   });
 
   it("keeps the shared button API compatible while adding complete state variants", () => {

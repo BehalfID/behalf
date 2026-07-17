@@ -84,7 +84,7 @@ const AGENT_STATUS = {
 const INTEGRATION_STATUS = {
   connected: { variant: "success", label: "Integration connected" },
   pending: { variant: "warning", label: "Integration pending" },
-  disconnected: { variant: "destructive", label: "Integration disconnected" }
+  disconnected: { variant: "neutral", label: "Integration disconnected" }
 } as const satisfies Record<string, StatusMeta>;
 
 const PLAN_STATUS = {

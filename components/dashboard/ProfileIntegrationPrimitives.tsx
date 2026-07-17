@@ -23,7 +23,7 @@ const CONNECTION_STATE_META: Record<
 > = {
   manual: { label: "Manual setup", variant: "outline" },
   connected: { label: "Connected", variant: "success" },
-  disconnected: { label: "Disconnected", variant: "destructive" },
+  disconnected: { label: "Disconnected", variant: "neutral" },
 };
 
 const REPOSITORY_STATE_META: Record<
@@ -85,7 +85,7 @@ export function IntegrationPathBadge({
     return <OperationalBadge label="Action-time verify" variant="accent" />;
   }
   if (path === "experimental") {
-    return <OperationalBadge label="Experimental" variant="warning" />;
+    return <OperationalBadge label="Experimental" variant="accent" />;
   }
   return <OperationalBadge label="Manual verification" variant="outline" />;
 }

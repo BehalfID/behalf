@@ -957,6 +957,60 @@
 
 /* Read-only console operations */
 
+.console-shell,
+.app-shell--console {
+  background: var(--surface-page);
+  color: var(--text-primary);
+}
+
+html .console-shell .console-sidebar,
+html .console-shell .app-sidebar {
+  border-right-color: var(--border-standard);
+  background: var(--surface-sidebar);
+  color: var(--text-primary);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+html .console-shell .console-sidebar nav a,
+html .console-shell .app-sidebar nav a {
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+}
+
+html .console-shell .console-sidebar nav a:hover,
+html .console-shell .app-sidebar nav a:hover {
+  border-color: var(--border-subtle);
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+}
+
+html .console-shell .console-sidebar nav a[aria-current="page"],
+html .console-shell .app-sidebar nav a[aria-current="page"] {
+  border-color: var(--border-selected);
+  background: var(--surface-selected);
+  color: var(--text-primary);
+  box-shadow: inset 2px 0 0 var(--accent-base);
+}
+
+.console-shell .console-workspace,
+.console-shell .app-main {
+  background: var(--surface-page);
+  color: var(--text-primary);
+}
+
+html .console-shell .console-primary-button {
+  border-color: var(--control-primary-bg);
+  background: var(--control-primary-bg);
+  color: var(--control-primary-text);
+}
+
+html .console-shell .console-primary-button:hover {
+  border-color: var(--control-primary-hover);
+  background: var(--control-primary-hover);
+  color: var(--control-primary-text);
+}
+
 .console-operations-header .ui-page-header__description {
   max-width: 68ch;
 }
