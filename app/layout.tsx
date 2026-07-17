@@ -54,7 +54,7 @@ export const metadata: Metadata = {
   }
 };
 
-const themeScript = `(function(){try{var t=localStorage.getItem('theme')||(window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t)}catch(e){}})();`;
+const themeScript = `(function(){try{var m=window.matchMedia('(prefers-color-scheme:dark)');function p(){try{var v=localStorage.getItem('theme');return v==='dark'||v==='light'?v:null}catch(e){return null}}function a(){var s=p();document.documentElement.setAttribute('data-theme',s||(m.matches?'dark':'light'))}a();function c(){if(!p())a()}if(m.addEventListener)m.addEventListener('change',c);else if(m.addListener)m.addListener(c);window.addEventListener('storage',function(e){if(e.key==='theme'||e.key===null)a()})}catch(e){}})();`;
 const faviconScript = `(function(){function setFavicon(t){var icons=document.querySelectorAll('link[rel~="icon"]');icons.forEach(function(el){el.href=t==='dark'?'/behalf_favicon.png':'/icon-light.png';});}try{var t=document.documentElement.getAttribute('data-theme')||'dark';setFavicon(t);new MutationObserver(function(){setFavicon(document.documentElement.getAttribute('data-theme')||'dark');}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});}catch(e){}})();`;
 const modeScript  = `(function(){try{var m=localStorage.getItem('mode');document.documentElement.setAttribute('data-mode',m==='simple'?'simple':'advanced')}catch(e){}})();`;
 

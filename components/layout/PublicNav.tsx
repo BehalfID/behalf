@@ -115,7 +115,7 @@ export function PublicNav() {
             ))}
           </div>
           <LanguageSwitcher />
-          <ThemeToggle />
+          <ThemeToggle allowSystem />
           <div className="public-nav__actions">
             <Link href="/login" className="nav-action nav-action--text">Sign in</Link>
             <Link href="/signup" className="nav-action nav-action--primary">Get started</Link>
@@ -165,7 +165,7 @@ export function PublicNav() {
             <Link href="/signup" onClick={close} className="public-nav__drawer-cta">Get started</Link>
             <div className="public-nav__drawer-row">
               <span>{t("theme")}</span>
-              <ThemeToggle />
+              <ThemeToggle allowSystem />
             </div>
             <div className="public-nav__drawer-row">
               <span>{t("language")}</span>

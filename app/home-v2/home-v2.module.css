@@ -1,8 +1,7 @@
 /* Canonical homepage layout styles. Shared values come from the global
-   semantic design-system foundation through the ui-theme-light scope. */
+   system-aware semantic design-system foundation. */
 
 .root {
-  color-scheme: light;
   background: var(--surface-page);
   color: var(--text-primary);
   font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
@@ -11,6 +10,10 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100dvh;
+}
+
+:global(html[data-theme="dark"]) .root {
+  --accent-strong: var(--accent-text);
 }
 
 .root *,
@@ -167,6 +170,14 @@
   color: var(--accent-text);
 }
 
+.navLink:focus-visible,
+.navSignin:focus-visible,
+.drawerLink:focus-visible {
+  border-radius: var(--radius-small);
+  outline: 2px solid var(--border-focus);
+  outline-offset: 4px;
+}
+
 .navDisabled {
   color: var(--text-subtle);
   font-size: 0.92rem;
@@ -210,6 +221,12 @@
   cursor: pointer;
 }
 
+.hamburger:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+  box-shadow: var(--focus-ring);
+}
+
 .drawer {
   display: flex;
   flex-direction: column;
@@ -225,6 +242,18 @@
   font-size: 1rem;
   font-weight: 500;
   text-decoration: none;
+}
+
+.drawerTheme {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 4px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 600;
 }
 
 .drawerActions {

@@ -9601,11 +9601,42 @@ html[data-theme="light"] .app-sidebar__footer {
   background: rgba(128, 128, 128, 0.08);
 }
 
+.theme-toggle:focus-visible,
+.theme-select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .theme-toggle-placeholder {
   display: inline-flex;
   width: 34px;
   height: 34px;
   flex-shrink: 0;
+}
+
+.theme-select,
+.theme-select-placeholder {
+  width: 96px;
+  min-width: 96px;
+  height: 34px;
+  flex-shrink: 0;
+}
+
+.theme-select {
+  padding: 0 28px 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: var(--fw-ui);
+  cursor: pointer;
+}
+
+.theme-select:hover {
+  border-color: var(--accent);
+  color: var(--text);
 }
 
 /* Sidebar footer — holds toggle + logout */
@@ -9691,7 +9722,7 @@ html[data-theme="light"] .app-sidebar__footer {
 
 .site-consent__btn--accept {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-brand);
   border-color: var(--accent);
 }
 

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ButtonLink, Logo } from "@/components/ui";
+import { ButtonLink, Logo, ThemeToggle } from "@/components/ui";
 import styles from "@/app/home-v2/home-v2.module.css";
 
 const NAV_LINKS = [
@@ -29,6 +29,7 @@ export function MarketingNavbar() {
         </nav>
 
         <div className={styles.navActions}>
+          <ThemeToggle allowSystem />
           <Link href="/login" className={styles.navSignin}>
             Sign in
           </Link>
@@ -64,6 +65,10 @@ export function MarketingNavbar() {
               {l.label}
             </Link>
           ))}
+          <div className={styles.drawerTheme}>
+            <span>Appearance</span>
+            <ThemeToggle allowSystem />
+          </div>
           <div className={styles.drawerActions}>
             <ButtonLink href="/login" onClick={() => setOpen(false)} size="large" variant="outline">
               Sign in
