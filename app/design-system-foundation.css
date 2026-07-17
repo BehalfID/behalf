@@ -11,38 +11,47 @@
   --accent-base: #d88a63;
   --accent-hover: #c97850;
   --accent-strong: #a85a37;
-  --accent-foreground: #17120f;
+  --accent-foreground: #17191c;
   --accent-text: #e0a075;
   --accent-muted: rgba(216, 138, 99, 0.12);
   --accent-wash: rgba(216, 138, 99, 0.08);
   --accent-border: rgba(216, 138, 99, 0.34);
 
-  /* Semantic surfaces — warm dark is the existing application default. */
-  --surface-page: #0f0d0c;
-  --surface-elevated: #171310;
-  --surface-muted: #14110f;
-  --surface-dark: #17120f;
-  --surface-dark-elevated: #211a16;
-  --surface-inset: #0a0908;
-  --surface-overlay: #211a16;
+  /* Semantic surfaces — neutral near-black with copper reserved for state. */
+  --surface-page: #0c0d0f;
+  --surface-elevated: #15171a;
+  --surface-muted: #101215;
+  --surface-dark: #111315;
+  --surface-dark-elevated: #181b1e;
+  --surface-inset: #090a0c;
+  --surface-overlay: #1c1f23;
+  --surface-sidebar: var(--surface-muted);
+  --surface-header: var(--surface-page);
+  --surface-selected: var(--accent-muted);
+  --surface-inverse: var(--surface-dark);
+  --surface-scrim: rgba(3, 5, 7, 0.66);
 
   /* Semantic text */
-  --text-primary: #f7efe9;
-  --text-secondary: #b7a69c;
-  --text-muted: #827168;
-  --text-subtle: #5e524b;
-  --text-inverse: #17120f;
-  --text-on-dark: #f7efe9;
-  --text-on-dark-muted: #b7a69c;
+  --text-primary: #f4f4f2;
+  --text-secondary: #b7bbc0;
+  --text-muted: #858b93;
+  --text-subtle: #767c85;
+  --text-inverse: #17191c;
+  --text-on-dark: #f4f4f2;
+  --text-on-dark-muted: #aeb3ba;
   --text-destructive: #f6a7a7;
   --text-success: #6ee7b7;
   --text-warning: #f4cd73;
+  --text-link: var(--accent-text);
+  --text-accent: var(--accent-text);
 
   /* Semantic borders */
   --border-subtle: rgba(255, 255, 255, 0.06);
-  --border-standard: #382c26;
-  --border-strong-ui: #4a3a32;
-  --border-on-dark: #3a2e28;
+  --border-standard: #2b2e33;
+  --border-strong-ui: #41454c;
+  --border-on-dark: #30343a;
+  --border-on-dark-strong: #474c54;
+  --border-selected: var(--accent-border);
   --border-focus: var(--accent-base);
   --border-destructive: rgba(239, 68, 68, 0.38);
 
@@ -54,14 +63,28 @@
   --status-destructive-bg: rgba(239, 68, 68, 0.08);
   --status-destructive-border: rgba(239, 68, 68, 0.34);
   --status-neutral-bg: rgba(255, 255, 255, 0.04);
+  --status-neutral-border: var(--border-standard);
+  --status-neutral-text: var(--text-muted);
+  --status-disabled-bg: var(--surface-muted);
+  --status-disabled-border: var(--border-standard);
+  --status-disabled-text: var(--text-subtle);
+  --status-experimental-bg: var(--accent-wash);
+  --status-experimental-border: var(--accent-border);
+  --status-experimental-text: var(--accent-text);
+  --status-active-bg: var(--status-success-bg);
+  --status-active-border: var(--status-success-border);
+  --status-active-text: var(--text-success);
+  --status-disconnected-bg: var(--status-neutral-bg);
+  --status-disconnected-border: var(--status-neutral-border);
+  --status-disconnected-text: var(--status-neutral-text);
 
   /* Shape, depth, and focus */
   --radius-small: 6px;
   --radius-medium: 10px;
   --radius-large: 14px;
-  --shadow-subtle: 0 1px 2px rgba(8, 5, 3, 0.2);
-  --shadow-elevated: 0 1px 3px rgba(8, 5, 3, 0.28), 0 16px 40px rgba(8, 5, 3, 0.24);
-  --shadow-overlay: 0 2px 10px rgba(8, 5, 3, 0.34), 0 28px 72px rgba(8, 5, 3, 0.38);
+  --shadow-subtle: 0 1px 2px rgba(3, 5, 7, 0.24);
+  --shadow-elevated: 0 1px 3px rgba(3, 5, 7, 0.3), 0 16px 40px rgba(3, 5, 7, 0.26);
+  --shadow-overlay: 0 2px 10px rgba(3, 5, 7, 0.36), 0 28px 72px rgba(3, 5, 7, 0.42);
   --focus-ring: 0 0 0 3px rgba(216, 138, 99, 0.24);
 
   /* Layout */
@@ -113,6 +136,10 @@
   --control-secondary-bg: var(--surface-elevated);
   --control-secondary-hover: var(--surface-overlay);
   --control-secondary-text: var(--text-primary);
+  --control-outline-bg: transparent;
+  --control-ghost-hover: var(--status-neutral-bg);
+  --control-destructive-bg: var(--status-destructive-bg);
+  --control-destructive-text: var(--text-destructive);
 }
 
 /* The approved warm-light direction. It follows the existing theme toggle and
@@ -123,26 +150,26 @@ html[data-theme="light"],
   --surface-page: #faf8f6;
   --surface-elevated: #ffffff;
   --surface-muted: #f4f0ec;
-  --surface-dark: #17120f;
-  --surface-dark-elevated: #211a16;
+  --surface-dark: #111315;
+  --surface-dark-elevated: #181b1e;
   --surface-inset: #fbf9f7;
   --surface-overlay: #ffffff;
 
   --text-primary: #1a1512;
   --text-secondary: #443c37;
-  --text-muted: #7c716a;
-  --text-subtle: #a89d95;
-  --text-inverse: #f7efe9;
-  --text-on-dark: #f7efe9;
-  --text-on-dark-muted: #b7a69c;
+  --text-muted: #756b64;
+  --text-subtle: #7b7069;
+  --text-inverse: #f7f3ef;
+  --text-on-dark: #f4f4f2;
+  --text-on-dark-muted: #aeb3ba;
   --text-destructive: #b23a3a;
   --text-success: #1f7a54;
-  --text-warning: #9a6b12;
+  --text-warning: #8a6100;
 
   --border-subtle: rgba(26, 21, 18, 0.06);
   --border-standard: #e9e1da;
   --border-strong-ui: #d9cec5;
-  --border-on-dark: #3a2e28;
+  --border-on-dark: #30343a;
   --border-destructive: #edc9c9;
 
   --accent-muted: #fbf0e9;
@@ -157,6 +184,8 @@ html[data-theme="light"],
   --status-destructive-bg: #f9ecec;
   --status-destructive-border: #edc9c9;
   --status-neutral-bg: #f4f0ec;
+  --status-neutral-border: #e9e1da;
+  --status-neutral-text: #756b64;
 
   --shadow-subtle: 0 1px 2px rgba(26, 21, 18, 0.04);
   --shadow-elevated: 0 1px 3px rgba(26, 21, 18, 0.06), 0 12px 32px rgba(26, 21, 18, 0.05);
@@ -168,6 +197,46 @@ html[data-theme="light"],
   --control-primary-text: var(--text-inverse);
   --control-secondary-bg: var(--surface-elevated);
   --control-secondary-hover: var(--surface-inset);
+}
+
+/* Application shells bridge legacy selectors onto the semantic contract. */
+.dashboard-shell,
+.docs-page,
+.console-shell,
+.app-shell--console {
+  --bg: var(--surface-page);
+  --panel: var(--surface-elevated);
+  --surface: var(--surface-elevated);
+  --surface-soft: var(--surface-muted);
+  --surface-elev: var(--surface-overlay);
+  --text: var(--text-primary);
+  --text-2: var(--text-secondary);
+  --muted: var(--text-muted);
+  --muted-2: var(--text-subtle);
+  --source: var(--text-secondary);
+  --border: var(--border-standard);
+  --border-strong: var(--border-strong-ui);
+  --hairline: var(--border-subtle);
+  --accent: var(--accent-base);
+  --accent-soft: var(--accent-wash);
+  --ok: var(--text-success);
+  --ok-border: var(--status-success-border);
+  --ok-bg: var(--status-success-bg);
+  --deny: var(--text-destructive);
+  --deny-border: var(--status-destructive-border);
+  --deny-bg: var(--status-destructive-bg);
+  --warn: var(--text-warning);
+  --warn-border: var(--status-warning-border);
+  --warn-bg: var(--status-warning-bg);
+  --shadow: var(--shadow-elevated);
+  --shadow-md: var(--shadow-subtle);
+}
+
+html[data-theme="light"] .dashboard-shell,
+html[data-theme="light"] .docs-page,
+html[data-theme="light"] .console-shell,
+html[data-theme="light"] .app-shell--console {
+  background: var(--surface-page);
 }
 
 @media (max-width: 640px) {
@@ -326,7 +395,7 @@ html .ui-button.ui-button--secondary {
 
 html .ui-button.ui-button--outline {
   border-color: var(--border-strong-ui);
-  background: transparent;
+  background: var(--control-outline-bg);
   color: var(--text-primary);
   box-shadow: none;
 }
@@ -346,15 +415,15 @@ html .ui-button.ui-button--ghost {
 
 html .ui-button.ui-button--ghost:hover:not(:disabled):not([aria-disabled="true"]) {
   border-color: transparent;
-  background: var(--status-neutral-bg);
+  background: var(--control-ghost-hover);
   color: var(--text-primary);
 }
 
 html .ui-button.ui-button--destructive,
 html .ui-button.ui-button--danger {
   border-color: var(--border-destructive);
-  background: var(--status-destructive-bg);
-  color: var(--text-destructive);
+  background: var(--control-destructive-bg);
+  color: var(--control-destructive-text);
   box-shadow: none;
 }
 
@@ -644,12 +713,12 @@ html .ui-card.ui-card--inset,
 
 html .ui-card.ui-card--dark,
 .ui-dark-panel {
-  --text-primary: #f7efe9;
-  --text-secondary: #b7a69c;
-  --text-muted: #8f7e74;
-  --border-standard: #3a2e28;
-  --border-strong-ui: #524139;
-  background: var(--surface-dark);
+  --text-primary: var(--text-on-dark);
+  --text-secondary: var(--text-on-dark-muted);
+  --text-muted: var(--text-on-dark-muted);
+  --border-standard: var(--border-on-dark);
+  --border-strong-ui: var(--border-on-dark-strong);
+  background: var(--surface-inverse);
   color: var(--text-primary);
 }
 
@@ -685,10 +754,10 @@ html .ui-badge.ui-badge {
   align-items: center;
   gap: 6px;
   padding: 0 8px;
-  border: 1px solid var(--border-standard);
+  border: 1px solid var(--status-neutral-border);
   border-radius: var(--radius-small);
   background: var(--status-neutral-bg);
-  color: var(--text-secondary);
+  color: var(--status-neutral-text);
   font-size: 0.72rem;
   font-weight: 650;
   line-height: 1;
@@ -796,7 +865,7 @@ html .ui-table.ui-table {
 }
 
 .ui-table tbody tr:hover td {
-  background: var(--accent-wash);
+  background: var(--surface-selected);
 }
 
 .ui-table--compact th,
@@ -954,8 +1023,8 @@ html .ui-tabs.ui-tabs a:hover,
 
 html .ui-tabs.ui-tabs a[aria-current="page"],
 .ui-tab[aria-selected="true"] {
-  border-color: var(--border-standard);
-  background: var(--surface-elevated);
+  border-color: var(--border-selected);
+  background: var(--surface-selected);
   color: var(--text-primary);
   box-shadow: var(--shadow-subtle);
 }
@@ -1110,7 +1179,7 @@ html .ui-empty.ui-empty {
 }
 
 .ui-dialog::backdrop {
-  background: rgba(15, 10, 7, 0.54);
+  background: var(--surface-scrim);
   backdrop-filter: blur(2px);
 }
 
@@ -1230,8 +1299,8 @@ html .ui-empty.ui-empty {
   padding: 6px 8px;
   border: 1px solid var(--border-strong-ui);
   border-radius: var(--radius-small);
-  background: var(--surface-dark);
-  color: #f7efe9;
+  background: var(--surface-inverse);
+  color: var(--text-on-dark);
   font-size: 0.72rem;
   line-height: 1.35;
   box-shadow: var(--shadow-elevated);

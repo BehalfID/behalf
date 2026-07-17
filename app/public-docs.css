@@ -47,7 +47,7 @@
   z-index: 100;
   min-height: 63px;
   border-bottom: 1px solid var(--border-subtle);
-  background: color-mix(in srgb, var(--surface-page) 90%, transparent);
+  background: color-mix(in srgb, var(--surface-header) 90%, transparent);
   backdrop-filter: saturate(1.25) blur(16px);
   -webkit-backdrop-filter: saturate(1.25) blur(16px);
 }
@@ -192,7 +192,7 @@
   position: fixed;
   inset: 63px 0 0;
   z-index: 98;
-  background: rgba(15, 13, 12, 0.48);
+  background: var(--surface-scrim);
   padding: 0;
   border: 0;
   backdrop-filter: blur(2px);
@@ -380,7 +380,7 @@
   overflow: clip;
 }
 
-.docs-sidebar {
+html .docs-page .docs-sidebar {
   position: sticky;
   top: 0;
   grid-column: 1;
@@ -390,7 +390,7 @@
   gap: 22px;
   padding: 20px 18px 18px;
   border-right: 1px solid var(--border-standard);
-  background: var(--surface-muted);
+  background: var(--surface-sidebar);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   overflow-y: auto;
@@ -512,15 +512,15 @@
   color: var(--text-primary);
 }
 
-.docs-sidebar .docs-nav__group > a[aria-current="page"],
-.docs-mobile-drawer .docs-nav__group > a[aria-current="page"] {
-  background: var(--accent-muted);
+html .docs-page .docs-sidebar .docs-nav__group > a[aria-current="page"],
+html .docs-page .docs-mobile-drawer .docs-nav__group > a[aria-current="page"] {
+  background: var(--surface-selected);
   color: var(--text-primary);
   font-weight: 650;
 }
 
-.docs-sidebar .docs-nav__group > a[aria-current="page"]::before,
-.docs-mobile-drawer .docs-nav__group > a[aria-current="page"]::before {
+html .docs-page .docs-sidebar .docs-nav__group > a[aria-current="page"]::before,
+html .docs-page .docs-mobile-drawer .docs-nav__group > a[aria-current="page"]::before {
   position: absolute;
   top: 8px;
   bottom: 8px;
@@ -558,7 +558,7 @@
   gap: 24px;
   padding-inline: clamp(28px, 4vw, 56px);
   border-bottom: 1px solid var(--border-standard);
-  background: color-mix(in srgb, var(--surface-page) 90%, transparent);
+  background: color-mix(in srgb, var(--surface-header) 90%, transparent);
   backdrop-filter: saturate(1.2) blur(14px);
 }
 
@@ -723,18 +723,18 @@
   letter-spacing: 0.06em;
 }
 
-.docs-article .ui-code-copy,
-.security-page .ui-code-copy,
-.blog-prose .ui-code-copy {
+html .docs-article .ui-code-copy,
+html .security-page .ui-code-copy,
+html .blog-prose .ui-code-copy {
   min-height: 28px;
   border-color: var(--border-on-dark);
   background: transparent;
   color: var(--text-on-dark-muted);
 }
 
-.docs-article .ui-code-copy:hover,
-.security-page .ui-code-copy:hover,
-.blog-prose .ui-code-copy:hover {
+html .docs-article .ui-code-copy:hover,
+html .security-page .ui-code-copy:hover,
+html .blog-prose .ui-code-copy:hover {
   background: rgba(255, 255, 255, 0.06);
   color: var(--text-on-dark);
 }
@@ -745,6 +745,8 @@
   max-width: 100%;
   margin: 0;
   overflow-x: auto;
+  border: 0;
+  border-radius: 0;
   background: var(--surface-dark);
   color: var(--text-on-dark);
   font-size: 0.78rem;
@@ -1951,7 +1953,7 @@
     display: none !important;
   }
 
-  .docs-mobile-header {
+  html .docs-page .docs-mobile-header {
     position: sticky;
     top: 0;
     z-index: 70;
@@ -1962,7 +1964,7 @@
     gap: 12px;
     padding-inline: var(--page-gutter);
     border-bottom: 1px solid var(--border-standard);
-    background: color-mix(in srgb, var(--surface-page) 92%, transparent);
+    background: color-mix(in srgb, var(--surface-header) 92%, transparent);
     backdrop-filter: blur(14px);
   }
 
@@ -2001,11 +2003,11 @@
     display: block;
     padding: 0;
     border: 0;
-    background: rgba(15, 13, 12, 0.5);
+    background: var(--surface-scrim);
     backdrop-filter: blur(2px);
   }
 
-  .docs-mobile-drawer {
+  html .docs-page .docs-mobile-drawer {
     position: fixed;
     top: 62px;
     right: 0;
@@ -2018,7 +2020,7 @@
     padding: 20px 22px 24px;
     overflow-y: auto;
     border-left: 1px solid var(--border-standard);
-    background: var(--surface-elevated);
+    background: var(--surface-sidebar);
     box-shadow: var(--shadow-overlay);
   }
 

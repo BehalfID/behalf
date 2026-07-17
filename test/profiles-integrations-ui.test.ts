@@ -16,6 +16,8 @@ describe("managed profiles and integrations presentation", () => {
     expect(primitives).toContain("ProtectedRepositoryStatusBadge");
     expect(primitives).toContain('manual: { label: "Manual setup"');
     expect(primitives).toContain('disconnected: { label: "Disconnected"');
+    expect(primitives).toContain('disconnected: { label: "Disconnected", variant: "neutral" }');
+    expect(primitives).toContain('<OperationalBadge label="Experimental" variant="accent" />');
   });
 
   it("keeps the workspace policy honest about mode and outage semantics", () => {

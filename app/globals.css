@@ -3,23 +3,23 @@
 :root {
   color-scheme: dark;
 
-  /* Surfaces — warm near-black canvas, not pure black */
-  --bg:            #0F0D0C;
-  --panel:         #171310;
-  --surface:       #171310;
-  --surface-soft:  #0A0908;
-  --surface-elev:  #211A16;
+  /* Legacy aliases — neutral dark values mirror the semantic foundation. */
+  --bg:            #0C0D0F;
+  --panel:         #15171A;
+  --surface:       #15171A;
+  --surface-soft:  #101215;
+  --surface-elev:  #1C1F23;
 
   /* Ink */
-  --text:    #F7EFE9;
-  --text-2:  #B7A69C;
-  --muted:   #827168;
-  --muted-2: #5E524B;
-  --source:  #B7A69C;
+  --text:    #F4F4F2;
+  --text-2:  #B7BBC0;
+  --muted:   #858B93;
+  --muted-2: #767C85;
+  --source:  #B7BBC0;
 
   /* Borders */
-  --border:        #382C26;
-  --border-strong: #4A3A32;
+  --border:        #2B2E33;
+  --border-strong: #41454C;
   --hairline:      rgba(255, 255, 255, 0.05);
 
   /* Brand — warm copper. Signal/accent color, used sparingly. */
@@ -29,7 +29,7 @@
   --brand-soft:   #F7D7C6;
   --brand-wash:   #FFF1E8;
   /* Text that sits on a filled --brand surface (white fails AA on #D88A63). */
-  --on-brand:     #171412;
+  --on-brand:     #17191C;
 
   /* Brand accent (aliases — components consume --accent throughout) */
   --accent:      var(--brand);
@@ -9110,22 +9110,22 @@ html[data-theme="light"] .dashboard-shell .dashboard-sidebar nav a[aria-current=
 html[data-theme="light"] {
   color-scheme: light;
 
-  /* Warm light palette */
-  --bg:            #FBF7F2;
-  --panel:         #FFFDFB;
-  --surface:       #FFFDFB;
-  --surface-soft:  #FBF7F2;
-  --surface-elev:  #F4ECE5;
+  /* Warm light compatibility aliases mirror the approved homepage tokens. */
+  --bg:            #FAF8F6;
+  --panel:         #FFFFFF;
+  --surface:       #FFFFFF;
+  --surface-soft:  #F4F0EC;
+  --surface-elev:  #FBF9F7;
 
-  --text:    #171412;
-  --text-2:  #75675F;
-  --muted:   #9A887E;
-  --muted-2: #B4A399;
-  --source:  #75675F;
+  --text:    #1A1512;
+  --text-2:  #443C37;
+  --muted:   #756B64;
+  --muted-2: #7B7069;
+  --source:  #443C37;
 
-  --border:        #E5D6CC;
-  --border-strong: #D8C4B7;
-  --hairline:      rgba(0, 0, 0, 0.05);
+  --border:        #E9E1DA;
+  --border-strong: #D9CEC5;
+  --hairline:      rgba(26, 21, 18, 0.06);
 
   --shadow:      0 24px 80px rgba(0, 0, 0, 0.08);
   --shadow-sm:   0 1px 0 rgba(0, 0, 0, 0.04) inset;
@@ -12562,21 +12562,21 @@ html[data-theme="light"] .lang-switcher__option:hover {
   font-weight: var(--fw-bold);
 }
 
-/* ── 16. Light mode: update for navy palette ─────────── */
+/* ── 16. Light mode compatibility aliases ────────────── */
 
 html[data-theme="light"] {
-  --bg:            #FBF7F2;
-  --panel:         #FFFDFB;
-  --surface:       #FFFDFB;
-  --surface-soft:  #FBF7F2;
-  --surface-elev:  #F4ECE5;
-  --text:          #171412;
-  --text-2:        #75675F;
-  --muted:         #9A887E;
-  --muted-2:       #B4A399;
-  --border:        #E5D6CC;
-  --border-strong: #D8C4B7;
-  --hairline:      rgba(0, 0, 0, 0.05);
+  --bg:            #FAF8F6;
+  --panel:         #FFFFFF;
+  --surface:       #FFFFFF;
+  --surface-soft:  #F4F0EC;
+  --surface-elev:  #FBF9F7;
+  --text:          #1A1512;
+  --text-2:        #443C37;
+  --muted:         #756B64;
+  --muted-2:       #7B7069;
+  --border:        #E9E1DA;
+  --border-strong: #D9CEC5;
+  --hairline:      rgba(26, 21, 18, 0.06);
 }
 
 html[data-theme="light"] .public-nav,

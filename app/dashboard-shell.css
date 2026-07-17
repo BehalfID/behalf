@@ -47,7 +47,7 @@
   padding: max(20px, env(safe-area-inset-top, 0px)) 14px max(16px, env(safe-area-inset-bottom, 0px));
   border: 0;
   border-right: 1px solid var(--border-standard);
-  background: color-mix(in srgb, var(--surface-muted) 88%, var(--surface-page));
+  background: var(--surface-sidebar);
   color: var(--text-primary);
   overflow-x: hidden;
   overflow-y: auto;
@@ -235,8 +235,8 @@
 .dashboard-shell .dashboard-sidebar nav a[aria-current="page"],
 .dashboard-shell .app-sidebar nav a[aria-current="page"] {
   padding-left: 10px;
-  border-color: var(--accent-border);
-  background: var(--accent-wash);
+  border-color: var(--border-selected);
+  background: var(--surface-selected);
   color: var(--text-primary);
   font-weight: 650;
   box-shadow: inset 2px 0 0 var(--accent-base);
@@ -309,7 +309,7 @@ html .dashboard-shell .app-sidebar__logout.ui-button:hover {
   gap: 20px;
   padding: 0 clamp(22px, 3vw, 40px);
   border-bottom: 1px solid var(--border-standard);
-  background: color-mix(in srgb, var(--surface-page) 94%, transparent);
+  background: color-mix(in srgb, var(--surface-header) 94%, transparent);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
 }
@@ -695,7 +695,7 @@ body.dashboard-drawer-open .site-consent {
     gap: 11px;
     padding: env(safe-area-inset-top, 0px) 16px 0;
     border-bottom: 1px solid var(--border-standard);
-    background: color-mix(in srgb, var(--surface-page) 94%, transparent);
+    background: color-mix(in srgb, var(--surface-header) 94%, transparent);
     color: var(--text-primary);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
@@ -773,7 +773,7 @@ body.dashboard-drawer-open .site-consent {
     padding: 0;
     border: 0;
     border-radius: 0;
-    background: rgba(15, 13, 12, 0.58);
+    background: var(--surface-scrim);
     cursor: default;
   }
 
