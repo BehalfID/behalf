@@ -1,6 +1,7 @@
 import Account from "@/models/Account";
 import AccountMembership from "@/models/AccountMembership";
 import DeveloperSession from "@/models/DeveloperSession";
+import { cache } from "react";
 import { isWorkspaceRole, type WorkspaceRole } from "@/lib/authority";
 import { findAccountBySlugLean } from "@/lib/repositories/accounts";
 import { jsonError } from "@/lib/responses";
@@ -157,9 +158,5 @@ export async function resolveWorkspaceForUserBySlug(
   };
 }
 
-export async function requireWorkspaceMembershipBySlug(
-  userId: string,
-  slugInput: string
-): Promise<{ workspace: WorkspaceSlugResolution } | WorkspaceSlugError> {
-  return resolveWorkspaceForUserBySlug(userId, slugInput);
-}
+/** Server Component request memoization only; authorization is re-read next request. */
+export const requireWorkspaceMembershipBySlug = cache(resolveWorkspaceForUserBySlug);

@@ -138,7 +138,7 @@ describe("buildWorkspaceRewritePath", () => {
 
 describe("proxy() workspace header trust boundary", () => {
   it("strips forged client workspace slug header on direct /api/dashboard requests", () => {
-    proxy(
+    const response = proxy(
       makeRequest("/api/dashboard/summary", {
         [WORKSPACE_SLUG_HEADER]: "victim"
       })
@@ -147,10 +147,11 @@ describe("proxy() workspace header trust boundary", () => {
     expect(captures.length).toBe(1);
     expect(captures[0]?.kind).toBe("next");
     expect(captures[0]?.requestHeaders?.get(WORKSPACE_SLUG_HEADER)).toBeNull();
+    expect(response.headers.get("Cache-Control")).toBe("no-store, private");
   });
 
   it("sets trusted slug from path and ignores forged client header on scoped API", () => {
-    proxy(
+    const response = proxy(
       makeRequest("/alpha/api/dashboard/summary", {
         [WORKSPACE_SLUG_HEADER]: "victim"
       })
@@ -160,6 +161,14 @@ describe("proxy() workspace header trust boundary", () => {
     expect(captures[0]?.kind).toBe("rewrite");
     expect(captures[0]?.url?.pathname).toBe("/api/dashboard/summary");
     expect(captures[0]?.requestHeaders?.get(WORKSPACE_SLUG_HEADER)).toBe("alpha");
+    expect(response.headers.get("Cache-Control")).toBe("no-store, private");
+  });
+
+  it("marks scoped dashboard HTML private and no-store", () => {
+    const response = proxy(makeRequest("/alpha/dashboard/agents"));
+
+    expect(captures[0]?.kind).toBe("rewrite");
+    expect(response.headers.get("Cache-Control")).toBe("no-store, private");
   });
 
   it("rewrites scoped billing API with trusted beta slug", () => {
