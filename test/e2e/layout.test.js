@@ -110,6 +110,14 @@ async function testDesktopNav() {
   assert(!(await isVisible(".public-nav__hamburger")),    "hamburger hidden on desktop");
   assert(!(await isVisible(".public-nav__mobile-cta")),   "mobile CTA hidden on desktop");
   assert(await isVisible(".public-nav__links"),           "desktop links visible");
+  assert(
+    await page.$eval(".public-nav__actions", (el) => /Sign in/.test(el.textContent || "")),
+    "unauthenticated desktop nav keeps Sign in"
+  );
+  assert(
+    !(await page.$eval(".public-nav__actions", (el) => /To Dashboard/.test(el.textContent || ""))),
+    "desktop nav does not render both auth actions"
+  );
 }
 
 async function testMobileNavLayout() {
@@ -145,6 +153,11 @@ async function testMobileDrawer() {
   await page.waitForSelector(".public-nav__drawer");
   assert(await isVisible(".public-nav__drawer"),           "drawer opens on hamburger click");
   assert(await exists(".public-nav__drawer a[href]"),      "drawer contains links");
+  assert(await exists('.public-nav__drawer a[href$="/login"]'), "unauthenticated mobile drawer keeps its localized login action");
+  assert(
+    !(await page.$eval(".public-nav__drawer", (el) => /To Dashboard/.test(el.textContent || ""))),
+    "mobile drawer does not render both auth actions"
+  );
 
   await page.$eval(".public-nav__drawer a[href]", (el) => el.focus());
   await page.keyboard.down("Shift");
@@ -208,6 +221,8 @@ async function testCanonicalHomepage() {
       await page.goto(`${BASE_URL}${route}`, { waitUntil: "networkidle0" });
 
       assert(await exists('header .site-logo[href="/"]'), `${route} uses the canonical brand link at ${width}px`);
+      assert(await page.$eval("header", (el) => /Sign in/.test(el.textContent || "")), `${route} keeps Sign in when logged out at ${width}px`);
+      assert(!(await page.$eval("header", (el) => /To Dashboard/.test(el.textContent || ""))), `${route} does not duplicate auth actions at ${width}px`);
       assert(await exists("main h1"), `${route} renders the approved primary heading at ${width}px`);
       assert(await exists('[role="tablist"][aria-label="Decision outcome"]'), `${route} keeps the authorization demo`);
       assert(await exists('[role="tablist"][aria-label="Product capabilities"]'), `${route} keeps the product showcase`);
@@ -280,6 +295,8 @@ async function testHomepageMobileNavigation() {
   await page.click('button[aria-controls="marketing-drawer"]');
   await page.waitForSelector("#marketing-drawer");
   assert(await isVisible("#marketing-drawer"), "homepage drawer opens");
+  assert(await page.$eval("#marketing-drawer", (el) => /Sign in/.test(el.textContent || "")), "homepage drawer keeps Sign in when logged out");
+  assert(!(await page.$eval("#marketing-drawer", (el) => /To Dashboard/.test(el.textContent || ""))), "homepage drawer does not duplicate auth actions");
   assert(await exists('#marketing-drawer a[href="/signup"]'), "homepage drawer keeps the signup CTA");
   assert(await isVisible('#marketing-drawer select[aria-label="Theme preference"]'), "homepage drawer keeps the theme control");
   assert(await hasNoHorizontalOverflow(), "homepage drawer has no page-level overflow");
@@ -357,6 +374,8 @@ async function testDocsShellDesktop() {
 
   assert(await isVisible(".docs-sidebar"), "persistent docs navigation visible");
   assert(await isVisible(".docs-utility-header"), "compact docs utility header visible");
+  assert(await page.$eval(".docs-utility-header", (el) => /Sign in/.test(el.textContent || "")), "docs utility header keeps Sign in when logged out");
+  assert(!(await page.$eval(".docs-utility-header", (el) => /To Dashboard/.test(el.textContent || ""))), "docs utility header does not duplicate auth actions");
   assert(await exists('.docs-nav a[aria-current="page"]'), "current docs page exposed semantically");
   assert(await page.$eval('.docs-nav a[aria-current="page"]', (el) => el.textContent.trim() === "CLI"), "CLI nav item is current");
 

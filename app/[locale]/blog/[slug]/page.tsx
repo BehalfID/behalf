@@ -4,7 +4,8 @@ import type { Metadata } from "next";
 import { Link } from "@/i18n/navigation";
 import { PublicNav } from "@/components/layout/PublicNav";
 import { PublicFooter } from "@/components/layout/PublicFooter";
-import { ButtonLink, SplitCTAButton } from "@/components/ui";
+import { PublicAuthSplitCTA } from "@/components/layout/PublicAuthSplitCTA";
+import { ButtonLink } from "@/components/ui";
 import { getPost, posts } from "../../../blog/posts";
 import { routing } from "@/i18n/routing";
 
@@ -76,7 +77,7 @@ export default async function BlogPostPage({
             {t("backToBlog")}
           </Link>
           <div className="hero__actions">
-            <SplitCTAButton leftLabel="Build" leftHref="/signup" rightLabel="Log In" rightHref="/login" />
+            <PublicAuthSplitCTA leftLabel="Build" leftHref="/signup" />
             <ButtonLink href="/docs">Docs</ButtonLink>
           </div>
         </div>

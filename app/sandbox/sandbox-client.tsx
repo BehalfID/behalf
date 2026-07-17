@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { ButtonLink, SplitCTAButton } from "@/components/ui";
+import { useState, type ReactNode } from "react";
+import { ButtonLink } from "@/components/ui";
 import { useMode } from "@/lib/useMode";
 
 const LAB_STYLES = `
@@ -239,7 +239,7 @@ function requestFields(action: DemoAction): Array<[string, string]> {
   return fields;
 }
 
-export function SandboxClient() {
+export function SandboxClient({ authCta }: { authCta: ReactNode }) {
   const [activeActionId, setActiveActionId] = useState(actions[0].id);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [running, setRunning] = useState(false);
@@ -502,7 +502,7 @@ export function SandboxClient() {
         <section className="sandbox-ctas">
           <h2>Add the decision point.</h2>
           <div className="hero__actions">
-            <SplitCTAButton leftLabel="Build" leftHref="/signup" rightLabel="Log In" rightHref="/login" />
+            {authCta}
             <ButtonLink href="/docs/quickstart">Read quickstart</ButtonLink>
             <ButtonLink href="/docs/action-gateway">Action Gateway docs</ButtonLink>
           </div>

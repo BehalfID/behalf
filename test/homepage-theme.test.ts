@@ -10,8 +10,8 @@ function source(path: string) {
 describe("system-aware homepage theme", () => {
   const layoutSource = source("app/layout.tsx");
   const homeSource = source("components/marketing-v2/MarketingHomePage.tsx");
-  const navbarSource = source("components/marketing-v2/MarketingNavbar.tsx");
-  const publicNavSource = source("components/layout/PublicNav.tsx");
+  const navbarSource = source("components/marketing-v2/MarketingNavbarClient.tsx");
+  const publicNavSource = source("components/layout/PublicNavClient.tsx");
   const homeCss = source("app/home-v2/home-v2.module.css");
   const globalCss = source("app/globals.css");
 
