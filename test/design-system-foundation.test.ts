@@ -10,8 +10,13 @@ const foundationCss = source("app/design-system-foundation.css");
 const layoutSource = source("app/layout.tsx");
 const previewSource = source("app/design-system/foundation/page.tsx");
 const interactivePreviewSource = source("app/design-system/foundation/preview.tsx");
-const homeSource = source("app/home-v2/page.tsx");
+const homeSource = source("app/page.tsx");
+const localeHomeSource = source("app/[locale]/page.tsx");
+const marketingHomeSource = source("components/marketing-v2/MarketingHomePage.tsx");
+const redirectSource = source("app/home-v2/page.tsx");
 const homeCss = source("app/home-v2/home-v2.module.css");
+const robotsSource = source("app/robots.ts");
+const sitemapSource = source("app/sitemap.ts");
 const buttonSource = source("components/ui/Button.tsx");
 const inputSource = source("components/ui/Input.tsx");
 const overlaySource = source("components/ui/Overlay.tsx");
@@ -119,17 +124,26 @@ describe("design-system foundation", () => {
       expect(previewSources).toContain(component);
     }
 
-    expect(previewSource).not.toMatch(/fetch\(|cookies\(|headers\(|process\.env|prisma|mongoose/i);
+    expect(previewSource).not.toMatch(/fetch\(|cookies\(|headers\(|prisma|mongoose/i);
     expect(previewSource).toContain('robots: { index: false, follow: false }');
+    expect(previewSource).toContain('process.env.NODE_ENV === "production"');
+    expect(previewSource).toContain("notFound()");
+    expect(robotsSource).toContain('disallow: "/design-system/foundation"');
   });
 
-  it("migrates home-v2 to shared tokens without changing its route contract", () => {
-    expect(homeSource).toContain("ui-theme-light");
-    expect(homeSource).toContain('id="main-content"');
+  it("promotes the redesigned homepage without retaining a divergent preview", () => {
+    expect(homeSource).toContain("MarketingHomePage");
+    expect(localeHomeSource).toContain("MarketingHomePage");
+    expect(marketingHomeSource).toContain("ui-theme-light");
+    expect(marketingHomeSource).toContain('id="main-content"');
+    expect(marketingHomeSource).not.toMatch(/preview|production is unchanged/i);
+    expect(redirectSource).toContain('permanentRedirect("/")');
     expect(homeCss).not.toContain("--v2-");
+    expect(homeCss).not.toContain("previewBanner");
     expect(homeCss).toContain("var(--surface-page)");
     expect(homeCss).toContain("var(--text-primary)");
     expect(homeCss).toContain("var(--page-gutter)");
     expect(homeCss).toContain("var(--section-spacing)");
+    expect(sitemapSource).not.toContain('{ path: "/home-v2"');
   });
 });

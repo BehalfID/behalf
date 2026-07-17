@@ -15,6 +15,7 @@ const BASE_URL = process.env.E2E_BASE_URL || "http://localhost:3000";
 const DESKTOP = { width: 1280, height: 800 };
 const MOBILE  = { width: 375, height: 812 };
 const RESPONSIVE_WIDTHS = [390, 768, 1024, 1440];
+const PUBLIC_SHELL_ROUTE = "/de/security";
 
 let browser;
 let page;
@@ -79,7 +80,7 @@ function hasNoHorizontalOverflow() {
 async function testDesktopNav() {
   console.log("\n[Desktop nav]");
   await page.setViewport(DESKTOP);
-  await page.goto(`${BASE_URL}/de`, { waitUntil: "networkidle0" });
+  await page.goto(`${BASE_URL}${PUBLIC_SHELL_ROUTE}`, { waitUntil: "networkidle0" });
 
   assert(await exists(".public-nav"),                     "nav renders");
   assert(await exists(".public-nav .site-logo"),          "logo present in nav");
@@ -92,7 +93,7 @@ async function testDesktopNav() {
 async function testMobileNavLayout() {
   console.log("\n[Mobile nav — logo centering]");
   await page.setViewport(MOBILE);
-  await page.goto(`${BASE_URL}/de`, { waitUntil: "networkidle0" });
+  await page.goto(`${BASE_URL}${PUBLIC_SHELL_ROUTE}`, { waitUntil: "networkidle0" });
 
   assert(await isVisible(".public-nav__hamburger"),      "hamburger visible on mobile");
   assert(!(await isVisible(".public-nav__links")),       "desktop links hidden on mobile");
@@ -114,7 +115,7 @@ async function testMobileNavLayout() {
 async function testMobileDrawer() {
   console.log("\n[Mobile nav — drawer open/close]");
   await page.setViewport(MOBILE);
-  await page.goto(`${BASE_URL}/de`, { waitUntil: "networkidle0" });
+  await page.goto(`${BASE_URL}${PUBLIC_SHELL_ROUTE}`, { waitUntil: "networkidle0" });
 
   assert(!(await exists(".public-nav__drawer")), "drawer initially closed");
 
@@ -140,7 +141,7 @@ async function testMobileDrawer() {
 async function testNoEmojis() {
   console.log("\n[No emojis in page content]");
   await page.setViewport(DESKTOP);
-  await page.goto(`${BASE_URL}/de`, { waitUntil: "networkidle0" });
+  await page.goto(`${BASE_URL}${PUBLIC_SHELL_ROUTE}`, { waitUntil: "networkidle0" });
 
   assert(await textHasNoDecorativeEmoji(".public-nav"),    "no decorative emojis in nav");
   assert(await textHasNoDecorativeEmoji(".marketing"),     "no decorative emojis on main page");
@@ -150,7 +151,7 @@ async function testNoEmojis() {
 async function testFooterLayout() {
   console.log("\n[Footer layout]");
   await page.setViewport(DESKTOP);
-  await page.goto(`${BASE_URL}/de`, { waitUntil: "networkidle0" });
+  await page.goto(`${BASE_URL}${PUBLIC_SHELL_ROUTE}`, { waitUntil: "networkidle0" });
 
   assert(await exists(".site-footer"),          "footer renders");
   assert(await exists(".site-footer__brand"),   "footer brand section exists");
@@ -176,41 +177,63 @@ async function testFooterLayout() {
   assert(!grid.includes(" "), `footer is 1-column at 480px (got "${grid}")`);
 }
 
-async function testDeploySection() {
-  console.log("\n[Home deploy section layout]");
-  await page.setViewport(DESKTOP);
-  await page.goto(`${BASE_URL}/de`, { waitUntil: "networkidle0" });
+async function testCanonicalHomepage() {
+  console.log("\n[Canonical homepage cutover]");
 
-  assert(await exists(".home-deploy"),          "deploy section renders");
-  assert(await exists(".home-deploy__intro"),   "deploy intro present");
-  assert(await exists(".home-deploy__h2"),      "deploy heading present");
-  assert(await exists(".home-deploy__steps"),   "deploy steps list present");
-  assert(await exists(".home-deploy__num"),     "deploy step numbers present");
-  assert(await exists(".home-deploy__cta"),     "deploy CTA present");
+  for (const route of ["/", "/de"]) {
+    for (const width of [390, 1440]) {
+      await page.setViewport({ width, height: width === 390 ? 844 : 960 });
+      await page.goto(`${BASE_URL}${route}`, { waitUntil: "networkidle0" });
 
-  const padding = await page.$eval(".home-deploy", (el) => {
-    const s = window.getComputedStyle(el);
-    return { top: parseFloat(s.paddingTop), bottom: parseFloat(s.paddingBottom) };
-  });
-  assert(padding.top > 40,    "deploy section has top padding");
-  assert(padding.bottom > 40, "deploy section has bottom padding");
+      assert(await exists('header .site-logo[href="/"]'), `${route} uses the canonical brand link at ${width}px`);
+      assert(await exists("main h1"), `${route} renders the approved primary heading at ${width}px`);
+      assert(await exists('[role="tablist"][aria-label="Decision outcome"]'), `${route} keeps the authorization demo`);
+      assert(await exists('[role="tablist"][aria-label="Product capabilities"]'), `${route} keeps the product showcase`);
+      assert(!(await page.$eval("body", (body) => /production is unchanged|preview:\s*\/home-v2/i.test(body.textContent || ""))), `${route} has no preview notice`);
+      assert((await page.$$eval("main > section", (sections) => sections.length)) === 6, `${route} keeps the compact six-section structure`);
+      assert(await hasNoHorizontalOverflow(), `${route} has no horizontal overflow at ${width}px`);
+    }
+  }
 }
 
-async function testMainPageAlignment() {
-  console.log("\n[Main page section alignment]");
+async function testHomepageInteractions() {
+  console.log("\n[Homepage authorization and product interactions]");
   await page.setViewport(DESKTOP);
-  await page.goto(`${BASE_URL}/de`, { waitUntil: "networkidle0" });
+  await page.goto(`${BASE_URL}/`, { waitUntil: "networkidle0" });
 
-  const leftAligned = [".home-hero", ".home-steps", ".home-code", ".home-deploy"];
-  for (const sel of leftAligned) {
-    const align = await page.$eval(sel, (el) =>
-      window.getComputedStyle(el).textAlign
-    );
-    assert(
-      align === "left" || align === "start",
-      `${sel} is left-aligned (got "${align}")`
-    );
-  }
+  const decisionTabs = '[role="tablist"][aria-label="Decision outcome"] [role="tab"]';
+  await page.focus(`${decisionTabs}[aria-selected="true"]`);
+  await page.keyboard.press("ArrowRight");
+  assert(
+    await page.$eval(`${decisionTabs}[aria-selected="true"]`, (tab) => tab.textContent.trim() === "Allowed"),
+    "arrow keys select the Allowed authorization state"
+  );
+  await page.keyboard.press("End");
+  assert(
+    await page.$eval(`${decisionTabs}[aria-selected="true"]`, (tab) => tab.textContent.trim() === "Denied"),
+    "End selects the Denied authorization state"
+  );
+
+  const managedProfileTab = '[role="tablist"][aria-label="Product capabilities"] [role="tab"]:last-child';
+  await page.click(managedProfileTab);
+  assert(
+    await page.$eval('[role="tabpanel"]', (panel) => /Managed coding-agent profile/.test(panel.textContent || "")),
+    "Managed profiles renders inside the consolidated showcase"
+  );
+}
+
+async function testHomepageMobileNavigation() {
+  console.log("\n[Homepage mobile navigation]");
+  await page.setViewport(MOBILE);
+  await page.goto(`${BASE_URL}/`, { waitUntil: "networkidle0" });
+
+  assert(await isVisible('button[aria-controls="marketing-drawer"]'), "homepage menu button is visible");
+  assert(!(await exists("#marketing-drawer")), "homepage drawer starts closed");
+  await page.click('button[aria-controls="marketing-drawer"]');
+  await page.waitForSelector("#marketing-drawer");
+  assert(await isVisible("#marketing-drawer"), "homepage drawer opens");
+  assert(await exists('#marketing-drawer a[href="/signup"]'), "homepage drawer keeps the signup CTA");
+  assert(await hasNoHorizontalOverflow(), "homepage drawer has no page-level overflow");
 }
 
 async function testDocsShellDesktop() {
@@ -287,15 +310,19 @@ async function testPublicNotFound() {
   assert(await hasNoHorizontalOverflow(), "not-found page has no horizontal overflow");
 }
 
-async function testHomeV2Regression() {
-  console.log("\n[/home-v2 regression]");
-  for (const width of [390, 1440]) {
-    await page.setViewport({ width, height: width === 390 ? 844 : 960 });
-    await page.goto(`${BASE_URL}/home-v2`, { waitUntil: "networkidle0" });
-    assert(await exists('a[href="/home-v2"]'), `/home-v2 brand link renders at ${width}px`);
-    assert(await exists("main h1"), `/home-v2 primary heading renders at ${width}px`);
-    assert(await hasNoHorizontalOverflow(), `/home-v2 has no horizontal overflow at ${width}px`);
-  }
+async function testHomeV2Redirect() {
+  console.log("\n[/home-v2 redirect]");
+  await page.setViewport(DESKTOP);
+  const response = await page.goto(`${BASE_URL}/home-v2`, { waitUntil: "networkidle0" });
+  const redirectChain = response.request().redirectChain();
+  const homeV2Request = redirectChain.find((request) => new URL(request.url()).pathname === "/home-v2");
+  const redirectLocation = homeV2Request?.response()?.headers().location;
+  const finalPath = new URL(page.url()).pathname;
+
+  assert(homeV2Request?.response()?.status() === 308, "/home-v2 returns a permanent redirect");
+  assert(new URL(redirectLocation, BASE_URL).pathname === "/", "/home-v2 redirects to the canonical root");
+  assert(["/", "/de", "/es", "/fr"].includes(finalPath), "locale routing keeps the final homepage canonical");
+  assert(await exists('header .site-logo[href="/"]'), "redirect target renders the canonical homepage");
 }
 
 // ── Runner ────────────────────────────────────────────────────────────────────
@@ -312,13 +339,14 @@ async function testHomeV2Regression() {
     testMobileDrawer,
     testNoEmojis,
     testFooterLayout,
-    testDeploySection,
-    testMainPageAlignment,
+    testCanonicalHomepage,
+    testHomepageInteractions,
+    testHomepageMobileNavigation,
     testDocsShellDesktop,
     testDocsShellMobile,
     testPublicResponsiveWidths,
     testPublicNotFound,
-    testHomeV2Regression,
+    testHomeV2Redirect,
   ];
 
   for (const suite of suites) {

@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import {
   AgentStatus,
   Alert,
@@ -49,7 +50,8 @@ import styles from "./page.module.css";
 export const metadata: Metadata = {
   title: "Design-system foundation preview — BehalfID",
   description: "Internal preview of BehalfID semantic tokens and shared UI primitives.",
-  robots: { index: false, follow: false }
+  robots: { index: false, follow: false },
+  alternates: { canonical: "/design-system/foundation" }
 };
 
 type TokenSpec = {
@@ -142,14 +144,16 @@ function EmptyIcon() {
 }
 
 export default function DesignSystemFoundationPage() {
+  if (process.env.NODE_ENV === "production") notFound();
+
   return (
     <main className={`${styles.root} ui-theme-light`} id="main-content" tabIndex={-1}>
       <header className={styles.header}>
         <div className={styles.headerInner}>
-          <Logo href="/home-v2" markStyle="framed" />
+          <Logo href="/" markStyle="framed" />
           <div className={styles.headerMeta}>
             <Badge variant="accent">Foundation preview</Badge>
-            <ButtonLink href="/home-v2" size="small" variant="outline">View /home-v2</ButtonLink>
+            <ButtonLink href="/" size="small" variant="outline">View homepage</ButtonLink>
           </div>
         </div>
       </header>
@@ -163,7 +167,7 @@ export default function DesignSystemFoundationPage() {
           <div className={styles.heroAside}>
             <p className="ui-type-body">
               A semantic token spine and reusable interface primitives derived from the approved warm,
-              editorial `/home-v2` direction. This route uses static examples only.
+              editorial production-homepage direction. This route uses static examples only.
             </p>
             <dl className={styles.heroMetaList}>
               <div><dt>Theme</dt><dd>Warm neutral + pale copper</dd></div>

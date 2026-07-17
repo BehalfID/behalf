@@ -116,7 +116,7 @@
 }
 
 /* The approved warm-light direction. It follows the existing theme toggle and
- * can also be scoped to an isolated surface such as /home-v2 or a preview. */
+ * can also be scoped to an isolated surface such as the marketing homepage. */
 html[data-theme="light"],
 .ui-theme-light {
   color-scheme: light;

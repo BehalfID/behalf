@@ -1,4 +1,4 @@
-/* Typed local demo data for the /home-v2 marketing redesign.
+/* Typed local demo data for the canonical marketing homepage.
    All content is illustrative and grounded in the BehalfID product model
    (agents, scoped permissions, approval gates, verification logs). */
 

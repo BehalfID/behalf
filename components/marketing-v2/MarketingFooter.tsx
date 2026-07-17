@@ -8,7 +8,7 @@ export function MarketingFooter() {
     <footer className={styles.footer}>
       <div className={styles.container}>
         <div className={styles.footerMain}>
-          <Logo className={styles.brand} href="/home-v2" markStyle="framed" />
+          <Logo className={styles.brand} href="/" markStyle="framed" />
 
           <nav aria-label="Footer">
             <ul className={styles.footerLinks}>

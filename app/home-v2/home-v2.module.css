@@ -1,4 +1,4 @@
-/* /home-v2 layout-specific styles. Shared values come from the global
+/* Canonical homepage layout styles. Shared values come from the global
    semantic design-system foundation through the ui-theme-light scope. */
 
 .root {
@@ -1404,23 +1404,6 @@
   font-size: 0.82rem;
 }
 
-.previewBanner {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 36px;
-  margin: 0;
-  padding: 6px 16px;
-  background: var(--accent-muted);
-  border-bottom: 1px solid var(--accent-border);
-  color: var(--accent-text);
-  font-size: 0.8rem;
-  font-weight: 600;
-  line-height: 1.3;
-  text-align: center;
-}
-
 /* ── Responsive ────────────────────────────────────────────── */
 @media (max-width: 960px) {
   .heroGrid {
@@ -1485,11 +1468,6 @@
   }
   .drawer {
     padding-inline: var(--page-gutter);
-  }
-  .previewBanner {
-    min-height: 40px;
-    padding-block: 5px;
-    font-size: 0.76rem;
   }
   .section {
     padding-block: 52px;
