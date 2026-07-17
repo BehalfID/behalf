@@ -14,6 +14,10 @@ const intlMiddleware = createMiddleware(routing);
 const intlBypassPattern =
   /^\/(api|dashboard|console|passport|authenticate|logout|onboarding|design-system|invite|workspace|home-v2)(\/|$)/;
 
+export function shouldBypassIntl(pathname: string) {
+  return intlBypassPattern.test(pathname);
+}
+
 // 'unsafe-inline' is retained for style-src only — React/Next.js inline styles
 // require it. For script-src, 'unsafe-inline' is dropped in favour of a per-request
 // nonce. Next.js reads the x-nonce request header and applies the nonce to all
@@ -164,7 +168,7 @@ export function proxy(request: NextRequest) {
   }
 
   // Run next-intl locale routing for public pages.
-  if (!intlBypassPattern.test(pathname)) {
+  if (!shouldBypassIntl(pathname)) {
     const intlResponse = intlMiddleware(request);
 
     // If next-intl issued a redirect (locale prefix missing or wrong), honour it.

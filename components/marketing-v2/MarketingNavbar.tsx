@@ -18,7 +18,7 @@ export function MarketingNavbar() {
   return (
     <header className={styles.nav}>
       <div className={styles.navInner}>
-        <Logo className={styles.brand} href="/home-v2" markStyle="framed" />
+        <Logo className={styles.brand} href="/" markStyle="framed" />
 
         <nav className={styles.navLinks} aria-label="Primary">
           {NAV_LINKS.map((l) => (
@@ -42,7 +42,7 @@ export function MarketingNavbar() {
           className={styles.hamburger}
           aria-label={open ? "Close menu" : "Open menu"}
           aria-expanded={open}
-          aria-controls="v2-drawer"
+          aria-controls="marketing-drawer"
           onClick={() => setOpen((o) => !o)}
         >
           {open ? (
@@ -58,7 +58,7 @@ export function MarketingNavbar() {
       </div>
 
       {open && (
-        <div id="v2-drawer" className={styles.drawer}>
+        <div id="marketing-drawer" className={styles.drawer}>
           {NAV_LINKS.map((l) => (
             <Link key={l.label} href={l.href} className={styles.drawerLink} onClick={() => setOpen(false)}>
               {l.label}
