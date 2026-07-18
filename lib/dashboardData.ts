@@ -110,23 +110,28 @@ export async function getDashboardSummary(userId: string, account?: AccountDocum
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const scope = account?.accountId ? { accountId: account.accountId } : { developerUserId: userId };
-  const [totalAgents, activePermissions, logsToday, pendingEvents, failedEvents] = await Promise.all([
+  const [
+    totalAgents,
+    activePermissions,
+    logsToday,
+    pendingEvents,
+    failedEvents,
+    seatCount,
+    protectedRepoCount
+  ] = await Promise.all([
     countAgentsByScope(scope as { accountId: string } | { developerUserId: string }),
     Permission.countDocuments({ ...scope, status: "active" }),
     VerificationLog.countDocuments({ ...scope, createdAt: { $gte: today } }),
     WebhookEvent.countDocuments({ ...scope, status: "pending" }),
-    WebhookEvent.countDocuments({ ...scope, deadLetter: true })
+    WebhookEvent.countDocuments({ ...scope, deadLetter: true }),
+    account?.accountId ? countBillableSeats(account.accountId) : Promise.resolve(0),
+    account?.accountId
+      ? countProtectedReposByAccountId(account.accountId)
+      : Promise.resolve(0)
   ]);
 
   const plan = normalizePlan(account?.plan);
   const entitlements = getPlanEntitlements(plan);
-
-  const [seatCount, protectedRepoCount] = account?.accountId
-    ? await Promise.all([
-        countBillableSeats(account.accountId),
-        countProtectedReposByAccountId(account.accountId)
-      ])
-    : [0, 0];
 
   return {
     totalAgents,
