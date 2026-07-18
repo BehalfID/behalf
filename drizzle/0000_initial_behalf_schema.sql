@@ -5,7 +5,7 @@
 -- RLS posture: enabled on all tables with no policies (deny-all for anon/authenticated).
 -- Server-side service-role connections bypass RLS. No client-side Supabase queries in v1.
 --
--- verification_logs: unpartitioned in v1. See TODO at end of file for monthly partitioning.
+-- verification_logs: monthly RANGE partitions on created_at, with guarded maintenance helpers.
 
 -- ---------------------------------------------------------------------------
 -- accounts
@@ -285,7 +285,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS "approval_requests_managed_profile_pause_pendi
 -- verification_logs (high volume — no enforced FKs on log refs)
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS "verification_logs" (
-  "log_id" text PRIMARY KEY NOT NULL,
+  "log_id" text NOT NULL,
   "request_id" text NOT NULL,
   "account_id" text,
   "developer_user_id" text,
@@ -302,15 +302,311 @@ CREATE TABLE IF NOT EXISTS "verification_logs" (
   "shadow" boolean DEFAULT false NOT NULL,
   "created_at" timestamptz DEFAULT now() NOT NULL,
   "updated_at" timestamptz DEFAULT now() NOT NULL,
-  CONSTRAINT "verification_logs_request_id_unique" UNIQUE("request_id"),
+  CONSTRAINT "verification_logs_pkey" PRIMARY KEY("log_id", "created_at"),
+  CONSTRAINT "verification_logs_request_created_uq" UNIQUE("request_id", "created_at"),
   CONSTRAINT "verification_logs_risk_check" CHECK ("risk" IN ('low', 'medium', 'high'))
-);
+) PARTITION BY RANGE ("created_at");
 
 CREATE INDEX IF NOT EXISTS "verification_logs_account_created_idx" ON "verification_logs" ("account_id", "created_at" DESC);
 CREATE INDEX IF NOT EXISTS "verification_logs_account_agent_created_idx" ON "verification_logs" ("account_id", "agent_id", "created_at" DESC);
 CREATE INDEX IF NOT EXISTS "verification_logs_agent_created_idx" ON "verification_logs" ("agent_id", "created_at" DESC);
 CREATE INDEX IF NOT EXISTS "verification_logs_allowed_idx" ON "verification_logs" ("allowed");
 CREATE INDEX IF NOT EXISTS "verification_logs_developer_created_idx" ON "verification_logs" ("developer_user_id", "created_at" DESC);
+
+-- Creates UTC calendar-month partitions around the current month. The default
+-- partition remains as a fail-safe for out-of-window timestamps; the daily
+-- maintenance job should normally keep all current writes out of it.
+CREATE OR REPLACE FUNCTION behalf_ensure_verification_log_partitions(
+  target_schema text,
+  months_ahead integer DEFAULT 3,
+  months_behind integer DEFAULT 13
+)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $function$
+DECLARE
+  parent_table regclass;
+  month_start timestamptz;
+  final_month timestamptz;
+  partition_name text;
+  created_count integer := 0;
+BEGIN
+  IF months_ahead < 0 OR months_ahead > 36 THEN
+    RAISE EXCEPTION 'months_ahead must be between 0 and 36';
+  END IF;
+  IF months_behind < 0 OR months_behind > 120 THEN
+    RAISE EXCEPTION 'months_behind must be between 0 and 120';
+  END IF;
+
+  parent_table := to_regclass(format('%I.verification_logs', target_schema));
+  IF parent_table IS NULL THEN
+    RAISE EXCEPTION 'verification_logs does not exist in schema %', target_schema;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_class WHERE oid = parent_table AND relkind = 'p'
+  ) THEN
+    RAISE EXCEPTION '%.verification_logs is not a partitioned table', target_schema;
+  END IF;
+
+  month_start :=
+    date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'
+    - make_interval(months => months_behind);
+  final_month :=
+    date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'
+    + make_interval(months => months_ahead);
+
+  WHILE month_start <= final_month LOOP
+    partition_name := 'verification_logs_' || to_char(month_start AT TIME ZONE 'UTC', 'YYYY_MM');
+    IF to_regclass(format('%I.%I', target_schema, partition_name)) IS NULL THEN
+      EXECUTE format(
+        'CREATE TABLE %I.%I PARTITION OF %I.verification_logs FOR VALUES FROM (%L) TO (%L)',
+        target_schema,
+        partition_name,
+        target_schema,
+        month_start,
+        month_start + interval '1 month'
+      );
+      created_count := created_count + 1;
+    END IF;
+    month_start := month_start + interval '1 month';
+  END LOOP;
+
+  RETURN created_count;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION behalf_ensure_verification_log_partitions(text, integer, integer) FROM PUBLIC;
+
+SELECT behalf_ensure_verification_log_partitions(current_schema(), 3, 13);
+CREATE TABLE IF NOT EXISTS "verification_logs_default"
+  PARTITION OF "verification_logs" DEFAULT;
+
+-- Physically enforces the existing plan-derived retention policy plus a grace
+-- window. Missing/deleted accounts receive the longest retention period.
+CREATE OR REPLACE FUNCTION behalf_purge_verification_logs(
+  target_schema text,
+  batch_size integer DEFAULT 10000,
+  grace_days integer DEFAULT 30,
+  max_batches integer DEFAULT 100
+)
+RETURNS bigint
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $function$
+DECLARE
+  parent_table regclass;
+  deleted_count integer := 0;
+  total_deleted bigint := 0;
+  completed_batches integer := 0;
+BEGIN
+  IF batch_size < 1 OR batch_size > 100000 THEN
+    RAISE EXCEPTION 'batch_size must be between 1 and 100000';
+  END IF;
+  IF grace_days < 0 OR grace_days > 365 THEN
+    RAISE EXCEPTION 'grace_days must be between 0 and 365';
+  END IF;
+  IF max_batches < 1 OR max_batches > 1000 THEN
+    RAISE EXCEPTION 'max_batches must be between 1 and 1000';
+  END IF;
+
+  parent_table := to_regclass(format('%I.verification_logs', target_schema));
+  IF parent_table IS NULL THEN
+    RAISE EXCEPTION 'verification_logs does not exist in schema %', target_schema;
+  END IF;
+
+  LOOP
+    EXECUTE format(
+      $query$
+        WITH expired AS (
+          SELECT logs.tableoid AS source_table, logs.ctid AS row_id
+          FROM %1$I.verification_logs AS logs
+          LEFT JOIN %1$I.accounts AS account
+            ON account.account_id = logs.account_id
+          WHERE logs.created_at < CURRENT_TIMESTAMP - (
+            (
+              CASE COALESCE(account.plan, 'enterprise')
+                WHEN 'free' THEN 7
+                WHEN 'team' THEN 30
+                WHEN 'pro' THEN 90
+                WHEN 'business' THEN 180
+                ELSE 365
+              END
+              + $1
+            ) * interval '1 day'
+          )
+          ORDER BY logs.created_at
+          LIMIT $2
+        )
+        DELETE FROM %1$I.verification_logs AS logs
+        USING expired
+        WHERE logs.tableoid = expired.source_table
+          AND logs.ctid = expired.row_id
+      $query$,
+      target_schema
+    )
+    USING grace_days, batch_size;
+
+    GET DIAGNOSTICS deleted_count = ROW_COUNT;
+    total_deleted := total_deleted + deleted_count;
+    completed_batches := completed_batches + 1;
+    EXIT WHEN deleted_count < batch_size OR completed_batches >= max_batches;
+  END LOOP;
+
+  RETURN total_deleted;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION behalf_purge_verification_logs(text, integer, integer, integer) FROM PUBLIC;
+
+-- Drops only empty monthly partitions that are wholly older than the maximum
+-- supported retention window. The default partition is never selected.
+CREATE OR REPLACE FUNCTION behalf_drop_expired_verification_log_partitions(
+  target_schema text,
+  max_retention_days integer DEFAULT 365,
+  grace_days integer DEFAULT 30
+)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $function$
+DECLARE
+  partition_name text;
+  partition_month date;
+  has_rows boolean;
+  dropped_count integer := 0;
+BEGIN
+  IF max_retention_days < 1 OR max_retention_days > 3650 THEN
+    RAISE EXCEPTION 'max_retention_days must be between 1 and 3650';
+  END IF;
+  IF grace_days < 0 OR grace_days > 365 THEN
+    RAISE EXCEPTION 'grace_days must be between 0 and 365';
+  END IF;
+
+  FOR partition_name IN
+    SELECT child.relname
+    FROM pg_inherits
+    JOIN pg_class AS child ON child.oid = inhrelid
+    JOIN pg_namespace AS child_namespace ON child_namespace.oid = child.relnamespace
+    JOIN pg_class AS parent ON parent.oid = inhparent
+    JOIN pg_namespace AS parent_namespace ON parent_namespace.oid = parent.relnamespace
+    WHERE parent_namespace.nspname = target_schema
+      AND child_namespace.nspname = target_schema
+      AND parent.relname = 'verification_logs'
+      AND child.relname ~ '^verification_logs_[0-9]{4}_[0-9]{2}$'
+  LOOP
+    partition_month := to_date(right(partition_name, 7), 'YYYY_MM');
+    IF partition_month + interval '1 month'
+      <= (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date
+        - make_interval(days => max_retention_days + grace_days)
+    THEN
+      EXECUTE format(
+        'SELECT EXISTS (SELECT 1 FROM %I.%I LIMIT 1)',
+        target_schema,
+        partition_name
+      ) INTO has_rows;
+
+      IF NOT has_rows THEN
+        EXECUTE format('DROP TABLE %I.%I', target_schema, partition_name);
+        dropped_count := dropped_count + 1;
+      END IF;
+    END IF;
+  END LOOP;
+
+  RETURN dropped_count;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION behalf_drop_expired_verification_log_partitions(text, integer, integer) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION behalf_run_verification_log_retention(
+  target_schema text,
+  batch_size integer DEFAULT 10000,
+  grace_days integer DEFAULT 30,
+  max_batches integer DEFAULT 100
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $function$
+DECLARE
+  purged_rows bigint;
+  dropped_partitions integer;
+BEGIN
+  EXECUTE format(
+    'SELECT %I.behalf_purge_verification_logs($1, $2, $3, $4)',
+    target_schema
+  ) INTO purged_rows USING target_schema, batch_size, grace_days, max_batches;
+
+  EXECUTE format(
+    'SELECT %I.behalf_drop_expired_verification_log_partitions($1, 365, $2)',
+    target_schema
+  ) INTO dropped_partitions USING target_schema, grace_days;
+
+  RETURN jsonb_build_object(
+    'purgedRows', purged_rows,
+    'droppedPartitions', dropped_partitions
+  );
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION behalf_run_verification_log_retention(text, integer, integer, integer) FROM PUBLIC;
+
+-- Installs named pg_cron jobs when the extension is enabled. Keeping extension
+-- enablement explicit avoids breaking vanilla Postgres development databases.
+CREATE OR REPLACE FUNCTION behalf_schedule_verification_log_maintenance(target_schema text)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $function$
+DECLARE
+  partition_job_name text := left('behalf_' || target_schema || '_verification_partitions', 63);
+  retention_job_name text := left('behalf_' || target_schema || '_verification_retention', 63);
+  partition_command text;
+  retention_command text;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
+    RETURN false;
+  END IF;
+
+  partition_command := format(
+    'SELECT %I.behalf_ensure_verification_log_partitions(%L, 3, 0)',
+    target_schema,
+    target_schema
+  );
+  retention_command := format(
+    'SELECT %I.behalf_run_verification_log_retention(%L, 10000, 30, 100)',
+    target_schema,
+    target_schema
+  );
+
+  EXECUTE 'SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = $1'
+    USING partition_job_name;
+  EXECUTE 'SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = $1'
+    USING retention_job_name;
+  EXECUTE 'SELECT cron.schedule($1, $2, $3)'
+    USING partition_job_name, '15 0 * * *', partition_command;
+  EXECUTE 'SELECT cron.schedule($1, $2, $3)'
+    USING retention_job_name, '30 2 * * *', retention_command;
+
+  RETURN true;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION behalf_schedule_verification_log_maintenance(text) FROM PUBLIC;
+
+DO $block$
+BEGIN
+  IF current_schema() = 'public' THEN
+    PERFORM behalf_schedule_verification_log_maintenance('public');
+  END IF;
+END;
+$block$;
 
 -- ---------------------------------------------------------------------------
 -- webhook_endpoints
@@ -445,11 +741,3 @@ ALTER TABLE "webhook_events" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "managed_profile_policies" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "managed_profile_protected_repos" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "cli_audit_activities" ENABLE ROW LEVEL SECURITY;
-
--- ---------------------------------------------------------------------------
--- TODO: verification_logs monthly partitioning (not implemented in v1)
--- When volume warrants it, convert to declarative range partitioning on created_at:
---   - PK (log_id, created_at), UQ (request_id, created_at)
---   - Pre-create monthly partitions via pg_partman or pg_cron
--- See docs/DATABASE_MIGRATION.md §11.3 and docs/POSTGRES_SCHEMA.md
--- ---------------------------------------------------------------------------

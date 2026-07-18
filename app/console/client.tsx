@@ -1,10 +1,20 @@
 "use client";
+/* eslint-disable @next/next/no-html-link-for-pages -- Preserve existing full-page console navigation semantics. */
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { ConsoleShellLayout } from "@/components/layout/ConsoleShell";
-import { Button, ButtonLink, CodeBlock, EmptyState, Logo, PageHeader, StatCard } from "@/components/ui";
+import { DecisionIndicator } from "@/components/dashboard/OpsEventPrimitives";
+import { ConnectionStatusBadge } from "@/components/dashboard/ProfileIntegrationPrimitives";
+import {
+  DeliveryStatusBadge,
+  DestructiveSettingsSection,
+  SecretLifecycleNotice,
+  SiteGuardStatus,
+  WebhookStatusBadge
+} from "@/components/dashboard/OperationsPrimitives";
+import { Button, ButtonLink, CodeBlock, DashboardState, EmptyState, Logo, PageHeader, RiskIndicator, StatCard } from "@/components/ui";
 
 type Agent = {
   agentId: string;
@@ -54,6 +64,8 @@ type VerificationLog = {
   amount?: number;
   vendor?: string;
   allowed: boolean;
+  approvalRequired?: boolean;
+  shadow?: boolean;
   reason: string;
   risk: "low" | "medium" | "high";
   createdAt?: string;
@@ -107,7 +119,11 @@ type AgentDetail = {
 };
 
 type AgentsResponse = { agents: Agent[] };
-type LogsResponse = { logs: VerificationLog[]; summary: LogSummary };
+type LogsResponse = {
+  logs: VerificationLog[];
+  summary: LogSummary;
+  pagination?: { limit: number; page: number; total: number; hasMore: boolean };
+};
 type SiteGuardSite = {
   siteId: string;
   developerUserId?: string;
@@ -685,6 +701,8 @@ function TodoList() {
 
   // Load from localStorage on mount
   useEffect(() => {
+    // Preserve the established synchronous hydration from the console's local store.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setItems(loadTodos());
   }, []);
 
@@ -966,42 +984,50 @@ function SiteGuardView() {
 
   return (
     <>
-      <Header title="Site Guard" />
-      {sites.error ? <p className="form-error" role="alert">{sites.error.message}</p> : null}
-      {logs.error ? <p className="form-error" role="alert">{logs.error.message}</p> : null}
-      <section className="console-grid">
-        <div className="console-panel">
+      <Header title="Site Guard" description="Read-only operational view of site route-policy boundaries and their latest recorded enforcement checks." />
+      {sites.loading || logs.loading ? <DashboardState kind="loading" title="Loading Site Guard operations" description="Retrieving sites and recent check records." /> : null}
+      {sites.error || logs.error ? <DashboardState kind="error" title="Site Guard operations could not be loaded" description={sites.error?.message ?? logs.error?.message} /> : null}
+      {!sites.loading && !logs.loading && !sites.error && !logs.error ? (
+      <section className="console-operations-grid">
+        <div className="console-operations-section">
           <SectionTitle title="Sites" />
           <div className="console-list">
             {(sites.data?.sites ?? []).length === 0 ? (
               <div className="console-empty-state">
                 <strong>No protected sites yet</strong>
-                <p>Site Guard lets you control which domains can make verification requests to BehalfID. Register your app&apos;s domain to restrict API access to known origins.</p>
-                <p>Use the <code>POST /api/sites</code> endpoint or the BehalfID SDK to register a site. Once registered it will appear here and you can enable or disable it.</p>
+                <p>Site Guard evaluates identified AI agents against allow and block path rules before an application serves protected routes.</p>
+                <p>Sites, server-only keys, and rules are configured from the workspace Site Guard page. This console does not add capabilities or health signals.</p>
               </div>
             ) : (sites.data?.sites ?? []).map((site) => (
               <div className="console-list-row" key={site.siteId}>
-                <strong>{site.name}</strong>
-                <small>{site.domain} / {site.status} / {site.siteId}</small>
-                <button className="ui-button ui-button--secondary" onClick={() => void setStatus(site)} type="button">
+                <span>
+                  <strong>{site.name}</strong>
+                  <small><code>{site.domain}</code> · <code>{site.siteId}</code></small>
+                </span>
+                <SiteGuardStatus status={site.status} />
+                <Button variant={site.status === "active" ? "danger" : "primary"} onClick={() => void setStatus(site)} type="button">
                   {site.status === "active" ? "Disable" : "Enable"}
-                </button>
+                </Button>
               </div>
             ))}
           </div>
         </div>
-        <div className="console-panel">
+        <div className="console-operations-section">
           <SectionTitle title="Recent checks" />
           <div className="console-list">
-            {(logs.data?.logs ?? []).map((log) => (
+            {(logs.data?.logs ?? []).length ? (logs.data?.logs ?? []).map((log) => (
               <div className="console-list-row" key={log.requestId}>
-                <strong>{log.allowed ? "Allowed" : "Denied"} {log.path}</strong>
-                <small>{log.domain} / {log.reason} / {log.requestId}</small>
+                <span>
+                  <strong>{log.allowed ? "Allowed" : "Denied"} <code>{log.path}</code></strong>
+                  <small><code>{log.domain}</code> · {log.reason} · <code>{log.requestId}</code></small>
+                </span>
+                <span className={statusClass(log.allowed ? "success" : "failed")}>{log.allowed ? "allowed" : "denied"}</span>
               </div>
-            ))}
+            )) : <EmptyState className="console-empty">No Site Guard checks have been recorded.</EmptyState>}
           </div>
         </div>
       </section>
+      ) : null}
     </>
   );
 }
@@ -1098,7 +1124,7 @@ function AgentDetailView({ agentId }: { agentId: string }) {
                 <div><dt>Agent ID</dt><dd>{data.agent.agentId}</dd></div>
                 <div><dt>Type</dt><dd><span className={statusClass(data.agent.agentType)}>{data.agent.agentType}</span></dd></div>
                 <div><dt>Provider</dt><dd>{data.agent.provider}</dd></div>
-                <div><dt>Connection</dt><dd>{data.agent.connectionStatus}</dd></div>
+                <div><dt>Connection</dt><dd><ConnectionStatusBadge status={data.agent.connectionStatus} /></dd></div>
                 <div><dt>External reference</dt><dd>{data.agent.externalAgentLabel || "Not set"}</dd></div>
                 <div><dt>External ID</dt><dd>{data.agent.externalAgentId || "Not set"}</dd></div>
                 <div><dt>Description</dt><dd>{data.agent.description || "Not set"}</dd></div>
@@ -1157,36 +1183,69 @@ function LogsView() {
   }, [action, agentId, allowed, requestId, risk]);
   const logs = useApiResource<LogsResponse>(path);
   const exportHref = `${path}${path.includes("?") ? "&" : "?"}format=csv`;
+  const activeFilters = [
+    agentId ? `Agent: ${agentId}` : null,
+    allowed ? `Decision: ${allowed === "true" ? "Allowed" : "Denied"}` : null,
+    action ? `Action: ${action}` : null,
+    risk ? `Risk: ${risk}` : null,
+    requestId ? `Request: ${requestId}` : null
+  ].filter((item): item is string => Boolean(item));
+  const hasFilters = activeFilters.length > 0;
+
+  const resetFilters = () => {
+    setAgentId("");
+    setAllowed("");
+    setAction("");
+    setRisk("");
+    setRequestId("");
+  };
 
   return (
-    <>
-      <Header title="Logs" action={<ButtonLink href={exportHref}>Export CSV</ButtonLink>} />
-      <div className="console-toolbar">
-        <input aria-label="Filter by agent ID" onChange={(event) => setAgentId(event.target.value)} placeholder="agent_xxx" value={agentId} />
-        <select aria-label="Allowed filter" onChange={(event) => setAllowed(event.target.value)} value={allowed}>
+    <div className="ops-console console-decision-console">
+      <PageHeader
+        eyebrow="Console · Decision history"
+        title="Verification logs"
+        description="Read-only verification records for the configured console account."
+        action={<ButtonLink href={exportHref} variant="outline" size="small">Export CSV</ButtonLink>}
+        className="console-header"
+      />
+      <form className="console-toolbar console-decision-toolbar" role="search" onSubmit={(event) => { event.preventDefault(); void logs.reload(); }}>
+        <label><span>Agent ID</span><input onChange={(event) => setAgentId(event.target.value)} placeholder="agent_xxx" value={agentId} /></label>
+        <label><span>Decision</span><select onChange={(event) => setAllowed(event.target.value)} value={allowed}>
           <option value="">All decisions</option>
           <option value="true">Allowed</option>
           <option value="false">Denied</option>
-        </select>
-        <input aria-label="Filter by action" onChange={(event) => setAction(event.target.value)} placeholder="action" value={action} />
-        <select aria-label="Risk filter" onChange={(event) => setRisk(event.target.value)} value={risk}>
+        </select></label>
+        <label><span>Action</span><input onChange={(event) => setAction(event.target.value)} placeholder="action" value={action} /></label>
+        <label><span>Risk</span><select onChange={(event) => setRisk(event.target.value)} value={risk}>
           <option value="">All risk</option>
           <option value="low">Low</option>
           <option value="medium">Medium</option>
           <option value="high">High</option>
-        </select>
-        <input aria-label="Filter by request ID" onChange={(event) => setRequestId(event.target.value)} placeholder="req_xxx" value={requestId} />
-        <Button onClick={logs.reload} type="button">Refresh</Button>
-      </div>
+        </select></label>
+        <label><span>Request ID</span><input onChange={(event) => setRequestId(event.target.value)} placeholder="req_xxx" value={requestId} /></label>
+        <div className="console-decision-toolbar__actions">
+          <span aria-live="polite">{hasFilters ? `${activeFilters.length} active` : "No active filters"}</span>
+          <Button onClick={resetFilters} disabled={!hasFilters} type="button" variant="ghost" size="small">Reset</Button>
+          <Button type="submit" variant="secondary" size="small">Apply filters</Button>
+        </div>
+        {hasFilters ? <ul className="ops-active-filters" aria-label="Active console filters">{activeFilters.map((filter) => <li key={filter}>{filter}</li>)}</ul> : null}
+      </form>
       <ResourceState resource={logs}>
         {(data) => (
           <>
             <LogSummaryStrip summary={data.summary} />
-            <LogList logs={data.logs} />
+            <LogList logs={data.logs} emptyText={hasFilters ? "No verification records match these filters." : "No verification records found."} />
+            {data.pagination ? (
+              <div className={`ops-results-boundary${data.pagination.hasMore ? " ops-results-boundary--truncated" : ""}`} role="status">
+                <span>Showing {data.logs.length} of {data.pagination.total} matching records.</span>
+                {data.pagination.hasMore ? <span>More records exist beyond this result page; narrow the filters to inspect them here.</span> : null}
+              </div>
+            ) : null}
           </>
         )}
       </ResourceState>
-    </>
+    </div>
   );
 }
 
@@ -1195,34 +1254,46 @@ function WebhooksView() {
   const [url, setUrl] = useState("");
   const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
   const [oneTimeSecret, setOneTimeSecret] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const createWebhook = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const result = await apiFetch<{ webhook: Webhook; secret: string }>("/api/console/webhooks", {
-      method: "POST",
-      body: JSON.stringify({ url, events: selectedEvents })
-    });
-    setOneTimeSecret(result.secret);
-    setUrl("");
-    setSelectedEvents([]);
-    await webhooks.reload();
+    setSubmitting(true);
+    setActionError("");
+    try {
+      const result = await apiFetch<{ webhook: Webhook; secret: string }>("/api/console/webhooks", {
+        method: "POST",
+        body: JSON.stringify({ url, events: selectedEvents })
+      });
+      setOneTimeSecret(result.secret);
+      setUrl("");
+      setSelectedEvents([]);
+      await webhooks.reload();
+    } catch (requestError) {
+      setActionError((requestError as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <ResourceState resource={webhooks}>
       {(data) => (
         <>
-          <Header title="Webhooks" />
-          <section className="console-split">
-            <div>
+          <Header title="Webhooks" description="Operational endpoint inventory and creation controls for the console account scope." />
+          {actionError ? <p className="console-error" role="alert">{actionError}</p> : null}
+          <section className="console-operations-grid">
+            <div className="console-operations-section">
               <SectionTitle title="Endpoints" />
               <WebhookList webhooks={data.webhooks} />
             </div>
-            <form className="console-panel" onSubmit={createWebhook}>
+            <form className="console-operations-section" onSubmit={createWebhook}>
               <SectionTitle title="Create endpoint" />
               <label>
                 <span>URL</span>
-                <input onChange={(event) => setUrl(event.target.value)} placeholder="https://example.com/webhooks/behalfid" required type="url" value={url} />
+                <input autoCapitalize="none" autoCorrect="off" disabled={submitting} onChange={(event) => setUrl(event.target.value)} placeholder="https://example.com/webhooks/behalfid" required type="url" value={url} />
+                <small className="field-help">Production endpoints require HTTPS. URL credentials are rejected.</small>
               </label>
               <fieldset className="console-fieldset">
                 <legend>Events</legend>
@@ -1237,14 +1308,15 @@ function WebhooksView() {
                             : current.filter((item) => item !== eventType)
                         );
                       }}
+                      disabled={submitting}
                       type="checkbox"
                     />
                     <span>{eventType}</span>
                   </label>
                 ))}
               </fieldset>
-              <Button variant="primary" type="submit">Create webhook</Button>
-              {oneTimeSecret ? <SecretBox label="Signing secret" value={oneTimeSecret} /> : null}
+              <Button loading={submitting} variant="primary" type="submit">Create webhook</Button>
+              {oneTimeSecret ? <SecretBox description="Copy this signing secret now. Only its hash and masked preview remain available after this state." label="Signing secret" value={oneTimeSecret} /> : null}
             </form>
           </section>
         </>
@@ -1256,19 +1328,37 @@ function WebhooksView() {
 function WebhookDetailView({ webhookId }: { webhookId: string }) {
   const detail = useApiResource<WebhookDetail>(`/api/console/webhooks/${webhookId}`);
   const [oneTimeSecret, setOneTimeSecret] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [working, setWorking] = useState<"rotate" | "enable" | "disable" | null>(null);
 
   const setStatus = async (status: "enable" | "disable") => {
-    await apiFetch(`/api/console/webhooks/${webhookId}/${status}`, { method: "POST" });
-    await detail.reload();
+    setWorking(status);
+    setActionError("");
+    try {
+      await apiFetch(`/api/console/webhooks/${webhookId}/${status}`, { method: "POST" });
+      await detail.reload();
+    } catch (requestError) {
+      setActionError((requestError as Error).message);
+    } finally {
+      setWorking(null);
+    }
   };
 
   const rotateSecret = async () => {
-    const result = await apiFetch<{ webhookId: string; secret: string }>(
-      `/api/console/webhooks/${webhookId}/rotate-secret`,
-      { method: "POST" }
-    );
-    setOneTimeSecret(result.secret);
-    await detail.reload();
+    setWorking("rotate");
+    setActionError("");
+    try {
+      const result = await apiFetch<{ webhookId: string; secret: string }>(
+        `/api/console/webhooks/${webhookId}/rotate-secret`,
+        { method: "POST" }
+      );
+      setOneTimeSecret(result.secret);
+      await detail.reload();
+    } catch (requestError) {
+      setActionError((requestError as Error).message);
+    } finally {
+      setWorking(null);
+    }
   };
 
   return (
@@ -1277,38 +1367,50 @@ function WebhookDetailView({ webhookId }: { webhookId: string }) {
         <>
           <Header
             title="Webhook"
-            action={
-              <div className="console-actions">
-                <Button onClick={rotateSecret} type="button">Rotate secret</Button>
-                {data.webhook.status === "disabled" ? (
-                  <Button variant="primary" onClick={() => setStatus("enable")} type="button">Enable</Button>
-                ) : (
-                  <Button variant="danger" onClick={() => setStatus("disable")} type="button">Disable</Button>
-                )}
-              </div>
-            }
+            description="Endpoint configuration, signing-secret lifecycle, and recorded delivery attempts."
           />
-          <section className="console-detail">
-            <div className="console-panel">
+          {actionError ? <p className="console-error" role="alert">{actionError}</p> : null}
+          <section className="console-operations-grid">
+            <div className="console-operations-section">
               <SectionTitle title="Endpoint" />
               <dl className="console-definition">
-                <div><dt>Webhook ID</dt><dd>{data.webhook.webhookId}</dd></div>
-                <div><dt>URL</dt><dd>{data.webhook.url}</dd></div>
-                <div><dt>Status</dt><dd><span className={statusClass(data.webhook.status)}>{data.webhook.status}</span></dd></div>
-                <div><dt>Secret</dt><dd>{data.webhook.secretPreview}</dd></div>
+                <div><dt>Webhook ID</dt><dd><code>{data.webhook.webhookId}</code></dd></div>
+                <div><dt>URL</dt><dd><code>{data.webhook.url}</code></dd></div>
+                <div><dt>Status</dt><dd><WebhookStatusBadge status={data.webhook.status} /></dd></div>
+                <div><dt>Secret preview</dt><dd><code>{data.webhook.secretPreview}</code></dd></div>
                 <div><dt>Last triggered</dt><dd>{formatDate(data.webhook.lastTriggeredAt)}</dd></div>
+                <div><dt>Created</dt><dd>{formatDate(data.webhook.createdAt)}</dd></div>
               </dl>
-              {oneTimeSecret ? <SecretBox label="Rotated signing secret" value={oneTimeSecret} /> : null}
+              {oneTimeSecret ? <SecretBox description="Copy this value now. Rotation replaces the secret used for future signatures, and the new raw value cannot be recovered later." label="Rotated signing secret" value={oneTimeSecret} /> : null}
             </div>
-            <div className="console-panel">
+            <div className="console-operations-section">
               <SectionTitle title="Subscribed events" />
-              <ul className="console-bullets">
-                {data.webhook.events.map((eventType) => <li key={eventType}>{eventType}</li>)}
-              </ul>
+              <div className="webhook-event-set">{data.webhook.events.map((eventType) => <code key={eventType}>{eventType}</code>)}</div>
+            </div>
+            <div className="console-operations-section console-operations-section--wide">
+              <SectionTitle title="Sensitive controls" />
+              <div className="settings-page-content">
+                <DestructiveSettingsSection
+                  action={<Button loading={working === "rotate"} onClick={rotateSecret} type="button" variant="danger">Rotate secret</Button>}
+                  consequence="Future deliveries use the replacement secret immediately. Update the endpoint verifier with the one-time value."
+                  title="Rotate signing secret"
+                />
+                {data.webhook.status === "disabled" ? (
+                  <div className="settings-callout"><strong>Endpoint disabled</strong>Enable it to resume subscribed delivery.<div className="setup-actions"><Button loading={working === "enable"} variant="primary" onClick={() => setStatus("enable")} type="button">Enable endpoint</Button></div></div>
+                ) : (
+                  <DestructiveSettingsSection
+                    action={<Button loading={working === "disable"} variant="danger" onClick={() => setStatus("disable")} type="button">Disable endpoint</Button>}
+                    consequence="The endpoint stops receiving subscribed events until it is enabled again."
+                    title="Disable delivery"
+                  />
+                )}
+              </div>
             </div>
           </section>
-          <SectionTitle title="Recent deliveries" />
-          <DeliveryList deliveries={data.deliveries} />
+          <section className="console-operations-section" aria-labelledby="console-webhook-deliveries">
+            <h2 className="console-section-title" id="console-webhook-deliveries">Recent deliveries</h2>
+            <DeliveryList deliveries={data.deliveries} />
+          </section>
         </>
       )}
     </ResourceState>
@@ -1336,6 +1438,7 @@ function WebhookEventsView() {
         <>
           <Header
             title="Webhook events"
+            description="Inspect queue state, retry attempts, and dead-lettered events within the console account scope."
             action={<Button onClick={events.reload} type="button">Refresh</Button>}
           />
           <div className="console-filters">
@@ -1373,6 +1476,7 @@ function WebhookEventDetailView({ eventId }: { eventId: string }) {
         <>
           <Header
             title="Webhook event"
+            description="Inspect the stored event payload and delivery attempts; replay is available only for incomplete events."
             action={
               data.event.status !== "completed" ? (
                 <Button variant="primary" onClick={replay} type="button">Replay</Button>
@@ -1413,7 +1517,7 @@ function SettingsView() {
     <ResourceState resource={settings}>
       {(data) => (
         <>
-          <Header title="Settings" />
+          <Header title="Settings" description="Read-only environment posture, security warnings, and known operational limitations for this deployment." />
           {data.rateLimitMode === "memory" && data.environment !== "development" && (
             <div className="console-alert" role="alert">
               <span className="console-alert__icon">⚠</span>
@@ -1423,29 +1527,39 @@ function SettingsView() {
               </div>
             </div>
           )}
-          <section className="console-settings">
-            <dl className="console-definition">
-              <div><dt>App URL</dt><dd>{data.appUrl}</dd></div>
-              <div><dt>Environment</dt><dd>{data.environment}</dd></div>
-              <div><dt>MongoDB configured</dt><dd>{data.mongoConfigured ? "yes" : "no"}</dd></div>
-              <div><dt>DB health</dt><dd>{data.mongoStatus}</dd></div>
-              <div><dt>Public creation</dt><dd>{data.publicAgentCreation}</dd></div>
-              <div><dt>Setup token</dt><dd>{data.setupTokenConfigured ? "configured" : "not configured"}</dd></div>
-              <div><dt>Rate limit mode</dt><dd>{data.rateLimitMode}</dd></div>
-              <div><dt>Metadata logging</dt><dd>{data.metadataLogging}</dd></div>
-            </dl>
-            {data.securityWarnings.length ? (
-              <>
-                <SectionTitle title="Security warnings" />
+          <section className="console-operations-grid">
+            <div className="console-operations-section">
+              <SectionTitle title="Environment" />
+              <dl className="console-definition">
+                <div><dt>App URL</dt><dd><code>{data.appUrl}</code></dd></div>
+                <div><dt>Environment</dt><dd><span className={statusClass(data.environment)}>{data.environment}</span></dd></div>
+                <div><dt>MongoDB configured</dt><dd>{data.mongoConfigured ? "Yes" : "No"}</dd></div>
+                <div><dt>Database health</dt><dd>{data.mongoStatus}</dd></div>
+              </dl>
+            </div>
+            <div className="console-operations-section">
+              <SectionTitle title="Access and logging" />
+              <dl className="console-definition">
+                <div><dt>Public creation</dt><dd>{data.publicAgentCreation}</dd></div>
+                <div><dt>Setup token</dt><dd>{data.setupTokenConfigured ? "Configured" : "Not configured"}</dd></div>
+                <div><dt>Rate limit mode</dt><dd>{data.rateLimitMode}</dd></div>
+                <div><dt>Metadata logging</dt><dd>{data.metadataLogging}</dd></div>
+              </dl>
+            </div>
+            <div className="console-operations-section">
+              <SectionTitle title="Security warnings" />
+              {data.securityWarnings.length ? (
                 <ul className="console-bullets">
                   {data.securityWarnings.map((item) => <li key={item}>{item}</li>)}
                 </ul>
-              </>
-            ) : null}
-            <SectionTitle title="Known limitations" />
-            <ul className="console-bullets">
-              {data.limitations.map((item) => <li key={item}>{item}</li>)}
-            </ul>
+              ) : <div className="settings-callout"><strong>No reported security warnings</strong>The settings endpoint did not return a warning for this environment.</div>}
+            </div>
+            <div className="console-operations-section">
+              <SectionTitle title="Known limitations" />
+              <ul className="console-bullets">
+                {data.limitations.map((item) => <li key={item}>{item}</li>)}
+              </ul>
+            </div>
           </section>
         </>
       )}
@@ -1453,8 +1567,8 @@ function SettingsView() {
   );
 }
 
-function Header({ title, action }: { title: string; action?: React.ReactNode }) {
-  return <PageHeader eyebrow="Console" title={title} action={action} className="console-header" />;
+function Header({ title, action, description }: { title: string; action?: React.ReactNode; description?: string }) {
+  return <PageHeader eyebrow="Console" title={title} description={description} action={action} className="console-header console-operations-header" />;
 }
 
 function SectionTitle({ title }: { title: string }) {
@@ -1473,7 +1587,8 @@ function AgentTable({ agents }: { agents: Agent[] }) {
         <Link className="console-row" href={`/console/agents/${agent.agentId}`} key={agent.agentId}>
           <span>
             <strong>{agent.name}</strong>
-            <small>{agent.agentId} / {agent.agentType} / {agent.provider} / {agent.connectionStatus}</small>
+            <small>{agent.agentId} / {agent.agentType} / {agent.provider}</small>
+            <span className="console-row__connection"><ConnectionStatusBadge status={agent.connectionStatus} /></span>
           </span>
           <span className={statusClass(agent.status)}>{agent.status}</span>
           <span>{formatDate(agent.updatedAt)}</span>
@@ -1490,11 +1605,12 @@ function WebhookList({ webhooks }: { webhooks: Webhook[] }) {
       {webhooks.map((webhook) => (
         <Link className="console-row" href={`/console/webhooks/${webhook.webhookId}`} key={webhook.webhookId}>
           <span>
-            <strong>{webhook.url}</strong>
-            <small>{webhook.events.join(", ")}</small>
+            <strong className="console-webhook-url">{webhook.url}</strong>
+            <small>{webhook.events.length} events · {webhook.events.join(", ")}</small>
+            <small><code>{webhook.webhookId}</code> · created {formatDate(webhook.createdAt)}</small>
           </span>
-          <span className={statusClass(webhook.status)}>{webhook.status}</span>
-          <span>{formatDate(webhook.lastTriggeredAt)}</span>
+          <WebhookStatusBadge status={webhook.status} />
+          <span>Last delivery {formatDate(webhook.lastTriggeredAt)}</span>
         </Link>
       ))}
     </div>
@@ -1508,12 +1624,13 @@ function DeliveryList({ deliveries }: { deliveries: WebhookDelivery[] }) {
       {deliveries.map((delivery) => (
         <div className="console-list__item" key={delivery.deliveryId}>
           <span>
-            <strong>{delivery.eventType}</strong>
-            <small>{delivery.eventId}{delivery.error ? ` / ${delivery.error}` : ""}</small>
-            <small>Attempt {delivery.attempt}{delivery.maxAttempts ? ` of ${delivery.maxAttempts}` : ""}{delivery.nextRetryAt ? ` / retry ${formatDate(delivery.nextRetryAt)}` : ""}</small>
+            <strong><code>{delivery.eventType}</code></strong>
+            <small><code>{delivery.eventId}</code></small>
+            <small>Attempt {delivery.attempt}{delivery.maxAttempts ? ` of ${delivery.maxAttempts}` : ""}{delivery.nextRetryAt ? ` · retry ${formatDate(delivery.nextRetryAt)}` : ""}</small>
+            {delivery.error ? <small className="webhook-delivery-row__error">{delivery.error}</small> : null}
           </span>
-          <span className={statusClass(delivery.status)}>{delivery.status}</span>
-          <span>{delivery.httpStatus ?? "no status"}</span>
+          <DeliveryStatusBadge status={delivery.status} />
+          <span>{delivery.httpStatus ? `HTTP ${delivery.httpStatus}` : "No HTTP status"}</span>
         </div>
       ))}
     </div>
@@ -1561,59 +1678,87 @@ function PermissionList({ items, onRevoke }: { items: Permission[]; onRevoke: (i
   );
 }
 
-function LogList({ logs, compact = false }: { logs: VerificationLog[]; compact?: boolean }) {
-  if (!logs.length) return <EmptyState className="console-empty">No logs found.</EmptyState>;
+function LogList({
+  logs,
+  compact = false,
+  emptyText = "No verification records found."
+}: {
+  logs: VerificationLog[];
+  compact?: boolean;
+  emptyText?: string;
+}) {
+  if (!logs.length) {
+    return <DashboardState className="console-empty" kind="empty" title="No decision history" description={emptyText} />;
+  }
+  if (compact) {
+    return (
+      <div className="console-decision-compact ops-console" role="list" aria-label="Recent verification decisions">
+        {logs.map((log) => (
+          <article className="console-decision-compact__row" key={log.requestId} role="listitem">
+            <div><DecisionIndicator log={log} compact /><time dateTime={log.createdAt}>{formatDate(log.createdAt)}</time></div>
+            <p><strong>{log.agentName || log.agentId}</strong><code>{log.action}</code></p>
+            <p>{log.reason}</p>
+          </article>
+        ))}
+      </div>
+    );
+  }
   return (
-    <div className={compact ? "console-list console-list--compact" : "console-list console-log-list"}>
-      {logs.map((log) => (
-        <div className="console-list__item" key={log.requestId}>
-          <span>
-            <strong>{log.action}</strong>
-            <small>{log.agentName || log.agentId} / {log.vendor || "no resource"}{typeof log.amount === "number" ? ` / $${log.amount}` : ""}</small>
-            <small>{log.reason}</small>
-            {!compact ? <small>{log.requestId} / account {log.accountId ?? "unknown"} / developer {log.developerUserId ?? "unknown"}</small> : null}
-          </span>
-          <span className={statusClass(log.allowed ? "allowed" : "denied")}>
-            {log.allowed ? "allowed" : "denied"}
-          </span>
-          {!compact ? <span className={statusClass(log.risk)}>{log.risk}</span> : null}
-          <span>{formatDate(log.createdAt)}</span>
-        </div>
-      ))}
+    <div className="console-decision-table-wrap">
+      <table className="console-decision-table">
+        <caption className="sr-only">Administrative verification decision history</caption>
+        <thead><tr>
+          <th scope="col">Time</th>
+          <th scope="col">Decision</th>
+          <th scope="col">Identity and action</th>
+          <th scope="col">Target</th>
+          <th scope="col">Policy</th>
+          <th scope="col">Reason</th>
+          <th scope="col">Technical identifiers</th>
+        </tr></thead>
+        <tbody>
+          {logs.map((log) => (
+            <tr key={log.requestId}>
+              <td className="console-decision-table__time"><time dateTime={log.createdAt}>{formatDate(log.createdAt)}</time></td>
+              <td className="console-decision-table__status"><DecisionIndicator log={log} compact /><RiskIndicator risk={log.risk} /></td>
+              <td className="console-decision-table__event"><strong>{log.agentName || log.agentId}</strong><code>{log.action}</code></td>
+              <td>{log.vendor || "—"}{typeof log.amount === "number" ? <small>${log.amount}</small> : null}</td>
+              <td>{log.permissionId ? <code title={log.permissionId}>{log.permissionId}</code> : "—"}</td>
+              <td className="console-decision-table__reason">{log.reason}</td>
+              <td className="console-decision-table__identifiers">
+                <code title={log.requestId}>{log.requestId}</code>
+                <small>Account <code>{log.accountId ?? "unknown"}</code></small>
+                <small>Developer <code>{log.developerUserId ?? "unknown"}</code></small>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
 
 function LogSummaryStrip({ summary }: { summary: LogSummary }) {
   return (
-    <section className="console-metrics console-log-summary" aria-label="Log summary">
-      <Metric label="Total" value={summary.total} />
-      <Metric label="Allowed" value={summary.allowed} />
-      <Metric label="Denied" value={summary.denied} />
-      <Metric label="High risk" value={summary.highRisk} />
-      <Metric label="Approval required" value={summary.approvalRequired} />
-      <Metric label="Top vendor" value={summary.topVendor ?? "None"} />
-    </section>
+    <dl className="ops-metrics console-log-summary" aria-label="Verification log summary">
+      <div><dt>Total</dt><dd>{summary.total}</dd></div>
+      <div className="ops-metrics__item--allowed"><dt>Allowed</dt><dd>{summary.allowed}</dd></div>
+      <div className="ops-metrics__item--denied"><dt>Denied</dt><dd>{summary.denied}</dd></div>
+      <div><dt>High risk</dt><dd>{summary.highRisk}</dd></div>
+      <div className="ops-metrics__item--approval"><dt>Approval required</dt><dd>{summary.approvalRequired}</dd></div>
+      <div><dt>Top vendor</dt><dd>{summary.topVendor ?? "None"}</dd></div>
+    </dl>
   );
 }
 
-function SecretBox({ label, value }: { label: string; value: string }) {
-  const [copied, setCopied] = useState(false);
-
-  const copy = async () => {
-    await navigator.clipboard.writeText(value);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1600);
-  };
-
+function SecretBox({ label, value, description }: { label: string; value: string; description?: string }) {
   return (
     <div className="console-secret">
-      <strong>{label}</strong>
-      <p>This key is shown once. Store it now; the old key stops working after rotation.</p>
-      <code>{value}</code>
-      <Button onClick={copy} type="button">
-        {copied ? "Copied" : "Copy key"}
-      </Button>
+      <SecretLifecycleNotice
+        description={description ?? "This credential is shown once. Store it securely now; only hashed or masked material remains available later."}
+        label={label}
+        value={value}
+      />
     </div>
   );
 }
@@ -1821,6 +1966,8 @@ function StatusView() {
 
   const staleEvents = useMemo(() => {
     if (!eventsData?.events.length) return 0;
+    // Preserve the existing current-time comparison whenever event data changes.
+    // eslint-disable-next-line react-hooks/purity
     const oneHourAgo = Date.now() - 60 * 60 * 1000;
     return eventsData.events.filter((e) => e.createdAt && new Date(e.createdAt).getTime() < oneHourAgo).length;
   }, [eventsData]);

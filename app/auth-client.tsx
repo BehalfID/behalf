@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
-import { Button, Logo } from "@/components/ui";
+import { AuthPrinciple, AuthShell, AuthTaskHeader, FormAlert } from "@/components/auth/AuthShell";
+import { Button, Field, FieldLabel, Input } from "@/components/ui";
 
 /** Returns the latest date of birth that satisfies the minimum age (YYYY-MM-DD). */
 function maxDateOfBirth(minAge: number): string {
@@ -32,6 +33,8 @@ export function AuthPage({
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [error, setError] = useState("");
   const redirectPath = safeNextPath(nextPath) ?? (mode === "signup" ? "/verify-email" : "/dashboard");
+  const [submitting, setSubmitting] = useState(false);
+
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -51,17 +54,24 @@ export function AuthPage({
       }
     }
 
-    const response = await fetch(`/api/auth/${mode}`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(mode === "signup" ? { email, password, dateOfBirth } : { email, password })
-    });
-    if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
-      setError(body?.error ?? "Authentication failed.");
-      return;
-    }
+    setSubmitting(true);
+    try {
+      const response = await fetch(`/api/auth/${mode}`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(mode === "signup" ? { email, password, dateOfBirth } : { email, password })
+      });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        setError(body?.error ?? "Authentication failed.");
+        return;
+      }
+
+      if (mode === "signup") {
+        router.push(redirectPath);
+        return;
+      }
 
     const body = (await response.json().catch(() => null)) as {
       user?: { emailVerified?: boolean };
@@ -70,121 +80,111 @@ export function AuthPage({
     if (mode === "signup" || body?.user?.emailVerified === false) {
       router.push("/verify-email");
       return;
+      router.push(redirectPath);
+    } catch {
+      setError("We could not reach BehalfID. Check your connection and try again.");
+    } finally {
+      setSubmitting(false);
     }
-
-    router.push(redirectPath);
   };
 
   return (
-    <main id="main-content" className="auth-page" tabIndex={-1}>
-      <section className="auth-shell">
-        <div className="auth-context">
-          <Logo />
-          <div>
-            <p className="section-kicker">Agent permission infrastructure</p>
-            <h2>Identity and permission enforcement for coding agents.</h2>
-            <p>Every agent action is verified against workspace policy before it runs — and every decision is signed and auditable.</p>
-          </div>
-          <div className="auth-artifact" aria-hidden="true">
-            <div className="auth-artifact__head">
-              <p className="cx-label">Verification event</p>
-              <span className="auth-artifact__id">evt_01j8j3kf9d</span>
-            </div>
-            <div className="auth-artifact__body">
-              <dl className="cx-record">
-                <div className="cx-record__row">
-                  <dt>Agent</dt>
-                  <dd>deploy-bot</dd>
-                </div>
-                <div className="cx-record__row">
-                  <dt>Action</dt>
-                  <dd>github.merge → api-core/main</dd>
-                </div>
-                <div className="cx-record__row">
-                  <dt>Policy</dt>
-                  <dd>protected-branches</dd>
-                </div>
-                <div className="cx-record__row">
-                  <dt>Decision</dt>
-                  <dd><span className="cx-chip cx-chip--warn">Approval required</span></dd>
-                </div>
-                <div className="cx-record__row">
-                  <dt>Receipt</dt>
-                  <dd>signed · sha256 · 41ms</dd>
-                </div>
-              </dl>
-            </div>
-            <div className="auth-feed">
-              <div className="auth-feed__row">
-                <span className="auth-feed__time">14:32</span>
-                <span className="auth-feed__desc">ci-runner · deploy.staging</span>
-                <span className="cx-chip cx-chip--ok">Allowed</span>
-              </div>
-              <div className="auth-feed__row">
-                <span className="auth-feed__time">14:31</span>
-                <span className="auth-feed__desc">cursor-agent · secrets.read .env</span>
-                <span className="cx-chip cx-chip--deny">Denied</span>
-              </div>
-              <div className="auth-feed__row">
-                <span className="auth-feed__time">14:29</span>
-                <span className="auth-feed__desc">deploy-bot · db.migrate</span>
-                <span className="cx-chip cx-chip--warn">Pending</span>
-              </div>
-            </div>
-          </div>
-          <div className="auth-meta-row">
-            <span>Signed decisions</span>
-            <span>Scoped permissions</span>
-            <span>Delegated approvals</span>
-          </div>
-        </div>
-        <form className="auth-panel" onSubmit={submit}>
-          <p className="section-kicker">{mode === "signup" ? "New workspace" : "Control plane access"}</p>
-          <h1>{mode === "signup" ? "Create your workspace" : "Sign in"}</h1>
-          <p>{mode === "signup" ? "Provision a control plane for the coding agents in your stack." : "Authenticate to manage agents, policies, and audit history."}</p>
-          <label>
-            <span>Email</span>
-            <input autoComplete="email" onChange={(event) => setEmail(event.target.value)} required type="email" value={email} />
-          </label>
-          <label>
-            <span>Password</span>
-            <input autoComplete={mode === "signup" ? "new-password" : "current-password"} minLength={10} onChange={(event) => setPassword(event.target.value)} required type="password" value={password} />
-          </label>
+    <AuthShell
+      support={
+        <AuthPrinciple
+          eyebrow="Authorization control plane"
+          title="Every agent starts with an identity."
+          description="BehalfID checks an agent’s requested action against workspace policy before it runs, then records the decision."
+          points={[
+            { label: "Identity", value: "One accountable identity per agent" },
+            { label: "Policy", value: "Scoped permissions and approval gates" },
+            { label: "Record", value: "A durable decision trail" }
+          ]}
+        />
+      }
+    >
+      <form className="auth-task" onSubmit={submit} aria-busy={submitting}>
+        <AuthTaskHeader
+          eyebrow={mode === "signup" ? "New workspace" : "Control plane access"}
+          title={mode === "signup" ? "Create your workspace" : "Sign in"}
+          description={mode === "signup"
+            ? "Create the account you’ll use to register agents and set their operating boundaries."
+            : "Enter the account credentials for your BehalfID control plane."}
+        />
+
+        <div className="auth-task__fields">
+          <Field>
+            <FieldLabel htmlFor="auth-email">Email</FieldLabel>
+            <Input
+              aria-describedby={error ? "auth-submit-error" : undefined}
+              autoComplete="email"
+              id="auth-email"
+              onChange={(event) => setEmail(event.target.value)}
+              required
+              type="email"
+              value={email}
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="auth-password">Password</FieldLabel>
+            <Input
+              aria-describedby={error ? "auth-submit-error" : undefined}
+              autoComplete={mode === "signup" ? "new-password" : "current-password"}
+              id="auth-password"
+              minLength={10}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+              type="password"
+              value={password}
+            />
+          </Field>
           {mode === "signup" && (
-            <label>
-              <span>Date of birth</span>
-              <input
+            <Field>
+              <FieldLabel htmlFor="auth-date-of-birth">Date of birth</FieldLabel>
+              <Input
+                aria-describedby={error ? "auth-submit-error" : undefined}
                 autoComplete="bday"
+                id="auth-date-of-birth"
                 max={maxDateOfBirth(13)}
                 onChange={(event) => setDateOfBirth(event.target.value)}
                 required
                 type="date"
                 value={dateOfBirth}
               />
-            </label>
+            </Field>
           )}
-          {error ? <p className="form-error" role="alert" aria-live="assertive">{error}</p> : null}
-          {mode === "login" && (
-            <p className="auth-alt">
-              <Link href="/forgot-password">Forgot password?</Link>
-            </p>
-          )}
-          <Button variant="primary" type="submit">{mode === "signup" ? "Create account" : "Log in"}</Button>
-          {mode === "signup" && (
-            <p className="auth-legal">
-              By creating an account you agree to the{" "}
-              <Link href="/terms">Terms of Service</Link> and{" "}
-              <Link href="/privacy">Privacy Policy</Link>.
-            </p>
-          )}
-          <p className="auth-alt">
-            {mode === "signup" ? "Already have an account?" : "New to BehalfID?"}{" "}
-            <Link href={mode === "signup" ? `/login${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""}` : `/signup${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""}${initialEmail ? `${nextPath ? "&" : "?"}email=${encodeURIComponent(initialEmail)}` : ""}`}>
-              {mode === "signup" ? "Log in" : "Create account"}
-            </Link>
+        </div>
+
+        {error ? <FormAlert id="auth-submit-error">{error}</FormAlert> : null}
+
+        {mode === "login" ? (
+          <p className="auth-task__row">
+            <span />
+            <Link href="/forgot-password">Forgot password?</Link>
           </p>
-        </form>
-      </section>
-    </main>
+        ) : null}
+
+        <Button loading={submitting} variant="primary" type="submit">
+          {submitting
+            ? mode === "signup" ? "Creating account…" : "Signing in…"
+            : mode === "signup" ? "Create account" : "Log in"}
+        </Button>
+
+        {mode === "signup" ? (
+          <p className="auth-task__legal">
+            By creating an account you agree to the{" "}
+            <Link href="/terms">Terms of Service</Link> and{" "}
+            <Link href="/privacy">Privacy Policy</Link>.
+          </p>
+        ) : null}
+
+        <p className="auth-task__row auth-task__row--center">
+          {mode === "signup" ? "Already have an account?" : "New to BehalfID?"}{" "}
+          <Link href={mode === "signup" ? `/login${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""}` : `/signup${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""}${initialEmail ? `${nextPath ? "&" : "?"}email=${encodeURIComponent(initialEmail)}` : ""}`}>
+            {mode === "signup" ? "Log in" : "Create account"}
+          </Link>
+        </p>
+      </form>
+    </AuthShell>
   );
 }

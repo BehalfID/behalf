@@ -2,14 +2,19 @@
 
 import { useCallback, useState, type FormEvent } from "react";
 import { DashboardShellLayout } from "@/components/layout/DashboardShell";
-import { Badge, Button, Card, PageHeader } from "@/components/ui";
+import { Button, Card, PageHeader } from "@/components/ui";
+import {
+  OperationsNavigation,
+  PlanStatusBadge,
+  SettingsSection
+} from "@/components/dashboard/OperationsPrimitives";
 import {
   CountedUsageLimitTile,
   InfoUsageLimitTile,
   WebhookUsageLimitTile
 } from "@/components/usage/UsageLimitTile";
 import type { Plan } from "@/lib/plans";
-import { getPlanEntitlements, PRO_PLAN_PRICE_CENTS } from "@/lib/plans";
+import { formatLimit, getPlanEntitlements, PRO_PLAN_PRICE_CENTS } from "@/lib/plans";
 import {
   formatUsageCount,
   getCountedUsageHelper,
@@ -93,6 +98,7 @@ export function BillingClient({
   const [loading, setLoading] = useState<"checkout" | "portal" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const entitlements = getPlanEntitlements(plan);
+  const proEntitlements = getPlanEntitlements("pro");
   const resetDate = nextResetDate(verificationPeriodStart);
 
   const handleCheckout = useCallback(async () => {
@@ -134,11 +140,12 @@ export function BillingClient({
   const content = (
     <>
       <PageHeader
-        eyebrow="Developer portal"
-        title="Billing"
-        description="Manage your plan and usage."
+        eyebrow="Workspace administration"
+        title="Billing & usage"
+        description="Review the current plan, enforced allowances, monthly usage, and Stripe-managed subscription actions."
         className="dashboard-header"
       />
+      <OperationsNavigation current="billing" />
 
       {stripeSubscriptionStatus === "past_due" && (
         <div className="billing-alert" role="alert">
@@ -149,7 +156,7 @@ export function BillingClient({
       {stripeSubscriptionStatus === "trialing" && stripeTrialEnd && (
         <div className="billing-alert" role="status">
           Free trial active — ends {formatDate(stripeTrialEnd)} ({trialDaysLeft(stripeTrialEnd)} {trialDaysLeft(stripeTrialEnd) === 1 ? "day" : "days"} left).
-          {" "}Cancel via <strong>Manage subscription</strong> before then and you won't be charged.
+          {" "}Cancel via <strong>Manage subscription</strong> before then to avoid a charge.
         </div>
       )}
 
@@ -159,84 +166,72 @@ export function BillingClient({
         </div>
       )}
 
-      <div className="billing-grid">
-        <Card>
-          <div className="billing-plan-header">
-            <div>
-              <h2 className="billing-plan-title">Current plan</h2>
-              <Badge className={plan !== "free" ? "ui-badge--success" : undefined}>
-                {plan.charAt(0).toUpperCase() + plan.slice(1)}
-              </Badge>
-            </div>
-            <div className="billing-plan-actions">
-              {plan === "free" ? (
-                <Button
-                  variant="primary"
-                  onClick={handleCheckout}
-                  disabled={loading !== null}
-                >
-                  {loading === "checkout" ? "Redirecting…" : "Start free trial"}
-                </Button>
-              ) : (
-                <div>
-                  <Button
-                    variant="secondary"
-                    onClick={handlePortal}
-                    disabled={loading !== null}
-                  >
-                    {loading === "portal" ? "Redirecting…" : "Manage subscription"}
+      <div className="billing-overview billing-grid">
+        <SettingsSection
+          description="The plan and subscription state currently applied to this workspace."
+          eyebrow="Subscription"
+          id="current-plan"
+          title="Current plan"
+        >
+          <div className="billing-plan-summary">
+            <div className="billing-plan-summary__top">
+              <div>
+                <PlanStatusBadge plan={plan} />
+                {plan === "free" || plan === "pro" ? (
+                  <p className="billing-plan-summary__price">
+                    <strong>{plan === "free" ? "$0" : `$${(PRO_PLAN_PRICE_CENTS / 100).toFixed(0)}`}</strong>
+                    <span>/ month</span>
+                  </p>
+                ) : (
+                  <p className="billing-plan-summary__price"><strong>Managed</strong><span>plan</span></p>
+                )}
+              </div>
+              <div className="billing-plan-actions">
+                {plan === "free" ? (
+                  <Button variant="primary" onClick={handleCheckout} loading={loading === "checkout"} disabled={loading !== null}>
+                    Start 7-day Pro trial
                   </Button>
-                  {stripeSubscriptionStatus === "trialing" && stripeTrialEnd && (
-                    <p className="billing-trial-note">Cancel before {formatDate(stripeTrialEnd)} — no charge.</p>
-                  )}
-                </div>
-              )}
+                ) : (
+                  <div>
+                    <Button variant="secondary" onClick={handlePortal} loading={loading === "portal"} disabled={loading !== null}>
+                      Manage subscription
+                    </Button>
+                    {stripeSubscriptionStatus === "trialing" && stripeTrialEnd && (
+                      <p className="billing-trial-note">Cancel before {formatDate(stripeTrialEnd)} — no charge.</p>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
+            <dl className="settings-summary">
+              <div><dt>Subscription status</dt><dd>{stripeSubscriptionStatus ?? (plan === "free" ? "No paid subscription" : "Not reported")}</dd></div>
+              <div><dt>Monthly verification reset</dt><dd>{formatDate(resetDate.toISOString())} · UTC calendar month</dd></div>
+              {stripeCurrentPeriodEnd ? <div><dt>Current Stripe period ends</dt><dd>{formatDate(stripeCurrentPeriodEnd)}</dd></div> : null}
+            </dl>
           </div>
+        </SettingsSection>
 
-          {plan === "free" && (
-            <>
-              <p className="billing-pro-price">
-                <strong>${(PRO_PLAN_PRICE_CENTS / 100).toFixed(0)}</strong>
-                <span className="billing-pro-price-period">/month</span>
-              </p>
-              <ul className="billing-pro-features">
-                <li>Up to 50 agents (free: 3)</li>
-                <li>250,000 verifications/month (free: 10,000)</li>
-                <li>Webhook delivery</li>
-                <li>90-day log retention (free: 7 days)</li>
-              </ul>
-              <p className="billing-trial-note">7-day free trial. Cancel any time before it ends — no charge.</p>
-            </>
-          )}
-          {plan !== "free" && (
-            <p className="billing-pro-price">
-              <strong>${(PRO_PLAN_PRICE_CENTS / 100).toFixed(0)}</strong>
-              <span className="billing-pro-price-period">/month</span>
-            </p>
-          )}
-        </Card>
-
-        <Card>
-          <h2 className="billing-usage-title">Usage this month</h2>
+        <SettingsSection
+          className="billing-usage-panel"
+          description="Actual agent and verification counters against this plan's enforced limits."
+          eyebrow="Current period"
+          id="billing-usage"
+          title="Usage this month"
+        >
           <div className="billing-usage-list">
-            <UsageBar
-              used={agentCount}
-              limit={entitlements.maxAgents}
-              label="Agents"
-            />
-            <UsageBar
-              used={verificationCount}
-              limit={entitlements.monthlyVerifications}
-              label="Verifications"
-            />
+            <UsageBar used={agentCount} limit={entitlements.maxAgents} label="Agents" />
+            <UsageBar used={verificationCount} limit={entitlements.monthlyVerifications} label="Verifications" />
           </div>
-        </Card>
+        </SettingsSection>
       </div>
 
-      <EnterpriseSection />
-
-      <section className="dashboard-panel billing-limit-grid">
+      <SettingsSection
+        description="All verified workspace counters and feature allowances enforced by the current plan."
+        eyebrow="Entitlements"
+        id="plan-allowances"
+        title="Plan allowances"
+      >
+      <section className="dashboard-panel billing-limit-grid operations-limit-grid" aria-label="Current plan limits">
         <CountedUsageLimitTile
           kind="seats"
           label="Billable seats"
@@ -273,12 +268,30 @@ export function BillingClient({
         />
         {stripeCurrentPeriodEnd ? (
           <InfoUsageLimitTile
-            label="Next billing date"
+            label="Current period end"
             value={formatDate(stripeCurrentPeriodEnd)}
-            helper="Your subscription renews on this date."
+            helper="Date reported for the current Stripe subscription period."
           />
         ) : null}
       </section>
+      </SettingsSection>
+
+      {(plan === "free" || plan === "pro") ? (
+        <SettingsSection
+          description="Only verified differences between the Free plan and the Stripe-billed Pro plan are shown."
+          eyebrow="Plan comparison"
+          id="plan-comparison"
+          title="Free and Pro"
+        >
+          <dl className="billing-differences" aria-label="Free and Pro plan comparison">
+            <div><dt>Free</dt><dd>1 billable seat · 3 agents · 1 protected repo · 10,000 verifications · 7-day logs · no webhooks</dd></div>
+            <div><dt>Pro</dt><dd>{formatLimit(proEntitlements.maxBillableUsers)} billable seats · {formatLimit(proEntitlements.maxAgents)} agents · {formatLimit(proEntitlements.maxProtectedRepos)} protected repos · {formatLimit(proEntitlements.monthlyVerifications)} verifications · {proEntitlements.logRetentionDays}-day logs · webhooks</dd></div>
+          </dl>
+          {plan === "free" ? <p className="billing-trial-note">Pro checkout starts a 7-day trial at ${(PRO_PLAN_PRICE_CENTS / 100).toFixed(0)}/month. Cancel through the billing portal before the trial ends to avoid a charge.</p> : null}
+        </SettingsSection>
+      ) : null}
+
+      <EnterpriseSection />
     </>
   );
 
@@ -291,12 +304,13 @@ export function BillingClient({
 
 function EnterpriseSection() {
   const { fetch: dashboardFetch } = useDashboardApi();
+  const enterprise = getPlanEntitlements("enterprise");
   const [form, setForm] = useState({ name: "", email: "", company: "", message: "" });
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = useCallback(async (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
@@ -317,20 +331,21 @@ function EnterpriseSection() {
     } finally {
       setSubmitting(false);
     }
-  }, [dashboardFetch, form]);
+  };
 
   return (
-    <section className="billing-enterprise">
+    <section className="billing-enterprise operations-enterprise" aria-labelledby="enterprise-plan-title">
       <div className="billing-enterprise-info">
-        <h2 className="billing-enterprise-title">Enterprise</h2>
-        <p className="billing-enterprise-desc">Need unlimited agents, custom SLAs, dedicated support, or SSO? Talk to us about an enterprise plan tailored to your team.</p>
+        <p className="settings-section__eyebrow">Plan inquiry</p>
+        <h2 className="billing-enterprise-title" id="enterprise-plan-title">Enterprise</h2>
+        <p className="billing-enterprise-desc">Ask about the enterprise entitlement tier recorded in BehalfID. Contract, pricing, and availability details are confirmed by the team after inquiry.</p>
         <ul className="billing-pro-features billing-enterprise-features">
-          <li>Unlimited agents and verifications</li>
-          <li>Custom SLA and uptime guarantees</li>
-          <li>Dedicated support and onboarding</li>
-          <li>SSO / SAML integration</li>
-          <li>365-day log retention</li>
-          <li>Custom contracts and invoicing</li>
+          <li>{formatLimit(enterprise.maxBillableUsers)} billable users</li>
+          <li>{formatLimit(enterprise.maxAgents)} agents</li>
+          <li>{formatLimit(enterprise.maxProtectedRepos)} protected repositories</li>
+          <li>{formatLimit(enterprise.monthlyVerifications)} monthly verifications</li>
+          <li>{enterprise.logRetentionDays}-day log retention</li>
+          <li>Webhooks and advanced audit exports enabled</li>
         </ul>
       </div>
 

@@ -2,18 +2,17 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
-import { Button, Logo } from "@/components/ui";
+import { AuthShell, AuthStateMark, AuthTaskHeader } from "@/components/auth/AuthShell";
+import { Button, ButtonLink, Field, FieldLabel, Input } from "@/components/ui";
 
 type State = "idle" | "submitting" | "sent";
 
 export function ForgotPasswordClient() {
   const [email, setEmail] = useState("");
   const [state, setState] = useState<State>("idle");
-  const [error, setError] = useState("");
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    setError("");
     setState("submitting");
 
     try {
@@ -32,63 +31,47 @@ export function ForgotPasswordClient() {
 
   if (state === "sent") {
     return (
-      <main id="main-content" className="auth-page" tabIndex={-1}>
-        <section className="auth-shell">
-          <div className="auth-context">
-            <Logo />
-            <div>
-              <p className="section-kicker">Password reset</p>
-              <h2>Check your email.</h2>
-            </div>
-          </div>
-          <div className="auth-panel">
-            <p className="section-kicker">Reset link sent</p>
-            <h1>Check your inbox.</h1>
-            <p>If an account with that email address exists, a password reset link has been sent. The link expires in 60 minutes.</p>
-            <p>Check your spam folder if it does not appear within a few minutes.</p>
-            <p className="auth-alt" style={{ marginTop: "24px" }}>
-              <Link href="/login">Back to login</Link>
-            </p>
-          </div>
+      <AuthShell compact returnHref="/login" returnLabel="Back to login">
+        <section className="auth-task">
+          <AuthStateMark tone="success" />
+          <AuthTaskHeader
+            eyebrow="Reset request received"
+            title="Check your inbox"
+            description="If an account exists for that address, its reset link will arrive shortly and remain valid for 60 minutes."
+          />
+          <p className="auth-task__meta">Check your spam folder if the message does not appear within a few minutes.</p>
+          <ButtonLink href="/login" variant="primary">Return to login</ButtonLink>
         </section>
-      </main>
+      </AuthShell>
     );
   }
 
   return (
-    <main id="main-content" className="auth-page" tabIndex={-1}>
-      <section className="auth-shell">
-        <div className="auth-context">
-          <Logo />
-          <div>
-            <p className="section-kicker">Password reset</p>
-            <h2>Reset your password.</h2>
-            <p>Enter your account email address and we will send you a reset link.</p>
-          </div>
-        </div>
-        <form className="auth-panel" onSubmit={submit}>
-          <p className="section-kicker">Account recovery</p>
-          <h1>Forgot your password?</h1>
-          <p>Enter the email address for your BehalfID developer account.</p>
-          <label>
-            <span>Email</span>
-            <input
-              autoComplete="email"
-              onChange={(event) => setEmail(event.target.value)}
-              required
-              type="email"
-              value={email}
-            />
-          </label>
-          {error ? <p className="form-error" role="alert" aria-live="assertive">{error}</p> : null}
-          <Button variant="primary" type="submit" disabled={state === "submitting"}>
-            {state === "submitting" ? "Sending…" : "Send reset link"}
-          </Button>
-          <p className="auth-alt">
-            <Link href="/login">Back to login</Link>
-          </p>
-        </form>
-      </section>
-    </main>
+    <AuthShell compact returnHref="/login" returnLabel="Back to login">
+      <form className="auth-task" onSubmit={submit} aria-busy={state === "submitting"}>
+        <AuthTaskHeader
+          eyebrow="Account recovery"
+          title="Reset your password"
+          description="Enter the email address for your BehalfID account. We’ll send reset instructions when the account is eligible."
+        />
+        <Field>
+          <FieldLabel htmlFor="recovery-email">Email</FieldLabel>
+          <Input
+            autoComplete="email"
+            id="recovery-email"
+            onChange={(event) => setEmail(event.target.value)}
+            required
+            type="email"
+            value={email}
+          />
+        </Field>
+        <Button loading={state === "submitting"} variant="primary" type="submit">
+          {state === "submitting" ? "Sending reset link…" : "Send reset link"}
+        </Button>
+        <p className="auth-task__row auth-task__row--center">
+          Remembered it? <Link href="/login">Return to login</Link>
+        </p>
+      </form>
+    </AuthShell>
   );
 }

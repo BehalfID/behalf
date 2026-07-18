@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Button, ButtonLink, EmptyState, PageHeader } from "@/components/ui";
+import {
+  EnforcementModeBadge,
+  type EnforcementMode,
+} from "@/components/dashboard/ProfileIntegrationPrimitives";
 import { useDashboardApi, useDashboardPaths } from "@/components/workspace/WorkspaceProvider";
 import {
   activitySummaryFromEvents,
@@ -10,7 +14,7 @@ import {
 } from "@/lib/cliAuditActivityTypes";
 import { formatOpsTime } from "./opsLogTypes";
 
-type PolicyMode = "unmanaged" | "managed" | "required";
+type PolicyMode = EnforcementMode;
 
 type ActivityResponse = {
   events: ManagedProfileActivityEvent[];
@@ -162,7 +166,7 @@ function ActivityEventCard({
       <p className="ops-event-card__primary">
         <span className="ops-event-card__agent">{event.tool ?? "—"}</span>
         <span className="ops-event-card__sep">·</span>
-        <span>{modeLabel(event.mode)}</span>
+        {event.mode ? <EnforcementModeBadge mode={event.mode} /> : <span>{modeLabel(event.mode)}</span>}
       </p>
       <p className="ops-event-card__meta">
         Repo {formatActivityRepo(event)} · Branch {event.branch ?? "—"}
@@ -347,8 +351,9 @@ export function ManagedProfileActivityView() {
   return (
     <div className="ops-console managed-activity-console">
       <PageHeader
+        eyebrow="CLI governance"
         title="Managed profile activity"
-        description="See local coding-agent policy decisions and pause events."
+        description="Trace local coding-agent policy decisions, pause requests, and repository enrollment signals."
         action={
           <ButtonLink href={href("/dashboard/managed-profiles")} variant="secondary">
             Edit managed profile policy
@@ -535,7 +540,9 @@ export function ManagedProfileActivityView() {
                   </td>
                   <td>{eventTypeLabel(event.eventType)}</td>
                   <td className="ops-events__mono">{event.tool ?? "—"}</td>
-                  <td>{modeLabel(event.mode)}</td>
+                  <td>
+                    {event.mode ? <EnforcementModeBadge mode={event.mode} /> : modeLabel(event.mode)}
+                  </td>
                   <td className="ops-events__mono">
                     {formatActivityRepo(event)}
                     {event.repo && protectedRepoStatusByHash.get(event.repo) === "enforced" ? (

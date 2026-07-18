@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import StatusComponent from "@/models/StatusComponent";
 import StatusIncident from "@/models/StatusIncident";
+import { PUBLIC_STATUS_CACHE } from "@/lib/cachePolicy";
+import { noCacheJson } from "@/lib/responses";
 
 export async function GET() {
   try {
     await connectToDatabase();
   } catch {
-    return NextResponse.json(
+    return noCacheJson(
       { overall: "operational", groupedComponents: [], incidents: [] },
       { status: 200 }
     );
@@ -51,9 +53,11 @@ export async function GET() {
     components: items
   }));
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     overall,
     groupedComponents,
     incidents
   });
+  response.headers.set("Cache-Control", PUBLIC_STATUS_CACHE);
+  return response;
 }

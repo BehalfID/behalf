@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import createMiddleware from "next-intl/middleware";
 import { routing } from "./i18n/routing";
+import { PRIVATE_NO_STORE } from "./lib/cachePolicy";
 import {
   WORKSPACE_SLUG_HEADER,
   WORKSPACE_SLUG_PATTERN,
@@ -12,7 +13,11 @@ const intlMiddleware = createMiddleware(routing);
 
 // Paths that skip locale routing (console, dashboard, auth helpers, etc.)
 const intlBypassPattern =
-  /^\/(api|dashboard|console|passport|authenticate|logout|onboarding|design-system|invite|workspace)(\/|$)/;
+  /^\/(api|dashboard|console|passport|authenticate|logout|onboarding|design-system|invite|workspace|home-v2)(\/|$)/;
+
+export function shouldBypassIntl(pathname: string) {
+  return intlBypassPattern.test(pathname);
+}
 
 // 'unsafe-inline' is retained for style-src only — React/Next.js inline styles
 // require it. For script-src, 'unsafe-inline' is dropped in favour of a per-request
@@ -55,7 +60,7 @@ function isLocalDev(request: NextRequest) {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
 }
 
-const staticAssetExtensionPattern = /\.(ico|png|jpg|jpeg|svg|webp|css|js|map)$/i;
+const staticAssetExtensionPattern = /\.(ico|png|jpg|jpeg|svg|webp|css|js|map|sh|txt)$/i;
 
 function isStaticAssetPath(pathname: string): boolean {
   // Extension-like resource IDs under /api/** must still pass through sanitization.
@@ -69,11 +74,24 @@ export function shouldBypassProxy(pathname: string) {
   return (
     pathname === "/api/health" ||
     pathname === "/api/health/db" ||
+    pathname === "/api/status" ||
     pathname === "/api/csp-report" ||
     pathname === "/robots.txt" ||
     pathname === "/sitemap.xml" ||
+    pathname.startsWith("/.well-known/") ||
     pathname.startsWith("/_next/") ||
     isStaticAssetPath(pathname)
+  );
+}
+
+const privatePagePattern =
+  /^\/(?:authenticate|console|dashboard|forgot-password|invite|login|logout|onboarding|passport|reset-password|signup|verify-email|workspace)(?:\/|$)/;
+
+/** Explicit defense-in-depth for request-specific HTML and every non-public API. */
+export function shouldUsePrivateNoStore(pathname: string): boolean {
+  return (
+    (pathname.startsWith("/api/") && pathname !== "/api/status") ||
+    privatePagePattern.test(pathname)
   );
 }
 
@@ -122,8 +140,16 @@ export function buildWorkspaceRewritePath(match: {
   return match.suffix;
 }
 
-function withCsp(response: NextResponse, nonce: string, isDev: boolean) {
+function withCsp(
+  response: NextResponse,
+  nonce: string,
+  isDev: boolean,
+  privateNoStore = false
+) {
   response.headers.set("Content-Security-Policy", buildCsp(nonce, isDev));
+  if (privateNoStore) {
+    response.headers.set("Cache-Control", PRIVATE_NO_STORE);
+  }
   return response;
 }
 
@@ -160,17 +186,21 @@ export function proxy(request: NextRequest) {
     const response = NextResponse.rewrite(rewriteUrl, {
       request: { headers: requestHeaders }
     });
-    return withCsp(response, nonce, isDev);
+    return withCsp(response, nonce, isDev, true);
   }
 
   // Run next-intl locale routing for public pages.
-  if (!intlBypassPattern.test(pathname)) {
+  if (!shouldBypassIntl(pathname)) {
     const intlResponse = intlMiddleware(request);
 
     // If next-intl issued a redirect (locale prefix missing or wrong), honour it.
     if (intlResponse.status >= 300 && intlResponse.status < 400) {
-      intlResponse.headers.set("Content-Security-Policy", buildCsp(nonce, isDev));
-      return intlResponse;
+      return withCsp(
+        intlResponse,
+        nonce,
+        isDev,
+        shouldUsePrivateNoStore(pathname)
+      );
     }
 
     // If next-intl issued an internal rewrite (e.g. / → /en for the default
@@ -183,21 +213,33 @@ export function proxy(request: NextRequest) {
         request: { headers: requestHeaders }
       });
       intlResponse.cookies.getAll().forEach((c) => response.cookies.set(c.name, c.value, c));
-      response.headers.set("Content-Security-Policy", buildCsp(nonce, isDev));
-      return response;
+      return withCsp(
+        response,
+        nonce,
+        isDev,
+        shouldUsePrivateNoStore(pathname)
+      );
     }
 
     // Pure pass-through: replace with our nonce-injected response and carry over
     // any cookies next-intl set (e.g. the locale-preference cookie).
     const response = NextResponse.next({ request: { headers: requestHeaders } });
     intlResponse.cookies.getAll().forEach((c) => response.cookies.set(c.name, c.value, c));
-    response.headers.set("Content-Security-Policy", buildCsp(nonce, isDev));
-    return response;
+    return withCsp(
+      response,
+      nonce,
+      isDev,
+      shouldUsePrivateNoStore(pathname)
+    );
   }
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
-  response.headers.set("Content-Security-Policy", buildCsp(nonce, isDev));
-  return response;
+  return withCsp(
+    response,
+    nonce,
+    isDev,
+    shouldUsePrivateNoStore(pathname)
+  );
 }
 
 export const config = {
@@ -206,6 +248,6 @@ export const config = {
     "/api/:path*",
     "/:slug/api/:path*",
     // Remaining app routes except health, sitemap, _next, and non-API static assets.
-    "/((?!api/health$|api/health/db$|robots\\.txt$|sitemap\\.xml$|_next/)(?!.*\\.(?:ico|png|jpg|jpeg|svg|webp|css|js|map)$).*)"
+    "/((?!api/health$|api/health/db$|api/status$|robots\\.txt$|sitemap\\.xml$|_next/)(?!.*\\.(?:ico|png|jpg|jpeg|svg|webp|css|js|map|sh|txt)$).*)"
   ]
 };

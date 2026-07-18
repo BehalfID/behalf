@@ -21,8 +21,8 @@ export function AgentSurfaceStep({
   return (
     <>
       <SetupStepIntro
-        title="Which agent surface are you controlling?"
-        helper="Choose the coding agent or automation surface BehalfID will gate. You can add more agents later." // pragma: allowlist secret
+        title="Choose the agent surface"
+        helper="This identifies where the agent operates. BehalfID will create a separate governed identity for this surface; you can add others later." // pragma: allowlist secret
       >
         <SetupChoiceGrid columns={2}>
           {AGENT_SURFACES.map((surface) => (
