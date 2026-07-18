@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useState } from "react";
-import { Button, Logo } from "@/components/ui";
+import { AuthPrinciple, AuthShell, AuthStateMark, AuthTaskHeader, FormAlert } from "@/components/auth/AuthShell";
+import { Button, Field, FieldDescription, FieldLabel, Input } from "@/components/ui";
 
 type Props = { prefillCode?: string; email: string };
 
@@ -25,7 +27,7 @@ export function AuthenticateClient({ prefillCode, email }: Props) {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userCode: code }),
+      body: JSON.stringify({ userCode: code })
     });
 
     if (!response.ok) {
@@ -39,73 +41,72 @@ export function AuthenticateClient({ prefillCode, email }: Props) {
   };
 
   return (
-    <main id="main-content" className="auth-page" tabIndex={-1}>
-      <section className="auth-shell">
-        <div className="auth-context">
-          <Logo />
-          <div>
-            <p className="section-kicker">CLI authorization</p>
-            <h2>Authorize your terminal.</h2>
-            <p>
-              Enter the code shown in your terminal to link this browser session to the
-              BehalfID CLI. The code expires after 15 minutes.
-            </p>
-          </div>
-          <ul>
-            <li>Secure device flow</li>
-            <li>No password in terminal</li>
-            <li>Revokable at any time</li>
-            <li>Session tied to your account</li>
-          </ul>
-        </div>
-
-        <form className="auth-panel" onSubmit={submit}>
-          {status === "done" ? (
-            <>
-              <p className="section-kicker">Authorized</p>
-              <h1>You&rsquo;re in.</h1>
-              <p>
-                The CLI is now authenticated as <strong>{email}</strong>. You can close
-                this tab and return to your terminal.
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="section-kicker">Enter your code</p>
-              <h1>Authorize CLI.</h1>
-              <p>
-                Signed in as <strong>{email}</strong>. Paste or type the 8-character
-                code from your terminal below.
-              </p>
-              <label>
-                <span>Device code</span>
-                <input
-                  autoComplete="off"
-                  autoFocus
-                  disabled={status === "loading"}
-                  inputMode="text"
-                  maxLength={9}
-                  onChange={(e) => handleInput(e.target.value)}
-                  placeholder="XXXX-XXXX"
-                  required
-                  spellCheck={false}
-                  style={{ fontFamily: "monospace", letterSpacing: "0.08em", fontSize: "1.25rem" }}
-                  type="text"
-                  value={code}
-                />
-              </label>
-              {error ? <p className="form-error" role="alert">{error}</p> : null}
-              <Button disabled={status === "loading" || code.replace("-", "").length < 8} type="submit" variant="primary">
-                {status === "loading" ? "Authorizing…" : "Authorize"}
-              </Button>
-              <p className="auth-alt">
-                Not you?{" "}
-                <a href="/logout?next=/authenticate">Switch account</a>
-              </p>
-            </>
-          )}
+    <AuthShell
+      returnHref="/dashboard"
+      returnLabel="Back to control plane"
+      support={
+        <AuthPrinciple
+          eyebrow="CLI device authorization"
+          title="Link your terminal without sharing a password."
+          description="The short-lived code binds this browser session to the requesting CLI. It expires after 15 minutes."
+          points={[
+            { label: "Session", value: "Signed in as the current account" },
+            { label: "Secret", value: "No password is entered in the terminal" },
+            { label: "Control", value: "CLI access can be revoked later" }
+          ]}
+        />
+      }
+    >
+      {status === "done" ? (
+        <section className="auth-task">
+          <AuthStateMark tone="success" />
+          <AuthTaskHeader
+            eyebrow="CLI authorized"
+            title="Return to your terminal"
+            description={<>The CLI is now authenticated as <strong>{email}</strong>. You can close this tab.</>}
+          />
+          <FormAlert tone="success">Authorization completed.</FormAlert>
+        </section>
+      ) : (
+        <form className="auth-task" onSubmit={submit} aria-busy={status === "loading"}>
+          <AuthTaskHeader
+            eyebrow="Enter device code"
+            title="Authorize the BehalfID CLI"
+            description={<>Signed in as <strong>{email}</strong>. Enter the 8-character code shown in your terminal.</>}
+          />
+          <Field>
+            <FieldLabel htmlFor="device-code">Device code</FieldLabel>
+            <Input
+              aria-describedby={error ? "device-code-error" : "device-code-help"}
+              autoComplete="off"
+              autoFocus
+              disabled={status === "loading"}
+              id="device-code"
+              inputMode="text"
+              maxLength={9}
+              onChange={(event) => handleInput(event.target.value)}
+              placeholder="XXXX-XXXX"
+              required
+              spellCheck={false}
+              type="text"
+              value={code}
+            />
+            <FieldDescription id="device-code-help">The code is not case-sensitive and expires after 15 minutes.</FieldDescription>
+          </Field>
+          {error ? <FormAlert id="device-code-error">{error}</FormAlert> : null}
+          <Button
+            disabled={code.replace("-", "").length < 8}
+            loading={status === "loading"}
+            type="submit"
+            variant="primary"
+          >
+            {status === "loading" ? "Authorizing CLI…" : "Authorize CLI"}
+          </Button>
+          <p className="auth-task__row auth-task__row--center">
+            Not your account? <Link href="/logout?next=/authenticate">Switch account</Link>
+          </p>
         </form>
-      </section>
-    </main>
+      )}
+    </AuthShell>
   );
 }

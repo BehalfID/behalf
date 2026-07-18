@@ -459,14 +459,15 @@ export const approvalRequests = pgTable(
 );
 
 /**
- * High-volume append-only log table.
- * TODO: add monthly range partitioning on created_at when volume warrants it (see docs/DATABASE_MIGRATION.md §11.3).
+ * High-volume append-only log table. The SQL migration declares this table as
+ * RANGE-partitioned by created_at; Drizzle models the composite keys required
+ * by Postgres partitioned-table uniqueness rules.
  */
 export const verificationLogs = pgTable(
   "verification_logs",
   {
-    logId: text("log_id").primaryKey(),
-    requestId: text("request_id").notNull().unique(),
+    logId: text("log_id").notNull(),
+    requestId: text("request_id").notNull(),
     accountId: text("account_id"),
     developerUserId: text("developer_user_id"),
     agentId: text("agent_id").notNull(),
@@ -483,6 +484,11 @@ export const verificationLogs = pgTable(
     ...createdUpdatedAt()
   },
   (table) => [
+    primaryKey({
+      name: "verification_logs_pkey",
+      columns: [table.logId, table.createdAt]
+    }),
+    uniqueIndex("verification_logs_request_created_uq").on(table.requestId, table.createdAt),
     check(
       "verification_logs_risk_check",
       sql`${table.risk} IN (${sql.raw(sqlInList(RISK_LEVELS))})`

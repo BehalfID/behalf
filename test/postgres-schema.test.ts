@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getTableName, getTableColumns } from "drizzle-orm";
+import { getTableConfig } from "drizzle-orm/pg-core";
 import { coreTables, type CoreTableName } from "@/lib/db/postgres/schema";
 import { isPostgresConfigured } from "@/lib/db/postgres";
 
@@ -102,8 +103,7 @@ describe("postgres schema (static)", () => {
       { table: coreTables.accounts, col: "accountId" },
       { table: coreTables.developerUsers, col: "userId" },
       { table: coreTables.agents, col: "agentId" },
-      { table: coreTables.permissions, col: "permissionId" },
-      { table: coreTables.verificationLogs, col: "logId" }
+      { table: coreTables.permissions, col: "permissionId" }
     ];
 
     for (const { table, col } of idColumns) {
@@ -112,6 +112,24 @@ describe("postgres schema (static)", () => {
       expect(column.columnType).toBe("PgText");
       expect(column.primary).toBe(true);
     }
+  });
+
+  it("models verification log partition keys as composite constraints", () => {
+    const config = getTableConfig(coreTables.verificationLogs);
+    const primaryKeyColumns = config.primaryKeys.flatMap((key) =>
+      key.columns.map((column) => column.name)
+    );
+    const requestCreatedIndex = config.indexes.find(
+      (entry) => entry.config.name === "verification_logs_request_created_uq"
+    );
+
+    expect(primaryKeyColumns).toEqual(["log_id", "created_at"]);
+    expect(requestCreatedIndex?.config.unique).toBe(true);
+    expect(
+      requestCreatedIndex?.config.columns.map((column) =>
+        "name" in column ? column.name : null
+      )
+    ).toEqual(["request_id", "created_at"]);
   });
 
   it("isPostgresConfigured is false without env vars in test", () => {

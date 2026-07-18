@@ -84,18 +84,36 @@ is a billed plan limit (`checkProtectedRepoLimit`).
 - `accounts.slug`: optional workspace URL identity; `CHECK (slug IS NULL OR length(slug) <= 63)`;
   partial unique index `accounts_slug_uq` where `slug IS NOT NULL`.
 - Partial unique indexes on `approval_requests` for pending tuple dedupe (`NULLS NOT DISTINCT`).
-- `verification_logs`: `(account_id, created_at)`, `(account_id, agent_id, created_at)`,
-  `(agent_id, created_at)`, `(allowed)`.
+- `verification_logs`: composite PK `(log_id, created_at)`, composite UQ
+  `(request_id, created_at)`, plus `(account_id, created_at)`,
+  `(account_id, agent_id, created_at)`, `(agent_id, created_at)`, and `(allowed)`.
 - `managed_profile_protected_repos`: PK `(policy_id, repo_hash)`, UQ `(account_id, repo_hash)`.
 
 ---
 
 ## High-volume logs
 
-`verification_logs` is **unpartitioned in v1**. A TODO in the SQL migration notes the planned
-monthly range partitioning on `created_at` (see `docs/DATABASE_MIGRATION.md` §11.3).
+`verification_logs` is declaratively RANGE-partitioned by UTC calendar month on
+`created_at`. The initial migration creates the preceding 13 months, the current month,
+three future months, and a default fail-safe partition. Security-definer maintenance
+functions are executable only by their owner and provide:
 
-Physical retention purge jobs (`pg_cron`) are **not** implemented in v1.
+- daily future-partition creation;
+- batched plan-aware retention with a 30-day grace window;
+- removal of empty partitions older than the maximum 365-day retention plus grace; and
+- idempotent named `pg_cron` scheduling.
+
+`pg_cron` remains an explicit database-operator choice so the migration also works on
+vanilla Postgres. In the production `public` schema, enable and schedule it with an owner
+or service-role connection:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+SELECT public.behalf_schedule_verification_log_maintenance('public');
+```
+
+The scheduler installs a partition-maintenance job at 00:15 UTC and a retention job at
+02:30 UTC. Query-time retention remains the correctness layer.
 
 ---
 
@@ -140,9 +158,10 @@ Environment variables (not committed):
 The smoke test applies `drizzle/0000_initial_behalf_schema.sql` and
 `drizzle/0001_workspace_slug.sql` against a **disposable**
 Postgres database, verifies all 15 core tables, RLS, critical indexes (including approval
-partial unique indexes, `accounts_slug_uq`, and `managed_profile_protected_repos` `(account_id, repo_hash)`),
-and confirms `verification_logs` is unpartitioned in v1. It does **not** change app runtime
-behavior — production still uses Mongo/Mongoose.
+partial unique indexes, `accounts_slug_uq`, and `managed_profile_protected_repos`
+`(account_id, repo_hash)`), and confirms the verification-log parent, monthly/default
+partitions, composite constraints, and maintenance functions. It does **not** change app
+runtime behavior — production still uses Mongo/Mongoose.
 
 **Safety:** the test creates a temporary schema (`behalf_smoke_<timestamp>`), sets
 `search_path`, runs the migration inside that schema, then drops the schema. It never runs

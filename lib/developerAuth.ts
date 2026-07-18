@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
+import { cache } from "react";
 import { promisify } from "util";
 import { connectToDatabase } from "@/lib/db";
 import { requireWorkspaceMembershipBySlug, resolveActiveAccountId } from "@/lib/accountContext";
@@ -236,15 +237,18 @@ export async function getDeveloperUserFromToken(token?: string | null) {
   return context?.user ?? null;
 }
 
-export async function getCurrentDeveloper() {
+const getCurrentDeveloperContextForRequest = cache(async () => {
   const cookieStore = await cookies();
-  const context = await getDeveloperFromToken(cookieStore.get(COOKIE_NAME)?.value);
+  return getDeveloperFromToken(cookieStore.get(COOKIE_NAME)?.value);
+});
+
+export async function getCurrentDeveloper() {
+  const context = await getCurrentDeveloperContextForRequest();
   return context?.user ?? null;
 }
 
 export async function getCurrentDeveloperContext() {
-  const cookieStore = await cookies();
-  return getDeveloperFromToken(cookieStore.get(COOKIE_NAME)?.value);
+  return getCurrentDeveloperContextForRequest();
 }
 
 export type ServerSessionStatus = {

@@ -27,7 +27,13 @@ describe("postgres migration smoke (optional)", () => {
         expect(result.indexes, indexName).toContain(indexName);
       }
 
-      expect(result.verificationLogsUnpartitioned).toBe(true);
+      expect(result.verificationLogsPartitioned).toBe(true);
+      expect(result.verificationLogCompositePrimaryKey).toBe(true);
+      expect(result.verificationLogCompositeRequestUnique).toBe(true);
+      expect(result.verificationLogPartitions).toContain("verification_logs_default");
+      expect(result.verificationLogRetentionPurgedRows).toBe(1);
+      expect(result.verificationLogRetentionRemainingIds).toEqual(["log_retention_current"]);
+      expect(result.verificationLogCronSkippedWhenUnavailable).toBe(true);
     },
     60_000
   );

@@ -2,6 +2,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { Metadata } from "next";
 import { PublicNav } from "@/components/layout/PublicNav";
 import { PublicFooter } from "@/components/layout/PublicFooter";
+import { PublicAuthSplitCTA } from "@/components/layout/PublicAuthSplitCTA";
 import { SandboxClient } from "../../sandbox/sandbox-client";
 import { routing } from "@/i18n/routing";
 
@@ -34,7 +35,7 @@ export default async function SandboxPage({
   return (
     <main id="main-content" className="marketing" tabIndex={-1}>
       <PublicNav />
-      <SandboxClient />
+      <SandboxClient authCta={<PublicAuthSplitCTA leftLabel="Build" leftHref="/signup" />} />
       <PublicFooter />
     </main>
   );

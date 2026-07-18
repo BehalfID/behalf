@@ -85,8 +85,15 @@ async function getStatusData() {
   try {
     await connectToDatabase();
     const [components, incidents] = await Promise.all([
-      StatusComponent.find({ enabled: true }).sort({ sortOrder: 1, name: 1 }).lean(),
-      StatusIncident.find({}).sort({ createdAt: -1 }).limit(20).lean()
+      StatusComponent.find({ enabled: true })
+        .sort({ sortOrder: 1, name: 1 })
+        .select("-_id componentId name description group status")
+        .lean(),
+      StatusIncident.find({})
+        .sort({ createdAt: -1 })
+        .limit(20)
+        .select("-_id incidentId title message status severity updates resolvedAt createdAt")
+        .lean()
     ]);
     const allStatuses = components.map((c) => c.status as ComponentStatus);
     let overall: ComponentStatus = "operational";

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
-import { Button, Logo } from "@/components/ui";
+import { AuthShell, AuthStateMark, AuthTaskHeader, FormAlert } from "@/components/auth/AuthShell";
+import { Button, ButtonLink, Field, FieldDescription, FieldLabel, Input } from "@/components/ui";
 
 type State = "idle" | "submitting" | "success" | "error";
 
@@ -14,37 +15,33 @@ export function ResetPasswordClient({ token }: { token?: string }) {
 
   if (!token) {
     return (
-      <main id="main-content" className="auth-page" tabIndex={-1}>
-        <section className="auth-shell">
-          <div className="auth-context">
-            <Logo />
-          </div>
-          <div className="auth-panel">
-            <p className="section-kicker">Password reset</p>
-            <h1>Invalid reset link.</h1>
-            <p>This reset link is missing or malformed. Request a new one below.</p>
-            <Link href="/forgot-password"><Button variant="primary">Request new link</Button></Link>
-          </div>
+      <AuthShell compact returnHref="/login" returnLabel="Back to login">
+        <section className="auth-task">
+          <AuthStateMark tone="error" />
+          <AuthTaskHeader
+            eyebrow="Password reset"
+            title="This reset link is invalid"
+            description="The link is missing or malformed. Request a new reset message to continue."
+          />
+          <ButtonLink href="/forgot-password" variant="primary">Request a new link</ButtonLink>
         </section>
-      </main>
+      </AuthShell>
     );
   }
 
   if (state === "success") {
     return (
-      <main id="main-content" className="auth-page" tabIndex={-1}>
-        <section className="auth-shell">
-          <div className="auth-context">
-            <Logo />
-          </div>
-          <div className="auth-panel">
-            <p className="section-kicker">Password reset</p>
-            <h1>Password updated.</h1>
-            <p>Your password has been changed. All previous sessions have been invalidated. Sign in with your new password.</p>
-            <Link href="/login"><Button variant="primary">Sign in</Button></Link>
-          </div>
+      <AuthShell compact returnHref="/login" returnLabel="Back to login">
+        <section className="auth-task">
+          <AuthStateMark tone="success" />
+          <AuthTaskHeader
+            eyebrow="Password reset complete"
+            title="Your password has been updated"
+            description="All previous sessions have been invalidated. Sign in again with your new password."
+          />
+          <ButtonLink href="/login" variant="primary">Sign in</ButtonLink>
         </section>
-      </main>
+      </AuthShell>
     );
   }
 
@@ -81,50 +78,50 @@ export function ResetPasswordClient({ token }: { token?: string }) {
   };
 
   return (
-    <main id="main-content" className="auth-page" tabIndex={-1}>
-      <section className="auth-shell">
-        <div className="auth-context">
-          <Logo />
-          <div>
-            <p className="section-kicker">Password reset</p>
-            <h2>Set a new password.</h2>
-            <p>Choose a strong password for your BehalfID developer account. Minimum 10 characters.</p>
-          </div>
-        </div>
-        <form className="auth-panel" onSubmit={submit}>
-          <p className="section-kicker">Account security</p>
-          <h1>Set new password.</h1>
-          <label>
-            <span>New password</span>
-            <input
+    <AuthShell compact returnHref="/login" returnLabel="Back to login">
+      <form className="auth-task" onSubmit={submit} aria-busy={state === "submitting"}>
+        <AuthTaskHeader
+          eyebrow="Account security"
+          title="Set a new password"
+          description="Choose a new password for your BehalfID account. After this change, you’ll sign in again on every device."
+        />
+        <div className="auth-task__fields">
+          <Field>
+            <FieldLabel htmlFor="new-password">New password</FieldLabel>
+            <Input
+              aria-describedby="new-password-help"
               autoComplete="new-password"
+              id="new-password"
               minLength={10}
               onChange={(event) => setPassword(event.target.value)}
               required
               type="password"
               value={password}
             />
-          </label>
-          <label>
-            <span>Confirm password</span>
-            <input
+            <FieldDescription id="new-password-help">Use at least 10 characters.</FieldDescription>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="confirm-password">Confirm password</FieldLabel>
+            <Input
+              aria-describedby={error ? "password-reset-error" : undefined}
               autoComplete="new-password"
+              id="confirm-password"
               minLength={10}
               onChange={(event) => setConfirm(event.target.value)}
               required
               type="password"
               value={confirm}
             />
-          </label>
-          {error ? <p className="form-error" role="alert" aria-live="assertive">{error}</p> : null}
-          <Button variant="primary" type="submit" disabled={state === "submitting"}>
-            {state === "submitting" ? "Updating…" : "Set new password"}
-          </Button>
-          <p className="auth-alt">
-            <Link href="/login">Back to login</Link>
-          </p>
-        </form>
-      </section>
-    </main>
+          </Field>
+        </div>
+        {error ? <FormAlert id="password-reset-error">{error}</FormAlert> : null}
+        <Button loading={state === "submitting"} variant="primary" type="submit">
+          {state === "submitting" ? "Updating password…" : "Set new password"}
+        </Button>
+        <p className="auth-task__row auth-task__row--center">
+          <Link href="/login">Back to login</Link>
+        </p>
+      </form>
+    </AuthShell>
   );
 }

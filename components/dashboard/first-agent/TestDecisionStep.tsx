@@ -35,7 +35,7 @@ export function TestDecisionStep({
     <>
       <SetupStepIntro
         title="Run a test decision"
-        helper="This sends a real verify request using your new agent key. The outcome reflects your selected gates and profile."
+        helper="This sends a real verification request with the new agent credential. The result should reflect the control profile and approval gates you just applied."
       >
         <div className="setup-review">
           <dl className="setup-review__list">
@@ -59,6 +59,7 @@ export function TestDecisionStep({
         onContinue={onRun}
         continueLabel={running ? "Running…" : result ? "Continue to logs" : "Run test decision"}
         disabled={running}
+        loading={running}
         error={error}
       />
     </>

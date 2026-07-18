@@ -3,7 +3,8 @@ import { Link } from "@/i18n/navigation";
 import type { Metadata } from "next";
 import { PublicNav } from "@/components/layout/PublicNav";
 import { PublicFooter } from "@/components/layout/PublicFooter";
-import { ButtonLink, CodeBlock, SplitCTAButton } from "@/components/ui";
+import { PublicAuthSplitCTA } from "@/components/layout/PublicAuthSplitCTA";
+import { ButtonLink, CodeBlock } from "@/components/ui";
 import { routing } from "@/i18n/routing";
 
 export function generateStaticParams() {
@@ -213,7 +214,7 @@ if (!result.allowed) {
               <li>{t("s8.item7")}</li>
             </ul>
             <div className="hero__actions" style={{ marginTop: "2rem" }}>
-              <SplitCTAButton leftLabel="Build" leftHref="/signup" rightLabel="Log In" rightHref="/login" />
+              <PublicAuthSplitCTA leftLabel="Build" leftHref="/signup" />
               <ButtonLink href="/docs">Docs</ButtonLink>
             </div>
           </div>
