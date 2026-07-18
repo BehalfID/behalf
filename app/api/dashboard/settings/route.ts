@@ -5,7 +5,6 @@ import { canManageMembers, getWorkspaceActor, serializeWorkspaceAuthority } from
 import { getPlanEntitlements, isSameBillingPeriod, normalizePlan } from "@/lib/plans";
 import { jsonError, noCacheJson } from "@/lib/responses";
 import { readJsonObject } from "@/lib/request";
-import { accountDeletionSupportMessage } from "@/lib/support";
 import { rejectUnknownFields } from "@/lib/validation";
 
 /**
@@ -44,7 +43,6 @@ export async function GET(request: NextRequest) {
     email: auth.user.email,
     appUrl: process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin,
     apiUsage: apiUsageSummary(auth.account),
-    dangerZone: accountDeletionSupportMessage(),
     workspaceSlug: auth.account && "slug" in auth.account ? (auth.account as { slug?: string | null }).slug ?? null : null,
     delegatedPermissions: actor
       ? {

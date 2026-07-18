@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentDeveloper } from "@/lib/developerAuth";
+import { requiresEmailVerificationRedirect } from "@/lib/emailVerificationGuard";
 import { shouldForceAccountSetup } from "@/lib/onboardingRedirect";
 import { AuthPage } from "../auth-client";
 
@@ -24,6 +25,7 @@ export default async function LoginPage({
   const nextPath = safeNextPath(next) ?? undefined;
   const user = await getCurrentDeveloper();
   if (user) {
+    if (requiresEmailVerificationRedirect(user)) redirect("/verify-email");
     if (await shouldForceAccountSetup(user.userId)) redirect("/onboarding");
     redirect(nextPath ?? "/dashboard");
   }

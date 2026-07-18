@@ -32,8 +32,9 @@ export function AuthPage({
   const [password, setPassword] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [error, setError] = useState("");
+  const redirectPath = safeNextPath(nextPath) ?? (mode === "signup" ? "/verify-email" : "/dashboard");
   const [submitting, setSubmitting] = useState(false);
-  const redirectPath = safeNextPath(nextPath) ?? (mode === "signup" ? "/onboarding" : "/dashboard");
+
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -67,8 +68,12 @@ export function AuthPage({
         return;
       }
 
-      if (mode === "signup") {
-        router.push(redirectPath);
+      const body = (await response.json().catch(() => null)) as {
+        user?: { emailVerified?: boolean };
+      } | null;
+
+      if (mode === "signup" || body?.user?.emailVerified === false) {
+        router.push("/verify-email");
         return;
       }
 
