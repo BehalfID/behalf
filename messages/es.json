@@ -724,6 +724,8 @@
     "dobRequired": "La fecha de nacimiento es obligatoria.",
     "ageError": "Debes tener al menos 13 años para crear una cuenta.",
     "authFailed": "La autenticación falló.",
+    "continueWithGoogle": "Continuar con Google",
+    "orDivider": "o",
     "agreePrefix": "Al crear una cuenta, aceptas los ",
     "terms": "Términos de servicio",
     "and": " y la ",

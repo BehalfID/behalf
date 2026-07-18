@@ -13,7 +13,13 @@ function maxDateOfBirth(minAge: number): string {
   return d.toISOString().split("T")[0];
 }
 
-export function AuthPage({ mode }: { mode: "login" | "signup" }) {
+export function AuthPage({
+  mode,
+  googleEnabled = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID)
+}: {
+  mode: "login" | "signup";
+  googleEnabled?: boolean;
+}) {
   const router = useRouter();
   const t = useTranslations("auth");
   const [email, setEmail] = useState("");
@@ -86,6 +92,20 @@ export function AuthPage({ mode }: { mode: "login" | "signup" }) {
           title={mode === "signup" ? t("signupH1") : t("loginH1")}
           description={mode === "signup" ? t("signupBody") : t("loginBody")}
         />
+
+        {googleEnabled ? (
+          <div className="auth-task__oauth">
+            <a
+              className="ui-button ui-button--secondary auth-google-button"
+              href={`/api/auth/google?mode=${mode}`}
+            >
+              {t("continueWithGoogle")}
+            </a>
+            <p className="auth-divider" role="separator">
+              <span>{t("orDivider")}</span>
+            </p>
+          </div>
+        ) : null}
 
         <div className="auth-task__fields">
           <Field>

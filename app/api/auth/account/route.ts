@@ -41,15 +41,20 @@ export async function DELETE(request: NextRequest) {
     return jsonError(`Type ${DELETE_CONFIRMATION} to confirm account deletion.`, 400);
   }
 
-  if (!password) {
-    return jsonError("Password is required to delete your account.", 400);
-  }
-
   await connectToDatabase();
-  const user = await DeveloperUser.findOne({ userId: auth.user.userId }).select("+passwordHash");
-  if (!user || !(await verifyPassword(password, user.passwordHash))) {
+  const user = await DeveloperUser.findOne({ userId: auth.user.userId }).select("+passwordHash authProviders");
+  if (!user) {
     return jsonError("Invalid password.", 401);
   }
+
+  if (user.passwordHash) {
+    if (!password || !(await verifyPassword(password, user.passwordHash))) {
+      return jsonError("Invalid password.", 401);
+    }
+  } else if (!user.authProviders?.includes("google")) {
+    return jsonError("Password is required to delete your account.", 400);
+  }
+  // Google-only accounts: authenticated session + DELETE confirmation is sufficient.
 
   const result = await deleteDeveloperUser(auth.user.userId);
   if (!result.ok) {

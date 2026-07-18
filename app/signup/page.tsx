@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { getCurrentDeveloper } from "@/lib/developerAuth";
 import { requiresEmailVerificationRedirect } from "@/lib/emailVerificationGuard";
+import { isGoogleOAuthConfigured } from "@/lib/googleOAuth";
 import { shouldForceAccountSetup } from "@/lib/onboardingRedirect";
 import { AuthPage } from "../auth-client";
 
@@ -29,5 +31,14 @@ export default async function SignupPage({
     if (await shouldForceAccountSetup(user.userId)) redirect("/onboarding");
     redirect(nextPath ?? "/dashboard");
   }
-  return <AuthPage mode="signup" nextPath={nextPath} initialEmail={email ?? ""} />;
+  return (
+    <Suspense fallback={<main className="auth-page"><p>Loading…</p></main>}>
+      <AuthPage
+        mode="signup"
+        nextPath={nextPath}
+        initialEmail={email ?? ""}
+        googleEnabled={isGoogleOAuthConfigured()}
+      />
+    </Suspense>
+  );
 }

@@ -3409,6 +3409,164 @@ function MembersPanel() {
   );
 }
 
+function SsoSettingsCard({ canEditWorkspace }: { canEditWorkspace: boolean }) {
+  const { apiJson: api } = useDashboardApi();
+  const ssoResource = useResource<{
+    available: boolean;
+    canEdit: boolean;
+    sso: {
+      provider: "google";
+      enabled: boolean;
+      enforce: boolean;
+      allowedEmailDomains: string[];
+    };
+    plan: string;
+  }>("/api/dashboard/sso");
+  const [enabled, setEnabled] = useState(false);
+  const [enforce, setEnforce] = useState(false);
+  const [domainsText, setDomainsText] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!ssoResource.data) return;
+    setEnabled(ssoResource.data.sso.enabled);
+    setEnforce(ssoResource.data.sso.enforce);
+    setDomainsText(ssoResource.data.sso.allowedEmailDomains.join("\n"));
+  }, [ssoResource.data]);
+
+  const saveSso = async (event: FormEvent) => {
+    event.preventDefault();
+    setMessage("");
+    setError("");
+    setSaving(true);
+    try {
+      const allowedEmailDomains = domainsText
+        .split(/[\n,]+/)
+        .map((value) => value.trim().toLowerCase())
+        .filter(Boolean);
+      await api("/api/dashboard/sso", {
+        method: "PATCH",
+        body: JSON.stringify({ enabled, enforce, allowedEmailDomains })
+      });
+      setMessage("Google SSO settings saved.");
+      await ssoResource.reload();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Failed to save SSO settings.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!ssoResource.data && !ssoResource.error) {
+    return (
+      <SettingsSection
+        description="Company domain allowlist and optional password-login enforcement for Google sign-in."
+        eyebrow="Workspace-level"
+        id="google-sso"
+        title="Google SSO"
+      >
+        <p className="field-help">Loading SSO settings…</p>
+      </SettingsSection>
+    );
+  }
+
+  if (ssoResource.error || !ssoResource.data) {
+    return (
+      <SettingsSection
+        description="Company domain allowlist and optional password-login enforcement for Google sign-in."
+        eyebrow="Workspace-level"
+        id="google-sso"
+        title="Google SSO"
+      >
+        <p className="form-error" role="alert">{ssoResource.error || "Unable to load SSO settings."}</p>
+      </SettingsSection>
+    );
+  }
+
+  if (!ssoResource.data.available) {
+    return (
+      <SettingsSection
+        description="Company domain allowlist and optional password-login enforcement for Google sign-in."
+        eyebrow="Workspace-level"
+        id="google-sso"
+        title="Google SSO"
+        tone="restricted"
+      >
+        <p className="field-help">
+          Workspace Google SSO is available on Pro and higher plans.
+          Sign in with Google for individual accounts is available on all plans from the login page.
+        </p>
+      </SettingsSection>
+    );
+  }
+
+  const canEdit = Boolean(ssoResource.data.canEdit && canEditWorkspace);
+
+  return (
+    <SettingsSection
+      description="Require or prefer Google sign-in for members whose email matches your company domains. Invites are still required to join this workspace."
+      eyebrow="Workspace-level"
+      id="google-sso"
+      title="Google SSO"
+      tone={canEdit ? "default" : "restricted"}
+    >
+      {canEdit ? (
+        <form className="setup-form" onSubmit={saveSso}>
+          <label className="setup-check">
+            <input checked={enabled} onChange={(event) => setEnabled(event.target.checked)} type="checkbox" />
+            <span className="setup-check__body">
+              <span className="setup-check__label">Enable Google SSO for allowed domains</span>
+            </span>
+          </label>
+          <label className="setup-check">
+            <input
+              checked={enforce}
+              disabled={!enabled}
+              onChange={(event) => setEnforce(event.target.checked)}
+              type="checkbox"
+            />
+            <span className="setup-check__body">
+              <span className="setup-check__label">Enforce Google sign-in (block password login for these domains)</span>
+            </span>
+          </label>
+          <label>
+            <span>Allowed email domains</span>
+            <textarea
+              onChange={(event) => setDomainsText(event.target.value)}
+              placeholder={"acme.com\nengineering.acme.com"}
+              rows={4}
+              value={domainsText}
+            />
+          </label>
+          <p className="field-help">One domain per line. Public providers like gmail.com cannot be used when enforcement is on.</p>
+          {error ? <p className="form-error" role="alert">{error}</p> : null}
+          {message ? <p className="field-help">{message}</p> : null}
+          <div className="setup-actions">
+            <Button disabled={saving} loading={saving} type="submit" variant="primary">
+              {saving ? "Saving…" : "Save SSO settings"}
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <dl className="settings-summary">
+          <div><dt>Status</dt><dd>{ssoResource.data.sso.enabled ? "Enabled" : "Disabled"}</dd></div>
+          <div><dt>Enforce</dt><dd>{ssoResource.data.sso.enforce ? "On" : "Off"}</dd></div>
+          <div>
+            <dt>Domains</dt>
+            <dd>
+              {ssoResource.data.sso.allowedEmailDomains.length
+                ? ssoResource.data.sso.allowedEmailDomains.join(", ")
+                : "None"}
+            </dd>
+          </div>
+        </dl>
+      )}
+    </SettingsSection>
+  );
+}
+
 function SettingsView() {
   const { apiJson: api } = useDashboardApi();
   const { href: dHref } = useDashboardPaths();
@@ -3639,6 +3797,7 @@ function SettingsView() {
           { href: "#managed-security", label: "Security", detail: "Managed local sessions" },
           { href: "#account", label: "Account", detail: "Your personal profile" },
           { href: "#workspace", label: "Workspace", detail: "Shared identity and context" },
+          { href: "#google-sso", label: "Google SSO", detail: "Domain allowlist and enforce" },
           { href: "#members", label: "Members & roles", detail: "Authority and invitations" },
           { href: "#developer-access", label: "Developer access", detail: "API tokens and usage" },
           { href: "#danger-zone", label: "Destructive actions", detail: "Account deletion support" }
@@ -3822,6 +3981,7 @@ function SettingsView() {
           </div>
         )}
       </SettingsSection>
+      <SsoSettingsCard canEditWorkspace={Boolean(settings.data?.canEditAccountFields)} />
       <MembersPanel />
       <SettingsSection
         description="Personal developer credentials for SDK and API calls that require developer context. Raw token values are never listed again."

@@ -33,7 +33,7 @@ Production startup validation fails loudly when required variables are missing o
 - Agent key rotation invalidates the old key immediately, sets `keyRotatedAt`, and clears current-key `lastUsedAt` until the new key is used.
 - Successful agent-key and developer-token authentication update `lastUsedAt` on a best-effort basis. Failed metadata writes must not fail the authenticated request.
 - Invalid, missing, malformed, or previously rotated keys must not update `lastUsedAt`.
-- Logs, webhook payloads, CLI errors, SDK errors, worker summaries, and route errors must not include raw bearer tokens, API keys, developer tokens, passport tokens, setup tokens, Stripe secrets, or webhook signing secrets.
+- Logs, webhook payloads, CLI errors, SDK errors, worker summaries, and route errors must not include raw bearer tokens, API keys, developer tokens, passport tokens, setup tokens, Stripe secrets, webhook signing secrets, or OAuth authorization codes / id tokens.
 
 ## Verification Logs and Retention
 
@@ -66,6 +66,9 @@ OLLAMA_BASE_URL=
 OLLAMA_MODEL=
 OLLAMA_TIMEOUT_MS=
 OLLAMA_PROXY_TOKEN=
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=
 ```
 
 Notes:
@@ -74,6 +77,8 @@ Notes:
 - Keep `BEHALFID_PUBLIC_AGENT_CREATION=false` in production unless intentionally running an open demo.
 - Leave `TRUST_PROXY_XFF` unset on Vercel; BehalfID uses `x-real-ip` there.
 - Ollama variables are optional and only affect AI-assisted permission drafting.
+- `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` enable Sign in with Google and workspace Google SSO. Create an OAuth 2.0 Web client in Google Cloud Console and set the authorized redirect URI to `{NEXT_PUBLIC_APP_URL}/api/auth/google/callback`.
+- `NEXT_PUBLIC_GOOGLE_CLIENT_ID` should match `GOOGLE_CLIENT_ID` so the login/signup UI can show the Google button without a round-trip.
 
 ## Vercel Setup
 

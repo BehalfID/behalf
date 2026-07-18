@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { FormEvent, useMemo, useState } from "react";
 import { AuthPrinciple, AuthShell, AuthTaskHeader, FormAlert } from "@/components/auth/AuthShell";
 import { Button, Field, FieldLabel, Input } from "@/components/ui";
 
@@ -18,23 +18,32 @@ function safeNextPath(next?: string) {
   return next;
 }
 
+function googleAuthHref(mode: "login" | "signup", nextPath?: string) {
+  const params = new URLSearchParams({ mode });
+  if (nextPath) params.set("next", nextPath);
+  return `/api/auth/google?${params.toString()}`;
+}
+
 export function AuthPage({
   mode,
   nextPath,
-  initialEmail = ""
+  initialEmail = "",
+  googleEnabled = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID)
 }: {
   mode: "login" | "signup";
   nextPath?: string;
   initialEmail?: string;
+  googleEnabled?: boolean;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
-  const [error, setError] = useState("");
-  const redirectPath = safeNextPath(nextPath) ?? (mode === "signup" ? "/verify-email" : "/dashboard");
+  const oauthError = useMemo(() => searchParams.get("error")?.trim() || "", [searchParams]);
+  const [error, setError] = useState(oauthError);
   const [submitting, setSubmitting] = useState(false);
-
+  const redirectPath = safeNextPath(nextPath) ?? (mode === "signup" ? "/verify-email" : "/dashboard");
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -108,6 +117,17 @@ export function AuthPage({
             ? "Create the account you’ll use to register agents and set their operating boundaries."
             : "Enter the account credentials for your BehalfID control plane."}
         />
+
+        {googleEnabled ? (
+          <div className="auth-task__oauth">
+            <a className="ui-button ui-button--secondary auth-google-button" href={googleAuthHref(mode, nextPath ?? undefined)}>
+              Continue with Google
+            </a>
+            <p className="auth-divider" role="separator">
+              <span>or</span>
+            </p>
+          </div>
+        ) : null}
 
         <div className="auth-task__fields">
           <Field>

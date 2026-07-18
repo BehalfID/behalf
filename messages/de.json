@@ -724,6 +724,8 @@
     "dobRequired": "Geburtsdatum ist erforderlich.",
     "ageError": "Sie müssen mindestens 13 Jahre alt sein, um ein Konto zu erstellen.",
     "authFailed": "Authentifizierung fehlgeschlagen.",
+    "continueWithGoogle": "Weiter mit Google",
+    "orDivider": "oder",
     "agreePrefix": "Mit der Erstellung eines Kontos stimmen Sie den ",
     "terms": "Nutzungsbedingungen",
     "and": " und der ",

@@ -30,6 +30,8 @@ export type PlanEntitlements = {
   requiredManagedProfileModeEnabled: boolean;
   pauseApprovalsEnabled: boolean;
   advancedAuditExportsEnabled: boolean;
+  /** Workspace domain allowlist + enforce Google SSO (not consumer Sign in with Google). */
+  googleWorkspaceSsoEnabled: boolean;
 };
 
 export const PLAN_ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
@@ -47,7 +49,8 @@ export const PLAN_ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     managedProfilesEnabled: true,
     requiredManagedProfileModeEnabled: true,
     pauseApprovalsEnabled: true,
-    advancedAuditExportsEnabled: false
+    advancedAuditExportsEnabled: false,
+    googleWorkspaceSsoEnabled: false
   },
   // Legacy Stripe-billed paid plan; numeric limits are unchanged from before
   // the entitlement layer existed.
@@ -61,7 +64,8 @@ export const PLAN_ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     managedProfilesEnabled: true,
     requiredManagedProfileModeEnabled: true,
     pauseApprovalsEnabled: true,
-    advancedAuditExportsEnabled: false
+    advancedAuditExportsEnabled: false,
+    googleWorkspaceSsoEnabled: true
   },
   team: {
     maxBillableUsers: 25,
@@ -73,7 +77,8 @@ export const PLAN_ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     managedProfilesEnabled: true,
     requiredManagedProfileModeEnabled: true,
     pauseApprovalsEnabled: true,
-    advancedAuditExportsEnabled: false
+    advancedAuditExportsEnabled: false,
+    googleWorkspaceSsoEnabled: true
   },
   business: {
     maxBillableUsers: 100,
@@ -85,7 +90,8 @@ export const PLAN_ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     managedProfilesEnabled: true,
     requiredManagedProfileModeEnabled: true,
     pauseApprovalsEnabled: true,
-    advancedAuditExportsEnabled: true
+    advancedAuditExportsEnabled: true,
+    googleWorkspaceSsoEnabled: true
   },
   enterprise: {
     maxBillableUsers: Infinity,
@@ -99,7 +105,8 @@ export const PLAN_ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     managedProfilesEnabled: true,
     requiredManagedProfileModeEnabled: true,
     pauseApprovalsEnabled: true,
-    advancedAuditExportsEnabled: true
+    advancedAuditExportsEnabled: true,
+    googleWorkspaceSsoEnabled: true
   }
 };
 
