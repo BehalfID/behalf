@@ -102,7 +102,7 @@ async function createThemePage({ storedTheme = null, systemTheme = "light" } = {
 async function testDesktopNav() {
   console.log("\n[Desktop nav]");
   await page.setViewport(DESKTOP);
-  await page.goto(`${BASE_URL}${PUBLIC_SHELL_ROUTE}`, { waitUntil: "networkidle0" });
+  await page.goto(`${BASE_URL}${PUBLIC_SHELL_ROUTE}`, { waitUntil: "networkidle2" });
 
   assert(await exists(".public-nav"),                     "nav renders");
   assert(await exists(".public-nav .site-logo"),          "logo present in nav");
@@ -123,7 +123,7 @@ async function testDesktopNav() {
 async function testMobileNavLayout() {
   console.log("\n[Mobile nav — logo centering]");
   await page.setViewport(MOBILE);
-  await page.goto(`${BASE_URL}${PUBLIC_SHELL_ROUTE}`, { waitUntil: "networkidle0" });
+  await page.goto(`${BASE_URL}${PUBLIC_SHELL_ROUTE}`, { waitUntil: "networkidle2" });
 
   assert(await isVisible(".public-nav__hamburger"),      "hamburger visible on mobile");
   assert(!(await isVisible(".public-nav__links")),       "desktop links hidden on mobile");
@@ -145,7 +145,7 @@ async function testMobileNavLayout() {
 async function testMobileDrawer() {
   console.log("\n[Mobile nav — drawer open/close]");
   await page.setViewport(MOBILE);
-  await page.goto(`${BASE_URL}${PUBLIC_SHELL_ROUTE}`, { waitUntil: "networkidle0" });
+  await page.goto(`${BASE_URL}${PUBLIC_SHELL_ROUTE}`, { waitUntil: "networkidle2" });
 
   assert(!(await exists(".public-nav__drawer")), "drawer initially closed");
 
@@ -176,7 +176,7 @@ async function testMobileDrawer() {
 async function testNoEmojis() {
   console.log("\n[No emojis in page content]");
   await page.setViewport(DESKTOP);
-  await page.goto(`${BASE_URL}${PUBLIC_SHELL_ROUTE}`, { waitUntil: "networkidle0" });
+  await page.goto(`${BASE_URL}${PUBLIC_SHELL_ROUTE}`, { waitUntil: "networkidle2" });
 
   assert(await textHasNoDecorativeEmoji(".public-nav"),    "no decorative emojis in nav");
   assert(await textHasNoDecorativeEmoji(".marketing"),     "no decorative emojis on main page");
@@ -186,7 +186,7 @@ async function testNoEmojis() {
 async function testFooterLayout() {
   console.log("\n[Footer layout]");
   await page.setViewport(DESKTOP);
-  await page.goto(`${BASE_URL}${PUBLIC_SHELL_ROUTE}`, { waitUntil: "networkidle0" });
+  await page.goto(`${BASE_URL}${PUBLIC_SHELL_ROUTE}`, { waitUntil: "networkidle2" });
 
   assert(await exists(".site-footer"),          "footer renders");
   assert(await exists(".site-footer__brand"),   "footer brand section exists");
@@ -218,7 +218,7 @@ async function testCanonicalHomepage() {
   for (const route of ["/", "/de"]) {
     for (const width of RESPONSIVE_WIDTHS) {
       await page.setViewport({ width, height: width === 390 ? 844 : 960 });
-      await page.goto(`${BASE_URL}${route}`, { waitUntil: "networkidle0" });
+      await page.goto(`${BASE_URL}${route}`, { waitUntil: "networkidle2" });
 
       assert(await exists('header .site-logo[href="/"]'), `${route} uses the canonical brand link at ${width}px`);
       assert(await page.$eval("header", (el) => /Sign in/.test(el.textContent || "")), `${route} keeps Sign in when logged out at ${width}px`);
@@ -236,7 +236,7 @@ async function testCanonicalHomepage() {
 async function testHomepageInteractions() {
   console.log("\n[Homepage authorization and product interactions]");
   await page.setViewport(DESKTOP);
-  await page.goto(`${BASE_URL}/`, { waitUntil: "networkidle0" });
+  await page.goto(`${BASE_URL}/`, { waitUntil: "networkidle2" });
 
   const decisionTabs = '[role="tablist"][aria-label="Decision outcome"] [role="tab"]';
   await page.focus(`${decisionTabs}[aria-selected="true"]`);
@@ -288,7 +288,7 @@ async function testHomepageInteractions() {
 async function testHomepageMobileNavigation() {
   console.log("\n[Homepage mobile navigation]");
   await page.setViewport(MOBILE);
-  await page.goto(`${BASE_URL}/`, { waitUntil: "networkidle0" });
+  await page.goto(`${BASE_URL}/`, { waitUntil: "networkidle2" });
 
   assert(await isVisible('button[aria-controls="marketing-drawer"]'), "homepage menu button is visible");
   assert(!(await exists("#marketing-drawer")), "homepage drawer starts closed");
@@ -318,7 +318,7 @@ async function testHomepageThemeInitialization() {
     const { context, themePage } = await createThemePage(scenario);
     try {
       await themePage.setViewport({ width: 1024, height: 900 });
-      await themePage.goto(`${BASE_URL}${scenario.route}`, { waitUntil: "networkidle0" });
+      await themePage.goto(`${BASE_URL}${scenario.route}`, { waitUntil: "networkidle2" });
       const result = await themePage.evaluate(() => ({
         theme: document.documentElement.getAttribute("data-theme"),
         mutations: window.__behalfThemeMutations,
@@ -337,7 +337,7 @@ async function testHomepageThemeControlAndLiveSystemChanges() {
 
   try {
     await themePage.setViewport({ width: 1440, height: 960 });
-    await themePage.goto(`${BASE_URL}/`, { waitUntil: "networkidle0" });
+    await themePage.goto(`${BASE_URL}/`, { waitUntil: "networkidle2" });
     const control = 'header select[aria-label="Theme preference"]';
 
     await themePage.focus(control);
@@ -370,7 +370,7 @@ async function testHomepageThemeControlAndLiveSystemChanges() {
 async function testDocsShellDesktop() {
   console.log("\n[Documentation shell — desktop]");
   await page.setViewport({ width: 1440, height: 900 });
-  await page.goto(`${BASE_URL}/de/docs/cli`, { waitUntil: "networkidle0" });
+  await page.goto(`${BASE_URL}/de/docs/cli`, { waitUntil: "networkidle2" });
 
   assert(await isVisible(".docs-sidebar"), "persistent docs navigation visible");
   assert(await isVisible(".docs-utility-header"), "compact docs utility header visible");
@@ -392,7 +392,7 @@ async function testDocsShellDesktop() {
 async function testDocsShellMobile() {
   console.log("\n[Documentation shell — mobile drawer]");
   await page.setViewport({ width: 390, height: 844 });
-  await page.goto(`${BASE_URL}/de/docs/cli`, { waitUntil: "networkidle0" });
+  await page.goto(`${BASE_URL}/de/docs/cli`, { waitUntil: "networkidle2" });
 
   assert(await isVisible(".docs-mobile-header"), "mobile docs header visible");
   assert(!(await isVisible(".docs-sidebar")), "desktop docs sidebar hidden");
@@ -425,7 +425,7 @@ async function testPublicResponsiveWidths() {
   for (const width of RESPONSIVE_WIDTHS) {
     await page.setViewport({ width, height: width < 800 ? 900 : 960 });
     for (const route of routes) {
-      await page.goto(`${BASE_URL}${route}`, { waitUntil: "networkidle0" });
+      await page.goto(`${BASE_URL}${route}`, { waitUntil: "networkidle2" });
       assert(await hasNoHorizontalOverflow(), `${route} has no horizontal overflow at ${width}px`);
     }
   }
@@ -434,7 +434,7 @@ async function testPublicResponsiveWidths() {
 async function testPublicNotFound() {
   console.log("\n[Public 404]");
   await page.setViewport({ width: 390, height: 844 });
-  await page.goto(`${BASE_URL}/de/route-that-does-not-exist`, { waitUntil: "networkidle0" });
+  await page.goto(`${BASE_URL}/de/route-that-does-not-exist`, { waitUntil: "networkidle2" });
 
   assert(await exists(".public-error-page"), "branded not-found page renders");
   assert(await exists(".public-error-state h1"), "not-found page has a primary heading");
@@ -446,7 +446,7 @@ async function testPublicNotFound() {
 async function testHomeV2Redirect() {
   console.log("\n[/home-v2 redirect]");
   await page.setViewport(DESKTOP);
-  const response = await page.goto(`${BASE_URL}/home-v2`, { waitUntil: "networkidle0" });
+  const response = await page.goto(`${BASE_URL}/home-v2`, { waitUntil: "networkidle2" });
   const redirectChain = response.request().redirectChain();
   const homeV2Request = redirectChain.find((request) => new URL(request.url()).pathname === "/home-v2");
   const redirectLocation = homeV2Request?.response()?.headers().location;

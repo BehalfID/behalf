@@ -4,7 +4,7 @@ import { shouldForceAccountSetup, shouldShowAccountSetupBannerForUser } from "@/
 import { extractDashboardSubpath, workspaceDashboardHref } from "@/lib/workspaceSlug";
 import { ensureAccountHasSlug } from "@/lib/workspaceSlugServer";
 import { findAccountByIdLean } from "@/lib/repositories/accounts";
-import { DashboardShell } from "./client";
+import { DashboardViews } from "./client";
 
 /**
  * Legacy /dashboard/* entry. Temporarily redirects authenticated users to
@@ -53,7 +53,7 @@ export async function ProtectedDashboard({
   // Controlled setup fallback when slug cannot be resolved — avoid redirect loops.
   const showSetupBanner = await shouldShowAccountSetupBannerForUser(context.user.userId);
   return (
-    <DashboardShell
+    <DashboardViews
       view={view}
       id={id}
       emailVerified={context.user.emailVerified !== false}

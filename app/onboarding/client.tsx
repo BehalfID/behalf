@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FormAlert } from "@/components/auth/AuthShell";
 import { OnboardingIntro, OnboardingShell, StepActions } from "@/components/onboarding/OnboardingShell";
-import { Input, Select } from "@/components/ui";
+import { Input, PageLoadingState, Select } from "@/components/ui";
 import {
   AGENT_TOOL_LABELS,
   AGENT_TOOLS,
@@ -368,12 +368,7 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
   if (loading) {
     return (
       <OnboardingShell currentStep={1} label="Account setup" steps={ACCOUNT_SETUP_STEPS}>
-        <div className="journey-loading" role="status" aria-live="polite">
-          <span>Loading your saved setup</span>
-          <span className="journey-loading__line" aria-hidden="true" />
-          <span className="journey-loading__line" aria-hidden="true" />
-          <span className="journey-loading__line" aria-hidden="true" />
-        </div>
+        <PageLoadingState label="Loading your saved account setup" variant="form" />
       </OnboardingShell>
     );
   }

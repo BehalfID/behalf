@@ -1,4 +1,5 @@
 export type DashboardContentVariant = "standard" | "wide" | "focused" | "detail" | "activity";
+export type DashboardLoadingVariant = "overview" | "table" | "detail" | "settings" | "form" | "activity";
 
 export function isDashboardPath(pathname: string | null | undefined): boolean {
   if (!pathname) return false;
@@ -24,6 +25,18 @@ export function getDashboardContentVariant(pathname: string): DashboardContentVa
   if (subpath === "/onboarding" || subpath === "/agents/new") return "focused";
   if (/^\/(agents|webhooks)\/[^/]+$/.test(subpath)) return "detail";
   return "standard";
+}
+
+export function getDashboardLoadingVariant(pathname: string): DashboardLoadingVariant {
+  const subpath = getDashboardSubpath(pathname);
+  if (!subpath) return "overview";
+  if (subpath === "/onboarding" || subpath === "/agents/new") return "form";
+  if (subpath === "/settings" || subpath === "/billing" || subpath === "/managed-profiles" || subpath === "/sites") {
+    return "settings";
+  }
+  if (subpath === "/logs" || subpath === "/managed-profiles/activity") return "activity";
+  if (/^\/(agents|webhooks)\/[^/]+$/.test(subpath)) return "detail";
+  return "table";
 }
 
 export function isDashboardNavItemActive(pathname: string, href: string): boolean {
