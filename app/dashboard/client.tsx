@@ -3980,7 +3980,6 @@ function SettingsView() {
             Owners and Engineering Leads can update these shared fields. Your account profile remains independently editable above.
           </div>
         )}
-        )}
       </SettingsSection>
       <SsoSettingsCard canEditWorkspace={Boolean(settings.data?.canEditAccountFields)} />
       <MembersPanel />

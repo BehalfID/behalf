@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { AuthPrinciple, AuthShell, AuthTaskHeader, FormAlert } from "@/components/auth/AuthShell";
 import { Button, Field, FieldLabel, Input } from "@/components/ui";
 
@@ -40,14 +40,10 @@ export function AuthPage({
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
-  const [error, setError] = useState("");
+  const oauthError = useMemo(() => searchParams.get("error")?.trim() || "", [searchParams]);
+  const [error, setError] = useState(oauthError);
   const [submitting, setSubmitting] = useState(false);
   const redirectPath = safeNextPath(nextPath) ?? (mode === "signup" ? "/verify-email" : "/dashboard");
-  const oauthError = useMemo(() => searchParams.get("error")?.trim() || "", [searchParams]);
-
-  useEffect(() => {
-    if (oauthError) setError(oauthError);
-  }, [oauthError]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
