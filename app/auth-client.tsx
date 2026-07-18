@@ -68,18 +68,15 @@ export function AuthPage({
         return;
       }
 
-      if (mode === "signup") {
-        router.push(redirectPath);
+      const body = (await response.json().catch(() => null)) as {
+        user?: { emailVerified?: boolean };
+      } | null;
+
+      if (mode === "signup" || body?.user?.emailVerified === false) {
+        router.push("/verify-email");
         return;
       }
 
-    const body = (await response.json().catch(() => null)) as {
-      user?: { emailVerified?: boolean };
-    } | null;
-
-    if (mode === "signup" || body?.user?.emailVerified === false) {
-      router.push("/verify-email");
-      return;
       router.push(redirectPath);
     } catch {
       setError("We could not reach BehalfID. Check your connection and try again.");

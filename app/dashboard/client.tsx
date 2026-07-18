@@ -3846,72 +3846,6 @@ function SettingsView() {
             <div className="setup-actions"><Button loading={tokenWorking === "create"} variant="primary" type="submit">Create token</Button></div>
           </form>
         </div>
-        {settings.data ? (
-          <div className="account-details">
-            <div className="account-details__row">
-              <span className="account-details__label">App URL</span>
-              <span className="account-details__value">{settings.data.appUrl}</span>
-            </div>
-            <div className="account-details__row">
-              <span className="account-details__label">API usage</span>
-              <span className="account-details__value">{settings.data.apiUsage}</span>
-            </div>
-            <div className="account-details__row">
-              <span className="account-details__label">Danger zone</span>
-              <span className="account-details__value">
-                Permanently delete your account and sole-owned workspace data. Shared workspaces keep their data; your membership is removed.
-              </span>
-            </div>
-            {!showDeleteConfirm ? (
-              <Button onClick={() => setShowDeleteConfirm(true)} type="button" variant="secondary">
-                Delete account
-              </Button>
-            ) : (
-              <form className="setup-form" onSubmit={deleteAccount}>
-                <p className="field-help">
-                  This action cannot be undone. Type <strong>DELETE</strong> and enter your password to confirm.
-                </p>
-                <label>
-                  <span>Confirmation</span>
-                  <input
-                    autoComplete="off"
-                    onChange={(event) => setDeleteConfirmation(event.target.value)}
-                    placeholder="DELETE"
-                    required
-                    value={deleteConfirmation}
-                  />
-                </label>
-                <label>
-                  <span>Password</span>
-                  <input
-                    autoComplete="current-password"
-                    onChange={(event) => setDeletePassword(event.target.value)}
-                    required
-                    type="password"
-                    value={deletePassword}
-                  />
-                </label>
-                {deleteError ? <p className="form-error" role="alert">{deleteError}</p> : null}
-                <div className="setup-actions">
-                  <Button disabled={deleting} type="submit" variant="primary">
-                    {deleting ? "Deleting…" : "Permanently delete account"}
-                  </Button>
-                  <Button
-                    disabled={deleting}
-                    onClick={() => {
-                      setShowDeleteConfirm(false);
-                      setDeletePassword("");
-                      setDeleteConfirmation("");
-                      setDeleteError("");
-                    }}
-                    type="button"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </form>
-            )}
-          </div>
         {newToken ? (
           <SecretLifecycleNotice
             description="Copy this token now. BehalfID stores only its hash and masked preview, so this value cannot be recovered later."
@@ -3947,20 +3881,65 @@ function SettingsView() {
         </div>
       </SettingsSection>
       <SettingsSection
-        description="Account deletion is handled through support in this release. No self-service deletion request is available on this page."
+        description="Permanently delete your account and sole-owned workspace data. Shared workspaces keep their data; your membership is removed."
         eyebrow="Destructive actions"
         id="danger-zone"
         title="Account deletion"
         tone="danger"
       >
         <DestructiveSettingsSection
-          consequence={settings.data?.dangerZone.includes(SUPPORT_EMAIL) ? (
-            <>
-              {settings.data.dangerZone.slice(0, settings.data.dangerZone.indexOf(SUPPORT_EMAIL))}
-              <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
-              {settings.data.dangerZone.slice(settings.data.dangerZone.indexOf(SUPPORT_EMAIL) + SUPPORT_EMAIL.length)}
-            </>
-          ) : settings.data?.dangerZone}
+          action={
+            !showDeleteConfirm ? (
+              <Button onClick={() => setShowDeleteConfirm(true)} type="button" variant="danger">
+                Delete account
+              </Button>
+            ) : (
+              <form className="setup-form" onSubmit={deleteAccount}>
+                <p className="field-help">
+                  This action cannot be undone. Type <strong>DELETE</strong> and enter your password to confirm.
+                </p>
+                <label>
+                  <span>Confirmation</span>
+                  <input
+                    autoComplete="off"
+                    onChange={(event) => setDeleteConfirmation(event.target.value)}
+                    placeholder="DELETE"
+                    required
+                    value={deleteConfirmation}
+                  />
+                </label>
+                <label>
+                  <span>Password</span>
+                  <input
+                    autoComplete="current-password"
+                    onChange={(event) => setDeletePassword(event.target.value)}
+                    required
+                    type="password"
+                    value={deletePassword}
+                  />
+                </label>
+                {deleteError ? <p className="form-error" role="alert">{deleteError}</p> : null}
+                <div className="setup-actions">
+                  <Button disabled={deleting} loading={deleting} type="submit" variant="danger">
+                    {deleting ? "Deleting…" : "Permanently delete account"}
+                  </Button>
+                  <Button
+                    disabled={deleting}
+                    onClick={() => {
+                      setShowDeleteConfirm(false);
+                      setDeletePassword("");
+                      setDeleteConfirmation("");
+                      setDeleteError("");
+                    }}
+                    type="button"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            )
+          }
+          consequence="Deletion removes your user account, sessions, developer tokens, and any workspace you solely own."
           title="Delete account and workspace data"
         />
       </SettingsSection>
