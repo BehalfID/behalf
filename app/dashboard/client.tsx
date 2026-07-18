@@ -2854,6 +2854,165 @@ function MembersPanel() {
   );
 }
 
+function SsoSettingsCard({ canEditWorkspace }: { canEditWorkspace: boolean }) {
+  const { apiJson: api } = useDashboardApi();
+  const ssoResource = useResource<{
+    available: boolean;
+    canEdit: boolean;
+    sso: {
+      provider: "google";
+      enabled: boolean;
+      enforce: boolean;
+      allowedEmailDomains: string[];
+    };
+    plan: string;
+  }>("/api/dashboard/sso");
+  const [enabled, setEnabled] = useState(false);
+  const [enforce, setEnforce] = useState(false);
+  const [domainsText, setDomainsText] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!ssoResource.data) return;
+    setEnabled(ssoResource.data.sso.enabled);
+    setEnforce(ssoResource.data.sso.enforce);
+    setDomainsText(ssoResource.data.sso.allowedEmailDomains.join("\n"));
+  }, [ssoResource.data]);
+
+  const saveSso = async (event: FormEvent) => {
+    event.preventDefault();
+    setMessage("");
+    setError("");
+    setSaving(true);
+    try {
+      const allowedEmailDomains = domainsText
+        .split(/[\n,]+/)
+        .map((value) => value.trim().toLowerCase())
+        .filter(Boolean);
+      await api("/api/dashboard/sso", {
+        method: "PATCH",
+        body: JSON.stringify({ enabled, enforce, allowedEmailDomains })
+      });
+      setMessage("Google SSO settings saved.");
+      await ssoResource.reload();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Failed to save SSO settings.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!ssoResource.data && !ssoResource.error) {
+    return (
+      <Card className="dashboard-panel">
+        <div className="dashboard-section-header">
+          <h2>Google SSO</h2>
+        </div>
+        <p className="field-help">Loading SSO settings…</p>
+      </Card>
+    );
+  }
+
+  if (ssoResource.error || !ssoResource.data) {
+    return (
+      <Card className="dashboard-panel">
+        <div className="dashboard-section-header">
+          <h2>Google SSO</h2>
+        </div>
+        <p className="form-error" role="alert">{ssoResource.error || "Unable to load SSO settings."}</p>
+      </Card>
+    );
+  }
+
+  if (!ssoResource.data.available) {
+    return (
+      <Card className="dashboard-panel">
+        <div className="dashboard-section-header">
+          <h2>Google SSO</h2>
+        </div>
+        <p className="field-help">
+          Workspace Google SSO (company domain allowlist and password-login enforcement) is available on Pro and higher plans.
+          Sign in with Google for individual accounts is available on all plans from the login page.
+        </p>
+      </Card>
+    );
+  }
+
+  const canEdit = Boolean(ssoResource.data.canEdit && canEditWorkspace);
+
+  return (
+    <Card className="dashboard-panel">
+      <div className="dashboard-section-header">
+        <h2>Google SSO</h2>
+      </div>
+      <p className="field-help">
+        Require or prefer Google sign-in for members whose email matches your company domains.
+        Invites are still required to join this workspace.
+      </p>
+      {canEdit ? (
+        <form className="setup-form" onSubmit={saveSso}>
+          <label className="setup-check">
+            <input checked={enabled} onChange={(event) => setEnabled(event.target.checked)} type="checkbox" />
+            <span className="setup-check__body">
+              <span className="setup-check__label">Enable Google SSO for allowed domains</span>
+            </span>
+          </label>
+          <label className="setup-check">
+            <input
+              checked={enforce}
+              disabled={!enabled}
+              onChange={(event) => setEnforce(event.target.checked)}
+              type="checkbox"
+            />
+            <span className="setup-check__body">
+              <span className="setup-check__label">Enforce Google sign-in (block password login for these domains)</span>
+            </span>
+          </label>
+          <label>
+            <span>Allowed email domains</span>
+            <textarea
+              onChange={(event) => setDomainsText(event.target.value)}
+              placeholder={"acme.com\nengineering.acme.com"}
+              rows={4}
+              value={domainsText}
+            />
+          </label>
+          <p className="field-help">One domain per line. Public providers like gmail.com cannot be used when enforcement is on.</p>
+          {error ? <p className="form-error" role="alert">{error}</p> : null}
+          {message ? <p className="field-help">{message}</p> : null}
+          <div className="setup-actions">
+            <Button disabled={saving} type="submit" variant="primary">
+              {saving ? "Saving…" : "Save SSO settings"}
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <div className="account-details">
+          <div className="account-details__row">
+            <span className="account-details__label">Status</span>
+            <span className="account-details__value">{ssoResource.data.sso.enabled ? "Enabled" : "Disabled"}</span>
+          </div>
+          <div className="account-details__row">
+            <span className="account-details__label">Enforce</span>
+            <span className="account-details__value">{ssoResource.data.sso.enforce ? "On" : "Off"}</span>
+          </div>
+          <div className="account-details__row">
+            <span className="account-details__label">Domains</span>
+            <span className="account-details__value">
+              {ssoResource.data.sso.allowedEmailDomains.length
+                ? ssoResource.data.sso.allowedEmailDomains.join(", ")
+                : "None"}
+            </span>
+          </div>
+          <p className="field-help">Only Owners and Engineering Leads can edit SSO settings.</p>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 function SettingsView() {
   const { apiJson: api } = useDashboardApi();
   const { href: dHref } = useDashboardPaths();
@@ -3209,6 +3368,7 @@ function SettingsView() {
           <p className="field-help">Workspace fields can be edited by Owners and Engineering Leads.</p>
         )}
       </Card>
+      <SsoSettingsCard canEditWorkspace={Boolean(settings.data?.canEditAccountFields)} />
       <Card className="dashboard-panel">
         <div className="dashboard-section-header">
           <h2>Account</h2>

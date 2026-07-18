@@ -3063,6 +3063,33 @@ textarea.ui-input,
   color: var(--muted);
 }
 
+.auth-divider {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.25rem 0 0.5rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  height: 1px;
+  background: currentColor;
+  opacity: 0.25;
+}
+
+.auth-google-button {
+  width: 100%;
+  justify-content: center;
+  text-decoration: none;
+  text-align: center;
+}
+
 .auth-alt a {
   color: var(--text);
 }

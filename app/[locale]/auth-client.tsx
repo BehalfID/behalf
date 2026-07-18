@@ -12,7 +12,13 @@ function maxDateOfBirth(minAge: number): string {
   return d.toISOString().split("T")[0];
 }
 
-export function AuthPage({ mode }: { mode: "login" | "signup" }) {
+export function AuthPage({
+  mode,
+  googleEnabled = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID)
+}: {
+  mode: "login" | "signup";
+  googleEnabled?: boolean;
+}) {
   const router = useRouter();
   const t = useTranslations("auth");
   const [email, setEmail] = useState("");
@@ -119,6 +125,19 @@ export function AuthPage({ mode }: { mode: "login" | "signup" }) {
           <p className="section-kicker">{mode === "signup" ? t("signupKicker") : t("loginKicker")}</p>
           <h1>{mode === "signup" ? t("signupH1") : t("loginH1")}</h1>
           <p>{mode === "signup" ? t("signupBody") : t("loginBody")}</p>
+          {googleEnabled ? (
+            <>
+              <a
+                className="ui-button ui-button--secondary auth-google-button"
+                href={`/api/auth/google?mode=${mode}`}
+              >
+                {t("continueWithGoogle")}
+              </a>
+              <p className="auth-divider" role="separator">
+                <span>{t("orDivider")}</span>
+              </p>
+            </>
+          ) : null}
           <label>
             <span>{t("emailLabel")}</span>
             <input autoComplete="email" onChange={(e) => setEmail(e.target.value)} required type="email" value={email} />

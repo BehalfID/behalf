@@ -15,6 +15,13 @@
       "when": 1783814400000,
       "tag": "0001_workspace_slug",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784332800000,
+      "tag": "0002_google_sso",
+      "breakpoints": true
     }
   ]
 }

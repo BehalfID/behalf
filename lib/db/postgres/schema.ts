@@ -82,6 +82,7 @@ export const accounts = pgTable(
     })
       .notNull()
       .defaultNow(),
+    sso: jsonb("sso"),
     ...createdUpdatedAt()
   },
   (table) => [
@@ -115,7 +116,10 @@ export const developerUsers = pgTable(
   {
     userId: text("user_id").primaryKey(),
     email: text("email").notNull(),
-    passwordHash: text("password_hash").notNull(),
+    /** Nullable for Google-only accounts. */
+    passwordHash: text("password_hash"),
+    googleSub: text("google_sub"),
+    authProviders: jsonb("auth_providers").$type<Array<"password" | "google">>(),
     onboardingUseCase: text("onboarding_use_case").notNull().default("sdk"),
     primaryAccountId: text("primary_account_id").references(() => accounts.accountId, {
       onDelete: "set null"
@@ -148,7 +152,29 @@ export const developerUsers = pgTable(
       "developer_users_onboarding_use_case_check",
       sql`${table.onboardingUseCase} IN (${sql.raw(sqlInList(ONBOARDING_USE_CASES))})`
     ),
-    uniqueIndex("developer_users_email_lower_uq").on(sql`lower(${table.email})`)
+    uniqueIndex("developer_users_email_lower_uq").on(sql`lower(${table.email})`),
+    uniqueIndex("developer_users_google_sub_uq")
+      .on(table.googleSub)
+      .where(sql`${table.googleSub} IS NOT NULL`)
+  ]
+);
+
+export const oauthPendingSignups = pgTable(
+  "oauth_pending_signups",
+  {
+    pendingId: text("pending_id").primaryKey(),
+    googleSub: text("google_sub").notNull(),
+    email: text("email").notNull(),
+    emailVerified: boolean("email_verified").notNull(),
+    firstName: text("first_name"),
+    lastName: text("last_name"),
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+    createdAt: timestamptz().notNull().defaultNow()
+  },
+  (table) => [
+    index("oauth_pending_signups_google_sub_idx").on(table.googleSub),
+    index("oauth_pending_signups_expires_at_idx").on(table.expiresAt)
   ]
 );
 

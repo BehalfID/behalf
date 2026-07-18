@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Button, Logo } from "@/components/ui";
 
 /** Returns the latest date of birth that satisfies the minimum age (YYYY-MM-DD). */
@@ -17,21 +17,35 @@ function safeNextPath(next?: string) {
   return next;
 }
 
+function googleAuthHref(mode: "login" | "signup", nextPath?: string) {
+  const params = new URLSearchParams({ mode });
+  if (nextPath) params.set("next", nextPath);
+  return `/api/auth/google?${params.toString()}`;
+}
+
 export function AuthPage({
   mode,
   nextPath,
-  initialEmail = ""
+  initialEmail = "",
+  googleEnabled = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID)
 }: {
   mode: "login" | "signup";
   nextPath?: string;
   initialEmail?: string;
+  googleEnabled?: boolean;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [error, setError] = useState("");
   const redirectPath = safeNextPath(nextPath) ?? (mode === "signup" ? "/verify-email" : "/dashboard");
+  const oauthError = useMemo(() => searchParams.get("error")?.trim() || "", [searchParams]);
+
+  useEffect(() => {
+    if (oauthError) setError(oauthError);
+  }, [oauthError]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -142,6 +156,16 @@ export function AuthPage({
           <p className="section-kicker">{mode === "signup" ? "New workspace" : "Control plane access"}</p>
           <h1>{mode === "signup" ? "Create your workspace" : "Sign in"}</h1>
           <p>{mode === "signup" ? "Provision a control plane for the coding agents in your stack." : "Authenticate to manage agents, policies, and audit history."}</p>
+          {googleEnabled ? (
+            <>
+              <a className="ui-button ui-button--secondary auth-google-button" href={googleAuthHref(mode, nextPath ?? undefined)}>
+                Continue with Google
+              </a>
+              <p className="auth-divider" role="separator">
+                <span>or</span>
+              </p>
+            </>
+          ) : null}
           <label>
             <span>Email</span>
             <input autoComplete="email" onChange={(event) => setEmail(event.target.value)} required type="email" value={email} />

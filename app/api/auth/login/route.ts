@@ -11,6 +11,7 @@ import { checkAuthRateLimit, checkRateLimit, rateLimitError } from "@/lib/rateLi
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
+import { isPasswordLoginBlockedBySso } from "@/lib/workspaceSso";
 import DeveloperUser from "@/models/DeveloperUser";
 
 export async function POST(request: NextRequest) {
@@ -34,9 +35,19 @@ export async function POST(request: NextRequest) {
   const authLimit = await checkAuthRateLimit(email);
   if (authLimit.limited) return rateLimitError();
 
+  if (await isPasswordLoginBlockedBySso(email)) {
+    return jsonError("Password sign-in is disabled for this email domain. Use Continue with Google.", 403);
+  }
+
   await connectToDatabase();
-  const user = await DeveloperUser.findOne({ email }).select("+passwordHash");
-  if (!user || !(await verifyPassword(password, user.passwordHash))) {
+  const user = await DeveloperUser.findOne({ email }).select("+passwordHash authProviders");
+  if (!user?.passwordHash) {
+    if (user) {
+      return jsonError("This account uses Google sign-in. Use Continue with Google.", 401);
+    }
+    return jsonError("Invalid email or password.", 401);
+  }
+  if (!(await verifyPassword(password, user.passwordHash))) {
     return jsonError("Invalid email or password.", 401);
   }
 
