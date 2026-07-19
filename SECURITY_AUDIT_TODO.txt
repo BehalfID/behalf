@@ -89,3 +89,11 @@
 # - npm audit: 0 vulnerabilities (root, cli, sdk, examples/enforcement-demo, examples/node-demo, examples/webhook-receiver, examples/site-guard-express, examples/site-guard-nextjs, packages/github-action)
 # - Unit tests: 625/625 passed
 # - No hardcoded secrets detected
+
+# Last audit: 2026-07-19
+# Result: PASSED
+# - npm audit: 0 vulnerabilities (root, cli, sdk, examples/enforcement-demo, examples/node-demo, examples/webhook-receiver, examples/site-guard-express, examples/site-guard-nextjs, packages/github-action)
+# - Unit tests: 1351/1375 passed, 24 skipped (mongo-repository-contracts.test.ts suite could not run in this sandbox: outbound download of the MongoDB test binary was blocked by network policy — not a code failure)
+# - TypeScript typecheck (tsc --noEmit): clean
+# - No hardcoded secrets detected
+# - Note: this run did not push to main. See branch policy note below.
