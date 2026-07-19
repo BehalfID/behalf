@@ -1,7 +1,7 @@
 import type { RuntimeEventHandler, RuntimeEventType } from "./types.js";
 /**
- * Lightweight in-process event bus for dashboards and integrations.
- * Handlers run sequentially; failures in one handler do not stop others.
+ * Transport-agnostic lifecycle bus for dashboards, telemetry, and future webhooks.
+ * Handler failures never abort the enforcement path.
  */
 export declare class EventBus {
     private readonly handlers;

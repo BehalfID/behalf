@@ -1,185 +1,115 @@
 /**
- * Public contracts for the BehalfID Runtime MCP Protection Framework.
+ * Canonical contracts for `@behalfid/mcp-runtime` as a Policy Enforcement Point.
  *
- * The runtime sits between AI agents and MCP servers. Every tool invocation
- * must receive a decision before it may reach the underlying server.
+ * Authorization decisions live in the BehalfID platform (`verify()`).
+ * This package only intercepts, maps, enforces, and proxies.
  */
-/** Calculated risk for a tool invocation. */
-export type RiskLevel = "low" | "medium" | "high" | "critical";
 /**
- * Final outcomes from the Decision Engine.
- * No other module may invent alternate terminal outcomes.
+ * Provider-agnostic MCP tool invocation.
+ * Every host (Cursor, Claude Desktop, VS Code, Windsurf, …) normalizes into this
+ * before authorization.
  */
-export type DecisionType = "allow" | "allow-with-audit" | "require-approval" | "deny" | "block-server";
-/** Intermediate verdict produced by a single policy. */
-export type PolicyVerdict = "allow" | "deny" | "require-approval" | "abstain";
-/** User response options for an interrupted approval. */
-export type ApprovalChoice = "approve-once" | "always-allow" | "deny";
-/** Lifecycle status of an approval request. */
-export type ApprovalStatus = "pending" | "approved-once" | "always-allowed" | "denied" | "expired";
-/** Effect of a permission grant. */
-export type PermissionEffect = "allow" | "deny";
-/**
- * First-class permission object.
- *
- * Examples: `filesystem.read`, `shell.execute`, `http.request`, `git.push`
- */
-export interface Permission {
-    id: string;
-    /** Dot-separated permission string, may include `*` wildcards. */
-    action: string;
-    effect: PermissionEffect;
-    /** Optional resource scope (path, host, repo, etc.). Supports trailing `*`. */
-    resource?: string;
-    /** Optional MCP server scope. */
-    server?: string;
-    /** Optional MCP tool scope. */
-    tool?: string;
-    /** Subject this permission applies to (user, agent, role id). */
-    subjectId?: string;
-    workspaceId?: string;
-    expiresAt?: string;
-    /** Free-form notes for operators. */
-    notes?: string;
-}
-/**
- * An MCP tool invocation request entering the runtime.
- * Provider-agnostic: works for Cursor, Claude Desktop, VS Code, Windsurf, etc.
- */
-export interface ToolInvocation {
-    /** Caller-supplied or runtime-generated unique request id. */
-    requestId?: string;
+export interface McpInvocation {
+    requestId: string;
     sessionId: string;
     userId: string;
-    workspaceId?: string;
-    /** MCP server name. */
-    server: string;
-    /** MCP tool name. */
-    tool: string;
-    /** Tool arguments (never mutated by the runtime unless policy instructs). */
-    arguments?: Record<string, unknown>;
     /**
-     * Logical permission this tool maps to (e.g. `shell.execute`).
-     * When omitted, the runtime derives one from server/tool heuristics.
+     * BehalfID agent id used for verify().
+     * Optional when the runtime was constructed with a default `agentId`.
      */
-    permission?: string;
-    /** Optional resource target (path, URL, repo). */
-    resource?: string;
-    metadata?: Record<string, unknown>;
-}
-/** Immutable execution context created for one evaluation. */
-export interface ExecutionContext {
-    requestId: string;
-    invocation: Readonly<ToolInvocation>;
-    startedAt: string;
-    /** SHA-256 hash of redacted arguments — never raw secrets. */
-    argumentsHash: string;
-    session: SessionInfo;
-}
-export interface SessionInfo {
-    sessionId: string;
-    userId: string;
+    agentId?: string;
+    /** Host / client identifier, e.g. "cursor", "claude-desktop", "vscode". */
+    provider: string;
     workspaceId?: string;
-    /** Prior decisions in this session (newest last), for risk / history. */
-    priorActions: readonly PriorAction[];
-}
-export interface PriorAction {
     server: string;
     tool: string;
-    permission?: string;
-    decision: DecisionType;
-    risk: RiskLevel;
-    at: string;
+    arguments?: unknown;
+    metadata?: {
+        cwd?: string;
+        home?: string;
+        clientVersion?: string;
+        model?: string;
+        [key: string]: unknown;
+    };
 }
-export interface PolicyContext {
-    execution: ExecutionContext;
-    permissions: readonly Permission[];
+/** Subset of SDK VerifyInput used by the mapper — no local policy fields. */
+export interface VerifyRequest {
+    agentId: string;
+    action: string;
+    amount?: number;
+    vendor?: string;
+    resource?: string;
     metadata?: Record<string, unknown>;
+    policyContext?: {
+        source?: string;
+        toolName?: string;
+        cwd?: string;
+        home?: string;
+        toolInput?: {
+            filePath?: string;
+            command?: string;
+        };
+    };
 }
-export interface PolicyResult {
-    policyId: string;
-    verdict: PolicyVerdict;
+export type VerifyRisk = "low" | "medium" | "high";
+/**
+ * Decision returned by BehalfID verify / POST /api/verify.
+ * Includes approval fields the HTTP API returns (SDK types may lag).
+ */
+export interface VerifyDecision {
+    requestId: string;
+    allowed: boolean;
     reason: string;
-    /** When true, this result overrides lower-priority allows. */
-    definitive?: boolean;
+    risk: VerifyRisk;
+    approvalRequired?: boolean;
+    approvalId?: string;
 }
 /**
- * Pluggable policy. Policies must be pure with respect to side effects —
- * no MCP tool execution, no business logic mutations.
+ * Injectable verify client — wrap `@behalfid/sdk` BehalfID.verify or HTTP.
+ * The runtime never evaluates policy itself.
  */
-export interface Policy {
-    id: string;
-    name: string;
-    /** Lower numbers run first. Default 100. */
-    priority?: number;
-    evaluate(context: PolicyContext): Promise<PolicyResult> | PolicyResult;
+export interface VerifyClient {
+    verify(input: VerifyRequest): Promise<VerifyDecision>;
 }
-export interface ApprovalRequest {
-    id: string;
-    requestId: string;
-    sessionId: string;
-    userId: string;
-    workspaceId?: string;
-    server: string;
-    tool: string;
-    permission?: string;
-    resource?: string;
-    reason: string;
-    risk: RiskLevel;
-    argumentsHash: string;
-    status: ApprovalStatus;
-    createdAt: string;
-    resolvedAt?: string;
-    choice?: ApprovalChoice;
-}
-export interface ApprovalResolution {
+/**
+ * Host-provided approval pause. Reuses the platform ApprovalRequest flow —
+ * typically poll dashboard status or wait on a UI — then the runtime re-verifies.
+ */
+export type ApprovalWaiter = (ctx: {
     approvalId: string;
-    choice: ApprovalChoice;
-    resolvedBy?: string;
+    invocation: McpInvocation;
+    decision: VerifyDecision;
+}) => Promise<"granted" | "denied">;
+export interface McpTransport {
+    callTool(server: string, tool: string, args?: unknown): Promise<{
+        data?: unknown;
+        error?: string;
+    }>;
 }
-export interface RiskAssessment {
-    level: RiskLevel;
-    score: number;
-    factors: string[];
+export interface ToolExecutionResult {
+    ok: boolean;
+    data?: unknown;
+    error?: string;
+    durationMs: number;
 }
-export interface RiskScorer {
-    id: string;
-    assess(context: ExecutionContext, permission?: string): RiskAssessment;
-}
-export interface RuntimeDecision {
-    type: DecisionType;
-    requestId: string;
-    reason: string;
-    risk: RiskLevel;
-    riskScore: number;
-    policyMatched?: string;
-    approvalId?: string;
-    /** Convenience: true only for allow / allow-with-audit. */
-    allowed: boolean;
-    evaluatedAt: string;
-}
-export interface AuditEvent {
-    id: string;
-    timestamp: string;
-    requestId: string;
-    sessionId: string;
-    userId: string;
-    workspaceId?: string;
-    server: string;
-    tool: string;
-    permission?: string;
-    argumentsHash: string;
-    decision: DecisionType;
-    risk: RiskLevel;
-    policyMatched?: string;
-    approvalRequired: boolean;
-    approvalId?: string;
-    reason: string;
-    executionDurationMs?: number;
-    result?: "success" | "failure" | "skipped";
+export type RuntimeOutcome = "allowed" | "denied" | "approval-denied" | "verify-unavailable" | "verify-malformed" | "verify-timeout";
+export interface RuntimeExecuteResult {
+    outcome: RuntimeOutcome;
+    invocation: McpInvocation;
+    decision?: VerifyDecision;
+    execution?: ToolExecutionResult;
+    /** Present when execution was blocked. */
     error?: string;
 }
-export type RuntimeEventType = "request.received" | "policy.evaluated" | "approval.requested" | "approval.granted" | "approval.denied" | "tool.started" | "tool.completed" | "tool.failed" | "request.denied";
+export interface ExecutionReceipt {
+    requestId: string;
+    success: boolean;
+    durationMs: number;
+    error?: string;
+    server: string;
+    tool: string;
+}
+export type RuntimeEventType = "invocation.received" | "verification.started" | "verification.completed" | "verification.denied" | "approval.required" | "approval.granted" | "approval.denied" | "execution.started" | "execution.completed" | "execution.failed";
 export interface RuntimeEvent<T = unknown> {
     type: RuntimeEventType;
     timestamp: string;
@@ -187,19 +117,3 @@ export interface RuntimeEvent<T = unknown> {
     payload: T;
 }
 export type RuntimeEventHandler = (event: RuntimeEvent) => void | Promise<void>;
-export interface ToolExecutionResult {
-    ok: boolean;
-    data?: unknown;
-    error?: string;
-    durationMs: number;
-}
-/**
- * Transport that actually invokes the downstream MCP server.
- * Hosts inject their own implementation (stdio, HTTP, SDK client, etc.).
- */
-export interface McpTransport {
-    callTool(server: string, tool: string, args?: Record<string, unknown>): Promise<{
-        data?: unknown;
-        error?: string;
-    }>;
-}

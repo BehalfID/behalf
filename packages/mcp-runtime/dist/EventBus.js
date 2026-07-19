@@ -1,6 +1,6 @@
 /**
- * Lightweight in-process event bus for dashboards and integrations.
- * Handlers run sequentially; failures in one handler do not stop others.
+ * Transport-agnostic lifecycle bus for dashboards, telemetry, and future webhooks.
+ * Handler failures never abort the enforcement path.
  */
 export class EventBus {
     handlers = new Map();
@@ -20,18 +20,16 @@ export class EventBus {
             requestId,
             payload,
         };
-        const specific = this.handlers.get(type);
-        const wildcard = this.handlers.get("*");
-        const all = [
-            ...(specific ? [...specific] : []),
-            ...(wildcard ? [...wildcard] : []),
+        const handlers = [
+            ...(this.handlers.get(type) ?? []),
+            ...(this.handlers.get("*") ?? []),
         ];
-        for (const handler of all) {
+        for (const handler of handlers) {
             try {
                 await handler(event);
             }
             catch {
-                // Subscribers must not break the runtime path.
+                // Subscribers must not break the PEP.
             }
         }
     }

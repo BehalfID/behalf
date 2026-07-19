@@ -1,8 +1,6 @@
 /**
- * Tool Proxy — AI → BehalfID Proxy → MCP Server.
- *
- * Refuses to execute unless the decision allows it. Never mutates arguments
- * unless an explicit transform is configured.
+ * Proxies an authorized MCP tool call to the downstream server.
+ * Callers must only invoke this after verify() has allowed the action.
  */
 export class ToolProxy {
     transport;
@@ -11,20 +9,13 @@ export class ToolProxy {
         this.transport = options.transport;
         this.transformArguments = options.transformArguments;
     }
-    async execute(invocation, decision) {
-        if (!decision.allowed) {
-            return {
-                ok: false,
-                error: `Refused: decision is ${decision.type}`,
-                durationMs: 0,
-            };
-        }
+    async execute(server, tool, args) {
         const started = Date.now();
-        const args = this.transformArguments
-            ? this.transformArguments(invocation.arguments, invocation, decision)
-            : invocation.arguments;
+        const callArgs = this.transformArguments
+            ? this.transformArguments(args, server, tool)
+            : args;
         try {
-            const result = await this.transport.callTool(invocation.server, invocation.tool, args);
+            const result = await this.transport.callTool(server, tool, callArgs);
             const durationMs = Date.now() - started;
             if (result.error) {
                 return { ok: false, error: result.error, durationMs };

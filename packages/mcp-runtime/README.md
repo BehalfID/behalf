@@ -1,16 +1,18 @@
 # @behalfid/mcp-runtime
 
-BehalfID Runtime MCP Protection Framework — the authorization, approval,
-auditing, and policy enforcement layer between AI agents and MCP servers.
+Policy Enforcement Point (PEP) for MCP tool invocations.
+
+Intercepts every MCP tool call, authorizes it through BehalfID `verify()`,
+enforces the decision, and proxies to the MCP server **only when allowed**.
 
 ```
-AI Agent → BehalfID Runtime → MCP Server
+AI Agent → mcp-runtime (PEP) → verify() → ALLOW | DENY | APPROVAL REQUIRED → MCP Server
 ```
 
-Every tool invocation must receive a decision before it may execute.
-This package is **provider-agnostic** (Cursor, Claude Desktop, VS Code,
-Windsurf, OpenAI-compatible agents) and does **not** perform static MCP
-config auditing (see `@behalfid/mcp-audit` for that).
+This package does **not** implement policy, permissions, approvals, risk, or
+audit storage. Those belong to the BehalfID platform.
+
+For static MCP config analysis, see `@behalfid/mcp-audit`.
 
 ## Install
 
@@ -21,78 +23,64 @@ npm install @behalfid/mcp-runtime
 ## Quick start
 
 ```ts
-import { BehalfRuntime } from "@behalfid/mcp-runtime";
+import { McpRuntime, EventBus } from "@behalfid/mcp-runtime";
+import { BehalfID } from "@behalfid/sdk";
 
-const runtime = new BehalfRuntime({
+const behalf = new BehalfID({ apiKey: process.env.BEHALFID_API_KEY! });
+
+const runtime = new McpRuntime({
+  agentId: "agent_xxx",
+  verifyTimeoutMs: 5_000,
+  verifyClient: {
+    // Platform API returns approvalRequired / approvalId; map as needed
+    verify: (input) => behalf.verify(input) as ReturnType<typeof behalf.verify>,
+  },
   transport: {
     async callTool(server, tool, args) {
-      // Host-provided MCP transport
       return { data: await mcp.call(server, tool, args) };
     },
   },
+  eventBus: new EventBus(),
+  waitForApproval: async ({ approvalId }) => {
+    // Host polls existing BehalfID approval APIs / UI — not a second workflow
+    return pollPlatformApproval(approvalId);
+  },
 });
 
-await runtime.grantPermission({
-  id: "p1",
-  action: "filesystem.read",
-  effect: "allow",
-  subjectId: "user_1",
-});
-
-const decision = await runtime.evaluate({
+const result = await runtime.execute({
+  requestId: "req_1",
   sessionId: "sess_1",
   userId: "user_1",
+  provider: "cursor",
   server: "filesystem",
   tool: "read_file",
-  permission: "filesystem.read",
   arguments: { path: "/tmp/notes.txt" },
+  metadata: { cwd: "/project" },
 });
-
-if (decision.type === "allow" || decision.type === "allow-with-audit") {
-  await runtime.proxy!.execute(invocation, decision);
-}
 ```
 
-## Architecture
+## Responsibilities
 
-| Module | Role |
-|--------|------|
-| `BehalfRuntime` | Central engine — validate, evaluate, audit |
-| `PolicyEngine` + `PolicyRegistry` | Pluggable authorization rules |
-| `PermissionEngine` | Allow / deny / scoped / wildcard / expiration |
-| `ApprovalEngine` | Interrupt execution (approve once / always / deny) |
-| `RiskEngine` | Low → Critical scoring (extensible scorers) |
-| `DecisionEngine` | Final allow / deny / require-approval / block-server |
-| `AuditLogger` | Immutable events (arguments hashed, secrets redacted) |
-| `ToolProxy` | Executes only after an allow decision |
-| `EventBus` | Subscribe for dashboards / sync |
+| Keep | Do not implement |
+|------|------------------|
+| ToolProxy | PolicyEngine |
+| McpTransport | PermissionEngine |
+| EventBus | ApprovalEngine |
+| Verify client + timeout | RiskEngine |
+| Request / response mapping | Local audit database |
+| Fail-closed enforcement | In-memory permission stores |
 
-## Adding a policy
+## Fail closed
 
-```ts
-import { PolicyRegistry, type Policy } from "@behalfid/mcp-runtime";
+If verification throws, times out, or returns malformed data, the tool is
+**not** executed and a denial event is emitted.
 
-const registry = PolicyRegistry.empty()
-  .registerAll(createDefaultPolicies(permissions))
-  .register(myPolicy);
+## Events
 
-const runtime = new BehalfRuntime({ policyRegistry: registry });
-```
-
-No runtime source changes required.
-
-## Decision outcomes
-
-`allow` · `allow-with-audit` · `require-approval` · `deny` · `block-server`
-
-Default posture is **fail-closed**: abstain → deny.
-
-## Non-goals
-
-- Static MCP config auditing
-- Frontend / approval UI
-- Cloud sync or databases (in-memory stores with swappable interfaces)
-- Authentication providers
+`invocation.received` · `verification.started` · `verification.completed` ·
+`verification.denied` · `approval.required` · `approval.granted` ·
+`approval.denied` · `execution.started` · `execution.completed` ·
+`execution.failed`
 
 ## License
 

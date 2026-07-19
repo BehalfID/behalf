@@ -1,30 +1,23 @@
 import type {
   McpTransport,
-  RuntimeDecision,
   ToolExecutionResult,
-  ToolInvocation,
 } from "./types.js";
 
 export type ArgumentTransform = (
-  args: Record<string, unknown> | undefined,
-  invocation: ToolInvocation,
-  decision: RuntimeDecision
-) => Record<string, unknown> | undefined;
+  args: unknown,
+  server: string,
+  tool: string
+) => unknown;
 
 export type ToolProxyOptions = {
   transport: McpTransport;
-  /**
-   * Optional argument transform. Arguments are never modified unless this
-   * (or an explicit policy-driven transform) is provided.
-   */
+  /** Arguments are never modified unless this is provided. */
   transformArguments?: ArgumentTransform;
 };
 
 /**
- * Tool Proxy — AI → BehalfID Proxy → MCP Server.
- *
- * Refuses to execute unless the decision allows it. Never mutates arguments
- * unless an explicit transform is configured.
+ * Proxies an authorized MCP tool call to the downstream server.
+ * Callers must only invoke this after verify() has allowed the action.
  */
 export class ToolProxy {
   private readonly transport: McpTransport;
@@ -36,28 +29,17 @@ export class ToolProxy {
   }
 
   async execute(
-    invocation: ToolInvocation,
-    decision: RuntimeDecision
+    server: string,
+    tool: string,
+    args?: unknown
   ): Promise<ToolExecutionResult> {
-    if (!decision.allowed) {
-      return {
-        ok: false,
-        error: `Refused: decision is ${decision.type}`,
-        durationMs: 0,
-      };
-    }
-
     const started = Date.now();
-    const args = this.transformArguments
-      ? this.transformArguments(invocation.arguments, invocation, decision)
-      : invocation.arguments;
+    const callArgs = this.transformArguments
+      ? this.transformArguments(args, server, tool)
+      : args;
 
     try {
-      const result = await this.transport.callTool(
-        invocation.server,
-        invocation.tool,
-        args
-      );
+      const result = await this.transport.callTool(server, tool, callArgs);
       const durationMs = Date.now() - started;
       if (result.error) {
         return { ok: false, error: result.error, durationMs };

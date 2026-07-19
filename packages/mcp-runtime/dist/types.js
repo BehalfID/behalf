@@ -1,7 +1,7 @@
 /**
- * Public contracts for the BehalfID Runtime MCP Protection Framework.
+ * Canonical contracts for `@behalfid/mcp-runtime` as a Policy Enforcement Point.
  *
- * The runtime sits between AI agents and MCP servers. Every tool invocation
- * must receive a decision before it may reach the underlying server.
+ * Authorization decisions live in the BehalfID platform (`verify()`).
+ * This package only intercepts, maps, enforces, and proxies.
  */
 export {};

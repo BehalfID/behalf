@@ -1,22 +1,17 @@
-import type { McpTransport, RuntimeDecision, ToolExecutionResult, ToolInvocation } from "./types.js";
-export type ArgumentTransform = (args: Record<string, unknown> | undefined, invocation: ToolInvocation, decision: RuntimeDecision) => Record<string, unknown> | undefined;
+import type { McpTransport, ToolExecutionResult } from "./types.js";
+export type ArgumentTransform = (args: unknown, server: string, tool: string) => unknown;
 export type ToolProxyOptions = {
     transport: McpTransport;
-    /**
-     * Optional argument transform. Arguments are never modified unless this
-     * (or an explicit policy-driven transform) is provided.
-     */
+    /** Arguments are never modified unless this is provided. */
     transformArguments?: ArgumentTransform;
 };
 /**
- * Tool Proxy — AI → BehalfID Proxy → MCP Server.
- *
- * Refuses to execute unless the decision allows it. Never mutates arguments
- * unless an explicit transform is configured.
+ * Proxies an authorized MCP tool call to the downstream server.
+ * Callers must only invoke this after verify() has allowed the action.
  */
 export declare class ToolProxy {
     private readonly transport;
     private readonly transformArguments?;
     constructor(options: ToolProxyOptions);
-    execute(invocation: ToolInvocation, decision: RuntimeDecision): Promise<ToolExecutionResult>;
+    execute(server: string, tool: string, args?: unknown): Promise<ToolExecutionResult>;
 }
