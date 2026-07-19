@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Logo, ThemeToggle } from "@/components/ui";
+import { DashboardRouteLoading } from "@/components/dashboard/DashboardRouteLoading";
 import { useDashboardApi, useOptionalWorkspace } from "@/components/workspace/WorkspaceProvider";
 import {
   extractDashboardSubpath,
@@ -84,6 +85,15 @@ function useWorkspaceAccounts(workspaceSlug: string | null): WorkspaceState {
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [switching, setSwitching] = useState(false);
+  const [switchTargetSlug, setSwitchTargetSlug] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!switchTargetSlug || workspaceSlug !== switchTargetSlug) return;
+    // The new provider is active; it is now safe to reveal the new route tree.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSwitching(false);
+    setSwitchTargetSlug(null);
+  }, [switchTargetSlug, workspaceSlug]);
 
   useEffect(() => {
     let cancelled = false;
@@ -123,6 +133,7 @@ function useWorkspaceAccounts(workspaceSlug: string | null): WorkspaceState {
     const target = accounts.find((account) => account.accountId === accountId);
     if (!target?.slug) return;
     setSwitching(true);
+    setSwitchTargetSlug(target.slug);
     try {
       const path = workspaceSlug
         ? workspaceApiHref(workspaceSlug, "/api/dashboard/accounts/switch")
@@ -146,8 +157,8 @@ function useWorkspaceAccounts(workspaceSlug: string | null): WorkspaceState {
       router.push(workspaceDashboardHref(nextSlug, extractDashboardSubpath(pathname)));
     } catch {
       // Keep the current workspace and URL when switching fails.
-    } finally {
       setSwitching(false);
+      setSwitchTargetSlug(null);
     }
   }, [accounts, activeAccountId, dashboardFetch, pathname, router, switching, workspaceSlug]);
 
@@ -416,9 +427,12 @@ export function DashboardShellLayout({
           id="main-content"
           className={`dashboard-main app-main dashboard-main--${contentVariant}`}
           tabIndex={-1}
+          aria-busy={workspaceState.switching || undefined}
         >
           <p className="sr-only" aria-live="polite">{currentItem.label}, current page</p>
-          {children}
+          {workspaceState.switching ? (
+            <DashboardRouteLoading label="Switching workspace" />
+          ) : children}
         </main>
       </div>
 

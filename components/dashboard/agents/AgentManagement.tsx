@@ -232,6 +232,7 @@ export function AgentIdentityHeader({
   backHref,
   onRotateKey,
   onSetStatus,
+  statusWorking = false,
   tabs,
   workspaceLabel
 }: {
@@ -239,6 +240,7 @@ export function AgentIdentityHeader({
   backHref: string;
   onRotateKey: () => Promise<void>;
   onSetStatus: (status: "enable" | "disable") => Promise<void>;
+  statusWorking?: boolean;
   tabs: ReactNode;
   workspaceLabel: string;
 }) {
@@ -291,11 +293,11 @@ export function AgentIdentityHeader({
               {rotateError ? <p className="form-error" role="alert">{rotateError}</p> : null}
             </Dialog>
             {agent.status === "active" ? (
-              <Button aria-label={`Disable ${agent.name}`} onClick={() => void onSetStatus("disable")} type="button" variant="destructive">
+              <Button aria-label={`Disable ${agent.name}`} loading={statusWorking} onClick={() => void onSetStatus("disable")} type="button" variant="destructive">
                 Disable agent
               </Button>
             ) : (
-              <Button aria-label={`Enable ${agent.name}`} onClick={() => void onSetStatus("enable")} type="button" variant="primary">
+              <Button aria-label={`Enable ${agent.name}`} loading={statusWorking} onClick={() => void onSetStatus("enable")} type="button" variant="primary">
                 Enable agent
               </Button>
             )}
@@ -379,10 +381,12 @@ export function PermissionConstraintList({ permission }: { permission: Permissio
 
 export function PermissionSummary({
   permission,
-  onRevoke
+  onRevoke,
+  revoking = false
 }: {
   permission: PermissionManagementRecord;
   onRevoke: (permissionId: string) => Promise<void>;
+  revoking?: boolean;
 }) {
   const status = permissionEffectiveStatus(permission);
   const authorityLevel = permissionAuthorityLevel(permission);
@@ -417,6 +421,7 @@ export function PermissionSummary({
             <small>Revocation is immediate and cannot be undone on this record.</small>
             <Button
               aria-label={`Revoke ${permission.action} permission`}
+              loading={revoking}
               onClick={() => void onRevoke(permission.permissionId)}
               size="small"
               type="button"

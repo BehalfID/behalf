@@ -19,3 +19,4 @@ export * from "./CookieBanner";
 export * from "./SplitCTAButton";
 export * from "./SocialLinks";
 export * from "./LanguageSwitcher";
+export * from "./LoadingStates";

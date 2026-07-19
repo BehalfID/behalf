@@ -3,8 +3,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { ConsoleShellLayout } from "@/components/layout/ConsoleShell";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DecisionIndicator } from "@/components/dashboard/OpsEventPrimitives";
 import { ConnectionStatusBadge } from "@/components/dashboard/ProfileIntegrationPrimitives";
 import {
@@ -14,7 +13,21 @@ import {
   SiteGuardStatus,
   WebhookStatusBadge
 } from "@/components/dashboard/OperationsPrimitives";
-import { Button, ButtonLink, CodeBlock, DashboardState, EmptyState, Logo, PageHeader, RiskIndicator, StatCard } from "@/components/ui";
+import {
+  Alert,
+  Button,
+  ButtonLink,
+  CodeBlock,
+  DashboardState,
+  EmptyState,
+  Logo,
+  PageHeader,
+  PageLoadingState,
+  RefreshingIndicator,
+  RiskIndicator,
+  StatCard,
+  type PageLoadingVariant
+} from "@/components/ui";
 
 type Agent = {
   agentId: string;
@@ -271,40 +284,53 @@ function tomorrowIsoLocal() {
 }
 
 function useApiResource<T>(path: string) {
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<ApiError | null>(null);
+  const requestId = useRef(0);
+  const [state, setState] = useState<{
+    path: string;
+    data: T | null;
+    loading: boolean;
+    error: ApiError | null;
+  }>({ path, data: null, loading: true, error: null });
+  const current = state.path === path
+    ? state
+    : { path, data: null, loading: true, error: null };
 
   const reload = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+    const id = ++requestId.current;
+    setState((previous) => ({
+      path,
+      data: previous.path === path ? previous.data : null,
+      loading: true,
+      error: null
+    }));
     try {
-      setData(await apiFetch<T>(path));
+      const data = await apiFetch<T>(path);
+      if (requestId.current === id) setState({ path, data, loading: false, error: null });
     } catch (requestError) {
-      setError(requestError as ApiError);
-    } finally {
-      setLoading(false);
+      if (requestId.current !== id) return;
+      setState((previous) => ({
+        path,
+        data: previous.path === path ? previous.data : null,
+        loading: false,
+        error: requestError as ApiError
+      }));
     }
   }, [path]);
 
   useEffect(() => {
     let cancelled = false;
+    const id = ++requestId.current;
 
     async function load() {
-      setLoading(true);
-      setError(null);
+      setState({ path, data: null, loading: true, error: null });
       try {
         const result = await apiFetch<T>(path);
-        if (!cancelled) {
-          setData(result);
+        if (!cancelled && requestId.current === id) {
+          setState({ path, data: result, loading: false, error: null });
         }
       } catch (requestError) {
-        if (!cancelled) {
-          setError(requestError as ApiError);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
+        if (!cancelled && requestId.current === id) {
+          setState({ path, data: null, loading: false, error: requestError as ApiError });
         }
       }
     }
@@ -313,10 +339,11 @@ function useApiResource<T>(path: string) {
 
     return () => {
       cancelled = true;
+      if (requestId.current === id) requestId.current += 1;
     };
   }, [path]);
 
-  return { data, loading, error, reload };
+  return { data: current.data, loading: current.loading, error: current.error, reload };
 }
 
 export function LoginPage() {
@@ -330,7 +357,7 @@ export function LoginPage() {
 
 export function ConsolePage({ view }: { view: "dashboard" | "agents" | "site-guard" | "webhooks" | "webhook-events" | "logs" | "settings" | "status" | "enterprise-inquiries" }) {
   return (
-    <ConsoleFrame>
+    <>
       {view === "dashboard" ? <DashboardView /> : null}
       {view === "agents" ? <AgentsView /> : null}
       {view === "site-guard" ? <SiteGuardView /> : null}
@@ -340,45 +367,20 @@ export function ConsolePage({ view }: { view: "dashboard" | "agents" | "site-gua
       {view === "settings" ? <SettingsView /> : null}
       {view === "status" ? <StatusView /> : null}
       {view === "enterprise-inquiries" ? <EnterpriseInquiriesView /> : null}
-    </ConsoleFrame>
+    </>
   );
 }
 
 export function WebhookDetailPage({ webhookId }: { webhookId: string }) {
-  return (
-    <ConsoleFrame>
-      <WebhookDetailView webhookId={webhookId} />
-    </ConsoleFrame>
-  );
+  return <WebhookDetailView webhookId={webhookId} />;
 }
 
 export function WebhookEventDetailPage({ eventId }: { eventId: string }) {
-  return (
-    <ConsoleFrame>
-      <WebhookEventDetailView eventId={eventId} />
-    </ConsoleFrame>
-  );
+  return <WebhookEventDetailView eventId={eventId} />;
 }
 
 export function AgentDetailPage({ agentId }: { agentId: string }) {
-  return (
-    <ConsoleFrame>
-      <AgentDetailView agentId={agentId} />
-    </ConsoleFrame>
-  );
-}
-
-function ConsoleFrame({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-
-  const logout = async () => {
-    await apiFetch("/api/console/logout", { method: "POST" }).catch(() => undefined);
-    router.push("/console/login");
-  };
-
-  return (
-    <ConsoleShellLayout onLogout={logout}>{children}</ConsoleShellLayout>
-  );
+  return <AgentDetailView agentId={agentId} />;
 }
 
 function LoginPanel({ onSuccess }: { onSuccess: () => void }) {
@@ -445,25 +447,44 @@ function LoginPanel({ onSuccess }: { onSuccess: () => void }) {
 
 function ResourceState<T>({
   resource,
-  children
+  children,
+  variant = "table"
 }: {
   resource: ReturnType<typeof useApiResource<T>>;
   children: (data: T) => React.ReactNode;
+  variant?: PageLoadingVariant;
 }) {
-  if (resource.loading) return <EmptyState className="console-empty">Loading</EmptyState>;
-  if (resource.error?.status === 401) {
-    return <EmptyState className="console-empty">Session expired. Sign in again.</EmptyState>;
+  if (resource.loading && !resource.data) {
+    return <PageLoadingState label="Loading console data" variant={variant} />;
   }
-  if (resource.error) return <EmptyState className="console-empty">{resource.error.message}</EmptyState>;
-  if (!resource.data) return <EmptyState className="console-empty">No data available.</EmptyState>;
-  return children(resource.data);
+  if (resource.error?.status === 401) {
+    return <DashboardState kind="access-denied" title="Console session expired" description="Sign in again to continue." />;
+  }
+  if (resource.error && !resource.data) {
+    return (
+      <DashboardState
+        action={<Button onClick={() => void resource.reload()} type="button" variant="outline">Try again</Button>}
+        kind="error"
+        title="Console data could not be loaded"
+        description={resource.error.message}
+      />
+    );
+  }
+  if (!resource.data) return <DashboardState kind="no-data" />;
+  return (
+    <>
+      {resource.loading ? <RefreshingIndicator label="Refreshing console data" /> : null}
+      {resource.error ? <Alert tone="destructive">{resource.error.message}</Alert> : null}
+      {children(resource.data)}
+    </>
+  );
 }
 
 function DashboardView() {
   const summary = useApiResource<Summary>("/api/console/summary");
 
   return (
-    <ResourceState resource={summary}>
+    <ResourceState resource={summary} variant="overview">
       {(data) => (
         <>
           <Header
@@ -974,20 +995,39 @@ function AgentsView() {
 function SiteGuardView() {
   const sites = useApiResource<{ sites: SiteGuardSite[] }>("/api/console/sites");
   const logs = useApiResource<{ logs: SiteGuardLog[] }>("/api/console/site-guard/logs");
+  const initialLoading = (sites.loading && !sites.data) || (logs.loading && !logs.data);
+  const refreshing = (sites.loading && Boolean(sites.data)) || (logs.loading && Boolean(logs.data));
+  const backgroundError = sites.data && sites.error ? sites.error : logs.data && logs.error ? logs.error : null;
+  const [siteWorking, setSiteWorking] = useState<string | null>(null);
+  const [siteActionError, setSiteActionError] = useState("");
   const setStatus = async (site: SiteGuardSite) => {
-    await apiFetch(`/api/console/sites/${site.siteId}`, {
-      method: "PATCH",
-      body: JSON.stringify({ status: site.status === "active" ? "disabled" : "active" })
-    });
-    await sites.reload();
+    setSiteWorking(site.siteId);
+    setSiteActionError("");
+    try {
+      await apiFetch(`/api/console/sites/${site.siteId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: site.status === "active" ? "disabled" : "active" })
+      });
+      await sites.reload();
+    } catch (error) {
+      setSiteActionError(error instanceof Error ? error.message : "Site status could not be updated.");
+    } finally {
+      setSiteWorking(null);
+    }
   };
+
+  if (initialLoading) {
+    return <PageLoadingState label="Loading Site Guard operations" variant="table" />;
+  }
 
   return (
     <>
       <Header title="Site Guard" description="Read-only operational view of site route-policy boundaries and their latest recorded enforcement checks." />
-      {sites.loading || logs.loading ? <DashboardState kind="loading" title="Loading Site Guard operations" description="Retrieving sites and recent check records." /> : null}
-      {sites.error || logs.error ? <DashboardState kind="error" title="Site Guard operations could not be loaded" description={sites.error?.message ?? logs.error?.message} /> : null}
-      {!sites.loading && !logs.loading && !sites.error && !logs.error ? (
+      {refreshing ? <RefreshingIndicator label="Refreshing Site Guard operations" /> : null}
+      {backgroundError ? <Alert tone="destructive">Site Guard operations could not be refreshed: {backgroundError.message}</Alert> : null}
+      {siteActionError ? <Alert tone="destructive">{siteActionError}</Alert> : null}
+      {(sites.error && !sites.data) || (logs.error && !logs.data) ? <DashboardState kind="error" title="Site Guard operations could not be loaded" description={sites.error?.message ?? logs.error?.message} /> : null}
+      {sites.data && logs.data ? (
       <section className="console-operations-grid">
         <div className="console-operations-section">
           <SectionTitle title="Sites" />
@@ -1005,7 +1045,7 @@ function SiteGuardView() {
                   <small><code>{site.domain}</code> · <code>{site.siteId}</code></small>
                 </span>
                 <SiteGuardStatus status={site.status} />
-                <Button variant={site.status === "active" ? "danger" : "primary"} onClick={() => void setStatus(site)} type="button">
+                <Button loading={siteWorking === site.siteId} variant={site.status === "active" ? "danger" : "primary"} onClick={() => void setStatus(site)} type="button">
                   {site.status === "active" ? "Disable" : "Enable"}
                 </Button>
               </div>
@@ -1094,7 +1134,7 @@ function AgentDetailView({ agentId }: { agentId: string }) {
   };
 
   return (
-    <ResourceState resource={detail}>
+    <ResourceState resource={detail} variant="detail">
       {(data) => (
         <>
           <Header
@@ -1231,7 +1271,7 @@ function LogsView() {
         </div>
         {hasFilters ? <ul className="ops-active-filters" aria-label="Active console filters">{activeFilters.map((filter) => <li key={filter}>{filter}</li>)}</ul> : null}
       </form>
-      <ResourceState resource={logs}>
+    <ResourceState resource={logs} variant="activity">
         {(data) => (
           <>
             <LogSummaryStrip summary={data.summary} />
@@ -1362,7 +1402,7 @@ function WebhookDetailView({ webhookId }: { webhookId: string }) {
   };
 
   return (
-    <ResourceState resource={detail}>
+    <ResourceState resource={detail} variant="detail">
       {(data) => (
         <>
           <Header
@@ -1471,7 +1511,7 @@ function WebhookEventDetailView({ eventId }: { eventId: string }) {
   };
 
   return (
-    <ResourceState resource={detail}>
+    <ResourceState resource={detail} variant="detail">
       {(data) => (
         <>
           <Header
@@ -1514,7 +1554,7 @@ function SettingsView() {
   const settings = useApiResource<Settings>("/api/console/settings");
 
   return (
-    <ResourceState resource={settings}>
+    <ResourceState resource={settings} variant="settings">
       {(data) => (
         <>
           <Header title="Settings" description="Read-only environment posture, security warnings, and known operational limitations for this deployment." />
@@ -2152,6 +2192,11 @@ function StatusView() {
 
   const components = compData?.components ?? [];
   const incidents = incData?.incidents ?? [];
+  const initialLoading = (compLoading && !compData) || (incLoading && !incData);
+
+  if (initialLoading) {
+    return <PageLoadingState label="Loading status components and incidents" variant="settings" />;
+  }
 
   return (
     <div className="console-view">
@@ -2280,12 +2325,12 @@ function StatusView() {
             </form>
           )}
 
-          {compLoading && <p className="console-loading">Loading components…</p>}
+          {compLoading && compData ? <RefreshingIndicator label="Refreshing components" /> : null}
           {compError && <p className="console-error">Error: {compError.message}</p>}
           {!compLoading && !compError && components.length === 0 && (
             <EmptyState className="console-empty">No components yet. Add one above.</EmptyState>
           )}
-          {!compLoading && components.length > 0 && (
+          {components.length > 0 && (
             <div className="console-list">
               {components.map((comp) => (
                 <div className="console-list__item" key={comp.componentId}>
@@ -2427,12 +2472,12 @@ function StatusView() {
             </form>
           )}
 
-          {incLoading && <p className="console-loading">Loading incidents…</p>}
+          {incLoading && incData ? <RefreshingIndicator label="Refreshing incidents" /> : null}
           {incError && <p className="console-error">Error: {incError.message}</p>}
           {!incLoading && !incError && incidents.length === 0 && (
             <EmptyState className="console-empty">No incidents yet.</EmptyState>
           )}
-          {!incLoading && incidents.length > 0 && (
+          {incidents.length > 0 && (
             <div className="console-list">
               {incidents.map((inc) => (
                 <div className="console-list__item" key={inc.incidentId}>

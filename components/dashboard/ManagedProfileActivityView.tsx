@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { Button, ButtonLink, EmptyState, PageHeader } from "@/components/ui";
+import { Button, ButtonLink, EmptyState, PageHeader, PageLoadingState, RefreshingIndicator } from "@/components/ui";
 import {
   EnforcementModeBadge,
   type EnforcementMode,
@@ -257,8 +257,6 @@ export function ManagedProfileActivityView() {
       setNextCursor(response.nextCursor);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Request failed.");
-      setEvents([]);
-      setNextCursor(null);
     } finally {
       setLoading(false);
     }
@@ -348,6 +346,10 @@ export function ManagedProfileActivityView() {
   const summary = activitySummaryFromEvents(events);
   const hasFilters = Boolean(tool || mode || eventType || repo || branch || range);
 
+  if (loading && !events.length) {
+    return <PageLoadingState label="Loading managed profile activity" variant="activity" />;
+  }
+
   return (
     <div className="ops-console managed-activity-console">
       <PageHeader
@@ -361,6 +363,7 @@ export function ManagedProfileActivityView() {
         }
         className="dashboard-header ops-console__header"
       />
+      {loading ? <RefreshingIndicator label="Refreshing managed profile activity" /> : null}
 
       <div className="ops-metrics" aria-label="Activity summary">
         <span className="ops-metrics__item">
@@ -440,7 +443,7 @@ export function ManagedProfileActivityView() {
             <option value="24h">24h</option>
             <option value="7d">7d</option>
           </select>
-          <button type="button" className="ops-btn ops-btn--ghost ops-cmd__refresh" onClick={() => void reload()}>
+          <button type="button" className="ops-btn ops-btn--ghost ops-cmd__refresh" disabled={loading} onClick={() => void reload()}>
             Refresh
           </button>
         </div>
@@ -492,9 +495,7 @@ export function ManagedProfileActivityView() {
             </p>
           ) : null}
           <div className="setup-form__row">
-            <Button disabled={enrollSubmitting} type="submit" variant="primary">
-              {enrollSubmitting ? "Saving…" : "Add protected repo"}
-            </Button>
+            <Button loading={enrollSubmitting} type="submit" variant="primary">Add protected repo</Button>
             <Button disabled={enrollSubmitting} onClick={closeEnrollForm} type="button" variant="secondary">
               Cancel
             </Button>
@@ -599,7 +600,7 @@ export function ManagedProfileActivityView() {
         </div>
       </div>
 
-      {!events.length && !loading && !hasFilters ? (
+      {!events.length && !loading && !hasFilters && !error ? (
         <EmptyState className="dashboard-empty managed-activity-empty">
           <p className="managed-activity-empty__title">No managed profile activity yet</p>
           <p className="managed-activity-empty__detail">
