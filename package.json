@@ -13,6 +13,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "build:sdk": "npm --prefix packages/sdk run build",
+    "build:mcp-audit": "npm --prefix packages/mcp-audit run build",
+    "build:mcp-runtime": "npm --prefix packages/mcp-runtime run build",
     "cleanup:demo": "tsx scripts/cleanup-demo-data.ts",
     "seed:status": "tsx scripts/seed-status.ts",
     "check:ollama": "node scripts/check-ollama-config.js",
