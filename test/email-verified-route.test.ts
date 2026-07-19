@@ -86,11 +86,15 @@ describe("unverified user access restrictions", () => {
     expect(res.status).toBe(403);
   });
 
-  it("allows GET /api/dashboard/agents for unverified user (read-only)", async () => {
+  it("blocks GET /api/dashboard/agents for unverified user", async () => {
+    mocks.requireDeveloperApi.mockResolvedValueOnce({
+      user: null,
+      account: null,
+      error: unverifiedError
+    });
     const { GET } = await import("@/app/api/dashboard/agents/route");
     const req = new Request("http://localhost:3000/api/dashboard/agents") as never;
     const res = await GET(req);
-    // GET uses requireDeveloperApi (not verified), so it succeeds
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(403);
   });
 });

@@ -109,6 +109,18 @@ export function validateProductionEnv(): EnvValidationResult {
     }
   }
 
+  const hasGoogleId = hasValue("GOOGLE_CLIENT_ID");
+  const hasGoogleSecret = hasValue("GOOGLE_CLIENT_SECRET");
+  if (hasGoogleId !== hasGoogleSecret) {
+    result.warnings.push(
+      "Google sign-in is partially configured; set both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET or neither."
+    );
+  } else if (!hasGoogleId) {
+    result.warnings.push(
+      "GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET are not configured; Sign in with Google is disabled."
+    );
+  }
+
   if (process.env.BEHALFID_PUBLIC_AGENT_CREATION === "true") {
     result.warnings.push("BEHALFID_PUBLIC_AGENT_CREATION=true allows anonymous agent creation.");
   }

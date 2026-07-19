@@ -406,11 +406,11 @@ describe("account setup API", () => {
 });
 
 describe("account setup routing", () => {
-  it("signup success routes to onboarding in auth client", async () => {
+  it("signup success routes to verify-email in auth client", async () => {
     const { readFile } = await import("fs/promises");
     const { join } = await import("path");
     const source = await readFile(join(process.cwd(), "app/auth-client.tsx"), "utf8");
-    expect(source).toMatch(/\/onboarding/);
+    expect(source).toMatch(/\/verify-email/);
     expect(source).toContain("redirectPath");
   });
 });

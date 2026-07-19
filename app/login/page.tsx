@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { getCurrentDeveloper } from "@/lib/developerAuth";
+import { requiresEmailVerificationRedirect } from "@/lib/emailVerificationGuard";
+import { isGoogleOAuthConfigured } from "@/lib/googleOAuth";
 import { shouldForceAccountSetup } from "@/lib/onboardingRedirect";
 import { AuthPage } from "../auth-client";
 
@@ -24,8 +27,13 @@ export default async function LoginPage({
   const nextPath = safeNextPath(next) ?? undefined;
   const user = await getCurrentDeveloper();
   if (user) {
+    if (requiresEmailVerificationRedirect(user)) redirect("/verify-email");
     if (await shouldForceAccountSetup(user.userId)) redirect("/onboarding");
     redirect(nextPath ?? "/dashboard");
   }
-  return <AuthPage mode="login" nextPath={nextPath} />;
+  return (
+    <Suspense fallback={<main className="auth-page"><p>Loading…</p></main>}>
+      <AuthPage mode="login" nextPath={nextPath} googleEnabled={isGoogleOAuthConfigured()} />
+    </Suspense>
+  );
 }

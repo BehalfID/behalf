@@ -43,6 +43,7 @@ import {
   isManagedProfilePauseApproval,
 } from "@/components/dashboard/opsLogTypes";
 import { CLI_NPM_INSTALL_COMMAND } from "@/lib/cliInstallCommands";
+import { SessionInactivityMonitor } from "@/components/auth/SessionInactivityMonitor";
 import { DashboardShellLayout } from "@/components/layout/DashboardShell";
 import {
   Alert,
@@ -86,7 +87,6 @@ import {
   type AgentTool,
   type ControlArea
 } from "@/lib/onboarding";
-import { SUPPORT_EMAIL } from "@/lib/support";
 
 type Agent = {
   agentId: string;
@@ -543,6 +543,7 @@ export function DashboardShell({
 }) {
   return (
     <DashboardShellLayout>
+      <SessionInactivityMonitor />
       <DashboardViews
         view={view}
         id={id}
@@ -3562,6 +3563,164 @@ function MembersPanel({ members }: { members: DashboardResource<MembersResponse>
   );
 }
 
+function SsoSettingsCard({ canEditWorkspace }: { canEditWorkspace: boolean }) {
+  const { apiJson: api } = useDashboardApi();
+  const ssoResource = useResource<{
+    available: boolean;
+    canEdit: boolean;
+    sso: {
+      provider: "google";
+      enabled: boolean;
+      enforce: boolean;
+      allowedEmailDomains: string[];
+    };
+    plan: string;
+  }>("/api/dashboard/sso");
+  const [enabled, setEnabled] = useState(false);
+  const [enforce, setEnforce] = useState(false);
+  const [domainsText, setDomainsText] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!ssoResource.data) return;
+    setEnabled(ssoResource.data.sso.enabled);
+    setEnforce(ssoResource.data.sso.enforce);
+    setDomainsText(ssoResource.data.sso.allowedEmailDomains.join("\n"));
+  }, [ssoResource.data]);
+
+  const saveSso = async (event: FormEvent) => {
+    event.preventDefault();
+    setMessage("");
+    setError("");
+    setSaving(true);
+    try {
+      const allowedEmailDomains = domainsText
+        .split(/[\n,]+/)
+        .map((value) => value.trim().toLowerCase())
+        .filter(Boolean);
+      await api("/api/dashboard/sso", {
+        method: "PATCH",
+        body: JSON.stringify({ enabled, enforce, allowedEmailDomains })
+      });
+      setMessage("Google SSO settings saved.");
+      await ssoResource.reload();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Failed to save SSO settings.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!ssoResource.data && !ssoResource.error) {
+    return (
+      <SettingsSection
+        description="Company domain allowlist and optional password-login enforcement for Google sign-in."
+        eyebrow="Workspace-level"
+        id="google-sso"
+        title="Google SSO"
+      >
+        <p className="field-help">Loading SSO settings…</p>
+      </SettingsSection>
+    );
+  }
+
+  if (ssoResource.error || !ssoResource.data) {
+    return (
+      <SettingsSection
+        description="Company domain allowlist and optional password-login enforcement for Google sign-in."
+        eyebrow="Workspace-level"
+        id="google-sso"
+        title="Google SSO"
+      >
+        <p className="form-error" role="alert">{ssoResource.error || "Unable to load SSO settings."}</p>
+      </SettingsSection>
+    );
+  }
+
+  if (!ssoResource.data.available) {
+    return (
+      <SettingsSection
+        description="Company domain allowlist and optional password-login enforcement for Google sign-in."
+        eyebrow="Workspace-level"
+        id="google-sso"
+        title="Google SSO"
+        tone="restricted"
+      >
+        <p className="field-help">
+          Workspace Google SSO is available on Pro and higher plans.
+          Sign in with Google for individual accounts is available on all plans from the login page.
+        </p>
+      </SettingsSection>
+    );
+  }
+
+  const canEdit = Boolean(ssoResource.data.canEdit && canEditWorkspace);
+
+  return (
+    <SettingsSection
+      description="Require or prefer Google sign-in for members whose email matches your company domains. Invites are still required to join this workspace."
+      eyebrow="Workspace-level"
+      id="google-sso"
+      title="Google SSO"
+      tone={canEdit ? "default" : "restricted"}
+    >
+      {canEdit ? (
+        <form className="setup-form" onSubmit={saveSso}>
+          <label className="setup-check">
+            <input checked={enabled} onChange={(event) => setEnabled(event.target.checked)} type="checkbox" />
+            <span className="setup-check__body">
+              <span className="setup-check__label">Enable Google SSO for allowed domains</span>
+            </span>
+          </label>
+          <label className="setup-check">
+            <input
+              checked={enforce}
+              disabled={!enabled}
+              onChange={(event) => setEnforce(event.target.checked)}
+              type="checkbox"
+            />
+            <span className="setup-check__body">
+              <span className="setup-check__label">Enforce Google sign-in (block password login for these domains)</span>
+            </span>
+          </label>
+          <label>
+            <span>Allowed email domains</span>
+            <textarea
+              onChange={(event) => setDomainsText(event.target.value)}
+              placeholder={"acme.com\nengineering.acme.com"}
+              rows={4}
+              value={domainsText}
+            />
+          </label>
+          <p className="field-help">One domain per line. Public providers like gmail.com cannot be used when enforcement is on.</p>
+          {error ? <p className="form-error" role="alert">{error}</p> : null}
+          {message ? <p className="field-help">{message}</p> : null}
+          <div className="setup-actions">
+            <Button disabled={saving} loading={saving} type="submit" variant="primary">
+              {saving ? "Saving…" : "Save SSO settings"}
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <dl className="settings-summary">
+          <div><dt>Status</dt><dd>{ssoResource.data.sso.enabled ? "Enabled" : "Disabled"}</dd></div>
+          <div><dt>Enforce</dt><dd>{ssoResource.data.sso.enforce ? "On" : "Off"}</dd></div>
+          <div>
+            <dt>Domains</dt>
+            <dd>
+              {ssoResource.data.sso.allowedEmailDomains.length
+                ? ssoResource.data.sso.allowedEmailDomains.join(", ")
+                : "None"}
+            </dd>
+          </div>
+        </dl>
+      )}
+    </SettingsSection>
+  );
+}
+
 function SettingsView() {
   const { apiJson: api } = useDashboardApi();
   const { href: dHref } = useDashboardPaths();
@@ -3569,7 +3728,6 @@ function SettingsView() {
     email: string;
     appUrl: string;
     apiUsage: string;
-    dangerZone: string;
     workspaceSlug?: string | null;
     delegatedPermissions?: WorkspaceAuthority | null;
     profile?: {
@@ -3622,6 +3780,11 @@ function SettingsView() {
   const [saveMessage, setSaveMessage] = useState("");
   const [saveError, setSaveError] = useState("");
   const [saveWorking, setSaveWorking] = useState<"profile" | "account" | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const [deleting, setDeleting] = useState(false);
   const [tokenError, setTokenError] = useState("");
   const [tokenWorking, setTokenWorking] = useState<string | null>(null);
 
@@ -3747,6 +3910,25 @@ function SettingsView() {
     }
   };
 
+  const deleteAccount = async (event: FormEvent) => {
+    event.preventDefault();
+    setDeleteError("");
+    setDeleting(true);
+    try {
+      await api("/api/auth/account", {
+        method: "DELETE",
+        body: JSON.stringify({
+          password: deletePassword,
+          confirmation: deleteConfirmation
+        })
+      });
+      window.location.assign("/login?deleted=1");
+    } catch (requestError) {
+      setDeleteError(requestError instanceof Error ? requestError.message : "Failed to delete account.");
+      setDeleting(false);
+    }
+  };
+
   const initialLoading = [settings, tokens, members].some((resource) => resource.loading && !resource.data);
   if (initialLoading) {
     return <PageLoadingState label="Loading settings, members, and developer tokens" variant="settings" />;
@@ -3777,6 +3959,7 @@ function SettingsView() {
           { href: "#managed-security", label: "Security", detail: "Managed local sessions" },
           { href: "#account", label: "Account", detail: "Your personal profile" },
           { href: "#workspace", label: "Workspace", detail: "Shared identity and context" },
+          { href: "#google-sso", label: "Google SSO", detail: "Domain allowlist and enforce" },
           { href: "#members", label: "Members & roles", detail: "Authority and invitations" },
           { href: "#developer-access", label: "Developer access", detail: "API tokens and usage" },
           { href: "#danger-zone", label: "Destructive actions", detail: "Account deletion support" }
@@ -3960,6 +4143,7 @@ function SettingsView() {
           </div>
         )}
       </SettingsSection>
+      <SsoSettingsCard canEditWorkspace={Boolean(settings.data?.canEditAccountFields)} />
       <MembersPanel members={members} />
       <SettingsSection
         description="Personal developer credentials for SDK and API calls that require developer context. Raw token values are never listed again."
@@ -4020,20 +4204,65 @@ function SettingsView() {
         </div>
       </SettingsSection>
       <SettingsSection
-        description="Account deletion is handled through support in this release. No self-service deletion request is available on this page."
+        description="Permanently delete your account and sole-owned workspace data. Shared workspaces keep their data; your membership is removed."
         eyebrow="Destructive actions"
         id="danger-zone"
         title="Account deletion"
         tone="danger"
       >
         <DestructiveSettingsSection
-          consequence={settings.data?.dangerZone.includes(SUPPORT_EMAIL) ? (
-            <>
-              {settings.data.dangerZone.slice(0, settings.data.dangerZone.indexOf(SUPPORT_EMAIL))}
-              <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
-              {settings.data.dangerZone.slice(settings.data.dangerZone.indexOf(SUPPORT_EMAIL) + SUPPORT_EMAIL.length)}
-            </>
-          ) : settings.data?.dangerZone}
+          action={
+            !showDeleteConfirm ? (
+              <Button onClick={() => setShowDeleteConfirm(true)} type="button" variant="danger">
+                Delete account
+              </Button>
+            ) : (
+              <form className="setup-form" onSubmit={deleteAccount}>
+                <p className="field-help">
+                  This action cannot be undone. Type <strong>DELETE</strong> and enter your password to confirm.
+                </p>
+                <label>
+                  <span>Confirmation</span>
+                  <input
+                    autoComplete="off"
+                    onChange={(event) => setDeleteConfirmation(event.target.value)}
+                    placeholder="DELETE"
+                    required
+                    value={deleteConfirmation}
+                  />
+                </label>
+                <label>
+                  <span>Password</span>
+                  <input
+                    autoComplete="current-password"
+                    onChange={(event) => setDeletePassword(event.target.value)}
+                    required
+                    type="password"
+                    value={deletePassword}
+                  />
+                </label>
+                {deleteError ? <p className="form-error" role="alert">{deleteError}</p> : null}
+                <div className="setup-actions">
+                  <Button disabled={deleting} loading={deleting} type="submit" variant="danger">
+                    {deleting ? "Deleting…" : "Permanently delete account"}
+                  </Button>
+                  <Button
+                    disabled={deleting}
+                    onClick={() => {
+                      setShowDeleteConfirm(false);
+                      setDeletePassword("");
+                      setDeleteConfirmation("");
+                      setDeleteError("");
+                    }}
+                    type="button"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            )
+          }
+          consequence="Deletion removes your user account, sessions, developer tokens, and any workspace you solely own."
           title="Delete account and workspace data"
         />
       </SettingsSection>

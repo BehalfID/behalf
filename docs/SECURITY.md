@@ -14,8 +14,9 @@ BehalfID is currently a prototype. It is suitable for local demos and constraine
 - Console login checks `BEHALFID_ADMIN_PASSWORD` server-side and sets an HTTP-only signed cookie.
 - Console pages and `/api/console/*` routes require the console session cookie.
 - Console mutation routes reject missing or mismatched `Origin` headers for configured localhost/Vercel origins.
-- Developer portal accounts store scrypt password hashes, not plaintext passwords.
+- Developer portal accounts store scrypt password hashes, not plaintext passwords. Google-only accounts may omit a password hash and authenticate via verified Google OIDC (`sub` + verified email).
 - Developer portal sessions are DB-backed, stored as token hashes, expire automatically, and use HTTP-only cookies.
+- Sign in with Google uses OAuth 2.0 / OIDC with PKCE, signed state cookies, and Google JWKS verification of `id_token`. Workspace Google SSO can allowlist company email domains and optionally block password login for those domains on entitled plans.
 - `/dashboard/*` and `/api/dashboard/*` require a developer session and scope resources by workspace membership / `accountId`. Workspace-scoped public URLs (`/<slug>/dashboard/*`, `/<slug>/api/dashboard/*`) are rolling out; see `docs/WORKSPACE_URLS.md`.
 - Dashboard mutation routes reject missing or mismatched `Origin` headers.
 - Anonymous `POST /api/agents` is disabled unless `BEHALFID_PUBLIC_AGENT_CREATION=true`.
@@ -42,7 +43,7 @@ BehalfID is currently a prototype. It is suitable for local demos and constraine
 - Disabled agents are denied on `/api/verify`, but can still rotate keys and manage permissions while authenticated; this is intentional for recovery/prototype administration.
 - Rate limiting is process-local unless Upstash Redis is configured. Vercel/serverless memory counters are not shared and reset on cold start or redeploy.
 - Failed authentication attempts are not stored in verification logs.
-- The admin console still uses one admin password; the developer portal has individual accounts and multi-user workspaces (memberships/roles), but not a full external IdP/SSO organization model.
+- The admin console still uses one admin password; the developer portal has individual accounts, multi-user workspaces (memberships/roles), Sign in with Google, and workspace Google SSO domain enforcement (not SAML / arbitrary IdPs).
 - There is no CSRF token system beyond SameSite cookies and Origin checks.
 - Audit logs always contain action, vendor/resource, and amount when provided, and those fields may still be sensitive. Optional `metadata` is only persisted when `BEHALFID_LOG_METADATA` is not `false`.
 - Webhook delivery is at least once, not exactly once. Receivers should deduplicate by event ID.

@@ -74,6 +74,7 @@ export async function POST(request: NextRequest) {
       userId: createPublicId("user"),
       email,
       passwordHash: await hashPassword(password),
+      authProviders: ["password"],
       dateOfBirth,
       emailVerified: false,
       emailVerificationTokenHash: verificationTokenHash,

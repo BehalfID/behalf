@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { getCurrentDeveloperContext } from "@/lib/developerAuth";
+import { requiresEmailVerificationRedirect } from "@/lib/emailVerificationGuard";
 import { requireWorkspaceMembershipBySlug } from "@/lib/accountContext";
 import { shouldForceAccountSetup } from "@/lib/onboardingRedirect";
 import { validateWorkspaceSlug } from "@/lib/workspaceSlug";
@@ -22,6 +23,10 @@ export default async function WorkspaceDashboardLayout({
   const context = await getCurrentDeveloperContext();
   if (!context?.user) {
     redirect(`/login?next=/${workspaceSlug}/dashboard`);
+  }
+
+  if (requiresEmailVerificationRedirect(context.user)) {
+    redirect("/verify-email");
   }
 
   if (await shouldForceAccountSetup(context.user.userId)) {

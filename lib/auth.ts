@@ -7,6 +7,11 @@ import Agent, { type AgentDocument } from "@/models/Agent";
 export { timingSafeEqualString };
 
 export function hashApiKey(apiKey: string) {
+  // Agent API keys are high-entropy random tokens (bhf_sk_…), not user-chosen
+  // passwords. SHA-256 is the intentional storage transform for lookup/compare;
+  // a slow password KDF would not add meaningful resistance here and would break
+  // existing stored apiKeyHash values.
+  // codeql[js/insufficient-password-hash]
   return crypto.createHash("sha256").update(apiKey).digest("hex");
 }
 

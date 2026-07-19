@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentDeveloperContext } from "@/lib/developerAuth";
+import { requiresEmailVerificationRedirect } from "@/lib/emailVerificationGuard";
 import { shouldForceAccountSetup, shouldShowAccountSetupBannerForUser } from "@/lib/onboardingRedirect";
 import { extractDashboardSubpath, workspaceDashboardHref } from "@/lib/workspaceSlug";
 import { ensureAccountHasSlug } from "@/lib/workspaceSlugServer";
@@ -34,6 +35,7 @@ export async function ProtectedDashboard({
 }) {
   const context = await getCurrentDeveloperContext();
   if (!context?.user) redirect("/login");
+  if (requiresEmailVerificationRedirect(context.user)) redirect("/verify-email");
   if (await shouldForceAccountSetup(context.user.userId)) redirect("/onboarding");
 
   const accountId = context.activeAccountId ?? context.user.primaryAccountId ?? null;
