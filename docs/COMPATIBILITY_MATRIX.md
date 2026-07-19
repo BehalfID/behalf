@@ -1,6 +1,6 @@
 # Adapter Compatibility Matrix
 
-Status as of 2026-05-28. All adapters are EXPERIMENTAL — not official vendor integrations.
+Status as of 2026-05-28. All adapters are EXPERIMENTAL — not official vendor integrations. (Tracked in [#131](https://github.com/BehalfID/behalf/issues/131).)
 
 ## Summary
 
