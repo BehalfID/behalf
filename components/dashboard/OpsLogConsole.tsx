@@ -218,7 +218,7 @@ export function OpsLogConsole({
   initialSearch?: string;
   initialAgentId?: string;
 }) {
-  const { apiJson, apiPath } = useDashboardApi();
+  const { apiJson, apiPath, workspaceSlug } = useDashboardApi();
   const [search, setSearch] = useState(initialSearch ?? "");
   const [decision, setDecision] = useState("");
   const [agentId, setAgentId] = useState(initialAgentId ?? "");
@@ -228,8 +228,11 @@ export function OpsLogConsole({
   const [range, setRange] = useState("");
   const [selected, setSelected] = useState<OpsLog | null>(null);
   const [data, setData] = useState<LogsResponse | null>(null);
+  const [dataWorkspaceSlug, setDataWorkspaceSlug] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [errorWorkspaceSlug, setErrorWorkspaceSlug] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const requestId = useRef(0);
 
   const path = useMemo(() => {
     const params = new URLSearchParams();
@@ -249,16 +252,22 @@ export function OpsLogConsole({
   }, [action, agentId, compact, decision, environment, initialLimit, range, risk, search]);
 
   const reload = useCallback(async () => {
+    const id = ++requestId.current;
     setLoading(true);
     setError("");
+    setErrorWorkspaceSlug(workspaceSlug);
     try {
-      setData(await apiJson<LogsResponse>(path));
+      const result = await apiJson<LogsResponse>(path);
+      if (requestId.current !== id) return;
+      setData(result);
+      setDataWorkspaceSlug(workspaceSlug);
     } catch (requestError) {
+      if (requestId.current !== id) return;
       setError(requestError instanceof Error ? requestError.message : "Request failed.");
     } finally {
-      setLoading(false);
+      if (requestId.current === id) setLoading(false);
     }
-  }, [apiJson, path]);
+  }, [apiJson, path, workspaceSlug]);
 
   useEffect(() => {
     // Keep the established automatic fetch on every query-path change.
@@ -266,16 +275,19 @@ export function OpsLogConsole({
     void reload();
   }, [reload]);
 
-  const logs = data?.logs ?? [];
+  const visibleData = dataWorkspaceSlug === workspaceSlug ? data : null;
+  const visibleError = errorWorkspaceSlug === workspaceSlug ? error : "";
+  const initialLoading = loading || (!visibleData && !visibleError);
+  const logs = visibleData?.logs ?? [];
 
   useEffect(() => {
-    const availableLogs = data?.logs ?? [];
+    const availableLogs = visibleData?.logs ?? [];
     if (!initialSearch || !availableLogs.length) return;
     const match = availableLogs.find((log) => log.requestId === initialSearch);
     // Preserve the established deep-link selection after the current page loads.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (match) setSelected(match);
-  }, [data?.logs, initialSearch]);
+  }, [visibleData?.logs, initialSearch]);
 
   const resolvedPath = apiPath(path);
   const exportHref = `${resolvedPath}${resolvedPath.includes("?") ? "&" : "?"}format=csv`;
@@ -370,13 +382,15 @@ export function OpsLogConsole({
         </form>
       ) : null}
 
-      {error ? <Alert tone="destructive" className="ops-feedback">{error}</Alert> : null}
-      {!compact && data?.summary ? <MetricsStrip summary={data.summary} /> : null}
+      {visibleError ? <Alert tone="destructive" className="ops-feedback">{visibleError}</Alert> : null}
+      {!compact && visibleData?.summary ? <MetricsStrip summary={visibleData.summary} /> : null}
       {loading && logs.length ? <p className="ops-results-updating" role="status">Updating decision history…</p> : null}
 
-      {loading && !logs.length ? (
+      {initialLoading && !logs.length ? (
         <div role="status" aria-label="Loading decision history"><LogTableSkeleton /></div>
-      ) : !loading && !logs.length ? (
+      ) : visibleError && !visibleData ? (
+        <DashboardState kind="error" title="Decision history could not be loaded" description={visibleError} />
+      ) : !initialLoading && !logs.length ? (
         <DashboardState
           kind="empty"
           title={hasFilters ? "No decisions match these filters" : "No verification activity yet"}
@@ -442,10 +456,10 @@ export function OpsLogConsole({
         </div>
       )}
 
-      {!compact && data?.pagination ? (
-        <div className={`ops-results-boundary${data.pagination.hasMore ? " ops-results-boundary--truncated" : ""}`} role="status">
-          <span>Showing {logs.length} of {data.pagination.total} matching events.</span>
-          {data.pagination.hasMore ? <span>More records exist beyond this result page; narrow the filters to inspect them here.</span> : null}
+      {!compact && visibleData?.pagination ? (
+        <div className={`ops-results-boundary${visibleData.pagination.hasMore ? " ops-results-boundary--truncated" : ""}`} role="status">
+          <span>Showing {logs.length} of {visibleData.pagination.total} matching events.</span>
+          {visibleData.pagination.hasMore ? <span>More records exist beyond this result page; narrow the filters to inspect them here.</span> : null}
         </div>
       ) : null}
 

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { FormEvent, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, FormEvent, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { OpsLogConsole } from "@/components/dashboard/OpsLogConsole";
 import { PendingActionsQueue } from "@/components/dashboard/PendingActionsQueue";
 import { DecisionIndicator } from "@/components/dashboard/OpsEventPrimitives";
@@ -45,7 +45,20 @@ import {
 import { CLI_NPM_INSTALL_COMMAND } from "@/lib/cliInstallCommands";
 import { SessionInactivityMonitor } from "@/components/auth/SessionInactivityMonitor";
 import { DashboardShellLayout } from "@/components/layout/DashboardShell";
-import { Badge, Button, ButtonLink, Card, CodeBlock, DashboardState, PageHeader, RiskIndicator } from "@/components/ui";
+import {
+  Alert,
+  Badge,
+  Button,
+  ButtonLink,
+  Card,
+  CodeBlock,
+  DashboardState,
+  PageHeader,
+  PageLoadingState,
+  RefreshingIndicator,
+  RiskIndicator,
+  SectionLoadingState
+} from "@/components/ui";
 import {
   CountedUsageLimitTile,
   InfoUsageLimitTile,
@@ -225,6 +238,19 @@ type PendingInvite = {
   acceptUrl?: string | null;
   createdAt?: string;
 };
+type MembersResponse = {
+  members: AccountMember[];
+  pendingInvites: PendingInvite[];
+  canManageMembers: boolean;
+  workspaceAuthority?: WorkspaceAuthority | null;
+};
+type DashboardResource<T> = {
+  data: T | null;
+  error: string;
+  loading: boolean;
+  refreshing: boolean;
+  reload: () => Promise<void>;
+};
 type AgentProvider = "custom" | "ollie" | "chatgpt" | "claude" | "gemini" | "zapier" | "make" | "langchain" | "openai" | "other";
 type ProviderSelection = AgentProvider | "";
 type Plan = "free" | "pro" | "team" | "business" | "enterprise";
@@ -373,33 +399,76 @@ const dashboardUseCaseContent: Record<OnboardingUseCase, {
 
 function useResource<T>(path: string) {
   const { apiJson, workspaceSlug } = useDashboardApi();
-  const [data, setData] = useState<T | null>(null);
-  const [error, setError] = useState("");
+  const key = `${workspaceSlug ?? "legacy"}:${path}`;
+  const requestId = useRef(0);
+  const [state, setState] = useState<{
+    key: string;
+    data: T | null;
+    error: string;
+    loading: boolean;
+  }>({ key, data: null, error: "", loading: true });
+
+  const current = state.key === key
+    ? state
+    : { key, data: null, error: "", loading: true };
+
   const reload = useCallback(async () => {
+    const id = ++requestId.current;
+    setState((previous) => ({
+      key,
+      data: previous.key === key ? previous.data : null,
+      error: "",
+      loading: true
+    }));
     try {
-      setError("");
-      setData(await apiJson<T>(path));
+      const data = await apiJson<T>(path);
+      if (requestId.current === id) setState({ key, data, error: "", loading: false });
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Request failed.");
+      if (requestId.current !== id) return;
+      setState((previous) => ({
+        key,
+        data: previous.key === key ? previous.data : null,
+        error: requestError instanceof Error ? requestError.message : "Request failed.",
+        loading: false
+      }));
     }
-  }, [path, apiJson]);
+  }, [apiJson, key, path]);
+
   useEffect(() => {
     let cancelled = false;
+    const id = ++requestId.current;
     async function load() {
+      setState({ key, data: null, error: "", loading: true });
       try {
-        setError("");
         const result = await apiJson<T>(path);
-        if (!cancelled) setData(result);
+        if (!cancelled && requestId.current === id) {
+          setState({ key, data: result, error: "", loading: false });
+        }
       } catch (requestError) {
-        if (!cancelled) setError(requestError instanceof Error ? requestError.message : "Request failed.");
+        if (!cancelled && requestId.current === id) {
+          setState({
+            key,
+            data: null,
+            error: requestError instanceof Error ? requestError.message : "Request failed.",
+            loading: false
+          });
+        }
       }
     }
     void load();
     return () => {
       cancelled = true;
+      if (requestId.current === id) requestId.current += 1;
     };
-  }, [path, apiJson, workspaceSlug]);
-  return { data, error, reload };
+  }, [apiJson, key, path]);
+
+  return {
+    data: current.data,
+    error: current.error,
+    loading: current.loading,
+    refreshing: current.loading && Boolean(current.data),
+    reload
+  };
 }
 
 async function legacyUnscopedApiRemoved(): Promise<never> {
@@ -426,8 +495,10 @@ export function DashboardViews({
   emailVerified?: boolean;
   showSetupBanner?: boolean;
 }) {
+  const workspaceSlug = useOptionalWorkspace()?.workspaceSlug ?? "legacy";
+  const contentKey = `${workspaceSlug}:${view}:${id ?? ""}`;
   return (
-    <>
+    <Fragment key={contentKey}>
         {!emailVerified ? (
           <div className="dashboard-banner dashboard-banner--warning" role="status">
             <strong>Verify your email.</strong> Agent creation and API tokens stay locked until verification is complete.{" "}
@@ -455,7 +526,7 @@ export function DashboardViews({
         {view === "settings" ? <SettingsView /> : null}
         {view === "managed-profiles" ? <ManagedProfilesView /> : null}
         {view === "managed-profiles-activity" ? <ManagedProfileActivityView /> : null}
-    </>
+    </Fragment>
   );
 }
 
@@ -502,7 +573,7 @@ function feedTime(value?: string) {
 
 function FirstAgentSetupView({ emailVerified }: { emailVerified: boolean }) {
   return (
-    <Suspense fallback={<div className="setup-loading">Loading agent setup…</div>}>
+    <Suspense fallback={<PageLoadingState label="Loading agent setup" variant="form" />}>
       <FirstAgentSetupViewInner emailVerified={emailVerified} />
     </Suspense>
   );
@@ -537,6 +608,11 @@ function HomeView() {
   const inbox = useResource<{ pendingApprovals: ApprovalRequest[]; deniedHighRisk: Log[] }>("/api/dashboard/inbox");
   const activity = useResource<{ logs: Log[] }>("/api/dashboard/logs?limit=8");
 
+  const initialLoading = [summary, inbox, activity].some((resource) => resource.loading && !resource.data);
+  if (initialLoading) {
+    return <PageLoadingState label="Loading workspace overview" variant="overview" />;
+  }
+
   const hasAgents = (summary.data?.totalAgents ?? 0) > 0;
   const controlAreas = (summary.data?.accountOnboarding?.controlAreas ?? []) as ControlArea[];
   const agentTools = (summary.data?.accountOnboarding?.agentTools ?? []) as AgentTool[];
@@ -552,7 +628,7 @@ function HomeView() {
       : hasAgents
         ? { label: "Operational", tone: "ok" as const }
         : { label: "Awaiting configuration", tone: "idle" as const }
-    : { label: "Loading", tone: "idle" as const };
+    : { label: summary.error ? "Unavailable" : "Loading", tone: "idle" as const };
 
   const nextActions = [
     !hasAgents
@@ -569,7 +645,9 @@ function HomeView() {
       : null
   ].filter(Boolean) as Array<{ title: string; body: string; href: string }>;
 
-  const headerAction = !hasAgents
+  const headerAction = !summary.data
+    ? { label: "Manage agents", href: dHref("/dashboard/agents") }
+    : !hasAgents
     ? { label: "Set up first agent", href: dHref("/dashboard/agents/new") }
     : pendingApprovals.length > 0
       ? { label: "Review approvals", href: dHref("/dashboard/approvals") }
@@ -590,7 +668,12 @@ function HomeView() {
           </Badge>
         }
       />
-      {summary.error ? <p className="form-error" role="alert">{summary.error}</p> : null}
+      {summary.refreshing || inbox.refreshing || activity.refreshing ? (
+        <RefreshingIndicator label="Refreshing workspace overview" />
+      ) : null}
+      {summary.error ? (
+        <Alert tone="destructive">Overview metrics could not be {summary.data ? "refreshed" : "loaded"}: {summary.error}</Alert>
+      ) : null}
 
       <section className="ops-strip" aria-label="System status">
         <div className="ops-strip__state">
@@ -624,8 +707,10 @@ function HomeView() {
               <p className="cx-label">Approval queue</p>
               <Link href={dHref("/dashboard/approvals")}>Open queue</Link>
             </div>
-            {!inbox.data ? (
-              <p className="ops-empty">Loading queue…</p>
+            {inbox.error && !inbox.data ? (
+              <p className="ops-empty" role="alert">Approval queue unavailable: {inbox.error}</p>
+            ) : !inbox.data ? (
+              <p className="ops-empty">Approval queue unavailable.</p>
             ) : pendingApprovals.length === 0 ? (
               <p className="ops-empty">No approvals waiting. Gated actions pause here for human review before they run.</p>
             ) : (
@@ -670,8 +755,10 @@ function HomeView() {
               <p className="cx-label">Recent activity</p>
               <Link href={dHref("/dashboard/logs")}>View all</Link>
             </div>
-            {!activity.data ? (
-              <p className="ops-empty">Loading activity…</p>
+            {activity.error && !activity.data ? (
+              <p className="ops-empty" role="alert">Recent activity unavailable: {activity.error}</p>
+            ) : !activity.data ? (
+              <p className="ops-empty">Recent activity unavailable.</p>
             ) : recentLogs.length === 0 ? (
               <p className="ops-empty">
                 No verification events yet. Decisions appear here the moment an agent calls <code>verify</code>.
@@ -704,7 +791,9 @@ function HomeView() {
             <div className="ops-panel__head">
               <p className="cx-label">Policy coverage</p>
             </div>
-            {controlAreas.length === 0 ? (
+            {summary.error && !summary.data ? (
+              <p className="ops-empty" role="alert">Policy coverage could not be loaded.</p>
+            ) : controlAreas.length === 0 ? (
               <p className="ops-empty">No control boundaries selected during setup. Add them in settings to track coverage here.</p>
             ) : (
               <div className="ops-coverage">
@@ -725,7 +814,9 @@ function HomeView() {
             <div className="ops-panel__head">
               <p className="cx-label">Integration surfaces</p>
             </div>
-            {agentTools.length === 0 ? (
+            {summary.error && !summary.data ? (
+              <p className="ops-empty" role="alert">Integration surfaces could not be loaded.</p>
+            ) : agentTools.length === 0 ? (
               <p className="ops-empty">No agent surfaces registered during setup.</p>
             ) : (
               <div className="ops-coverage">
@@ -823,6 +914,9 @@ function AgentsView() {
   const { href: dHref } = useDashboardPaths();
   const resource = useResource<{ agents: Agent[] }>("/api/dashboard/agents");
   const agents = resource.data?.agents ?? [];
+  if (resource.loading && !resource.data) {
+    return <PageLoadingState label="Loading agents" variant="table" />;
+  }
   return (
     <>
       <Header
@@ -831,8 +925,9 @@ function AgentsView() {
         eyebrow="Agents & access"
         title="Agents"
       /> {/* pragma: allowlist secret */}
-      {!resource.data && !resource.error ? <DashboardState kind="loading" title="Loading agents" description="Retrieving agent identities for this workspace." /> : null}
-      {resource.error ? <DashboardState kind="error" title="Agents could not be loaded" description={resource.error} /> : null}
+      {resource.refreshing ? <RefreshingIndicator label="Refreshing agents" /> : null}
+      {resource.error && !resource.data ? <DashboardState kind="error" title="Agents could not be loaded" description={resource.error} /> : null}
+      {resource.error && resource.data ? <Alert tone="destructive">Agents could not be refreshed: {resource.error}</Alert> : null}
       {!agents.length && resource.data ? (
         <section className="agents-empty">
           <DashboardState
@@ -883,10 +978,12 @@ function SitesView() {
   const [name, setName] = useState("");
   const [domain, setDomain] = useState("");
   const [siteError, setSiteError] = useState("");
+  const [creatingSite, setCreatingSite] = useState(false);
   const selectedSiteId = siteId || sites[0]?.siteId || "";
 
   const createSite = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setCreatingSite(true);
     try {
       setSiteError("");
       const result = await api<{ site: Site }>("/api/dashboard/sites", {
@@ -899,8 +996,14 @@ function SitesView() {
       await resource.reload();
     } catch (requestError) {
       setSiteError(requestError instanceof Error ? requestError.message : "Site creation failed.");
+    } finally {
+      setCreatingSite(false);
     }
   };
+
+  if (resource.loading && !resource.data) {
+    return <PageLoadingState label="Loading Site Guard" variant="settings" />;
+  }
 
   return (
     <>
@@ -911,10 +1014,9 @@ function SitesView() {
         action={<ButtonLink href="/docs/site-guard">Integration docs</ButtonLink>}
       />
       <OperationsNavigation current="site-guard" />
-      {!resource.data && !resource.error ? (
-        <DashboardState kind="loading" title="Loading Site Guard" description="Retrieving protected sites, rules, keys, and recent checks." />
-      ) : null}
-      {resource.error ? <DashboardState kind="error" title="Site Guard could not be loaded" description={resource.error} /> : null}
+      {resource.refreshing ? <RefreshingIndicator label="Refreshing Site Guard" /> : null}
+      {resource.error && !resource.data ? <DashboardState kind="error" title="Site Guard could not be loaded" description={resource.error} /> : null}
+      {resource.error && resource.data ? <Alert tone="destructive">Site Guard could not be refreshed: {resource.error}</Alert> : null}
       {siteError ? <p className="form-error" role="alert">{siteError}</p> : null}
       {resource.data ? (
         <>
@@ -961,7 +1063,7 @@ function SitesView() {
                 <form className="operations-form-grid" onSubmit={createSite}>
                   <label><span>Name</span><input onChange={(event) => setName(event.target.value)} placeholder="Docs site" required value={name} /></label>
                   <label><span>Domain</span><input inputMode="url" onChange={(event) => setDomain(event.target.value)} placeholder="docs.example.com" required value={domain} /></label>
-                  <div className="setup-actions"><Button variant="primary" type="submit">Create site</Button></div>
+                  <div className="setup-actions"><Button loading={creatingSite} variant="primary" type="submit">Create site</Button></div>
                 </form>
               </div>
             </SettingsSection>
@@ -988,9 +1090,11 @@ function SiteDetailView({ siteId, onChanged }: { siteId: string; onChanged: () =
   const [keyName, setKeyName] = useState("");
   const [keyError, setKeyError] = useState("");
   const [newKeyData, setNewKeyData] = useState<{ keyId: string; rawKey: string } | null>(null);
+  const [detailWorking, setDetailWorking] = useState<string | null>(null);
 
   const createRule = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setDetailWorking("create-rule");
     try {
       setDetailError("");
       await api(`/api/dashboard/sites/${siteId}/rules`, {
@@ -1008,11 +1112,14 @@ function SiteDetailView({ siteId, onChanged }: { siteId: string; onChanged: () =
       await detail.reload();
     } catch (requestError) {
       setDetailError(requestError instanceof Error ? requestError.message : "Rule creation failed.");
+    } finally {
+      setDetailWorking(null);
     }
   };
 
   const createKey = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setDetailWorking("create-key");
     try {
       setKeyError("");
       const result = await api<{ key: SiteGuardKey; rawKey: string }>(`/api/dashboard/sites/${siteId}/keys`, {
@@ -1024,10 +1131,13 @@ function SiteDetailView({ siteId, onChanged }: { siteId: string; onChanged: () =
       await detail.reload();
     } catch (requestError) {
       setKeyError(requestError instanceof Error ? requestError.message : "Key creation failed.");
+    } finally {
+      setDetailWorking(null);
     }
   };
 
   const revokeKey = async (keyId: string) => {
+    setDetailWorking(`key:${keyId}`);
     try {
       setKeyError("");
       await api(`/api/dashboard/sites/${siteId}/keys/${keyId}`, { method: "DELETE" });
@@ -1035,20 +1145,26 @@ function SiteDetailView({ siteId, onChanged }: { siteId: string; onChanged: () =
       await detail.reload();
     } catch (requestError) {
       setKeyError(requestError instanceof Error ? requestError.message : "Key revocation failed.");
+    } finally {
+      setDetailWorking(null);
     }
   };
 
   const setSiteStatus = async (status: Site["status"]) => {
+    setDetailWorking("site-status");
     try {
       setDetailError("");
       await api(`/api/dashboard/sites/${siteId}`, { method: "PATCH", body: JSON.stringify({ status }) });
       await Promise.all([detail.reload(), onChanged()]);
     } catch (requestError) {
       setDetailError(requestError instanceof Error ? requestError.message : "Site status update failed.");
+    } finally {
+      setDetailWorking(null);
     }
   };
 
   const setRuleStatus = async (rule: SiteRule) => {
+    setDetailWorking(`rule:${rule.ruleId}`);
     try {
       setDetailError("");
       await api(`/api/dashboard/sites/${siteId}/rules/${rule.ruleId}`, {
@@ -1058,17 +1174,21 @@ function SiteDetailView({ siteId, onChanged }: { siteId: string; onChanged: () =
       await detail.reload();
     } catch (requestError) {
       setDetailError(requestError instanceof Error ? requestError.message : "Rule status update failed.");
+    } finally {
+      setDetailWorking(null);
     }
   };
 
-  if (detail.error) return <DashboardState kind="error" title="Site configuration could not be loaded" description={detail.error} />;
+  if (detail.error && !detail.data) return <DashboardState kind="error" title="Site configuration could not be loaded" description={detail.error} />;
   const site = detail.data?.site;
-  if (!site) return <DashboardState kind="loading" title="Loading site configuration" description="Retrieving enforcement rules, site keys, and recent checks." />;
+  if (!site) return <SectionLoadingState label="Loading site configuration" rows={6} />;
 
   const hasKeys = (detail.data?.keys ?? []).some((k) => k.status === "active");
 
   return (
     <>
+      {detail.refreshing ? <RefreshingIndicator label="Refreshing site configuration" /> : null}
+      {detail.error ? <Alert tone="destructive">Site configuration could not be refreshed: {detail.error}</Alert> : null}
       <div className="site-guard-detail__header">
         <div>
           <SiteGuardStatus status={site.status} />
@@ -1076,6 +1196,7 @@ function SiteDetailView({ siteId, onChanged }: { siteId: string; onChanged: () =
           <code>{site.domain} · {site.siteId}</code>
         </div>
         <Button
+          loading={detailWorking === "site-status"}
           onClick={() => void setSiteStatus(site.status === "active" ? "disabled" : "active")}
           variant={site.status === "active" ? "danger" : "primary"}
         >
@@ -1122,7 +1243,7 @@ function SiteDetailView({ siteId, onChanged }: { siteId: string; onChanged: () =
                 </div>
                 <div className="site-guard-row__actions">
                   <Badge variant={key.status === "active" ? "success" : "outline"}>{key.status}</Badge>
-                  {key.status === "active" ? <Button onClick={() => void revokeKey(key.keyId)} size="small" variant="danger">Revoke</Button> : null}
+                  {key.status === "active" ? <Button loading={detailWorking === `key:${key.keyId}`} onClick={() => void revokeKey(key.keyId)} size="small" variant="danger">Revoke</Button> : null}
                 </div>
               </div>
             ))}
@@ -1160,7 +1281,7 @@ function SiteDetailView({ siteId, onChanged }: { siteId: string; onChanged: () =
                 </div>
                 <div className="site-guard-row__actions">
                   <Badge variant={rule.status === "active" ? "success" : "outline"}>{rule.status}</Badge>
-                  <Button onClick={() => void setRuleStatus(rule)} size="small">{rule.status === "active" ? "Disable" : "Enable"}</Button>
+                  <Button loading={detailWorking === `rule:${rule.ruleId}`} onClick={() => void setRuleStatus(rule)} size="small">{rule.status === "active" ? "Disable" : "Enable"}</Button>
                 </div>
               </div>
             ))}
@@ -1201,7 +1322,7 @@ function SiteDetailView({ siteId, onChanged }: { siteId: string; onChanged: () =
         <SettingsSection id={`create-site-key-${site.siteId}`} eyebrow="Developer access" title="Create site key" description="Name the server or environment that will hold this credential.">
           <form className="operations-form-grid" onSubmit={createKey}>
             <label className="operations-form-grid__wide"><span>Key name</span><input maxLength={120} onChange={(event) => setKeyName(event.target.value)} placeholder="Production middleware" required value={keyName} /></label>
-            <div className="setup-actions"><Button variant="primary" type="submit">Create key</Button></div>
+            <div className="setup-actions"><Button loading={detailWorking === "create-key"} variant="primary" type="submit">Create key</Button></div>
           </form>
         </SettingsSection>
         <SettingsSection id={`create-site-rule-${site.siteId}`} eyebrow="Enforcement" title="Add route rule" description="Identify the agent, then declare the absolute paths this rule allows or blocks.">
@@ -1212,7 +1333,7 @@ function SiteDetailView({ siteId, onChanged }: { siteId: string; onChanged: () =
             <label><span>Allowed paths</span><textarea onChange={(event) => setAllowedPaths(event.target.value)} rows={3} value={allowedPaths} /><small className="field-help">Comma- or line-separated absolute path globs.</small></label>
             <label><span>Blocked paths</span><textarea onChange={(event) => setBlockedPaths(event.target.value)} rows={3} value={blockedPaths} /><small className="field-help">Blocked paths take precedence over allowed paths.</small></label>
             <label className="setup-check setup-check--setting operations-form-grid__wide"><input checked={requiresApproval} onChange={(event) => setRequiresApproval(event.target.checked)} type="checkbox" /><span className="setup-check__body"><span className="setup-check__label">Require approval</span><span className="setup-check__hint">Matching allowed paths remain denied until approval is available.</span></span></label>
-            <div className="setup-actions"><Button variant="primary" type="submit">Add rule</Button></div>
+            <div className="setup-actions"><Button loading={detailWorking === "create-rule"} variant="primary" type="submit">Add rule</Button></div>
           </form>
         </SettingsSection>
       </div>
@@ -2268,27 +2389,33 @@ function AgentView({ agentId }: { agentId: string }) {
   const [guidelines, setGuidelines] = useState<string[]>([]);
   const [newGuideline, setNewGuideline] = useState("");
   const [guidelinesInitialized, setGuidelinesInitialized] = useState(false);
+  const [agentWorking, setAgentWorking] = useState<string | null>(null);
   const createPermission = async (event: FormEvent) => {
     event.preventDefault();
     const resolvedAction = form.action || form.template || "";
-    await api(`/api/dashboard/agents/${agentId}/permissions`, {
-      method: "POST",
-      body: JSON.stringify({
-        action: resolvedAction,
-        resource: form.resource || undefined,
-        scope: form.scope || undefined,
-        allowedActions: form.allowedActions ? form.allowedActions.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
-        blockedActions: form.blockedActions ? form.blockedActions.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
-        requiresApproval: form.requiresApproval || undefined,
-        template: form.template || undefined,
-        constraints: {
-          maxAmount: form.maxAmount ? Number(form.maxAmount) : undefined,
-          allowedVendors: form.resource ? [form.resource] : undefined,
-          expiresAt: form.expiresAt || undefined
-        }
-      })
-    });
-    await detail.reload();
+    setAgentWorking("create-permission");
+    try {
+      await api(`/api/dashboard/agents/${agentId}/permissions`, {
+        method: "POST",
+        body: JSON.stringify({
+          action: resolvedAction,
+          resource: form.resource || undefined,
+          scope: form.scope || undefined,
+          allowedActions: form.allowedActions ? form.allowedActions.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+          blockedActions: form.blockedActions ? form.blockedActions.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+          requiresApproval: form.requiresApproval || undefined,
+          template: form.template || undefined,
+          constraints: {
+            maxAmount: form.maxAmount ? Number(form.maxAmount) : undefined,
+            allowedVendors: form.resource ? [form.resource] : undefined,
+            expiresAt: form.expiresAt || undefined
+          }
+        })
+      });
+      await detail.reload();
+    } finally {
+      setAgentWorking(null);
+    }
   };
 
   const applyPolicyTemplate = (pt: PolicyTemplate) => {
@@ -2349,8 +2476,24 @@ function AgentView({ agentId }: { agentId: string }) {
     setPassportUrl(result.passportUrl);
     await detail.reload();
   };
-  const setStatus = async (status: "enable" | "disable") => { await api(`/api/dashboard/agents/${agentId}/${status}`, { method: "POST" }); await detail.reload(); };
-  const revoke = async (permissionId: string) => { await api(`/api/dashboard/agents/${agentId}/permissions/${permissionId}/revoke`, { method: "POST" }); await detail.reload(); };
+  const setStatus = async (status: "enable" | "disable") => {
+    setAgentWorking("status");
+    try {
+      await api(`/api/dashboard/agents/${agentId}/${status}`, { method: "POST" });
+      await detail.reload();
+    } finally {
+      setAgentWorking(null);
+    }
+  };
+  const revoke = async (permissionId: string) => {
+    setAgentWorking(`revoke:${permissionId}`);
+    try {
+      await api(`/api/dashboard/agents/${agentId}/permissions/${permissionId}/revoke`, { method: "POST" });
+      await detail.reload();
+    } finally {
+      setAgentWorking(null);
+    }
+  };
   const updateProfile = async (event: FormEvent) => {
     event.preventDefault();
     if (!detail.data?.agent) return;
@@ -2408,20 +2551,10 @@ function AgentView({ agentId }: { agentId: string }) {
   };
 
   if (!detail.data) {
-    return (
-      <>
-        <Header
-          breadcrumb={<><Link href={dHref("/dashboard/agents")}>Agents</Link><span aria-hidden="true">/</span><span aria-current="page">Agent detail</span></>}
-          description="Agent identity, permission policy, integrations, and activity."
-          title="Agent"
-        />
-        {detail.error ? (
-          <DashboardState kind="error" title="Agent could not be loaded" description={detail.error} />
-        ) : (
-          <DashboardState kind="loading" title="Loading agent" description="Retrieving identity, permission, and activity details." />
-        )}
-      </>
-    );
+    if (detail.error) {
+      return <DashboardState kind="error" title="Agent could not be loaded" description={detail.error} />;
+    }
+    return <PageLoadingState label="Loading agent identity, permissions, and activity" variant="detail" />;
   }
 
   if (!agent) {
@@ -2440,9 +2573,12 @@ function AgentView({ agentId }: { agentId: string }) {
         backHref={dHref("/dashboard/agents")}
         onRotateKey={rotate}
         onSetStatus={setStatus}
+        statusWorking={agentWorking === "status"}
         tabs={<AgentDetailNavigation active={activeSection} onChange={setActiveSection} />}
         workspaceLabel={workspaceSlug ?? "Current workspace"}
       />
+      {detail.refreshing ? <RefreshingIndicator label="Refreshing agent details" /> : null}
+      {detail.error ? <Alert tone="destructive">Agent details could not be refreshed: {detail.error}</Alert> : null}
       {secret ? <Secret value={secret} label="Rotated API key" /> : null}
       <AgentSectionPanel active={activeSection} section="overview">
         <div className="agent-section-heading">
@@ -2650,7 +2786,7 @@ function AgentView({ agentId }: { agentId: string }) {
         ) : (
           <div className="permission-list">
             {permissions.map((permission) => (
-              <PermissionSummary key={permission.permissionId} onRevoke={revoke} permission={permission} />
+              <PermissionSummary key={permission.permissionId} onRevoke={revoke} permission={permission} revoking={agentWorking === `revoke:${permission.permissionId}`} />
             ))}
           </div>
         )}
@@ -2836,7 +2972,7 @@ function AgentView({ agentId }: { agentId: string }) {
         </PermissionFormSection>
         <div className="permission-editor__actions">
           <p>Creating this permission adds a new active record. Existing permission records are not replaced or revoked.</p>
-        <Button variant={selectedMultiTemplate ? "outline" : "primary"} type="submit" disabled={!canGrantSelectedPermission || workspaceAuthority?.authorityLevel === 10}>
+        <Button loading={agentWorking === "create-permission"} variant={selectedMultiTemplate ? "outline" : "primary"} type="submit" disabled={!canGrantSelectedPermission || workspaceAuthority?.authorityLevel === 10}>
           Create permission
         </Button>
         </div>
@@ -2903,6 +3039,9 @@ function WebhooksView() {
     }
   };
   const webhooksEnabled = resource.data?.webhooksEnabled ?? false;
+  if (resource.loading && !resource.data) {
+    return <PageLoadingState label="Loading webhooks" variant="table" />;
+  }
   return (
     <>
       <Header
@@ -2912,8 +3051,9 @@ function WebhooksView() {
         action={webhooksEnabled ? <ButtonLink variant="secondary" href={dHref("/dashboard/billing")}>Manage billing</ButtonLink> : undefined}
       />
       <OperationsNavigation current="webhooks" />
-      {!resource.data && !resource.error ? <DashboardState kind="loading" title="Loading webhooks" description="Retrieving endpoint status and delivery configuration." /> : null}
-      {resource.error ? <DashboardState kind="error" title="Webhooks could not be loaded" description={resource.error} /> : null}
+      {resource.refreshing ? <RefreshingIndicator label="Refreshing webhooks" /> : null}
+      {resource.error && !resource.data ? <DashboardState kind="error" title="Webhooks could not be loaded" description={resource.error} /> : null}
+      {resource.error && resource.data ? <Alert tone="destructive">Webhooks could not be refreshed: {resource.error}</Alert> : null}
       {resource.data ? (
         <>
           {!webhooksEnabled ? (
@@ -3033,6 +3173,9 @@ function WebhookView({ webhookId }: { webhookId: string }) {
     }
   };
   const webhook = detail.data?.webhook;
+  if (detail.loading && !detail.data) {
+    return <PageLoadingState label="Loading webhook endpoint" variant="detail" />;
+  }
   return (
     <>
       <Header
@@ -3042,8 +3185,9 @@ function WebhookView({ webhookId }: { webhookId: string }) {
         description="Inspect endpoint configuration, signing-secret lifecycle, and recorded delivery attempts."
       />
       <OperationsNavigation current="webhooks" />
-      {!detail.data && !detail.error ? <DashboardState kind="loading" title="Loading webhook" description="Retrieving endpoint metadata and recent deliveries." /> : null}
-      {detail.error ? <DashboardState kind="error" title="Webhook could not be loaded" description={detail.error} /> : null}
+      {detail.refreshing ? <RefreshingIndicator label="Refreshing webhook endpoint" /> : null}
+      {detail.error && !detail.data ? <DashboardState kind="error" title="Webhook could not be loaded" description={detail.error} /> : null}
+      {detail.error && detail.data ? <Alert tone="destructive">Webhook endpoint could not be refreshed: {detail.error}</Alert> : null}
       {actionError ? <p className="form-error" role="alert">{actionError}</p> : null}
       {webhook ? (
         <>
@@ -3239,23 +3383,19 @@ function InboxView() {
   );
 }
 
-function MembersPanel() {
+function MembersPanel({ members }: { members: DashboardResource<MembersResponse> }) {
   const { apiJson: api } = useDashboardApi();
-  const members = useResource<{
-    members: AccountMember[];
-    pendingInvites: PendingInvite[];
-    canManageMembers: boolean;
-    workspaceAuthority?: WorkspaceAuthority | null;
-  }>("/api/dashboard/members");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("ENGINEER");
   const [memberError, setMemberError] = useState("");
   const [lastInviteUrl, setLastInviteUrl] = useState("");
+  const [memberWorking, setMemberWorking] = useState<string | null>(null);
 
   const addMember = async (event: FormEvent) => {
     event.preventDefault();
     setMemberError("");
     setLastInviteUrl("");
+    setMemberWorking("add");
     try {
       const result = await api<{ member?: AccountMember; invite?: PendingInvite }>("/api/dashboard/members", {
         method: "POST",
@@ -3268,11 +3408,14 @@ function MembersPanel() {
       await members.reload();
     } catch (error) {
       setMemberError(error instanceof Error ? error.message : "Could not add member.");
+    } finally {
+      setMemberWorking(null);
     }
   };
 
   const updateRole = async (membershipId: string, nextRole: string) => {
     setMemberError("");
+    setMemberWorking(`role:${membershipId}`);
     try {
       await api(`/api/dashboard/members/${membershipId}`, {
         method: "PATCH",
@@ -3281,26 +3424,34 @@ function MembersPanel() {
       await members.reload();
     } catch (error) {
       setMemberError(error instanceof Error ? error.message : "Could not update role.");
+    } finally {
+      setMemberWorking(null);
     }
   };
 
   const removeMember = async (membershipId: string) => {
     setMemberError("");
+    setMemberWorking(`remove:${membershipId}`);
     try {
       await api(`/api/dashboard/members/${membershipId}`, { method: "DELETE" });
       await members.reload();
     } catch (error) {
       setMemberError(error instanceof Error ? error.message : "Could not remove member.");
+    } finally {
+      setMemberWorking(null);
     }
   };
 
   const revokeInvite = async (inviteId: string) => {
     setMemberError("");
+    setMemberWorking(`invite:${inviteId}`);
     try {
       await api(`/api/dashboard/members/invites/${inviteId}`, { method: "DELETE" });
       await members.reload();
     } catch (error) {
       setMemberError(error instanceof Error ? error.message : "Could not revoke invite.");
+    } finally {
+      setMemberWorking(null);
     }
   };
 
@@ -3313,7 +3464,9 @@ function MembersPanel() {
       tone={members.data && !members.data.canManageMembers ? "restricted" : "default"}
     >
       {!members.data && !members.error ? <DashboardState kind="loading" title="Loading members" description="Retrieving active memberships and pending invitations." /> : null}
-      {members.error ? <DashboardState kind="error" title="Members could not be loaded" description={members.error} /> : null}
+      {members.refreshing ? <RefreshingIndicator label="Refreshing members" /> : null}
+      {members.error && !members.data ? <DashboardState kind="error" title="Members could not be loaded" description={members.error} /> : null}
+      {members.error && members.data ? <Alert tone="destructive">Members could not be refreshed: {members.error}</Alert> : null}
       {members.data?.workspaceAuthority ? (
         <div className="settings-callout">
           <strong>Your authority: {members.data.workspaceAuthority.roleLabel} · level {members.data.workspaceAuthority.authorityLevel}</strong>
@@ -3347,6 +3500,7 @@ function MembersPanel() {
                 <select
                   aria-label={`Role for ${member.email ?? member.userId}`}
                   value={member.role}
+                  disabled={memberWorking !== null}
                   onChange={(event) => void updateRole(member.membershipId, event.target.value)}
                 >
                   <option value="ENGINEERING_LEAD">Engineering Lead</option>
@@ -3354,7 +3508,7 @@ function MembersPanel() {
                   <option value="ENGINEER">Engineer</option>
                   <option value="VIEWER">Viewer</option>
                 </select>
-                <Button type="button" variant="danger" onClick={() => void removeMember(member.membershipId)}>Remove</Button>
+                <Button loading={memberWorking === `remove:${member.membershipId}`} type="button" variant="danger" onClick={() => void removeMember(member.membershipId)}>Remove</Button>
               </div>
             ) : <MemberRoleBadge role={member.role} />}
             {members.data?.canManageMembers ? <p className="member-directory__consequence">Removing a member ends their workspace membership; server-side owner and authority safeguards still apply.</p> : null}
@@ -3375,7 +3529,7 @@ function MembersPanel() {
                 {members.data?.canManageMembers ? (
                   <div className="member-directory__actions">
                     <MemberRoleBadge role={invite.role} />
-                    <Button type="button" variant="danger" onClick={() => void revokeInvite(invite.inviteId)}>Revoke invite</Button>
+                    <Button loading={memberWorking === `invite:${invite.inviteId}`} type="button" variant="danger" onClick={() => void revokeInvite(invite.inviteId)}>Revoke invite</Button>
                   </div>
                 ) : <MemberRoleBadge role={invite.role} />}
               </div>
@@ -3401,7 +3555,7 @@ function MembersPanel() {
                 <option value="VIEWER">Viewer</option>
               </select>
             </label>
-            <div className="setup-actions"><Button variant="primary" type="submit">Add member</Button></div>
+            <div className="setup-actions"><Button loading={memberWorking === "add"} variant="primary" type="submit">Add member</Button></div>
           </form>
         </div>
       ) : null}
@@ -3600,6 +3754,7 @@ function SettingsView() {
     canEditAccountFields?: boolean;
   }>("/api/dashboard/settings");
   const tokens = useResource<{ tokens: DeveloperToken[] }>("/api/dashboard/tokens");
+  const members = useResource<MembersResponse>("/api/dashboard/members");
   const workspace = useOptionalWorkspace();
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [tokenName, setTokenName] = useState("");
@@ -3624,6 +3779,7 @@ function SettingsView() {
   });
   const [saveMessage, setSaveMessage] = useState("");
   const [saveError, setSaveError] = useState("");
+  const [saveWorking, setSaveWorking] = useState<"profile" | "account" | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
@@ -3677,6 +3833,7 @@ function SettingsView() {
     event.preventDefault();
     setSaveError("");
     setSaveMessage("");
+    setSaveWorking("profile");
     try {
       await api("/api/dashboard/settings", {
         method: "PATCH",
@@ -3686,6 +3843,8 @@ function SettingsView() {
       await settings.reload();
     } catch (requestError) {
       setSaveError(requestError instanceof Error ? requestError.message : "Failed to save profile.");
+    } finally {
+      setSaveWorking(null);
     }
   };
 
@@ -3693,6 +3852,7 @@ function SettingsView() {
     event.preventDefault();
     setSaveError("");
     setSaveMessage("");
+    setSaveWorking("account");
     try {
       await api("/api/dashboard/settings", {
         method: "PATCH",
@@ -3713,6 +3873,8 @@ function SettingsView() {
       await settings.reload();
     } catch (requestError) {
       setSaveError(requestError instanceof Error ? requestError.message : "Failed to save workspace settings.");
+    } finally {
+      setSaveWorking(null);
     }
   };
 
@@ -3766,17 +3928,13 @@ function SettingsView() {
       setDeleting(false);
     }
   };
-  if (!settings.data && !settings.error) {
-    return (
-      <>
-        <Header eyebrow="Workspace administration" title="Settings" description="Manage account identity, workspace policy context, membership, and developer access." />
-        <OperationsNavigation current="settings" />
-        <DashboardState kind="loading" title="Loading settings" description="Retrieving workspace and account settings." />
-      </>
-    );
+
+  const initialLoading = [settings, tokens, members].some((resource) => resource.loading && !resource.data);
+  if (initialLoading) {
+    return <PageLoadingState label="Loading settings, members, and developer tokens" variant="settings" />;
   }
 
-  if (settings.error) {
+  if (settings.error && !settings.data) {
     return (
       <>
         <Header eyebrow="Workspace administration" title="Settings" description="Manage account identity, workspace policy context, membership, and developer access." />
@@ -3790,6 +3948,10 @@ function SettingsView() {
     <>
       <Header eyebrow="Workspace administration" title="Settings" description="Manage account identity, workspace policy context, membership, and developer access." />
       <OperationsNavigation current="settings" />
+      {settings.refreshing || tokens.refreshing || members.refreshing ? (
+        <RefreshingIndicator label="Refreshing workspace settings" />
+      ) : null}
+      {settings.error && settings.data ? <Alert tone="destructive">Workspace settings could not be refreshed: {settings.error}</Alert> : null}
       {saveMessage ? <p className="setup-banner" role="status">{saveMessage}</p> : null}
       {saveError ? <p className="form-error" role="alert">{saveError}</p> : null}
       <div className="settings-page-layout">
@@ -3842,7 +4004,7 @@ function SettingsView() {
             <input onChange={(event) => setProfileForm((prev) => ({ ...prev, jobTitle: event.target.value }))} value={profileForm.jobTitle} />
           </label>
           <div className="setup-actions">
-            <Button type="submit" variant="primary">Save profile</Button>
+            <Button loading={saveWorking === "profile"} type="submit" variant="primary">Save profile</Button>
           </div>
         </form>
       </SettingsSection>
@@ -3971,7 +4133,7 @@ function SettingsView() {
               </select>
             </label>
             <div className="setup-actions">
-              <Button type="submit" variant="primary">Save workspace</Button>
+              <Button loading={saveWorking === "account"} type="submit" variant="primary">Save workspace</Button>
             </div>
           </form>
         ) : (
@@ -3982,7 +4144,7 @@ function SettingsView() {
         )}
       </SettingsSection>
       <SsoSettingsCard canEditWorkspace={Boolean(settings.data?.canEditAccountFields)} />
-      <MembersPanel />
+      <MembersPanel members={members} />
       <SettingsSection
         description="Personal developer credentials for SDK and API calls that require developer context. Raw token values are never listed again."
         eyebrow="Account-level"
@@ -4017,7 +4179,8 @@ function SettingsView() {
           <h3>Issued tokens</h3>
           <p>Metadata and masked previews are safe to review here; raw credential material is not returned.</p>
           {!tokens.data && !tokens.error ? <DashboardState kind="loading" title="Loading developer tokens" description="Retrieving token metadata without raw credentials." /> : null}
-          {tokens.error ? <DashboardState kind="error" title="Developer tokens could not be loaded" description={tokens.error} /> : null}
+          {tokens.error && !tokens.data ? <DashboardState kind="error" title="Developer tokens could not be loaded" description={tokens.error} /> : null}
+          {tokens.error && tokens.data ? <Alert tone="destructive">Developer tokens could not be refreshed: {tokens.error}</Alert> : null}
           <div className="developer-token-list">
             {(tokens.data?.tokens ?? []).map((token) => (
               <div className="developer-token-row" key={token.tokenId}>

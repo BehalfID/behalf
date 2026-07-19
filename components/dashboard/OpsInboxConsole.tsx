@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Alert, Badge, Button, DashboardState, PageHeader } from "@/components/ui";
+import { Alert, Badge, Button, DashboardState, PageHeader, PageLoadingState, RefreshingIndicator } from "@/components/ui";
 import { useDashboardPaths } from "@/components/workspace/WorkspaceProvider";
 import {
   ApprovalRequestDetail,
@@ -28,7 +28,13 @@ export function OpsInboxConsole({
   onResolve,
   dateFormatter
 }: {
-  inbox: { data: { pendingApprovals: OpsApprovalRequest[]; deniedHighRisk: OpsLog[] } | null; error?: string; reload: () => Promise<void> };
+  inbox: {
+    data: { pendingApprovals: OpsApprovalRequest[]; deniedHighRisk: OpsLog[] } | null;
+    error?: string;
+    loading?: boolean;
+    refreshing?: boolean;
+    reload: () => Promise<void>;
+  };
   working: { approvalId: string; action: "approve" | "deny" } | null;
   resolveError: string;
   statusMessage: string;
@@ -40,6 +46,24 @@ export function OpsInboxConsole({
   const recentApprovals = (inbox.data?.pendingApprovals ?? []).filter((item) => item.status === "approved");
   const denied = inbox.data?.deniedHighRisk ?? [];
 
+  if (inbox.loading && !inbox.data) {
+    return <PageLoadingState label="Loading action inbox" variant="activity" />;
+  }
+
+  if (inbox.error && !inbox.data) {
+    return (
+      <>
+        <PageHeader
+          title="Needs attention"
+          eyebrow="Action inbox"
+          description="Review bound approval requests first, then investigate recent high-risk denials."
+          className="dashboard-header ops-console__header"
+        />
+        <DashboardState kind="error" title="Action inbox could not be loaded" description={inbox.error} />
+      </>
+    );
+  }
+
   return (
     <div className="ops-console ops-triage">
       <PageHeader
@@ -47,12 +71,13 @@ export function OpsInboxConsole({
         eyebrow="Action inbox"
         description="Review bound approval requests first, then investigate recent high-risk denials."
         status={inbox.data ? <Badge variant={pending.length ? "warning" : "outline"}>{pending.length ? `${pending.length} awaiting decision` : "Queue clear"}</Badge> : null}
-        action={<Button onClick={() => void inbox.reload()} type="button" variant="outline" size="small">Refresh</Button>}
+        action={<Button loading={inbox.refreshing} onClick={() => void inbox.reload()} type="button" variant="outline" size="small">Refresh</Button>}
         className="dashboard-header ops-console__header"
       />
       {statusMessage ? <Alert tone="success" className="ops-feedback">{statusMessage}</Alert> : null}
       {resolveError ? <Alert tone="destructive" className="ops-feedback">{resolveError}</Alert> : null}
-      {inbox.error && !inbox.data ? <Alert tone="destructive" className="ops-feedback">{inbox.error}</Alert> : null}
+      {inbox.error && inbox.data ? <Alert tone="destructive" className="ops-feedback">{inbox.error}</Alert> : null}
+      {inbox.refreshing ? <RefreshingIndicator label="Refreshing action inbox" /> : null}
 
       <section className="ops-triage__section">
         <div className="ops-triage__head">

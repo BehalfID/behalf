@@ -55,11 +55,11 @@ describe("dashboard settings control rows", () => {
   });
 
   it("wraps the workspace save button in the shared setup-actions row", () => {
-    expect(clientSource).toMatch(/setup-actions">\s*<Button type="submit" variant="primary">Save workspace<\/Button>/);
+    expect(clientSource).toMatch(/setup-actions">\s*<Button loading=\{saveWorking === "account"\} type="submit" variant="primary">Save workspace<\/Button>/);
   });
 
-  it("renders the members panel exactly once on the settings page", () => {
-    const matches = clientSource.match(/<MembersPanel \/>/g) ?? [];
+  it("renders the members panel exactly once with its coordinated resource", () => {
+    const matches = clientSource.match(/<MembersPanel members=\{members\} \/>/g) ?? [];
     expect(matches).toHaveLength(1);
   });
 });

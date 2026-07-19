@@ -3,12 +3,15 @@
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import {
+  Alert,
   Button,
   ButtonLink,
   Card,
   DashboardState,
   EmptyState,
   PageHeader,
+  PageLoadingState,
+  RefreshingIndicator,
   Table,
   TableBody,
   TableCell,
@@ -410,20 +413,7 @@ export function ManagedProfilesView() {
   };
 
   if (loading && !form) {
-    return (
-      <div className="managed-profiles-page">
-        <PageHeader
-          eyebrow="CLI governance"
-          title="Managed profiles"
-          description="Control how supported local coding-agent sessions enter workspace policy."
-        />
-        <DashboardState
-          kind="loading"
-          title="Loading managed profile policy"
-          description="Retrieving tool modes, operating conditions, and protected repositories."
-        />
-      </div>
-    );
+    return <PageLoadingState label="Loading managed profile policy" variant="settings" />;
   }
 
   if (!form) {
@@ -504,6 +494,8 @@ export function ManagedProfilesView() {
         }
         className="managed-profile-header"
       />
+      {loading ? <RefreshingIndicator label="Refreshing managed profile policy" /> : null}
+      {loadError ? <Alert tone="destructive">The existing policy is still visible, but the latest refresh failed: {loadError}</Alert> : null}
 
       <dl className="managed-profile-identity-strip" aria-label="Managed profile summary">
         <div>

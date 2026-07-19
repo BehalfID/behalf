@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Alert, Badge, Button, DashboardState, PageHeader } from "@/components/ui";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Alert, Badge, Button, DashboardState, PageHeader, PageLoadingState, RefreshingIndicator } from "@/components/ui";
 import { useDashboardApi } from "@/components/workspace/WorkspaceProvider";
 import { OpsApprovalCard, OpsApprovalQueueRow } from "./OpsEventPrimitives";
 import { type OpsApprovalRequest } from "./opsLogTypes";
@@ -22,24 +22,33 @@ export function PendingActionsQueue({
   compact?: boolean;
   highlightApprovalId?: string | null;
 }) {
-  const { apiJson } = useDashboardApi();
+  const { apiJson, workspaceSlug } = useDashboardApi();
   const [data, setData] = useState<ApprovalsResponse | null>(null);
+  const [dataWorkspaceSlug, setDataWorkspaceSlug] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [errorWorkspaceSlug, setErrorWorkspaceSlug] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState<{ approvalId: string; action: "approve" | "deny" } | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
+  const requestId = useRef(0);
 
   const reload = useCallback(async () => {
+    const id = ++requestId.current;
     setLoading(true);
     setError("");
+    setErrorWorkspaceSlug(workspaceSlug);
     try {
-      setData(await apiJson<ApprovalsResponse>("/api/dashboard/approvals?status=pending"));
+      const result = await apiJson<ApprovalsResponse>("/api/dashboard/approvals?status=pending");
+      if (requestId.current !== id) return;
+      setData(result);
+      setDataWorkspaceSlug(workspaceSlug);
     } catch (requestError) {
+      if (requestId.current !== id) return;
       setError(requestError instanceof Error ? requestError.message : "Request failed.");
     } finally {
-      setLoading(false);
+      if (requestId.current === id) setLoading(false);
     }
-  }, [apiJson]);
+  }, [apiJson, workspaceSlug]);
 
   useEffect(() => {
     // Preserve the established automatic approval-queue fetch.
@@ -66,7 +75,10 @@ export function PendingActionsQueue({
     }
   };
 
-  const list = data?.approvals ?? [];
+  const visibleData = dataWorkspaceSlug === workspaceSlug ? data : null;
+  const visibleError = errorWorkspaceSlug === workspaceSlug ? error : "";
+  const initialLoading = loading || (!visibleData && !visibleError);
+  const list = visibleData?.approvals ?? [];
 
   return (
     <div className={`ops-console ops-queue-console${compact ? " ops-queue-console--compact" : ""}`}>
@@ -75,9 +87,9 @@ export function PendingActionsQueue({
           eyebrow="Human decision queue"
           title={title}
           description={description}
-          status={data ? <Badge variant={list.length ? "warning" : "outline"}>{list.length} pending</Badge> : null}
+          status={visibleData ? <Badge variant={list.length ? "warning" : "outline"}>{list.length} pending</Badge> : null}
           action={
-            <Button type="button" variant="outline" size="small" onClick={() => void reload()} loading={loading && Boolean(data)}>
+            <Button type="button" variant="outline" size="small" onClick={() => void reload()} loading={loading && Boolean(visibleData)}>
               Refresh
             </Button>
           }
@@ -85,28 +97,25 @@ export function PendingActionsQueue({
         />
       ) : null}
 
-      {!compact && data ? (
+      {!compact && visibleData ? (
         <dl className="ops-queue-context" aria-label="Approval queue context">
           <div><dt>Waiting</dt><dd>{list.length}</dd></div>
-          <div><dt>Your authority</dt><dd>{data.workspaceAuthority?.roleLabel ?? "Workspace member"}</dd></div>
+          <div><dt>Your authority</dt><dd>{visibleData.workspaceAuthority?.roleLabel ?? "Workspace member"}</dd></div>
           <div><dt>Grant behavior</dt><dd>Bound and single-use</dd></div>
         </dl>
       ) : null}
 
       {statusMessage ? <Alert tone="success" className="ops-feedback">{statusMessage}</Alert> : null}
-      {error && data ? <Alert tone="destructive" className="ops-feedback">{error}</Alert> : null}
+      {visibleError && visibleData ? <Alert tone="destructive" className="ops-feedback">{visibleError}</Alert> : null}
+      {loading && visibleData ? <RefreshingIndicator label="Refreshing pending approvals" /> : null}
 
-      {loading && !data ? (
-        <DashboardState
-          kind="loading"
-          title="Loading pending approvals"
-          description="Retrieving the decision queue and your workspace authority."
-        />
-      ) : !data ? (
+      {initialLoading && !visibleData ? (
+        <PageLoadingState label="Loading pending approvals" variant="table" />
+      ) : !visibleData ? (
         <DashboardState
           kind="error"
           title="Approval queue unavailable"
-          description={error || "The approval queue could not be loaded."}
+          description={visibleError || "The approval queue could not be loaded."}
           action={<Button type="button" variant="outline" size="small" onClick={() => void reload()}>Try again</Button>}
         />
       ) : list.length === 0 ? (

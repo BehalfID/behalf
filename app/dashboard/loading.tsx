@@ -1,5 +1,5 @@
 import { DashboardRouteLoading } from "@/components/dashboard/DashboardRouteLoading";
 
-export default function WorkspaceDashboardLoading() {
+export default function DashboardLoading() {
   return <DashboardRouteLoading />;
 }
