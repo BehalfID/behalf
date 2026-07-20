@@ -187,11 +187,25 @@ function normalizeExcerpt(body: string) {
 }
 
 function decodeHtml(value: string) {
-  return value
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, "\"")
-    .replace(/&#39;/gi, "'");
+  // Single-pass replacement so &amp;lt; becomes the literal "&lt;" rather than
+  // being double-decoded to "<" (which happens if &amp; is expanded first, or if
+  // &lt; is expanded as a substring of &amp;lt;).
+  return value.replace(/&(?:nbsp|amp|lt|gt|quot|#39);/gi, (entity) => {
+    switch (entity.toLowerCase()) {
+      case "&nbsp;":
+        return " ";
+      case "&amp;":
+        return "&";
+      case "&lt;":
+        return "<";
+      case "&gt;":
+        return ">";
+      case "&quot;":
+        return "\"";
+      case "&#39;":
+        return "'";
+      default:
+        return entity;
+    }
+  });
 }
