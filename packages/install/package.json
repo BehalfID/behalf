@@ -1,0 +1,75 @@
+{
+  "name": "@behalfid/install",
+  "version": "0.1.0",
+  "description": "BehalfID AI Installation Framework — universal installer for AI coding agents",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "behalf-install": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./spec": "./spec/behalfid-install.spec.yaml",
+    "./INSTALL_FOR_AI.md": "./INSTALL_FOR_AI.md",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "spec",
+    "docs",
+    "README.md",
+    "INSTALL_FOR_AI.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint src test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "commander": "^13.0.0",
+    "smol-toml": "^1.7.0",
+    "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "@emnapi/core": "^1.11.2",
+    "@emnapi/runtime": "^1.11.2",
+    "@types/node": "^25.9.5",
+    "@typescript-eslint/eslint-plugin": "^8.46.0",
+    "@typescript-eslint/parser": "^8.46.0",
+    "eslint": "^9.39.4",
+    "prettier": "^3.6.2",
+    "tsup": "^8.5.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6"
+  },
+  "sideEffects": false,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/behalfid/behalf.git",
+    "directory": "packages/install"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "behalfid",
+    "installer",
+    "mcp",
+    "ai-agent",
+    "cursor",
+    "claude",
+    "codex",
+    "vscode",
+    "windsurf"
+  ]
+}

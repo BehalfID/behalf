@@ -29,6 +29,10 @@ jobs:
         run: npm ci
         working-directory: packages/cli
 
+      - name: Install install package dependencies
+        run: npm ci
+        working-directory: packages/install
+
       - name: Typecheck
         run: npx tsc --noEmit
 
