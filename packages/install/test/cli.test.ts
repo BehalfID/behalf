@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createCliProgram } from "../src/cli.js";
+import type { Installer } from "../src/interfaces/Installer.js";
 
 describe("createCliProgram", () => {
   it("exposes version and the public command surface", () => {
@@ -42,10 +43,37 @@ describe("createCliProgram", () => {
   });
 
   it("parses global --json without error", async () => {
-    const program = createCliProgram({ version: "0.1.0-test" });
+    const installer = createMockInstaller();
+    const program = createCliProgram({
+      version: "0.1.0-test",
+      context: { installer },
+    });
     program.exitOverride();
 
-    await program.parseAsync(["node", "behalf-install", "--json", "status"]);
-    expect(program.opts().json).toBe(true);
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    try {
+      await program.parseAsync(["node", "behalf-install", "--json", "status"]);
+      expect(program.opts().json).toBe(true);
+    } finally {
+      logSpy.mockRestore();
+    }
   });
 });
+
+function createMockInstaller(): Installer {
+  return {
+    install: vi.fn(),
+    upgrade: vi.fn(),
+    uninstall: vi.fn(),
+    doctor: vi.fn(),
+    status: vi.fn(async () => ({
+      installed: false,
+      installedVersion: null,
+      installerVersion: "0.1.0-test",
+      installedAt: null,
+      updatedAt: null,
+      configuredClients: [],
+      registeredRuntimes: [],
+    })),
+  };
+}

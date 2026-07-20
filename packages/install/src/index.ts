@@ -68,6 +68,33 @@ export type { FileStateManagerOptions } from "./state/index.js";
 export { createCliProgram, runCli } from "./cli.js";
 export type { CreateCliProgramOptions } from "./cli.js";
 
+export {
+  createDefaultInstaller,
+  createCliOutput,
+  createDefaultHandlerContext,
+} from "./cli/index.js";
+export type {
+  CreateDefaultInstallerOptions,
+  CliHandlerContext,
+  CliOutput,
+} from "./cli/index.js";
+
+export {
+  DEFAULT_INSTALLATION_SPEC,
+  getDefaultInstallationSpec,
+  parseInstallationSpec,
+  loadInstallationSpecFromFile,
+  loadBundledInstallationSpec,
+  serializeInstallationSpec,
+  resolveBundledSpecPath,
+} from "./spec/index.js";
+export type {
+  InstallationSpec,
+  InstallationSpecCommand,
+  InstallationSpecDetection,
+  InstallationSpecSchemaVersion,
+} from "./spec/index.js";
+
 export { resolvePackageVersion } from "./version.js";
 
 export {
@@ -92,3 +119,77 @@ export type {
   RollbackResult,
   CreateDefaultRuntimeRegistrationOptions,
 } from "./installer/index.js";
+
+export {
+  HostPlatformDetector,
+  createHostPlatformDetector,
+  pathExists,
+  createCommandExists,
+  detectPackageManagers,
+  resolveOperatingSystem,
+  cursorPaths,
+  claudeCodePaths,
+  claudeDesktopPaths,
+  codexPaths,
+  vscodePaths,
+  windsurfPaths,
+  detectAllClients,
+  detectCursor,
+  detectClaudeCode,
+  detectClaudeDesktop,
+  detectCodex,
+  detectVscode,
+  detectWindsurf,
+} from "./detection/index.js";
+export type {
+  HostPlatformDetectorOptions,
+  PathExistsFn,
+  CommandExistsFn,
+  DetectionPathContext,
+} from "./detection/index.js";
+
+export {
+  FileMcpConfigManager,
+  createFileMcpConfigManager,
+  detectMcpConfigFormat,
+  refineMcpConfigFormat,
+  parseMcpConfigContents,
+  serializeMcpConfig,
+  runtimeToServerEntry,
+  getServerMap,
+  setServerMap,
+  upsertServerEntry,
+  removeServerEntry,
+} from "./mcp/index.js";
+export type {
+  FileMcpConfigManagerOptions,
+  McpConfigFormat,
+} from "./mcp/index.js";
+
+export {
+  RuntimeCatalog,
+  createDefaultRuntimeCatalog,
+  resolveRuntimeRegistration,
+  mcpRuntimeDefinition,
+  MemoryRuntimeRegistrar,
+  createMemoryRuntimeRegistrar,
+  StateRuntimeRegistrar,
+  createStateRuntimeRegistrar,
+} from "./runtime/index.js";
+export type {
+  RuntimeDefinition,
+  StateRuntimeRegistrarOptions,
+} from "./runtime/index.js";
+
+export {
+  InstallationVerifier,
+  createInstallationVerifier,
+  createCheck,
+  isHealthy,
+  probeVerifyEndpoint,
+} from "./verification/index.js";
+export type {
+  InstallationVerifierOptions,
+  FetchLike,
+  ProbeVerifyEndpointOptions,
+} from "./verification/index.js";

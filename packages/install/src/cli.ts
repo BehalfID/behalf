@@ -2,20 +2,29 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Command } from "commander";
 import { resolvePackageVersion } from "./version.js";
+import type { CliHandlerContext } from "./cli/handlers.js";
+import {
+  createDefaultHandlerContext,
+  handleDoctor,
+  handleInstall,
+  handleStatus,
+  handleUninstall,
+  handleUpgrade,
+} from "./cli/handlers.js";
 
 export interface CreateCliProgramOptions {
   /** Override package version (useful in tests). */
   version?: string;
+  /** Inject a preconfigured installer stack (tests). */
+  context?: CliHandlerContext;
 }
 
 /**
  * Create the Commander program for the BehalfID installer CLI.
- *
- * Phase 1 registers the public command surface and global options.
- * Command handlers are wired in later phases once the installer core exists.
  */
 export function createCliProgram(options: CreateCliProgramOptions = {}): Command {
   const version = options.version ?? resolvePackageVersion();
+  const ctx = options.context ?? createDefaultHandlerContext();
 
   const program = new Command();
 
@@ -28,7 +37,7 @@ export function createCliProgram(options: CreateCliProgramOptions = {}): Command
     .option("--json", "emit machine-readable JSON output", false);
 
   program
-    .command("install")
+    .command("install", { isDefault: true })
     .description("Install and configure BehalfID for detected AI coding agents")
     .option("--dry-run", "preview actions without writing files", false)
     .option("--force", "replace existing BehalfID registration", false)
@@ -36,12 +45,18 @@ export function createCliProgram(options: CreateCliProgramOptions = {}): Command
       "--clients <list>",
       "comma-separated client ids (cursor,claude-code,claude-desktop,codex,vscode,windsurf)",
     )
-    .option("--verify-endpoint <url>", "override the verify API endpoint");
+    .option("--verify-endpoint <url>", "override the verify API endpoint")
+    .action(async (opts, command) => {
+      await handleInstall(ctx, opts, command);
+    });
 
   program
     .command("doctor")
     .description("Verify installation health and emit a diagnostic report")
-    .option("--verify-endpoint <url>", "override the verify API endpoint probed by doctor");
+    .option("--verify-endpoint <url>", "override the verify API endpoint probed by doctor")
+    .action(async (opts, command) => {
+      await handleDoctor(ctx, opts, command);
+    });
 
   program
     .command("upgrade")
@@ -51,7 +66,10 @@ export function createCliProgram(options: CreateCliProgramOptions = {}): Command
       "--clients <list>",
       "comma-separated client ids (cursor,claude-code,claude-desktop,codex,vscode,windsurf)",
     )
-    .option("--verify-endpoint <url>", "override the verify API endpoint");
+    .option("--verify-endpoint <url>", "override the verify API endpoint")
+    .action(async (opts, command) => {
+      await handleUpgrade(ctx, opts, command);
+    });
 
   program
     .command("uninstall")
@@ -61,16 +79,23 @@ export function createCliProgram(options: CreateCliProgramOptions = {}): Command
       "--clients <list>",
       "comma-separated client ids (cursor,claude-code,claude-desktop,codex,vscode,windsurf)",
     )
-    .option("--keep-state", "preserve persisted installer state", false);
+    .option("--keep-state", "preserve persisted installer state", false)
+    .action(async (opts, command) => {
+      await handleUninstall(ctx, opts, command);
+    });
 
   program
     .command("status")
-    .description("Show current installation state");
+    .description("Show current installation state")
+    .action(async (opts, command) => {
+      await handleStatus(ctx, opts, command);
+    });
 
   program.addHelpText(
     "after",
     `
 Examples:
+  npx @behalfid/install
   npx @behalfid/install install
   npx @behalfid/install doctor --json
   npx @behalfid/install status

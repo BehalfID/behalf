@@ -15,6 +15,24 @@ describe("public package exports", () => {
     expect(typeof api.createBehalfInstaller).toBe("function");
     expect(typeof api.createDefaultRuntimeRegistration).toBe("function");
     expect(api.DEFAULT_RUNTIME_ID).toBe("mcp-runtime");
+    expect(typeof api.HostPlatformDetector).toBe("function");
+    expect(typeof api.createHostPlatformDetector).toBe("function");
+    expect(typeof api.detectPackageManagers).toBe("function");
+    expect(typeof api.FileMcpConfigManager).toBe("function");
+    expect(typeof api.createFileMcpConfigManager).toBe("function");
+    expect(typeof api.detectMcpConfigFormat).toBe("function");
+    expect(typeof api.RuntimeCatalog).toBe("function");
+    expect(typeof api.createDefaultRuntimeCatalog).toBe("function");
+    expect(typeof api.MemoryRuntimeRegistrar).toBe("function");
+    expect(typeof api.StateRuntimeRegistrar).toBe("function");
+    expect(api.mcpRuntimeDefinition.id).toBe("mcp-runtime");
+    expect(typeof api.InstallationVerifier).toBe("function");
+    expect(typeof api.createInstallationVerifier).toBe("function");
+    expect(typeof api.probeVerifyEndpoint).toBe("function");
+    expect(typeof api.createDefaultInstaller).toBe("function");
+    expect(typeof api.getDefaultInstallationSpec).toBe("function");
+    expect(typeof api.parseInstallationSpec).toBe("function");
+    expect(api.DEFAULT_INSTALLATION_SPEC.name).toBe("BehalfID");
   });
 
   it("can construct a state manager from the public export", () => {

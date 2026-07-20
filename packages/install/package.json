@@ -13,11 +13,16 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./spec": "./spec/behalfid-install.spec.yaml",
+    "./INSTALL_FOR_AI.md": "./INSTALL_FOR_AI.md",
     "./package.json": "./package.json"
   },
   "files": [
     "dist",
-    "README.md"
+    "spec",
+    "docs",
+    "README.md",
+    "INSTALL_FOR_AI.md"
   ],
   "scripts": {
     "build": "tsup",
@@ -30,10 +35,12 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "commander": "^13.0.0"
+    "commander": "^13.0.0",
+    "smol-toml": "^1.7.0",
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
-    "@types/node": "^25.6.0",
+    "@types/node": "^25.9.5",
     "@typescript-eslint/eslint-plugin": "^8.46.0",
     "@typescript-eslint/parser": "^8.46.0",
     "eslint": "^9.39.4",

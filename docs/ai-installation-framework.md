@@ -19,8 +19,11 @@ The finished system should allow the following interaction:
 **AI Agent**
 
 * Detects whether BehalfID is already installed.
+
 * If not, runs the official installer.
+
 * Verifies installation.
+
 * Reports success.
 
 The AI should never need to know internal installation details.
@@ -40,31 +43,45 @@ Create a standalone installer package.
 Example package:
 
 ```text
+
 @behalfid/install
+
 ```
 
 The installer should support:
 
 ```bash
+
 npx @behalfid/install
+
 ```
 
 and optionally
 
 ```bash
+
 behalf install
+
 ```
 
 The installer is responsible for:
 
 * Detecting the operating system.
+
 * Detecting package managers (npm, pnpm, yarn, bun).
+
 * Detecting installed AI clients.
+
 * Detecting existing MCP configuration.
+
 * Installing required BehalfID packages.
+
 * Registering the runtime.
+
 * Updating MCP configuration.
+
 * Verifying installation.
+
 * Reporting failures with actionable messages.
 
 The installer should be idempotent.
@@ -78,17 +95,25 @@ Running it twice should not create duplicate configuration.
 Implement automatic detection for:
 
 * Cursor
+
 * Claude Code
+
 * Claude Desktop
+
 * Codex CLI
+
 * VS Code
+
 * Windsurf
 
 The detection layer should locate:
 
 * configuration directories
+
 * MCP configuration files
+
 * workspace configuration
+
 * user configuration
 
 The installer should support multiple clients on the same machine.
@@ -102,10 +127,15 @@ Implement a configuration manager.
 Responsibilities:
 
 * Read existing configuration.
+
 * Preserve user configuration.
+
 * Register BehalfID runtime.
+
 * Avoid duplicate entries.
+
 * Perform safe upgrades.
+
 * Support rollback if installation fails.
 
 Never overwrite unrelated configuration.
@@ -117,16 +147,23 @@ Never overwrite unrelated configuration.
 Implement:
 
 ```bash
+
 behalf doctor
+
 ```
 
 The doctor command should verify:
 
 * installer version
+
 * runtime installed
+
 * MCP registration
+
 * verify endpoint connectivity
+
 * package versions
+
 * configuration integrity
 
 Return a machine-readable report.
@@ -138,14 +175,19 @@ Return a machine-readable report.
 Implement:
 
 ```bash
+
 behalf upgrade
+
 ```
 
 The upgrade process should:
 
 * detect installed version
+
 * migrate configuration
+
 * preserve user settings
+
 * verify installation afterwards
 
 ---
@@ -155,14 +197,19 @@ The upgrade process should:
 Implement:
 
 ```bash
+
 behalf uninstall
+
 ```
 
 Responsibilities:
 
 * unregister runtime
+
 * remove BehalfID configuration
+
 * preserve non-BehalfID settings
+
 * verify removal
 
 ---
@@ -174,20 +221,27 @@ Create a public installation specification.
 Example:
 
 ```yaml
+
 name: BehalfID
+
 version: 1
 
 install:
+
   command: npx @behalfid/install
 
 verify:
+
   command: behalf doctor
 
 upgrade:
+
   command: behalf upgrade
 
 uninstall:
+
   command: behalf uninstall
+
 ```
 
 The specification should be designed so any AI agent can understand how to install and manage BehalfID.
@@ -199,15 +253,21 @@ The specification should be designed so any AI agent can understand how to insta
 Create a document named:
 
 ```text
-INSTALL_FOR_AI.md
+
+INSTALL_FOR_[AI.md](http://AI.md)
+
 ```
 
 This document should explain to AI coding agents:
 
 * how to detect BehalfID
+
 * how to install it
+
 * how to verify installation
+
 * how to upgrade
+
 * how to uninstall
 
 It should assume no prior knowledge of BehalfID.
@@ -221,8 +281,11 @@ Keep the instructions deterministic and machine-friendly.
 The installer should register:
 
 * @behalfid/mcp-runtime
+
 * verify endpoint configuration
+
 * runtime metadata
+
 * future extension points
 
 Registration should be modular so future runtimes can be added without changing the installer.
@@ -236,9 +299,13 @@ Implement an installation state manager.
 Track:
 
 * installed version
+
 * install timestamp
+
 * configured clients
+
 * registered runtimes
+
 * installer version
 
 This state should support upgrades and diagnostics.
@@ -250,6 +317,7 @@ This state should support upgrades and diagnostics.
 Expose commands:
 
 ```bash
+
 behalf install
 
 behalf doctor
@@ -259,11 +327,13 @@ behalf upgrade
 behalf uninstall
 
 behalf status
+
 ```
 
 Each command should provide both:
 
 * human-readable output
+
 * machine-readable JSON
 
 ---
@@ -273,9 +343,13 @@ Each command should provide both:
 The installer must:
 
 * fail safely
+
 * never corrupt user configuration
+
 * back up modified configuration
+
 * support rollback
+
 * explain failures clearly
 
 ---
@@ -285,14 +359,23 @@ The installer must:
 Write comprehensive tests covering:
 
 * fresh installation
+
 * repeated installation
+
 * upgrades
+
 * uninstall
+
 * rollback
+
 * malformed configuration
+
 * multiple AI clients
+
 * multiple package managers
+
 * installation verification
+
 * configuration migration
 
 ---
@@ -302,10 +385,15 @@ Write comprehensive tests covering:
 Create documentation covering:
 
 * architecture
+
 * installer flow
+
 * supported clients
+
 * configuration format
+
 * troubleshooting
+
 * extension points
 
 ---
@@ -313,14 +401,23 @@ Create documentation covering:
 # Design Principles
 
 * Cross-platform.
+
 * Idempotent.
+
 * Extensible.
+
 * Preserve user configuration.
+
 * Never duplicate MCP entries.
+
 * Never overwrite unrelated settings.
+
 * Safe upgrades.
+
 * Safe rollback.
+
 * Clear APIs.
+
 * Strong TypeScript typing.
 
 ---
@@ -328,6 +425,17 @@ Create documentation covering:
 # Future Compatibility
 
 Design the framework so new AI coding agents can be supported by implementing a detector and configuration adapter without changing the installer core.
+
+---
+
+# Implementation reference
+
+The `@behalfid/install` package (`packages/install/`) implements this framework. Extended documentation:
+
+- [Architecture](../packages/install/docs/ARCHITECTURE.md)
+- [Troubleshooting](../packages/install/docs/TROUBLESHOOTING.md)
+- [Extension points](../packages/install/docs/EXTENSION.md)
+- [AI agent instructions](../packages/install/INSTALL_FOR_AI.md)
 
 ---
 

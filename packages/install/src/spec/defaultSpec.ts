@@ -1,0 +1,61 @@
+import type { InstallationSpec } from "./types.js";
+
+/** Canonical BehalfID installation specification (schema version 1). */
+export const DEFAULT_INSTALLATION_SPEC: InstallationSpec = {
+  name: "BehalfID",
+  version: 1,
+  package: "@behalfid/install",
+  description:
+    "Universal installer for configuring BehalfID across AI coding agents via MCP.",
+  commands: {
+    install: {
+      command: "npx @behalfid/install --json",
+      exitCode: 0,
+      successJsonField: "success",
+      successJsonValue: true,
+    },
+    verify: {
+      command: "npx @behalfid/install doctor --json",
+      exitCode: 0,
+      successJsonField: "healthy",
+      successJsonValue: true,
+    },
+    status: {
+      command: "npx @behalfid/install status --json",
+      exitCode: 0,
+      successJsonField: "installed",
+    },
+    upgrade: {
+      command: "npx @behalfid/install upgrade --json",
+      exitCode: 0,
+      successJsonField: "success",
+      successJsonValue: true,
+    },
+    uninstall: {
+      command: "npx @behalfid/install uninstall --json",
+      exitCode: 0,
+      successJsonField: "success",
+      successJsonValue: true,
+    },
+  },
+  detection: {
+    stateRelativePath: ".behalfid/install-state.json",
+    statusCommand: "npx @behalfid/install status --json",
+    installedJsonField: "installed",
+    installedJsonValue: true,
+  },
+  supportedClients: [
+    "cursor",
+    "claude-code",
+    "claude-desktop",
+    "codex",
+    "vscode",
+    "windsurf",
+  ],
+  notes: [
+    "Agents must invoke these commands; do not embed BehalfID-specific install logic.",
+    "Use --json on every command for machine-readable output.",
+    "install is the default command when npx @behalfid/install is run with no subcommand.",
+    "Re-run install safely; the installer is idempotent.",
+  ],
+};
