@@ -6,14 +6,12 @@ AI coding agents (Cursor, Claude Code, Codex, VS Code, Windsurf, and future MCP 
 
 ## Status
 
-Phase 1 foundation is in place:
+Phases complete:
 
-- TypeScript package structure and strict compiler settings
-- Public types and installer interfaces
-- Installation state persistence (`FileStateManager`)
-- CLI entrypoint with the public command surface
+1. **Foundation** — package structure, types, interfaces, state persistence, CLI surface
+2. **Installer framework** — `BehalfInstaller` orchestration with idempotent install/upgrade/uninstall, backup/rollback, and injectable collaborators
 
-Installer behavior (detection, MCP configuration, runtime registration, verification) lands in later phases.
+Still ahead: platform detection, MCP config manager, runtime registration defaults wiring, verification, CLI handlers, AI install spec, integration tests, and docs.
 
 ## Install / run
 
@@ -39,14 +37,32 @@ All commands accept `--json` for machine-readable output (wired when command han
 
 ```ts
 import {
+  BehalfInstaller,
   FileStateManager,
-  createInstallationState,
-  createCliProgram,
+  createDefaultRuntimeRegistration,
 } from "@behalfid/install";
 
-const stateManager = new FileStateManager();
-const existing = await stateManager.load();
+const installer = new BehalfInstaller({
+  detector,
+  configManager,
+  runtimeRegistrar,
+  stateManager: new FileStateManager(),
+  verifier,
+});
+
+const result = await installer.install();
 ```
+
+`BehalfInstaller` depends on injected collaborators (`PlatformDetector`, `McpConfigManager`, `RuntimeRegistrar`, `StateManager`, `Verifier`). Concrete detectors and config managers arrive in later phases; until then, supply your own implementations or test doubles.
+
+## Installer flow
+
+1. Detect environment and select target AI clients
+2. Skip work when already configured (idempotent unless `--force`)
+3. Back up each MCP config before mutation
+4. Register the runtime into MCP configuration
+5. Persist installation state
+6. On failure, restore backups in reverse order
 
 ## Development
 
