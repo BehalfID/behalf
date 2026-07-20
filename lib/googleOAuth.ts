@@ -1,6 +1,10 @@
 import crypto from "crypto";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { hashEmailToken, generateSecureToken } from "@/lib/developerAuth";
+import { safeOAuthNextPath, type GoogleOAuthMode } from "@/lib/googleOAuthClient";
+
+export type { GoogleOAuthMode } from "@/lib/googleOAuthClient";
+export { googleAuthHref, safeOAuthNextPath } from "@/lib/googleOAuthClient";
 
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -10,8 +14,6 @@ const GOOGLE_JWKS = createRemoteJWKSet(new URL("https://www.googleapis.com/oauth
 export const GOOGLE_OAUTH_STATE_COOKIE = "behalfid_google_oauth";
 export const GOOGLE_PENDING_SIGNUP_COOKIE = "behalfid_google_pending";
 export const PENDING_SIGNUP_TTL_MS = 1000 * 60 * 15;
-
-export type GoogleOAuthMode = "login" | "signup";
 
 export type GoogleIdTokenClaims = {
   sub: string;
@@ -78,19 +80,6 @@ function verifyState(raw: string): OAuthStatePayload | null {
   } catch {
     return null;
   }
-}
-
-export function safeOAuthNextPath(next?: string | null): string | undefined {
-  if (!next || !next.startsWith("/") || next.startsWith("//")) return undefined;
-  return next;
-}
-
-/** Public href that starts the Google OAuth redirect (sets state cookie, then redirects to Google). */
-export function googleAuthHref(mode: GoogleOAuthMode, next?: string | null): string {
-  const params = new URLSearchParams({ mode });
-  const safeNext = safeOAuthNextPath(next);
-  if (safeNext) params.set("next", safeNext);
-  return `/api/auth/google?${params.toString()}`;
 }
 
 export function createPkcePair() {

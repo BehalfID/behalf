@@ -1,5 +1,5 @@
 import type { AnchorHTMLAttributes } from "react";
-import { googleAuthHref, type GoogleOAuthMode } from "@/lib/googleOAuth";
+import { googleAuthHref, type GoogleOAuthMode } from "@/lib/googleOAuthClient";
 
 type ButtonSize = "small" | "default" | "large";
 type ButtonVariant = "primary" | "secondary" | "outline" | "ghost";
