@@ -26,6 +26,7 @@ export default async function ConceptsPage({ params }: { params: Promise<{ local
     ["Fail-closed enforcement", "When your app calls behalf.verify() before a tool runs, denied or approval-required actions are blocked before the tool executes. This is the only fully automatic enforcement path."],
     ["Approval-required flow", "Some permissions require human approval before the action runs. The agent receives a denial with reason 'requires approval'. After approval in the dashboard, the next verify() call succeeds."],
     ["Audit logs", "Every verify() call produces an immutable log entry with request ID, agent, action, decision, risk level, and timestamp. Retained for 90 days."],
+    ["Google SSO", "Developer accounts can sign in with Google. Workspaces on Pro and higher can allowlist company email domains and optionally enforce Google sign-in for those domains."],
     ["Webhooks", "BehalfID delivers signed events for every decision to your registered endpoint. Verify signatures with verifyWebhookSignature before processing."],
   ];
 

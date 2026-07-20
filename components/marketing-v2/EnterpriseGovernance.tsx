@@ -4,6 +4,7 @@ import { BuildingIcon, RouteIcon, LockIcon, ListIcon, ShieldIcon } from "./icons
 
 const ICONS: Record<string, typeof ShieldIcon> = {
   building: BuildingIcon,
+  shield: ShieldIcon,
   route: RouteIcon,
   lock: LockIcon,
   list: ListIcon

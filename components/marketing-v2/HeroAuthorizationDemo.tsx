@@ -86,14 +86,22 @@ export function HeroAuthorizationDemo() {
               Start securing agents
               <ArrowRightIcon size={16} />
             </ButtonLink>
-            <ButtonLink href="/docs/concepts" size="large" variant="outline">
-              Read the technical overview
-            </ButtonLink>
+            {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? (
+              <ButtonLink href="/api/auth/google?mode=signup" size="large" variant="outline">
+                Continue with Google
+              </ButtonLink>
+            ) : (
+              <ButtonLink href="/docs/concepts" size="large" variant="outline">
+                Read the technical overview
+              </ButtonLink>
+            )}
           </div>
 
           <p className={styles.heroCredit}>
             <ShieldIcon size={18} />
-            Fail-closed by design — agents are denied unless they are explicitly authorized.
+            {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+              ? "Or create an account with email — Google sign-in is available on signup and login."
+              : "Fail-closed by design — agents are denied unless they are explicitly authorized."}
           </p>
         </div>
 

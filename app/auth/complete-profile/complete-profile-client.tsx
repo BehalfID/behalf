@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useState } from "react";
-import { Button, Logo } from "@/components/ui";
+import { AuthPrinciple, AuthShell, AuthTaskHeader, FormAlert } from "@/components/auth/AuthShell";
+import { Button, Field, FieldLabel, Input } from "@/components/ui";
 
 function maxDateOfBirth(minAge: number): string {
   const d = new Date();
@@ -63,33 +64,50 @@ export function CompleteProfilePage() {
   };
 
   return (
-    <main id="main-content" className="auth-page" tabIndex={-1}>
-      <section className="auth-shell">
-        <form className="auth-panel" onSubmit={submit}>
-          <Logo />
-          <p className="section-kicker">Finish Google sign-up</p>
-          <h1>Confirm your age</h1>
-          <p>One more step before we create your workspace. We need your date of birth to meet age requirements.</p>
-          <label>
-            <span>Date of birth</span>
-            <input
+    <AuthShell
+      compact
+      support={
+        <AuthPrinciple
+          eyebrow="Google sign-up"
+          title="Almost ready."
+          description="Confirm your age to finish creating your BehalfID workspace after Google authentication."
+          points={[
+            { label: "Verified email", value: "Taken from your Google account" },
+            { label: "Age check", value: "Required for COPPA compliance" },
+            { label: "Next", value: "Workspace onboarding" }
+          ]}
+        />
+      }
+    >
+      <form className="auth-task" onSubmit={submit} aria-busy={submitting}>
+        <AuthTaskHeader
+          eyebrow="Finish Google sign-up"
+          title="Confirm your age"
+          description="One more step before we create your workspace. We need your date of birth to meet age requirements."
+        />
+        <div className="auth-task__fields">
+          <Field>
+            <FieldLabel htmlFor="complete-date-of-birth">Date of birth</FieldLabel>
+            <Input
+              aria-describedby={error ? "complete-profile-error" : undefined}
               autoComplete="bday"
+              id="complete-date-of-birth"
               max={maxDateOfBirth(13)}
               onChange={(event) => setDateOfBirth(event.target.value)}
               required
               type="date"
               value={dateOfBirth}
             />
-          </label>
-          {error ? <p className="form-error" role="alert" aria-live="assertive">{error}</p> : null}
-          <Button disabled={submitting} type="submit" variant="primary">
-            {submitting ? "Creating account…" : "Continue"}
-          </Button>
-          <p className="auth-alt">
-            <Link href="/login">Back to sign in</Link>
-          </p>
-        </form>
-      </section>
-    </main>
+          </Field>
+        </div>
+        {error ? <FormAlert id="complete-profile-error">{error}</FormAlert> : null}
+        <Button disabled={submitting} loading={submitting} type="submit" variant="primary">
+          {submitting ? "Creating account…" : "Continue"}
+        </Button>
+        <p className="auth-task__row auth-task__row--center">
+          <Link href="/login">Back to sign in</Link>
+        </p>
+      </form>
+    </AuthShell>
   );
 }

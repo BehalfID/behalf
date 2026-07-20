@@ -18,9 +18,15 @@ export function FinalCTA() {
             Start securing agents
             <ArrowRightIcon size={16} />
           </ButtonLink>
-          <ButtonLink href="/docs/concepts" size="large" variant="outline">
-            Read the technical overview
-          </ButtonLink>
+          {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? (
+            <ButtonLink href="/api/auth/google?mode=signup" size="large" variant="outline">
+              Continue with Google
+            </ButtonLink>
+          ) : (
+            <ButtonLink href="/docs/concepts" size="large" variant="outline">
+              Read the technical overview
+            </ButtonLink>
+          )}
         </div>
       </div>
     </section>
