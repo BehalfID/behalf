@@ -69,3 +69,26 @@ export { createCliProgram, runCli } from "./cli.js";
 export type { CreateCliProgramOptions } from "./cli.js";
 
 export { resolvePackageVersion } from "./version.js";
+
+export {
+  BehalfInstaller,
+  createBehalfInstaller,
+  InstallerException,
+  toInstallerError,
+  createInstallerError,
+  InstallTransaction,
+  createDefaultRuntimeRegistration,
+  DEFAULT_RUNTIME_ID,
+  DEFAULT_RUNTIME_PACKAGE,
+  DEFAULT_BEHALF_BASE_URL,
+  DEFAULT_VERIFY_ENDPOINT,
+  parseClientIdList,
+  selectTargetClients,
+  requireTargets,
+} from "./installer/index.js";
+export type {
+  BehalfInstallerDependencies,
+  InstallerExceptionOptions,
+  RollbackResult,
+  CreateDefaultRuntimeRegistrationOptions,
+} from "./installer/index.js";
