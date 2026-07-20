@@ -7,7 +7,7 @@ import {
   readWorkspaceSso,
   validateSsoDomainList
 } from "@/lib/workspaceSso";
-import { buildGoogleAuthorizeRedirect, createPkcePair, safeOAuthNextPath } from "@/lib/googleOAuth";
+import { buildGoogleAuthorizeRedirect, createPkcePair, googleAuthHref, safeOAuthNextPath } from "@/lib/googleOAuth";
 import { getPlanEntitlements } from "@/lib/plans";
 
 describe("workspace SSO helpers", () => {
@@ -92,6 +92,12 @@ describe("Google OAuth helpers", () => {
     expect(safeOAuthNextPath("/dashboard")).toBe("/dashboard");
     expect(safeOAuthNextPath("//evil.com")).toBeUndefined();
     expect(safeOAuthNextPath("https://evil.com")).toBeUndefined();
+  });
+
+  it("builds public Google auth hrefs", () => {
+    expect(googleAuthHref("signup")).toBe("/api/auth/google?mode=signup");
+    expect(googleAuthHref("login", "/dashboard")).toBe("/api/auth/google?mode=login&next=%2Fdashboard");
+    expect(googleAuthHref("login", "//evil.com")).toBe("/api/auth/google?mode=login");
   });
 
   it("builds authorize URL with PKCE and state cookie", () => {

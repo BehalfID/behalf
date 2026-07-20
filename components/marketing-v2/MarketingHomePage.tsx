@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import styles from "@/app/home-v2/home-v2.module.css";
+import { isGoogleOAuthConfigured } from "@/lib/googleOAuth";
 import { EnterpriseGovernance } from "./EnterpriseGovernance";
 import { FinalCTA } from "./FinalCTA";
 import { HeroAuthorizationDemo } from "./HeroAuthorizationDemo";
@@ -55,20 +56,22 @@ const jsonLd = {
 };
 
 export function MarketingHomePage() {
+  const googleEnabled = isGoogleOAuthConfigured();
+
   return (
     <div className={styles.root}>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <MarketingNavbar />
+      <MarketingNavbar googleEnabled={googleEnabled} />
       <main id="main-content" tabIndex={-1}>
-        <HeroAuthorizationDemo />
+        <HeroAuthorizationDemo googleEnabled={googleEnabled} />
         <TrustStrip />
         <ProblemSection />
         <ProductShowcase />
         <EnterpriseGovernance />
-        <FinalCTA />
+        <FinalCTA googleEnabled={googleEnabled} />
       </main>
       <MarketingFooter />
     </div>

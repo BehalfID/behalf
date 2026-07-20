@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import { PublicAuthAction } from "@/components/layout/PublicAuthAction";
+import { ContinueWithGoogle } from "@/components/auth/ContinueWithGoogle";
 import { Logo, ThemeToggle, SocialLinks, LanguageSwitcher } from "@/components/ui";
 import type { PublicAuthAction as PublicAuthActionValue } from "@/lib/publicAuthAction";
 
@@ -24,12 +25,19 @@ function isCurrentPath(pathname: string, href: string) {
   return pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
 }
 
-export function PublicNavClient({ authAction }: { authAction: PublicAuthActionValue }) {
+export function PublicNavClient({
+  authAction,
+  googleEnabled = false
+}: {
+  authAction: PublicAuthActionValue;
+  googleEnabled?: boolean;
+}) {
   const t = useTranslations("nav");
   const pathname = normalizePublicPath(usePathname());
   const [open, setOpen] = useState(false);
   const hamburgerRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
+  const showGoogle = googleEnabled && !authAction.isAuthenticated;
 
   const close = useCallback(() => {
     setOpen(false);
@@ -124,6 +132,14 @@ export function PublicNavClient({ authAction }: { authAction: PublicAuthActionVa
               className="nav-action nav-action--text"
               localizeUnauthenticated
             />
+            {showGoogle ? (
+              <ContinueWithGoogle
+                className="nav-action auth-google-button--compact"
+                mode="login"
+                size="small"
+                variant="outline"
+              />
+            ) : null}
             <Link href="/signup" className="nav-action nav-action--primary">Get started</Link>
           </div>
         </div>
@@ -176,6 +192,15 @@ export function PublicNavClient({ authAction }: { authAction: PublicAuthActionVa
               localizeUnauthenticated
               onClick={close}
             />
+            {showGoogle ? (
+              <ContinueWithGoogle
+                className="auth-google-button--compact"
+                mode="login"
+                onClick={close}
+                size="large"
+                variant="outline"
+              />
+            ) : null}
             <Link href="/signup" onClick={close} className="public-nav__drawer-cta">Get started</Link>
             <div className="public-nav__drawer-row">
               <span>{t("theme")}</span>

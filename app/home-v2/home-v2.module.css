@@ -208,6 +208,13 @@
   font-size: 0.9rem;
 }
 
+.navGoogle {
+  min-height: 38px;
+  padding: 0 12px;
+  font-size: 0.86rem;
+  width: auto;
+}
+
 .hamburger {
   display: none;
   align-items: center;

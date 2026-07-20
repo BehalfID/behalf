@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
+import { ContinueWithGoogle } from "@/components/auth/ContinueWithGoogle";
 import { AuthPrinciple, AuthShell, AuthTaskHeader, FormAlert } from "@/components/auth/AuthShell";
 import { Button, Field, FieldLabel, Input } from "@/components/ui";
 
@@ -16,12 +17,6 @@ function maxDateOfBirth(minAge: number): string {
 function safeNextPath(next?: string) {
   if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
   return next;
-}
-
-function googleAuthHref(mode: "login" | "signup", nextPath?: string) {
-  const params = new URLSearchParams({ mode });
-  if (nextPath) params.set("next", nextPath);
-  return `/api/auth/google?${params.toString()}`;
 }
 
 export function AuthPage({
@@ -120,9 +115,7 @@ export function AuthPage({
 
         {googleEnabled ? (
           <div className="auth-task__oauth">
-            <a className="ui-button ui-button--secondary auth-google-button" href={googleAuthHref(mode, nextPath ?? undefined)}>
-              Continue with Google
-            </a>
+            <ContinueWithGoogle mode={mode} next={nextPath} />
             <p className="auth-divider" role="separator">
               <span>or</span>
             </p>

@@ -1,8 +1,9 @@
 import { ButtonLink } from "@/components/ui";
+import { ContinueWithGoogle } from "@/components/auth/ContinueWithGoogle";
 import styles from "@/app/home-v2/home-v2.module.css";
 import { ArrowRightIcon } from "./icons";
 
-export function FinalCTA() {
+export function FinalCTA({ googleEnabled = false }: { googleEnabled?: boolean }) {
   return (
     <section className={`${styles.container} ${styles.section}`}>
       <div className={styles.finalCta}>
@@ -18,10 +19,8 @@ export function FinalCTA() {
             Start securing agents
             <ArrowRightIcon size={16} />
           </ButtonLink>
-          {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? (
-            <ButtonLink href="/api/auth/google?mode=signup" size="large" variant="outline">
-              Continue with Google
-            </ButtonLink>
+          {googleEnabled ? (
+            <ContinueWithGoogle className="auth-google-button--compact" mode="signup" size="large" variant="outline" />
           ) : (
             <ButtonLink href="/docs/concepts" size="large" variant="outline">
               Read the technical overview

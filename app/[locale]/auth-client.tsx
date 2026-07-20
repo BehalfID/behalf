@@ -4,6 +4,7 @@ import { Link } from "@/i18n/navigation";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { FormEvent, useState } from "react";
+import { ContinueWithGoogle } from "@/components/auth/ContinueWithGoogle";
 import { AuthPrinciple, AuthShell, AuthTaskHeader, FormAlert } from "@/components/auth/AuthShell";
 import { Button, Field, FieldLabel, Input } from "@/components/ui";
 
@@ -95,12 +96,7 @@ export function AuthPage({
 
         {googleEnabled ? (
           <div className="auth-task__oauth">
-            <a
-              className="ui-button ui-button--secondary auth-google-button"
-              href={`/api/auth/google?mode=${mode}`}
-            >
-              {t("continueWithGoogle")}
-            </a>
+            <ContinueWithGoogle label={t("continueWithGoogle")} mode={mode} />
             <p className="auth-divider" role="separator">
               <span>{t("orDivider")}</span>
             </p>

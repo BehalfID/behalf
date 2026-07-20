@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { PublicAuthAction } from "@/components/layout/PublicAuthAction";
+import { ContinueWithGoogle } from "@/components/auth/ContinueWithGoogle";
 import { ButtonLink, Logo, ThemeToggle } from "@/components/ui";
 import styles from "@/app/home-v2/home-v2.module.css";
 import type { PublicAuthAction as PublicAuthActionValue } from "@/lib/publicAuthAction";
@@ -14,8 +15,15 @@ const NAV_LINKS = [
   { label: "Docs", href: "/docs" }
 ] as const;
 
-export function MarketingNavbarClient({ authAction }: { authAction: PublicAuthActionValue }) {
+export function MarketingNavbarClient({
+  authAction,
+  googleEnabled = false
+}: {
+  authAction: PublicAuthActionValue;
+  googleEnabled?: boolean;
+}) {
   const [open, setOpen] = useState(false);
+  const showGoogle = googleEnabled && !authAction.isAuthenticated;
 
   return (
     <header className={styles.nav}>
@@ -33,6 +41,14 @@ export function MarketingNavbarClient({ authAction }: { authAction: PublicAuthAc
         <div className={styles.navActions}>
           <ThemeToggle allowSystem />
           <PublicAuthAction action={authAction} className={styles.navSignin} />
+          {showGoogle ? (
+            <ContinueWithGoogle
+              className={`${styles.navGoogle} auth-google-button--compact`}
+              mode="login"
+              size="small"
+              variant="outline"
+            />
+          ) : null}
           <ButtonLink href="/signup" className={styles.navCta} variant="primary">
             Start securing agents
           </ButtonLink>
@@ -75,6 +91,15 @@ export function MarketingNavbarClient({ authAction }: { authAction: PublicAuthAc
               className="ui-button ui-button--outline ui-button--large"
               onClick={() => setOpen(false)}
             />
+            {showGoogle ? (
+              <ContinueWithGoogle
+                className="auth-google-button--compact"
+                mode="login"
+                onClick={() => setOpen(false)}
+                size="large"
+                variant="outline"
+              />
+            ) : null}
             <ButtonLink href="/signup" onClick={() => setOpen(false)} size="large" variant="primary">
               Get started
             </ButtonLink>

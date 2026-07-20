@@ -85,6 +85,14 @@ export function safeOAuthNextPath(next?: string | null): string | undefined {
   return next;
 }
 
+/** Public href that starts the Google OAuth redirect (sets state cookie, then redirects to Google). */
+export function googleAuthHref(mode: GoogleOAuthMode, next?: string | null): string {
+  const params = new URLSearchParams({ mode });
+  const safeNext = safeOAuthNextPath(next);
+  if (safeNext) params.set("next", safeNext);
+  return `/api/auth/google?${params.toString()}`;
+}
+
 export function createPkcePair() {
   const verifier = crypto.randomBytes(32).toString("base64url");
   const challenge = crypto.createHash("sha256").update(verifier).digest("base64url");
