@@ -45,6 +45,78 @@ npx @behalfid/install doctor --json
 npx @behalfid/install status
 ```
 
+## Adding BehalfID to AI agents
+
+The installer detects which AI coding agents are on the machine (Cursor, Claude Code, Claude Desktop, Codex, VS Code, Windsurf) and registers the BehalfID MCP runtime in each client’s config. You do not need to edit MCP files by hand.
+
+### For users (manual install)
+
+**Prerequisites:** Node.js 18+, npm on PATH, network access for `npx`.
+
+1. **Install** — run once from any directory:
+
+```bash
+npx @behalfid/install
+```
+
+2. **Verify** — confirm health:
+
+```bash
+npx @behalfid/install doctor
+```
+
+3. **Restart your AI client(s)** so they reload MCP configuration (Cursor, VS Code, etc.).
+
+4. **Optional — limit to specific clients:**
+
+```bash
+npx @behalfid/install install --clients cursor,vscode
+```
+
+5. **Optional — check status later:**
+
+```bash
+npx @behalfid/install status
+```
+
+Install is **idempotent**: running it again is safe and skips work when BehalfID is already configured.
+
+### For AI coding agents
+
+When a user asks to install BehalfID, the agent should **not** write MCP config manually. Run the official installer and parse JSON:
+
+```bash
+npx @behalfid/install status --json   # already installed?
+npx @behalfid/install --json          # install
+npx @behalfid/install doctor --json   # verify healthy === true
+```
+
+Treat exit code `0` as “command ran,” not necessarily success — read `success` and `healthy` in the JSON output.
+
+Full deterministic steps, field reference, and rules: **[INSTALL_FOR_AI.md](./INSTALL_FOR_AI.md)**.
+
+### What gets configured
+
+| Client | Config updated by installer |
+| --- | --- |
+| Cursor | `~/.cursor/mcp.json` |
+| Claude Code | `~/.claude.json` |
+| Claude Desktop | OS-specific `claude_desktop_config.json` |
+| Codex CLI | `~/.codex/config.toml` |
+| VS Code | workspace `.vscode/mcp.json` |
+| Windsurf | `~/.codeium/windsurf/mcp_config.json` |
+
+Each file receives a `behalfid` MCP server entry that runs `@behalfid/mcp-runtime` via `npx`. Existing servers in those files are preserved.
+
+### Upgrade and remove
+
+```bash
+npx @behalfid/install upgrade      # update runtime version in MCP configs
+npx @behalfid/install uninstall    # remove BehalfID entries and clear state
+```
+
+After upgrade, restart AI clients and run `doctor` again.
+
 ## Library usage
 
 ```ts
