@@ -15,13 +15,24 @@ type DeviceRequestResponse = {
 type PollResponse = { status: "pending" | "authorized" | "expired" | "denied"; token?: string };
 
 async function openBrowser(url: string) {
+  // Reject non-http(s) schemes so a hostile verificationUri cannot trigger
+  // file:/javascript: handlers or other local protocol handlers.
+  const parsed = new URL(url);
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error("Verification URL must be http or https.");
+  }
+
   const { platform } = process;
   const { spawn } = await import("node:child_process");
-  const cmd =
-    platform === "darwin" ? "open" :
-    platform === "win32" ? "cmd" :
-    "xdg-open";
-  const args = platform === "win32" ? ["/c", "start", url] : [url];
+  // Never use `cmd /c start` on Windows: cmd.exe re-parses metacharacters
+  // (&, |, ^, …) in the URL before `start` runs. Pass the URL as a single
+  // argv entry to rundll32 / open / xdg-open instead.
+  const [cmd, args]: [string, string[]] =
+    platform === "darwin"
+      ? ["open", [parsed.href]]
+      : platform === "win32"
+        ? ["rundll32", ["url.dll,FileProtocolHandler", parsed.href]]
+        : ["xdg-open", [parsed.href]];
   spawn(cmd, args, { detached: true, stdio: "ignore" }).unref();
 }
 
