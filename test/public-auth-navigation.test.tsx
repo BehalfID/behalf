@@ -127,7 +127,7 @@ describe("public navigation integration", () => {
   });
 
   it("keeps homepage and docs shells wired to their existing navigation", () => {
-    expect(source("components/marketing-v2/MarketingHomePage.tsx")).toContain("<MarketingNavbar />");
+    expect(source("components/marketing-v2/MarketingHomePage.tsx")).toContain("<MarketingNavbar");
     expect(source("app/docs/content.tsx")).toContain("<DocsLayout>");
     expect(source("app/[locale]/docs/content.tsx")).toContain("<DocsLayout>");
   });
@@ -138,5 +138,14 @@ describe("public navigation integration", () => {
     expect(finalCta).toContain('href="/signup"');
     expect(finalCta).not.toContain('href="/login"');
     expect(finalCta).not.toContain("To Dashboard");
+  });
+
+  it("surfaces Google OAuth from server-configured homepage and public nav", () => {
+    expect(source("components/marketing-v2/MarketingHomePage.tsx")).toContain("isGoogleOAuthConfigured");
+    expect(source("components/marketing-v2/HeroAuthorizationDemo.tsx")).toContain("ContinueWithGoogle");
+    expect(source("components/marketing-v2/FinalCTA.tsx")).toContain("ContinueWithGoogle");
+    expect(source("components/marketing-v2/MarketingNavbarClient.tsx")).toContain("ContinueWithGoogle");
+    expect(source("components/layout/PublicNav.tsx")).toContain("isGoogleOAuthConfigured");
+    expect(source("components/layout/PublicNavClient.tsx")).toContain("ContinueWithGoogle");
   });
 });

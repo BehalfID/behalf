@@ -2,6 +2,7 @@
 
 import { useRef, useState, type KeyboardEvent } from "react";
 import { ButtonLink, Card, Tab, TabList } from "@/components/ui";
+import { ContinueWithGoogle } from "@/components/auth/ContinueWithGoogle";
 import styles from "@/app/home-v2/home-v2.module.css";
 import { HERO_SCENARIOS, type DecisionState } from "./data";
 import { ShieldIcon, CheckIcon, XIcon, PauseIcon, ArrowRightIcon } from "./icons";
@@ -43,7 +44,7 @@ function Verdict({ state, label }: { state: DecisionState; label: string }) {
   );
 }
 
-export function HeroAuthorizationDemo() {
+export function HeroAuthorizationDemo({ googleEnabled = false }: { googleEnabled?: boolean }) {
   const [active, setActive] = useState<DecisionState>("approval");
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const scenario = HERO_SCENARIOS.find((s) => s.state === active) ?? HERO_SCENARIOS[0];
@@ -86,14 +87,20 @@ export function HeroAuthorizationDemo() {
               Start securing agents
               <ArrowRightIcon size={16} />
             </ButtonLink>
-            <ButtonLink href="/docs/concepts" size="large" variant="outline">
-              Read the technical overview
-            </ButtonLink>
+            {googleEnabled ? (
+              <ContinueWithGoogle className="auth-google-button--compact" mode="signup" size="large" variant="outline" />
+            ) : (
+              <ButtonLink href="/docs/concepts" size="large" variant="outline">
+                Read the technical overview
+              </ButtonLink>
+            )}
           </div>
 
           <p className={styles.heroCredit}>
             <ShieldIcon size={18} />
-            Fail-closed by design — agents are denied unless they are explicitly authorized.
+            {googleEnabled
+              ? "Or create an account with email — Google sign-in is available on signup and login."
+              : "Fail-closed by design — agents are denied unless they are explicitly authorized."}
           </p>
         </div>
 

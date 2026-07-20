@@ -3084,10 +3084,17 @@ textarea.ui-input,
 }
 
 .auth-google-button {
-  width: 100%;
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
+  gap: 10px;
+  width: 100%;
   text-decoration: none;
   text-align: center;
+}
+
+.auth-google-button--compact {
+  width: auto;
 }
 
 .auth-alt a {

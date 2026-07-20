@@ -64,7 +64,7 @@ export const HERO_SCENARIOS: DecisionScenario[] = [
 export const TRUST_ITEMS = [
   { title: "Fail-closed enforcement" },
   { title: "Human approval gates" },
-  { title: "Scoped agent permissions" },
+  { title: "Google SSO for teams" },
   { title: "Auditable decision records" }
 ] as const;
 
@@ -269,6 +269,11 @@ export const ENTERPRISE_FEATURES = [
     icon: "building",
     title: "Centralized governance",
     text: "Manage identities, permissions, and approvals from one workspace."
+  },
+  {
+    icon: "shield",
+    title: "Google SSO",
+    text: "Sign in with Google for individuals, or enforce company-domain Google SSO for teams on Pro and higher."
   },
   {
     icon: "route",
