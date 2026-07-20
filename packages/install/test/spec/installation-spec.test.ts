@@ -1,16 +1,17 @@
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_INSTALLATION_SPEC,
   getDefaultInstallationSpec,
+  loadBundledInstallationSpec,
   loadInstallationSpecFromFile,
   parseInstallationSpec,
+  resolveBundledSpecPath,
   serializeInstallationSpec,
 } from "../../src/spec/index.js";
 
-const SPEC_PATH = join(process.cwd(), "spec", "behalfid-install.spec.yaml");
+const SPEC_PATH = resolveBundledSpecPath(import.meta.url);
 
 describe("parseInstallationSpec", () => {
   it("accepts the default in-memory spec", () => {
@@ -59,5 +60,12 @@ describe("spec/behalfid-install.spec.yaml", () => {
     expect(spec.commands.install.command).toContain("--json");
     expect(spec.commands.verify.command).toContain("doctor --json");
     expect(spec.detection.statusCommand).toContain("status --json");
+  });
+
+  it("loads via resolveBundledSpecPath regardless of process cwd", async () => {
+    const fromBundled = await loadBundledInstallationSpec(
+      new URL("../../src/spec/loadSpec.ts", import.meta.url).href,
+    );
+    expect(fromBundled).toEqual(getDefaultInstallationSpec());
   });
 });

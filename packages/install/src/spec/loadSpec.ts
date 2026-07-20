@@ -131,7 +131,8 @@ export function parseInstallationSpec(value: unknown): InstallationSpec {
 /** Resolve the bundled spec file path adjacent to the built package. */
 export function resolveBundledSpecPath(importMetaUrl: string = import.meta.url): string {
   const moduleDir = dirname(fileURLToPath(importMetaUrl));
-  return join(moduleDir, "..", "spec", "behalfid-install.spec.yaml");
+  // Module lives at .../{src|dist}/spec; YAML ships at package root .../spec/
+  return join(moduleDir, "..", "..", "spec", "behalfid-install.spec.yaml");
 }
 
 /** Load an installation spec from a YAML file. */
