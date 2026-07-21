@@ -69,6 +69,34 @@ export const CLI_AUDIT_EVENT_TYPES = [
   "cli_pause_approval_requested"
 ] as const;
 
+export const DEVICE_CODE_STATUSES = ["pending", "authorized", "denied"] as const;
+
+export const PERMISSION_PROFILE_STATUSES = ["active", "archived"] as const;
+
+export const WEBHOOK_DELIVERY_STATUSES = ["success", "failed"] as const;
+
+export const ENTERPRISE_INQUIRY_STATUSES = ["new", "reviewed"] as const;
+
+export const SITE_STATUSES = ["active", "disabled"] as const;
+
+export const SITE_GUARD_KEY_STATUSES = ["active", "revoked"] as const;
+
+export const STATUS_COMPONENT_STATUSES = [
+  "operational",
+  "performance_issues",
+  "partial_outage",
+  "major_outage"
+] as const;
+
+export const STATUS_INCIDENT_STATUSES = [
+  "investigating",
+  "identified",
+  "watching",
+  "fixed"
+] as const;
+
+export const STATUS_INCIDENT_SEVERITIES = ["minor", "major", "critical"] as const;
+
 /** SQL fragment helpers for CHECK constraints in schema and migrations. */
 export function sqlInList(values: readonly string[]): string {
   return values.map((v) => `'${v}'`).join(", ");

@@ -35,8 +35,11 @@ describe("account context", () => {
 
   it("uses session active account when user is a member", async () => {
     mocks.membershipFind.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        lean: vi.fn().mockResolvedValue([{ accountId: "acct_primary" }, { accountId: "acct_team" }])
+      sort: vi.fn().mockReturnValue({
+        lean: vi.fn().mockResolvedValue([
+          { accountId: "acct_primary", userId: "user_a", role: "OWNER" },
+          { accountId: "acct_team", userId: "user_a", role: "ENGINEER" }
+        ])
       })
     });
     const { resolveActiveAccountId } = await import("@/lib/accountContext");
@@ -50,8 +53,10 @@ describe("account context", () => {
 
   it("falls back to primary account for single-account users", async () => {
     mocks.membershipFind.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        lean: vi.fn().mockResolvedValue([{ accountId: "acct_primary" }])
+      sort: vi.fn().mockReturnValue({
+        lean: vi.fn().mockResolvedValue([
+          { accountId: "acct_primary", userId: "user_a", role: "OWNER" }
+        ])
       })
     });
     const { resolveActiveAccountId } = await import("@/lib/accountContext");
@@ -133,8 +138,10 @@ describe("account context", () => {
 
   it("clears stale session activeAccountId when membership was removed", async () => {
     mocks.membershipFind.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        lean: vi.fn().mockResolvedValue([{ accountId: "acct_primary" }])
+      sort: vi.fn().mockReturnValue({
+        lean: vi.fn().mockResolvedValue([
+          { accountId: "acct_primary", userId: "user_a", role: "OWNER" }
+        ])
       })
     });
     const { resolveActiveAccountId } = await import("@/lib/accountContext");

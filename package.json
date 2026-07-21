@@ -31,7 +31,9 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "test:postgres-smoke": "tsx scripts/postgres-smoke.ts",
-    "test:postgres-repositories": "RUN_POSTGRES_REPOSITORY_CONTRACTS=true vitest run test/postgres-repository-contracts.test.ts"
+    "test:postgres-repositories": "RUN_POSTGRES_REPOSITORY_CONTRACTS=true vitest run test/postgres-repository-contracts.test.ts",
+    "migration:export-mongo": "tsx scripts/migration/export-mongo.ts",
+    "migration:import-postgres": "tsx scripts/migration/import-postgres.ts"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",

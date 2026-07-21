@@ -8,9 +8,16 @@ import {
   type ApprovalIntent
 } from "@/lib/approvalIntent";
 import { isAbsolutePath, lexicalNormalizePath } from "@/lib/pathCanonical";
-import ApprovalRequest from "@/models/ApprovalRequest";
-import Permission, { type PermissionDocument } from "@/models/Permission";
-import VerificationLog from "@/models/VerificationLog";
+import {
+  consumeApprovedAgentGrant,
+  upsertPendingAgentApproval
+} from "@/lib/repositories/approvals";
+import {
+  findPermissionsMatchingAction,
+  touchPermissionLastUsed
+} from "@/lib/repositories/permissions";
+import { createVerificationLog } from "@/lib/repositories/verificationLogs";
+import type { PermissionDocument } from "@/models/Permission";
 
 export { lexicalNormalizePath } from "@/lib/pathCanonical";
 
@@ -476,14 +483,7 @@ function evaluatePermissions(permissions: PermissionDocument[], input: VerifyInp
 
 async function findMatchingPermissions(input: VerifyInput) {
   if (input.agentStatus === "disabled") return [];
-  return Permission.find({
-    agentId: input.agentId,
-    $or: [
-      { action: input.action },
-      { allowedActions: input.action },
-      { blockedActions: input.action }
-    ]
-  }).sort({ createdAt: -1 });
+  return findPermissionsMatchingAction(input.agentId, input.action);
 }
 
 function resolveIntentForInput(input: VerifyInput): ApprovalIntent | null {
@@ -495,15 +495,6 @@ function resolveIntentForInput(input: VerifyInput): ApprovalIntent | null {
     cwd: extractCwd(input),
     home: extractHome(input)
   });
-}
-
-function isDuplicateKeyError(error: unknown): boolean {
-  return Boolean(
-    error &&
-      typeof error === "object" &&
-      "code" in error &&
-      (error as { code?: number }).code === 11000
-  );
 }
 
 /**
@@ -530,7 +521,7 @@ async function resolveApprovalGate(
   // 1. Atomically consume an approved, non-expired grant for this exact tuple.
   //    findOneAndUpdate with status:"approved" ensures only one concurrent
   //    retry can win; usedAt records consumption without overwriting resolvedAt.
-  const grant = await ApprovalRequest.findOneAndUpdate(
+  const grant = await consumeApprovedAgentGrant(
     {
       agentId: input.agentId,
       permissionId,
@@ -541,13 +532,7 @@ async function resolveApprovalGate(
       status: "approved",
       grantExpiresAt: { $gt: now }
     },
-    {
-      $set: {
-        status: "used",
-        usedAt: now
-      }
-    },
-    { returnDocument: "before" }
+    now
   );
 
   // Defense in depth is encoded in the query filter (exact tuple + fingerprint).
@@ -584,18 +569,7 @@ async function resolveApprovalGate(
     setOnInsert.argumentPreviewTruncated = intent.previewTruncated;
   }
 
-  let pending;
-  try {
-    pending = await ApprovalRequest.findOneAndUpdate(
-      pendingFilter,
-      { $setOnInsert: setOnInsert },
-      { upsert: true, returnDocument: "after" }
-    );
-  } catch (error) {
-    if (!isDuplicateKeyError(error)) throw error;
-    // Concurrent upsert raced the partial unique index — reuse the winner.
-    pending = await ApprovalRequest.findOne(pendingFilter);
-  }
+  const pending = await upsertPendingAgentApproval(pendingFilter, setOnInsert);
 
   return { granted: false, approvalId: (pending?.approvalId as string | undefined) };
 }
@@ -628,13 +602,10 @@ export async function verifyAction(input: VerifyInput) {
     recordAgentKeyUse(input.agentId);
 
     if (permission) {
-      await Permission.updateOne(
-        { permissionId: permission.permissionId },
-        { $set: { lastUsedAt: now } }
-      );
+      await touchPermissionLastUsed(permission.permissionId, now);
     }
 
-    await VerificationLog.create({
+    await createVerificationLog({
       logId: createPublicId("log"),
       requestId,
       accountId: input.accountId,
@@ -711,13 +682,10 @@ export async function verifyAction(input: VerifyInput) {
   recordAgentKeyUse(input.agentId);
 
   if (permission) {
-    await Permission.updateOne(
-      { permissionId: permission.permissionId },
-      { $set: { lastUsedAt: now } }
-    );
+    await touchPermissionLastUsed(permission.permissionId, now);
   }
 
-  await VerificationLog.create({
+  await createVerificationLog({
     logId: createPublicId("log"),
     requestId,
     accountId: input.accountId,

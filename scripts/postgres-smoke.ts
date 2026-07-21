@@ -22,22 +22,35 @@ import * as schema from "@/lib/db/postgres/schema";
 export const CORE_TABLES = [
   "accounts",
   "developer_users",
+  "oauth_pending_signups",
   "developer_sessions",
   "developer_api_tokens",
   "account_memberships",
   "account_invites",
+  "device_codes",
   "agents",
   "permissions",
+  "permission_profiles",
   "approval_requests",
   "verification_logs",
   "webhook_endpoints",
   "webhook_events",
+  "webhook_deliveries",
+  "stripe_webhook_events",
+  "enterprise_inquiries",
   "managed_profile_policies",
   "managed_profile_protected_repos",
-  "cli_audit_activities"
+  "cli_pause_leases",
+  "cli_audit_activities",
+  "sites",
+  "site_access_rules",
+  "site_access_logs",
+  "site_guard_keys",
+  "status_components",
+  "status_incidents"
 ] as const;
 
-/** Indexes that must exist after the v1 migration (by stable SQL name). */
+/** Indexes that must exist after migrations (by stable SQL name). */
 export const CRITICAL_INDEX_NAMES = [
   "accounts_plan_idx",
   "accounts_slug_uq",
@@ -55,7 +68,11 @@ export const CRITICAL_INDEX_NAMES = [
   "verification_logs_allowed_idx",
   "managed_profile_protected_repos_account_repo_uq",
   "webhook_events_status_next_attempt_created_idx",
-  "cli_audit_activities_account_created_idx"
+  "cli_audit_activities_account_created_idx",
+  "device_codes_expires_at_idx",
+  "permission_profiles_account_status_idx",
+  "sites_account_domain_uq",
+  "cli_pause_leases_account_user_expires_idx"
 ] as const;
 
 export const VERIFICATION_LOG_MAINTENANCE_FUNCTIONS = [
@@ -83,7 +100,10 @@ export function isPostgresRepositoryContractsEnabled(): boolean {
 function migrationSqlPaths(): string[] {
   return [
     join(process.cwd(), "drizzle/0000_initial_behalf_schema.sql"),
-    join(process.cwd(), "drizzle/0001_workspace_slug.sql")
+    join(process.cwd(), "drizzle/0001_workspace_slug.sql"),
+    join(process.cwd(), "drizzle/0002_google_sso.sql"),
+    join(process.cwd(), "drizzle/0003_remaining_tables.sql"),
+    join(process.cwd(), "drizzle/0004_approval_argument_binding.sql")
   ];
 }
 

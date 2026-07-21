@@ -1,5 +1,5 @@
-import Agent from "@/models/Agent";
-import VerificationLog from "@/models/VerificationLog";
+import { aggregateVerificationLogs, findVerificationLogs } from "@/lib/repositories/verificationLogs";
+import { findAgentNamesByIds } from "@/lib/repositories/agents";
 
 export type LogRisk = "low" | "medium" | "high";
 
@@ -237,65 +237,65 @@ export async function getVerificationLogSummaryAgg(
   // Fast path: single aggregation pipeline (production MongoDB).
   // Falls back to the in-process helper when .aggregate is unavailable
   // (e.g. in tests using the in-memory / mocked driver).
-  if (typeof VerificationLog.aggregate === "function") {
-    try {
-      const result = await VerificationLog.aggregate<{
-        stats: AggFacet["stats"];
-        deniedActions: AggFacet["deniedActions"];
-        topVendors: AggFacet["topVendors"];
-      }>([
-        { $match: query },
-        { $sort: { createdAt: -1 } },
-        { $limit: limit },
-        {
-          $facet: {
-            stats: [
-              {
-                $group: {
-                  _id: null,
-                  total: { $sum: 1 },
-                  allowed: { $sum: { $cond: ["$allowed", 1, 0] } },
-                  denied: { $sum: { $cond: ["$allowed", 0, 1] } },
-                  highRisk: { $sum: { $cond: [{ $eq: ["$risk", "high"] }, 1, 0] } },
-                  approvalRequired: {
-                    $sum: {
-                      $cond: [
-                        {
-                          $or: [
-                            { $eq: ["$approvalRequired", true] },
-                            {
-                              $regexMatch: {
-                                input: { $ifNull: ["$reason", ""] },
-                                regex: "requires approval|approval required|approval before execution",
-                                options: "i"
-                              }
+  try {
+    const result = await aggregateVerificationLogs<{
+      stats: AggFacet["stats"];
+      deniedActions: AggFacet["deniedActions"];
+      topVendors: AggFacet["topVendors"];
+    }>([
+      { $match: query },
+      { $sort: { createdAt: -1 } },
+      { $limit: limit },
+      {
+        $facet: {
+          stats: [
+            {
+              $group: {
+                _id: null,
+                total: { $sum: 1 },
+                allowed: { $sum: { $cond: ["$allowed", 1, 0] } },
+                denied: { $sum: { $cond: ["$allowed", 0, 1] } },
+                highRisk: { $sum: { $cond: [{ $eq: ["$risk", "high"] }, 1, 0] } },
+                approvalRequired: {
+                  $sum: {
+                    $cond: [
+                      {
+                        $or: [
+                          { $eq: ["$approvalRequired", true] },
+                          {
+                            $regexMatch: {
+                              input: { $ifNull: ["$reason", ""] },
+                              regex: "requires approval|approval required|approval before execution",
+                              options: "i"
                             }
-                          ]
-                        },
-                        1,
-                        0
-                      ]
-                    }
+                          }
+                        ]
+                      },
+                      1,
+                      0
+                    ]
                   }
                 }
               }
-            ],
-            deniedActions: [
-              { $match: { allowed: false } },
-              { $group: { _id: "$action", count: { $sum: 1 } } },
-              { $sort: { count: -1 } },
-              { $limit: 1 }
-            ],
-            topVendors: [
-              { $match: { vendor: { $ne: null, $exists: true } } },
-              { $group: { _id: "$vendor", count: { $sum: 1 } } },
-              { $sort: { count: -1 } },
-              { $limit: 1 }
-            ]
-          }
+            }
+          ],
+          deniedActions: [
+            { $match: { allowed: false } },
+            { $group: { _id: "$action", count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+            { $limit: 1 }
+          ],
+          topVendors: [
+            { $match: { vendor: { $ne: null, $exists: true } } },
+            { $group: { _id: "$vendor", count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+            { $limit: 1 }
+          ]
         }
-      ]);
+      }
+    ]);
 
+    if (result) {
       const facet = result[0];
       if (!facet) {
         return { total: 0, allowed: 0, denied: 0, highRisk: 0, approvalRequired: 0, topDeniedAction: null, topVendor: null };
@@ -310,16 +310,13 @@ export async function getVerificationLogSummaryAgg(
         topDeniedAction: facet.deniedActions[0]?._id ?? null,
         topVendor: facet.topVendors[0]?._id ?? null
       };
-    } catch {
-      // fall through to in-process fallback
     }
+  } catch {
+    // fall through to in-process fallback
   }
 
   // Fallback: fetch documents and compute summary in-process.
-  const logs = await VerificationLog.find(query)
-    .sort({ createdAt: -1 })
-    .limit(limit)
-    .lean<VerificationLogListItem[]>();
+  const logs = (await findVerificationLogs(query, { limit })) as VerificationLogListItem[];
   return calculateVerificationLogSummary(logs);
 }
 
@@ -330,10 +327,7 @@ export async function withAgentNames(
   const agentIds = Array.from(new Set(logs.map((log) => log.agentId))).filter(Boolean);
   if (!agentIds.length) return logs.map(sanitizeVerificationLog);
 
-  const query: Record<string, unknown> = { agentId: { $in: agentIds } };
-  if (scope.developerUserId) query.developerUserId = scope.developerUserId;
-  if (scope.accountId) query.accountId = scope.accountId;
-  const agents = await Agent.find(query).select("-_id agentId name").lean();
+  const agents = await findAgentNamesByIds(agentIds, scope);
   const names = new Map(agents.map((agent) => [agent.agentId, agent.name]));
   return logs.map((log) => sanitizeVerificationLog({
     ...log,

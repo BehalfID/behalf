@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import net from "net";
 import { createPublicId, createWebhookSecret } from "@/lib/ids";
-import WebhookEventModel from "@/models/WebhookEvent";
+import { enqueueWebhookEventRecord } from "@/lib/repositories/webhooks";
 
 export const WEBHOOK_EVENT_TYPES = [
   "verification.allowed",
@@ -185,18 +185,12 @@ export async function emitWebhookEvent(event: WebhookEvent | null) {
 }
 
 export async function enqueueWebhookEvent(event: WebhookEvent) {
-  await WebhookEventModel.create({
+  await enqueueWebhookEventRecord({
     eventId: event.eventId,
     accountId: event.accountId,
     developerUserId: event.developerUserId,
     type: event.type,
-    payload: event,
-    status: "pending",
-    attempts: 0,
-    nextAttemptAt: new Date(),
-    deadLetter: false,
-    lastError: null,
-    completedAt: null
+    payload: event
   });
 }
 

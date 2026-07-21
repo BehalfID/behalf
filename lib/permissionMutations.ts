@@ -12,9 +12,9 @@ import { jsonError } from "@/lib/responses";
 import { isRecord, parseOptionalAmount, parseOptionalDate, readString } from "@/lib/validation";
 import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
 import Agent from "@/models/Agent";
-import Permission from "@/models/Permission";
 import PermissionProfile from "@/models/PermissionProfile";
 import { accountScopeFilter } from "@/lib/accountAccess";
+import { createPermission } from "@/lib/repositories/permissions";
 
 export type PermissionBody = Record<string, unknown>;
 
@@ -162,7 +162,7 @@ export async function createPermissionForAgent(options: {
   const { requiredAuthorityLevel } = classifyPermissionRisk(parsed.classificationInput);
   const permissionId = createPublicId("perm");
 
-  await Permission.create({
+  await createPermission({
     permissionId,
     accountId: options.actor.accountId,
     developerUserId: options.userId,

@@ -142,9 +142,17 @@ vi.mock("@/models/WebhookEvent", () => ({
 vi.mock("@/models/WebhookEndpoint", () => ({
   default: {
     find: vi.fn((query: Record<string, unknown>) => ({
-      select: vi.fn(async () =>
-        workerMocks.endpoints.filter((endpoint) => matches(endpoint as unknown as Record<string, unknown>, query))
-      )
+      select: vi.fn(() => {
+        const rows = workerMocks.endpoints.filter((endpoint) =>
+          matches(endpoint as unknown as Record<string, unknown>, query)
+        );
+        const result = Promise.resolve(rows);
+        return {
+          lean: vi.fn(() => result),
+          then: result.then.bind(result),
+          catch: result.catch.bind(result)
+        };
+      })
     })),
     updateMany: vi.fn(async (query: Record<string, unknown>, update: Record<string, unknown>) => {
       let modifiedCount = 0;

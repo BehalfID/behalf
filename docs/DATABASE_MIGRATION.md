@@ -404,22 +404,25 @@ refresh upsert in `lib/membershipManagement.ts` becomes
 | `action` | `action` | `TEXT` | NOT NULL |
 | `vendor` | `vendor` | `TEXT` | NULL |
 | `amount` | `amount` | `NUMERIC` | NULL |
+| `argumentKind` | `argument_kind` | `TEXT` | NULL, CK `IN ('command','file_path')` |
+| `argumentFingerprint` | `argument_fingerprint` | `TEXT` | NULL; included in pending agent_action unique index |
+| `argumentPreview` / `argumentPreviewTruncated` | snake_case | `TEXT` / `BOOLEAN` | NULL |
 | `pauseTool` / `pauseRepo` / `pauseBranch` / `pauseDeviceId` | snake_case | `TEXT` | NULL |
 | `pauseScope` | `pause_scope` | `TEXT` | NULL, CK `IN ('current_repo','all')` |
 | `requestedDurationMinutes` | `requested_duration_minutes` | `INTEGER` | NULL, CK `>= 1` |
 | `pauseReason` / `contextReason` | snake_case | `TEXT` | NULL |
 | `status` | `status` | `TEXT` | NOT NULL DEFAULT `'pending'`, CK `IN ('pending','approved','denied','used')` |
 | `resolvedBy` | `resolved_by` | `TEXT` | NULL |
-| `resolvedAt` / `grantExpiresAt` | snake_case | `TIMESTAMPTZ` | NULL |
+| `resolvedAt` / `usedAt` / `grantExpiresAt` | snake_case | `TIMESTAMPTZ` | NULL (`used_at` records grant consumption) |
 | `requiredAuthorityLevel` | `required_authority_level` | `SMALLINT` | NULL, CK 0–100 |
 | timestamps | `created_at` / `updated_at` | `TIMESTAMPTZ` | NOT NULL |
 
 **Dedupe upserts:** today's Mongo `findOneAndUpdate(filter, …, { upsert: true })` has no
 backing unique index (two concurrent verify calls can theoretically double-insert).
 Postgres lets us strengthen this with **partial unique indexes** (declared
-`NULLS NOT DISTINCT` so NULL vendor/amount dedupe correctly, Postgres 15+):
+`NULLS NOT DISTINCT` so NULL vendor/amount/fingerprint dedupe correctly, Postgres 15+):
 
-- `UNIQUE NULLS NOT DISTINCT (agent_id, permission_id, action, vendor, amount) WHERE status = 'pending' AND kind = 'agent_action'`
+- `UNIQUE NULLS NOT DISTINCT (agent_id, permission_id, action, vendor, amount, argument_fingerprint) WHERE status = 'pending' AND kind = 'agent_action'`
 - `UNIQUE NULLS NOT DISTINCT (account_id, developer_user_id, pause_tool, pause_scope, pause_repo, pause_device_id) WHERE status = 'pending' AND kind = 'managed_profile_pause'`
 
 then `INSERT … ON CONFLICT … DO NOTHING RETURNING` + fallback select. Grant consumption
@@ -845,23 +848,38 @@ Each PR is independently shippable and reversible. **No PR changes auth.**
   suites as Mongo; **not exported** from `lib/repositories/index.ts`; runtime still uses Mongo.
 - **Done (v2):** Test-only Postgres repository adapters for `memberships` and pending invites
   (`lib/repositories/postgres/memberships.ts`). Same contract gate and runtime isolation as v1.
-- **Not done yet:** `pg_cron` cleanup jobs, remaining tables (device codes, site guard,
-  status page, webhook deliveries, etc.), CI job that applies migrations against live Postgres.
+- **Done (v3):** Remaining tables migration (`drizzle/0003_remaining_tables.sql`) covering
+  device codes, permission profiles, webhook deliveries, Stripe ledger, enterprise inquiries,
+  CLI pause leases, Site Guard, and status page tables. RLS enabled (deny-all) on
+  `oauth_pending_signups` and all new tables. Smoke runner applies migrations through `0003`.
+- **Done (v3):** Test-only Postgres managed-profiles adapter
+  (`lib/repositories/postgres/managedProfiles.ts`) wired into repository contracts.
+- **Done (v4):** Approval argument-binding columns + `used_at` (`drizzle/0004_approval_argument_binding.sql`);
+  test-only Postgres adapters for permissions, approvals, and verification logs with shared
+  repository contracts (Mongo + Postgres).
+- **Done (v5):** Test-only Postgres webhook adapters (endpoints/events/deliveries) with shared
+  contracts; Mongo webhook repository; `enqueueWebhookEvent` and worker claim/delivery paths
+  converted to repositories.
+- **Done (partial PR A):** Mongo repository modules for permissions, approvals, verification
+  logs, device codes, and CLI pause leases; primary `lib/*` / device-auth call sites converted.
+  Account/agent/membership helpers that already used repos finished partial conversions
+  (`accountContext`, `onboardingRedirect`, `account`, `accountDashboardData`).
+- **Not done yet:** `pg_cron` cleanup jobs, CI job that applies migrations against live Postgres,
+  full route-level repository migration, auth-table repos, Site Guard/status repos,
+  env-driven backend factory.
 - Connection module (`lib/db/postgres/index.ts`) exists but is **not imported by app routes**.
-- **Next after v2:** Postgres repository adapters for managed profiles, then
-  permissions/approvals/logs/webhooks — each must pass `test/repository-contracts/*` before any
-  runtime cutover.
+- **Next:** Finish PR C import verification / data-quality reports; staging dual-read (PR D).
 - **Runtime cutover is still not approved.**
 
 ### PR C — Data export/import scripts
 
-- `scripts/migration/export-mongo.ts` → NDJSON per collection with transform
-  (ObjectId/`_id` dropped, dates → ISO, embedded arrays split into child-table rows).
-- `scripts/migration/import-postgres.ts` → `COPY`-based bulk load, FK-ordered
-  (accounts → users → memberships → agents → …), with `ON CONFLICT DO NOTHING`
-  idempotency so re-runs are safe.
-- Pre-flight data-quality report (risk #5) + post-import verification (row counts,
-  per-table checksums over stable columns, spot-sample deep equality).
+- **Scaffolded:** `scripts/migration/transform.ts` (pure transforms + collection order),
+  `scripts/migration/export-mongo.ts` (NDJSON export), `scripts/migration/import-postgres.ts`
+  (`INSERT … ON CONFLICT DO NOTHING` load in FK order), unit tests in
+  `test/migration-transform.test.ts`.
+  Scripts: `npm run migration:export-mongo`, `npm run migration:import-postgres`.
+- Remaining: pre-flight data-quality report (risk #5), post-import checksum verification,
+  COPY-based bulk load performance pass, golden-file transform coverage for every collection.
 
 ### PR D — Non-production migration test
 

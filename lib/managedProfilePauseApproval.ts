@@ -2,7 +2,12 @@ import { AUTHORITY_LEVELS } from "@/lib/authority";
 import { createPublicId } from "@/lib/ids";
 import type { CliAuthContext } from "@/lib/cliAuth";
 import type { CliPauseInput } from "@/lib/cliSessionPolicy";
-import ApprovalRequest, { APPROVAL_GRANT_TTL_MS } from "@/models/ApprovalRequest";
+import { APPROVAL_GRANT_TTL_MS } from "@/models/ApprovalRequest";
+import {
+  findApprovalByFilter,
+  updateApprovalByFilter,
+  upsertPendingApproval
+} from "@/lib/repositories/approvals";
 
 export const MANAGED_PROFILE_PAUSE_KIND = "managed_profile_pause" as const;
 export const MANAGED_PROFILE_PAUSE_ACTION = "managed_profile_pause";
@@ -90,11 +95,11 @@ export async function findApprovedPauseApprovalGrant(
   input: CliPauseInput
 ) {
   const now = new Date();
-  const grant = await ApprovalRequest.findOne({
+  const grant = await findApprovalByFilter({
     ...pauseApprovalTupleFilter(auth, input),
     status: "approved",
     grantExpiresAt: { $gt: now },
-  }).lean();
+  });
 
   if (!grant || !pauseApprovalMatchesRequest(grant, auth, input)) {
     return null;
@@ -112,14 +117,14 @@ export async function consumeApprovedPauseApproval(
 
   const now = new Date();
   const tuple = pauseApprovalTupleFilter(auth, input);
-  const result = await ApprovalRequest.updateOne(
+  const result = await updateApprovalByFilter(
     {
       ...tuple,
       approvalId: grant.approvalId,
       status: "approved",
       grantExpiresAt: { $gt: now },
     },
-    { $set: { status: "used", resolvedAt: now } }
+    { status: "used", resolvedAt: now }
   );
 
   if (result.matchedCount !== 1) return null;
@@ -138,29 +143,26 @@ export async function createOrReusePendingPauseApproval(
   const tuple = pauseApprovalTupleFilter(auth, input);
   const scope = normalizePauseScope(input.scope);
 
-  const pending = await ApprovalRequest.findOneAndUpdate(
+  const pending = await upsertPendingApproval(
     {
       ...tuple,
       status: "pending",
     },
     {
-      $setOnInsert: {
-        approvalId: createPublicId("apr"),
-        requestId: createPublicId("req"),
-        kind: MANAGED_PROFILE_PAUSE_KIND,
-        action: MANAGED_PROFILE_PAUSE_ACTION,
-        vendor: BEHALF_CLI_VENDOR,
-        agentId: BEHALF_CLI_PAUSE_AGENT_ID,
-        permissionId: MANAGED_PROFILE_PAUSE_PERMISSION_ID,
-        requiredAuthorityLevel: AUTHORITY_LEVELS.ENGINEERING_LEAD,
-        requestedDurationMinutes: input.durationMinutes,
-        pauseReason: input.reason.trim(),
-        contextReason,
-        pauseBranch: input.branch?.trim() || null,
-      },
-    },
-    { upsert: true, new: true }
-  ).lean();
+      approvalId: createPublicId("apr"),
+      requestId: createPublicId("req"),
+      kind: MANAGED_PROFILE_PAUSE_KIND,
+      action: MANAGED_PROFILE_PAUSE_ACTION,
+      vendor: BEHALF_CLI_VENDOR,
+      agentId: BEHALF_CLI_PAUSE_AGENT_ID,
+      permissionId: MANAGED_PROFILE_PAUSE_PERMISSION_ID,
+      requiredAuthorityLevel: AUTHORITY_LEVELS.ENGINEERING_LEAD,
+      requestedDurationMinutes: input.durationMinutes,
+      pauseReason: input.reason.trim(),
+      contextReason,
+      pauseBranch: input.branch?.trim() || null,
+    }
+  );
 
   return pending?.approvalId as string;
 }
@@ -200,12 +202,12 @@ export async function getPauseApprovalStatusForRequester(
   auth: CliAuthContext,
   approvalRequestId: string
 ): Promise<PauseApprovalStatusResponse | null> {
-  const approval = await ApprovalRequest.findOne({
+  const approval = await findApprovalByFilter({
     approvalId: approvalRequestId.trim(),
     accountId: auth.accountId,
     developerUserId: auth.userId,
     kind: MANAGED_PROFILE_PAUSE_KIND,
-  }).lean();
+  });
 
   if (!approval?.approvalId) return null;
 

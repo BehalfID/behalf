@@ -36,6 +36,15 @@ export async function findMembershipsByAccountId(accountId: string): Promise<Mem
   return AccountMembership.find({ accountId }).sort({ createdAt: 1 }).lean();
 }
 
+export async function findMembershipsByUserId(userId: string): Promise<MembershipLean[]> {
+  return AccountMembership.find({ userId }).sort({ createdAt: 1 }).lean();
+}
+
+export async function findMembershipAccountIdsByUserId(userId: string): Promise<string[]> {
+  const memberships = await AccountMembership.find({ userId }).select("accountId").lean();
+  return memberships.map((membership) => membership.accountId);
+}
+
 export async function createMembership(input: {
   membershipId: string;
   accountId: string;

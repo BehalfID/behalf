@@ -24,15 +24,24 @@ import {
   APPROVAL_STATUSES,
   CLI_AUDIT_EVENT_TYPES,
   CONNECTION_STATUSES,
+  DEVICE_CODE_STATUSES,
+  ENTERPRISE_INQUIRY_STATUSES,
   INVITE_ROLES,
   INVITE_STATUSES,
   MANAGED_PROFILE_MODES,
   ONBOARDING_USE_CASES,
   PAUSE_SCOPES,
+  PERMISSION_PROFILE_STATUSES,
   PERMISSION_STATUSES,
   PERMISSION_TEMPLATES,
   RISK_LEVELS,
+  SITE_GUARD_KEY_STATUSES,
+  SITE_STATUSES,
+  STATUS_COMPONENT_STATUSES,
+  STATUS_INCIDENT_SEVERITIES,
+  STATUS_INCIDENT_STATUSES,
   TEAM_SIZES,
+  WEBHOOK_DELIVERY_STATUSES,
   WEBHOOK_ENDPOINT_STATUSES,
   WEBHOOK_EVENT_STATUSES,
   WORKSPACE_ROLES,
@@ -403,6 +412,10 @@ export const approvalRequests = pgTable(
     action: text("action").notNull(),
     vendor: text("vendor"),
     amount: numeric("amount"),
+    argumentKind: text("argument_kind"),
+    argumentFingerprint: text("argument_fingerprint"),
+    argumentPreview: text("argument_preview"),
+    argumentPreviewTruncated: boolean("argument_preview_truncated"),
     pauseTool: text("pause_tool"),
     pauseRepo: text("pause_repo"),
     pauseBranch: text("pause_branch"),
@@ -414,6 +427,7 @@ export const approvalRequests = pgTable(
     status: text("status").notNull().default("pending"),
     resolvedBy: text("resolved_by"),
     resolvedAt: timestamp("resolved_at", { withTimezone: true, mode: "date" }),
+    usedAt: timestamp("used_at", { withTimezone: true, mode: "date" }),
     grantExpiresAt: timestamp("grant_expires_at", { withTimezone: true, mode: "date" }),
     requiredAuthorityLevel: smallint("required_authority_level"),
     ...createdUpdatedAt()
@@ -422,6 +436,10 @@ export const approvalRequests = pgTable(
     check(
       "approval_requests_kind_check",
       sql`${table.kind} IN (${sql.raw(sqlInList(APPROVAL_KINDS))})`
+    ),
+    check(
+      "approval_requests_argument_kind_check",
+      sql`${table.argumentKind} IS NULL OR ${table.argumentKind} IN ('command', 'file_path')`
     ),
     check(
       "approval_requests_pause_scope_check",
@@ -454,7 +472,8 @@ export const approvalRequests = pgTable(
       table.developerUserId,
       table.status,
       table.createdAt
-    )
+    ),
+    index("approval_requests_argument_fingerprint_idx").on(table.argumentFingerprint)
   ]
 );
 
@@ -680,23 +699,361 @@ export const cliAuditActivities = pgTable(
   ]
 );
 
-/** All core v1 tables exported for static validation and future repository adapters. */
+// ---------------------------------------------------------------------------
+// Remaining tables (PR B follow-up)
+// ---------------------------------------------------------------------------
+
+export const deviceCodes = pgTable(
+  "device_codes",
+  {
+    codeId: text("code_id").primaryKey(),
+    deviceCode: text("device_code").notNull().unique(),
+    userCode: text("user_code").notNull().unique(),
+    status: text("status").notNull().default("pending"),
+    userId: text("user_id").references(() => developerUsers.userId, { onDelete: "set null" }),
+    sessionToken: text("session_token"),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+    createdAt: timestamptz().notNull().defaultNow()
+  },
+  (table) => [
+    check(
+      "device_codes_status_check",
+      sql`${table.status} IN (${sql.raw(sqlInList(DEVICE_CODE_STATUSES))})`
+    ),
+    index("device_codes_expires_at_idx").on(table.expiresAt)
+  ]
+);
+
+export const permissionProfiles = pgTable(
+  "permission_profiles",
+  {
+    profileId: text("profile_id").primaryKey(),
+    accountId: text("account_id")
+      .notNull()
+      .references(() => accounts.accountId, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    permissions: jsonb("permissions").notNull().default(sql`'[]'::jsonb`),
+    requiredAuthorityLevel: smallint("required_authority_level").notNull(),
+    createdBy: text("created_by").notNull(),
+    status: text("status").notNull().default("active"),
+    ...createdUpdatedAt()
+  },
+  (table) => [
+    check(
+      "permission_profiles_status_check",
+      sql`${table.status} IN (${sql.raw(sqlInList(PERMISSION_PROFILE_STATUSES))})`
+    ),
+    check(
+      "permission_profiles_required_authority_level_check",
+      sql`${table.requiredAuthorityLevel} >= 0 AND ${table.requiredAuthorityLevel} <= 100`
+    ),
+    index("permission_profiles_account_status_idx").on(table.accountId, table.status)
+  ]
+);
+
+export const webhookDeliveries = pgTable(
+  "webhook_deliveries",
+  {
+    deliveryId: text("delivery_id").primaryKey(),
+    accountId: text("account_id"),
+    developerUserId: text("developer_user_id"),
+    webhookId: text("webhook_id").notNull(),
+    eventId: text("event_id").notNull(),
+    eventType: text("event_type").notNull(),
+    status: text("status").notNull(),
+    httpStatus: integer("http_status"),
+    error: text("error"),
+    attempt: integer("attempt").notNull().default(1),
+    nextRetryAt: timestamp("next_retry_at", { withTimezone: true, mode: "date" }),
+    maxAttempts: integer("max_attempts").notNull().default(5),
+    createdAt: timestamptz().notNull().defaultNow()
+  },
+  (table) => [
+    check(
+      "webhook_deliveries_status_check",
+      sql`${table.status} IN (${sql.raw(sqlInList(WEBHOOK_DELIVERY_STATUSES))})`
+    ),
+    index("webhook_deliveries_account_webhook_created_idx").on(
+      table.accountId,
+      table.webhookId,
+      table.createdAt
+    ),
+    index("webhook_deliveries_event_id_idx").on(table.eventId)
+  ]
+);
+
+export const stripeWebhookEvents = pgTable(
+  "stripe_webhook_events",
+  {
+    eventId: text("event_id").primaryKey(),
+    type: text("type").notNull(),
+    processedAt: timestamp("processed_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+    ...createdUpdatedAt()
+  }
+);
+
+export const enterpriseInquiries = pgTable(
+  "enterprise_inquiries",
+  {
+    inquiryId: text("inquiry_id").primaryKey(),
+    name: text("name").notNull(),
+    email: text("email").notNull(),
+    company: text("company").notNull(),
+    message: text("message").notNull().default(""),
+    status: text("status").notNull().default("new"),
+    ...createdUpdatedAt()
+  },
+  (table) => [
+    check(
+      "enterprise_inquiries_status_check",
+      sql`${table.status} IN (${sql.raw(sqlInList(ENTERPRISE_INQUIRY_STATUSES))})`
+    ),
+    index("enterprise_inquiries_status_idx").on(table.status)
+  ]
+);
+
+export const cliPauseLeases = pgTable(
+  "cli_pause_leases",
+  {
+    leaseId: text("lease_id").primaryKey(),
+    accountId: text("account_id").references(() => accounts.accountId, { onDelete: "cascade" }),
+    userId: text("user_id").references(() => developerUsers.userId, { onDelete: "set null" }),
+    deviceId: text("device_id"),
+    tool: text("tool"),
+    repo: text("repo"),
+    branch: text("branch"),
+    scope: text("scope").notNull().default("current_repo"),
+    reason: text("reason").notNull(),
+    granted: boolean("granted").notNull(),
+    deniedReason: text("denied_reason"),
+    mode: text("mode").notNull().default("unmanaged"),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }),
+    ...createdUpdatedAt()
+  },
+  (table) => [
+    check(
+      "cli_pause_leases_scope_check",
+      sql`${table.scope} IN (${sql.raw(sqlInList(PAUSE_SCOPES))})`
+    ),
+    check(
+      "cli_pause_leases_mode_check",
+      sql`${table.mode} IN (${sql.raw(sqlInList(MANAGED_PROFILE_MODES))})`
+    ),
+    index("cli_pause_leases_account_user_expires_idx").on(
+      table.accountId,
+      table.userId,
+      table.expiresAt
+    ),
+    index("cli_pause_leases_device_expires_idx").on(table.deviceId, table.expiresAt)
+  ]
+);
+
+export const sites = pgTable(
+  "sites",
+  {
+    siteId: text("site_id").primaryKey(),
+    accountId: text("account_id")
+      .notNull()
+      .references(() => accounts.accountId, { onDelete: "cascade" }),
+    developerUserId: text("developer_user_id")
+      .notNull()
+      .references(() => developerUsers.userId),
+    name: text("name").notNull(),
+    domain: text("domain").notNull(),
+    status: text("status").notNull().default("active"),
+    ...createdUpdatedAt()
+  },
+  (table) => [
+    check(
+      "sites_status_check",
+      sql`${table.status} IN (${sql.raw(sqlInList(SITE_STATUSES))})`
+    ),
+    uniqueIndex("sites_account_domain_uq").on(table.accountId, table.domain),
+    index("sites_developer_created_idx").on(table.developerUserId, table.createdAt)
+  ]
+);
+
+export const siteAccessRules = pgTable(
+  "site_access_rules",
+  {
+    ruleId: text("rule_id").primaryKey(),
+    siteId: text("site_id")
+      .notNull()
+      .references(() => sites.siteId, { onDelete: "cascade" }),
+    accountId: text("account_id")
+      .notNull()
+      .references(() => accounts.accountId, { onDelete: "cascade" }),
+    developerUserId: text("developer_user_id")
+      .notNull()
+      .references(() => developerUsers.userId),
+    name: text("name").notNull(),
+    status: text("status").notNull().default("active"),
+    agentIdentifier: text("agent_identifier"),
+    userAgentPattern: text("user_agent_pattern"),
+    allowedPaths: text("allowed_paths").array().notNull().default(sql`'{}'`),
+    blockedPaths: text("blocked_paths").array().notNull().default(sql`'{}'`),
+    requiresApproval: boolean("requires_approval").notNull().default(false),
+    notes: text("notes"),
+    ...createdUpdatedAt()
+  },
+  (table) => [
+    check(
+      "site_access_rules_status_check",
+      sql`${table.status} IN (${sql.raw(sqlInList(SITE_STATUSES))})`
+    ),
+    index("site_access_rules_site_status_idx").on(table.siteId, table.status),
+    index("site_access_rules_account_site_created_idx").on(
+      table.accountId,
+      table.siteId,
+      table.createdAt
+    )
+  ]
+);
+
+export const siteAccessLogs = pgTable(
+  "site_access_logs",
+  {
+    requestId: text("request_id").primaryKey(),
+    siteId: text("site_id").notNull(),
+    accountId: text("account_id").notNull(),
+    developerUserId: text("developer_user_id").notNull(),
+    ruleId: text("rule_id"),
+    domain: text("domain").notNull(),
+    path: text("path").notNull(),
+    userAgent: text("user_agent").notNull(),
+    agentIdentifier: text("agent_identifier"),
+    allowed: boolean("allowed").notNull(),
+    reason: text("reason").notNull(),
+    risk: text("risk").notNull(),
+    ...createdUpdatedAt()
+  },
+  (table) => [
+    check(
+      "site_access_logs_risk_check",
+      sql`${table.risk} IN (${sql.raw(sqlInList(RISK_LEVELS))})`
+    ),
+    index("site_access_logs_account_site_created_idx").on(
+      table.accountId,
+      table.siteId,
+      table.createdAt
+    ),
+    index("site_access_logs_developer_created_idx").on(table.developerUserId, table.createdAt)
+  ]
+);
+
+export const siteGuardKeys = pgTable(
+  "site_guard_keys",
+  {
+    keyId: text("key_id").primaryKey(),
+    siteId: text("site_id")
+      .notNull()
+      .references(() => sites.siteId, { onDelete: "cascade" }),
+    accountId: text("account_id")
+      .notNull()
+      .references(() => accounts.accountId, { onDelete: "cascade" }),
+    developerUserId: text("developer_user_id")
+      .notNull()
+      .references(() => developerUsers.userId),
+    name: text("name").notNull(),
+    keyHash: text("key_hash").notNull().unique(),
+    keyPreview: text("key_preview").notNull(),
+    status: text("status").notNull().default("active"),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true, mode: "date" }),
+    ...createdUpdatedAt()
+  },
+  (table) => [
+    check(
+      "site_guard_keys_status_check",
+      sql`${table.status} IN (${sql.raw(sqlInList(SITE_GUARD_KEY_STATUSES))})`
+    ),
+    index("site_guard_keys_site_status_idx").on(table.siteId, table.status),
+    index("site_guard_keys_account_created_idx").on(table.accountId, table.createdAt)
+  ]
+);
+
+export const statusComponents = pgTable(
+  "status_components",
+  {
+    componentId: text("component_id").primaryKey(),
+    name: text("name").notNull(),
+    description: text("description"),
+    group: text("group"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    status: text("status").notNull().default("operational"),
+    enabled: boolean("enabled").notNull().default(true),
+    ...createdUpdatedAt()
+  },
+  (table) => [
+    check(
+      "status_components_status_check",
+      sql`${table.status} IN (${sql.raw(sqlInList(STATUS_COMPONENT_STATUSES))})`
+    ),
+    index("status_components_group_idx").on(table.group),
+    index("status_components_sort_order_idx").on(table.sortOrder),
+    index("status_components_enabled_idx").on(table.enabled)
+  ]
+);
+
+export const statusIncidents = pgTable(
+  "status_incidents",
+  {
+    incidentId: text("incident_id").primaryKey(),
+    title: text("title").notNull(),
+    message: text("message"),
+    status: text("status").notNull().default("investigating"),
+    severity: text("severity").notNull().default("minor"),
+    componentIds: text("component_ids").array().notNull().default(sql`'{}'`),
+    updates: jsonb("updates").notNull().default(sql`'[]'::jsonb`),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true, mode: "date" }),
+    ...createdUpdatedAt()
+  },
+  (table) => [
+    check(
+      "status_incidents_status_check",
+      sql`${table.status} IN (${sql.raw(sqlInList(STATUS_INCIDENT_STATUSES))})`
+    ),
+    check(
+      "status_incidents_severity_check",
+      sql`${table.severity} IN (${sql.raw(sqlInList(STATUS_INCIDENT_SEVERITIES))})`
+    ),
+    index("status_incidents_status_idx").on(table.status),
+    index("status_incidents_severity_idx").on(table.severity)
+  ]
+);
+
+/** All tables exported for static validation and future repository adapters. */
 export const coreTables = {
   accounts,
   developerUsers,
+  oauthPendingSignups,
   developerSessions,
   developerApiTokens,
   accountMemberships,
   accountInvites,
+  deviceCodes,
   agents,
   permissions,
+  permissionProfiles,
   approvalRequests,
   verificationLogs,
   webhookEndpoints,
   webhookEvents,
+  webhookDeliveries,
+  stripeWebhookEvents,
+  enterpriseInquiries,
   managedProfilePolicies,
   managedProfileProtectedRepos,
-  cliAuditActivities
+  cliPauseLeases,
+  cliAuditActivities,
+  sites,
+  siteAccessRules,
+  siteAccessLogs,
+  siteGuardKeys,
+  statusComponents,
+  statusIncidents
 } as const;
 
 export type CoreTableName = keyof typeof coreTables;

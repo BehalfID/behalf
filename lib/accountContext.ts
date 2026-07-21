@@ -1,11 +1,17 @@
-import Account from "@/models/Account";
-import AccountMembership from "@/models/AccountMembership";
-import DeveloperSession from "@/models/DeveloperSession";
 import { cache } from "react";
 import { isWorkspaceRole, type WorkspaceRole } from "@/lib/authority";
-import { findAccountBySlugLean } from "@/lib/repositories/accounts";
+import {
+  findAccountByIdLean,
+  findAccountBySlugLean,
+  findAccountsByIdsLean
+} from "@/lib/repositories/accounts";
+import {
+  findMembershipByAccountAndUser,
+  findMembershipsByUserId
+} from "@/lib/repositories/memberships";
 import { jsonError } from "@/lib/responses";
 import { normalizeWorkspaceSlug, validateWorkspaceSlug } from "@/lib/workspaceSlug";
+import DeveloperSession from "@/models/DeveloperSession";
 import type { NextResponse } from "next/server";
 
 export type UserAccountSummary = {
@@ -32,13 +38,11 @@ export async function listUserAccounts(
   userId: string,
   primaryAccountId: string | null | undefined
 ): Promise<UserAccountSummary[]> {
-  const memberships = await AccountMembership.find({ userId }).sort({ createdAt: 1 }).lean();
+  const memberships = await findMembershipsByUserId(userId);
   if (memberships.length === 0) return [];
 
   const accountIds = memberships.map((membership) => membership.accountId);
-  const accounts = await Account.find({ accountId: { $in: accountIds } })
-    .select("accountId name slug")
-    .lean();
+  const accounts = await findAccountsByIdsLean(accountIds, "accountId name slug");
   const byAccountId = new Map(
     accounts.map((account) => [
       account.accountId,
@@ -66,7 +70,7 @@ export async function resolveActiveAccountId(
     primaryAccountId?: string | null;
   }
 ): Promise<string | null> {
-  const memberships = await AccountMembership.find({ userId }).select("accountId").lean();
+  const memberships = await findMembershipsByUserId(userId);
   const memberAccountIds = new Set(memberships.map((membership) => membership.accountId));
 
   if (
@@ -100,12 +104,12 @@ export async function switchActiveAccount(
   sessionId: string,
   accountId: string
 ): Promise<{ ok: true; accountId: string; slug: string | null; name: string } | { error: string }> {
-  const membership = await AccountMembership.findOne({ userId, accountId }).lean();
+  const membership = await findMembershipByAccountAndUser(accountId, userId);
   if (!membership) {
     return { error: "You do not have access to that workspace." };
   }
 
-  const account = await Account.findOne({ accountId }).select("accountId name slug").lean();
+  const account = await findAccountByIdLean(accountId, "accountId name slug");
   if (!account) {
     return { error: "Workspace account not found." };
   }
@@ -139,10 +143,7 @@ export async function resolveWorkspaceForUserBySlug(
     return { error: jsonError("Workspace not found.", 404), status: 404 };
   }
 
-  const membership = await AccountMembership.findOne({
-    userId,
-    accountId: account.accountId
-  }).lean();
+  const membership = await findMembershipByAccountAndUser(account.accountId, userId);
 
   if (!membership) {
     return { error: jsonError("You do not have access to this workspace.", 403), status: 403 };

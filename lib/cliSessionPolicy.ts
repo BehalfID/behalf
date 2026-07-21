@@ -15,9 +15,10 @@ import {
   type ManagedProfilePausePolicy,
   validatePauseRequestAgainstPolicy,
 } from "@/lib/managedProfilePolicy";
-import Account, { type AccountDocument } from "@/models/Account";
+import { findAccountLeanById } from "@/lib/repositories/accounts";
+import { createPauseLease, findActivePauseLeases } from "@/lib/repositories/cliPauseLeases";
 import CliAuditLog from "@/models/CliAuditLog";
-import CliPauseLease from "@/models/CliPauseLease";
+import type { AccountDocument } from "@/models/Account";
 import type { CliAuthContext } from "@/lib/cliAuth";
 
 export type CliSessionPolicyMode = "unmanaged" | "managed" | "required";
@@ -138,7 +139,7 @@ async function findActivePauseLease(auth: CliAuthContext, input: CliSessionPolic
   else if (input.deviceId) query.deviceId = input.deviceId;
   else return null;
 
-  const leases = await CliPauseLease.find(query).sort({ expiresAt: -1 }).limit(20).lean();
+  const leases = await findActivePauseLeases(query, 20);
   for (const lease of leases) {
     if (lease.scope === "all") return lease;
     if (lease.scope === "current_repo" && lease.repo && input.repoRoot && lease.repo === input.repoRoot) {
@@ -226,7 +227,7 @@ export async function resolveManagedProfilePolicyDecision(
     };
   }
 
-  const account = await Account.findOne({ accountId: auth.accountId }).lean();
+  const account = await findAccountLeanById(auth.accountId);
   if (!account) {
     return {
       mode: "unmanaged",
@@ -337,7 +338,7 @@ export async function resolveCliSessionPolicy(
     };
   }
 
-  const account = await Account.findOne({ accountId: auth.accountId }).lean();
+  const account = await findAccountLeanById(auth.accountId);
   if (!account) {
     return {
       mode: "unmanaged",
@@ -531,7 +532,7 @@ export async function requestCliPauseLease(
         const expiresAt = new Date(Date.now() + durationMinutes * 60 * 1000);
         const leaseId = createPublicId("pause");
 
-        await CliPauseLease.create({
+        await createPauseLease({
           leaseId,
           accountId: auth.accountId,
           userId: auth.userId,
@@ -638,7 +639,7 @@ export async function requestCliPauseLease(
   const expiresAt = new Date(Date.now() + input.durationMinutes * 60 * 1000);
   const leaseId = createPublicId("pause");
 
-  await CliPauseLease.create({
+  await createPauseLease({
     leaseId,
     accountId: auth.accountId,
     userId: auth.userId,

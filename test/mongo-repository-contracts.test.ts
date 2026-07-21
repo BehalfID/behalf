@@ -24,16 +24,50 @@ import {
   findManagedProfilePolicyByAccountId,
   upsertManagedProfilePolicy
 } from "@/lib/repositories/managedProfiles";
+import {
+  createPermissionRecord,
+  findPermissionRecordsByAccountAndAgent,
+  findPermissionsMatchingActionRecords,
+  touchPermissionLastUsed
+} from "@/lib/repositories/permissions";
+import {
+  approveAgentGrant,
+  consumeApprovedAgentGrantRecord,
+  findApprovalById,
+  upsertPendingAgentApprovalRecord
+} from "@/lib/repositories/approvals";
+import {
+  createVerificationLogRecord,
+  findVerificationLogsByAccount
+} from "@/lib/repositories/verificationLogs";
+import {
+  claimNextWebhookEvent,
+  countDeadLetterWebhookEvents,
+  countPendingWebhookEvents,
+  createWebhookEndpoint,
+  enqueueWebhookEventRecord,
+  findActiveWebhookEndpointsForEvent,
+  findWebhookDeliveriesByWebhook,
+  insertWebhookDeliveries,
+  markWebhookEventCompleted,
+  markWebhookEventDeadLetter,
+  updateWebhookEndpointStatus
+} from "@/lib/repositories/webhooks";
 import Account from "@/models/Account";
 import AccountInvite from "@/models/AccountInvite";
 import AccountMembership from "@/models/AccountMembership";
 import Agent from "@/models/Agent";
 import ManagedProfilePolicy from "@/models/ManagedProfilePolicy";
+import Permission from "@/models/Permission";
 import { accountFixture } from "./fixtures";
 import { makeAccountRepositoryContract } from "./repository-contracts/accounts.contract";
 import { makeAgentRepositoryContract } from "./repository-contracts/agents.contract";
 import { makeManagedProfileRepositoryContract } from "./repository-contracts/managedProfiles.contract";
 import { makeMembershipRepositoryContract } from "./repository-contracts/memberships.contract";
+import { makePermissionRepositoryContract } from "./repository-contracts/permissions.contract";
+import { makeApprovalRepositoryContract } from "./repository-contracts/approvals.contract";
+import { makeVerificationLogRepositoryContract } from "./repository-contracts/verificationLogs.contract";
+import { makeWebhookRepositoryContract } from "./repository-contracts/webhooks.contract";
 
 let mongoServer: MongoMemoryServer | undefined;
 
@@ -163,4 +197,80 @@ makeManagedProfileRepositoryContract("mongo", async () => ({
     return { accountId };
   },
   countPoliciesByAccountId: (accountId) => ManagedProfilePolicy.countDocuments({ accountId })
+}));
+
+const seedMongoAgent = async (overrides: { agentId?: string; accountId?: string } = {}) => {
+  const agentId = overrides.agentId ?? createPublicId("agent");
+  const accountId = overrides.accountId ?? createPublicId("acct");
+  const developerUserId = createPublicId("dev");
+  const existingAccount = await Account.findOne({ accountId }).lean();
+  if (!existingAccount) {
+    await Account.create(accountFixture({ accountId, name: "Contract Seed Account" }));
+  }
+  await Agent.create({
+    agentId,
+    accountId,
+    developerUserId,
+    name: "Contract Agent",
+    status: "active",
+    apiKeyHash: hashApiKey(`${rawApiKey}_${agentId}`)
+  });
+  return { agentId, accountId };
+};
+
+makePermissionRepositoryContract("mongo", async () => ({
+  createPermission: createPermissionRecord,
+  findPermissionsMatchingAction: findPermissionsMatchingActionRecords,
+  touchPermissionLastUsed,
+  findPermissionsByAccountAndAgent: findPermissionRecordsByAccountAndAgent,
+  seedAgent: seedMongoAgent
+}));
+
+makeApprovalRepositoryContract("mongo", async () => ({
+  upsertPendingAgentApproval: upsertPendingAgentApprovalRecord,
+  approveAgentGrant,
+  consumeApprovedAgentGrant: consumeApprovedAgentGrantRecord,
+  findApprovalById,
+  seedPermission: async (overrides = {}) => {
+    const seeded = await seedMongoAgent({
+      accountId: overrides.accountId,
+      agentId: overrides.agentId
+    });
+    const permissionId = overrides.permissionId ?? createPublicId("perm");
+    await Permission.create({
+      permissionId,
+      accountId: seeded.accountId,
+      agentId: seeded.agentId,
+      action: overrides.action ?? "purchase",
+      status: "active"
+    });
+    return { permissionId, agentId: seeded.agentId, accountId: seeded.accountId };
+  }
+}));
+
+makeVerificationLogRepositoryContract("mongo", async () => ({
+  createVerificationLog: createVerificationLogRecord,
+  findVerificationLogsByAccount,
+  seedAgent: seedMongoAgent
+}));
+
+makeWebhookRepositoryContract("mongo", async () => ({
+  createWebhookEndpoint,
+  findActiveWebhookEndpointsForEvent,
+  updateWebhookEndpointStatus,
+  enqueueWebhookEventRecord,
+  claimNextWebhookEvent,
+  markWebhookEventCompleted,
+  markWebhookEventDeadLetter,
+  countPendingWebhookEvents,
+  countDeadLetterWebhookEvents,
+  insertWebhookDeliveries,
+  findWebhookDeliveriesByWebhook,
+  seedAccount: async (accountId = createPublicId("acct")) => {
+    const existing = await Account.findOne({ accountId }).lean();
+    if (!existing) {
+      await Account.create(accountFixture({ accountId, name: "Webhook Contract Account" }));
+    }
+    return { accountId };
+  }
 }));

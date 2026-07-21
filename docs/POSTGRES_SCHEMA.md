@@ -17,38 +17,57 @@ initial Drizzle/Postgres schema added in PR B of the migration plan (`docs/DATAB
 | `drizzle.config.ts` | Drizzle Kit config (`DATABASE_URL` or `POSTGRES_URL`) |
 | `drizzle/0000_initial_behalf_schema.sql` | Initial SQL migration |
 | `drizzle/0001_workspace_slug.sql` | Adds `accounts.slug` + partial unique index |
+| `drizzle/0002_google_sso.sql` | Google SSO columns + `oauth_pending_signups` |
+| `drizzle/0003_remaining_tables.sql` | Remaining Mongo models + RLS on `oauth_pending_signups` |
+| `drizzle/0004_approval_argument_binding.sql` | Approval `argument_*` + `used_at`; pending UQ includes fingerprint |
+| `scripts/migration/transform.ts` | Export transforms + FK-ordered collection list |
+| `scripts/migration/export-mongo.ts` | Mongo → NDJSON export scaffold |
+| `scripts/migration/import-postgres.ts` | NDJSON → Postgres import scaffold |
 | `test/postgres-schema.test.ts` | Static validation (no live Postgres required) |
 | `test/postgres-migration-smoke.test.ts` | Optional live migration smoke test (disposable DB only) |
-| `test/postgres-repository-contracts.test.ts` | Optional Postgres account/agent/membership adapter contract tests |
+| `test/postgres-repository-contracts.test.ts` | Optional Postgres adapter contract tests |
 | `scripts/postgres-smoke.ts` | CLI helper for the migration smoke test |
 | `lib/repositories/postgres/accounts.ts` | Test-only Postgres account adapter (Drizzle) |
 | `lib/repositories/postgres/agents.ts` | Test-only Postgres agent adapter (Drizzle) |
 | `lib/repositories/postgres/memberships.ts` | Test-only Postgres membership/invite adapter (Drizzle) |
+| `lib/repositories/postgres/managedProfiles.ts` | Test-only Postgres managed-profile adapter (Drizzle) |
 
 ---
 
-## Core tables (v1)
+## Core tables
 
 | SQL table | Mongo model | Notes |
 |---|---|---|
 | `accounts` | Account | Tenant root; `acct_*` PK; optional `slug` (unique when set) |
 | `developer_users` | DeveloperUser | `user_*` PK (from `createPublicId("user")`) |
+| `oauth_pending_signups` | OAuthPendingSignup | Google SSO incomplete signup; RLS deny-all |
 | `developer_sessions` | DeveloperSession | `sess_*` PK; no TTL — future `pg_cron` cleanup |
 | `developer_api_tokens` | DeveloperApiToken | `tok_*` PK |
 | `account_memberships` | AccountMembership | UQ `(account_id, user_id)` |
 | `account_invites` | AccountInvite | UQ `(account_id, email, status)` |
+| `device_codes` | DeviceCode | CLI device auth; no TTL — future `pg_cron` cleanup |
 | `agents` | Agent | `agent_*` PK; nullable `account_id` for legacy rows |
 | `permissions` | Permission | `perm_*` PK; `constraints` → JSONB |
+| `permission_profiles` | PermissionProfile | Template snapshots; `permissions` → JSONB |
 | `approval_requests` | ApprovalRequest | Partial unique indexes for pending dedupe |
 | `verification_logs` | VerificationLog | High volume; no enforced FKs |
 | `webhook_endpoints` | WebhookEndpoint | `webhook_*` / `wh_*` IDs |
 | `webhook_events` | WebhookEvent | Queue table; `payload` → JSONB |
+| `webhook_deliveries` | WebhookDelivery | Append-only delivery history; logical refs |
+| `stripe_webhook_events` | StripeWebhookEvent | Stripe idempotency ledger |
+| `enterprise_inquiries` | EnterpriseInquiry | Sales inbox |
 | `managed_profile_policies` | ManagedProfilePolicy | UQ `account_id` (one per account) |
 | `managed_profile_protected_repos` | ManagedProfilePolicy.protectedRepos[] | Promoted for plan-limit counting |
+| `cli_pause_leases` | CliPauseLease | Active pause grants |
 | `cli_audit_activities` | CliAuditLog | Managed Profile activity feed |
+| `sites` | Site | Site Guard sites; UQ `(account_id, domain)` |
+| `site_access_rules` | SiteAccessRule | Path rules; FK → sites CASCADE |
+| `site_access_logs` | SiteAccessLog | Append-only; logical refs |
+| `site_guard_keys` | SiteGuardKey | API keys; UQ `key_hash` |
+| `status_components` | StatusComponent | Global status page |
+| `status_incidents` | StatusIncident | Global; `updates` → JSONB |
 
-Remaining models (device codes, site guard, status page, billing ledger, etc.) are documented
-in `docs/DATABASE_MIGRATION.md` §5 and will be added in follow-up schema migrations.
+All tables above are in Drizzle `coreTables` and migrations through `0003_remaining_tables.sql`.
 
 ---
 
@@ -204,12 +223,14 @@ Test-only Drizzle adapters live under `lib/repositories/postgres/`:
 | `accounts.ts` | `findAccountById`, `findAccountBySlug`, `resetVerificationPeriod`, `incrementVerificationCount` | `lib/repositories/accounts.ts` |
 | `agents.ts` | `countAgentsByAccountId`, `countAgentsByScope` | `lib/repositories/agents.ts` |
 | `memberships.ts` | `countBillableSeatsByAccountId`, `findMembershipByAccountAndUser`, `findMembershipsByAccountId`, `createMembership`, `updateMembershipRole`, `deleteMembership`, `findPendingInvitesByAccountId`, `upsertPendingInvite` | `lib/repositories/memberships.ts` |
+| `managedProfiles.ts` | `findManagedProfilePolicyByAccountId`, `countProtectedReposByAccountId`, `upsertManagedProfilePolicy` | `lib/repositories/managedProfiles.ts` |
+| `webhooks.ts` | endpoint/event/delivery CRUD, claim, counts | `lib/repositories/webhooks.ts` |
 
 **Important:**
 
 - Adapters are **not** exported from `lib/repositories/index.ts` — app runtime still imports Mongo repositories.
 - Adapters accept a `BehalfPostgresDb` instance (schema-isolated contract test connection); they do not call `getPostgresDb()` at import time.
-- Managed profiles, permissions, approvals, logs, and webhooks are **not** implemented yet.
+- Permissions, approvals, logs, and webhooks Postgres adapters are **not** implemented yet.
 - **Runtime cutover is still not approved.**
 
 ### Repository contract tests (optional)
@@ -225,10 +246,11 @@ RUN_POSTGRES_REPOSITORY_CONTRACTS=true \
   npx vitest run test/postgres-repository-contracts.test.ts
 ```
 
-The test creates a temporary schema (`behalf_contract_<timestamp>`), applies
-`drizzle/0000_initial_behalf_schema.sql`, seeds rows with Drizzle, runs the shared account,
-agent, and membership contracts from `test/repository-contracts/`, truncates between examples,
-then drops the schema. It never runs `DROP DATABASE` or wipes a shared `public` schema.
+The test creates a temporary schema (`behalf_contract_<timestamp>`), applies migrations
+through `drizzle/0003_remaining_tables.sql`, seeds rows with Drizzle, runs the shared account,
+agent, membership, and managed-profile contracts from `test/repository-contracts/`, truncates
+between examples, then drops the schema. It never runs `DROP DATABASE` or wipes a shared
+`public` schema.
 
 **Gate:** skipped by default. `DATABASE_URL` / `POSTGRES_URL` are accepted when
 `POSTGRES_TEST_URL` is unset, but a disposable URL is strongly recommended.
@@ -241,7 +263,9 @@ Future adapters must pass the same repository contracts before any runtime cutov
 
 1. ~~Postgres repository adapters for accounts + agents (test-only; must pass `test/repository-contracts/*`).~~ **Done (v1).**
 2. ~~Postgres repository adapters for memberships and invites (test-only).~~ **Done (v2).**
-3. Postgres repository adapters for managed profiles, then permissions/approvals/logs.
-4. Export/import scripts (PR C).
-5. Staging dual-read rehearsal (PR D).
-6. Per-table runtime cutover (PR E/F) — **not approved yet**.
+3. ~~Remaining schema tables + RLS on `oauth_pending_signups`; Postgres managed-profiles adapter.~~ **Done (v3).**
+4. ~~Postgres adapters for permissions/approvals/verification logs + approval argument columns.~~ **Done (v4).**
+5. ~~Postgres webhook adapters (endpoints/events/deliveries).~~ **Done (v5).**
+6. ~~Export/import script scaffold (PR C).~~ **Scaffolded.**
+7. Finish PR C verification reports; staging dual-read rehearsal (PR D).
+8. Per-table runtime cutover (PR E/F) — **not approved yet**.

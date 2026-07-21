@@ -22,6 +22,20 @@
       "when": 1784332800000,
       "tag": "0002_google_sso",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784636400000,
+      "tag": "0003_remaining_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784636500000,
+      "tag": "0004_approval_argument_binding",
+      "breakpoints": true
     }
   ]
 }

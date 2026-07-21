@@ -5,8 +5,8 @@ import {
   needsOnboardingBanner,
   shouldRedirectToAccountSetup
 } from "@/lib/onboarding";
-import Account from "@/models/Account";
-import Agent from "@/models/Agent";
+import { findAccountByIdLean } from "@/lib/repositories/accounts";
+import { countAgentsByAccountId } from "@/lib/repositories/agents";
 import DeveloperUser from "@/models/DeveloperUser";
 
 export { ACCOUNT_SETUP_LAUNCH };
@@ -29,12 +29,10 @@ async function loadOnboardingRedirectContext(
 
   const [account, agentCount] = await Promise.all([
     user.primaryAccountId
-      ? Account.findOne({ accountId: user.primaryAccountId })
-          .select("verificationCount")
-          .lean()
+      ? findAccountByIdLean(user.primaryAccountId, "verificationCount")
       : Promise.resolve(null),
     user.primaryAccountId
-      ? Agent.countDocuments({ accountId: user.primaryAccountId })
+      ? countAgentsByAccountId(user.primaryAccountId)
       : Promise.resolve(0)
   ]);
 
