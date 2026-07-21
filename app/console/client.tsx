@@ -673,13 +673,13 @@ function HealthStrip({ data }: { data: Summary }) {
 }
 
 const QUICK_ACTIONS = [
-  { label: "View logs", href: "/console/logs", icon: "📋" },
-  { label: "Manage agents", href: "/console/agents", icon: "🤖" },
-  { label: "Webhooks", href: "/console/webhooks", icon: "🔗" },
-  { label: "Event queue", href: "/console/webhook-events", icon: "📨" },
-  { label: "Site Guard", href: "/console/site-guard", icon: "🛡" },
-  { label: "Enterprise", href: "/console/enterprise-inquiries", icon: "🏢" },
-  { label: "Settings", href: "/console/settings", icon: "⚙️" },
+  { label: "View logs", href: "/console/logs" },
+  { label: "Manage agents", href: "/console/agents" },
+  { label: "Webhooks", href: "/console/webhooks" },
+  { label: "Event queue", href: "/console/webhook-events" },
+  { label: "Site Guard", href: "/console/site-guard" },
+  { label: "Enterprise", href: "/console/enterprise-inquiries" },
+  { label: "Settings", href: "/console/settings" }
 ];
 
 function QuickActions() {
@@ -687,7 +687,6 @@ function QuickActions() {
     <div className="console-quick-actions" style={{ marginBottom: 28 }}>
       {QUICK_ACTIONS.map((action) => (
         <a className="console-quick-action" href={action.href} key={action.href}>
-          <span className="console-quick-action__icon">{action.icon}</span>
           {action.label}
         </a>
       ))}

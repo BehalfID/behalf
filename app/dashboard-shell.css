@@ -1,10 +1,10 @@
 /*
- * Authenticated customer dashboard shell
+ * Authenticated app shell (customer dashboard + internal console)
  *
- * Loaded last so this single scoped layer resolves the legacy dashboard rules
- * still shared with docs and the internal console. It consumes the approved
- * BehalfID semantic foundation and intentionally leaves route content styling
- * in place until those routes are redesigned individually.
+ * Loaded after the foundation/auth layers so this scoped layer resolves the
+ * legacy dashboard/console chrome still shared with docs. Console mounts the
+ * same dashboard-shell class contract for visual parity. Route content styling
+ * remains elsewhere until those routes are redesigned individually.
  */
 
 .dashboard-shell {
