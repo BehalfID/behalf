@@ -27,6 +27,7 @@ export type {
   ConfiguredClientRecord,
   RegisteredRuntimeRecord,
   InstallationState,
+  WrappedServerSnapshot,
 } from "./state.js";
 
 export type {

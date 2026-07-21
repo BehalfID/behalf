@@ -1,18 +1,18 @@
 # @behalfid/mcp-runtime
 
-Policy Enforcement Point (PEP) for MCP tool invocations.
-
-Intercepts every MCP tool call, authorizes it through BehalfID `verify()`,
-enforces the decision, and proxies to the MCP server **only when allowed**.
+Policy Enforcement Point (PEP) for MCP tool invocations — library **and**
+stdio interceptor.
 
 ```
-AI Agent → mcp-runtime (PEP) → verify() → ALLOW | DENY | APPROVAL REQUIRED → MCP Server
+AI Agent → mcp-runtime (stdio) → verify() → ALLOW | DENY | APPROVAL → Downstream MCP
 ```
 
 This package does **not** implement policy, permissions, approvals, risk, or
 audit storage. Those belong to the BehalfID platform.
 
-For static MCP config analysis, see `@behalfid/mcp-audit`.
+Static config analysis: `@behalfid/mcp-audit`.
+
+Phased plan: [docs/INTERCEPTOR_PLAN.md](./docs/INTERCEPTOR_PLAN.md).
 
 ## Install
 
@@ -20,67 +20,78 @@ For static MCP config analysis, see `@behalfid/mcp-audit`.
 npm install @behalfid/mcp-runtime
 ```
 
-## Quick start
+## Stdio interceptor (Phases 1–3)
+
+Run as an MCP server that fronts a real downstream server. Every `tools/call`
+goes through `verify()` before the child MCP is invoked.
+
+```bash
+export BEHALFID_API_KEY=bhf_sk_...
+export BEHALFID_AGENT_ID=agent_...
+export BEHALFID_DOWNSTREAM_COMMAND=npx
+export BEHALFID_DOWNSTREAM_ARGS='["-y","@modelcontextprotocol/server-filesystem","/tmp"]'
+export BEHALFID_DOWNSTREAM_SERVER=filesystem
+
+npx @behalfid/mcp-runtime
+# or: node node_modules/@behalfid/mcp-runtime/dist/cli.js
+```
+
+Example MCP client entry:
+
+```json
+{
+  "mcpServers": {
+    "behalfid": {
+      "command": "npx",
+      "args": ["-y", "@behalfid/mcp-runtime@0.1.0"],
+      "env": {
+        "BEHALFID_API_KEY": "bhf_sk_...",
+        "BEHALFID_AGENT_ID": "agent_...",
+        "BEHALFID_DOWNSTREAM_COMMAND": "npx",
+        "BEHALFID_DOWNSTREAM_ARGS": "[\"-y\",\"@modelcontextprotocol/server-filesystem\",\"/tmp\"]",
+        "BEHALFID_DOWNSTREAM_SERVER": "filesystem"
+      }
+    }
+  }
+}
+```
+
+Tools are exposed as `{server}__{tool}` (e.g. `filesystem__read_file`).
+
+## Library PEP
 
 ```ts
-import { McpRuntime, EventBus } from "@behalfid/mcp-runtime";
-import { BehalfID } from "@behalfid/sdk";
-
-const behalf = new BehalfID({ apiKey: process.env.BEHALFID_API_KEY! });
+import { McpRuntime } from "@behalfid/mcp-runtime";
 
 const runtime = new McpRuntime({
   agentId: "agent_xxx",
-  verifyTimeoutMs: 5_000,
-  verifyClient: {
-    // Platform API returns approvalRequired / approvalId; map as needed
-    verify: (input) => behalf.verify(input) as ReturnType<typeof behalf.verify>,
-  },
-  transport: {
-    async callTool(server, tool, args) {
-      return { data: await mcp.call(server, tool, args) };
-    },
-  },
-  eventBus: new EventBus(),
-  waitForApproval: async ({ approvalId }) => {
-    // Host polls existing BehalfID approval APIs / UI — not a second workflow
-    return pollPlatformApproval(approvalId);
-  },
+  verifyClient: { verify: (input) => behalf.verify(input) },
+  transport: { callTool: (server, tool, args) => mcp.call(server, tool, args) },
 });
 
-const result = await runtime.execute({
-  requestId: "req_1",
-  sessionId: "sess_1",
-  userId: "user_1",
-  provider: "cursor",
-  server: "filesystem",
-  tool: "read_file",
-  arguments: { path: "/tmp/notes.txt" },
-  metadata: { cwd: "/project" },
-});
+await runtime.execute(invocation);
 ```
-
-## Responsibilities
-
-| Keep | Do not implement |
-|------|------------------|
-| ToolProxy | PolicyEngine |
-| McpTransport | PermissionEngine |
-| EventBus | ApprovalEngine |
-| Verify client + timeout | RiskEngine |
-| Request / response mapping | Local audit database |
-| Fail-closed enforcement | In-memory permission stores |
 
 ## Fail closed
 
 If verification throws, times out, or returns malformed data, the tool is
-**not** executed and a denial event is emitted.
+**not** executed.
 
-## Events
+## Phase 4 — host wrap
 
-`invocation.received` · `verification.started` · `verification.completed` ·
-`verification.denied` · `approval.required` · `approval.granted` ·
-`approval.denied` · `execution.started` · `execution.completed` ·
-`execution.failed`
+```bash
+npx @behalfid/install install \
+  --wrap \
+  --agent-id agent_xxx \
+  --api-key bhf_sk_xxx
+```
+
+Rewrites existing stdio MCP servers in place so they launch this package with
+`BEHALFID_DOWNSTREAM_*` pointing at the original command. Uninstall restores
+the saved originals.
+
+Approval polling (default on): while `approvalRequired`, the interceptor re-calls
+`verify()` until allowed, denied, or timeout. Disable with `BEHALFID_APPROVAL_POLL=0`.
 
 ## License
 

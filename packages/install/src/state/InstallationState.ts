@@ -3,6 +3,7 @@ import {
   type AiClientId,
   type ConfiguredClientRecord,
   type InstallationState,
+  type McpServerEntry,
   type RegisteredRuntimeRecord,
 } from "../types/index.js";
 
@@ -27,6 +28,41 @@ function isAiClientId(value: unknown): value is AiClientId {
   return typeof value === "string" && AI_CLIENT_IDS.has(value as AiClientId);
 }
 
+function parseWrappedServers(
+  value: unknown,
+  clientIndex: number,
+): ConfiguredClientRecord["wrappedServers"] {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!Array.isArray(value)) {
+    throw new Error(
+      `configuredClients[${clientIndex}].wrappedServers must be an array when present`,
+    );
+  }
+  return value.map((entry, index) => {
+    if (!isRecord(entry)) {
+      throw new Error(
+        `configuredClients[${clientIndex}].wrappedServers[${index}] must be an object`,
+      );
+    }
+    if (!isNonEmptyString(entry.serverName)) {
+      throw new Error(
+        `configuredClients[${clientIndex}].wrappedServers[${index}].serverName must be a non-empty string`,
+      );
+    }
+    if (!isRecord(entry.original)) {
+      throw new Error(
+        `configuredClients[${clientIndex}].wrappedServers[${index}].original must be an object`,
+      );
+    }
+    return {
+      serverName: entry.serverName,
+      original: { ...(entry.original as McpServerEntry) },
+    };
+  });
+}
+
 function parseConfiguredClient(value: unknown, index: number): ConfiguredClientRecord {
   if (!isRecord(value)) {
     throw new Error(`configuredClients[${index}] must be an object`);
@@ -40,11 +76,16 @@ function parseConfiguredClient(value: unknown, index: number): ConfiguredClientR
   if (!isNonEmptyString(value.configuredAt)) {
     throw new Error(`configuredClients[${index}].configuredAt must be a non-empty string`);
   }
-  return {
+  const record: ConfiguredClientRecord = {
     clientId: value.clientId,
     mcpConfigPath: value.mcpConfigPath,
     configuredAt: value.configuredAt,
   };
+  const wrappedServers = parseWrappedServers(value.wrappedServers, index);
+  if (wrappedServers !== undefined) {
+    record.wrappedServers = wrappedServers;
+  }
+  return record;
 }
 
 function parseRegisteredRuntime(value: unknown, index: number): RegisteredRuntimeRecord {

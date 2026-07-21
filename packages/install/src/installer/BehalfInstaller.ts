@@ -4,6 +4,12 @@ import type { PlatformDetector } from "../interfaces/PlatformDetector.js";
 import type { RuntimeRegistrar } from "../interfaces/RuntimeRegistrar.js";
 import type { StateManager } from "../interfaces/StateManager.js";
 import type { Verifier } from "../interfaces/Verifier.js";
+import { detectMcpConfigFormat, refineMcpConfigFormat } from "../mcp/format.js";
+import {
+  restoreWrappedServers,
+  wrapServersInConfig,
+} from "../mcp/wrap.js";
+import { pathExists } from "../detection/fs.js";
 import { createInstallationState } from "../state/InstallationState.js";
 import type {
   AiClientId,
@@ -24,11 +30,15 @@ import type {
   UninstallResult,
   UpgradeOptions,
   UpgradeResult,
+  WrappedServerSnapshot,
 } from "../types/index.js";
 import { resolvePackageVersion } from "../version.js";
 import { requireTargets, selectTargetClients } from "./clients.js";
 import { InstallerException, toInstallerError } from "./errors.js";
-import { createDefaultRuntimeRegistration } from "./runtime.js";
+import {
+  createDefaultRuntimeRegistration,
+  type CreateDefaultRuntimeRegistrationOptions,
+} from "./runtime.js";
 import { InstallTransaction } from "./transaction.js";
 
 export interface BehalfInstallerDependencies {
@@ -42,10 +52,9 @@ export interface BehalfInstallerDependencies {
   /** Version recorded as `installerVersion`. Defaults to the installer package version. */
   installerVersion?: string;
   /** Override the default runtime registration factory. */
-  createRuntimeRegistration?: (input: {
-    version: string;
-    verifyEndpoint?: string;
-  }) => RuntimeRegistrationInput;
+  createRuntimeRegistration?: (
+    input: CreateDefaultRuntimeRegistrationOptions,
+  ) => RuntimeRegistrationInput;
 }
 
 /**
@@ -62,10 +71,9 @@ export class BehalfInstaller implements Installer {
   private readonly verifier: Verifier;
   private readonly runtimeVersion: string;
   private readonly installerVersion: string;
-  private readonly createRuntimeRegistration: (input: {
-    version: string;
-    verifyEndpoint?: string;
-  }) => RuntimeRegistrationInput;
+  private readonly createRuntimeRegistration: (
+    input: CreateDefaultRuntimeRegistrationOptions,
+  ) => RuntimeRegistrationInput;
 
   constructor(deps: BehalfInstallerDependencies) {
     this.detector = deps.detector;
@@ -105,11 +113,23 @@ export class BehalfInstaller implements Installer {
       warnings.push(...selectionWarnings);
       requireTargets(targets);
 
+      if (options.wrapExisting === true && (!options.agentId || !options.apiKey)) {
+        throw new InstallerException({
+          code: "INTERNAL_ERROR",
+          message:
+            "Wrapping MCP servers requires --agent-id and --api-key (or BEHALFID_AGENT_ID / BEHALFID_API_KEY).",
+          remediation:
+            "Pass credentials so the interceptor can call verify() for every tool invocation.",
+        });
+      }
+
       const runtime = this.createRuntimeRegistration({
         version: this.runtimeVersion,
         ...(options.verifyEndpoint !== undefined
           ? { verifyEndpoint: options.verifyEndpoint }
           : {}),
+        ...(options.agentId !== undefined ? { agentId: options.agentId } : {}),
+        ...(options.apiKey !== undefined ? { apiKey: options.apiKey } : {}),
       });
 
       if (existing && !options.force) {
@@ -154,6 +174,15 @@ export class BehalfInstaller implements Installer {
             force: options.force === true,
             transaction,
             warnings,
+            wrapExisting: options.wrapExisting === true,
+            ...(options.wrapServers !== undefined
+              ? { wrapServers: options.wrapServers }
+              : {}),
+            ...(options.agentId !== undefined ? { agentId: options.agentId } : {}),
+            ...(options.apiKey !== undefined ? { apiKey: options.apiKey } : {}),
+            ...(options.verifyEndpoint !== undefined
+              ? { verifyEndpoint: options.verifyEndpoint }
+              : {}),
           });
           configuredClients.push(record);
         }
@@ -247,6 +276,8 @@ export class BehalfInstaller implements Installer {
         ...(options.verifyEndpoint !== undefined
           ? { verifyEndpoint: options.verifyEndpoint }
           : {}),
+        ...(options.agentId !== undefined ? { agentId: options.agentId } : {}),
+        ...(options.apiKey !== undefined ? { apiKey: options.apiKey } : {}),
       });
 
       const previousVersion = existing.installedVersion;
@@ -275,6 +306,15 @@ export class BehalfInstaller implements Installer {
             force: true,
             transaction,
             warnings,
+            wrapExisting: options.wrapExisting === true,
+            ...(options.wrapServers !== undefined
+              ? { wrapServers: options.wrapServers }
+              : {}),
+            ...(options.agentId !== undefined ? { agentId: options.agentId } : {}),
+            ...(options.apiKey !== undefined ? { apiKey: options.apiKey } : {}),
+            ...(options.verifyEndpoint !== undefined
+              ? { verifyEndpoint: options.verifyEndpoint }
+              : {}),
           });
           configuredClients.push(record);
         }
@@ -379,6 +419,9 @@ export class BehalfInstaller implements Installer {
         for (const client of clientsToRemove) {
           await transaction.backup(client.mcpConfigPath);
           try {
+            if (client.wrappedServers && client.wrappedServers.length > 0) {
+              await this.restoreWrappedServersForClient(client);
+            }
             await this.configManager.unregisterRuntime(client.mcpConfigPath, serverName);
             removedClients.push(client.clientId);
           } catch (error) {
@@ -470,6 +513,11 @@ export class BehalfInstaller implements Installer {
     force: boolean;
     transaction: InstallTransaction;
     warnings: OperationWarning[];
+    wrapExisting?: boolean;
+    wrapServers?: string[];
+    agentId?: string;
+    apiKey?: string;
+    verifyEndpoint?: string;
   }): Promise<ConfiguredClientRecord> {
     const mcpConfigPath = input.client.configPaths.mcpConfigPath;
     if (!mcpConfigPath) {
@@ -485,7 +533,7 @@ export class BehalfInstaller implements Installer {
       input.runtime.serverName,
     );
 
-    if (alreadyPresent && !input.force) {
+    if (alreadyPresent && !input.force && !input.wrapExisting) {
       input.warnings.push({
         code: "RUNTIME_ALREADY_REGISTERED",
         message: `BehalfID runtime already registered for ${input.client.id}; leaving configuration unchanged.`,
@@ -500,9 +548,64 @@ export class BehalfInstaller implements Installer {
 
     await input.transaction.backup(mcpConfigPath);
 
+    let wrappedServers: WrappedServerSnapshot[] | undefined;
+
     try {
+      if (input.wrapExisting) {
+        if (!input.agentId || !input.apiKey) {
+          throw new InstallerException({
+            code: "INTERNAL_ERROR",
+            message: "wrapExisting requires agentId and apiKey",
+          });
+        }
+
+        const existingConfig = await this.configManager.read(mcpConfigPath);
+        const format = await this.resolveConfigFormat(mcpConfigPath, existingConfig);
+        const wrapResult = wrapServersInConfig(existingConfig, format, {
+          version: input.runtime.version,
+          agentId: input.agentId,
+          apiKey: input.apiKey,
+          ...(input.verifyEndpoint !== undefined
+            ? { verifyEndpoint: input.verifyEndpoint }
+            : {}),
+          ...(input.wrapServers !== undefined
+            ? { serverNames: input.wrapServers }
+            : {}),
+          skipServerNames: [input.runtime.serverName],
+        });
+
+        for (const skipped of wrapResult.skipped) {
+          input.warnings.push({
+            code: "SERVER_WRAP_SKIPPED",
+            message: `Skipped wrapping MCP server "${skipped.serverName}": ${skipped.reason}`,
+            details: {
+              clientId: input.client.id,
+              serverName: skipped.serverName,
+              reason: skipped.reason,
+            },
+          });
+        }
+
+        if (wrapResult.wrapped.length === 0) {
+          input.warnings.push({
+            code: "NO_SERVERS_WRAPPED",
+            message: `No wrappable MCP servers found for ${input.client.id}; registering sibling BehalfID entry only.`,
+            details: { clientId: input.client.id, mcpConfigPath },
+          });
+        }
+
+        await this.configManager.write(mcpConfigPath, wrapResult.config);
+        wrappedServers = wrapResult.wrapped.map((change) => ({
+          serverName: change.serverName,
+          original: change.original,
+        }));
+      }
+
       await this.configManager.registerRuntime(mcpConfigPath, input.runtime);
     } catch (error) {
+      if (error instanceof InstallerException) {
+        throw error;
+      }
       throw new InstallerException({
         code: "RUNTIME_REGISTRATION_FAILED",
         message: `Failed to register BehalfID runtime for ${input.client.id}`,
@@ -512,11 +615,41 @@ export class BehalfInstaller implements Installer {
       });
     }
 
-    return {
+    const record: ConfiguredClientRecord = {
       clientId: input.client.id,
       mcpConfigPath,
       configuredAt: new Date().toISOString(),
     };
+    if (wrappedServers && wrappedServers.length > 0) {
+      record.wrappedServers = wrappedServers;
+    }
+    return record;
+  }
+
+  private async restoreWrappedServersForClient(
+    client: ConfiguredClientRecord,
+  ): Promise<void> {
+    if (!client.wrappedServers || client.wrappedServers.length === 0) {
+      return;
+    }
+    const existing = await this.configManager.read(client.mcpConfigPath);
+    const format = await this.resolveConfigFormat(client.mcpConfigPath, existing);
+    const restored = restoreWrappedServers(existing, format, client.wrappedServers);
+    await this.configManager.write(client.mcpConfigPath, restored);
+  }
+
+  private async resolveConfigFormat(
+    configPath: string,
+    config: import("../types/index.js").McpConfiguration,
+  ) {
+    const pathFormat = detectMcpConfigFormat(configPath);
+    if (pathFormat === "codex-toml") {
+      return pathFormat;
+    }
+    if (await pathExists(configPath)) {
+      return refineMcpConfigFormat(pathFormat, config);
+    }
+    return pathFormat;
   }
 
   private async areClientsFullyConfigured(

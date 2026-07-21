@@ -92,7 +92,8 @@ export class McpRuntime {
             invocation,
             decision,
         });
-        if (choice === "denied") {
+        const denied = choice === "denied";
+        if (denied) {
             await this.events.emit("approval.denied", { invocation, approvalId }, invocation.requestId);
             return {
                 outcome: "approval-denied",
@@ -102,6 +103,11 @@ export class McpRuntime {
             };
         }
         await this.events.emit("approval.granted", { invocation, approvalId }, invocation.requestId);
+        // Waiter may return an already-allowed decision to avoid double-consuming
+        // a one-shot platform grant.
+        if (typeof choice === "object" && choice.granted && choice.decision.allowed) {
+            return this.executeAuthorized(invocation, choice.decision);
+        }
         // Re-verify so the platform consumes the one-shot approval grant.
         let resumed;
         try {

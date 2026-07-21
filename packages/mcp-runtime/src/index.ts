@@ -26,8 +26,31 @@ export {
   VerifyMalformedError,
 } from "./verify.js";
 
+export { createHttpVerifyClient } from "./httpVerifyClient.js";
+export type { HttpVerifyClientOptions } from "./httpVerifyClient.js";
+
+export { createVerifyPollingApprovalWaiter } from "./approvalWaiter.js";
+export type { VerifyPollingApprovalWaiterOptions } from "./approvalWaiter.js";
+
+export { loadInterceptorConfig, ConfigError } from "./config.js";
+export type { InterceptorConfig } from "./config.js";
+
+export { InterceptorServer } from "./stdio/InterceptorServer.js";
+export type { InterceptorServerOptions } from "./stdio/InterceptorServer.js";
+
+export {
+  DownstreamMcpClient,
+  encodeToolName,
+  decodeToolName,
+} from "./stdio/DownstreamClient.js";
+export type {
+  DownstreamClientOptions,
+  DownstreamTool,
+} from "./stdio/DownstreamClient.js";
+
 export type {
   ApprovalWaiter,
+  ApprovalWaitResult,
   ExecutionReceipt,
   McpInvocation,
   McpTransport,
