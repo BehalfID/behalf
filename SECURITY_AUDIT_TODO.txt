@@ -89,3 +89,14 @@
 # - npm audit: 0 vulnerabilities (root, cli, sdk, examples/enforcement-demo, examples/node-demo, examples/webhook-receiver, examples/site-guard-express, examples/site-guard-nextjs, packages/github-action)
 # - Unit tests: 625/625 passed
 # - No hardcoded secrets detected
+
+# Last audit: 2026-07-21
+# Result: PASSED
+# - npm audit: 0 vulnerabilities after fixes (root, cli, sdk, mcp-audit, mcp-runtime, install*, examples/enforcement-demo, examples/node-demo, examples/webhook-receiver, examples/site-guard-express, examples/site-guard-nextjs, github-action)
+#   - Patched brace-expansion (GHSA-3jxr-9vmj-r5cp, high, ReDoS) and js-yaml (GHSA-52cp-r559-cp3m, high, quadratic CPU via merge-key chains) at root via `npm audit fix`
+#   - Patched body-parser (GHSA-v422-hmwv-36x6, low, DoS via invalid limit value) in examples/site-guard-express via `npm audit fix`
+#   - *packages/install: 1 low-severity finding remains open — esbuild dev-server arbitrary file read on Windows (GHSA-g7r4-m6w7-qqqr), transitive via tsup/vite with no non-breaking fix available; dev-only tooling dependency, not shipped to production, accepted risk
+# - Typecheck: `npx tsc --noEmit` clean
+# - Build: `npm run build` succeeds
+# - Unit tests: 1486/1486 executed tests passed, 24 skipped; 1 suite (test/mongo-repository-contracts.test.ts) could not run in this sandbox because outbound access to fastdl.mongodb.org for the in-memory MongoDB binary is blocked by the network policy — infrastructure limitation of this environment, not a code defect (this suite runs against real GitHub Actions network access in CI)
+# - No hardcoded secrets or committed private keys detected
