@@ -133,7 +133,7 @@ export function decodeToolName(
   expectedServer?: string
 ): { server: string; tool: string } | null {
   const idx = encoded.indexOf("__");
-  if (idx <= 0 || idx === encoded.length - 2) return null;
+  if (idx === -1 || idx <= 0 || idx === encoded.length - 2) return null;
   const server = encoded.slice(0, idx);
   const tool = encoded.slice(idx + 2);
   if (!tool) return null;
