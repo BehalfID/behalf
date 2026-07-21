@@ -82,14 +82,22 @@ export interface VerifyClient {
 }
 
 /**
- * Host-provided approval pause. Reuses the platform ApprovalRequest flow —
- * typically poll dashboard status or wait on a UI — then the runtime re-verifies.
+ * Host-provided approval pause. Reuses the platform ApprovalRequest flow.
+ *
+ * Return `"denied"` to block, `"granted"` to re-verify (consumes grant),
+ * or `{ granted: true, decision }` when the waiter already obtained an
+ * allowed verify result (avoids double-consuming a one-shot grant).
  */
+export type ApprovalWaitResult =
+  | "granted"
+  | "denied"
+  | { granted: true; decision: VerifyDecision };
+
 export type ApprovalWaiter = (ctx: {
   approvalId: string;
   invocation: McpInvocation;
   decision: VerifyDecision;
-}) => Promise<"granted" | "denied">;
+}) => Promise<ApprovalWaitResult>;
 
 // ─── Transport & execution ───────────────────────────────────────────────────
 

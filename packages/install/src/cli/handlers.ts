@@ -31,12 +31,20 @@ interface InstallCommandOptions extends GlobalCliFlags {
   force?: boolean;
   clients?: string;
   verifyEndpoint?: string;
+  agentId?: string;
+  apiKey?: string;
+  wrap?: boolean;
+  wrapServers?: string;
 }
 
 interface UpgradeCommandOptions extends GlobalCliFlags {
   dryRun?: boolean;
   clients?: string;
   verifyEndpoint?: string;
+  agentId?: string;
+  apiKey?: string;
+  wrap?: boolean;
+  wrapServers?: string;
 }
 
 interface UninstallCommandOptions extends GlobalCliFlags {
@@ -52,6 +60,27 @@ interface DoctorCommandOptions extends GlobalCliFlags {
 function isJsonMode(command: Command): boolean {
   const globals = command.optsWithGlobals() as GlobalCliFlags;
   return globals.json === true;
+}
+
+function parseWrapServerList(raw: string | undefined): string[] | undefined {
+  if (raw === undefined) return undefined;
+  const names = raw
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+  return names.length > 0 ? names : undefined;
+}
+
+function resolveCredential(
+  flagValue: string | undefined,
+  envKeys: string[],
+): string | undefined {
+  if (flagValue && flagValue.trim()) return flagValue.trim();
+  for (const key of envKeys) {
+    const value = process.env[key]?.trim();
+    if (value) return value;
+  }
+  return undefined;
 }
 
 function buildInstallOptions(
@@ -72,6 +101,23 @@ function buildInstallOptions(
   if (opts.verifyEndpoint !== undefined) {
     options.verifyEndpoint = opts.verifyEndpoint;
   }
+  const agentId = resolveCredential(opts.agentId, [
+    "BEHALFID_AGENT_ID",
+    "BEHALF_AGENT_ID",
+  ]);
+  const apiKey = resolveCredential(opts.apiKey, [
+    "BEHALFID_API_KEY",
+    "BEHALF_API_KEY",
+  ]);
+  if (agentId !== undefined) options.agentId = agentId;
+  if (apiKey !== undefined) options.apiKey = apiKey;
+  if (opts.wrap === true) {
+    options.wrapExisting = true;
+  }
+  const wrapServers = parseWrapServerList(opts.wrapServers);
+  if (wrapServers !== undefined) {
+    options.wrapServers = wrapServers;
+  }
   return options;
 }
 
@@ -89,6 +135,23 @@ function buildUpgradeOptions(
   }
   if (opts.verifyEndpoint !== undefined) {
     options.verifyEndpoint = opts.verifyEndpoint;
+  }
+  const agentId = resolveCredential(opts.agentId, [
+    "BEHALFID_AGENT_ID",
+    "BEHALF_AGENT_ID",
+  ]);
+  const apiKey = resolveCredential(opts.apiKey, [
+    "BEHALFID_API_KEY",
+    "BEHALF_API_KEY",
+  ]);
+  if (agentId !== undefined) options.agentId = agentId;
+  if (apiKey !== undefined) options.apiKey = apiKey;
+  if (opts.wrap === true) {
+    options.wrapExisting = true;
+  }
+  const wrapServers = parseWrapServerList(opts.wrapServers);
+  if (wrapServers !== undefined) {
+    options.wrapServers = wrapServers;
   }
   return options;
 }

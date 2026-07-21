@@ -12,3 +12,8 @@ export { ToolProxy } from "./ToolProxy.js";
 export { EventBus } from "./EventBus.js";
 export { mapInvocationToVerifyRequest } from "./mapInvocation.js";
 export { callVerify, isValidVerifyDecision, withVerifyTimeout, VerifyTimeoutError, VerifyMalformedError, } from "./verify.js";
+export { createHttpVerifyClient } from "./httpVerifyClient.js";
+export { createVerifyPollingApprovalWaiter } from "./approvalWaiter.js";
+export { loadInterceptorConfig, ConfigError } from "./config.js";
+export { InterceptorServer } from "./stdio/InterceptorServer.js";
+export { DownstreamMcpClient, encodeToolName, decodeToolName, } from "./stdio/DownstreamClient.js";

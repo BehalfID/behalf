@@ -27,6 +27,7 @@ export type {
   ConfiguredClientRecord,
   RegisteredRuntimeRecord,
   InstallationState,
+  WrappedServerSnapshot,
   InstallOptions,
   UpgradeOptions,
   UninstallOptions,
@@ -160,10 +161,20 @@ export {
   setServerMap,
   upsertServerEntry,
   removeServerEntry,
+  wrapServerEntry,
+  wrapServersInConfig,
+  restoreWrappedServers,
+  isWrappableServerEntry,
+  isAlreadyWrapped,
+  WRAPPED_MARKER_ENV,
 } from "./mcp/index.js";
 export type {
   FileMcpConfigManagerOptions,
   McpConfigFormat,
+  WrapServerOptions,
+  WrapServersOptions,
+  WrapServersResult,
+  WrappedServerChange,
 } from "./mcp/index.js";
 
 export {

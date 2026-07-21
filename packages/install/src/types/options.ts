@@ -18,6 +18,20 @@ export interface InstallOptions extends GlobalCliOptions {
   force?: boolean;
   /** Override the verify API endpoint written into runtime configuration. */
   verifyEndpoint?: string;
+  /** BehalfID agent id injected into interceptor env (`BEHALFID_AGENT_ID`). */
+  agentId?: string;
+  /** BehalfID API key injected into interceptor env (`BEHALFID_API_KEY`). */
+  apiKey?: string;
+  /**
+   * When true, rewrite existing stdio MCP servers in place so they launch
+   * `@behalfid/mcp-runtime` as a PEP in front of the original command.
+   */
+  wrapExisting?: boolean;
+  /**
+   * Optional allow-list of MCP server names to wrap when `wrapExisting` is true.
+   * When omitted, all wrappable stdio servers are wrapped.
+   */
+  wrapServers?: string[];
 }
 
 /** Options for `upgrade`. */
@@ -25,6 +39,10 @@ export interface UpgradeOptions extends GlobalCliOptions {
   clients?: AiClientId[];
   dryRun?: boolean;
   verifyEndpoint?: string;
+  agentId?: string;
+  apiKey?: string;
+  wrapExisting?: boolean;
+  wrapServers?: string[];
 }
 
 /** Options for `uninstall`. */

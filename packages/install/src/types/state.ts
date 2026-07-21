@@ -1,4 +1,11 @@
 import type { AiClientId } from "./primitives.js";
+import type { McpServerEntry } from "./mcp.js";
+
+/** Snapshot of an MCP server before interceptor wrapping (for uninstall restore). */
+export interface WrappedServerSnapshot {
+  serverName: string;
+  original: McpServerEntry;
+}
 
 /** Record of a client that has been configured by the installer. */
 export interface ConfiguredClientRecord {
@@ -7,6 +14,8 @@ export interface ConfiguredClientRecord {
   mcpConfigPath: string;
   /** ISO-8601 timestamp when the client was configured. */
   configuredAt: string;
+  /** Servers rewritten in place to the mcp-runtime interceptor. */
+  wrappedServers?: WrappedServerSnapshot[];
 }
 
 /** Record of a runtime registered by the installer. */

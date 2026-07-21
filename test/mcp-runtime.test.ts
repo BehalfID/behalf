@@ -165,6 +165,29 @@ describe("McpRuntime PEP", () => {
     expect(calls).toHaveLength(1);
   });
 
+  it("3c. approval waiter may return an allowed decision without re-verify", async () => {
+    const { transport, calls } = recordingTransport();
+    const allowed = allowDecision({ requestId: "v_polled" });
+    const verify = vi.fn(async (): Promise<VerifyDecision> =>
+      denyDecision({
+        approvalRequired: true,
+        approvalId: "appr_3",
+        risk: "medium",
+      })
+    );
+
+    const runtime = new McpRuntime({
+      verifyClient: client(verify),
+      transport,
+      waitForApproval: async () => ({ granted: true, decision: allowed }),
+    });
+
+    const result = await runtime.execute(inv());
+    expect(verify).toHaveBeenCalledTimes(1);
+    expect(result.outcome).toBe("allowed");
+    expect(calls).toHaveLength(1);
+  });
+
   it("3b. approval denial never reaches the MCP server", async () => {
     const { transport, calls } = recordingTransport();
     const runtime = new McpRuntime({
@@ -328,5 +351,215 @@ describe("McpRuntime PEP", () => {
     expect(events).toContain("verification.completed");
     expect(events).toContain("verification.denied");
     expect(events).not.toContain("execution.started");
+  });
+});
+
+describe("interceptor config + tool naming", () => {
+  it("loads required env and downstream settings", async () => {
+    const { loadInterceptorConfig, ConfigError } = await import(
+      "../packages/mcp-runtime/src/config"
+    );
+    expect(() => loadInterceptorConfig({})).toThrow(ConfigError);
+
+    const cfg = loadInterceptorConfig({
+      BEHALFID_API_KEY: "bhf_sk_test",
+      BEHALFID_AGENT_ID: "agent_1",
+      BEHALFID_DOWNSTREAM_COMMAND: "npx",
+      BEHALFID_DOWNSTREAM_ARGS: '["-y","pkg"]',
+      BEHALFID_DOWNSTREAM_SERVER: "filesystem",
+    });
+    expect(cfg.apiKey).toBe("bhf_sk_test");
+    expect(cfg.agentId).toBe("agent_1");
+    expect(cfg.downstream).toMatchObject({
+      command: "npx",
+      args: ["-y", "pkg"],
+      serverName: "filesystem",
+    });
+  });
+
+  it("encodes and decodes namespaced tool names", async () => {
+    const { encodeToolName, decodeToolName } = await import(
+      "../packages/mcp-runtime/src/stdio/DownstreamClient"
+    );
+    expect(encodeToolName("filesystem", "read_file")).toBe(
+      "filesystem__read_file"
+    );
+    expect(decodeToolName("filesystem__read_file")).toEqual({
+      server: "filesystem",
+      tool: "read_file",
+    });
+    expect(decodeToolName("bad")).toBeNull();
+  });
+});
+
+describe("InterceptorServer PEP wiring", () => {
+  it("lists namespaced tools and blocks denied calls before transport", async () => {
+    const { PassThrough } = await import("node:stream");
+    const { InterceptorServer } = await import(
+      "../packages/mcp-runtime/src/stdio/InterceptorServer"
+    );
+    const { DownstreamMcpClient } = await import(
+      "../packages/mcp-runtime/src/stdio/DownstreamClient"
+    );
+
+    const transportCalls: unknown[] = [];
+    const downstream = {
+      serverName: "filesystem",
+      getCachedTools: () => [
+        {
+          name: "read_file",
+          description: "read",
+          inputSchema: { type: "object", properties: {} },
+        },
+      ],
+      listTools: async () => [
+        {
+          name: "read_file",
+          description: "read",
+          inputSchema: { type: "object", properties: {} },
+        },
+      ],
+      start: async () => {},
+      stop: async () => {},
+      callTool: async (server: string, tool: string, args?: unknown) => {
+        transportCalls.push({ server, tool, args });
+        return { data: { content: [{ type: "text", text: "ok" }] } };
+      },
+    } as unknown as InstanceType<typeof DownstreamMcpClient>;
+
+    const runtime = new McpRuntime({
+      agentId: "agent_1",
+      verifyClient: client(async () => denyDecision()),
+      transport: downstream,
+    });
+
+    const stdin = new PassThrough();
+    const stdout = new PassThrough();
+    const chunks: string[] = [];
+    stdout.on("data", (c: Buffer) => chunks.push(c.toString("utf8")));
+
+    const server = new InterceptorServer({
+      config: {
+        apiKey: "k",
+        agentId: "agent_1",
+        baseUrl: "https://behalfid.com",
+        verifyUrl: "https://behalfid.com/api/verify",
+        verifyTimeoutMs: 5000,
+        provider: "test",
+        downstream: {
+          serverName: "filesystem",
+          command: "echo",
+          args: [],
+        },
+      },
+      stdin,
+      stdout,
+      runtime,
+      downstream,
+    });
+
+    await server.start();
+
+    stdin.write(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/list",
+      }) + "\n"
+    );
+
+    await vi.waitFor(() => {
+      expect(chunks.some((c) => c.includes("filesystem__read_file"))).toBe(true);
+    });
+
+    stdin.write(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: 2,
+        method: "tools/call",
+        params: {
+          name: "filesystem__read_file",
+          arguments: { path: "/tmp/x" },
+        },
+      }) + "\n"
+    );
+
+    await vi.waitFor(() => {
+      expect(chunks.some((c) => c.includes("DENIED"))).toBe(true);
+    });
+    expect(transportCalls).toHaveLength(0);
+  });
+
+  it("proxies allowed calls through verify then transport", async () => {
+    const { PassThrough } = await import("node:stream");
+    const { InterceptorServer } = await import(
+      "../packages/mcp-runtime/src/stdio/InterceptorServer"
+    );
+    const { DownstreamMcpClient } = await import(
+      "../packages/mcp-runtime/src/stdio/DownstreamClient"
+    );
+
+    const transportCalls: unknown[] = [];
+    const downstream = {
+      serverName: "filesystem",
+      getCachedTools: () => [{ name: "read_file" }],
+      listTools: async () => [{ name: "read_file" }],
+      start: async () => {},
+      stop: async () => {},
+      callTool: async (server: string, tool: string, args?: unknown) => {
+        transportCalls.push({ server, tool, args });
+        return {
+          data: { content: [{ type: "text", text: "file contents" }] },
+        };
+      },
+    } as unknown as InstanceType<typeof DownstreamMcpClient>;
+
+    const verify = vi.fn(async () => allowDecision());
+    const runtime = new McpRuntime({
+      agentId: "agent_1",
+      verifyClient: client(verify),
+      transport: downstream,
+    });
+
+    const stdin = new PassThrough();
+    const stdout = new PassThrough();
+    const chunks: string[] = [];
+    stdout.on("data", (c: Buffer) => chunks.push(c.toString("utf8")));
+
+    const server = new InterceptorServer({
+      config: {
+        apiKey: "k",
+        agentId: "agent_1",
+        baseUrl: "https://behalfid.com",
+        verifyUrl: "https://behalfid.com/api/verify",
+        verifyTimeoutMs: 5000,
+        provider: "test",
+      },
+      stdin,
+      stdout,
+      runtime,
+      downstream,
+    });
+
+    await server.start();
+    stdin.write(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: {
+          name: "filesystem__read_file",
+          arguments: { path: "/tmp/x" },
+        },
+      }) + "\n"
+    );
+
+    await vi.waitFor(() => {
+      expect(chunks.some((c) => c.includes("file contents"))).toBe(true);
+    });
+    expect(verify).toHaveBeenCalled();
+    expect(transportCalls).toEqual([
+      { server: "filesystem", tool: "read_file", args: { path: "/tmp/x" } },
+    ]);
   });
 });

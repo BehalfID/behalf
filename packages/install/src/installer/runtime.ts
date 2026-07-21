@@ -26,6 +26,18 @@ export interface CreateDefaultRuntimeRegistrationOptions {
   id?: string;
   /** Override package name. Defaults to {@link DEFAULT_RUNTIME_PACKAGE}. */
   packageName?: string;
+  /** BehalfID agent id injected into runtime env (Phase 4 wiring). */
+  agentId?: string;
+  /** BehalfID API key injected into runtime env (prefer secret injection). */
+  apiKey?: string;
+  /** Downstream MCP command to wrap (Phase 2/3 interceptor). */
+  downstreamCommand?: string;
+  /** Downstream MCP args (JSON-serialized into env). */
+  downstreamArgs?: string[];
+  /** Logical downstream server name for tool namespacing. */
+  downstreamServer?: string;
+  /** Env vars forwarded to the downstream MCP process (JSON in BEHALFID_DOWNSTREAM_ENV). */
+  downstreamEnv?: Record<string, string>;
 }
 
 /**
@@ -50,10 +62,33 @@ export function createDefaultRuntimeRegistration(
     env: {
       BEHALFID_VERIFY_URL: verifyEndpoint,
       BEHALFID_BASE_URL: DEFAULT_BEHALF_BASE_URL,
+      // Hosts must supply credentials at install/configure time (or via secret injection).
+      // Placeholders document the required contract for the stdio interceptor.
+      ...(options.agentId ? { BEHALFID_AGENT_ID: options.agentId } : {}),
+      ...(options.apiKey ? { BEHALFID_API_KEY: options.apiKey } : {}),
+      ...(options.downstreamCommand
+        ? {
+            BEHALFID_DOWNSTREAM_COMMAND: options.downstreamCommand,
+            ...(options.downstreamArgs
+              ? {
+                  BEHALFID_DOWNSTREAM_ARGS: JSON.stringify(options.downstreamArgs),
+                }
+              : {}),
+            ...(options.downstreamServer
+              ? { BEHALFID_DOWNSTREAM_SERVER: options.downstreamServer }
+              : {}),
+            ...(options.downstreamEnv
+              ? {
+                  BEHALFID_DOWNSTREAM_ENV: JSON.stringify(options.downstreamEnv),
+                }
+              : {}),
+          }
+        : {}),
     },
     metadata: {
       kind: "mcp-runtime",
       verifyEndpoint,
+      phase: options.downstreamCommand ? "wrapped-interceptor" : "stdio-interceptor",
     },
   };
 }

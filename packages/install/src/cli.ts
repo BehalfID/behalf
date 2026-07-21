@@ -46,6 +46,17 @@ export function createCliProgram(options: CreateCliProgramOptions = {}): Command
       "comma-separated client ids (cursor,claude-code,claude-desktop,codex,vscode,windsurf)",
     )
     .option("--verify-endpoint <url>", "override the verify API endpoint")
+    .option("--agent-id <id>", "BehalfID agent id (or set BEHALFID_AGENT_ID)")
+    .option("--api-key <key>", "BehalfID API key (or set BEHALFID_API_KEY)")
+    .option(
+      "--wrap",
+      "rewrite existing stdio MCP servers to run through @behalfid/mcp-runtime",
+      false,
+    )
+    .option(
+      "--wrap-servers <list>",
+      "comma-separated MCP server names to wrap when using --wrap",
+    )
     .action(async (opts, command) => {
       await handleInstall(ctx, opts, command);
     });
@@ -67,6 +78,17 @@ export function createCliProgram(options: CreateCliProgramOptions = {}): Command
       "comma-separated client ids (cursor,claude-code,claude-desktop,codex,vscode,windsurf)",
     )
     .option("--verify-endpoint <url>", "override the verify API endpoint")
+    .option("--agent-id <id>", "BehalfID agent id (or set BEHALFID_AGENT_ID)")
+    .option("--api-key <key>", "BehalfID API key (or set BEHALFID_API_KEY)")
+    .option(
+      "--wrap",
+      "rewrite existing stdio MCP servers to run through @behalfid/mcp-runtime",
+      false,
+    )
+    .option(
+      "--wrap-servers <list>",
+      "comma-separated MCP server names to wrap when using --wrap",
+    )
     .action(async (opts, command) => {
       await handleUpgrade(ctx, opts, command);
     });

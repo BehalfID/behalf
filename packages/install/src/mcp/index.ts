@@ -22,3 +22,18 @@ export {
   upsertServerEntry,
   removeServerEntry,
 } from "./servers.js";
+
+export {
+  wrapServerEntry,
+  wrapServersInConfig,
+  restoreWrappedServers,
+  isWrappableServerEntry,
+  isAlreadyWrapped,
+  WRAPPED_MARKER_ENV,
+} from "./wrap.js";
+export type {
+  WrapServerOptions,
+  WrapServersOptions,
+  WrapServersResult,
+  WrappedServerChange,
+} from "./wrap.js";
