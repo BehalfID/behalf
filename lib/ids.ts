@@ -25,6 +25,8 @@ export function createPublicId(
     | "pause"
     | "clia"
     | "pend"
+    | "adrec"
+    | "adev"
 ) {
   return `${prefix}_${crypto.randomBytes(12).toString("base64url")}`;
 }

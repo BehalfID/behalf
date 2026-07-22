@@ -27,7 +27,8 @@ type NavIconName =
   | "settings"
   | "profiles"
   | "billing"
-  | "docs";
+  | "docs"
+  | "delegation";
 
 const dashboardNavItems = [
   {
@@ -36,6 +37,7 @@ const dashboardNavItems = [
       { subpath: "", label: "Home", icon: "home" },
       { subpath: "/inbox", label: "Needs attention", icon: "attention" },
       { subpath: "/approvals", label: "Approvals", icon: "approvals" },
+      { subpath: "/adaptive-delegation", label: "Adaptive Delegation", icon: "delegation" },
       { subpath: "/logs", label: "Audit logs", icon: "logs" }
     ]
   },
@@ -210,6 +212,7 @@ function NavIcon({ name }: { name: NavIconName }) {
     home: <><path d="M3 8.5 10 3l7 5.5" /><path d="M5 7.5V17h10V7.5M8 17v-5h4v5" /></>,
     attention: <><path d="M10 3 2.8 16h14.4L10 3Z" /><path d="M10 7.5v4M10 14h.01" /></>,
     approvals: <><path d="M6 3h8v14H6z" /><path d="M8 7h4M8 10h4M8 13h2" /><path d="M8 3V2h4v1" /></>,
+    delegation: <><path d="M4 10h12" /><path d="M10 4v12" /><circle cx="10" cy="10" r="7" /></>,
     logs: <><path d="M4 3h12v14H4z" /><path d="M7 7h6M7 10h6M7 13h4" /></>,
     add: <><circle cx="10" cy="10" r="7" /><path d="M10 6.5v7M6.5 10h7" /></>,
     agents: <><circle cx="10" cy="8" r="3" /><path d="M4.5 17c.8-3.2 2.6-4.8 5.5-4.8s4.7 1.6 5.5 4.8" /></>,
