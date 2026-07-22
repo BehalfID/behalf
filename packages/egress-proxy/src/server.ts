@@ -23,21 +23,27 @@ export type EgressProxyServerOptions = {
   }) => void;
 };
 
+function sanitizePlainText(message: string, maxLength = 200): string {
+  return message.replace(/[^\t !-~]/g, "?").slice(0, maxLength);
+}
+
 function writeHttpError(
   socket: Duplex | net.Socket | http.ServerResponse,
   status: number,
   message: string
 ) {
+  const safeMessage = sanitizePlainText(message);
+  const statusText = http.STATUS_CODES[status] ?? "Error";
   if ("writeHead" in socket) {
     socket.writeHead(status, {
       "Content-Type": "text/plain",
-      "Content-Length": Buffer.byteLength(message),
+      "Content-Length": Buffer.byteLength(safeMessage),
       Connection: "close"
     });
-    socket.end(message);
+    socket.end(safeMessage);
     return;
   }
-  const body = `HTTP/1.1 ${status} ${message}\r\nConnection: close\r\nContent-Type: text/plain\r\nContent-Length: ${Buffer.byteLength(message)}\r\n\r\n${message}`;
+  const body = `HTTP/1.1 ${status} ${statusText}\r\nConnection: close\r\nContent-Type: text/plain\r\nContent-Length: ${Buffer.byteLength(safeMessage)}\r\n\r\n${safeMessage}`;
   socket.end(body);
 }
 
@@ -76,8 +82,10 @@ export function createEgressProxyServer(options: EgressProxyServerOptions): http
       }
 
       let target: ParsedProxyTarget;
+      let requestPath: string;
       if (req.url.startsWith("http://") || req.url.startsWith("https://")) {
         const absolute = new URL(req.url);
+        requestPath = absolute.pathname + absolute.search;
         target = {
           host: absolute.hostname,
           port: absolute.port
@@ -96,6 +104,7 @@ export function createEgressProxyServer(options: EgressProxyServerOptions): http
           return;
         }
         const { host, port } = parseHostPort(hostHeader, 80);
+        requestPath = req.url;
         target = {
           host,
           port,
@@ -112,8 +121,10 @@ export function createEgressProxyServer(options: EgressProxyServerOptions): http
       }
 
       const upstream = http.request(
-        target.url,
         {
+          hostname: target.host,
+          port: target.port,
+          path: requestPath,
           method,
           headers: {
             ...req.headers,
