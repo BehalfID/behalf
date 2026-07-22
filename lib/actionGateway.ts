@@ -21,6 +21,27 @@ export type GatewayFetchResult = {
   truncated: boolean;
 };
 
+export type GatewayHttpRequestResult = {
+  url: string;
+  status: number;
+  headers: Record<string, string>;
+  body: string;
+  truncated: boolean;
+};
+
+const HOP_BY_HOP_HEADERS = new Set([
+  "connection",
+  "keep-alive",
+  "proxy-authenticate",
+  "proxy-authorization",
+  "te",
+  "trailers",
+  "transfer-encoding",
+  "upgrade",
+  "host",
+  "content-length"
+]);
+
 export async function fetchPublicWebRead(rawUrl: string): Promise<GatewayFetchResult> {
   let target = await validatePublicHttpUrl(rawUrl);
 
@@ -125,6 +146,110 @@ async function getPublicUrl(target: ValidatedTarget) {
     });
     request.end();
   });
+}
+
+/**
+ * Execute a general outbound HTTP request through the Action Gateway
+ * (SSRF-safe, DNS-pinned, size-capped).
+ */
+export async function fetchPublicHttpRequest(input: {
+  method: string;
+  url: string;
+  headers?: Record<string, string>;
+  body?: string;
+  maxBytes?: number;
+}): Promise<GatewayHttpRequestResult> {
+  const method = input.method.trim().toUpperCase();
+  if (!["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"].includes(method)) {
+    throw new Error("Gateway http_request method is not allowed.");
+  }
+
+  const maxBytes = Math.min(
+    Math.max(input.maxBytes ?? GATEWAY_MAX_RESPONSE_BYTES, 1),
+    GATEWAY_MAX_RESPONSE_BYTES
+  );
+  const body = input.body ?? "";
+  if (Buffer.byteLength(body, "utf8") > GATEWAY_MAX_RESPONSE_BYTES) {
+    throw new Error("Gateway request body exceeds size limit.");
+  }
+
+  const target = await validatePublicHttpUrl(input.url);
+  const client = target.url.protocol === "https:" ? https : http;
+  const pinnedAddress = target.addresses[0];
+
+  const headers: Record<string, string> = {
+    "User-Agent": "BehalfID-Action-Gateway/0.1",
+    Accept: "application/json,text/plain,*/*;q=0.1"
+  };
+  for (const [key, value] of Object.entries(input.headers ?? {})) {
+    const lower = key.toLowerCase();
+    if (HOP_BY_HOP_HEADERS.has(lower)) continue;
+    if (lower.startsWith("proxy-")) continue;
+    headers[key] = value;
+  }
+  if (body && method !== "GET" && method !== "HEAD") {
+    headers["Content-Length"] = String(Buffer.byteLength(body, "utf8"));
+  }
+
+  const response = await new Promise<{
+    status: number;
+    headers: IncomingMessage["headers"];
+    body: IncomingMessage;
+  }>((resolve, reject) => {
+    const req = client.request(
+      target.url,
+      {
+        method,
+        timeout: GATEWAY_TIMEOUT_MS,
+        headers,
+        lookup: (_hostname, _options, callback) => {
+          callback(null, pinnedAddress.address, pinnedAddress.family);
+        }
+      },
+      (res) => {
+        resolve({
+          status: res.statusCode ?? 0,
+          headers: res.headers,
+          body: res
+        });
+      }
+    );
+    req.on("timeout", () => req.destroy(new Error("Gateway fetch timed out.")));
+    req.on("error", (error) => {
+      reject(error.message === "Gateway fetch timed out." ? error : new Error("Gateway fetch failed."));
+    });
+    if (body && method !== "GET" && method !== "HEAD") req.write(body);
+    req.end();
+  });
+
+  if (method === "HEAD") {
+    response.body.resume();
+    return {
+      url: target.url.toString(),
+      status: response.status,
+      headers: flattenHeaders(response.headers),
+      body: "",
+      truncated: false
+    };
+  }
+
+  const { body: text, truncated } = await readResponseTextWithLimit(response.body, maxBytes);
+  return {
+    url: target.url.toString(),
+    status: response.status,
+    headers: flattenHeaders(response.headers),
+    body: text,
+    truncated
+  };
+}
+
+function flattenHeaders(headers: IncomingMessage["headers"]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(headers)) {
+    if (typeof value === "string") out[key] = value;
+    else if (Array.isArray(value)) out[key] = value.join(", ");
+  }
+  return out;
 }
 
 function isRedirectStatus(status: number) {
