@@ -40,7 +40,9 @@ export async function POST(request: NextRequest) {
   }
 
   await connectToDatabase();
-  const user = await DeveloperUser.findOne({ email }).select("+passwordHash authProviders");
+  // "+passwordHash" alone keeps the default field set; listing other fields
+  // would become an inclusion projection and omit userId/email.
+  const user = await DeveloperUser.findOne({ email }).select("+passwordHash");
   if (!user?.passwordHash) {
     if (user) {
       return jsonError("This account uses Google sign-in. Use Continue with Google.", 401);

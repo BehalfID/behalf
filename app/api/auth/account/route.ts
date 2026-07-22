@@ -42,7 +42,7 @@ export async function DELETE(request: NextRequest) {
   }
 
   await connectToDatabase();
-  const user = await DeveloperUser.findOne({ userId: auth.user.userId }).select("+passwordHash authProviders");
+  const user = await DeveloperUser.findOne({ userId: auth.user.userId }).select("+passwordHash");
   if (!user) {
     return jsonError("Invalid password.", 401);
   }
