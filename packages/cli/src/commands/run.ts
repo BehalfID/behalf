@@ -13,6 +13,11 @@ import {
 } from "../lib/passport-cache.js";
 import { getProjectSetupStatus, writeProjectSetup } from "../lib/mcp-setup.js";
 import { runAction } from "../lib/output.js";
+import {
+  parseEgressMode,
+  prepareEgressLaunch,
+  type EgressMode,
+} from "../lib/egressLaunch.js";
 
 type ToolDef = {
   binary: string;
@@ -339,7 +344,12 @@ export function refreshPermissionsInBackground(agentId: string, deps: LaunchDeps
   }
 }
 
-export async function launchTool(toolKey: string, extraArgs: string[], deps: LaunchDeps = {}): Promise<number> {
+export async function launchTool(
+  toolKey: string,
+  extraArgs: string[],
+  deps: LaunchDeps = {},
+  launchOpts: { egress?: EgressMode } = {}
+): Promise<number> {
   const tool = TOOLS[toolKey];
   if (!tool) throw new Error(`Unknown tool "${toolKey}". Supported: ${Object.keys(TOOLS).join(", ")}`);
 
@@ -349,7 +359,8 @@ export async function launchTool(toolKey: string, extraArgs: string[], deps: Lau
   const baseUrl = resolveBaseUrl();
   const stderr = deps.stderr ?? process.stderr;
   const stdout = deps.stdout ?? process.stdout;
-  const spawn = deps.spawn ?? spawnSync;
+  const spawnFn = deps.spawn ?? spawnSync;
+  const egressMode = launchOpts.egress ?? parseEgressMode(process.env.BEHALFID_EGRESS_MODE);
 
   if (!agentId) {
     throw new Error(
@@ -441,6 +452,32 @@ export async function launchTool(toolKey: string, extraArgs: string[], deps: Lau
     }
   }
 
+  let childEnv = process.env;
+  let stopEgress: (() => Promise<void>) | undefined;
+  if (egressMode !== "off") {
+    try {
+      const prepared = await prepareEgressLaunch({
+        mode: egressMode,
+        baseUrl,
+        apiKey,
+        agentId
+      });
+      childEnv = prepared.env;
+      stopEgress = prepared.stop;
+      stderr.write(`Egress proxy (${egressMode}) → ${prepared.env.HTTPS_PROXY ?? "n/a"}\n`);
+    } catch (err) {
+      if (egressMode === "enforce") {
+        stderr.write(
+          `Failed to start egress proxy: ${err instanceof Error ? err.message : String(err)}\n`
+        );
+        return 1;
+      }
+      stderr.write(
+        `Egress proxy unavailable (${err instanceof Error ? err.message : String(err)}); continuing without proxy.\n`
+      );
+    }
+  }
+
   stdout.write(
     `Launching ${tool.binary} with BehalfID enforcement.\n` +
     `Agent: ${agentId}\n` +
@@ -450,9 +487,15 @@ export async function launchTool(toolKey: string, extraArgs: string[], deps: Lau
     `Command: ${tool.binary}${extraArgs.length ? ` ${extraArgs.map(redactArg).join(" ")}` : ""}\n`
   );
 
-  // Launch the tool
-  const result: SpawnSyncReturns<Buffer> = spawn(tool.binary, extraArgs, { stdio: "inherit" });
-  return result.status ?? 1;
+  try {
+    const result: SpawnSyncReturns<Buffer> = spawnFn(tool.binary, extraArgs, {
+      stdio: "inherit",
+      env: childEnv
+    });
+    return result.status ?? 1;
+  } finally {
+    if (stopEgress) await stopEgress().catch(() => undefined);
+  }
 }
 
 function toolCommand(toolKey: string, description: string) {
@@ -460,10 +503,11 @@ function toolCommand(toolKey: string, description: string) {
     .description(description)
     .allowUnknownOption(true)
     .passThroughOptions(true)
+    .option("--egress <mode>", "egress interception: off|advise|enforce (default: off)")
     .argument("[args...]", `arguments to pass to ${toolKey}`)
     .action(
-      runAction(async (args: string[]) => {
-        process.exit(await launchTool(toolKey, args));
+      runAction(async (args: string[], opts: { egress?: string }) => {
+        process.exit(await launchTool(toolKey, args, {}, { egress: parseEgressMode(opts.egress) }));
       })
     );
 }
@@ -531,6 +575,7 @@ type GateOpts = {
   vendor?: string;
   amount?: string;
   shadow?: boolean;
+  egress?: string;
 };
 
 /**
@@ -548,6 +593,7 @@ export async function gateAndExec(
   const baseUrl = resolveBaseUrl();
   const stderr = deps.stderr ?? process.stderr;
   const spawnFn = deps.spawn ?? spawnSync;
+  const egressMode = parseEgressMode(opts.egress ?? process.env.BEHALFID_EGRESS_MODE);
 
   if (!agentId)
     throw new Error("Agent ID not configured. Run: behalf config set agent-id <agentId>");
@@ -627,9 +673,43 @@ export async function gateAndExec(
   }
 
   stderr.write(`✓ Allowed — executing: ${argv.join(" ")}\n`);
-  const [bin, ...binArgs] = argv;
-  const child: SpawnSyncReturns<Buffer> = spawnFn(bin, binArgs, { stdio: "inherit" });
-  return child.status ?? 1;
+
+  let childEnv = process.env;
+  let stopEgress: (() => Promise<void>) | undefined;
+  if (egressMode !== "off") {
+    try {
+      const prepared = await prepareEgressLaunch({
+        mode: egressMode,
+        baseUrl,
+        apiKey,
+        agentId
+      });
+      childEnv = prepared.env;
+      stopEgress = prepared.stop;
+      stderr.write(`Egress proxy (${egressMode}) → ${prepared.env.HTTPS_PROXY ?? "n/a"}\n`);
+    } catch (err) {
+      if (egressMode === "enforce") {
+        stderr.write(
+          `Failed to start egress proxy: ${err instanceof Error ? err.message : String(err)}\n`
+        );
+        return 1;
+      }
+      stderr.write(
+        `Egress proxy unavailable (${err instanceof Error ? err.message : String(err)}); continuing without proxy.\n`
+      );
+    }
+  }
+
+  try {
+    const [bin, ...binArgs] = argv;
+    const child: SpawnSyncReturns<Buffer> = spawnFn(bin, binArgs, {
+      stdio: "inherit",
+      env: childEnv
+    });
+    return child.status ?? 1;
+  } finally {
+    if (stopEgress) await stopEgress().catch(() => undefined);
+  }
 }
 
 // ── CLI command definitions ───────────────────────────────────────────────────
@@ -640,6 +720,7 @@ export function runCommand() {
       "launch an AI tool with BehalfID enforcement (claude|codex|cursor), " +
       "or gate an arbitrary shell command via BehalfID verify before execution.\n\n" +
       "  behalf run claude                      — launch Claude Code with MCP enforcement\n" +
+      "  behalf run --egress=enforce -- npm ... — verify + local egress proxy\n" +
       "  behalf run -- npm run deploy:prod      — verify then execute\n" +
       "  behalf run -- vercel deploy --prod     — verify then execute\n" +
       "  behalf run -- prisma migrate deploy    — verify then execute"
@@ -657,10 +738,11 @@ export function runCommand() {
     .option("--vendor <vendor>", "alias for --resource")
     .option("--amount <n>", "transaction amount (for purchase actions)")
     .option("--shadow", "shadow mode: evaluate policy and log the decision but do not block execution")
+    .option("--egress <mode>", "egress interception: off|advise|enforce (default: off)")
     .action(
       runAction(async (toolKey: string, args: string[], opts: GateOpts) => {
         if (toolKey in TOOLS) {
-          process.exit(await launchTool(toolKey, args));
+          process.exit(await launchTool(toolKey, args, {}, { egress: parseEgressMode(opts.egress) }));
         } else {
           process.exit(await gateAndExec([toolKey, ...args], opts));
         }

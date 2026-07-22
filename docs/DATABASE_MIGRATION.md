@@ -94,8 +94,10 @@ Verified against current call sites:
   webhook event claim (`lib/webhookWorker.ts`).
 - **Atomic counters** (`$inc`): `Account.verificationCount` (`lib/quota.ts`),
   `WebhookEvent.attempts` (`lib/webhookWorker.ts`).
-- **TTL indexes**: `DeveloperSession.expiresAt`, `DeviceCode.expiresAt`. Postgres has no
-  TTL; needs scheduled cleanup (`pg_cron` on Supabase). App code already double-checks
+- **TTL indexes**: `DeveloperSession.expiresAt`, `DeviceCode.expiresAt`,
+  `OAuthPendingSignup.expiresAt`. Postgres has no TTL; Phase B′ ships
+  `behalf_purge_expired_*` + `behalf_run_ttl_cleanup` / `behalf_schedule_ttl_cleanup`
+  (enable `pg_cron` as an operator step). App code already double-checks
   expiry timestamps, so lazy deletion is safe.
 - **Aggregation pipelines** (2 sites): verification stats `$facet` in
   `lib/verificationLogs.ts`; 14-day daily counts in `app/api/console/summary/route.ts`.
@@ -292,7 +294,8 @@ in one statement (do **not** change semantics during migration).
 | `sessionId` | `session_id` | `TEXT` | PK |
 | `userId` | `user_id` | `TEXT` | NOT NULL, FK → `developer_users` (`ON DELETE CASCADE`) |
 | `tokenHash` | `token_hash` | `TEXT` | NOT NULL, UQ |
-| `expiresAt` | `expires_at` | `TIMESTAMPTZ` | NOT NULL, indexed; **no TTL** — `pg_cron` job deletes expired rows (see §12.4); auth code already checks `expires_at > now()` |
+| `expiresAt` | `expires_at` | `TIMESTAMPTZ` | NOT NULL, indexed; **no TTL** — `pg_cron` job deletes expired rows (see Phase B′ TTL helpers); auth code already checks `expires_at > now()` |
+| `lastActivityAt` | `last_activity_at` | `TIMESTAMPTZ` | NOT NULL DEFAULT `now()` — required in Mongo; sliding inactivity window in `lib/developerAuth.ts` |
 | `activeAccountId` | `active_account_id` | `TEXT` | NULL, FK → `accounts` (`ON DELETE SET NULL`) |
 | `createdAt` | `created_at` | `TIMESTAMPTZ` | NOT NULL (no `updated_at` — Mongoose disables it) |
 
@@ -414,16 +417,25 @@ refresh upsert in `lib/membershipManagement.ts` becomes
 | `requiredAuthorityLevel` | `required_authority_level` | `SMALLINT` | NULL, CK 0–100 |
 | timestamps | `created_at` / `updated_at` | `TIMESTAMPTZ` | NOT NULL |
 
-**Dedupe upserts:** today's Mongo `findOneAndUpdate(filter, …, { upsert: true })` has no
-backing unique index (two concurrent verify calls can theoretically double-insert).
-Postgres lets us strengthen this with **partial unique indexes** (declared
-`NULLS NOT DISTINCT` so NULL vendor/amount dedupe correctly, Postgres 15+):
+**Dedupe upserts:** Mongo `approval_pending_tuple_unique` is a partial unique index on
+`(agentId, permissionId, action, vendor, amount, argumentFingerprint, status)` where
+`status = 'pending' AND kind = 'agent_action'`. Postgres Phase B′ recreates
+`approval_requests_agent_action_pending_uq` as:
 
-- `UNIQUE NULLS NOT DISTINCT (agent_id, permission_id, action, vendor, amount) WHERE status = 'pending' AND kind = 'agent_action'`
-- `UNIQUE NULLS NOT DISTINCT (account_id, developer_user_id, pause_tool, pause_scope, pause_repo, pause_device_id) WHERE status = 'pending' AND kind = 'managed_profile_pause'`
+- `UNIQUE NULLS NOT DISTINCT (agent_id, permission_id, action, vendor, amount, argument_fingerprint) WHERE status = 'pending' AND kind = 'agent_action'`
+
+(`status` is omitted from the key because the partial predicate already fixes it to
+`pending` — uniqueness among pending rows is identical.)
 
 then `INSERT … ON CONFLICT … DO NOTHING RETURNING` + fallback select. Grant consumption
 (`pending→used`) stays a single conditional `UPDATE … WHERE status='approved' AND grant_expires_at > now()`.
+
+**Note:** The managed-profile-pause pending unique index shipped in `0000`
+(`approval_requests_managed_profile_pause_pending_uq`) was *stricter* than Mongo, which only
+maintains a non-unique compound lookup index and dedupes pending pause approvals via an atomic
+upsert. Migration `0004_managed_profile_pause_index_parity` drops that unique index and relies on
+the non-unique `approval_requests_pause_pending_lookup_idx` (added in `0003`), restoring Mongo
+parity so multiple pending pause rows with an identical tuple can coexist.
 
 ### 6.10 `verification_logs`
 
@@ -819,15 +831,41 @@ Logs migrate **last** (PR F in §12), after all state tables are live on Postgre
 
 Each PR is independently shippable and reversible. **No PR changes auth.**
 
-### PR A — Repository/data-access interfaces over existing Mongo *(safest first PR)*
+### PR A — Repository/data-access interfaces over existing Mongo ✅ *shipped (Phase A)*
 
-- Create `lib/repositories/` with typed interfaces per aggregate and a Mongoose-backed
-  implementation that is a mechanical move of today's queries.
-- Convert `lib/*` helpers and route handlers to call repositories. No query shapes,
-  no behavior, no responses change.
-- Add a repository factory (per-table backend selection, Mongo-only for now).
-- Exit criteria: all existing unit/integration tests pass unchanged (they already mock
-  `@/models/*`; move mocks to repository interfaces incrementally).
+- **Done:** `lib/repositories/` typed interfaces per aggregate with Mongoose-backed
+  implementations; all application runtime persistence routes through repositories.
+- **Done:** `lib/repositories/composition.ts` — single composition point (`getRepositories()`);
+  default resolves to Mongo via `resolveRepositoryBackend()` in `lib/repositories/backend.ts`.
+  Postgres runtime requires **both** `BEHALFID_REPOSITORY_BACKEND=postgres` (or a per-aggregate
+  `BEHALFID_REPO_BACKEND_<AGGREGATE>=postgres`) **and** the safety latch
+  `BEHALFID_ALLOW_POSTGRES_RUNTIME=true`. Without the latch, postgres selection throws.
+  `DATABASE_URL` alone does not switch runtime traffic. `MONGODB_URI` remains required for
+  production Mongo. Use `listRepositoryBackendOverrides()` for diagnostics.
+- **Done:** Direct `@/models/*` imports removed from `app/**` and `lib/*` (except repository
+  implementations, `lib/db.ts`, health/diagnostics, scripts, and tests).
+- **Done:** Repository contract tests for accounts, agents, memberships, managed profiles,
+  approvals (fingerprint dedupe + grant consumption), and sessions (expiry + sliding activity).
+- **Partial:** Runtime Postgres wiring exists behind the latch (`lib/repositories/postgres/runtime.ts`)
+  for all composition aggregates. Selecting postgres still requires a DATABASE_URL/POSTGRES_URL.
+  Individual methods not yet ported throw “not implemented on postgres” (no silent Mongo fallback).
+- **Intentional remaining direct Mongo usage (Phase A):**
+  - `lib/repositories/**` — Mongo repository implementations only
+  - `lib/db.ts` — `connectToDatabase` / mongoose connection cache (`MONGODB_URI`)
+  - `app/api/health/db/route.ts`, `app/api/console/settings/route.ts` — `mongoose.connection.readyState` diagnostics
+  - `scripts/**` — export/backfill/seed/maintenance
+  - `test/**` — fixtures, integration seeds, contract harnesses
+  - `models/*.ts` — schema definitions consumed only by repositories and tests
+- See also `docs/POSTGRES_SCHEMA.md` for schema notes.
+
+**Pre-cutover follow-ups (from Phase A / B′):**
+
+1. **Managed-profile-pause uniqueness:** Resolve or formally accept the stricter Postgres
+   partial-unique constraint for pending pause approvals versus Mongo's application-level
+   dedupe only.
+2. **`last_activity_at` import fidelity:** During Mongo → Postgres data import, populate
+   `developer_sessions.last_activity_at` from live Mongo `lastActivityAt` when available
+   instead of retaining the schema migration's `created_at` fallback.
 
 ### PR B — Postgres schema & migrations (no runtime wiring) ✅ *shipped (core tables v1)*
 
@@ -845,23 +883,44 @@ Each PR is independently shippable and reversible. **No PR changes auth.**
   suites as Mongo; **not exported** from `lib/repositories/index.ts`; runtime still uses Mongo.
 - **Done (v2):** Test-only Postgres repository adapters for `memberships` and pending invites
   (`lib/repositories/postgres/memberships.ts`). Same contract gate and runtime isolation as v1.
-- **Not done yet:** `pg_cron` cleanup jobs, remaining tables (device codes, site guard,
-  status page, webhook deliveries, etc.), CI job that applies migrations against live Postgres.
-- Connection module (`lib/db/postgres/index.ts`) exists but is **not imported by app routes**.
-- **Next after v2:** Postgres repository adapters for managed profiles, then
-  permissions/approvals/logs/webhooks — each must pass `test/repository-contracts/*` before any
-  runtime cutover.
-- **Runtime cutover is still not approved.**
+- **Done (Phase B′):** Schema parity with current Mongoose models (`drizzle/0003_schema_parity.sql`):
+  - `developer_sessions.last_activity_at` (required; backfill from `created_at`)
+  - Approval argument fields (`argument_kind`, `argument_fingerprint`, `argument_preview`,
+    `argument_preview_truncated`, `used_at`) + pending unique index includes fingerprint
+  - Remaining tables: device codes, permission profiles, webhook deliveries, Stripe ledger,
+    enterprise inquiries, CLI pause leases, Site Guard (4), status page (2)
+  - TTL purge helpers for sessions / device codes / oauth pending signups (+ optional
+    `pg_cron` scheduler that returns false when the extension is unavailable)
+  - Static tests: `test/postgres-schema-parity.test.ts`; optional live constraints:
+    `test/postgres-parity-constraints.test.ts`
+- **Done (0005):** Policy + collaboration integration tables (`drizzle/0005_policy_and_integrations.sql`):
+  `policy_documents`, `integration_bindings`, `collaboration_message_refs` (+ enums,
+  RLS deny-all baseline). Matches `models/PolicyDocument.ts` / `models/IntegrationBinding.ts`.
+- **Backend selection (latch + per-table flags):** Global postgres requires
+  `BEHALFID_ALLOW_POSTGRES_RUNTIME=true`. Per-aggregate overrides use
+  `BEHALFID_REPO_BACKEND_<AGGREGATE>` (`mongo`|`postgres`). See §13 PR A / §14 rollback.
+- **Not done yet:** CI job that applies migrations against live Postgres; enabling `pg_cron`
+  in the target deployment; completing method-level parity on Postgres adapters (lazy Mongoose
+  helpers and some edge APIs still throw “not implemented on postgres”).
+- Connection module (`lib/db/postgres/index.ts`) exists; composition may call it only when
+  the latch + backend flags select postgres.
+- **Next after B′:** Close method-level adapter gaps and pass `test/repository-contracts/*`
+  under Postgres before any production cutover. Default runtime remains Mongo.
+- **Production cutover is still not approved** (latch must stay unset in prod until then).
 
-### PR C — Data export/import scripts
+### PR C — Data export/import scripts ✅ *shipped (tooling)*
 
-- `scripts/migration/export-mongo.ts` → NDJSON per collection with transform
+- **Done:** `scripts/migration/export-mongo.ts` → NDJSON per collection with transform
   (ObjectId/`_id` dropped, dates → ISO, embedded arrays split into child-table rows).
-- `scripts/migration/import-postgres.ts` → `COPY`-based bulk load, FK-ordered
-  (accounts → users → memberships → agents → …), with `ON CONFLICT DO NOTHING`
-  idempotency so re-runs are safe.
-- Pre-flight data-quality report (risk #5) + post-import verification (row counts,
-  per-table checksums over stable columns, spot-sample deep equality).
+- **Done:** `scripts/migration/import-postgres.ts` → FK-ordered bulk insert via postgres.js,
+  `ON CONFLICT DO NOTHING` idempotency so re-runs are safe.
+- **Done:** `scripts/migration/preflight-mongo.ts` + `scripts/migration/verify-import.ts`
+  (row counts, sample checksums, `last_activity_at` fidelity checks).
+- **Done:** Shared transforms in `scripts/migration/lib/transform.ts` +
+  `test/migration-export-transform.test.ts`.
+- **Done:** npm scripts `migration:export|preflight|import|verify`.
+- **Ops remaining:** run preflight against production Mongo and rehearse
+  export → import → verify on the Supabase staging project before any table flip.
 
 ### PR D — Non-production migration test
 
@@ -895,7 +954,8 @@ Each PR is independently shippable and reversible. **No PR changes auth.**
 ## 14. Rollback strategy
 
 - **Unit of rollback = one repository/table**, controlled by the repository factory's
-  per-table backend flag (env-driven). Rolling back is a config change + redeploy, not a
+  per-table backend flag (`BEHALFID_REPO_BACKEND_<AGGREGATE>`, env-driven) plus the global
+  latch `BEHALFID_ALLOW_POSTGRES_RUNTIME`. Rolling back is a config change + redeploy, not a
   code revert.
 - **State tables:** cut over with writes briefly paused per table (or during a
   maintenance window for `accounts`); keep the Mongo collection frozen (writes disabled
@@ -965,7 +1025,7 @@ Each PR is independently shippable and reversible. **No PR changes auth.**
 
 ## 16. Cutover checklist (per table / wave)
 
-1. ☐ PR A repository boundary live for this table; call sites use the repository only.
+1. ☑ PR A repository boundary live for this table; call sites use the repository only.
 2. ☐ Postgres schema applied in target project; constraints + indexes verified
    (`\d+`, migration smoke test green — `npm run test:postgres-smoke` against disposable DB).
 3. ☐ Pre-flight data-quality report clean (no unique-constraint violations pending,

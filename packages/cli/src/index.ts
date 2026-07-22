@@ -22,6 +22,7 @@ import { webhooksCommand } from "./commands/webhooks.js";
 import { doctorCommand } from "./commands/doctor.js";
 import { scanCommand } from "./commands/scan.js";
 import { hookCommand } from "./commands/hook.js";
+import { policyCommand } from "./commands/policy.js";
 import {
   profileCommand,
   shimLaunchCommand,
@@ -77,6 +78,8 @@ Examples:
   behalfid verify agent_xxx --action purchase -v amazon.com --amount 25
   behalfid logs tail                              stream verification logs live
   behalfid webhooks listen                        stream webhook events live
+  behalfid policy validate ./policy.yaml          validate a local guardrail policy
+  behalfid policy test ./policy.yaml --facts f.json  dry-run policy against sample facts
   behalfid doctor                                 check CLI configuration
   behalfid profile install                        install managed shims for claude/codex/cursor  // pragma: allowlist secret
   behalfid profile status                         show shim and policy status  // pragma: allowlist secret
@@ -106,6 +109,7 @@ program.addCommand(codexCommand());
 program.addCommand(cursorCommand());
 program.addCommand(internalRefreshPermissionsCommand(), { hidden: true });
 program.addCommand(webhooksCommand());
+program.addCommand(policyCommand());
 program.addCommand(doctorCommand());
 program.addCommand(profileCommand());
 program.addCommand(shimLaunchCommand(), { hidden: true });

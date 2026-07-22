@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { permissionFixture, verificationRequestFixture } from "./fixtures";
+import { loadPolicyDocument } from "@/lib/policyEngine/loadPolicy";
+import { emitApprovalRequested, emitApprovalUsed } from "@/lib/approvals/emitLifecycle";
 
 const modelMocks = vi.hoisted(() => ({
   permissionFind: vi.fn(),
@@ -39,6 +41,17 @@ vi.mock("@/models/ApprovalRequest", () => ({
   APPROVAL_GRANT_TTL_MS: 30 * 60 * 1_000
 }));
 
+vi.mock("@/lib/approvals/emitLifecycle", () => ({
+  emitApprovalRequested: vi.fn().mockResolvedValue(undefined),
+  emitApprovalApproved: vi.fn().mockResolvedValue(undefined),
+  emitApprovalDenied: vi.fn().mockResolvedValue(undefined),
+  emitApprovalUsed: vi.fn().mockResolvedValue(undefined)
+}));
+
+vi.mock("@/lib/policyEngine/loadPolicy", () => ({
+  loadPolicyDocument: vi.fn().mockResolvedValue(null)
+}));
+
 function mockPermissions(permissions: unknown[]) {
   modelMocks.permissionFind.mockReturnValue({
     sort: vi.fn().mockResolvedValue(permissions)
@@ -55,6 +68,9 @@ describe("verifyAction permission decisions", () => {
     modelMocks.approvalRequestFindOne.mockResolvedValue(null);
     modelMocks.approvalRequestFindOneAndUpdate.mockResolvedValue(null);
     modelMocks.approvalRequestUpdateOne.mockResolvedValue({ matchedCount: 1 });
+    vi.mocked(loadPolicyDocument).mockResolvedValue(null);
+    vi.mocked(emitApprovalRequested).mockClear();
+    vi.mocked(emitApprovalUsed).mockClear();
   });
 
   it("allows an active matching permission and writes a verification log", async () => {
@@ -382,6 +398,82 @@ describe("verifyAction permission decisions", () => {
       }),
       expect.objectContaining({ $setOnInsert: expect.objectContaining({ approvalId: expect.stringMatching(/^apr_/) }) }),
       { upsert: true, returnDocument: "after" }
+    );
+  });
+
+  it("auto-approves via policy engine before creating a human approval request", async () => {
+    mockPermissions([permissionFixture({ requiresApproval: true })]);
+    vi.mocked(loadPolicyDocument).mockResolvedValue({
+      accountId: "acct_test",
+      version: 1,
+      enabled: true,
+      rules: [
+        {
+          id: "auto-purchase",
+          priority: 1,
+          when: [
+            { type: "action", action: "purchase" },
+            { type: "diff_lines_lt", max: 10 },
+            { type: "ci_status", status: "success" }
+          ],
+          then: "auto_approve",
+          reason: "Small purchase change with green CI."
+        }
+      ]
+    });
+    const { verifyAction } = await import("@/lib/verify");
+
+    const decision = await verifyAction(
+      verificationRequestFixture({
+        policyContext: {
+          diff: { linesChanged: 2, files: ["cart.ts"] },
+          ci: { status: "success" }
+        }
+      })
+    );
+
+    expect(decision).toEqual(
+      expect.objectContaining({
+        allowed: true,
+        approvalRequired: false,
+        reason: 'Auto-approved by policy rule "auto-purchase".'
+      })
+    );
+    expect(modelMocks.approvalRequestFindOneAndUpdate).not.toHaveBeenCalled();
+    expect(emitApprovalRequested).not.toHaveBeenCalled();
+  });
+
+  it("emits approval.used when an approved grant is consumed", async () => {
+    const now = new Date();
+    const grantExpiresAt = new Date(now.getTime() + 25 * 60 * 1_000);
+    mockPermissions([permissionFixture({ requiresApproval: true })]);
+    modelMocks.approvalRequestFindOneAndUpdate.mockResolvedValueOnce({
+      approvalId: "apr_test",
+      requestId: "req_original",
+      accountId: "acct_test",
+      developerUserId: "dev_test",
+      kind: "agent_action",
+      agentId: "agent_test",
+      permissionId: "perm_test",
+      action: "purchase",
+      vendor: "amazon.com",
+      amount: 25,
+      argumentFingerprint: null,
+      status: "approved",
+      grantExpiresAt,
+      resolvedBy: "dev_approver"
+    });
+    const { verifyAction } = await import("@/lib/verify");
+
+    const decision = await verifyAction(verificationRequestFixture());
+
+    expect(decision.allowed).toBe(true);
+    expect(emitApprovalUsed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        approvalId: "apr_test",
+        action: "purchase",
+        resolvedBy: "dev_approver"
+      })
     );
   });
 

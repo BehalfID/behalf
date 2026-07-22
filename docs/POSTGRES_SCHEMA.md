@@ -1,9 +1,9 @@
-# Postgres Schema Reference (v1)
+# Postgres Schema Reference (v1 + Phase B′ parity)
 
-**Status:** Schema and migrations exist. **Not wired to app runtime.**
+**Status:** Schema and migrations exist through `0003_schema_parity`. **Not wired to app runtime.**
 
 Production still uses Mongo/Mongoose (`lib/db.ts`, `models/*`). This document describes the
-initial Drizzle/Postgres schema added in PR B of the migration plan (`docs/DATABASE_MIGRATION.md`).
+Drizzle/Postgres schema from PR B / Phase B′ of the migration plan (`docs/DATABASE_MIGRATION.md`).
 
 ---
 
@@ -17,7 +17,11 @@ initial Drizzle/Postgres schema added in PR B of the migration plan (`docs/DATAB
 | `drizzle.config.ts` | Drizzle Kit config (`DATABASE_URL` or `POSTGRES_URL`) |
 | `drizzle/0000_initial_behalf_schema.sql` | Initial SQL migration |
 | `drizzle/0001_workspace_slug.sql` | Adds `accounts.slug` + partial unique index |
+| `drizzle/0002_google_sso.sql` | Google SSO fields + `oauth_pending_signups` |
+| `drizzle/0003_schema_parity.sql` | Phase B′: sessions/approvals parity + remaining tables + TTL helpers |
 | `test/postgres-schema.test.ts` | Static validation (no live Postgres required) |
+| `test/postgres-schema-parity.test.ts` | Static Phase B′ parity checks |
+| `test/postgres-parity-constraints.test.ts` | Optional live unique/FK/TTL constraint tests |
 | `test/postgres-migration-smoke.test.ts` | Optional live migration smoke test (disposable DB only) |
 | `test/postgres-repository-contracts.test.ts` | Optional Postgres account/agent/membership adapter contract tests |
 | `scripts/postgres-smoke.ts` | CLI helper for the migration smoke test |
@@ -27,28 +31,70 @@ initial Drizzle/Postgres schema added in PR B of the migration plan (`docs/DATAB
 
 ---
 
-## Core tables (v1)
+## Tables (full Mongo coverage)
 
 | SQL table | Mongo model | Notes |
 |---|---|---|
-| `accounts` | Account | Tenant root; `acct_*` PK; optional `slug` (unique when set) |
-| `developer_users` | DeveloperUser | `user_*` PK (from `createPublicId("user")`) |
-| `developer_sessions` | DeveloperSession | `sess_*` PK; no TTL — future `pg_cron` cleanup |
+| `accounts` | Account | Tenant root; `acct_*` PK; optional `slug` (unique when set); `sso` JSONB |
+| `developer_users` | DeveloperUser | `user_*` PK; nullable `password_hash`; `google_sub` |
+| `oauth_pending_signups` | OAuthPendingSignup | Google signup staging; TTL cleanup helper |
+| `developer_sessions` | DeveloperSession | `last_activity_at` required (sliding inactivity); TTL cleanup helper |
 | `developer_api_tokens` | DeveloperApiToken | `tok_*` PK |
 | `account_memberships` | AccountMembership | UQ `(account_id, user_id)` |
 | `account_invites` | AccountInvite | UQ `(account_id, email, status)` |
-| `agents` | Agent | `agent_*` PK; nullable `account_id` for legacy rows |
-| `permissions` | Permission | `perm_*` PK; `constraints` → JSONB |
-| `approval_requests` | ApprovalRequest | Partial unique indexes for pending dedupe |
-| `verification_logs` | VerificationLog | High volume; no enforced FKs |
-| `webhook_endpoints` | WebhookEndpoint | `webhook_*` / `wh_*` IDs |
-| `webhook_events` | WebhookEvent | Queue table; `payload` → JSONB |
-| `managed_profile_policies` | ManagedProfilePolicy | UQ `account_id` (one per account) |
-| `managed_profile_protected_repos` | ManagedProfilePolicy.protectedRepos[] | Promoted for plan-limit counting |
+| `device_codes` | DeviceCode | UQ device/user codes; TTL cleanup helper |
+| `agents` | Agent | nullable `account_id` for legacy rows |
+| `permissions` | Permission | `constraints` → JSONB |
+| `permission_profiles` | PermissionProfile | `permissions` JSONB template snapshot |
+| `approval_requests` | ApprovalRequest | Argument fingerprint fields; pending unique includes fingerprint |
+| `verification_logs` | VerificationLog | High volume; partitioned; no enforced FKs |
+| `webhook_endpoints` | WebhookEndpoint | |
+| `webhook_events` | WebhookEvent | Queue; `payload` JSONB |
+| `webhook_deliveries` | WebhookDelivery | Log table; no enforced FKs |
+| `stripe_webhook_events` | StripeWebhookEvent | Stripe idempotency ledger |
+| `enterprise_inquiries` | EnterpriseInquiry | |
+| `managed_profile_policies` | ManagedProfilePolicy | UQ `account_id` |
+| `managed_profile_protected_repos` | ManagedProfilePolicy.protectedRepos[] | Promoted child table |
+| `cli_pause_leases` | CliPauseLease | App-level expiry only (no Mongo TTL) |
 | `cli_audit_activities` | CliAuditLog | Managed Profile activity feed |
+| `sites` | Site | UQ `(account_id, domain)` |
+| `site_access_rules` | SiteAccessRule | FK → sites CASCADE |
+| `site_access_logs` | SiteAccessLog | Log table; no enforced FKs |
+| `site_guard_keys` | SiteGuardKey | UQ `key_hash`; FK → sites CASCADE |
+| `status_components` | StatusComponent | Global |
+| `status_incidents` | StatusIncident | `updates` JSONB timeline |
 
-Remaining models (device codes, site guard, status page, billing ledger, etc.) are documented
-in `docs/DATABASE_MIGRATION.md` §5 and will be added in follow-up schema migrations.
+---
+
+## Phase B′ field additions
+
+### `developer_sessions.last_activity_at`
+
+- **Mongo:** required `Date`, default `Date.now` on insert (`models/DeveloperSession.ts`).
+- **Postgres:** `timestamptz NOT NULL DEFAULT now()`.
+- Existing rows backfilled from `created_at` in `0003_schema_parity.sql`.
+- Preserves sliding inactivity + `expires_at` refresh semantics in `lib/developerAuth.ts`
+  once a repository adapter writes this column (runtime still Mongo).
+
+### `approval_requests` argument binding
+
+| Column | Mongo field |
+|---|---|
+| `argument_kind` | `argumentKind` (`command` \| `file_path`) |
+| `argument_fingerprint` | `argumentFingerprint` |
+| `argument_preview` | `argumentPreview` |
+| `argument_preview_truncated` | `argumentPreviewTruncated` |
+| `used_at` | `usedAt` |
+
+Pending unique index (recreated in `0003`):
+
+```sql
+UNIQUE NULLS NOT DISTINCT
+  (agent_id, permission_id, action, vendor, amount, argument_fingerprint)
+WHERE status = 'pending' AND kind = 'agent_action'
+```
+
+Mirrors Mongo `approval_pending_tuple_unique` so distinct commands/paths cannot collide.
 
 ---
 
@@ -62,73 +108,94 @@ in `docs/DATABASE_MIGRATION.md` §5 and will be added in follow-up schema migrat
 ## Tenant boundary
 
 Every tenant-scoped table includes `account_id TEXT` with at least one index leading on
-`account_id`. State tables use enforced foreign keys to `accounts(account_id)`. Log/event
-tables (`verification_logs`, `cli_audit_activities`) use logical references only — no FK
-to avoid hot-path write overhead and to retain audit rows after parent deletion.
+`account_id` (except global tables and identity helpers). State tables use enforced foreign keys
+to `accounts(account_id)`. Log/event tables (`verification_logs`, `cli_audit_activities`,
+`webhook_deliveries`, `site_access_logs`) use logical references only.
 
 ---
 
 ## JSONB vs relational
 
-**JSONB** (opaque, read-whole): `onboarding`, `constraints`, `metadata`, `payload`,
-`work_hours`, `tool_modes`, `pause_policy`, audit `metadata`.
+**JSONB** (opaque, read-whole): `onboarding`, `sso`, `constraints`, `metadata`, `payload`,
+`work_hours`, `tool_modes`, `pause_policy`, permission profile `permissions`,
+status incident `updates`, audit `metadata`.
 
-**Relational** (queried/counted): `managed_profile_protected_repos` — protected repo count
-is a billed plan limit (`checkProtectedRepoLimit`).
+**Relational** (queried/counted): `managed_profile_protected_repos`.
+
+**TEXT[]:** agent guidelines, permission action lists, webhook events, site path arrays,
+status incident `component_ids`.
 
 ---
 
 ## Indexes & constraints
 
 - Plan, role, status, and mode enums: `TEXT` + `CHECK (… IN (…))` (not native PG enums).
-- `accounts.slug`: optional workspace URL identity; `CHECK (slug IS NULL OR length(slug) <= 63)`;
-  partial unique index `accounts_slug_uq` where `slug IS NOT NULL`.
-- Partial unique indexes on `approval_requests` for pending tuple dedupe (`NULLS NOT DISTINCT`).
-- `verification_logs`: composite PK `(log_id, created_at)`, composite UQ
-  `(request_id, created_at)`, plus `(account_id, created_at)`,
-  `(account_id, agent_id, created_at)`, `(agent_id, created_at)`, and `(allowed)`.
-- `managed_profile_protected_repos`: PK `(policy_id, repo_hash)`, UQ `(account_id, repo_hash)`.
+- `accounts.slug`: optional; partial unique where `slug IS NOT NULL`.
+- Partial unique indexes on `approval_requests` for pending tuple dedupe (`NULLS NOT DISTINCT`),
+  including `argument_fingerprint` for agent actions.
+- `sites`: UQ `(account_id, domain)`; `site_guard_keys`: UQ `key_hash`;
+  `device_codes`: UQ `device_code`, UQ `user_code`.
+- `verification_logs`: composite PK `(log_id, created_at)` (partitioned).
+
+---
+
+## TTL cleanup (Mongo `expireAfterSeconds: 0`)
+
+| Mongo collection | Column | Cleanup function |
+|---|---|---|
+| DeveloperSession | `expiresAt` | `behalf_purge_expired_developer_sessions` |
+| DeviceCode | `expiresAt` | `behalf_purge_expired_device_codes` |
+| OAuthPendingSignup | `expiresAt` | `behalf_purge_expired_oauth_pending_signups` |
+
+Orchestrator: `behalf_run_ttl_cleanup(schema, batch_size)`.
+
+**Application-level expiry checks remain authoritative** (auth/device/oauth code already
+filters on `expires_at > now()`). TTL functions are storage hygiene only.
+
+### Scheduling (`pg_cron`) — operator step
+
+`pg_cron` is **not** assumed enabled. After migrations on a Supabase/Postgres project:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+SELECT public.behalf_schedule_ttl_cleanup('public');
+-- also (from 0000):
+SELECT public.behalf_schedule_verification_log_maintenance('public');
+```
+
+`behalf_schedule_ttl_cleanup` returns `false` when `pg_cron` is unavailable (smoke tests
+assert this). Schedule is every 15 minutes when enabled.
+
+`CliPauseLease.expiresAt` has **no** Mongo TTL — app-level expiry only; no purge function.
 
 ---
 
 ## High-volume logs
 
-`verification_logs` is declaratively RANGE-partitioned by UTC calendar month on
-`created_at`. The initial migration creates the preceding 13 months, the current month,
-three future months, and a default fail-safe partition. Security-definer maintenance
-functions are executable only by their owner and provide:
-
-- daily future-partition creation;
-- batched plan-aware retention with a 30-day grace window;
-- removal of empty partitions older than the maximum 365-day retention plus grace; and
-- idempotent named `pg_cron` scheduling.
-
-`pg_cron` remains an explicit database-operator choice so the migration also works on
-vanilla Postgres. In the production `public` schema, enable and schedule it with an owner
-or service-role connection:
-
-```sql
-CREATE EXTENSION IF NOT EXISTS pg_cron;
-SELECT public.behalf_schedule_verification_log_maintenance('public');
-```
-
-The scheduler installs a partition-maintenance job at 00:15 UTC and a retention job at
-02:30 UTC. Query-time retention remains the correctness layer.
+`verification_logs` remains RANGE-partitioned by UTC month (see prior v1 docs). Query-time
+retention remains the correctness layer; physical purge is optional via maintenance functions.
 
 ---
 
 ## Row Level Security (RLS)
 
-All v1 tables have `ENABLE ROW LEVEL SECURITY` with **no policies** (deny-all for
-`anon` / `authenticated` PostgREST roles). Server-side connections using the service role
-bypass RLS. This is safe while runtime does not connect to Postgres.
-
-Real tenant RLS policies are deferred until (if ever) Supabase Auth and client-side queries
-are adopted — both explicitly out of scope.
+All tables have `ENABLE ROW LEVEL SECURITY` with **no policies** (deny-all for
+`anon` / `authenticated`). Server-side service-role connections bypass RLS.
+Real tenant RLS policies remain deferred until Supabase Auth + client queries (out of scope).
 
 ---
 
-## Tooling
+## Migration apply / preflight
+
+Forward-only chain: `0000` → `0001` → `0002` → `0003`.
+
+**Preflight before applying `0003` to a populated database:**
+
+1. Confirm no two *pending* `agent_action` rows share the same
+   `(agent_id, permission_id, action, vendor, amount)` under the *prior* unique index
+   (already enforced). Adding `argument_fingerprint` only narrows uniqueness further.
+2. Expect `last_activity_at` backfill from `created_at` for existing sessions.
+3. No destructive transforms; additive columns/tables/indexes only.
 
 ```bash
 # Generate migration from schema changes (requires DATABASE_URL)
@@ -143,55 +210,25 @@ npm run db:studio
 
 `npm run build` does **not** require a database connection.
 
-`npx vitest run` skips the live migration smoke test unless explicitly enabled (see below).
-
 Environment variables (not committed):
 
 - `DATABASE_URL` or `POSTGRES_URL` — Postgres connection string for migration tooling only.
-- `POSTGRES_TEST_URL` — preferred URL for the optional migration smoke test (disposable database).
-- `RUN_POSTGRES_MIGRATION_SMOKE=true` — gate to run the live migration smoke test.
+- `POSTGRES_TEST_URL` — preferred URL for optional live tests (disposable database).
+- `RUN_POSTGRES_MIGRATION_SMOKE=true` — gate for smoke + parity constraint tests.
+- `RUN_POSTGRES_REPOSITORY_CONTRACTS=true` — gate for repository contract tests.
 
 ---
 
 ## Migration smoke test (optional)
 
-The smoke test applies `drizzle/0000_initial_behalf_schema.sql` and
-`drizzle/0001_workspace_slug.sql` against a **disposable**
-Postgres database, verifies all 15 core tables, RLS, critical indexes (including approval
-partial unique indexes, `accounts_slug_uq`, and `managed_profile_protected_repos`
-`(account_id, repo_hash)`), and confirms the verification-log parent, monthly/default
-partitions, composite constraints, and maintenance functions. It does **not** change app
-runtime behavior — production still uses Mongo/Mongoose.
-
-**Safety:** the test creates a temporary schema (`behalf_smoke_<timestamp>`), sets
-`search_path`, runs the migration inside that schema, then drops the schema. It never runs
-`DROP DATABASE` or wipes a shared database's `public` schema. Still, only point
-`POSTGRES_TEST_URL` at a throwaway local/staging Supabase project or CI database — never
-production.
+Applies `0000`–`0003` inside a disposable schema, verifies all tables, RLS, critical indexes
+(including fingerprint-aware approval unique), verification-log partitions, retention helpers,
+and TTL cleanup (expired session purged; current retained).
 
 ```bash
-# Preferred: dedicated disposable URL
 POSTGRES_TEST_URL='postgres://user:pass@localhost:5432/behalf_smoke' \
   npm run test:postgres-smoke
-
-# Equivalent vitest invocation
-RUN_POSTGRES_MIGRATION_SMOKE=true \
-  POSTGRES_TEST_URL='postgres://...' \
-  npx vitest run test/postgres-migration-smoke.test.ts
-
-# CLI helper (sets RUN_POSTGRES_MIGRATION_SMOKE via npm script; URL still required)
-POSTGRES_TEST_URL='postgres://...' tsx scripts/postgres-smoke.ts
 ```
-
-`DATABASE_URL` is accepted as a fallback when `POSTGRES_TEST_URL` is unset, but a dedicated
-disposable URL is strongly recommended.
-
-**Gate:** skipped by default. `npx vitest run`, `npm run build`, and `npx tsc --noEmit` do
-not require Postgres.
-
-**Prerequisite for Postgres adapters:** passing this smoke test (plus static schema tests and
-`test/repository-contracts/*`) is required before trusting Postgres repository adapters —
-runtime cutover remains a separate, unapproved step.
 
 ---
 
@@ -203,45 +240,47 @@ Test-only Drizzle adapters live under `lib/repositories/postgres/`:
 |---|---|---|
 | `accounts.ts` | `findAccountById`, `findAccountBySlug`, `resetVerificationPeriod`, `incrementVerificationCount` | `lib/repositories/accounts.ts` |
 | `agents.ts` | `countAgentsByAccountId`, `countAgentsByScope` | `lib/repositories/agents.ts` |
-| `memberships.ts` | `countBillableSeatsByAccountId`, `findMembershipByAccountAndUser`, `findMembershipsByAccountId`, `createMembership`, `updateMembershipRole`, `deleteMembership`, `findPendingInvitesByAccountId`, `upsertPendingInvite` | `lib/repositories/memberships.ts` |
+| `memberships.ts` | membership/invite helpers | `lib/repositories/memberships.ts` |
 
 **Important:**
 
 - Adapters are **not** exported from `lib/repositories/index.ts` — app runtime still imports Mongo repositories.
-- Adapters accept a `BehalfPostgresDb` instance (schema-isolated contract test connection); they do not call `getPostgresDb()` at import time.
-- Managed profiles, permissions, approvals, logs, and webhooks are **not** implemented yet.
 - **Runtime cutover is still not approved.**
-
-### Repository contract tests (optional)
-
-```bash
-# Preferred: dedicated disposable URL
-POSTGRES_TEST_URL='postgres://user:pass@localhost:5432/behalf_contract' \
-  npm run test:postgres-repositories
-
-# Equivalent vitest invocation
-RUN_POSTGRES_REPOSITORY_CONTRACTS=true \
-  POSTGRES_TEST_URL='postgres://...' \
-  npx vitest run test/postgres-repository-contracts.test.ts
-```
-
-The test creates a temporary schema (`behalf_contract_<timestamp>`), applies
-`drizzle/0000_initial_behalf_schema.sql`, seeds rows with Drizzle, runs the shared account,
-agent, and membership contracts from `test/repository-contracts/`, truncates between examples,
-then drops the schema. It never runs `DROP DATABASE` or wipes a shared `public` schema.
-
-**Gate:** skipped by default. `DATABASE_URL` / `POSTGRES_URL` are accepted when
-`POSTGRES_TEST_URL` is unset, but a disposable URL is strongly recommended.
-
-Future adapters must pass the same repository contracts before any runtime cutover is considered.
 
 ---
 
-## Next steps
+## Phase A runtime boundary (shipped)
 
-1. ~~Postgres repository adapters for accounts + agents (test-only; must pass `test/repository-contracts/*`).~~ **Done (v1).**
-2. ~~Postgres repository adapters for memberships and invites (test-only).~~ **Done (v2).**
-3. Postgres repository adapters for managed profiles, then permissions/approvals/logs.
-4. Export/import scripts (PR C).
-5. Staging dual-read rehearsal (PR D).
-6. Per-table runtime cutover (PR E/F) — **not approved yet**.
+Application routes and domain services must not import `@/models/*`. Persistence goes through
+`lib/repositories/*` with Mongo implementations. Composition: `getRepositories()` /
+`resolveRepositoryBackend()` — Postgres runtime selection throws.
+
+### Intentional direct Mongo usage
+
+| Location | Reason |
+|---|---|
+| `lib/repositories/**` | Mongo repository implementations |
+| `lib/db.ts` | Connection cache (`MONGODB_URI`) |
+| `app/api/health/db/route.ts`, `app/api/console/settings/route.ts` | `readyState` diagnostics |
+| `scripts/**` | Export/backfill/seed/maintenance |
+| `test/**` | Fixtures, integration seeds, contracts |
+| `models/*.ts` | Schema definitions for repositories/tests |
+
+### Pre-cutover follow-ups
+
+1. During Mongo → Postgres import, populate `developer_sessions.last_activity_at` from live Mongo
+   `lastActivityAt` when available (do not rely solely on the migration’s `created_at` backfill).
+
+_Resolved:_ the stricter managed-profile-pause Postgres unique constraint is dropped by
+migration `0004_managed_profile_pause_index_parity`, restoring Mongo parity (non-unique lookup
+index only).
+
+---
+
+## Remaining work before runtime cutover
+
+1. Postgres adapters + contract tests for remaining aggregates (permissions, approvals, logs, webhooks, auth).
+2. Export/import scripts (PR C) + staging dual-read (PR D).
+3. Enable `pg_cron` scheduling in the target project.
+4. Per-table cutover (PR E/F) — **not approved yet**.
+5. Do **not** adopt Supabase Auth / browser clients in the same effort.

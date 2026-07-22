@@ -8,13 +8,30 @@ import {
   type ApprovalIntent
 } from "@/lib/approvalIntent";
 import {
+  emitApprovalRequested,
+  emitApprovalUsed
+} from "@/lib/approvals/emitLifecycle";
+import {
   extractAuthorizationContext,
   listContextMatches
 } from "@/lib/adaptiveDelegation/context";
 import { isAbsolutePath, lexicalNormalizePath } from "@/lib/pathCanonical";
-import ApprovalRequest from "@/models/ApprovalRequest";
-import Permission, { type PermissionDocument } from "@/models/Permission";
-import VerificationLog from "@/models/VerificationLog";
+import {
+  buildPolicyFacts,
+  evaluateGuardrailRules,
+  loadPolicyDocument,
+  type PolicyEvaluation
+} from "@/lib/policyEngine";
+import {
+  consumeApprovedGrant,
+  upsertPendingAgentAction
+} from "@/lib/repositories/approvals";
+import {
+  findMatchingForVerify,
+  updatePermission
+} from "@/lib/repositories/permissions";
+import { createLog } from "@/lib/repositories/verificationLogs";
+import type { PermissionLean as PermissionDocument } from "@/lib/repositories/permissions";
 
 export { lexicalNormalizePath } from "@/lib/pathCanonical";
 
@@ -37,6 +54,10 @@ export type PolicyContext = {
   home?: string;
   toolInput?: PolicyToolInput;
   tool_input?: PolicyToolInput | string;
+  /** Optional diff facts for guardrail evaluation (not persisted). */
+  diff?: { linesChanged?: number; lines_changed?: number; files?: string[] };
+  /** Optional CI facts for guardrail evaluation (not persisted). */
+  ci?: { status?: string; conclusion?: string; checks?: string[] };
 };
 
 type VerifyInput = {
@@ -551,14 +572,7 @@ function evaluatePermissions(permissions: PermissionDocument[], input: VerifyInp
 
 async function findMatchingPermissions(input: VerifyInput) {
   if (input.agentStatus === "disabled") return [];
-  return Permission.find({
-    agentId: input.agentId,
-    $or: [
-      { action: input.action },
-      { allowedActions: input.action },
-      { blockedActions: input.action }
-    ]
-  }).sort({ createdAt: -1 });
+  return findMatchingForVerify(input.agentId, input.action);
 }
 
 function resolveIntentForInput(input: VerifyInput): ApprovalIntent | null {
@@ -570,15 +584,6 @@ function resolveIntentForInput(input: VerifyInput): ApprovalIntent | null {
     cwd: extractCwd(input),
     home: extractHome(input)
   });
-}
-
-function isDuplicateKeyError(error: unknown): boolean {
-  return Boolean(
-    error &&
-      typeof error === "object" &&
-      "code" in error &&
-      (error as { code?: number }).code === 11000
-  );
 }
 
 /**
@@ -605,30 +610,49 @@ async function resolveApprovalGate(
   // 1. Atomically consume an approved, non-expired grant for this exact tuple.
   //    findOneAndUpdate with status:"approved" ensures only one concurrent
   //    retry can win; usedAt records consumption without overwriting resolvedAt.
-  const grant = await ApprovalRequest.findOneAndUpdate(
-    {
-      agentId: input.agentId,
-      permissionId,
-      action: input.action,
-      vendor: input.vendor ?? null,
-      amount: input.amount ?? null,
-      argumentFingerprint,
-      status: "approved",
-      grantExpiresAt: { $gt: now }
-    },
-    {
-      $set: {
-        status: "used",
-        usedAt: now
-      }
-    },
-    { returnDocument: "before" }
-  );
+  const grant = await consumeApprovedGrant({
+    agentId: input.agentId,
+    permissionId,
+    action: input.action,
+    vendor: input.vendor ?? null,
+    amount: input.amount ?? null,
+    argumentFingerprint
+  }, now);
 
   // Defense in depth is encoded in the query filter (exact tuple + fingerprint).
   // A returned document means this request uniquely consumed the grant.
   if (grant) {
-    return { granted: true };
+    const grantApprovalId =
+      typeof grant.approvalId === "string" ? grant.approvalId : undefined;
+    if (grantApprovalId) {
+      await emitApprovalUsed({
+        accountId: input.accountId ?? (grant.accountId as string | undefined),
+        developerUserId:
+          input.developerUserId ?? (grant.developerUserId as string | undefined),
+        approvalId: grantApprovalId,
+        kind: typeof grant.kind === "string" ? grant.kind : "agent_action",
+        agentId: input.agentId,
+        permissionId,
+        action: input.action,
+        vendor: input.vendor,
+        amount: input.amount,
+        argumentPreview:
+          typeof grant.argumentPreview === "string" ? grant.argumentPreview : intent?.preview,
+        requiredAuthorityLevel:
+          typeof grant.requiredAuthorityLevel === "number"
+            ? grant.requiredAuthorityLevel
+            : requiredAuthorityLevel,
+        grantExpiresAt:
+          grant.grantExpiresAt instanceof Date
+            ? grant.grantExpiresAt
+            : typeof grant.grantExpiresAt === "string"
+              ? grant.grantExpiresAt
+              : undefined,
+        resolvedBy: typeof grant.resolvedBy === "string" ? grant.resolvedBy : undefined,
+        requestId: typeof grant.requestId === "string" ? grant.requestId : requestId
+      });
+    }
+    return { granted: true, approvalId: grantApprovalId };
   }
 
   // 2. Upsert a pending ApprovalRequest (idempotent — only creates if one
@@ -659,20 +683,98 @@ async function resolveApprovalGate(
     setOnInsert.argumentPreviewTruncated = intent.previewTruncated;
   }
 
-  let pending;
-  try {
-    pending = await ApprovalRequest.findOneAndUpdate(
-      pendingFilter,
-      { $setOnInsert: setOnInsert },
-      { upsert: true, returnDocument: "after" }
-    );
-  } catch (error) {
-    if (!isDuplicateKeyError(error)) throw error;
-    // Concurrent upsert raced the partial unique index — reuse the winner.
-    pending = await ApprovalRequest.findOne(pendingFilter);
+  const pending = await upsertPendingAgentAction(pendingFilter, setOnInsert);
+  const approvalId =
+    typeof pending?.approvalId === "string" ? pending.approvalId : undefined;
+
+  // Fresh pending rows use this verify call's requestId via $setOnInsert.
+  // Reused pending rows keep their original requestId — skip duplicate emits.
+  const pendingRequestId =
+    typeof pending?.requestId === "string" ? pending.requestId : undefined;
+  if (approvalId && pendingRequestId === requestId) {
+    await emitApprovalRequested({
+      accountId: input.accountId,
+      developerUserId: input.developerUserId,
+      approvalId,
+      kind: "agent_action",
+      agentId: input.agentId,
+      permissionId,
+      action: input.action,
+      vendor: input.vendor,
+      amount: input.amount,
+      argumentPreview: intent?.preview,
+      requiredAuthorityLevel,
+      requestId
+    });
   }
 
-  return { granted: false, approvalId: (pending?.approvalId as string | undefined) };
+  return { granted: false, approvalId };
+}
+
+/**
+ * Run account guardrail rules before the human approval gate.
+ * Returns null when no PolicyDocument is configured (backward-compatible).
+ */
+async function evaluateAccountGuardrails(
+  input: VerifyInput,
+  decision: RawDecision
+): Promise<PolicyEvaluation | null> {
+  const document = await loadPolicyDocument(input.accountId);
+  if (!document || !document.enabled || document.rules.length === 0) {
+    return null;
+  }
+
+  const filePath = extractFilePathForPolicy(input);
+  const paths = filePath
+    ? pathMatchCandidates(filePath, extractCwd(input), extractHome(input))
+    : [];
+
+  const facts = buildPolicyFacts({
+    action: input.action,
+    vendor: input.vendor,
+    paths,
+    command: extractCommandForPolicy(input),
+    risk: decision.risk,
+    permissionRequiresApproval: decision.approvalRequired === true,
+    metadata: input.metadata,
+    policyContext: input.policyContext as Record<string, unknown> | undefined
+  });
+
+  return evaluateGuardrailRules(document.rules, facts);
+}
+
+function decisionFromGuardrail(evaluation: PolicyEvaluation): RawDecision | null {
+  switch (evaluation.outcome) {
+    case "allow":
+      return {
+        allowed: true,
+        reason: evaluation.matchedRuleId
+          ? `Allowed by policy rule "${evaluation.matchedRuleId}".`
+          : evaluation.reason,
+        risk: "low"
+      };
+    case "auto_approve":
+      return {
+        allowed: true,
+        reason: evaluation.matchedRuleId
+          ? `Auto-approved by policy rule "${evaluation.matchedRuleId}".`
+          : evaluation.reason,
+        risk: "low"
+      };
+    case "deny":
+      return {
+        allowed: false,
+        reason: evaluation.reason,
+        risk: "high"
+      };
+    case "require_human":
+      return null;
+    default: {
+      const _exhaustive: never = evaluation.outcome;
+      void _exhaustive;
+      return null;
+    }
+  }
 }
 
 export async function verifyAction(input: VerifyInput) {
@@ -703,13 +805,13 @@ export async function verifyAction(input: VerifyInput) {
     recordAgentKeyUse(input.agentId);
 
     if (permission) {
-      await Permission.updateOne(
+      await updatePermission(
         { permissionId: permission.permissionId },
         { $set: { lastUsedAt: now } }
       );
     }
 
-    await VerificationLog.create({
+    await createLog({
       logId: createPublicId("log"),
       requestId,
       accountId: input.accountId,
@@ -749,31 +851,53 @@ export async function verifyAction(input: VerifyInput) {
   // Resolve approval gate: if the permission requires approval, check for a
   // granted approval or upsert a pending request. Bindable actions require a
   // usable command/path target — missing targets deny without creating a request.
+  // Guardrail rules (when a PolicyDocument exists) may allow, auto-approve, or
+  // deny before a human ApprovalRequest is created.
   let approvalId: string | null = null;
   if (decision.approvalRequired && permission) {
-    const intent = resolveIntentForInput(input);
-    if (isBindableAgentAction(input.action) && !intent) {
-      decision = {
-        allowed: false,
-        reason: APPROVAL_TARGET_REQUIRED_REASON,
-        risk: "high"
-      };
-    } else {
-      try {
-        const gate = await resolveApprovalGate(
-          requestId,
-          input,
-          permission.permissionId,
-          getEffectiveRequiredAuthority(permission),
-          intent
-        );
-        if (gate.granted) {
-          decision = { allowed: true, reason: "Action allowed by approved permission grant.", risk: "low" };
-        } else {
-          approvalId = gate.approvalId ?? null;
+    let skipHumanGate = false;
+    try {
+      const guardrail = await evaluateAccountGuardrails(input, decision);
+      if (guardrail) {
+        const overridden = decisionFromGuardrail(guardrail);
+        if (overridden) {
+          decision = overridden;
+          skipHumanGate = true;
         }
-      } catch {
-        // Fail closed: if approval resolution fails, keep the denied decision
+      }
+    } catch {
+      // Fail closed to the existing human approval path if policy evaluation throws.
+    }
+
+    if (!skipHumanGate) {
+      const intent = resolveIntentForInput(input);
+      if (isBindableAgentAction(input.action) && !intent) {
+        decision = {
+          allowed: false,
+          reason: APPROVAL_TARGET_REQUIRED_REASON,
+          risk: "high"
+        };
+      } else {
+        try {
+          const gate = await resolveApprovalGate(
+            requestId,
+            input,
+            permission.permissionId,
+            getEffectiveRequiredAuthority(permission),
+            intent
+          );
+          if (gate.granted) {
+            decision = {
+              allowed: true,
+              reason: "Action allowed by approved permission grant.",
+              risk: "low"
+            };
+          } else {
+            approvalId = gate.approvalId ?? null;
+          }
+        } catch {
+          // Fail closed: if approval resolution fails, keep the denied decision
+        }
       }
     }
   }
@@ -786,13 +910,13 @@ export async function verifyAction(input: VerifyInput) {
   recordAgentKeyUse(input.agentId);
 
   if (permission) {
-    await Permission.updateOne(
+    await updatePermission(
       { permissionId: permission.permissionId },
       { $set: { lastUsedAt: now } }
     );
   }
 
-  await VerificationLog.create({
+  await createLog({
     logId: createPublicId("log"),
     requestId,
     accountId: input.accountId,

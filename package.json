@@ -20,6 +20,7 @@
     "check:ollama": "node scripts/check-ollama-config.js",
     "ollama:proxy": "node scripts/ollama-secure-proxy.js",
     "build:cli": "npm --prefix packages/cli run build",
+    "build:egress-proxy": "npm --prefix packages/egress-proxy run build",
     "test:sdk:pack": "bash scripts/test-sdk-pack.sh",
     "test:live": "RUN_LIVE_TESTS=true vitest run --config vitest.live.config.ts",
     "seed:live-test": "tsx scripts/seed-live-test-permission.ts",
@@ -31,7 +32,12 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "test:postgres-smoke": "tsx scripts/postgres-smoke.ts",
-    "test:postgres-repositories": "RUN_POSTGRES_REPOSITORY_CONTRACTS=true vitest run test/postgres-repository-contracts.test.ts"
+    "test:postgres-repositories": "RUN_POSTGRES_REPOSITORY_CONTRACTS=true vitest run test/postgres-repository-contracts.test.ts",
+    "migration:export": "tsx scripts/migration/export-mongo.ts",
+    "migration:preflight": "tsx scripts/migration/preflight-mongo.ts",
+    "migration:import": "tsx scripts/migration/import-postgres.ts",
+    "migration:verify": "tsx scripts/migration/verify-import.ts",
+    "migration:reverse-sync": "tsx scripts/migration/reverse-sync.ts"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",

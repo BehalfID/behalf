@@ -53,14 +53,55 @@ export const PERMISSION_STATUSES = ["active", "revoked"] as const;
 
 export const APPROVAL_KINDS = ["agent_action", "managed_profile_pause"] as const;
 export const APPROVAL_STATUSES = ["pending", "approved", "denied", "used"] as const;
+export const APPROVAL_ARGUMENT_KINDS = ["command", "file_path"] as const;
 export const PAUSE_SCOPES = ["current_repo", "all"] as const;
 
 export const RISK_LEVELS = ["low", "medium", "high"] as const;
 
 export const WEBHOOK_ENDPOINT_STATUSES = ["active", "disabled"] as const;
 export const WEBHOOK_EVENT_STATUSES = ["pending", "processing", "completed", "failed"] as const;
+export const WEBHOOK_DELIVERY_STATUSES = ["success", "failed"] as const;
+
+export const DEVICE_CODE_STATUSES = ["pending", "authorized", "denied"] as const;
+
+export const PERMISSION_PROFILE_STATUSES = ["active", "archived"] as const;
+
+export const ENTERPRISE_INQUIRY_STATUSES = ["new", "reviewed"] as const;
+
+export const SITE_STATUSES = ["active", "disabled"] as const;
+export const SITE_GUARD_KEY_STATUSES = ["active", "revoked"] as const;
+
+export const STATUS_COMPONENT_STATUSES = [
+  "operational",
+  "performance_issues",
+  "partial_outage",
+  "major_outage"
+] as const;
+export const STATUS_INCIDENT_STATUSES = [
+  "investigating",
+  "identified",
+  "watching",
+  "fixed"
+] as const;
+export const STATUS_INCIDENT_SEVERITIES = ["minor", "major", "critical"] as const;
 
 export const MANAGED_PROFILE_MODES = ["unmanaged", "managed", "required"] as const;
+
+export const POLICY_DECISION_OUTCOMES = [
+  "allow",
+  "auto_approve",
+  "require_human",
+  "deny"
+] as const;
+
+export const INTEGRATION_PROVIDERS = ["slack"] as const;
+export const INTEGRATION_BINDING_STATUSES = ["active", "disabled"] as const;
+export const COLLABORATION_MESSAGE_STATUSES = [
+  "pending",
+  "approved",
+  "denied",
+  "used"
+] as const;
 
 export const CLI_AUDIT_EVENT_TYPES = [
   "cli_session_policy",
