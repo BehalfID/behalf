@@ -20,7 +20,14 @@ function getDashboardSubpath(pathname: string): string {
 
 export function getDashboardContentVariant(pathname: string): DashboardContentVariant {
   const subpath = getDashboardSubpath(pathname);
-  if (subpath === "/logs" || subpath === "/approvals" || subpath === "/inbox") return "wide";
+  if (
+    subpath === "/logs" ||
+    subpath === "/approvals" ||
+    subpath === "/inbox" ||
+    subpath === "/adaptive-delegation"
+  ) {
+    return "wide";
+  }
   if (subpath === "/managed-profiles/activity") return "activity";
   if (subpath === "/onboarding" || subpath === "/agents/new") return "focused";
   if (/^\/(agents|webhooks)\/[^/]+$/.test(subpath)) return "detail";

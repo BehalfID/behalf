@@ -28,6 +28,12 @@ export function buildClassificationInput(
     allowedPaths?: string[];
     deniedPaths?: string[];
     deniedCommands?: string[];
+    allowedBranches?: string[];
+    deniedBranches?: string[];
+    allowedEnvironments?: string[];
+    deniedEnvironments?: string[];
+    allowedRepositories?: string[];
+    deniedRepositories?: string[];
   }
 ): PermissionClassificationInput {
   return {
@@ -114,13 +120,40 @@ export async function parsePermissionBody(body: PermissionBody) {
     deniedCommands = constraints.deniedCommands.map((c: string) => c.trim());
   }
 
+  function parseStringList(field: string, value: unknown): { values?: string[]; error?: ReturnType<typeof jsonError> } {
+    if (value === undefined) return {};
+    if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || !item.trim())) {
+      return { error: jsonError(`${field} must be an array of non-empty strings.`) };
+    }
+    return { values: value.map((item: string) => item.trim()) };
+  }
+
+  const allowedBranches = parseStringList("allowedBranches", constraints.allowedBranches);
+  if (allowedBranches.error) return { error: allowedBranches.error };
+  const deniedBranches = parseStringList("deniedBranches", constraints.deniedBranches);
+  if (deniedBranches.error) return { error: deniedBranches.error };
+  const allowedEnvironments = parseStringList("allowedEnvironments", constraints.allowedEnvironments);
+  if (allowedEnvironments.error) return { error: allowedEnvironments.error };
+  const deniedEnvironments = parseStringList("deniedEnvironments", constraints.deniedEnvironments);
+  if (deniedEnvironments.error) return { error: deniedEnvironments.error };
+  const allowedRepositories = parseStringList("allowedRepositories", constraints.allowedRepositories);
+  if (allowedRepositories.error) return { error: allowedRepositories.error };
+  const deniedRepositories = parseStringList("deniedRepositories", constraints.deniedRepositories);
+  if (deniedRepositories.error) return { error: deniedRepositories.error };
+
   const parsedConstraints = {
     maxAmount,
     allowedVendors,
     expiresAt,
     allowedPaths,
     deniedPaths,
-    deniedCommands
+    deniedCommands,
+    allowedBranches: allowedBranches.values,
+    deniedBranches: deniedBranches.values,
+    allowedEnvironments: allowedEnvironments.values,
+    deniedEnvironments: deniedEnvironments.values,
+    allowedRepositories: allowedRepositories.values,
+    deniedRepositories: deniedRepositories.values
   };
 
   const classificationInput = buildClassificationInput(action, metadata, parsedConstraints);
