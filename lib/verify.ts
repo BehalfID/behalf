@@ -8,15 +8,13 @@ import {
   type ApprovalIntent
 } from "@/lib/approvalIntent";
 import {
-<<<<<<< HEAD
   emitApprovalRequested,
   emitApprovalUsed
 } from "@/lib/approvals/emitLifecycle";
-=======
+import {
   extractAuthorizationContext,
   listContextMatches
 } from "@/lib/adaptiveDelegation/context";
->>>>>>> origin/main
 import { isAbsolutePath, lexicalNormalizePath } from "@/lib/pathCanonical";
 import {
   buildPolicyFacts,
