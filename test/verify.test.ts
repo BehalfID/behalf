@@ -1049,6 +1049,88 @@ describe("argument-level constraints (path and command)", () => {
   });
 });
 
+describe("Stage 5 context constraints (branch/environment/repository)", () => {
+  beforeEach(() => {
+    mockPermissions([permissionFixture()]);
+    modelMocks.agentUpdateOne.mockResolvedValue({ matchedCount: 1 });
+    modelMocks.permissionUpdateOne.mockResolvedValue({ matchedCount: 1 });
+    modelMocks.verificationLogCreate.mockResolvedValue({});
+    modelMocks.approvalRequestFindOne.mockResolvedValue(null);
+    modelMocks.approvalRequestFindOneAndUpdate.mockResolvedValue(null);
+    modelMocks.approvalRequestUpdateOne.mockResolvedValue({ matchedCount: 1 });
+  });
+
+  it("allows when branch matches allowedBranches glob", async () => {
+    mockPermissions([
+      permissionFixture({
+        action: "git.commit",
+        requiresApproval: false,
+        constraints: { allowedBranches: ["feature/*"], deniedBranches: ["main"] }
+      })
+    ]);
+    const { verifyAction } = await import("@/lib/verify");
+
+    await expect(
+      verifyAction(
+        verificationRequestFixture({
+          action: "git.commit",
+          metadata: { branch: "feature/login" }
+        })
+      )
+    ).resolves.toEqual(expect.objectContaining({ allowed: true }));
+  });
+
+  it("denies when branch is blocked by deniedBranches", async () => {
+    mockPermissions([
+      permissionFixture({
+        action: "git.commit",
+        requiresApproval: false,
+        constraints: { deniedBranches: ["main", "master"] }
+      })
+    ]);
+    const { verifyAction } = await import("@/lib/verify");
+
+    await expect(
+      verifyAction(
+        verificationRequestFixture({
+          action: "git.commit",
+          metadata: { branch: "main" }
+        })
+      )
+    ).resolves.toEqual(
+      expect.objectContaining({
+        allowed: false,
+        reason: "Branch is blocked by deniedBranches constraint."
+      })
+    );
+  });
+
+  it("denies when environment is outside allowedEnvironments", async () => {
+    mockPermissions([
+      permissionFixture({
+        action: "deploy",
+        requiresApproval: false,
+        constraints: { allowedEnvironments: ["staging", "preview"] }
+      })
+    ]);
+    const { verifyAction } = await import("@/lib/verify");
+
+    await expect(
+      verifyAction(
+        verificationRequestFixture({
+          action: "deploy",
+          metadata: { environment: "production" }
+        })
+      )
+    ).resolves.toEqual(
+      expect.objectContaining({
+        allowed: false,
+        reason: "Environment is not included in allowedEnvironments constraint."
+      })
+    );
+  });
+});
+
 describe("approval grants never bypass hard constraints", () => {
   function matchingGrant(overrides: Partial<Record<string, unknown>> = {}) {
     return {

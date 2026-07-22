@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Fragment, FormEvent, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AdaptiveDelegationConsole } from "@/components/dashboard/AdaptiveDelegationConsole";
 import { OpsLogConsole } from "@/components/dashboard/OpsLogConsole";
 import { PendingActionsQueue } from "@/components/dashboard/PendingActionsQueue";
 import { DecisionIndicator } from "@/components/dashboard/OpsEventPrimitives";
@@ -490,7 +491,7 @@ export function DashboardViews({
   emailVerified = true,
   showSetupBanner = false
 }: {
-  view: "home" | "onboarding" | "first-agent" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "inbox" | "docs" | "settings" | "managed-profiles" | "managed-profiles-activity";
+  view: "home" | "onboarding" | "first-agent" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "inbox" | "docs" | "settings" | "managed-profiles" | "managed-profiles-activity" | "adaptive-delegation";
   id?: string;
   emailVerified?: boolean;
   showSetupBanner?: boolean;
@@ -526,6 +527,7 @@ export function DashboardViews({
         {view === "settings" ? <SettingsView /> : null}
         {view === "managed-profiles" ? <ManagedProfilesView /> : null}
         {view === "managed-profiles-activity" ? <ManagedProfileActivityView /> : null}
+        {view === "adaptive-delegation" ? <AdaptiveDelegationConsole /> : null}
     </Fragment>
   );
 }
@@ -536,7 +538,7 @@ export function DashboardShell({
   emailVerified = true,
   showSetupBanner = false
 }: {
-  view: "home" | "onboarding" | "first-agent" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "inbox" | "docs" | "settings" | "managed-profiles" | "managed-profiles-activity";
+  view: "home" | "onboarding" | "first-agent" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "inbox" | "docs" | "settings" | "managed-profiles" | "managed-profiles-activity" | "adaptive-delegation";
   id?: string;
   emailVerified?: boolean;
   showSetupBanner?: boolean;

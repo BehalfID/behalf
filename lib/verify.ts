@@ -8,9 +8,15 @@ import {
   type ApprovalIntent
 } from "@/lib/approvalIntent";
 import {
+<<<<<<< HEAD
   emitApprovalRequested,
   emitApprovalUsed
 } from "@/lib/approvals/emitLifecycle";
+=======
+  extractAuthorizationContext,
+  listContextMatches
+} from "@/lib/adaptiveDelegation/context";
+>>>>>>> origin/main
 import { isAbsolutePath, lexicalNormalizePath } from "@/lib/pathCanonical";
 import {
   buildPolicyFacts,
@@ -433,6 +439,77 @@ function evaluateHardConstraints(
     if (!listValueMatches(allowedVendors, input.vendor)) {
       return { allowed: false, reason: "Vendor is not included in allowedVendors constraint.", risk: "high" };
     }
+  }
+
+  // Stage 5 context constraints — evaluated from request metadata (not policyContext).
+  const authContext = extractAuthorizationContext(
+    input.metadata && typeof input.metadata === "object" ? input.metadata : null
+  );
+
+  const allowedBranches = permission.constraints?.allowedBranches ?? [];
+  if (allowedBranches.length > 0) {
+    if (!listContextMatches(allowedBranches, authContext.branch ?? undefined)) {
+      return {
+        allowed: false,
+        reason: "Branch is not included in allowedBranches constraint.",
+        risk: "high"
+      };
+    }
+  }
+
+  const deniedBranches = permission.constraints?.deniedBranches ?? [];
+  if (deniedBranches.length > 0 && listContextMatches(deniedBranches, authContext.branch ?? undefined)) {
+    return {
+      allowed: false,
+      reason: "Branch is blocked by deniedBranches constraint.",
+      risk: "high"
+    };
+  }
+
+  const allowedEnvironments = permission.constraints?.allowedEnvironments ?? [];
+  if (allowedEnvironments.length > 0) {
+    if (!listContextMatches(allowedEnvironments, authContext.environment ?? undefined)) {
+      return {
+        allowed: false,
+        reason: "Environment is not included in allowedEnvironments constraint.",
+        risk: "high"
+      };
+    }
+  }
+
+  const deniedEnvironments = permission.constraints?.deniedEnvironments ?? [];
+  if (
+    deniedEnvironments.length > 0 &&
+    listContextMatches(deniedEnvironments, authContext.environment ?? undefined)
+  ) {
+    return {
+      allowed: false,
+      reason: "Environment is blocked by deniedEnvironments constraint.",
+      risk: "high"
+    };
+  }
+
+  const allowedRepositories = permission.constraints?.allowedRepositories ?? [];
+  if (allowedRepositories.length > 0) {
+    if (!listContextMatches(allowedRepositories, authContext.repository ?? undefined)) {
+      return {
+        allowed: false,
+        reason: "Repository is not included in allowedRepositories constraint.",
+        risk: "high"
+      };
+    }
+  }
+
+  const deniedRepositories = permission.constraints?.deniedRepositories ?? [];
+  if (
+    deniedRepositories.length > 0 &&
+    listContextMatches(deniedRepositories, authContext.repository ?? undefined)
+  ) {
+    return {
+      allowed: false,
+      reason: "Repository is blocked by deniedRepositories constraint.",
+      risk: "high"
+    };
   }
 
   return null;
