@@ -10,7 +10,7 @@ import {
   isPolicyCiStatus,
   isPolicyRiskLevel
 } from "@/lib/policyEngine/predicates";
-import type { PolicyFacts, PolicyRiskLevel } from "@/lib/policyEngine/types";
+import type { PolicyFacts, PolicyRiskLevel, PolicyRule } from "@/lib/policyEngine/types";
 import { readJsonObject } from "@/lib/request";
 import { validatePolicyRules } from "@/lib/repositories/policyDocuments";
 import { jsonError } from "@/lib/responses";
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
   const unknownError = rejectUnknownFields(body, ["rules", "facts"]);
   if (unknownError) return jsonError(unknownError);
 
-  let rules;
+  let rules: PolicyRule[];
   if (body.rules !== undefined) {
     const validated = validatePolicyRules(body.rules);
     if (validated.error) return jsonError(validated.error);
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
   } else {
     const { findPolicyByAccountId } = await import("@/lib/repositories/policyDocuments");
     const stored = await findPolicyByAccountId(actor.accountId);
-    rules = (stored?.rules ?? []) as typeof rules;
+    rules = (stored?.rules ?? []) as unknown as PolicyRule[];
   }
 
   const parsed = parseFacts(body.facts);

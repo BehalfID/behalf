@@ -9,6 +9,7 @@ import {
   canDenyRequest,
   type WorkspaceActor
 } from "@/lib/delegatedAuth";
+import type { ApprovalRequestDocument } from "@/models/ApprovalRequest";
 import {
   approvalRepository as ApprovalRequest,
   APPROVAL_GRANT_TTL_MS
@@ -33,7 +34,7 @@ type ApprovalLean = {
   approvalId: string;
   accountId?: string | null;
   developerUserId?: string | null;
-  kind?: string | null;
+  kind?: ApprovalRequestDocument["kind"] | null;
   agentId?: string | null;
   permissionId?: string | null;
   action: string;

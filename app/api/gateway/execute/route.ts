@@ -52,14 +52,14 @@ export async function POST(request: NextRequest) {
   const isHttpRequest = action === "http_request";
   const supported = isBrowse || isHttpRequest;
 
-  let vendor = resource;
+  let vendor: string | undefined = resource ?? undefined;
   if (isHttpRequest) {
     const url = readString(body.input.url);
     if (url) {
       try {
         vendor = new URL(url).hostname;
       } catch {
-        vendor = resource || undefined;
+        vendor = resource ?? undefined;
       }
     }
   }
