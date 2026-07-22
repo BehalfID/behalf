@@ -310,6 +310,8 @@ describe("postgres runtime isolation (static)", () => {
         }
         // composition.ts is the intentional wiring point for optional Postgres.
         if (entry === "composition.ts") continue;
+        // delegate.ts is the runtime Postgres dispatch layer.
+        if (entry === "delegate.ts") continue;
         if (entry.endsWith(".ts")) {
           files.push(full);
         }

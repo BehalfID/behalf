@@ -42,6 +42,13 @@ vi.mock("@/models/Agent", () => ({
   default: { find: routeMocks.agentFind }
 }));
 
+vi.mock("@/lib/approvals/emitLifecycle", () => ({
+  emitApprovalRequested: vi.fn().mockResolvedValue(undefined),
+  emitApprovalApproved: vi.fn().mockResolvedValue(undefined),
+  emitApprovalDenied: vi.fn().mockResolvedValue(undefined),
+  emitApprovalUsed: vi.fn().mockResolvedValue(undefined)
+}));
+
 function approvalChain(rows: unknown[]) {
   const chain = {
     sort: vi.fn(() => chain),

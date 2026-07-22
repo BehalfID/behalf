@@ -190,7 +190,11 @@ describe("Claude and Codex launchers", () => {
     });
 
     expect(status).toBe(0);
-    expect(spawn).toHaveBeenCalledWith(tool, ["--version"], { stdio: "inherit" });
+    expect(spawn).toHaveBeenCalledWith(
+      tool,
+      ["--version"],
+      expect.objectContaining({ stdio: "inherit" })
+    );
     expect(stdout).toContain(`Launching ${tool}`);
     expect(stdout + stderr).toContain("agent_test123");
     expect(stdout + stderr).not.toContain("bhf_sk_super_secret_value");

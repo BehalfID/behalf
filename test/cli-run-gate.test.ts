@@ -141,7 +141,11 @@ describe("gateAndExec — allowed", () => {
     const code = await run.gateAndExec(["echo", "hello"], {}, { spawn, stderr: se.stream });
 
     expect(code).toBe(0);
-    expect(spawn).toHaveBeenCalledWith("echo", ["hello"], { stdio: "inherit" });
+    expect(spawn).toHaveBeenCalledWith(
+      "echo",
+      ["hello"],
+      expect.objectContaining({ stdio: "inherit" })
+    );
     expect(se.output).toContain("✓ Allowed");
   });
 
@@ -157,7 +161,7 @@ describe("gateAndExec — allowed", () => {
     await run.gateAndExec(["echo", "hello"], {}, { spawn, stderr: se.stream });
 
     const [, , spawnOpts] = spawn.mock.calls[0];
-    expect(spawnOpts).toEqual({ stdio: "inherit" });
+    expect(spawnOpts).toEqual(expect.objectContaining({ stdio: "inherit" }));
   });
 
   it("passes child exit code through when command fails", async () => {

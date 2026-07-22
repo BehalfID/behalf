@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 import { type NextRequest } from "next/server";
 import { requireSetupTokenOrConsoleApi } from "@/lib/adminAuth";
 import { connectToDatabase } from "@/lib/db";
-import { isPostgresConfigured } from "@/lib/db/postgres";
 import {
   listRepositoryBackendOverrides,
   resolveRepositoryBackend
@@ -34,7 +33,7 @@ export async function GET(request: NextRequest) {
       status: "ok",
       service: "behalfid",
       database: mongoose.connection.readyState === 1 ? "connected" : "connecting",
-      postgresConfigured: isPostgresConfigured(),
+      postgresConfigured: Boolean(process.env.DATABASE_URL?.trim()),
       repositoryBackend,
       repositoryBackendOverrides: listRepositoryBackendOverrides()
     });
