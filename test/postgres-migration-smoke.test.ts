@@ -34,6 +34,10 @@ describe("postgres migration smoke (optional)", () => {
       expect(result.verificationLogRetentionPurgedRows).toBe(1);
       expect(result.verificationLogRetentionRemainingIds).toEqual(["log_retention_current"]);
       expect(result.verificationLogCronSkippedWhenUnavailable).toBe(true);
+      expect(result.ttlCleanupPurgedSessions).toBe(1);
+      expect(result.ttlCleanupRemainingSessionIds).toEqual(["sess_ttl_current"]);
+      expect(result.ttlCronSkippedWhenUnavailable).toBe(true);
+      expect(result.approvalPendingUniqueIncludesFingerprint).toBe(true);
     },
     60_000
   );

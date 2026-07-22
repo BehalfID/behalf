@@ -1,114 +1,34 @@
-import Permission, { type PermissionDocument } from "@/models/Permission";
-import { lazyModelMethod } from "@/lib/repositories/mongoModelAdapter";
+/** Public repository facade — dispatches via BEHALFID_REPOSITORY_BACKEND. */
+import * as mongo from "@/lib/repositories/mongo/permissions";
+import { delegate } from "@/lib/repositories/delegate";
 
-export type PermissionLean = PermissionDocument;
-export type PermissionRepository = typeof permissionRepository;
-export type PermissionScope = { accountId?: string; developerUserId?: string };
+export type {
+  PermissionLean,
+  PermissionRepository,
+  PermissionScope,
+  CreatePermissionInput,
+} from "@/lib/repositories/mongo/permissions";
 
-export async function findMatchingForVerify(agentId: string, action: string) {
-  return Permission.find({
-    agentId,
-    $or: [
-      { action },
-      { allowedActions: action },
-      { blockedActions: action }
-    ]
-  }).sort({ createdAt: -1 });
-}
+export {
+  permissionRepository,
+  find,
+  create,
+  updateOne,
+  updateMany,
+  deleteMany,
+  countDocuments,
+} from "@/lib/repositories/mongo/permissions";
 
-export type CreatePermissionInput = Partial<Omit<PermissionDocument, "constraints">> & {
-  constraints?: {
-    maxAmount?: number | null;
-    allowedVendors?: string[];
-    expiresAt?: Date | null;
-    allowedPaths?: string[];
-    deniedPaths?: string[];
-    deniedCommands?: string[];
-  };
-};
-
-export async function createPermission(input: CreatePermissionInput) {
-  return Permission.create(input);
-}
-
-export async function findByPermissionId(permissionId: string, scope: PermissionScope = {}) {
-  return Permission.findOne({ ...scope, permissionId });
-}
-
-export async function revokePermission(
-  permissionId: string,
-  scope: PermissionScope = {},
-  updatedBy?: string
-) {
-  return Permission.updateOne(
-    { ...scope, permissionId },
-    { $set: { status: "revoked", ...(updatedBy ? { updatedBy } : {}) } }
-  );
-}
-
-export async function findPermissionsByAgentId(agentId: string, scope: PermissionScope = {}) {
-  return Permission.find({ ...scope, agentId });
-}
-
-export async function findActivePermissionsByAgentId(agentId: string, scope: PermissionScope = {}) {
-  return Permission.find({ ...scope, agentId, status: "active" });
-}
-
-export async function updatePermission(
-  filter: Record<string, unknown>,
-  update: Record<string, unknown>
-) {
-  return Permission.updateOne(filter, update);
-}
-
-export async function deletePermissions(filter: Record<string, unknown>) {
-  return Permission.deleteMany(filter);
-}
-
-export async function countPermissions(filter: Record<string, unknown>) {
-  return Permission.countDocuments(filter);
-}
-
-/** Mongo query primitives for routes that need an exact model query shape. */
-export function findPermissions(filter: Record<string, unknown> = {}) {
-  return Permission.find(filter);
-}
-
-export function findOnePermission(filter: Record<string, unknown>) {
-  return Permission.findOne(filter);
-}
-
-export function findOneAndUpdatePermission(
-  filter: Record<string, unknown>,
-  update: Record<string, unknown>,
-  options?: Record<string, unknown>
-) {
-  return Permission.findOneAndUpdate(filter, update, options);
-}
-
-export function deletePermission(filter: Record<string, unknown>) {
-  return Permission.deleteOne(filter);
-}
-
-export const permissionRepository = {
-  findMatchingForVerify,
-  create: createPermission,
-  find: findPermissions,
-  findOne: findOnePermission,
-  findOneAndUpdate: findOneAndUpdatePermission,
-  findByPermissionId,
-  revoke: revokePermission,
-  findByAgentId: findPermissionsByAgentId,
-  findActiveByAgentId: findActivePermissionsByAgentId,
-  updateOne: updatePermission,
-  deleteOne: deletePermission,
-  deleteMany: deletePermissions,
-  countDocuments: countPermissions
-};
-
-export const find = lazyModelMethod(() => Permission, "find");
-export const create = lazyModelMethod(() => Permission, "create");
-export const updateOne = lazyModelMethod(() => Permission, "updateOne");
-export const updateMany = lazyModelMethod(() => Permission, "updateMany");
-export const deleteMany = lazyModelMethod(() => Permission, "deleteMany");
-export const countDocuments = lazyModelMethod(() => Permission, "countDocuments");
+export const findMatchingForVerify = delegate("permissions", "findMatchingForVerify", mongo.findMatchingForVerify);
+export const createPermission = delegate("permissions", "createPermission", mongo.createPermission);
+export const findByPermissionId = delegate("permissions", "findByPermissionId", mongo.findByPermissionId);
+export const revokePermission = delegate("permissions", "revokePermission", mongo.revokePermission);
+export const findPermissionsByAgentId = delegate("permissions", "findPermissionsByAgentId", mongo.findPermissionsByAgentId);
+export const findActivePermissionsByAgentId = delegate("permissions", "findActivePermissionsByAgentId", mongo.findActivePermissionsByAgentId);
+export const updatePermission = delegate("permissions", "updatePermission", mongo.updatePermission);
+export const deletePermissions = delegate("permissions", "deletePermissions", mongo.deletePermissions);
+export const countPermissions = delegate("permissions", "countPermissions", mongo.countPermissions);
+export const findPermissions = delegate("permissions", "findPermissions", mongo.findPermissions);
+export const findOnePermission = delegate("permissions", "findOnePermission", mongo.findOnePermission);
+export const findOneAndUpdatePermission = delegate("permissions", "findOneAndUpdatePermission", mongo.findOneAndUpdatePermission);
+export const deletePermission = delegate("permissions", "deletePermission", mongo.deletePermission);

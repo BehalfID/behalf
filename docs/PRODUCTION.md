@@ -8,6 +8,13 @@ Set these in Vercel Production before deploying:
 
 ```env
 MONGODB_URI=
+# Optional Postgres / Supabase (migration tooling + future cutover — does NOT switch runtime alone)
+# DATABASE_URL=
+# POSTGRES_URL=
+# BEHALFID_REPOSITORY_BACKEND=mongo
+# BEHALFID_ALLOW_POSTGRES_RUNTIME=false
+# BEHALFID_REPO_BACKEND_<AGGREGATE>=mongo|postgres
+# BEHALFID_REPO_DUAL_READ=false
 BEHALFID_ADMIN_PASSWORD=
 BEHALFID_SETUP_TOKEN=
 NEXT_PUBLIC_APP_URL=https://behalfid.com
@@ -18,7 +25,9 @@ STRIPE_PRO_PRICE_ID=
 
 Requirements:
 
-- `MONGODB_URI` must point to the production MongoDB database.
+- `MONGODB_URI` must point to the production MongoDB database (still required until cutover).
+- `DATABASE_URL` / `POSTGRES_URL` are for Drizzle migrate, smoke/contract tests, and export/import scripts. They do **not** switch app traffic by themselves.
+- Postgres runtime requires `BEHALFID_ALLOW_POSTGRES_RUNTIME=true` plus `BEHALFID_REPOSITORY_BACKEND=postgres` and/or per-aggregate `BEHALFID_REPO_BACKEND_*` flags. Keep these unset/false in production until a cutover wave is approved.
 - `BEHALFID_ADMIN_PASSWORD` must be strong and must not be a placeholder such as `change-me` or `replace-this-password`.
 - `BEHALFID_SETUP_TOKEN` is used for protected setup, health, and webhook-worker calls. Keep it server-side only.
 - `NEXT_PUBLIC_APP_URL` must be the canonical HTTPS origin.

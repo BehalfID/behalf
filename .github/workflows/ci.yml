@@ -105,6 +105,44 @@ jobs:
           )
           rm -rf "$TMPDIR_EMPTY"
 
+  postgres-schema:
+    name: Postgres schema smoke
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: behalf_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d behalf_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      POSTGRES_TEST_URL: postgres://postgres:postgres@localhost:5432/behalf_ci
+      RUN_POSTGRES_MIGRATION_SMOKE: "true"
+      RUN_POSTGRES_REPOSITORY_CONTRACTS: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Migration smoke
+        run: npm run test:postgres-smoke
+
+      - name: Repository contracts
+        run: npm run test:postgres-repositories
+
   windows-cli:
     name: Windows CLI
     runs-on: windows-latest

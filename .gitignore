@@ -28,6 +28,10 @@ packages/cli/*.tgz
 /scripts/post-linkedin.sh
 /scripts/post-master.sh
 
+# Local migration dumps (may contain secrets)
+/migration-data/
+/migration-sql/
+
 # Local Stripe key storage — never commit
 stripeapikeys.txt
 .vercel

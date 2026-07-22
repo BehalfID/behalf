@@ -1,153 +1,30 @@
-import ApprovalRequest, {
+/** Public repository facade — dispatches via BEHALFID_REPOSITORY_BACKEND. */
+import * as mongo from "@/lib/repositories/mongo/approvals";
+import { delegate } from "@/lib/repositories/delegate";
+
+export type {
+  ApprovalLean,
+  ApprovalRepository,
+  ApprovalScope,
+  ApprovedGrantTuple,
+} from "@/lib/repositories/mongo/approvals";
+
+export {
   APPROVAL_GRANT_TTL_MS,
-  type ApprovalRequestDocument
-} from "@/models/ApprovalRequest";
-import { isMongoDuplicateKeyError } from "@/lib/repositories/errors";
+  approvalRepository,
+} from "@/lib/repositories/mongo/approvals";
 
-export type ApprovalLean = ApprovalRequestDocument;
-export type ApprovalRepository = typeof approvalRepository;
-export type ApprovalScope = { accountId?: string; developerUserId?: string };
-export { APPROVAL_GRANT_TTL_MS };
-
-export type ApprovedGrantTuple = {
-  agentId: string;
-  permissionId: string;
-  action: string;
-  vendor: string | null;
-  amount: number | null;
-  argumentFingerprint: string | null;
-};
-
-export async function consumeApprovedGrant(tuple: ApprovedGrantTuple, now = new Date()) {
-  return ApprovalRequest.findOneAndUpdate(
-    { ...tuple, status: "approved", grantExpiresAt: { $gt: now } },
-    { $set: { status: "used", usedAt: now } },
-    { returnDocument: "before" }
-  );
-}
-
-export async function upsertPendingAgentAction(
-  pendingFilter: Record<string, unknown>,
-  setOnInsert: Record<string, unknown>
-) {
-  try {
-    return await ApprovalRequest.findOneAndUpdate(
-      pendingFilter,
-      { $setOnInsert: setOnInsert },
-      { upsert: true, returnDocument: "after" }
-    );
-  } catch (error) {
-    if (!isMongoDuplicateKeyError(error)) throw error;
-    return ApprovalRequest.findOne(pendingFilter);
-  }
-}
-
-export async function upsertPendingManagedProfilePause(
-  pendingFilter: Record<string, unknown>,
-  setOnInsert: Record<string, unknown>
-) {
-  try {
-    return await ApprovalRequest.findOneAndUpdate(
-      pendingFilter,
-      { $setOnInsert: setOnInsert },
-      { upsert: true, returnDocument: "after" }
-    ).lean();
-  } catch (error) {
-    if (!isMongoDuplicateKeyError(error)) throw error;
-    return ApprovalRequest.findOne(pendingFilter).lean();
-  }
-}
-
-export function findApproval(filter: Record<string, unknown>, select?: string) {
-  const query = ApprovalRequest.findOne(filter);
-  if (select) query.select(select);
-  return query;
-}
-
-export async function findApprovalLean(filter: Record<string, unknown>, select?: string) {
-  const query = ApprovalRequest.findOne(filter);
-  if (select) query.select(select);
-  return query.lean();
-}
-
-export function listApprovals(
-  filter: Record<string, unknown>,
-  options: { sort?: Record<string, 1 | -1>; limit?: number; skip?: number; select?: string } = {}
-) {
-  const query = ApprovalRequest.find(filter).sort(options.sort ?? { createdAt: -1 });
-  if (options.select) query.select(options.select);
-  if (options.skip) query.skip(options.skip);
-  if (options.limit) query.limit(options.limit);
-  return query;
-}
-
-export async function approveApproval(
-  approvalId: string,
-  scope: ApprovalScope,
-  resolvedBy: string,
-  grantExpiresAt: Date,
-  now = new Date()
-) {
-  return ApprovalRequest.updateOne(
-    { ...scope, approvalId, status: "pending" },
-    { $set: { status: "approved", resolvedBy, resolvedAt: now, grantExpiresAt } }
-  );
-}
-
-export async function denyApproval(
-  approvalId: string,
-  scope: ApprovalScope,
-  resolvedBy: string,
-  now = new Date()
-) {
-  return ApprovalRequest.updateOne(
-    { ...scope, approvalId, status: "pending" },
-    { $set: { status: "denied", resolvedBy, resolvedAt: now } }
-  );
-}
-
-export async function consumeApprovedPauseApproval(
-  filter: Record<string, unknown>,
-  now = new Date()
-) {
-  return ApprovalRequest.updateOne(
-    { ...filter, status: "approved", grantExpiresAt: { $gt: now } },
-    { $set: { status: "used", resolvedAt: now } }
-  );
-}
-
-export async function deleteApprovals(filter: Record<string, unknown>) {
-  return ApprovalRequest.deleteMany(filter);
-}
-
-export async function countApprovals(filter: Record<string, unknown>) {
-  return ApprovalRequest.countDocuments(filter);
-}
-
-/** Mongo query primitives for routes that need an exact model query shape. */
-export function findOneApproval(filter: Record<string, unknown>) {
-  return ApprovalRequest.findOne(filter);
-}
-
-export function findApprovals(filter: Record<string, unknown> = {}) {
-  return ApprovalRequest.find(filter);
-}
-
-export function updateApproval(filter: Record<string, unknown>, update: Record<string, unknown>) {
-  return ApprovalRequest.updateOne(filter, update);
-}
-
-export const approvalRepository = {
-  consumeApprovedGrant,
-  upsertPendingAgentAction,
-  upsertPendingManagedProfilePause,
-  findOne: findOneApproval,
-  findOneLean: findApprovalLean,
-  find: findApprovals,
-  approve: approveApproval,
-  deny: denyApproval,
-  consumeApprovedPauseApproval,
-  updateOne: updateApproval,
-  deleteMany: deleteApprovals,
-  countDocuments: countApprovals
-};
+export const consumeApprovedGrant = delegate("approvals", "consumeApprovedGrant", mongo.consumeApprovedGrant);
+export const upsertPendingAgentAction = delegate("approvals", "upsertPendingAgentAction", mongo.upsertPendingAgentAction);
+export const upsertPendingManagedProfilePause = delegate("approvals", "upsertPendingManagedProfilePause", mongo.upsertPendingManagedProfilePause);
+export const findApproval = delegate("approvals", "findApproval", mongo.findApproval);
+export const findApprovalLean = delegate("approvals", "findApprovalLean", mongo.findApprovalLean);
+export const listApprovals = delegate("approvals", "listApprovals", mongo.listApprovals);
+export const approveApproval = delegate("approvals", "approveApproval", mongo.approveApproval);
+export const denyApproval = delegate("approvals", "denyApproval", mongo.denyApproval);
+export const consumeApprovedPauseApproval = delegate("approvals", "consumeApprovedPauseApproval", mongo.consumeApprovedPauseApproval);
+export const deleteApprovals = delegate("approvals", "deleteApprovals", mongo.deleteApprovals);
+export const countApprovals = delegate("approvals", "countApprovals", mongo.countApprovals);
+export const findOneApproval = delegate("approvals", "findOneApproval", mongo.findOneApproval);
+export const findApprovals = delegate("approvals", "findApprovals", mongo.findApprovals);
+export const updateApproval = delegate("approvals", "updateApproval", mongo.updateApproval);
