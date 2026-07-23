@@ -162,7 +162,15 @@ export default async function StatusPage() {
         {/* Overall status banner */}
         <div className={overallBannerClass(overall)}>
           <span className="status-banner__icon" aria-hidden="true">
-            {overall === "operational" ? "✓" : "!"}
+            {overall === "operational" ? (
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M2.5 7l3 3 6-6" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M7 4v3.5M7 9.5v.5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
+              </svg>
+            )}
           </span>
           <span className="status-banner__text">{overallMessage(overall)}</span>
         </div>

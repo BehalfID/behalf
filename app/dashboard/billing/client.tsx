@@ -154,7 +154,7 @@ export function BillingClient({
       )}
 
       {stripeSubscriptionStatus === "trialing" && stripeTrialEnd && (
-        <div className="billing-alert" role="status">
+        <div className="billing-alert billing-alert--info" role="status">
           Free trial active — ends {formatDate(stripeTrialEnd)} ({trialDaysLeft(stripeTrialEnd)} {trialDaysLeft(stripeTrialEnd) === 1 ? "day" : "days"} left).
           {" "}Cancel via <strong>Manage subscription</strong> before then to avoid a charge.
         </div>
