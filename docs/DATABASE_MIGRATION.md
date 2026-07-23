@@ -849,6 +849,7 @@ Each PR is independently shippable and reversible. **No PR changes auth.**
 - **Partial:** Runtime Postgres wiring exists behind the latch (`lib/repositories/postgres/runtime.ts`)
   for all composition aggregates. Selecting postgres still requires a DATABASE_URL/POSTGRES_URL.
   Individual methods not yet ported throw “not implemented on postgres” (no silent Mongo fallback).
+  Tracked in [#144](https://github.com/BehalfID/behalf/issues/144).
 - **Intentional remaining direct Mongo usage (Phase A):**
   - `lib/repositories/**` — Mongo repository implementations only
   - `lib/db.ts` — `connectToDatabase` / mongoose connection cache (`MONGODB_URI`)

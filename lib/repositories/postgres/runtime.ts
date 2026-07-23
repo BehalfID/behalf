@@ -83,6 +83,7 @@ export type PostgresReadyAggregate = (typeof POSTGRES_READY_AGGREGATES)[number];
 
 type AnyFn = (...args: never[]) => unknown;
 
+// Tracked in https://github.com/BehalfID/behalf/issues/144 (method-level adapter gaps).
 function notImplemented(aggregate: string, method: string): AnyFn {
   return (() => {
     throw new Error(`${method} is not implemented on postgres ${aggregate} adapter`);

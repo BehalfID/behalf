@@ -58,7 +58,7 @@ BehalfID is currently a prototype. It is suitable for local demos and constraine
 - Public passport pages expose active permission scopes by design, including `allowedActions`, `blockedActions`, `requiresApproval`, `resource`, and `scope`. Do not create permissions containing sensitive data that should not be visible to anyone with the passport token.
 - Agent descriptions are informational. The structured permission fields (`allowedActions`, `blockedActions`) are the source of truth exposed to external agents reading the passport.
 - API key hashes are deterministic. A future version should use an HMAC pepper or key identifier plus HMAC hash.
-- Site Guard is not implemented as a production gateway yet. User-Agent detection is spoofable and must remain best-effort; verified agent identity should require a signed credential in a future iteration.
+- Site Guard is not implemented as a production gateway yet. User-Agent detection is spoofable and must remain best-effort; verified agent identity should require a signed credential in a future iteration. (Tracked in [#128](https://github.com/BehalfID/behalf/issues/128).)
 - External crawler controls are useful context but not enforcement guarantees. See Google Search Central documentation for robots.txt and sitemaps, OpenAI crawler documentation, and Anthropic crawler documentation when configuring public crawler access.
 
 ## Production Recommendations

@@ -2,6 +2,8 @@
 
 Status as of 2026-05-28. All adapters are EXPERIMENTAL — not official vendor integrations.
 
+> Tracked in [#131](https://github.com/BehalfID/behalf/issues/131): production-readiness gaps below (mocked runtime verification, missing LlamaIndex/Vercel live tests, Stripe idempotency/webhook-signature gaps).
+
 ## Summary
 
 | Adapter | Status | Unit tests | Allowed-path live | Denied-path live | Runtime verified | npm-publishable | Production-ready? |

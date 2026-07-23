@@ -7,7 +7,7 @@ Complete from [PILOT_REHEARSAL.md](PILOT_REHEARSAL.md). Store only sanitized evi
 - Allowed canary: **passed** on Windows Claude Code 2.1.209 after rebuild/relink. Claude invoked the real shell tool for `echo behalfid-allowed`, real shell output appeared, BehalfID recorded an allowed decision (`req_8MLJRFhKUgTVeYpj`), and there was no hook error or libuv assertion.
 - Denied canary: **passed**. Claude attempted the real shell tool for `echo behalfid-canary`, the hook reported `BehalfID: blocked by policy.`, no shell-result output contained the marker, and BehalfID recorded a denied `command_blocked` decision (`req_qkBkxJ1tCPtkZ-WU`) with no hook crash.
 - Approval-required canary: **paused / not run**. The current agent-detail dashboard does not provide a clear, safe permission replacement/editing workflow. Do not claim this canary passed.
-- Follow-up scope: dashboard information architecture and permission-management UX will be handled in a separate PR.
+- Follow-up scope: dashboard information architecture and permission-management UX will be handled in a separate PR. Tracked in [#129](https://github.com/BehalfID/behalf/issues/129).
 
 ## Environment
 
