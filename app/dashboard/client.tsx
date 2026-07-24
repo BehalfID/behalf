@@ -10,6 +10,7 @@ import { DecisionIndicator } from "@/components/dashboard/OpsEventPrimitives";
 import { FirstAgentSetup } from "@/components/dashboard/first-agent/FirstAgentSetup";
 import { ManagedProfilesView } from "@/components/dashboard/ManagedProfilesView";
 import { ManagedProfileActivityView } from "@/components/dashboard/ManagedProfileActivityView";
+import { MfaSettingsSection } from "@/components/dashboard/MfaSettingsSection";
 import { OpsInboxConsole } from "@/components/dashboard/OpsInboxConsole";
 import {
   DeliveryStatusBadge,
@@ -4057,6 +4058,7 @@ function SettingsView() {
       <div className="settings-page-layout">
         <SettingsNavigation items={[
           { href: "#managed-security", label: "Security", detail: "Managed local sessions" },
+          { href: "#mfa", label: "Two-factor auth", detail: "TOTP authenticator" },
           { href: "#account", label: "Account", detail: "Your personal profile" },
           { href: "#workspace", label: "Workspace", detail: "Shared identity and context" },
           { href: "#google-sso", label: "Google SSO", detail: "Domain allowlist and enforce" },
@@ -4075,6 +4077,14 @@ function SettingsView() {
         <p className="field-help">
           Managed profile policy has its own workspace view, activity history, plan enforcement, and authority checks.
         </p>
+      </SettingsSection>
+      <SettingsSection
+        description="Require an authenticator app code after password sign-in."
+        eyebrow="Account security"
+        id="mfa"
+        title="Two-factor authentication"
+      >
+        <MfaSettingsSection />
       </SettingsSection>
       <SettingsSection
         description="Personal contact details belong to your BehalfID account and follow you across workspace access."
