@@ -12,7 +12,7 @@ function mfaEncryptionKey(): Buffer {
     process.env.BEHALFID_SETUP_TOKEN?.trim() ||
     process.env.BEHALFID_ADMIN_PASSWORD?.trim() ||
     "dev-only-mfa-pepper";
-  return crypto.createHash("sha256").update(`mfa-enc:${material}`).digest();
+  return crypto.scryptSync(material, "behalfid:mfa-enc:v1", 32);
 }
 
 export function encryptMfaSecret(plaintext: string): string {
