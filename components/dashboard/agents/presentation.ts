@@ -35,10 +35,16 @@ export type PermissionManagementRecord = {
   lastUsedAt?: string | null;
   createdAt?: string;
   updatedAt?: string;
+  replacesPermissionId?: string;
+  replacedByPermissionId?: string;
+  replacementIdempotencyKey?: string;
 };
 
-export function permissionEffectiveStatus(permission: PermissionManagementRecord): "active" | "expired" | "revoked" {
+export function permissionEffectiveStatus(
+  permission: PermissionManagementRecord
+): "active" | "expired" | "revoked" | "inactive" {
   if (permission.status === "revoked") return "revoked";
+  if (permission.status === "inactive") return "inactive";
   const expiresAt = permission.constraints?.expiresAt;
   if (expiresAt && new Date(expiresAt).getTime() <= Date.now()) return "expired";
   return "active";
