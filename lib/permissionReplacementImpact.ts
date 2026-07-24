@@ -19,6 +19,18 @@ export type PermissionImpactSnapshot = {
   } | null;
 };
 
+export type PermissionImpactSource = {
+  action: string;
+  resource?: string | null;
+  requiresApproval?: boolean | null;
+  requiredAuthorityLevel?: number | null;
+  allowedActions?: string[] | null;
+  blockedActions?: string[] | null;
+  constraints?: PermissionImpactSnapshot["constraints"];
+  scope?: string | null;
+  template?: string | null;
+};
+
 function normalizeList(values?: string[] | null) {
   return [...(values ?? [])].map((value) => value.trim().toLowerCase()).filter(Boolean).sort();
 }
@@ -146,18 +158,7 @@ export function assessPermissionReplacementImpact(
 }
 
 export function permissionDocumentImpactSnapshot(
-  permission: Pick<
-    PermissionDocument,
-    | "action"
-    | "resource"
-    | "requiresApproval"
-    | "requiredAuthorityLevel"
-    | "allowedActions"
-    | "blockedActions"
-    | "constraints"
-    | "scope"
-    | "template"
-  >
+  permission: PermissionImpactSource
 ): PermissionImpactSnapshot {
   return {
     action: permission.action,

@@ -39,6 +39,7 @@ import {
   permissionIsBroad,
   type AgentDetailSection
 } from "@/components/dashboard/agents/AgentManagement";
+import type { PermissionManagementRecord } from "@/components/dashboard/agents/presentation";
 import {
   formatPauseApprovalDetails,
   formatPauseApprovalTitle,
@@ -2416,7 +2417,7 @@ function AgentView({ agentId }: { agentId: string }) {
   const [passportUrl, setPassportUrl] = useState("");
   const [activeSection, setActiveSection] = useState<AgentDetailSection>("overview");
   const [agentWorking, setAgentWorking] = useState<string | null>(null);
-  const [editingPermission, setEditingPermission] = useState<Permission | null>(null);
+  const [editingPermission, setEditingPermission] = useState<PermissionManagementRecord | null>(null);
   const [permissionMutationError, setPermissionMutationError] = useState("");
   const [replacementIdempotencyKey, setReplacementIdempotencyKey] = useState("");
   const emptyPermissionForm = {
@@ -2465,7 +2466,7 @@ function AgentView({ agentId }: { agentId: string }) {
     return local.toISOString().slice(0, 16);
   };
 
-  const beginEditPermission = (permission: Permission) => {
+  const beginEditPermission = (permission: PermissionManagementRecord) => {
     setEditingPermission(permission);
     setPermissionMutationError("");
     setReplacementIdempotencyKey(
@@ -2476,7 +2477,9 @@ function AgentView({ agentId }: { agentId: string }) {
     setActivePolicyTemplateId("");
     setAgentViewScopeId("");
     setForm({
-      template: permission.template ?? "",
+      template: permissionTemplates.some(({ value }) => value === permission.template)
+        ? permission.template as PermissionTemplate
+        : "",
       action: permission.action,
       resource: permission.resource ?? "",
       allowedActions: (permission.allowedActions ?? []).join(", "),
@@ -2543,7 +2546,7 @@ function AgentView({ agentId }: { agentId: string }) {
     }
   };
 
-  const resumeInterruptedReplacement = async (permission: Permission) => {
+  const resumeInterruptedReplacement = async (permission: PermissionManagementRecord) => {
     if (!permission.replacesPermissionId) return;
     setPermissionMutationError("");
     setAgentWorking(`resume:${permission.permissionId}`);
