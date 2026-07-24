@@ -113,4 +113,40 @@ describe("Google OAuth helpers", () => {
     expect(started.url).toContain(encodeURIComponent("https://behalfid.com/api/auth/google/callback"));
     expect(started.stateCookieValue).toContain(".");
   });
+
+  it("uses auth host for redirect_uri when subdomain routing is enabled", () => {
+    vi.stubEnv("BEHALFID_SUBDOMAIN_ROUTING", "1");
+    vi.stubEnv("BEHALFID_HOST_AUTH", "auth.behalfid.com");
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://behalfid.com");
+
+    const started = buildGoogleAuthorizeRedirect({
+      requestOrigin: "https://auth.behalfid.com",
+      mode: "login",
+      next: "/dashboard"
+    });
+    expect("error" in started).toBe(false);
+    if ("error" in started) return;
+    expect(started.url).toContain(
+      encodeURIComponent("https://auth.behalfid.com/api/auth/google/callback")
+    );
+    expect(started.url).not.toContain(encodeURIComponent("https://behalfid.com/api/auth/google/callback"));
+  });
+
+  it("ignores marketing APP_BASE_URL when subdomain routing is on", () => {
+    vi.stubEnv("BEHALFID_SUBDOMAIN_ROUTING", "1");
+    vi.stubEnv("BEHALFID_HOST_AUTH", "auth.behalfid.com");
+    vi.stubEnv("APP_BASE_URL", "https://www.behalfid.com");
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://behalfid.com");
+
+    // Even if the request somehow arrives with a non-auth origin, canonical auth host wins.
+    const started = buildGoogleAuthorizeRedirect({
+      requestOrigin: "https://www.behalfid.com",
+      mode: "signup"
+    });
+    expect("error" in started).toBe(false);
+    if ("error" in started) return;
+    expect(started.url).toContain(
+      encodeURIComponent("https://auth.behalfid.com/api/auth/google/callback")
+    );
+  });
 });

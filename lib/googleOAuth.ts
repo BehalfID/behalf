@@ -2,7 +2,11 @@ import crypto from "crypto";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { hashEmailToken, generateSecureToken } from "@/lib/developerAuth";
 import { safeOAuthNextPath, type GoogleOAuthMode } from "@/lib/googleOAuthClient";
-import { resolveSessionCookieDomain } from "@/lib/subdomainRouting";
+import {
+  isSubdomainRoutingEnabled,
+  resolveSessionCookieDomain,
+  resolveSubdomainHosts
+} from "@/lib/subdomainRouting";
 
 export type { GoogleOAuthMode } from "@/lib/googleOAuthClient";
 export { googleAuthHref, safeOAuthNextPath } from "@/lib/googleOAuthClient";
@@ -33,13 +37,47 @@ type OAuthStatePayload = {
   exp: number;
 };
 
-function appBaseUrl(requestOrigin?: string): string {
+/**
+ * Canonical origin used for Google OAuth redirect_uri.
+ *
+ * With subdomain routing, auth callbacks live on the auth host — never the
+ * marketing apex/www URL from NEXT_PUBLIC_APP_URL / APP_BASE_URL.
+ * Optional GOOGLE_OAUTH_BASE_URL overrides for staging/custom clients.
+ */
+export function googleOAuthBaseUrl(requestOrigin?: string): string {
+  const explicit = process.env.GOOGLE_OAUTH_BASE_URL?.trim();
+  if (explicit) return explicit.replace(/\/$/, "");
+
+  if (isSubdomainRoutingEnabled()) {
+    const authHost = resolveSubdomainHosts().auth.trim().toLowerCase();
+    if (requestOrigin) {
+      try {
+        const url = new URL(requestOrigin);
+        const host = url.hostname.toLowerCase();
+        // Local / preview deploys: keep the request host so redirect_uri matches.
+        if (host === "localhost" || host === "127.0.0.1" || host.endsWith(".vercel.app")) {
+          return url.origin;
+        }
+        if (host === authHost) {
+          return url.origin;
+        }
+      } catch {
+        // fall through to configured auth host
+      }
+    }
+    return `https://${authHost}`;
+  }
+
   const configured =
     process.env.APP_BASE_URL?.trim() ||
     process.env.NEXT_PUBLIC_APP_URL?.trim() ||
     requestOrigin ||
     "";
   return configured.replace(/\/$/, "");
+}
+
+function appBaseUrl(requestOrigin?: string): string {
+  return googleOAuthBaseUrl(requestOrigin);
 }
 
 export function isGoogleOAuthConfigured(): boolean {

@@ -86,7 +86,10 @@ Notes:
 - Keep `BEHALFID_PUBLIC_AGENT_CREATION=false` in production unless intentionally running an open demo.
 - Leave `TRUST_PROXY_XFF` unset on Vercel; BehalfID uses `x-real-ip` there.
 - Ollama variables are optional and only affect AI-assisted permission drafting.
-- `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` enable Sign in with Google and workspace Google SSO. Create an OAuth 2.0 Web client in Google Cloud Console and set the authorized redirect URI to `{NEXT_PUBLIC_APP_URL}/api/auth/google/callback`.
+- `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` enable Sign in with Google and workspace Google SSO. Create an OAuth 2.0 Web client in Google Cloud Console.
+- With subdomain routing (`BEHALFID_SUBDOMAIN_ROUTING=1`), the authorize `redirect_uri` is `{https://BEHALFID_HOST_AUTH}/api/auth/google/callback` (e.g. `https://auth.behalfid.com/api/auth/google/callback`), **not** `NEXT_PUBLIC_APP_URL`. Without subdomain routing it remains `{NEXT_PUBLIC_APP_URL|/APP_BASE_URL}/api/auth/google/callback`.
+- Optional `GOOGLE_OAUTH_BASE_URL` overrides the OAuth origin (no trailing path) for staging or custom clients.
+- Authorized JavaScript origins should include `https://auth.behalfid.com`, `https://www.behalfid.com`, `https://app.behalfid.com` (if used), and `http://localhost:3000` for local.
 - `NEXT_PUBLIC_GOOGLE_CLIENT_ID` should match `GOOGLE_CLIENT_ID` so the login/signup UI can show the Google button without a round-trip.
 
 ## Vercel Setup

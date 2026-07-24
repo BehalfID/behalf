@@ -68,7 +68,19 @@ BEHALFID_HOST_AUTH=auth.behalfid.com
 BEHALFID_HOST_APP=app.behalfid.com
 BEHALFID_HOST_CONSOLE=console.behalfid.com
 BEHALFID_HOST_DOCS=docs.behalfid.com
+
+# Optional: force Google OAuth origin (defaults to https://$BEHALFID_HOST_AUTH)
+# GOOGLE_OAUTH_BASE_URL=https://auth.behalfid.com
 ```
+
+### Google OAuth (auth host)
+
+When subdomain routing is on, Sign in with Google uses:
+
+- **Authorized redirect URI:** `https://auth.behalfid.com/api/auth/google/callback`
+- **Authorized JavaScript origins:** `https://auth.behalfid.com`, `https://www.behalfid.com`, `https://app.behalfid.com`, `http://localhost:3000`
+
+Do not point `redirect_uri` at the marketing apex/`NEXT_PUBLIC_APP_URL` — that causes `Error 400: redirect_uri_mismatch` after the auth subdomain cutover.
 
 ## Rollout sequence
 
