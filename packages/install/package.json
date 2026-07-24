@@ -39,6 +39,9 @@
     "smol-toml": "^1.7.0",
     "yaml": "^2.9.0"
   },
+  "optionalDependencies": {
+    "@behalfid/mcp-runtime": "*"
+  },
   "devDependencies": {
     "@emnapi/core": "^1.11.2",
     "@emnapi/runtime": "^1.11.2",

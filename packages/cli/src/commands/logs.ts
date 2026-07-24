@@ -86,9 +86,9 @@ export function logsCommand() {
     .action(
       runAction(async (agentId: string | undefined, opts: LogOptions) => {
         const resolvedId = resolveAgentId(agentId, opts);
-        if (!resolvedId) throw new Error("Provide an agentId or set one with `behalfid config set agent-id <id>`.");
+        if (!resolvedId) throw new Error("Provide an agentId or set one with `behalf config set agent-id <id>`.");
         const apiKey = opts.apiKey ?? resolveApiKey();
-        if (!apiKey) throw new Error("An agent API key is required. Set it with `behalfid config set api-key <key>` or pass --api-key.");
+        if (!apiKey) throw new Error("An agent API key is required. Set it with `behalf config set api-key <key>` or pass --api-key.");
 
         const baseUrl = resolveBaseUrl();
         const data = unpackLogs(await apiRequest<LogsPayload>(logPath(resolvedId, opts), { apiKey, baseUrl }));
@@ -117,9 +117,9 @@ export function logsCommand() {
     .action(
       runAction(async (agentId: string | undefined, opts: LogOptions) => {
         const resolvedId = resolveAgentId(agentId, opts);
-        if (!resolvedId) throw new Error("Provide an agentId or set one with `behalfid config set agent-id <id>`.");
+        if (!resolvedId) throw new Error("Provide an agentId or set one with `behalf config set agent-id <id>`.");
         const apiKey = opts.apiKey ?? resolveApiKey();
-        if (!apiKey) throw new Error("An agent API key is required. Set it with `behalfid config set api-key <key>` or pass --api-key.");
+        if (!apiKey) throw new Error("An agent API key is required. Set it with `behalf config set api-key <key>` or pass --api-key.");
 
         const baseUrl = resolveBaseUrl();
         const intervalMs = Math.max(Number(opts.interval) || 4, 2) * 1000;

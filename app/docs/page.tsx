@@ -17,6 +17,7 @@ const cards = [
   { href: "/docs/api", title: "API Reference", body: "Use public REST endpoints for agents, permissions, verification, logs, and key rotation." },
   { href: "/docs/webhooks", title: "Webhooks", body: "Receive signed events for allowed, denied, and approval-required decisions via an outbox-backed delivery system." },
   { href: "/docs/concepts", title: "Concepts", body: "Understand permission passports, fail-closed enforcement, approval-required flows, audit logs, MCP enforcement, and Managed Profiles." },
+  { href: "/docs/troubleshooting", title: "Troubleshooting", body: "Diagnose verify denials, CLI doctor, auth errors, webhook delivery failures, and installer codes with actionable fixes." },
   { href: "/security", title: "Security", body: "How BehalfID handles secrets, tokens, fail-closed enforcement, audit logs, and current limitations." },
   { href: "/docs/site-guard", title: "Site Guard", body: "Design website middleware, workers, or gateways that enforce AI access rules before protected routes run." },
   { href: "/docs/action-gateway", title: "Action Gateway", body: "Route safe public web reads through BehalfID so denied actions fail before execution." },

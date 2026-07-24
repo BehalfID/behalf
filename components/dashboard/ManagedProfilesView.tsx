@@ -7,6 +7,7 @@ import {
   Button,
   ButtonLink,
   Card,
+  ConfirmDialog,
   DashboardState,
   EmptyState,
   PageHeader,
@@ -980,18 +981,28 @@ export function ManagedProfilesView() {
                       </TableCell>
                       <TableCell data-label="Action">
                         {canEdit ? (
-                          <Button
-                            onClick={() =>
+                          <ConfirmDialog
+                            confirmLabel="Remove repository"
+                            confirmVariant="destructive"
+                            description="This removes the repository from the draft policy. Save the policy afterward to apply the change."
+                            onConfirm={() => {
                               setForm({
                                 ...form,
                                 protectedRepos: form.protectedRepos.filter((_, repoIndex) => repoIndex !== index),
-                              })
-                            }
-                            type="button"
-                            variant="secondary"
+                              });
+                            }}
+                            title="Remove protected repository?"
+                            trigger={(open) => (
+                              <Button onClick={open} type="button" variant="secondary">
+                                Remove
+                              </Button>
+                            )}
                           >
-                            Remove
-                          </Button>
+                            <p>
+                              Mode: <strong>{repo.mode}</strong>
+                              {repo.label ? <> · {repo.label}</> : null}
+                            </p>
+                          </ConfirmDialog>
                         ) : <span className="managed-profile-table__muted">Read-only</span>}
                       </TableCell>
                     </TableRow>

@@ -30,7 +30,7 @@ function printWarnings(output: CliOutput, warnings: OperationWarning[]): void {
   output.writeLine("");
   output.writeLine("Warnings:");
   for (const warning of warnings) {
-    output.writeLine(`  ! ${warning.message}`);
+    output.writeLine(`  ! [${warning.code}] ${warning.message}`);
   }
 }
 

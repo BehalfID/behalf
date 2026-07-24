@@ -3,6 +3,11 @@ import createMiddleware from "next-intl/middleware";
 import { routing } from "./i18n/routing";
 import { PRIVATE_NO_STORE } from "./lib/cachePolicy";
 import {
+  isSubdomainRoutingEnabled,
+  resolveSubdomainHosts,
+  resolveSubdomainRedirect
+} from "./lib/subdomainRouting";
+import {
   WORKSPACE_SLUG_HEADER,
   WORKSPACE_SLUG_PATTERN,
   isReservedWorkspaceSlug,
@@ -158,6 +163,20 @@ export function proxy(request: NextRequest) {
 
   if (shouldBypassProxy(pathname)) {
     return NextResponse.next();
+  }
+
+  // Opt-in multi-subdomain redirects (off by default — keeps apex single-app deploy).
+  if (isSubdomainRoutingEnabled()) {
+    const redirectTo = resolveSubdomainRedirect({
+      hostname: request.nextUrl.hostname,
+      pathname,
+      search: request.nextUrl.search,
+      protocol: request.nextUrl.protocol,
+      hosts: resolveSubdomainHosts()
+    });
+    if (redirectTo) {
+      return NextResponse.redirect(redirectTo, 308);
+    }
   }
 
   const array = new Uint8Array(16);

@@ -49,6 +49,10 @@ export type {
   OperationWarning,
 } from "./results.js";
 
-export type { InstallerErrorCode, InstallerError } from "./errors.js";
+export type {
+  InstallerErrorCode,
+  InstallerWarningCode,
+  InstallerError,
+} from "./errors.js";
 
 export { INSTALLATION_STATE_SCHEMA_VERSION, BEHALF_MCP_SERVER_NAME } from "./constants.js";

@@ -141,7 +141,7 @@ npx @behalfid/install status --json   # installed should be false
 
 | Code | Typical cause | Suggested action |
 | --- | --- | --- |
-| `DETECTION_FAILED` | Environment detection threw | Check OS support; see error `details` |
+| `DETECTION_FAILED` | Environment detection threw or no usable clients found | Check OS support; install a supported client; see error `details` |
 | `CONFIG_READ_FAILED` | Cannot read MCP file | Fix permissions or path; ensure file exists |
 | `CONFIG_WRITE_FAILED` | Cannot write MCP file | Fix permissions; close apps locking the file |
 | `CONFIG_INVALID` | Parse/validation error | Fix file syntax |
@@ -149,12 +149,28 @@ npx @behalfid/install status --json   # installed should be false
 | `RUNTIME_REGISTRATION_FAILED` | MCP register step failed | See nested message; check config format |
 | `STATE_READ_FAILED` | State file unreadable | Repair or remove corrupt `install-state.json` |
 | `STATE_WRITE_FAILED` | Could not persist state | Check `~/.behalfid` permissions |
-| `STATE_INVALID` | State JSON schema invalid | Remove state and reinstall, or fix JSON manually |
-| `VERIFY_FAILED` | Verification step failed | Run `doctor --json` for details |
+| `STATE_INVALID` | State JSON schema invalid or corrupt | Remove state and reinstall, or fix JSON manually |
+| `VERIFY_FAILED` | Verification step failed (reserved) | Run `doctor --json` for details |
+| `PACKAGE_INSTALL_FAILED` | Package install failed (reserved) | Check network/registry access and retry |
 | `ROLLBACK_FAILED` | Restore from backup failed | Manually restore from `.behalfid-backup-*` siblings if present |
 | `UNSUPPORTED_PLATFORM` | OS not macOS/Linux/Windows | Use a supported platform |
 | `NOT_INSTALLED` | Operation requires prior install | Run `install` first |
+| `ALREADY_INSTALLED` | Reserved; already-installed is reported via `alreadyInstalled: true` | Use `status --json` or reinstall with `--force` |
 | `INTERNAL_ERROR` | Unexpected failure | Re-run with `--json`; file an issue with output |
+
+### Warning codes
+
+Non-fatal codes appear in `warnings[]` (human output: `! [CODE] message`):
+
+| Code | Typical cause | Suggested action |
+| --- | --- | --- |
+| `CLIENT_NOT_DETECTED` | `--clients` requested a client not found on the host | Install/launch the client, or drop it from `--clients` |
+| `CLIENT_NOT_INSTALLED` | Client detected but not installed | Install the client application |
+| `CLIENT_MISSING_MCP_PATH` | Client installed without a known MCP config path | Launch the client once to create config dirs |
+| `RUNTIME_ALREADY_REGISTERED` | BehalfID already present and `--force` not set | Use `--force` to rewrite registration |
+| `SERVER_WRAP_SKIPPED` | A server could not be wrapped under `--wrap` | See `details.reason`; wrap remaining servers manually if needed |
+| `NO_SERVERS_WRAPPED` | `--wrap` found no wrappable stdio servers | Register-only install proceeded; add servers then re-run with `--wrap` |
+| `NOT_INSTALLED` | Uninstall with nothing installed (soft warning) | Run `install` first if configuration is expected |
 
 JSON results include `remediation` on many errors when the installer can suggest a fix.
 

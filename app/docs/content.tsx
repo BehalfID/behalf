@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { DocsLayout } from "@/components/layout/DocsLayout";
 import { CodeBlock as SharedCodeBlock } from "@/components/ui";
+export { DocsCallout } from "@/components/docs/DocsCallout";
 
 export function DocsShell({
   title,

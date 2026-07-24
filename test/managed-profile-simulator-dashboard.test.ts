@@ -142,21 +142,23 @@ describe("cli install commands", () => {
 
   it("docs cli page uses shared npm install command", async () => {
     const { CLI_NPM_INSTALL_COMMAND } = await import("@/lib/cliInstallCommands");
-    const docsSource = readFileSync(join(process.cwd(), "app/docs/cli/page.tsx"), "utf-8");
+    const docsPageSource = readFileSync(join(process.cwd(), "app/docs/cli/page.tsx"), "utf-8");
+    const docsBodySource = readFileSync(join(process.cwd(), "app/docs/_shared/cliBody.tsx"), "utf-8");
     const demoSource = readFileSync(join(process.cwd(), "app/docs/demo-script/page.tsx"), "utf-8");
     const readmeSource = readFileSync(join(process.cwd(), "packages/cli/README.md"), "utf-8");
-    expect(docsSource).toContain("CLI_NPM_INSTALL_COMMAND");
+    expect(docsPageSource).toContain("CliDocsBody");
+    expect(docsBodySource).toContain("CLI_NPM_INSTALL_COMMAND");
     expect(demoSource).toContain("CLI_NPM_INSTALL_COMMAND");
     expect(readmeSource).toContain("packages/cli/package.json");
     expect(CLI_NPM_INSTALL_COMMAND).toMatch(/^npm install -g @.+\/cli$/);
-    expect(docsSource).not.toContain("npm install -g behalf");
+    expect(docsBodySource).not.toContain("npm install -g behalf");
     expect(readmeSource).not.toContain("npm install -g behalf");
   });
 });
 
 describe("managed profiles docs consistency", () => {
   const demoSource = readFileSync(join(process.cwd(), "app/docs/demo-script/page.tsx"), "utf-8");
-  const cliDocsSource = readFileSync(join(process.cwd(), "app/docs/cli/page.tsx"), "utf-8");
+  const cliDocsSource = readFileSync(join(process.cwd(), "app/docs/_shared/cliBody.tsx"), "utf-8");
   const readmeSource = readFileSync(join(process.cwd(), "packages/cli/README.md"), "utf-8");
   const onboardingSource = readFileSync(join(process.cwd(), "lib/managedProfileOnboarding.ts"), "utf-8");
 

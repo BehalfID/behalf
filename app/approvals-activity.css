@@ -543,6 +543,16 @@ html[data-theme="light"] .ops-console {
   font-size: 0.82rem;
 }
 
+.ops-cmd__smart-search {
+  width: 100%;
+}
+
+.ops-cmd__smart-search .smart-ac__input {
+  min-height: 40px;
+  border-color: var(--border-standard);
+  background: var(--surface-elevated);
+}
+
 .ops-cmd__filters {
   display: grid;
   grid-template-columns: repeat(6, minmax(110px, 1fr));

@@ -6,7 +6,15 @@ export default defineConfig({
     environment: "node",
     globals: false,
     setupFiles: ["./test/setup.ts"],
-    exclude: [...configDefaults.exclude, "test/integration/**", "test/e2e/**", "test/runtime/**"],
+    exclude: [
+      ...configDefaults.exclude,
+      "test/integration/**",
+      "test/e2e/**",
+      "test/runtime/**",
+      // Package-owned suites run via `npm run test:packages` / workspace scripts.
+      "packages/*/test/**",
+      "packages/*/vitest.config.ts"
+    ],
     coverage: {
       reporter: ["text", "html"],
       include: ["lib/**/*.ts", "app/api/**/*.ts"],

@@ -151,7 +151,7 @@ function installPreToolUseHookAt(path: string): HookInstallResult {
   return { path, ok: true, changed: true };
 }
 
-/** Loud, actionable stderr message — never prints file contents or secrets. */
+/** Loud, actionable stderr message - never prints file contents or secrets. */
 export function formatClaudeHookInstallError(result: Extract<HookInstallResult, { ok: false }>): string {
   const path = result.path;
   switch (result.code) {
@@ -378,7 +378,7 @@ export async function launchTool(
 
   // Resolve permissions. Fast path: any cached detail (even stale) lets us
   // launch immediately; a stale cache triggers a detached background refresh so
-  // the next launch is current. Cold path: no cache at all — fetch with a short
+  // the next launch is current. Cold path: no cache at all - fetch with a short
   // timeout so a slow/unreachable API can't stall the launch indefinitely.
   let detail: AgentDetail;
   const cached = readAnyCachedDetail(agentId);
@@ -608,7 +608,7 @@ export async function gateAndExec(
   const shadow = opts.shadow === true || process.env.BEHALFID_SHADOW === "true";
 
   if (shadow) {
-    stderr.write(`[shadow] Evaluating: ${action} on ${displayResource} (risk: ${risk}) — not enforcing...\n`);
+    stderr.write(`[shadow] Evaluating: ${action} on ${displayResource} (risk: ${risk}) - not enforcing...\n`);
   } else {
     stderr.write(`Verifying: ${action} on ${displayResource} (risk: ${risk})...\n`);
   }
@@ -622,13 +622,13 @@ export async function gateAndExec(
     result = await apiRequest<VerifyResult>("/api/verify", { method: "POST", body, apiKey, baseUrl });
   } catch (err) {
     if (shadow) {
-      stderr.write(`[shadow] BehalfID evaluation failed — proceeding anyway: ${err instanceof Error ? err.message : String(err)}\n`);
+      stderr.write(`[shadow] BehalfID evaluation failed - proceeding anyway: ${err instanceof Error ? err.message : String(err)}\n`);
       const [bin, ...binArgs] = argv;
       const child: SpawnSyncReturns<Buffer> = spawnFn(bin, binArgs, { stdio: "inherit" });
       return child.status ?? 1;
     }
     stderr.write(`BehalfID verification failed: ${err instanceof Error ? err.message : String(err)}\n`);
-    stderr.write("Fail closed — command not executed.\n");
+    stderr.write("Fail closed - command not executed.\n");
     return 1;
   }
 
@@ -644,7 +644,7 @@ export async function gateAndExec(
       stderr.write(`  Risk:       ${sd.risk}\n`);
       stderr.write(`\n[shadow] Executing anyway (shadow mode does not enforce): ${argv.join(" ")}\n\n`);
     } else {
-      stderr.write(`[shadow] Would have been allowed — executing: ${argv.join(" ")}\n`);
+      stderr.write(`[shadow] Would have been allowed - executing: ${argv.join(" ")}\n`);
     }
     const [bin, ...binArgs] = argv;
     const child: SpawnSyncReturns<Buffer> = spawnFn(bin, binArgs, { stdio: "inherit" });
@@ -672,7 +672,7 @@ export async function gateAndExec(
     return 1;
   }
 
-  stderr.write(`✓ Allowed — executing: ${argv.join(" ")}\n`);
+  stderr.write(`✓ Allowed - executing: ${argv.join(" ")}\n`);
 
   let childEnv = process.env;
   let stopEgress: (() => Promise<void>) | undefined;
@@ -719,11 +719,11 @@ export function runCommand() {
     .description(
       "launch an AI tool with BehalfID enforcement (claude|codex|cursor), " +
       "or gate an arbitrary shell command via BehalfID verify before execution.\n\n" +
-      "  behalf run claude                      — launch Claude Code with MCP enforcement\n" +
-      "  behalf run --egress=enforce -- npm ... — verify + local egress proxy\n" +
-      "  behalf run -- npm run deploy:prod      — verify then execute\n" +
-      "  behalf run -- vercel deploy --prod     — verify then execute\n" +
-      "  behalf run -- prisma migrate deploy    — verify then execute"
+      "  behalf run claude                      - launch Claude Code with MCP enforcement\n" +
+      "  behalf run --egress=enforce -- npm ... - verify + local egress proxy\n" +
+      "  behalf run -- npm run deploy:prod      - verify then execute\n" +
+      "  behalf run -- vercel deploy --prod     - verify then execute\n" +
+      "  behalf run -- prisma migrate deploy    - verify then execute"
     )
     .allowUnknownOption(true)
     .passThroughOptions(true)

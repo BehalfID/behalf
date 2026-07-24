@@ -3,11 +3,12 @@ import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import { cache } from "react";
 import { promisify } from "util";
+import { jsonAppError } from "@/lib/appErrors";
 import { connectToDatabase } from "@/lib/db";
 import { requireWorkspaceMembershipBySlug, resolveActiveAccountId } from "@/lib/accountContext";
 import { createPublicId } from "@/lib/ids";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
-import { jsonError } from "@/lib/responses";
+import { sessionCookieOptions } from "@/lib/sessionCookies";
 import { WORKSPACE_SLUG_HEADER } from "@/lib/workspaceSlug";
 import { isUnverifiedAuthApiPath } from "@/lib/emailVerificationGuard";
 import Account, { type AccountDocument } from "@/models/Account";
@@ -95,13 +96,11 @@ export async function createDeveloperSession(userId: string) {
 }
 
 export function setDeveloperSessionCookie(response: NextResponse, token: string) {
-  response.cookies.set(COOKIE_NAME, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    maxAge: Math.floor(SESSION_INACTIVITY_MS / 1000),
-    path: "/"
-  });
+  response.cookies.set(
+    COOKIE_NAME,
+    token,
+    sessionCookieOptions({ maxAge: Math.floor(SESSION_INACTIVITY_MS / 1000) })
+  );
 }
 
 function isSessionInactive(lastActivityAt: Date | string | undefined, createdAt: Date | string | undefined) {
@@ -160,11 +159,8 @@ export async function refreshDeveloperSessionActivity(token: string) {
 
 export function clearDeveloperSessionCookie(response: NextResponse) {
   response.cookies.set(COOKIE_NAME, "", {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 0,
-    path: "/"
+    ...sessionCookieOptions({ maxAge: 0 }),
+    maxAge: 0
   });
 }
 
@@ -193,7 +189,7 @@ export function requireDashboardMutationOrigin(request: NextRequest) {
 
   const origin = normalizeOrigin(request.headers.get("origin"));
   if (!origin || !allowedOrigins(request).has(origin)) {
-    return jsonError("Invalid request origin.", 403);
+    return jsonAppError("Invalid request origin.", 403, "INVALID_ORIGIN");
   }
 
   return null;
@@ -318,7 +314,7 @@ export async function requireDeveloperApi(request: NextRequest) {
       activeAccountId: null,
       session: null,
       workspaceSlug: null,
-      error: jsonError("Developer authentication required.", 401)
+      error: jsonAppError("Developer authentication required.", 401, "AUTH_REQUIRED")
     };
   }
 
@@ -332,7 +328,11 @@ export async function requireDeveloperApi(request: NextRequest) {
       activeAccountId: null,
       session: null,
       workspaceSlug: null,
-      error: jsonError("Email verification required. Check your inbox or resend the verification email.", 403)
+      error: jsonAppError(
+        "Email verification required. Check your inbox or resend the verification email.",
+        403,
+        "EMAIL_VERIFICATION_REQUIRED"
+      )
     };
   }
 
@@ -388,7 +388,11 @@ export async function requireVerifiedDeveloperApi(request: NextRequest) {
       activeAccountId: null,
       session: null,
       workspaceSlug: null,
-      error: jsonError("Email verification required. Check your inbox or resend the verification email.", 403)
+      error: jsonAppError(
+        "Email verification required. Check your inbox or resend the verification email.",
+        403,
+        "EMAIL_VERIFICATION_REQUIRED"
+      )
     };
   }
   return auth;

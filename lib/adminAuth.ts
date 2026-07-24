@@ -205,6 +205,7 @@ export function requireSetupTokenOrConsoleApi(request: NextRequest) {
 }
 
 export function setConsoleSessionCookie(response: NextResponse, value: string) {
+  // Always host-only: console must not share session cookies with auth/app.
   response.cookies.set(COOKIE_NAME, value, {
     httpOnly: true,
     sameSite: "lax",

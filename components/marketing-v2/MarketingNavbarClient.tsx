@@ -44,6 +44,7 @@ export function MarketingNavbarClient({
           {showGoogle ? (
             <ContinueWithGoogle
               className={`${styles.navGoogle} auth-google-button--compact`}
+              label="Google"
               mode="login"
               size="small"
               variant="outline"
@@ -94,6 +95,7 @@ export function MarketingNavbarClient({
             {showGoogle ? (
               <ContinueWithGoogle
                 className="auth-google-button--compact"
+                label="Continue with Google"
                 mode="login"
                 onClick={() => setOpen(false)}
                 size="large"

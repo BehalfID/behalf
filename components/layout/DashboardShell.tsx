@@ -5,6 +5,10 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Logo, ThemeToggle } from "@/components/ui";
 import { DashboardRouteLoading } from "@/components/dashboard/DashboardRouteLoading";
+import {
+  DashboardOmniSearchProvider,
+  DashboardOmniSearchTrigger
+} from "@/components/dashboard/DashboardOmniSearch";
 import { useDashboardApi, useOptionalWorkspace } from "@/components/workspace/WorkspaceProvider";
 import {
   extractDashboardSubpath,
@@ -324,6 +328,7 @@ export function DashboardShellLayout({
   }, [drawerOpen, isMobile]);
 
   return (
+    <DashboardOmniSearchProvider>
     <div className="dashboard-shell app-shell" data-content-variant={contentVariant}>
       <aside
         id="dashboard-drawer"
@@ -399,6 +404,7 @@ export function DashboardShellLayout({
             <span aria-hidden="true">/</span>
             <strong aria-current="page">{currentItem.label}</strong>
           </nav>
+          <DashboardOmniSearchTrigger variant="bar" />
           <div className="dashboard-topbar__workspace" title={workspaceName}>
             <span className="cx-dot" aria-hidden="true" />
             <span>{workspaceName}</span>
@@ -423,6 +429,7 @@ export function DashboardShellLayout({
             <strong>{currentItem.label}</strong>
             <span title={workspaceName}>{workspaceName}</span>
           </div>
+          <DashboardOmniSearchTrigger variant="icon" />
           <Logo href={homeHref} variant="symbol" />
         </header>
 
@@ -449,5 +456,6 @@ export function DashboardShellLayout({
         />
       ) : null}
     </div>
+    </DashboardOmniSearchProvider>
   );
 }

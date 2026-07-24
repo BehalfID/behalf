@@ -24,6 +24,8 @@ export class MemoryStateManager implements StateManager {
   private state: InstallationState | null = null;
   failOnSave = false;
   failOnLoad = false;
+  /** When set, `load` throws this error (used to exercise STATE_* mapping). */
+  loadError: Error | null = null;
 
   constructor(stateFilePath = ":memory:") {
     this.stateFilePath = stateFilePath;
@@ -34,6 +36,9 @@ export class MemoryStateManager implements StateManager {
   }
 
   async load(): Promise<InstallationState | null> {
+    if (this.loadError) {
+      throw this.loadError;
+    }
     if (this.failOnLoad) {
       throw new Error("forced load failure");
     }

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { agentAuthJsonError } from "@/lib/appErrors";
 import { authenticateAgent } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/db";
 import { authorizeEgressRequest } from "@/lib/egressAuthorize";
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
 
   const auth = await authenticateAgent(request, agentId);
   if (auth.error || !auth.agent) {
-    return jsonError(auth.error, auth.error === "Unknown agent." ? 404 : 401);
+    return agentAuthJsonError(auth.error);
   }
 
   const limit = await checkRateLimit(request, auth.agent.apiKeyHash);

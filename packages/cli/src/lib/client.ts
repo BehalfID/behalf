@@ -14,6 +14,21 @@ export type RequestOptions = {
   timeoutMs?: number;
 };
 
+/** Error with an optional actionable hint for CLI display. */
+export class ApiError extends Error {
+  hint?: string;
+  code?: string;
+  status?: number;
+
+  constructor(message: string, opts: { hint?: string; code?: string; status?: number } = {}) {
+    super(message);
+    this.name = "ApiError";
+    this.hint = opts.hint;
+    this.code = opts.code;
+    this.status = opts.status;
+  }
+}
+
 export function resolveBaseUrl(override?: string): string {
   const config = readConfig();
   return (
@@ -35,6 +50,20 @@ export function originOf(baseUrl: string): string {
   } catch {
     return baseUrl;
   }
+}
+
+function authHint(hadApiKey: boolean, hadSession: boolean): string {
+  if (!hadApiKey && !hadSession) {
+    return "Run `behalf login`, or set an API key with `behalf config set api-key <key>`.";
+  }
+  if (hadSession && !hadApiKey) {
+    return "Session may have expired. Run `behalf login` again, or pass --api-key.";
+  }
+  return "Check the API key (`behalf config set api-key <key>`) or run `behalf login`.";
+}
+
+function networkHint(baseUrl: string): string {
+  return `Check connectivity and base URL (currently ${baseUrl}). Try \`behalf config get base-url\` or set BEHALFID_BASE_URL.`;
 }
 
 export async function apiRequest<T = unknown>(
@@ -73,30 +102,69 @@ export async function apiRequest<T = unknown>(
       });
     } catch {
       if (controller?.signal.aborted) {
-        throw new Error(`Request timed out after ${timeoutMs}ms.`);
+        throw new ApiError(`Request timed out after ${timeoutMs}ms.`, {
+          code: "timeout",
+          hint: networkHint(baseUrl),
+        });
       }
-      throw new Error("Network request failed. Check your connection and base URL.");
+      throw new ApiError("Network request failed.", {
+        code: "network",
+        hint: networkHint(baseUrl),
+      });
     }
 
     if (opts.onHeaders) opts.onHeaders(response.headers);
 
     const body = await response.json().catch(() => null);
     if (controller?.signal.aborted) {
-      throw new Error(`Request timed out after ${timeoutMs}ms.`);
+      throw new ApiError(`Request timed out after ${timeoutMs}ms.`, {
+        code: "timeout",
+        hint: networkHint(baseUrl),
+      });
     }
 
     if (!response.ok) {
-      const message =
-        typeof body === "object" &&
-        body !== null &&
-        "error" in body &&
-        typeof (body as Record<string, unknown>).error === "string"
-          ? (body as Record<string, string>).error
-          : `Request failed with status ${response.status}.`;
-      throw new Error(message);
+      const record =
+        typeof body === "object" && body !== null
+          ? (body as Record<string, unknown>)
+          : null;
+      const serverMessage =
+        typeof record?.error === "string" ? record.error : null;
+      const serverCode =
+        typeof record?.code === "string" ? record.code : undefined;
+      // Prefer explicit hint, then quota upgradeHint / installer remediation.
+      const serverHint =
+        typeof record?.hint === "string"
+          ? record.hint
+          : typeof record?.upgradeHint === "string"
+            ? record.upgradeHint
+            : typeof record?.remediation === "string"
+              ? record.remediation
+              : undefined;
+
+      if (response.status === 401 || response.status === 403) {
+        throw new ApiError(serverMessage ?? `Authentication failed (HTTP ${response.status}).`, {
+          status: response.status,
+          code: serverCode ?? "auth",
+          hint: serverHint ?? authHint(Boolean(apiKey), Boolean(session)),
+        });
+      }
+
+      throw new ApiError(
+        serverMessage ?? `Request failed with status ${response.status}.`,
+        {
+          status: response.status,
+          code: serverCode ?? "http_error",
+          hint:
+            serverHint ??
+            (response.status >= 500
+              ? `Server error from ${baseUrl}. Retry shortly, or check behalf health.`
+              : undefined),
+        }
+      );
     }
 
-    if (body === null) throw new Error("Expected JSON response.");
+    if (body === null) throw new ApiError("Expected JSON response.", { code: "bad_response" });
 
     return body as T;
   } finally {

@@ -16,13 +16,42 @@ export function printJson(data: unknown) {
   console.log(JSON.stringify(data, null, 2));
 }
 
-export function printError(message: string) {
+export type PrintErrorOptions = {
+  /** Actionable next step shown as "Hint: ..." in human mode. */
+  hint?: string;
+  /** Optional machine-readable error code for JSON mode. */
+  code?: string;
+};
+
+export function printError(message: string, opts: PrintErrorOptions = {}) {
   const safeMessage = redactSecrets(message);
+  const safeHint = opts.hint ? redactSecrets(opts.hint) : undefined;
+  const safeCode = opts.code ? redactSecrets(opts.code) : undefined;
   if (_json) {
-    console.error(JSON.stringify({ error: safeMessage }));
+    const payload: Record<string, string> = { error: safeMessage };
+    if (safeHint) payload.hint = safeHint;
+    if (safeCode) payload.code = safeCode;
+    console.error(JSON.stringify(payload));
   } else {
-    console.error(`Error: ${safeMessage}`);
+    console.error(safeCode ? `Error: [${safeCode}] ${safeMessage}` : `Error: ${safeMessage}`);
+    if (safeHint) console.error(`Hint: ${safeHint}`);
   }
+}
+
+/** Prefer printError when catching unknown failures so secrets stay redacted. */
+export function printCaughtError(err: unknown, opts: PrintErrorOptions = {}) {
+  const message = err instanceof Error ? err.message : String(err);
+  const hint =
+    opts.hint ??
+    (err instanceof Error && "hint" in err && typeof (err as { hint?: unknown }).hint === "string"
+      ? (err as { hint: string }).hint
+      : undefined);
+  const code =
+    opts.code ??
+    (err instanceof Error && "code" in err && typeof (err as { code?: unknown }).code === "string"
+      ? (err as { code: string }).code
+      : undefined);
+  printError(message, { hint, code });
 }
 
 export function printSuccess(message: string) {
@@ -40,7 +69,7 @@ export function printTable(rows: Row[], columns?: string[]) {
   const widths = keys.map(k =>
     Math.max(k.length, ...rows.map(r => String(r[k] ?? "").length))
   );
-  const sep = widths.map(w => "─".repeat(w)).join("  ");
+  const sep = widths.map(w => "-".repeat(w)).join("  ");
   console.log(keys.map((k, i) => k.toUpperCase().padEnd(widths[i])).join("  "));
   console.log(sep);
   for (const row of rows) {
@@ -60,7 +89,7 @@ export function runAction(fn: (...args: any[]) => Promise<void>) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (...args: any[]) => {
     (fn(...args) as Promise<void>).catch((err: unknown) => {
-      printError(err instanceof Error ? err.message : String(err));
+      printCaughtError(err);
       process.exit(1);
     });
   };

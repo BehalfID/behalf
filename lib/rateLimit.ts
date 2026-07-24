@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import type { NextRequest } from "next/server";
-import { jsonError } from "@/lib/responses";
+import { jsonAppError } from "@/lib/appErrors";
 
 const WINDOW_MS = 60_000;
 const MAX_REQUESTS = 60;
@@ -205,5 +205,5 @@ export async function checkDemoRateLimit(request: NextRequest) {
 }
 
 export function rateLimitError() {
-  return jsonError("Rate limit exceeded.", 429);
+  return jsonAppError("Rate limit exceeded.", 429, "RATE_LIMIT_EXCEEDED");
 }

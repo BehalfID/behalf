@@ -42,6 +42,7 @@ export type {
   DoctorReport,
   OperationWarning,
   InstallerErrorCode,
+  InstallerWarningCode,
   InstallerError,
 } from "./types/index.js";
 

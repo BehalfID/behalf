@@ -135,6 +135,7 @@ export function PublicNavClient({
             {showGoogle ? (
               <ContinueWithGoogle
                 className="nav-action auth-google-button--compact"
+                label="Google"
                 mode="login"
                 size="small"
                 variant="outline"
@@ -195,6 +196,7 @@ export function PublicNavClient({
             {showGoogle ? (
               <ContinueWithGoogle
                 className="auth-google-button--compact"
+                label="Continue with Google"
                 mode="login"
                 onClick={close}
                 size="large"

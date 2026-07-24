@@ -62,7 +62,7 @@ export type VerifyRisk = "low" | "medium" | "high";
 
 /**
  * Decision returned by BehalfID verify / POST /api/verify.
- * Includes approval fields the HTTP API returns (SDK types may lag).
+ * Mirrors `@behalfid/sdk` VerifyResult approval fields.
  */
 export interface VerifyDecision {
   requestId: string;

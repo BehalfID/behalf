@@ -1,5 +1,6 @@
 import Agent from "@/models/Agent";
 import VerificationLog from "@/models/VerificationLog";
+import { parseSmartLogQuery } from "@/lib/smartSearch/parseLogQuery";
 
 export type LogRisk = "low" | "medium" | "high";
 
@@ -48,7 +49,7 @@ const RISKS = new Set(["low", "medium", "high"]);
 const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 500;
 const APPROVAL_REASON_RE = /requires approval|approval required|approval before execution/i;
-const SEARCHABLE_FIELDS = ["requestId", "action", "vendor", "reason", "agentId"] as const;
+const SEARCHABLE_FIELDS = ["requestId", "action", "vendor", "reason", "agentId", "permissionId"] as const;
 
 export function redactLogString(value: string) {
   return value
@@ -113,18 +114,34 @@ export function buildVerificationLogQuery(
   options: { retentionStart?: Date | null } = {}
 ) {
   const query: Record<string, unknown> = { ...baseQuery };
-  const agentId = searchParams.get("agentId")?.trim() || searchParams.get("agent")?.trim();
-  const action = searchParams.get("action")?.trim();
-  const vendor = searchParams.get("vendor")?.trim() || searchParams.get("resource")?.trim();
-  const environment = searchParams.get("environment")?.trim();
+  const rawSearch = searchParams.get("search")?.trim() || searchParams.get("q")?.trim() || "";
+  const smart = rawSearch ? parseSmartLogQuery(rawSearch) : null;
+
+  const agentId =
+    searchParams.get("agentId")?.trim() ||
+    searchParams.get("agent")?.trim() ||
+    smart?.agentId?.trim();
+  const action = searchParams.get("action")?.trim() || smart?.action?.trim();
+  const vendor =
+    searchParams.get("vendor")?.trim() ||
+    searchParams.get("resource")?.trim() ||
+    smart?.vendor?.trim();
+  const environment = searchParams.get("environment")?.trim() || smart?.environment?.trim();
   const requestId = searchParams.get("requestId")?.trim();
-  const allowed = searchParams.get("allowed")?.trim() || decisionToAllowed(searchParams.get("decision")?.trim());
-  const risk = searchParams.get("risk")?.trim();
+  const allowed =
+    searchParams.get("allowed")?.trim() ||
+    decisionToAllowed(searchParams.get("decision")?.trim()) ||
+    decisionToAllowed(smart?.decision ?? null);
+  const risk = searchParams.get("risk")?.trim() || smart?.risk?.trim();
   const shadowParam = searchParams.get("shadow")?.trim();
-  const search = searchParams.get("search")?.trim() || searchParams.get("q")?.trim();
+  const search = smart ? smart.freeText : rawSearch;
   const from = validDate(searchParams.get("from") ?? searchParams.get("start"));
   const to = validDate(searchParams.get("to") ?? searchParams.get("end"));
-  const gte = latestDate(options.retentionStart ?? null, from);
+  const smartFrom =
+    !from && smart?.range
+      ? new Date(Date.now() - (smart.range === "24h" ? 24 : 7 * 24) * 60 * 60 * 1000)
+      : null;
+  const gte = latestDate(options.retentionStart ?? null, latestDate(from, smartFrom));
 
   if (agentId && !Object.prototype.hasOwnProperty.call(baseQuery, "agentId")) {
     query.agentId = agentId;

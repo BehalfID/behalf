@@ -8,7 +8,8 @@ import {
   DashboardState,
   PageHeader,
   RiskIndicator,
-  Skeleton
+  Skeleton,
+  SmartAutocomplete
 } from "@/components/ui";
 import { useDashboardApi, useDashboardPaths } from "@/components/workspace/WorkspaceProvider";
 import { DecisionIndicator, OpsDrawerLink, OpsLogEventCard } from "./OpsEventPrimitives";
@@ -20,6 +21,8 @@ import {
   type OpsLog,
   type OpsLogSummary
 } from "./opsLogTypes";
+import type { SmartSuggestion } from "@/lib/smartSearch";
+import { parseSmartLogQuery } from "@/lib/smartSearch";
 
 type LogsResponse = {
   logs: OpsLog[];
@@ -209,7 +212,12 @@ export function OpsLogConsole({
   compact = false,
   initialLimit = 100,
   initialSearch,
-  initialAgentId
+  initialAgentId,
+  initialDecision,
+  initialRisk,
+  initialAction,
+  initialEnvironment,
+  initialRange
 }: {
   title?: string;
   description?: string;
@@ -217,15 +225,21 @@ export function OpsLogConsole({
   initialLimit?: number;
   initialSearch?: string;
   initialAgentId?: string;
+  initialDecision?: string;
+  initialRisk?: string;
+  initialAction?: string;
+  initialEnvironment?: string;
+  initialRange?: string;
 }) {
   const { apiJson, apiPath, workspaceSlug } = useDashboardApi();
+  const [searchInput, setSearchInput] = useState(initialSearch ?? "");
   const [search, setSearch] = useState(initialSearch ?? "");
-  const [decision, setDecision] = useState("");
+  const [decision, setDecision] = useState(initialDecision ?? "");
   const [agentId, setAgentId] = useState(initialAgentId ?? "");
-  const [action, setAction] = useState("");
-  const [environment, setEnvironment] = useState("");
-  const [risk, setRisk] = useState("");
-  const [range, setRange] = useState("");
+  const [action, setAction] = useState(initialAction ?? "");
+  const [environment, setEnvironment] = useState(initialEnvironment ?? "");
+  const [risk, setRisk] = useState(initialRisk ?? "");
+  const [range, setRange] = useState(initialRange === "24h" || initialRange === "7d" ? initialRange : "");
   const [selected, setSelected] = useState<OpsLog | null>(null);
   const [data, setData] = useState<LogsResponse | null>(null);
   const [dataWorkspaceSlug, setDataWorkspaceSlug] = useState<string | null>(null);
@@ -233,6 +247,12 @@ export function OpsLogConsole({
   const [errorWorkspaceSlug, setErrorWorkspaceSlug] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const requestId = useRef(0);
+
+  // Debounce free-text search so each keystroke does not hit the API.
+  useEffect(() => {
+    const handle = window.setTimeout(() => setSearch(searchInput), 300);
+    return () => window.clearTimeout(handle);
+  }, [searchInput]);
 
   const path = useMemo(() => {
     const params = new URLSearchParams();
@@ -280,6 +300,83 @@ export function OpsLogConsole({
   const initialLoading = loading || (!visibleData && !visibleError);
   const logs = visibleData?.logs ?? [];
 
+  const extraSuggestions = useMemo<SmartSuggestion[]>(() => {
+    const seen = new Set<string>();
+    const items: SmartSuggestion[] = [];
+    for (const log of logs) {
+      if (log.action && !seen.has(`action:${log.action}`)) {
+        seen.add(`action:${log.action}`);
+        items.push({
+          id: `facet-action-${log.action}`,
+          kind: "field",
+          title: `action:${log.action}`,
+          description: `Filter to action ${log.action}`,
+          query: `action:${log.action}`,
+          logFilters: { action: log.action, search: "" }
+        });
+      }
+      if (log.vendor && !seen.has(`vendor:${log.vendor}`)) {
+        seen.add(`vendor:${log.vendor}`);
+        items.push({
+          id: `facet-vendor-${log.vendor}`,
+          kind: "field",
+          title: `vendor:${log.vendor}`,
+          description: `Filter to target ${log.vendor}`,
+          query: `vendor:${log.vendor}`,
+          logFilters: { search: log.vendor }
+        });
+      }
+      if (log.agentId && !seen.has(`agent:${log.agentId}`)) {
+        seen.add(`agent:${log.agentId}`);
+        items.push({
+          id: `facet-agent-${log.agentId}`,
+          kind: "field",
+          title: log.agentName ? `${log.agentName} (${log.agentId})` : `agent:${log.agentId}`,
+          description: "Filter to this agent",
+          query: `agent:${log.agentId}`,
+          logFilters: { agentId: log.agentId, search: "" }
+        });
+      }
+    }
+    return items.slice(0, 12);
+  }, [logs]);
+
+  const applySuggestion = (suggestion: SmartSuggestion) => {
+    const filters = suggestion.logFilters;
+    if (filters) {
+      if (filters.search !== undefined) {
+        setSearchInput(filters.search);
+        setSearch(filters.search);
+      } else {
+        setSearchInput(suggestion.query);
+        setSearch(suggestion.query);
+      }
+      if (filters.decision !== undefined) setDecision(filters.decision);
+      if (filters.risk !== undefined) setRisk(filters.risk);
+      if (filters.agentId !== undefined) setAgentId(filters.agentId);
+      if (filters.action !== undefined) setAction(filters.action);
+      if (filters.environment !== undefined) setEnvironment(filters.environment);
+      if (filters.range !== undefined) setRange(filters.range);
+      return;
+    }
+
+    if (suggestion.kind === "field") {
+      setSearchInput(suggestion.query);
+      setSearch(suggestion.query);
+      return;
+    }
+
+    const parsed = parseSmartLogQuery(suggestion.query);
+    setSearchInput(parsed.freeText || suggestion.query);
+    setSearch(parsed.freeText || suggestion.query);
+    if (parsed.decision) setDecision(parsed.decision);
+    if (parsed.risk) setRisk(parsed.risk);
+    if (parsed.agentId) setAgentId(parsed.agentId);
+    if (parsed.action) setAction(parsed.action);
+    if (parsed.environment) setEnvironment(parsed.environment);
+    if (parsed.range) setRange(parsed.range);
+  };
+
   useEffect(() => {
     const availableLogs = visibleData?.logs ?? [];
     if (!initialSearch || !availableLogs.length) return;
@@ -303,6 +400,7 @@ export function OpsLogConsole({
   const hasFilters = activeFilters.length > 0;
 
   const resetFilters = () => {
+    setSearchInput("");
     setSearch("");
     setDecision("");
     setAgentId("");
@@ -310,6 +408,10 @@ export function OpsLogConsole({
     setEnvironment("");
     setRisk("");
     setRange("");
+  };
+
+  const commitSearchNow = () => {
+    setSearch(searchInput);
   };
 
   return (
@@ -330,21 +432,24 @@ export function OpsLogConsole({
           role="search"
           onSubmit={(event) => {
             event.preventDefault();
-            void reload();
+            commitSearchNow();
           }}
         >
-          <label className="ops-cmd__search-field">
-            <span>Search decision history</span>
-            <span className="ops-cmd__search-wrap">
-              <span className="ops-cmd__search-icon" aria-hidden="true">⌕</span>
-              <input
-                className="ops-cmd__search"
-                placeholder="Action, agent, target, reason, or event ID"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-              />
-            </span>
-          </label>
+          <div className="ops-cmd__search-field">
+            <SmartAutocomplete
+              scope="logs"
+              label="Search decision history"
+              placeholder="Find a denied action that's high risk… or action:deploy"
+              value={searchInput}
+              onChange={setSearchInput}
+              onSubmit={() => commitSearchNow()}
+              onSelectSuggestion={applySuggestion}
+              extraSuggestions={extraSuggestions}
+              inputClassName="ops-cmd__search"
+              className="ops-cmd__smart-search"
+              emptyHint="No query suggestions — free-text still searches action, agent, target, reason, and event ID"
+            />
+          </div>
           <div className="ops-cmd__filters">
             <label><span>Decision</span><select className="ops-cmd__filter" value={decision} onChange={(event) => setDecision(event.target.value)}>
               <option value="">All decisions</option>
@@ -397,6 +502,13 @@ export function OpsLogConsole({
           description={hasFilters
             ? "Reset or adjust the active filters to broaden the result set."
             : "Allowed, denied, and approval-required decisions appear here when agents call verify()."}
+          action={
+            hasFilters ? (
+              <Button type="button" variant="secondary" size="small" onClick={resetFilters}>
+                Reset filters
+              </Button>
+            ) : null
+          }
         />
       ) : (
         <div className="ops-events" aria-busy={loading || undefined}>

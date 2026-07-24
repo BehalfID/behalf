@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { apiRequest, resolveBaseUrl } from "../lib/client.js";
-import { readSession } from "../lib/config.js";
+import { requireSession } from "../lib/auth.js";
 import { isJsonMode, printJson, printTable, runAction } from "../lib/output.js";
 
 type WebhookEvent = {
@@ -11,12 +11,6 @@ type WebhookEvent = {
   createdAt: string;
   payload?: unknown;
 };
-
-function requireSession() {
-  if (!readSession()) {
-    throw new Error("This command requires you to be logged in. Run `behalfid login`.");
-  }
-}
 
 export function webhooksCommand() {
   const cmd = new Command("webhooks").description("manage and stream webhook events");

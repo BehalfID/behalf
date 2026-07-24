@@ -89,6 +89,75 @@ export function Dialog({
   );
 }
 
+type ConfirmButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "destructive" | "danger";
+
+/**
+ * Confirmation dialog for destructive or irreversible actions.
+ * Uses the shared Dialog pattern; confirm closes only after onConfirm resolves.
+ */
+export function ConfirmDialog({
+  cancelLabel = "Cancel",
+  children,
+  className,
+  confirmLabel = "Confirm",
+  confirmVariant = "destructive",
+  description,
+  loading = false,
+  onConfirm,
+  title,
+  trigger
+}: {
+  cancelLabel?: string;
+  children?: ReactNode;
+  className?: string;
+  confirmLabel?: string;
+  confirmVariant?: ConfirmButtonVariant;
+  description?: ReactNode;
+  loading?: boolean;
+  onConfirm: () => void | Promise<void>;
+  title: ReactNode;
+  trigger: (open: () => void) => ReactNode;
+}) {
+  const [working, setWorking] = useState(false);
+  const busy = loading || working;
+
+  return (
+    <Dialog
+      className={className}
+      description={description}
+      footer={(close) => (
+        <>
+          <Button disabled={busy} onClick={close} type="button" variant="outline">
+            {cancelLabel}
+          </Button>
+          <Button
+            loading={busy}
+            onClick={() => {
+              void (async () => {
+                setWorking(true);
+                try {
+                  await onConfirm();
+                  close();
+                } finally {
+                  setWorking(false);
+                }
+              })();
+            }}
+            type="button"
+            variant={confirmVariant}
+          >
+            {confirmLabel}
+          </Button>
+        </>
+      )}
+      title={title}
+      trigger={trigger}
+    >
+      {children ?? null}
+    </Dialog>
+  );
+}
+
 export function Dropdown({
   children,
   className,

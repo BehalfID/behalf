@@ -1,0 +1,36 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "_comment": "EXAMPLE ONLY — do not rename to vercel.json until subdomain DNS/TLS is ready. Prefer proxy.ts BEHALFID_SUBDOMAIN_ROUTING for app-aware redirects.",
+  "redirects": [
+    {
+      "source": "/login",
+      "has": [{ "type": "host", "value": "www.behalfid.com" }],
+      "destination": "https://auth.behalfid.com/login",
+      "permanent": true
+    },
+    {
+      "source": "/signup",
+      "has": [{ "type": "host", "value": "www.behalfid.com" }],
+      "destination": "https://auth.behalfid.com/signup",
+      "permanent": true
+    },
+    {
+      "source": "/dashboard/:path*",
+      "has": [{ "type": "host", "value": "www.behalfid.com" }],
+      "destination": "https://app.behalfid.com/dashboard/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/console/:path*",
+      "has": [{ "type": "host", "value": "www.behalfid.com" }],
+      "destination": "https://console.behalfid.com/console/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/docs/:path*",
+      "has": [{ "type": "host", "value": "www.behalfid.com" }],
+      "destination": "https://docs.behalfid.com/docs/:path*",
+      "permanent": true
+    }
+  ]
+}

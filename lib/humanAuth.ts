@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { jsonAppError } from "@/lib/appErrors";
 import {
   getCurrentDeveloper,
   getDeveloperFromToken,
@@ -10,7 +11,6 @@ import {
 import { authenticateDeveloperToken } from "@/lib/developerToken";
 import { connectToDatabase } from "@/lib/db";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
-import { jsonError } from "@/lib/responses";
 import Account from "@/models/Account";
 import DeveloperUser from "@/models/DeveloperUser";
 
@@ -46,13 +46,18 @@ export async function requireHumanDeveloperApi(request: NextRequest): Promise<Hu
 
   const { tokenDoc, error: tokenError } = await authenticateDeveloperToken(request);
   if (tokenError) {
-    return { user: null, account: null, error: jsonError(tokenError, 401), authMethod: null };
+    return {
+      user: null,
+      account: null,
+      error: jsonAppError(tokenError, 401, "INVALID_DEVELOPER_TOKEN"),
+      authMethod: null
+    };
   }
   if (!tokenDoc) {
     return {
       user: null,
       account: null,
-      error: sessionAuth.error ?? jsonError("Developer authentication required.", 401),
+      error: sessionAuth.error ?? jsonAppError("Developer authentication required.", 401, "AUTH_REQUIRED"),
       authMethod: null
     };
   }
@@ -62,14 +67,23 @@ export async function requireHumanDeveloperApi(request: NextRequest): Promise<Hu
     .select("-_id userId email emailVerified onboardingUseCase primaryAccountId firstName lastName jobTitle onboardingCompletedAt createdAt updatedAt")
     .lean();
   if (!user) {
-    return { user: null, account: null, error: jsonError("Developer authentication required.", 401), authMethod: null };
+    return {
+      user: null,
+      account: null,
+      error: jsonAppError("Developer authentication required.", 401, "AUTH_REQUIRED"),
+      authMethod: null
+    };
   }
 
   if (!isEmailVerified(user.emailVerified)) {
     return {
       user: null,
       account: null,
-      error: jsonError("Email verification required. Check your inbox or resend the verification email.", 403),
+      error: jsonAppError(
+        "Email verification required. Check your inbox or resend the verification email.",
+        403,
+        "EMAIL_VERIFICATION_REQUIRED"
+      ),
       authMethod: null
     };
   }
@@ -89,7 +103,12 @@ export async function getHumanAuthFromRequest(request: NextRequest): Promise<Hum
 
   const { tokenDoc } = await authenticateDeveloperToken(request);
   if (!tokenDoc) {
-    return { user: null, account: null, error: jsonError("Developer authentication required.", 401), authMethod: null };
+    return {
+      user: null,
+      account: null,
+      error: jsonAppError("Developer authentication required.", 401, "AUTH_REQUIRED"),
+      authMethod: null
+    };
   }
 
   await connectToDatabase();
@@ -97,7 +116,12 @@ export async function getHumanAuthFromRequest(request: NextRequest): Promise<Hum
     .select("-_id userId email emailVerified onboardingUseCase primaryAccountId firstName lastName jobTitle onboardingCompletedAt createdAt updatedAt")
     .lean();
   if (!tokenUser) {
-    return { user: null, account: null, error: jsonError("Developer authentication required.", 401), authMethod: null };
+    return {
+      user: null,
+      account: null,
+      error: jsonAppError("Developer authentication required.", 401, "AUTH_REQUIRED"),
+      authMethod: null
+    };
   }
   const account = await Account.findOne({ accountId: tokenDoc.accountId }).lean();
   return { user: tokenUser, account, error: null, authMethod: "developer_token" };

@@ -1,0 +1,6 @@
+{
+  "name": "@behalfid/app-dashboard",
+  "private": true,
+  "description": "Placeholder — app.behalfid.com dashboard surface. Live routes still live at repo-root app/ until phase 2 extraction.",
+  "version": "0.0.0"
+}

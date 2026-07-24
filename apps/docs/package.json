@@ -1,0 +1,6 @@
+{
+  "name": "@behalfid/app-docs",
+  "private": true,
+  "description": "Placeholder — docs.behalfid.com surface (optional). Can stay on www until traffic warrants a split.",
+  "version": "0.0.0"
+}

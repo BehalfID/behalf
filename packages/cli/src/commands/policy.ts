@@ -2,15 +2,9 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { Command } from "commander";
 import { apiRequest, resolveBaseUrl } from "../lib/client.js";
-import { readSession } from "../lib/config.js";
+import { requireSession } from "../lib/auth.js";
 import { isJsonMode, printJson, runAction } from "../lib/output.js";
 import { parsePolicyFileContents, validatePolicyDocumentShape } from "../lib/policyFile.js";
-
-function requireSession() {
-  if (!readSession()) {
-    throw new Error("This command requires you to be logged in. Run `behalfid login`.");
-  }
-}
 
 function loadFile(path: string) {
   const absolute = resolve(process.cwd(), path);

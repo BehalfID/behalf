@@ -20,3 +20,4 @@ export * from "./SplitCTAButton";
 export * from "./SocialLinks";
 export * from "./LanguageSwitcher";
 export * from "./LoadingStates";
+export * from "./SmartAutocomplete";

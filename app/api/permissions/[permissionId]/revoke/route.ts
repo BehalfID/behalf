@@ -1,4 +1,5 @@
 import { type NextRequest } from "next/server";
+import { agentAuthJsonError } from "@/lib/appErrors";
 import { authenticateApiKey } from "@/lib/auth";
 import { accountScopeFilter } from "@/lib/accountAccess";
 import {
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const auth = await authenticateApiKey(request);
   if (auth.error || !auth.agent) {
-    return jsonError(auth.error, 401);
+    return agentAuthJsonError(auth.error);
   }
 
   return agentCannotGrantPermissions();

@@ -96,11 +96,11 @@ async function deviceFlow(baseUrl: string): Promise<void> {
     }
 
     if (poll.status === "denied") throw new Error("Authorization was denied.");
-    if (poll.status === "expired") throw new Error("The code expired. Run `behalfid login` again.");
+    if (poll.status === "expired") throw new Error("The code expired. Run `behalf login` again.");
     // status === "pending" — keep polling
   }
 
-  throw new Error("Login timed out. Run `behalfid login` again.");
+  throw new Error("Login timed out. Run `behalf login` again.");
 }
 
 async function passwordFlow(baseUrl: string, email?: string, password?: string): Promise<void> {

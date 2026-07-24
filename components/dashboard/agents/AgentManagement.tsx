@@ -22,6 +22,7 @@ import {
   Badge,
   Button,
   ButtonLink,
+  ConfirmDialog,
   Dialog,
   PageHeader,
   Tab,
@@ -293,9 +294,21 @@ export function AgentIdentityHeader({
               {rotateError ? <p className="form-error" role="alert">{rotateError}</p> : null}
             </Dialog>
             {agent.status === "active" ? (
-              <Button aria-label={`Disable ${agent.name}`} loading={statusWorking} onClick={() => void onSetStatus("disable")} type="button" variant="destructive">
-                Disable agent
-              </Button>
+              <ConfirmDialog
+                confirmLabel="Disable agent"
+                confirmVariant="destructive"
+                description="The agent stops authenticating verify() and gateway calls until it is enabled again. Permissions are kept."
+                loading={statusWorking}
+                onConfirm={() => onSetStatus("disable")}
+                title={`Disable ${agent.name}?`}
+                trigger={(open) => (
+                  <Button aria-label={`Disable ${agent.name}`} loading={statusWorking} onClick={open} type="button" variant="destructive">
+                    Disable agent
+                  </Button>
+                )}
+              >
+                <p>Agent ID: <code>{agent.agentId}</code></p>
+              </ConfirmDialog>
             ) : (
               <Button aria-label={`Enable ${agent.name}`} loading={statusWorking} onClick={() => void onSetStatus("enable")} type="button" variant="primary">
                 Enable agent
@@ -419,16 +432,32 @@ export function PermissionSummary({
         {permission.status === "active" ? (
           <div className="permission-summary__revoke">
             <small>Revocation is immediate and cannot be undone on this record.</small>
-            <Button
-              aria-label={`Revoke ${permission.action} permission`}
+            <ConfirmDialog
+              confirmLabel="Revoke permission"
+              confirmVariant="destructive"
+              description="The next verify() call for this action is denied. This record cannot be restored — create a new permission if needed."
               loading={revoking}
-              onClick={() => void onRevoke(permission.permissionId)}
-              size="small"
-              type="button"
-              variant="destructive"
+              onConfirm={() => onRevoke(permission.permissionId)}
+              title={`Revoke ${permission.action}?`}
+              trigger={(open) => (
+                <Button
+                  aria-label={`Revoke ${permission.action} permission`}
+                  loading={revoking}
+                  onClick={open}
+                  size="small"
+                  type="button"
+                  variant="destructive"
+                >
+                  Revoke permission
+                </Button>
+              )}
             >
-              Revoke permission
-            </Button>
+              <dl className="agent-credential-confirmation">
+                <div><dt>Permission</dt><dd><code>{permission.permissionId}</code></dd></div>
+                <div><dt>Action</dt><dd>{permission.action}</dd></div>
+                {permission.resource ? <div><dt>Resource</dt><dd>{permission.resource}</dd></div> : null}
+              </dl>
+            </ConfirmDialog>
           </div>
         ) : null}
       </footer>

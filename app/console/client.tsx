@@ -18,6 +18,7 @@ import {
   Button,
   ButtonLink,
   CodeBlock,
+  ConfirmDialog,
   DashboardState,
   EmptyState,
   Logo,
@@ -839,6 +840,13 @@ function TodoRow({
     return new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(d);
   }, [item.createdAt]);
 
+  const deleteTitle = useMemo(() => {
+    const text = item.text.trim();
+    if (!text) return "Delete this task?";
+    const truncated = text.length > 60 ? `${text.slice(0, 57)}…` : text;
+    return `Delete “${truncated}”?`;
+  }, [item.text]);
+
   return (
     <div className={`console-todo__item${item.done ? " console-todo__item--done" : ""}`}>
       <button
@@ -868,14 +876,23 @@ function TodoRow({
           <span className="console-todo__date">{dateStr}</span>
         </div>
       </div>
-      <button
-        aria-label="Delete task"
-        className="console-todo__del"
-        onClick={onDelete}
-        type="button"
-      >
-        ×
-      </button>
+      <ConfirmDialog
+        confirmLabel="Delete task"
+        confirmVariant="destructive"
+        description="This removes the task from your local console to-do list. It is not stored on the server."
+        onConfirm={() => onDelete()}
+        title={deleteTitle}
+        trigger={(open) => (
+          <button
+            aria-label="Delete task"
+            className="console-todo__del"
+            onClick={open}
+            type="button"
+          >
+            ×
+          </button>
+        )}
+      />
     </div>
   );
 }
@@ -1088,7 +1105,6 @@ function AgentDetailView({ agentId }: { agentId: string }) {
   const reload = detail.reload;
 
   const rotateKey = async () => {
-    if (!window.confirm("Rotate this agent API key? The old key will stop working immediately.")) return;
     const result = await apiFetch<{ agentId: string; apiKey: string }>(
       `/api/console/agents/${agentId}/rotate-key`,
       { method: "POST" }
@@ -1140,17 +1156,31 @@ function AgentDetailView({ agentId }: { agentId: string }) {
             title={data.agent.name}
             action={
               <div className="console-actions">
-                <Button onClick={rotateKey} type="button">
-                  Rotate key
-                </Button>
+                <ConfirmDialog
+                  confirmLabel="Rotate key"
+                  confirmVariant="destructive"
+                  description="The old API key stops working immediately. The new key is shown once."
+                  onConfirm={() => rotateKey()}
+                  title="Rotate agent API key?"
+                  trigger={(open) => (
+                    <Button onClick={open} type="button">Rotate key</Button>
+                  )}
+                />
                 {data.agent.status === "disabled" ? (
                   <Button variant="primary" onClick={() => setStatus("enable")} type="button">
                     Enable
                   </Button>
                 ) : (
-                  <Button variant="danger" onClick={() => setStatus("disable")} type="button">
-                    Disable
-                  </Button>
+                  <ConfirmDialog
+                    confirmLabel="Disable agent"
+                    confirmVariant="danger"
+                    description="The agent stops authenticating verify() calls until it is enabled again."
+                    onConfirm={() => setStatus("disable")}
+                    title={`Disable ${data.agent.name}?`}
+                    trigger={(open) => (
+                      <Button variant="danger" onClick={open} type="button">Disable</Button>
+                    )}
+                  />
                 )}
               </div>
             }
@@ -1430,7 +1460,21 @@ function WebhookDetailView({ webhookId }: { webhookId: string }) {
               <SectionTitle title="Sensitive controls" />
               <div className="settings-page-content">
                 <DestructiveSettingsSection
-                  action={<Button loading={working === "rotate"} onClick={rotateSecret} type="button" variant="danger">Rotate secret</Button>}
+                  action={(
+                    <ConfirmDialog
+                      confirmLabel="Rotate secret"
+                      confirmVariant="danger"
+                      description="Future deliveries use the replacement secret immediately. Update the endpoint verifier with the one-time value."
+                      loading={working === "rotate"}
+                      onConfirm={() => rotateSecret()}
+                      title="Rotate signing secret?"
+                      trigger={(open) => (
+                        <Button loading={working === "rotate"} onClick={open} type="button" variant="danger">
+                          Rotate secret
+                        </Button>
+                      )}
+                    />
+                  )}
                   consequence="Future deliveries use the replacement secret immediately. Update the endpoint verifier with the one-time value."
                   title="Rotate signing secret"
                 />
@@ -1438,7 +1482,21 @@ function WebhookDetailView({ webhookId }: { webhookId: string }) {
                   <div className="settings-callout"><strong>Endpoint disabled</strong>Enable it to resume subscribed delivery.<div className="setup-actions"><Button loading={working === "enable"} variant="primary" onClick={() => setStatus("enable")} type="button">Enable endpoint</Button></div></div>
                 ) : (
                   <DestructiveSettingsSection
-                    action={<Button loading={working === "disable"} variant="danger" onClick={() => setStatus("disable")} type="button">Disable endpoint</Button>}
+                    action={(
+                      <ConfirmDialog
+                        confirmLabel="Disable endpoint"
+                        confirmVariant="danger"
+                        description="The endpoint stops receiving subscribed events until it is enabled again."
+                        loading={working === "disable"}
+                        onConfirm={() => setStatus("disable")}
+                        title="Disable webhook delivery?"
+                        trigger={(open) => (
+                          <Button loading={working === "disable"} onClick={open} type="button" variant="danger">
+                            Disable endpoint
+                          </Button>
+                        )}
+                      />
+                    )}
                     consequence="The endpoint stops receiving subscribed events until it is enabled again."
                     title="Disable delivery"
                   />
@@ -1707,9 +1765,18 @@ function PermissionList({ items, onRevoke }: { items: Permission[]; onRevoke: (i
           </span>
           <span className={statusClass(item.status)}>{item.status}</span>
           {item.status === "active" ? (
-            <Button variant="danger" onClick={() => onRevoke(item.permissionId)} type="button">
-              Revoke
-            </Button>
+            <ConfirmDialog
+              confirmLabel="Revoke"
+              confirmVariant="danger"
+              description="Revocation is immediate. Create a new permission if this action should be allowed again."
+              onConfirm={() => onRevoke(item.permissionId)}
+              title={`Revoke ${item.action}?`}
+              trigger={(open) => (
+                <Button onClick={open} type="button" variant="danger">Revoke</Button>
+              )}
+            >
+              <p>Permission ID: <code>{item.permissionId}</code></p>
+            </ConfirmDialog>
           ) : null}
         </div>
       ))}
@@ -2016,7 +2083,6 @@ function StatusView() {
   const [seedResult, setSeedResult] = useState<{ created: number; skipped: number } | null>(null);
 
   const handleSeed = useCallback(async () => {
-    if (!confirm("Populate the status page with default BehalfID service components? Existing components are not overwritten.")) return;
     setSeeding(true);
     setSeedResult(null);
     try {
@@ -2036,6 +2102,7 @@ function StatusView() {
   const [compSubmitting, setCompSubmitting] = useState(false);
   const [compFormError, setCompFormError] = useState<string | null>(null);
   const [editingComp, setEditingComp] = useState<StatusComponent | null>(null);
+  const [deletingComponentId, setDeletingComponentId] = useState<string | null>(null);
 
   // Incident form state
   const [showIncForm, setShowIncForm] = useState(false);
@@ -2043,6 +2110,7 @@ function StatusView() {
   const [incSubmitting, setIncSubmitting] = useState(false);
   const [incFormError, setIncFormError] = useState<string | null>(null);
   const [editingInc, setEditingInc] = useState<StatusIncident | null>(null);
+  const [deletingIncidentId, setDeletingIncidentId] = useState<string | null>(null);
 
   // Update form state
   const [updatingInc, setUpdatingInc] = useState<StatusIncident | null>(null);
@@ -2086,12 +2154,14 @@ function StatusView() {
   }, [compForm, editingComp, reloadComps]);
 
   const handleDeleteComponent = useCallback(async (componentId: string) => {
-    if (!confirm("Delete this component? This cannot be undone.")) return;
+    setDeletingComponentId(componentId);
     try {
       await apiFetch(`/api/console/status/components/${componentId}`, { method: "DELETE" });
       void reloadComps();
     } catch (err) {
       alert((err as Error).message);
+    } finally {
+      setDeletingComponentId(null);
     }
   }, [reloadComps]);
 
@@ -2147,12 +2217,14 @@ function StatusView() {
   }, [incForm, editingInc, reloadIncs]);
 
   const handleDeleteIncident = useCallback(async (incidentId: string) => {
-    if (!confirm("Delete this incident? This cannot be undone.")) return;
+    setDeletingIncidentId(incidentId);
     try {
       await apiFetch(`/api/console/status/incidents/${incidentId}`, { method: "DELETE" });
       void reloadIncs();
     } catch (err) {
       alert((err as Error).message);
+    } finally {
+      setDeletingIncidentId(null);
     }
   }, [reloadIncs]);
 
@@ -2241,9 +2313,19 @@ function StatusView() {
           <div className="console-section-header">
             <h2 className="console-section-title">Service Components</h2>
             <div className="console-section-header__actions">
-              <Button type="button" onClick={() => void handleSeed()} disabled={seeding}>
-                {seeding ? "Seeding…" : "Seed defaults"}
-              </Button>
+              <ConfirmDialog
+                confirmLabel="Seed defaults"
+                confirmVariant="primary"
+                description="Populate the status page with default BehalfID service components. Existing components are not overwritten."
+                loading={seeding}
+                onConfirm={() => handleSeed()}
+                title="Seed status page defaults?"
+                trigger={(open) => (
+                  <Button disabled={seeding} loading={seeding} onClick={open} type="button">
+                    Seed defaults
+                  </Button>
+                )}
+              />
               <Button type="button" onClick={() => { setEditingComp(null); setCompForm({ name: "", description: "", group: "", sortOrder: "0", status: "operational" }); setCompFormError(null); setShowCompForm(true); }}>
                 Add Component
               </Button>
@@ -2342,7 +2424,17 @@ function StatusView() {
                   <span className={componentStatusCls(comp.status)}>{componentStatusLabel(comp.status)}</span>
                   <span className="console-list__actions">
                     <button className="ui-button ui-button--ghost" type="button" onClick={() => startEditComponent(comp)}>Edit</button>
-                    <button className="ui-button ui-button--ghost" type="button" onClick={() => void handleDeleteComponent(comp.componentId)}>Delete</button>
+                    <ConfirmDialog
+                      confirmLabel="Delete component"
+                      confirmVariant="destructive"
+                      description="This removes the status component. This cannot be undone."
+                      loading={deletingComponentId === comp.componentId}
+                      onConfirm={() => handleDeleteComponent(comp.componentId)}
+                      title={`Delete ${comp.name}?`}
+                      trigger={(open) => (
+                        <button className="ui-button ui-button--ghost" type="button" onClick={open}>Delete</button>
+                      )}
+                    />
                   </span>
                 </div>
               ))}
@@ -2493,7 +2585,17 @@ function StatusView() {
                       Post Update
                     </button>
                     <button className="ui-button ui-button--ghost" type="button" onClick={() => startEditIncident(inc)}>Edit</button>
-                    <button className="ui-button ui-button--ghost" type="button" onClick={() => void handleDeleteIncident(inc.incidentId)}>Delete</button>
+                    <ConfirmDialog
+                      confirmLabel="Delete incident"
+                      confirmVariant="destructive"
+                      description="This removes the incident record. This cannot be undone."
+                      loading={deletingIncidentId === inc.incidentId}
+                      onConfirm={() => handleDeleteIncident(inc.incidentId)}
+                      title={`Delete incident “${inc.title}”?`}
+                      trigger={(open) => (
+                        <button className="ui-button ui-button--ghost" type="button" onClick={open}>Delete</button>
+                      )}
+                    />
                   </span>
                 </div>
               ))}

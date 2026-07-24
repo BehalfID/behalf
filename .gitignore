@@ -53,3 +53,4 @@ stripeapikeys.txt
 *.secret
 
 .aider*
+.env*

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { haptic } from "@/lib/haptic";
 import {
   parseThemePreference,
@@ -10,6 +10,12 @@ import {
   type Theme,
   type ThemePreference
 } from "@/lib/theme";
+
+const PREFERENCE_OPTIONS: { value: ThemePreference; label: string }[] = [
+  { value: "system", label: "System" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" }
+];
 
 function SunIcon() {
   return (
@@ -70,10 +76,18 @@ function applyPreference(preference: ThemePreference, systemPrefersDark: boolean
   return resolved;
 }
 
+function preferenceLabel(preference: ThemePreference) {
+  return PREFERENCE_OPTIONS.find((option) => option.value === preference)?.label ?? "System";
+}
+
 export function ThemeToggle({ allowSystem = false }: ThemeToggleProps) {
   const [preference, setPreference] = useState<ThemePreference>("system");
   const [theme, setTheme] = useState<Theme>("dark");
   const [mounted, setMounted] = useState(false);
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const close = useCallback(() => setOpen(false), []);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
@@ -112,6 +126,25 @@ export function ThemeToggle({ allowSystem = false }: ThemeToggleProps) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!open) return;
+
+    function handleKey(event: KeyboardEvent) {
+      if (event.key === "Escape") close();
+    }
+
+    function handleClick(event: MouseEvent) {
+      if (!containerRef.current?.contains(event.target as Node)) close();
+    }
+
+    document.addEventListener("keydown", handleKey);
+    document.addEventListener("mousedown", handleClick);
+    return () => {
+      document.removeEventListener("keydown", handleKey);
+      document.removeEventListener("mousedown", handleClick);
+    };
+  }, [open, close]);
+
   function choose(nextPreference: ThemePreference) {
     haptic("light");
     const nextTheme = applyPreference(
@@ -120,25 +153,48 @@ export function ThemeToggle({ allowSystem = false }: ThemeToggleProps) {
     );
     setPreference(nextPreference);
     setTheme(nextTheme);
+    close();
   }
 
   if (!mounted) {
-    return <span className={allowSystem ? "theme-select-placeholder" : "theme-toggle-placeholder"} />;
+    return <span className={allowSystem ? "theme-switcher-placeholder" : "theme-toggle-placeholder"} />;
   }
 
   if (allowSystem) {
     return (
-      <select
-        aria-label="Theme preference"
-        className="theme-select"
-        onChange={(event) => choose(event.target.value as ThemePreference)}
-        title={`Theme: ${preference}`}
-        value={preference}
-      >
-        <option value="system">System</option>
-        <option value="light">Light</option>
-        <option value="dark">Dark</option>
-      </select>
+      <div className="theme-switcher" ref={containerRef}>
+        <button
+          aria-expanded={open}
+          aria-haspopup="listbox"
+          aria-label="Theme preference"
+          className="theme-switcher__toggle"
+          onClick={() => setOpen((value) => !value)}
+          title={`Theme: ${preferenceLabel(preference)}`}
+          type="button"
+        >
+          <span className="theme-switcher__icon">{theme === "dark" ? <MoonIcon /> : <SunIcon />}</span>
+          <span className="theme-switcher__label">{preferenceLabel(preference)}</span>
+        </button>
+
+        {open ? (
+          <div aria-label="Theme preference" className="theme-switcher__dropdown" role="listbox">
+            {PREFERENCE_OPTIONS.map((option) => (
+              <button
+                aria-selected={option.value === preference}
+                className={`theme-switcher__option${
+                  option.value === preference ? " theme-switcher__option--active" : ""
+                }`}
+                key={option.value}
+                onClick={() => choose(option.value)}
+                role="option"
+                type="button"
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
     );
   }
 

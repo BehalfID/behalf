@@ -270,6 +270,26 @@ describe("BehalfInstaller", () => {
     expect(result.errors[0]?.code).toBe("NOT_INSTALLED");
   });
 
+  it("maps corrupt state load failures to STATE_INVALID", async () => {
+    const stateManager = new MemoryStateManager();
+    stateManager.loadError = new Error("Installation state is invalid: schemaVersion");
+    const { installer } = createInstaller({ stateManager });
+
+    const result = await installer.install();
+    expect(result.success).toBe(false);
+    expect(result.errors[0]?.code).toBe("STATE_INVALID");
+  });
+
+  it("maps generic state load failures to STATE_READ_FAILED", async () => {
+    const stateManager = new MemoryStateManager();
+    stateManager.failOnLoad = true;
+    const { installer } = createInstaller({ stateManager });
+
+    const result = await installer.install();
+    expect(result.success).toBe(false);
+    expect(result.errors[0]?.code).toBe("STATE_READ_FAILED");
+  });
+
   it("uninstalls clients, removes runtime entries, and clears state", async () => {
     const stateManager = new MemoryStateManager();
     const configManager = new FakeMcpConfigManager();

@@ -2,9 +2,9 @@ import Account from "@/models/Account";
 import AccountMembership from "@/models/AccountMembership";
 import DeveloperSession from "@/models/DeveloperSession";
 import { cache } from "react";
+import { jsonAppError } from "@/lib/appErrors";
 import { isWorkspaceRole, type WorkspaceRole } from "@/lib/authority";
 import { findAccountBySlugLean } from "@/lib/repositories/accounts";
-import { jsonError } from "@/lib/responses";
 import { normalizeWorkspaceSlug, validateWorkspaceSlug } from "@/lib/workspaceSlug";
 import type { NextResponse } from "next/server";
 
@@ -130,13 +130,13 @@ export async function resolveWorkspaceForUserBySlug(
 ): Promise<{ workspace: WorkspaceSlugResolution } | WorkspaceSlugError> {
   const lookupSlug = normalizeWorkspaceSlug(slugInput);
   if (validateWorkspaceSlug(lookupSlug) !== null) {
-    return { error: jsonError("Workspace not found.", 404), status: 404 };
+    return { error: jsonAppError("Workspace not found.", 404, "WORKSPACE_NOT_FOUND"), status: 404 };
   }
 
   // Exact unique match on stored slug (normalization only affects the query key).
   const account = await findAccountBySlugLean(lookupSlug, "accountId name slug");
   if (!account?.slug || account.slug !== lookupSlug) {
-    return { error: jsonError("Workspace not found.", 404), status: 404 };
+    return { error: jsonAppError("Workspace not found.", 404, "WORKSPACE_NOT_FOUND"), status: 404 };
   }
 
   const membership = await AccountMembership.findOne({
@@ -145,7 +145,10 @@ export async function resolveWorkspaceForUserBySlug(
   }).lean();
 
   if (!membership) {
-    return { error: jsonError("You do not have access to this workspace.", 403), status: 403 };
+    return {
+      error: jsonAppError("You do not have access to this workspace.", 403, "WORKSPACE_ACCESS_DENIED"),
+      status: 403
+    };
   }
 
   return {

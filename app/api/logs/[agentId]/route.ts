@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { agentAuthJsonError } from "@/lib/appErrors";
 import { authenticateAgent } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/db";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   const auth = await authenticateAgent(request, agentId);
   if (auth.error || !auth.agent) {
-    return jsonError(auth.error, auth.error === "Unknown agent." ? 404 : 401);
+    return agentAuthJsonError(auth.error);
   }
 
   const limit = await checkRateLimit(request, auth.agent.apiKeyHash);

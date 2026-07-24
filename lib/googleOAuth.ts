@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { hashEmailToken, generateSecureToken } from "@/lib/developerAuth";
 import { safeOAuthNextPath, type GoogleOAuthMode } from "@/lib/googleOAuthClient";
+import { resolveSessionCookieDomain } from "@/lib/subdomainRouting";
 
 export type { GoogleOAuthMode } from "@/lib/googleOAuthClient";
 export { googleAuthHref, safeOAuthNextPath } from "@/lib/googleOAuthClient";
@@ -206,11 +207,13 @@ export function hashPendingSignupToken(token: string) {
 }
 
 export function oauthCookieOptions(maxAgeSeconds: number) {
+  const domain = resolveSessionCookieDomain();
   return {
     httpOnly: true as const,
     sameSite: "lax" as const,
     secure: process.env.NODE_ENV === "production",
     maxAge: maxAgeSeconds,
-    path: "/"
+    path: "/",
+    ...(domain ? { domain } : {})
   };
 }

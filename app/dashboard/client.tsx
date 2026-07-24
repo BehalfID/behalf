@@ -53,6 +53,7 @@ import {
   ButtonLink,
   Card,
   CodeBlock,
+  ConfirmDialog,
   DashboardState,
   PageHeader,
   PageLoadingState,
@@ -1197,13 +1198,34 @@ function SiteDetailView({ siteId, onChanged }: { siteId: string; onChanged: () =
           <h2>{site.name}</h2>
           <code>{site.domain} · {site.siteId}</code>
         </div>
-        <Button
-          loading={detailWorking === "site-status"}
-          onClick={() => void setSiteStatus(site.status === "active" ? "disabled" : "active")}
-          variant={site.status === "active" ? "danger" : "primary"}
-        >
-          {site.status === "active" ? "Disable site" : "Enable site"}
-        </Button>
+        {site.status === "disabled" ? (
+          <Button
+            loading={detailWorking === "site-status"}
+            onClick={() => void setSiteStatus("active")}
+            variant="primary"
+          >
+            Enable site
+          </Button>
+        ) : (
+          <ConfirmDialog
+            confirmLabel="Disable site"
+            confirmVariant="danger"
+            description="Site Guard checks for this site are denied until the site is enabled again."
+            loading={detailWorking === "site-status"}
+            onConfirm={() => setSiteStatus("disabled")}
+            title={`Disable ${site.name}?`}
+            trigger={(open) => (
+              <Button
+                loading={detailWorking === "site-status"}
+                onClick={open}
+                type="button"
+                variant="danger"
+              >
+                Disable site
+              </Button>
+            )}
+          />
+        )}
       </div>
       {site.status === "disabled" ? (
         <div className="operations-notice operations-notice--danger" role="status">
@@ -1245,7 +1267,23 @@ function SiteDetailView({ siteId, onChanged }: { siteId: string; onChanged: () =
                 </div>
                 <div className="site-guard-row__actions">
                   <Badge variant={key.status === "active" ? "success" : "outline"}>{key.status}</Badge>
-                  {key.status === "active" ? <Button loading={detailWorking === `key:${key.keyId}`} onClick={() => void revokeKey(key.keyId)} size="small" variant="danger">Revoke</Button> : null}
+                  {key.status === "active" ? (
+                    <ConfirmDialog
+                      confirmLabel="Revoke key"
+                      confirmVariant="danger"
+                      description="This site key stops authenticating Site Guard checks immediately. Create a new key if you still need access."
+                      loading={detailWorking === `key:${key.keyId}`}
+                      onConfirm={() => revokeKey(key.keyId)}
+                      title={`Revoke ${key.name}?`}
+                      trigger={(open) => (
+                        <Button loading={detailWorking === `key:${key.keyId}`} onClick={open} size="small" type="button" variant="danger">
+                          Revoke
+                        </Button>
+                      )}
+                    >
+                      <p>Key preview: <code>{key.keyPreview}</code></p>
+                    </ConfirmDialog>
+                  ) : null}
                 </div>
               </div>
             ))}
@@ -3233,13 +3271,41 @@ function WebhookView({ webhookId }: { webhookId: string }) {
           >
             <div className="settings-page-content">
               <DestructiveSettingsSection
-                action={<Button loading={working === "rotate"} onClick={() => void rotate()} variant="danger">Rotate secret</Button>}
+                action={(
+                  <ConfirmDialog
+                    confirmLabel="Rotate secret"
+                    confirmVariant="danger"
+                    description="Rotation replaces the signing secret used for future deliveries. Update the endpoint verifier with the new one-time value immediately."
+                    loading={working === "rotate"}
+                    onConfirm={() => rotate()}
+                    title="Rotate signing secret?"
+                    trigger={(open) => (
+                      <Button loading={working === "rotate"} onClick={open} type="button" variant="danger">
+                        Rotate secret
+                      </Button>
+                    )}
+                  />
+                )}
                 consequence="Rotation replaces the signing secret used for future deliveries. Update the endpoint verifier with the new one-time value immediately."
                 title="Rotate signing secret"
               />
               {webhook.status === "active" ? (
                 <DestructiveSettingsSection
-                  action={<Button loading={working === "disable"} onClick={() => void setStatus("disable")} variant="danger">Disable endpoint</Button>}
+                  action={(
+                    <ConfirmDialog
+                      confirmLabel="Disable endpoint"
+                      confirmVariant="danger"
+                      description="Disabling stops this endpoint from receiving subscribed events until it is enabled again."
+                      loading={working === "disable"}
+                      onConfirm={() => setStatus("disable")}
+                      title="Disable webhook delivery?"
+                      trigger={(open) => (
+                        <Button loading={working === "disable"} onClick={open} type="button" variant="danger">
+                          Disable endpoint
+                        </Button>
+                      )}
+                    />
+                  )}
                   consequence="Disabling stops this endpoint from receiving subscribed events until it is enabled again."
                   title="Disable webhook delivery"
                 />
@@ -3292,9 +3358,17 @@ function WebhookView({ webhookId }: { webhookId: string }) {
 
 function LogsViewInner() {
   const searchParams = useSearchParams();
-  const initialSearch = searchParams.get("search");
-  const initialAgentId = searchParams.get("agentId");
-  return <OpsLogConsole initialSearch={initialSearch ?? undefined} initialAgentId={initialAgentId ?? undefined} />;
+  return (
+    <OpsLogConsole
+      initialSearch={searchParams.get("search") ?? undefined}
+      initialAgentId={searchParams.get("agentId") ?? undefined}
+      initialDecision={searchParams.get("decision") ?? undefined}
+      initialRisk={searchParams.get("risk") ?? undefined}
+      initialAction={searchParams.get("action") ?? undefined}
+      initialEnvironment={searchParams.get("environment") ?? undefined}
+      initialRange={searchParams.get("range") ?? undefined}
+    />
+  );
 }
 
 function LogsView() {
@@ -3510,7 +3584,19 @@ function MembersPanel({ members }: { members: DashboardResource<MembersResponse>
                   <option value="ENGINEER">Engineer</option>
                   <option value="VIEWER">Viewer</option>
                 </select>
-                <Button loading={memberWorking === `remove:${member.membershipId}`} type="button" variant="danger" onClick={() => void removeMember(member.membershipId)}>Remove</Button>
+                <ConfirmDialog
+                  confirmLabel="Remove member"
+                  confirmVariant="danger"
+                  description="Removing a member ends their workspace membership. Server-side owner and authority safeguards still apply."
+                  loading={memberWorking === `remove:${member.membershipId}`}
+                  onConfirm={() => removeMember(member.membershipId)}
+                  title={`Remove ${member.email ?? member.userId}?`}
+                  trigger={(open) => (
+                    <Button loading={memberWorking === `remove:${member.membershipId}`} onClick={open} type="button" variant="danger">
+                      Remove
+                    </Button>
+                  )}
+                />
               </div>
             ) : <MemberRoleBadge role={member.role} />}
             {members.data?.canManageMembers ? <p className="member-directory__consequence">Removing a member ends their workspace membership; server-side owner and authority safeguards still apply.</p> : null}
@@ -3531,7 +3617,19 @@ function MembersPanel({ members }: { members: DashboardResource<MembersResponse>
                 {members.data?.canManageMembers ? (
                   <div className="member-directory__actions">
                     <MemberRoleBadge role={invite.role} />
-                    <Button loading={memberWorking === `invite:${invite.inviteId}`} type="button" variant="danger" onClick={() => void revokeInvite(invite.inviteId)}>Revoke invite</Button>
+                    <ConfirmDialog
+                      confirmLabel="Revoke invite"
+                      confirmVariant="danger"
+                      description="The invite link stops working. You can send a new invite later if needed."
+                      loading={memberWorking === `invite:${invite.inviteId}`}
+                      onConfirm={() => revokeInvite(invite.inviteId)}
+                      title={`Revoke invite for ${invite.email}?`}
+                      trigger={(open) => (
+                        <Button loading={memberWorking === `invite:${invite.inviteId}`} onClick={open} type="button" variant="danger">
+                          Revoke invite
+                        </Button>
+                      )}
+                    />
                   </div>
                 ) : <MemberRoleBadge role={invite.role} />}
               </div>
@@ -4196,7 +4294,21 @@ function SettingsView() {
                   </div>
                 </div>
                 <div className="developer-token-row__actions">
-                  <Button loading={tokenWorking === token.tokenId} onClick={() => void revokeToken(token.tokenId)} type="button" variant="danger">Revoke</Button>
+                  <ConfirmDialog
+                    confirmLabel="Revoke token"
+                    confirmVariant="danger"
+                    description="Revocation immediately stops this token from authenticating future API requests."
+                    loading={tokenWorking === token.tokenId}
+                    onConfirm={() => revokeToken(token.tokenId)}
+                    title={`Revoke ${token.name}?`}
+                    trigger={(open) => (
+                      <Button loading={tokenWorking === token.tokenId} onClick={open} type="button" variant="danger">
+                        Revoke
+                      </Button>
+                    )}
+                  >
+                    <p>Preview: <code>{token.tokenPreview ?? "Preview unavailable"}</code></p>
+                  </ConfirmDialog>
                 </div>
                 <p className="developer-token-row__consequence">Revocation immediately stops this token from authenticating future API requests.</p>
               </div>

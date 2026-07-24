@@ -44,6 +44,7 @@ export default function ConceptsPage() {
       title="Concepts"
       description="The core nouns behind BehalfID's runtime action authorization model — agents, permissions, fail-closed enforcement, approval gates, and audit logs."
       previous={{ href: "/docs/site-guard", label: "Site Guard" }}
+      next={{ href: "/docs/troubleshooting", label: "Troubleshooting" }}
     >
       <div className="concept-grid">
         {concepts.map(([title, body]) => (
@@ -69,6 +70,26 @@ export default function ConceptsPage() {
         <p>
           BehalfID does not use this value as authentication. It is metadata only.
         </p>
+      </section>
+      <section className="docs-anchor-section">
+        <h2>How the pieces connect</h2>
+        <p>
+          A typical coding-agent path is: create an agent → attach permissions (or a{" "}
+          <Link href="/docs/policy-templates">policy template</Link>) → wire{" "}
+          <Link href="/docs/cli">CLI/MCP</Link> or call <Link href="/docs/sdk">verify()</Link>{" "}
+          before tools run → handle approval-required decisions in the{" "}
+          <Link href="/docs/deploy-approvals">approvals</Link> flow → observe outcomes via{" "}
+          <Link href="/docs/webhooks">webhooks</Link> and audit logs. Manual passport links
+          help communicate scopes to assistants you cannot modify; they are not a substitute
+          for call-site enforcement.
+        </p>
+        <ul className="docs-list">
+          <li><Link href="/docs/cli">Coding agent quickstart (CLI &amp; MCP)</Link></li>
+          <li><Link href="/docs/quickstart">SDK Quickstart</Link></li>
+          <li><Link href="/docs/action-gateway">Action Gateway</Link> — execute only after verify</li>
+          <li><Link href="/docs/site-guard">Site Guard</Link> — route checks for website owners</li>
+          <li><Link href="/docs/api">API reference</Link></li>
+        </ul>
       </section>
       <section className="docs-anchor-section">
         <h2>Security model</h2>

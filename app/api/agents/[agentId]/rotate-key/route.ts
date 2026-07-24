@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { agentAuthJsonError } from "@/lib/appErrors";
 import { authenticateAgent, hashApiKey } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/db";
 import { createApiKey } from "@/lib/ids";
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const auth = await authenticateAgent(request, agentId);
   if (auth.error || !auth.agent) {
-    return jsonError(auth.error, auth.error === "Unknown agent." ? 404 : 401);
+    return agentAuthJsonError(auth.error);
   }
 
   const limit = await checkRateLimit(request, auth.agent.apiKeyHash);

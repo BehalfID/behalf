@@ -163,6 +163,34 @@ describe("CLI output redaction", () => {
     output.setJsonMode(false);
     errorSpy.mockRestore();
   });
+
+  it("surfaces stable error codes in human and JSON output", async () => {
+    const output = await import("../packages/cli/src/lib/output");
+    const { ApiError } = await import("../packages/cli/src/lib/client");
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const err = new ApiError("Agent limit reached.", {
+      status: 402,
+      code: "AGENT_LIMIT_REACHED",
+      hint: "Upgrade to Pro to continue.",
+    });
+
+    output.setJsonMode(false);
+    output.printCaughtError(err);
+    output.setJsonMode(true);
+    output.printCaughtError(err);
+
+    expect(errorSpy.mock.calls[0]?.[0]).toContain("[AGENT_LIMIT_REACHED]");
+    expect(errorSpy.mock.calls[1]?.[0]).toContain("Hint:");
+    expect(JSON.parse(String(errorSpy.mock.calls[2]?.[0]))).toMatchObject({
+      error: "Agent limit reached.",
+      code: "AGENT_LIMIT_REACHED",
+      hint: "Upgrade to Pro to continue.",
+    });
+
+    output.setJsonMode(false);
+    errorSpy.mockRestore();
+  });
 });
 
 describe("Claude and Codex launchers", () => {

@@ -80,9 +80,23 @@ function parsePlatformHosts(baseUrl: string): string[] {
   }
 }
 
-export function resolveEgressProxyCliPath(): string | null {
+/**
+ * Resolve the egress-proxy entrypoint without requiring a monorepo layout.
+ * Order: explicit env override → sibling/package paths (dev) → cwd monorepo fallback.
+ */
+export function resolveEgressProxyCliPath(
+  env: NodeJS.ProcessEnv = process.env
+): string | null {
+  const fromEnv = env.BEHALFID_EGRESS_PROXY_CLI?.trim();
+  if (fromEnv && existsSync(fromEnv)) return fromEnv;
+
   const here = dirname(fileURLToPath(import.meta.url));
   const candidates = [
+    // Published / linked package layouts (CLI next to egress-proxy under node_modules)
+    join(here, "..", "..", "..", "@behalfid", "egress-proxy", "dist", "cli.js"),
+    join(here, "..", "..", "node_modules", "@behalfid", "egress-proxy", "dist", "cli.js"),
+    join(process.cwd(), "node_modules", "@behalfid", "egress-proxy", "dist", "cli.js"),
+    // Sibling package in a monorepo checkout (dev)
     join(here, "..", "..", "..", "egress-proxy", "dist", "cli.js"),
     join(here, "..", "..", "..", "..", "packages", "egress-proxy", "dist", "cli.js"),
     join(process.cwd(), "packages", "egress-proxy", "dist", "cli.js"),
@@ -112,22 +126,28 @@ export async function findFreeLoopbackPort(): Promise<number> {
 }
 
 async function startProxyProcess(env: NodeJS.ProcessEnv): Promise<StartedEgressProxy> {
-  const cliPath = resolveEgressProxyCliPath();
+  const cliPath = resolveEgressProxyCliPath(env);
   if (!cliPath) {
     throw new Error(
-      "Egress proxy binary not found. Build packages/egress-proxy (npm run build) or set mode=off."
+      "Egress proxy not found. Set BEHALFID_EGRESS_PROXY_CLI to the @behalfid/egress-proxy CLI path, install the package, build packages/egress-proxy, or set mode=off."
     );
   }
 
   const isTs = cliPath.endsWith(".ts");
-  const child: ChildProcess = spawn(
-    process.execPath,
-    isTs ? ["--import", "tsx", cliPath] : [cliPath],
-    {
-      env,
-      stdio: ["ignore", "pipe", "pipe"]
-    }
-  );
+  const isJs = /\.[cm]?js$/i.test(cliPath);
+  const child: ChildProcess = isJs || isTs
+    ? spawn(
+        process.execPath,
+        isTs ? ["--import", "tsx", cliPath] : [cliPath],
+        {
+          env,
+          stdio: ["ignore", "pipe", "pipe"]
+        }
+      )
+    : spawn(cliPath, [], {
+        env,
+        stdio: ["ignore", "pipe", "pipe"]
+      });
 
   if (!child.stdout) {
     throw new Error("Egress proxy stdout pipe missing.");

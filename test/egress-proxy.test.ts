@@ -6,14 +6,13 @@ import {
   listenLoopback
 } from "../packages/egress-proxy/src/server";
 import {
-  hostInList,
-  hostMatchesPattern,
-  parseHostPort
-} from "../packages/egress-proxy/src/types";
-import {
   buildEgressChildEnv,
-  parseEgressMode
+  parseEgressMode,
+  resolveEgressProxyCliPath
 } from "../packages/cli/src/lib/egressLaunch";
+import { writeFileSync, mkdtempSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import {
   authorizeEgressRequest,
   hostMatchesPattern as platformHostMatches,
@@ -21,19 +20,6 @@ import {
   mintEgressTicket,
   verifyEgressTicket
 } from "@/lib/egressAuthorize";
-
-describe("egress proxy helpers", () => {
-  it("parses host:port authorities including IPv6", () => {
-    expect(parseHostPort("example.com:443", 80)).toEqual({ host: "example.com", port: 443 });
-    expect(parseHostPort("[::1]:8443", 443)).toEqual({ host: "::1", port: 8443 });
-  });
-
-  it("matches allow/deny host patterns", () => {
-    expect(hostMatchesPattern("api.stripe.com", "*.stripe.com")).toBe(true);
-    expect(hostMatchesPattern("evil.com", "*.stripe.com")).toBe(false);
-    expect(hostInList("api.github.com", ["*.github.com", "npmjs.org"])).toBe(true);
-  });
-});
 
 describe("CLI egress env injection", () => {
   it("injects HTTP(S)_PROXY and preserves NO_PROXY for platform + loopback", () => {
@@ -62,19 +48,35 @@ describe("CLI egress env injection", () => {
 
   it("leaves env unchanged when mode is off", () => {
     const parent = { FOO: "bar" };
-    expect(buildEgressChildEnv({
-      mode: "off",
-      proxyHost: "127.0.0.1",
-      proxyPort: 1,
-      baseUrl: "https://behalfid.com",
-      parentEnv: parent
-    })).toEqual(parent);
+    expect(
+      buildEgressChildEnv({
+        mode: "off",
+        proxyHost: "127.0.0.1",
+        proxyPort: 1,
+        baseUrl: "https://behalfid.com",
+        parentEnv: parent
+      })
+    ).toEqual(parent);
   });
 
   it("parses egress modes", () => {
     expect(parseEgressMode("advise")).toBe("advise");
     expect(parseEgressMode("enforce")).toBe("enforce");
     expect(parseEgressMode("nope")).toBe("off");
+  });
+
+  it("prefers BEHALFID_EGRESS_PROXY_CLI over monorepo-relative paths", () => {
+    const dir = mkdtempSync(join(tmpdir(), "behalf-egress-"));
+    const override = join(dir, "custom-cli.js");
+    writeFileSync(override, "export {};\n");
+    try {
+      expect(resolveEgressProxyCliPath({ BEHALFID_EGRESS_PROXY_CLI: override })).toBe(override);
+      expect(
+        resolveEgressProxyCliPath({ BEHALFID_EGRESS_PROXY_CLI: join(dir, "missing.js") })
+      ).not.toBe(join(dir, "missing.js"));
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

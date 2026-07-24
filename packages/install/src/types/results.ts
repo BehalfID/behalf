@@ -1,10 +1,10 @@
 import type { AiClientId, CheckStatus } from "./primitives.js";
-import type { InstallerError } from "./errors.js";
+import type { InstallerError, InstallerWarningCode } from "./errors.js";
 import type { ConfiguredClientRecord, RegisteredRuntimeRecord } from "./state.js";
 
 /** Non-fatal warning produced by an installer operation. */
 export interface OperationWarning {
-  code: string;
+  code: InstallerWarningCode;
   message: string;
   details?: Record<string, unknown>;
 }

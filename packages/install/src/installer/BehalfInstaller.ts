@@ -761,11 +761,22 @@ export class BehalfInstaller implements Installer {
     try {
       return await this.stateManager.load();
     } catch (error) {
+      if (error instanceof InstallerException) {
+        throw error;
+      }
+      const causeMessage = error instanceof Error ? error.message : String(error);
+      const invalid =
+        /Installation state is (invalid|not valid JSON)/i.test(causeMessage) ||
+        /schemaVersion/i.test(causeMessage);
       throw new InstallerException({
-        code: "STATE_READ_FAILED",
-        message: "Failed to read installation state.",
+        code: invalid ? "STATE_INVALID" : "STATE_READ_FAILED",
+        message: invalid
+          ? "Installation state is invalid or corrupt."
+          : "Failed to read installation state.",
         cause: error,
-        remediation: "Inspect or remove the install-state.json file and retry.",
+        remediation: invalid
+          ? "Remove or repair install-state.json, then re-run install."
+          : "Inspect or remove the install-state.json file and retry.",
       });
     }
   }

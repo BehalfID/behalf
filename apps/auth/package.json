@@ -1,0 +1,6 @@
+{
+  "name": "@behalfid/app-auth",
+  "private": true,
+  "description": "Placeholder — auth.behalfid.com surface. Live routes still live at repo-root app/ until phase 2 extraction.",
+  "version": "0.0.0"
+}

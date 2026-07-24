@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Command } from "commander";
+import { InstallerException } from "./installer/errors.js";
 import { resolvePackageVersion } from "./version.js";
 import type { CliHandlerContext } from "./cli/handlers.js";
 import {
@@ -150,10 +151,35 @@ function isExecutedAsCliEntrypoint(): boolean {
   }
 }
 
+function formatFatalCliError(error: unknown, json: boolean): string {
+  if (error instanceof InstallerException) {
+    const payload = error.toInstallerError();
+    if (json) {
+      return JSON.stringify({
+        error: payload.message,
+        code: payload.code,
+        ...(payload.remediation !== undefined ? { remediation: payload.remediation } : {}),
+        ...(payload.details !== undefined ? { details: payload.details } : {}),
+      });
+    }
+    const lines = [`[${payload.code}] ${payload.message}`];
+    if (payload.remediation) {
+      lines.push(`→ ${payload.remediation}`);
+    }
+    return lines.join("\n");
+  }
+
+  const message = error instanceof Error ? error.message : String(error);
+  if (json) {
+    return JSON.stringify({ error: message, code: "INTERNAL_ERROR" });
+  }
+  return message;
+}
+
 if (isExecutedAsCliEntrypoint()) {
   runCli().catch((error: unknown) => {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(message);
+    const json = process.argv.includes("--json");
+    console.error(formatFatalCliError(error, json));
     process.exitCode = 1;
   });
 }

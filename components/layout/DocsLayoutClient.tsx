@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { PublicAuthAction } from "@/components/layout/PublicAuthAction";
 import { Logo, ThemeToggle, ModeToggle } from "@/components/ui";
 import type { PublicAuthAction as PublicAuthActionValue } from "@/lib/publicAuthAction";
+import { DOCS_SEARCH_INDEX, matchSmartSuggestions } from "@/lib/smartSearch";
 
 type DocsNavItem = {
   href: string;
@@ -40,6 +41,7 @@ const docsNavGroups: readonly DocsNavGroup[] = [
     label: "Understand",
     items: [
       { href: "/docs/concepts", label: "Concepts" },
+      { href: "/docs/troubleshooting", label: "Troubleshooting" },
       { href: "/security", label: "Security" },
       { href: "/docs/site-guard", label: "Site Guard" }
     ]
@@ -47,20 +49,6 @@ const docsNavGroups: readonly DocsNavGroup[] = [
 ] as const;
 
 export const docsNav: readonly DocsNavItem[] = docsNavGroups.flatMap((group) => [...group.items]);
-
-const searchIndex = [
-  { href: "/docs", title: "Overview", body: "BehalfID connects external agents and native custom agents to scoped permissions, verification decisions, audit logs, and signed webhook events." },
-  { href: "/docs/quickstart", title: "Quickstart", body: "Create an agent, add a permission, install the SDK, call verify before execution, show allowed and denied requests, and fail closed." },
-  { href: "/docs/cli", title: "CLI", body: "Install the behalf CLI to manage agents, permissions, and enforcement from the terminal. Includes MCP server setup, AI tool launchers, context generation, and key management." },
-  { href: "/docs/deploy-approvals", title: "Deploy approvals", body: "Step-by-step demo: Claude Code or Codex attempts a production deploy, BehalfID blocks it, you approve in the dashboard, the agent retries and succeeds." },
-  { href: "/docs/api", title: "API Reference", body: "Use public REST endpoints for connected agents, permissions, verification, logs, and key rotation. Requires an API key. POST verify, GET agents, PATCH permissions." },
-  { href: "/docs/sdk", title: "SDK", body: "Install the JavaScript SDK from npm and call BehalfID from Node 18+. Import BehalfID, call verify, and fail closed before running your executor." },
-  { href: "/docs/action-gateway", title: "Action Gateway", body: "Route safe public web reads through BehalfID so denied actions fail before execution. Proxy HTTP requests with permission enforcement built in." },
-  { href: "/docs/webhooks", title: "Webhooks", body: "Receive signed verification events through an outbox-backed delivery system. HMAC signatures, retries, payload structure, and endpoint configuration." },
-  { href: "/docs/site-guard", title: "Site Guard", body: "Design website middleware, workers, or gateways that enforce AI access rules before protected workflows run. Block or challenge agent requests at the edge." },
-  { href: "/docs/concepts", title: "Concepts", body: "Understand native agents, connected agents, permission passports, providers, and audit logs. Fail-closed enforcement, agent types, scope templates, and constraints." },
-  { href: "/security", title: "Security", body: "How BehalfID handles secrets, tokens, fail-closed enforcement, audit logs, and current limitations. Key hashing, one-time display, and SSRF protections." }
-];
 
 function SearchIcon() {
   return (
@@ -89,12 +77,19 @@ function CloseIcon() {
 
 function useSearch() {
   const [query, setQuery] = useState("");
-  const results = query.trim().length >= 1
-    ? searchIndex.filter(({ title, body }) => {
-        const normalizedQuery = query.toLowerCase();
-        return title.toLowerCase().includes(normalizedQuery) || body.toLowerCase().includes(normalizedQuery);
+  const results = useMemo(() => {
+    if (query.trim().length < 1) return null;
+    const suggestions = matchSmartSuggestions(query, { scope: "docs", limit: 12 });
+    const byHref = new Map(DOCS_SEARCH_INDEX.map((doc) => [doc.href, doc]));
+    return suggestions
+      .map((suggestion) => {
+        const doc = suggestion.href ? byHref.get(suggestion.href) : undefined;
+        if (doc) return doc;
+        if (!suggestion.href) return null;
+        return { href: suggestion.href, title: suggestion.title, body: suggestion.description };
       })
-    : null;
+      .filter((item): item is { href: string; title: string; body: string } => Boolean(item));
+  }, [query]);
   return { query, setQuery, results };
 }
 

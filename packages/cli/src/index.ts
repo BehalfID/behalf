@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Command } from "commander";
-import { setJsonMode } from "./lib/output.js";
+import { setJsonMode, printCaughtError } from "./lib/output.js";
 import { maybePrintCliBanner } from "./lib/banner.js";
 import { configCommand } from "./commands/config.js";
 import { initCommand } from "./commands/init.js";
@@ -20,6 +20,7 @@ import { mcpCommand } from "./commands/mcp.js";
 import { runCommand, claudeCommand, codexCommand, cursorCommand, internalRefreshPermissionsCommand } from "./commands/run.js";
 import { webhooksCommand } from "./commands/webhooks.js";
 import { doctorCommand } from "./commands/doctor.js";
+import { completionCommand } from "./commands/completion.js";
 import { scanCommand } from "./commands/scan.js";
 import { hookCommand } from "./commands/hook.js";
 import { policyCommand } from "./commands/policy.js";
@@ -60,37 +61,42 @@ const version =
 const program = new Command();
 
 program
-  .name("behalfid")
-  .description("Official CLI for BehalfID — agent permission management and enforcement")
+  .name("behalf")
+  .description("Official CLI for BehalfID - agent permission management and enforcement")
   .version(version)
+  .option("--json", "output machine-readable JSON when supported")
   .option("--no-banner", "suppress the interactive startup banner")
+  // The examples below contain placeholder identifiers only. pragma: allowlist secret
   .addHelpText(
     "after",
     `
 Examples:
-  behalfid login                                  log in via browser (device flow)
-  behalfid login --password                       log in with email and password
-  behalfid init                                   interactive setup wizard
-  behalfid agents list                            list all agents
-  behalfid agents create --name "My Bot" --save  create agent and save credentials
-  behalfid permissions list agent_xxx            list permissions for an agent
-  behalfid permissions create agent_xxx --action purchase -r amazon.com
-  behalfid verify agent_xxx --action purchase -v amazon.com --amount 25
-  behalfid logs tail                              stream verification logs live
-  behalfid webhooks listen                        stream webhook events live
-  behalfid policy validate ./policy.yaml          validate a local guardrail policy
-  behalfid policy test ./policy.yaml --facts f.json  dry-run policy against sample facts
-  behalfid doctor                                 check CLI configuration
-  behalfid profile install                        install managed shims for claude/codex/cursor  // pragma: allowlist secret
-  behalfid profile status                         show shim and policy status  // pragma: allowlist secret
-  behalfid pause --duration 30m --reason "..."    request a policy-approved pause lease  // pragma: allowlist secret
-  behalfid mcp init                               set up BehalfID enforcement in this directory
-  behalfid scan                                   inspect repo and suggest BehalfID policies
-  behalfid scan --json                            machine-readable policy suggestions
+  behalf login                                  log in via browser (device flow)
+  behalf login --password                       log in with email and password
+  behalf init                                   interactive setup wizard
+  behalf agents list                            list all agents
+  behalf agents create --name "My Bot" --save  create agent and save credentials
+  behalf permissions list agent_xxx            list permissions for an agent
+  behalf permissions create agent_xxx --action purchase -r amazon.com
+  behalf verify agent_xxx --action purchase -v amazon.com --amount 25
+  behalf logs tail                              stream verification logs live
+  behalf webhooks listen                        stream webhook events live
+  behalf policy validate ./policy.yaml          validate a local guardrail policy
+  behalf policy test ./policy.yaml --facts f.json  dry-run policy against sample facts
+  behalf doctor                                 check CLI configuration
+  behalf completion bash                       print bash completion script
+  behalf profile install                        install managed shims for claude/codex/cursor
+  behalf profile status                         show shim and policy status
+  behalf pause --duration 30m --reason "..."    request a policy-approved pause lease
+  behalf mcp init                               set up BehalfID enforcement in this directory
+  behalf scan                                   inspect repo and suggest BehalfID policies
+  behalf scan --json                            machine-readable policy suggestions
 `
   );
 
 program.enablePositionalOptions();
+program.showSuggestionAfterError();
+program.showHelpAfterError("(run behalf --help for available commands)");
 program.addCommand(initCommand());
 program.addCommand(configCommand());
 program.addCommand(loginCommand());
@@ -117,12 +123,9 @@ program.addCommand(pauseCommand());
 program.addCommand(resumeCommand());
 program.addCommand(scanCommand());
 program.addCommand(hookCommand());
+program.addCommand(completionCommand(program));
 
-program.parseAsync(["", "", ...filteredArgs]).catch(err => {
-  if (jsonMode) {
-    console.error(JSON.stringify({ error: err.message }));
-  } else {
-    console.error(`Error: ${err.message}`);
-  }
+program.parseAsync(["", "", ...filteredArgs]).catch((err: unknown) => {
+  printCaughtError(err);
   process.exit(1);
 });

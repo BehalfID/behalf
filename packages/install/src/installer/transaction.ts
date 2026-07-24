@@ -75,13 +75,6 @@ export class InstallTransaction {
           },
         );
         errors.push(installerError);
-        warnings.push({
-          code: "ROLLBACK_FAILED",
-          message: installerError.message,
-          ...(installerError.details !== undefined
-            ? { details: installerError.details }
-            : {}),
-        });
       }
     }
 

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { CodeBlock, DocsShell } from "../content";
+import { CodeBlock, DocsCallout, DocsShell } from "../content";
 
 export const metadata: Metadata = {
   title: "JavaScript SDK — BehalfID",
@@ -59,6 +59,13 @@ const behalf = new BehalfID({
         calling the executor. This is fail closed: verify first, execute second, and stop when
         permission is missing, approval is required, constraints are missing, or a check fails.
       </p>
+      <DocsCallout tone="danger" title="Fail closed">
+        <p>
+          Map unexpected <code>reason</code> values in{" "}
+          <a href="/docs/troubleshooting#verify-failures">Troubleshooting</a>. Never treat network
+          or verify errors as allow.
+        </p>
+      </DocsCallout>
       <CodeBlock label="enforce.ts">{`async function enforceAction(input) {
   const result = await behalf.verify({ agentId, ...input });
   if (!result.allowed) {
@@ -110,7 +117,46 @@ if (result.executed) {
       <h2>Logs and key rotation</h2>
       <CodeBlock label="keys-and-logs.ts">{`const logs = await behalf.getLogs(agentId);
 const rotated = await behalf.rotateKey(agentId);`}</CodeBlock>
+      <p>
+        <code>rotateKey</code> immediately invalidates the previous agent API key. Store the
+        new key from the response — it is returned once. Permissions and agent ID are
+        unchanged.
+      </p>
+
+      <h2>Edge cases to handle</h2>
+      <ul className="docs-list">
+        <li>
+          <strong>Approval required.</strong> <code>allowed</code> is false and{" "}
+          <code>reason</code> indicates approval is needed. Surface <code>requestId</code> to
+          a human; do not auto-retry in a tight loop. See{" "}
+          <a href="/docs/deploy-approvals">Deploy approvals</a>.
+        </li>
+        <li>
+          <strong>Blocked actions override allows.</strong> If any active permission lists the
+          action under <code>blockedActions</code>, verify denies even when another permission
+          would allow it.
+        </li>
+        <li>
+          <strong>Allowed-actions narrowing.</strong> A non-empty <code>allowedActions</code>{" "}
+          list requires the exact action string you pass to <code>verify</code>. A broad parent
+          action does not satisfy a narrowed list.
+        </li>
+        <li>
+          <strong>Missing constrained inputs.</strong> When a permission has vendor, resource,
+          or amount constraints, omit those fields and the decision fails closed rather than
+          bypassing the constraint.
+        </li>
+        <li>
+          <strong>Network / 5xx from BehalfID.</strong> Treat unavailable checks as deny in
+          production executors. Do not fail open.
+        </li>
+      </ul>
+
       <h2>Webhook signature helper</h2>
+      <p>
+        Receivers must verify HMAC signatures before trusting payload contents. Full delivery
+        semantics are documented under <a href="/docs/webhooks">Webhooks</a>.
+      </p>
       <CodeBlock label="webhook.ts">{`import { verifyWebhookSignature } from "@behalfid/sdk";
 
 const valid = await verifyWebhookSignature({
@@ -119,6 +165,14 @@ const valid = await verifyWebhookSignature({
   timestamp: req.headers["behalfid-timestamp"],
   signature: req.headers["behalfid-signature"]
 });`}</CodeBlock>
+
+      <h2>Related docs</h2>
+      <ul className="docs-list">
+        <li><a href="/docs/quickstart">SDK Quickstart</a> — five-minute allowed/denied loop</li>
+        <li><a href="/docs/action-gateway">Action Gateway</a> — let BehalfID execute safe public web reads</li>
+        <li><a href="/docs/api">API reference</a> — REST equivalents for every SDK call</li>
+        <li><a href="/docs/concepts">Concepts</a> — passports, fail-closed, Managed Profiles</li>
+      </ul>
     </DocsShell>
   );
 }
