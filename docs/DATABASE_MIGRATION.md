@@ -1,8 +1,9 @@
 # Database Migration Plan: MongoDB/Mongoose → Supabase/Postgres (v1)
 
-**Status:** Active migration plan. Postgres schema v1 (Drizzle + SQL migrations) exists but is
-**not wired to runtime** — Mongo/Mongoose remains the production backing store. See
-`docs/POSTGRES_SCHEMA.md` and `lib/db/postgres/`.
+**Status:** Active migration plan. Postgres schema v1 (Drizzle + SQL migrations) exists;
+repository adapters and CI migration smoke/contracts exist; **default production runtime remains
+Mongo/Mongoose**. Postgres is **gated / in progress** (`BEHALFID_ALLOW_POSTGRES_RUNTIME` + backend
+flags). See `docs/POSTGRES_SCHEMA.md`, `docs/CAPABILITY_MATRIX.md`, and `lib/db/postgres/`.
 
 **Scope of this document:** feasibility analysis, target schema design, and a phased
 migration sequence. It deliberately does **not** introduce Supabase client code, change
@@ -899,9 +900,12 @@ Each PR is independently shippable and reversible. **No PR changes auth.**
 - **Backend selection (latch + per-table flags):** Global postgres requires
   `BEHALFID_ALLOW_POSTGRES_RUNTIME=true`. Per-aggregate overrides use
   `BEHALFID_REPO_BACKEND_<AGGREGATE>` (`mongo`|`postgres`). See §13 PR A / §14 rollback.
-- **Not done yet:** CI job that applies migrations against live Postgres; enabling `pg_cron`
-  in the target deployment; completing method-level parity on Postgres adapters (lazy Mongoose
-  helpers and some edge APIs still throw “not implemented on postgres”).
+- **Done (CI):** GitHub Actions job `postgres-schema` applies migrations against live Postgres 17
+  and runs `npm run test:postgres-smoke` plus `npm run test:postgres-repositories`
+  (`.github/workflows/ci.yml`). Migration-fidelity smoke is no longer “not done.”
+- **Not done yet:** Enabling `pg_cron` in the target deployment; completing method-level parity on
+  Postgres adapters (lazy Mongoose helpers and some edge APIs still throw “not implemented on
+  postgres”).
 - Connection module (`lib/db/postgres/index.ts`) exists; composition may call it only when
   the latch + backend flags select postgres.
 - **Next after B′:** Close method-level adapter gaps and pass `test/repository-contracts/*`

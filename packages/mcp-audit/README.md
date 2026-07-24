@@ -11,13 +11,28 @@ servers, applies a pluggable rule set, and returns a structured
 score.
 
 This package **never** modifies configuration files or executes MCP tools.
+It is advisory analysis, not runtime enforcement.
+
+**Publish status:** Implemented in this monorepo. **Not on the public npm registry** as of
+2026-07-24 (`npm view @behalfid/mcp-audit` returns 404). Prefer building from
+`packages/mcp-audit` until a release is published. See `docs/CAPABILITY_MATRIX.md`.
 
 ## Install (after publish)
+
+When published:
 
 ```bash
 # Unreleased — use local pack until published:
 #   npm pack -w @behalfid/mcp-audit && npm install ./behalfid-mcp-audit-*.tgz
 npm install @behalfid/mcp-audit
+```
+
+From source:
+
+```bash
+cd packages/mcp-audit
+npm install
+npm run build
 ```
 
 ## Quick start

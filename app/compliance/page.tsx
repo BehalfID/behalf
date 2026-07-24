@@ -69,13 +69,14 @@ export default function CompliancePage() {
 
             <h3>Status</h3>
             <div className="compliance-badge compliance-badge--planned">
-              Certification in progress
+              Not certified — controls in progress (target)
             </div>
             <p>
-              BehalfID has not yet completed a SOC 2 Type II audit. We are currently
-              implementing the organizational and technical controls required to achieve
-              SOC 2 Type II certification across the Security, Availability, and
-              Confidentiality trust service criteria.
+              BehalfID has not completed a SOC 2 Type II audit and does not claim SOC 2
+              certification. We are implementing organizational and technical controls toward a
+              future SOC 2 Type II engagement across the Security, Availability, and
+              Confidentiality trust service criteria. Treat certification as a <strong>target</strong>,
+              not a current status.
             </p>
 
             <h3>Controls in place</h3>
@@ -99,8 +100,10 @@ export default function CompliancePage() {
               </li>
               <li>
                 <strong>A1 — Availability.</strong> The service is hosted on Vercel with
-                automatic redundancy and global edge delivery. MongoDB Atlas provides
-                managed database availability.
+                managed platform redundancy and global edge delivery. MongoDB Atlas provides
+                managed database availability. BehalfID does <strong>not</strong> publish a
+                contractual uptime SLA (including any 99.99% claim) or a verified p99 latency SLO
+                at this time — see the status page for component state, not an SLA.
               </li>
               <li>
                 <strong>C1 — Confidentiality.</strong> Secrets (API keys, webhook signing

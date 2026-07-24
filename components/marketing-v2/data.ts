@@ -62,7 +62,7 @@ export const HERO_SCENARIOS: DecisionScenario[] = [
 ];
 
 export const TRUST_ITEMS = [
-  { title: "Fail-closed enforcement" },
+  { title: "Verify-before-execute" },
   { title: "Human approval gates" },
   { title: "Google SSO for teams" },
   { title: "Auditable decision records" }
@@ -235,12 +235,12 @@ export const DEV_INTEGRATIONS: DevIntegration[] = [
     codeLabel: "terminal",
     href: "/docs/cli",
     code: [
-      [{ type: "comment", text: "# Wire enforcement into the agent's tools" }],
+      [{ type: "comment", text: "# Add advisory MCP tools + context" }],
       [{ type: "plain", text: "behalf mcp init" }],
       [],
-      [{ type: "comment", text: "# Writes .mcp.json + agent context so tool" }],
-      [{ type: "comment", text: "# calls are verified at the MCP boundary —" }],
-      [{ type: "comment", text: "# not inside the model's memory." }],
+      [{ type: "comment", text: "# Launchers also configure supported" }],
+      [{ type: "comment", text: "# action-time hooks. Advisory MCP is" }],
+      [{ type: "comment", text: "# not an interception boundary." }],
       [{ type: "plain", text: "behalf claude" }]
     ]
   },
@@ -293,7 +293,7 @@ export const ENTERPRISE_FEATURES = [
 ] as const;
 
 export const PRINCIPLES = [
-  { title: "Fail closed", text: "When authorization cannot be determined safely, the action is denied." },
+  { title: "Verify before execute", text: "Denied and approval-required decisions must not run where you integrate. Outage behavior is path-specific — see Security and the capability matrix." },
   { title: "Deny takes precedence", text: "A blocked action overrides any allow rule that would otherwise match." },
   { title: "Self-approval is blocked", text: "A requester cannot approve their own request. Authority must come from someone else." },
   { title: "Approval binds to the action", text: "A grant applies to the specific intended action — not to a broad class of future actions." },

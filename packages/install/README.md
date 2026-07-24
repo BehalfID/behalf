@@ -13,6 +13,10 @@ AI coding agents (Cursor, Claude Code, Codex, VS Code, Windsurf, and future MCP 
 
 ## Status
 
+**Publish status:** Implemented in this monorepo. **Not on the public npm registry** as of
+2026-07-24 (`npm view @behalfid/install` returns 404). Prefer building from
+`packages/install` until a release is published. See `docs/CAPABILITY_MATRIX.md`.
+
 Phases complete:
 
 1. **Foundation** — package structure, types, interfaces, state persistence, CLI surface
