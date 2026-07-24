@@ -1,12 +1,12 @@
 "use client";
 
 import { Link } from "@/i18n/navigation";
-import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { FormEvent, useState } from "react";
 import { ContinueWithGoogle } from "@/components/auth/ContinueWithGoogle";
 import { AuthPrinciple, AuthShell, AuthTaskHeader, FormAlert } from "@/components/auth/AuthShell";
 import { Button, Field, FieldLabel, Input } from "@/components/ui";
+import { assignOwnedLocation } from "@/lib/subdomainRouting";
 
 function maxDateOfBirth(minAge: number): string {
   const d = new Date();
@@ -21,7 +21,6 @@ export function AuthPage({
   mode: "login" | "signup";
   googleEnabled?: boolean;
 }) {
-  const router = useRouter();
   const t = useTranslations("auth");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -60,7 +59,7 @@ export function AuthPage({
         setError(body?.error ?? t("authFailed"));
         return;
       }
-      router.push(mode === "signup" ? "/onboarding" : "/dashboard");
+      assignOwnedLocation(mode === "signup" ? "/onboarding" : "/dashboard");
     } catch {
       setError(t("authFailed"));
     } finally {

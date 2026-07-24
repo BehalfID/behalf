@@ -3,17 +3,16 @@
 
 .auth-entry,
 .journey-shell {
-  --auth-page: #f7f3ef;
-  --auth-rule: #e8dfd7;
-  --auth-copper: #c76f47;
+  --auth-page: var(--surface-page);
+  --auth-rule: var(--border-standard);
+  --auth-copper: var(--accent-base);
   min-height: 100dvh;
   color: var(--text-primary);
   background: var(--auth-page);
 }
 
 .journey-shell {
-  /* Keep legacy setup primitives on the same warm-light tokens when this
-   * shell is nested inside the dashboard's dark control-plane theme. */
+  /* Follow the active document theme (data-theme) rather than forcing light. */
   --bg: var(--auth-page);
   --panel: var(--surface-elevated);
   --surface: var(--surface-elevated);
@@ -48,6 +47,12 @@
   gap: 20px;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--auth-rule);
+}
+
+.auth-entry__header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .auth-entry__return,
@@ -378,6 +383,12 @@ form.auth-task {
   justify-content: space-between;
   gap: 20px;
   border-bottom: 1px solid var(--auth-rule);
+}
+
+.journey-header__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .journey-shell--embedded .journey-header {

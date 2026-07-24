@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { AuthPrinciple, AuthShell, AuthTaskHeader, FormAlert } from "@/components/auth/AuthShell";
 import { Button, Field, FieldLabel, Input } from "@/components/ui";
+import { assignOwnedLocation } from "@/lib/subdomainRouting";
 
 function maxDateOfBirth(minAge: number): string {
   const d = new Date();
@@ -18,7 +19,6 @@ function safeNextPath(next?: string | null) {
 }
 
 export function CompleteProfilePage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = safeNextPath(searchParams.get("next"));
   const [dateOfBirth, setDateOfBirth] = useState("");
@@ -57,7 +57,7 @@ export function CompleteProfilePage() {
         setError(body?.error ?? "Unable to complete account setup.");
         return;
       }
-      router.push(body?.redirectTo ?? "/onboarding");
+      assignOwnedLocation(body?.redirectTo ?? "/onboarding");
     } finally {
       setSubmitting(false);
     }

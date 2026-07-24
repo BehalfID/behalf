@@ -21,14 +21,26 @@ import {
 } from "@/lib/googleOAuth";
 import { createPublicId } from "@/lib/ids";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
+import { resolveOwnedHref } from "@/lib/subdomainRouting";
 import { resolvePreferredSsoAccountId } from "@/lib/workspaceSso";
 import DeveloperUser from "@/models/DeveloperUser";
 import OAuthPendingSignup from "@/models/OAuthPendingSignup";
 
+function ownedRedirect(request: NextRequest, pathWithSearch: string) {
+  const resolved = resolveOwnedHref(pathWithSearch, {
+    hostname: request.nextUrl.hostname,
+    protocol: request.nextUrl.protocol
+  });
+  return NextResponse.redirect(
+    resolved.startsWith("http") ? resolved : new URL(pathWithSearch, request.nextUrl.origin)
+  );
+}
+
 function authErrorRedirect(request: NextRequest, message: string) {
-  const url = new URL("/login", request.nextUrl.origin);
-  url.searchParams.set("error", message);
-  const response = NextResponse.redirect(url);
+  const response = ownedRedirect(
+    request,
+    `/login?error=${encodeURIComponent(message)}`
+  );
   response.cookies.set(GOOGLE_OAUTH_STATE_COOKIE, "", { ...oauthCookieOptions(0), maxAge: 0 });
   return response;
 }
@@ -131,7 +143,7 @@ export async function GET(request: NextRequest) {
       emailVerified: true,
       onboardingCompleted: Boolean(user.onboardingCompletedAt)
     });
-    const response = NextResponse.redirect(new URL(destination, request.nextUrl.origin));
+    const response = ownedRedirect(request, destination);
     setDeveloperSessionCookie(response, token);
     response.cookies.set(GOOGLE_OAUTH_STATE_COOKIE, "", { ...oauthCookieOptions(0), maxAge: 0 });
     return response;
@@ -150,10 +162,10 @@ export async function GET(request: NextRequest) {
     expiresAt: new Date(Date.now() + PENDING_SIGNUP_TTL_MS)
   });
 
-  const completeUrl = new URL("/auth/complete-profile", request.nextUrl.origin);
-  if (state.next) completeUrl.searchParams.set("next", state.next);
-
-  const response = NextResponse.redirect(completeUrl);
+  const completePath = state.next
+    ? `/auth/complete-profile?next=${encodeURIComponent(state.next)}`
+    : "/auth/complete-profile";
+  const response = ownedRedirect(request, completePath);
   response.cookies.set(GOOGLE_OAUTH_STATE_COOKIE, "", { ...oauthCookieOptions(0), maxAge: 0 });
   response.cookies.set(
     GOOGLE_PENDING_SIGNUP_COOKIE,

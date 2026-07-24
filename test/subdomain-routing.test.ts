@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isSubdomainRoutingEnabled,
   resolveAppForHost,
+  resolveOwnedHref,
   resolveOwnerForPath,
   resolveSessionCookieDomain,
   resolveSubdomainHosts,
@@ -56,6 +57,40 @@ describe("subdomain routing ownership", () => {
       })
     ).toBeNull();
     expect(resolveAppForHost("preview-abc.vercel.app")).toBeNull();
+  });
+  it("builds absolute cross-app hrefs from a known subdomain host", () => {
+    expect(
+      resolveOwnedHref("/dashboard/agents/new?focus=profiles", {
+        hostname: "auth.behalfid.com",
+        protocol: "https:"
+      })
+    ).toBe("https://app.behalfid.com/dashboard/agents/new?focus=profiles");
+
+    expect(
+      resolveOwnedHref("/login?next=%2Fdashboard", {
+        hostname: "app.behalfid.com",
+        protocol: "https:"
+      })
+    ).toBe("https://auth.behalfid.com/login?next=%2Fdashboard");
+
+    expect(
+      resolveOwnedHref("/dashboard", {
+        hostname: "app.behalfid.com"
+      })
+    ).toBe("/dashboard");
+  });
+
+  it("keeps relative hrefs on apex / unknown hosts", () => {
+    expect(
+      resolveOwnedHref("/dashboard", {
+        hostname: "behalfid.com"
+      })
+    ).toBe("/dashboard");
+    expect(
+      resolveOwnedHref("/login", {
+        hostname: "localhost"
+      })
+    ).toBe("/login");
   });
 });
 

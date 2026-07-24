@@ -3,6 +3,7 @@ import createMiddleware from "next-intl/middleware";
 import { routing } from "./i18n/routing";
 import { PRIVATE_NO_STORE } from "./lib/cachePolicy";
 import {
+  REQUEST_PATH_HEADER,
   isSubdomainRoutingEnabled,
   resolveSubdomainHosts,
   resolveSubdomainRedirect
@@ -190,6 +191,12 @@ export function proxy(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.delete(WORKSPACE_SLUG_HEADER);
+  requestHeaders.delete(REQUEST_PATH_HEADER);
+  // Public path before workspace rewrite — used for login `next=` deep links.
+  requestHeaders.set(
+    REQUEST_PATH_HEADER,
+    `${pathname}${request.nextUrl.search}`
+  );
 
   const workspaceMatch = matchWorkspacePublicPath(pathname);
   if (workspaceMatch) {

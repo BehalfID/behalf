@@ -418,10 +418,14 @@ export async function completeAccountSetup(
   }
 
   const nextBase = getNextRouteForFirstSetupGoal(validated.account.onboarding.firstSetupGoal);
-  const nextRoute =
-    slug && nextBase.startsWith("/dashboard")
-      ? workspaceDashboardHref(slug, nextBase.slice("/dashboard".length) || "")
-      : nextBase;
+  let nextRoute = nextBase;
+  if (slug && nextBase.startsWith("/dashboard")) {
+    const q = nextBase.indexOf("?");
+    const pathOnly = q >= 0 ? nextBase.slice(0, q) : nextBase;
+    const search = q >= 0 ? nextBase.slice(q) : "";
+    nextRoute =
+      workspaceDashboardHref(slug, pathOnly.slice("/dashboard".length) || "") + search;
+  }
 
   return {
     error: null,

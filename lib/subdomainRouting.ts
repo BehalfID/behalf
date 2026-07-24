@@ -205,3 +205,102 @@ export function resolveSessionCookieDomain(
   // Require leading-dot form for parent domain sharing, e.g. .behalfid.com
   return raw.startsWith(".") ? raw : `.${raw}`;
 }
+
+/** Trusted header: original public path + search, set only by proxy. */
+export const REQUEST_PATH_HEADER = "x-behalf-request-path";
+
+export function splitPathAndSearch(pathWithSearch: string): {
+  pathname: string;
+  search: string;
+} {
+  const raw = pathWithSearch.startsWith("/") ? pathWithSearch : `/${pathWithSearch}`;
+  const q = raw.indexOf("?");
+  if (q < 0) return { pathname: raw, search: "" };
+  return { pathname: raw.slice(0, q), search: raw.slice(q) };
+}
+
+/**
+ * Match hostname to a configured subdomain app without the apex www fallback.
+ * Apex single-app deploys must keep relative hrefs.
+ */
+export function matchConfiguredAppForHost(
+  hostname: string,
+  hosts: SubdomainHosts = DEFAULT_SUBDOMAIN_HOSTS
+): SubdomainApp | null {
+  const host = normalizeHostname(hostname);
+  for (const [app, configured] of Object.entries(hosts) as Array<
+    [SubdomainApp, string]
+  >) {
+    if (normalizeHostname(configured) === host) return app;
+  }
+  return null;
+}
+
+/**
+ * When the current host is a known subdomain app and `path` belongs elsewhere,
+ * return an absolute URL on the owning host. Otherwise return the path unchanged.
+ *
+ * Soft client navigations cannot follow cross-host 308s from the proxy — callers
+ * should use this (or assignOwnedLocation) for auth ↔ app ↔ www links.
+ */
+export function resolveOwnedHref(
+  pathWithSearch: string,
+  options?: {
+    hostname?: string | null;
+    protocol?: string;
+    env?: NodeJS.ProcessEnv;
+    hosts?: SubdomainHosts;
+  }
+): string {
+  const { pathname, search } = splitPathAndSearch(pathWithSearch);
+  if (!pathname.startsWith("/") || pathname.startsWith("//")) {
+    return pathWithSearch;
+  }
+
+  const env = options?.env ?? process.env;
+  const hosts = options?.hosts ?? resolveSubdomainHosts(env);
+  const hostname =
+    options?.hostname ??
+    (typeof window !== "undefined" ? window.location.hostname : null);
+  if (!hostname) return pathWithSearch;
+
+  // Exact configured-host match only (no apex fallback) so single-app apex
+  // deploys are unchanged. Client bundles may lack BEHALFID_SUBDOMAIN_ROUTING.
+  const currentApp = matchConfiguredAppForHost(hostname, hosts);
+  if (!currentApp) return pathWithSearch;
+
+  const owner = resolveOwnerForPath(pathname);
+  if (owner === currentApp) return pathWithSearch;
+
+  const protocol =
+    options?.protocol ??
+    (typeof window !== "undefined" ? window.location.protocol : "https:");
+  return `${protocol}//${hosts[owner]}${pathname}${search}`;
+}
+
+/** Full document navigation to the owning host (avoids soft-nav 404s). */
+export function assignOwnedLocation(pathWithSearch: string): void {
+  if (typeof window === "undefined") return;
+  window.location.assign(resolveOwnedHref(pathWithSearch));
+}
+
+/**
+ * Intercept same-tab left clicks that would soft-navigate across subdomain apps.
+ * Allows modified clicks (new tab) to use the native href.
+ */
+export function crossAppClickHandler<E extends { preventDefault: () => void; metaKey: boolean; ctrlKey: boolean; shiftKey: boolean; altKey: boolean; button: number }>(
+  href: string,
+  onClick?: (event: E) => void
+): (event: E) => void {
+  return (event: E) => {
+    onClick?.(event);
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) {
+      return;
+    }
+    const resolved = resolveOwnedHref(href);
+    if (resolved !== href && /^https?:\/\//i.test(resolved)) {
+      event.preventDefault();
+      window.location.assign(resolved);
+    }
+  };
+}

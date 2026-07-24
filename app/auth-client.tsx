@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
 import { ContinueWithGoogle } from "@/components/auth/ContinueWithGoogle";
 import { AuthPrinciple, AuthShell, AuthTaskHeader, FormAlert } from "@/components/auth/AuthShell";
 import { Button, Field, FieldLabel, Input } from "@/components/ui";
+import { assignOwnedLocation, crossAppClickHandler } from "@/lib/subdomainRouting";
 
 /** Returns the latest date of birth that satisfies the minimum age (YYYY-MM-DD). */
 function maxDateOfBirth(minAge: number): string {
@@ -30,7 +31,6 @@ export function AuthPage({
   initialEmail?: string;
   googleEnabled?: boolean;
 }) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
@@ -77,11 +77,11 @@ export function AuthPage({
       } | null;
 
       if (mode === "signup" || body?.user?.emailVerified === false) {
-        router.push("/verify-email");
+        assignOwnedLocation("/verify-email");
         return;
       }
 
-      router.push(redirectPath);
+      assignOwnedLocation(redirectPath);
     } catch {
       setError("We could not reach BehalfID. Check your connection and try again.");
     } finally {
@@ -170,7 +170,9 @@ export function AuthPage({
         {mode === "login" ? (
           <p className="auth-task__row">
             <span />
-            <Link href="/forgot-password">Forgot password?</Link>
+            <Link href="/forgot-password" onClick={crossAppClickHandler("/forgot-password")}>
+              Forgot password?
+            </Link>
           </p>
         ) : null}
 
@@ -183,14 +185,31 @@ export function AuthPage({
         {mode === "signup" ? (
           <p className="auth-task__legal">
             By creating an account you agree to the{" "}
-            <Link href="/terms">Terms of Service</Link> and{" "}
-            <Link href="/privacy">Privacy Policy</Link>.
+            <Link href="/terms" onClick={crossAppClickHandler("/terms")}>
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <Link href="/privacy" onClick={crossAppClickHandler("/privacy")}>
+              Privacy Policy
+            </Link>
+            .
           </p>
         ) : null}
 
         <p className="auth-task__row auth-task__row--center">
           {mode === "signup" ? "Already have an account?" : "New to BehalfID?"}{" "}
-          <Link href={mode === "signup" ? `/login${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""}` : `/signup${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""}${initialEmail ? `${nextPath ? "&" : "?"}email=${encodeURIComponent(initialEmail)}` : ""}`}>
+          <Link
+            href={
+              mode === "signup"
+                ? `/login${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""}`
+                : `/signup${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""}${initialEmail ? `${nextPath ? "&" : "?"}email=${encodeURIComponent(initialEmail)}` : ""}`
+            }
+            onClick={crossAppClickHandler(
+              mode === "signup"
+                ? `/login${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""}`
+                : `/signup${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""}${initialEmail ? `${nextPath ? "&" : "?"}email=${encodeURIComponent(initialEmail)}` : ""}`
+            )}
+          >
             {mode === "signup" ? "Log in" : "Create account"}
           </Link>
         </p>

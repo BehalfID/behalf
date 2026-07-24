@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FormAlert } from "@/components/auth/AuthShell";
 import { OnboardingIntro, OnboardingShell, StepActions } from "@/components/onboarding/OnboardingShell";
@@ -21,6 +20,7 @@ import {
   type FirstSetupGoal,
   type TeamSize
 } from "@/lib/onboarding";
+import { assignOwnedLocation } from "@/lib/subdomainRouting";
 
 const BRAND_NAME = "BehalfID"; // pragma: allowlist secret
 
@@ -145,7 +145,6 @@ function SetupReview({ form }: { form: SetupState }) {
 }
 
 export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }) {
-  const router = useRouter();
   const [step, setStep] = useState<Step>(1);
   const [form, setForm] = useState<SetupState>(EMPTY_STATE);
   const [loading, setLoading] = useState(true);
@@ -331,7 +330,7 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
         setError(data.error ?? "Failed to complete setup.");
         return;
       }
-      router.push(data.nextRoute ?? "/dashboard");
+      assignOwnedLocation(data.nextRoute ?? "/dashboard");
     } catch {
       setError("Failed to complete setup.");
     } finally {

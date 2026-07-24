@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { AuthPrinciple, AuthShell, AuthStateMark, AuthTaskHeader, FormAlert } from "@/components/auth/AuthShell";
 import { Button, ButtonLink } from "@/components/ui";
 import { getRoleLabel, isWorkspaceRole } from "@/lib/authority";
+import { assignOwnedLocation } from "@/lib/subdomainRouting";
 
 type InvitePreview = {
   status: "pending" | "accepted" | "revoked" | "expired";
@@ -24,7 +24,6 @@ type State =
   | "login_required";
 
 export function InviteClient({ token }: { token: string }) {
-  const router = useRouter();
   const [invite, setInvite] = useState<InvitePreview | null>(null);
   const [state, setState] = useState<State>("loading");
   const [message, setMessage] = useState("");
@@ -94,7 +93,7 @@ export function InviteClient({ token }: { token: string }) {
         return;
       }
       setState(body?.alreadyAccepted || body?.alreadyMember ? "already" : "accepted");
-      setTimeout(() => router.push("/dashboard"), 1200);
+      setTimeout(() => assignOwnedLocation("/dashboard"), 1200);
     } catch {
       setMessage("Network error. Please try again.");
       setState("error");

@@ -1,6 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Logo } from "@/components/ui";
+import { Logo, ThemeToggle } from "@/components/ui";
+import { crossAppClickHandler } from "@/lib/subdomainRouting";
 
 type AuthShellProps = {
   children: ReactNode;
@@ -26,15 +29,18 @@ export function AuthShell({
   return (
     <main
       id="main-content"
-      className={`auth-entry ui-theme-light${compact ? " auth-entry--compact" : ""}`}
+      className={`auth-entry${compact ? " auth-entry--compact" : ""}`}
       tabIndex={-1}
     >
       <header className="auth-entry__header">
-        <Logo href="/" markStyle="framed" />
-        <Link className="auth-entry__return" href={returnHref}>
-          <span aria-hidden="true">←</span>
-          {returnLabel}
-        </Link>
+        <Logo href={returnHref} markStyle="framed" />
+        <div className="auth-entry__header-actions">
+          <ThemeToggle />
+          <Link className="auth-entry__return" href={returnHref} onClick={crossAppClickHandler(returnHref)}>
+            <span aria-hidden="true">←</span>
+            {returnLabel}
+          </Link>
+        </div>
       </header>
 
       <div className="auth-entry__body">
@@ -45,8 +51,12 @@ export function AuthShell({
       <footer className="auth-entry__footer">
         <span>{footerLabel}</span>
         <span aria-hidden="true">·</span>
-        <Link href="/privacy">{privacyLabel}</Link>
-        <Link href="/terms">{termsLabel}</Link>
+        <Link href="/privacy" onClick={crossAppClickHandler("/privacy")}>
+          {privacyLabel}
+        </Link>
+        <Link href="/terms" onClick={crossAppClickHandler("/terms")}>
+          {termsLabel}
+        </Link>
       </footer>
     </main>
   );

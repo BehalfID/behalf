@@ -1,7 +1,9 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getCurrentDeveloperContext } from "@/lib/developerAuth";
 import { requiresEmailVerificationRedirect } from "@/lib/emailVerificationGuard";
 import { shouldForceAccountSetup, shouldShowAccountSetupBannerForUser } from "@/lib/onboardingRedirect";
+import { REQUEST_PATH_HEADER, resolveOwnedHref, splitPathAndSearch } from "@/lib/subdomainRouting";
 import { extractDashboardSubpath, workspaceDashboardHref } from "@/lib/workspaceSlug";
 import { ensureAccountHasSlug } from "@/lib/workspaceSlugServer";
 import { findAccountByIdLean } from "@/lib/repositories/accounts";
@@ -34,10 +36,19 @@ export async function ProtectedDashboard({
     | "adaptive-delegation";
   id?: string;
 }) {
+  const requestHeaders = await headers();
+  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
+  const requestPath = requestHeaders.get(REQUEST_PATH_HEADER);
+  const requestSearch = requestPath ? splitPathAndSearch(requestPath).search : "";
+
   const context = await getCurrentDeveloperContext();
-  if (!context?.user) redirect("/login");
-  if (requiresEmailVerificationRedirect(context.user)) redirect("/verify-email");
-  if (await shouldForceAccountSetup(context.user.userId)) redirect("/onboarding");
+  if (!context?.user) redirect(resolveOwnedHref("/login", { hostname: host }));
+  if (requiresEmailVerificationRedirect(context.user)) {
+    redirect(resolveOwnedHref("/verify-email", { hostname: host }));
+  }
+  if (await shouldForceAccountSetup(context.user.userId)) {
+    redirect(resolveOwnedHref("/onboarding", { hostname: host }));
+  }
 
   const accountId = context.activeAccountId ?? context.user.primaryAccountId ?? null;
   if (accountId) {
@@ -49,7 +60,7 @@ export async function ProtectedDashboard({
     if (slug) {
       // Reconstruct subpath from view for the temporary redirect.
       const subpath = legacyViewToSubpath(view, id);
-      redirect(workspaceDashboardHref(slug, subpath));
+      redirect(`${workspaceDashboardHref(slug, subpath)}${requestSearch}`);
     }
   }
 

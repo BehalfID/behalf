@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes, MouseEvent, ReactNode } from "react";
 import { haptic } from "@/lib/haptic";
+import { crossAppClickHandler } from "@/lib/subdomainRouting";
 
 export type ButtonVariant =
   | "primary"
@@ -99,7 +100,7 @@ export function ButtonLink({
       return;
     }
     haptic(hapticForVariant(variant));
-    onClick?.(e);
+    crossAppClickHandler(href, onClick ? (ev) => onClick(ev as MouseEvent<HTMLAnchorElement>) : undefined)(e);
   }
 
   return (

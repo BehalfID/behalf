@@ -4,6 +4,7 @@ import type { AnchorHTMLAttributes } from "react";
 import NextLink from "next/link";
 import { Link as LocalizedLink } from "@/i18n/navigation";
 import type { PublicAuthAction as PublicAuthActionValue } from "@/lib/publicAuthAction";
+import { crossAppClickHandler } from "@/lib/subdomainRouting";
 
 type PublicAuthActionProps = Pick<
   AnchorHTMLAttributes<HTMLAnchorElement>,
@@ -23,7 +24,7 @@ export function PublicAuthAction({
     "aria-label": action.label,
     className,
     href: action.href,
-    onClick
+    onClick: crossAppClickHandler(action.href, onClick)
   };
 
   if (!action.isAuthenticated && localizeUnauthenticated) {

@@ -1,6 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Button, Logo } from "@/components/ui";
+import { Button, Logo, ThemeToggle } from "@/components/ui";
+import { crossAppClickHandler } from "@/lib/subdomainRouting";
 
 export type OnboardingStep = {
   label: string;
@@ -66,11 +69,14 @@ export function OnboardingShell({
     <>
       <header className="journey-header">
         <Logo href={homeHref} markStyle="framed" subtitle={label} />
-        {exitHref && exitLabel ? (
-          <Link className="journey-header__exit" href={exitHref}>
-            {exitLabel}
-          </Link>
-        ) : null}
+        <div className="journey-header__actions">
+          {!embedded ? <ThemeToggle /> : null}
+          {exitHref && exitLabel ? (
+            <Link className="journey-header__exit" href={exitHref} onClick={crossAppClickHandler(exitHref)}>
+              {exitLabel}
+            </Link>
+          ) : null}
+        </div>
       </header>
       <div className="journey-layout">
         <OnboardingProgress currentStep={currentStep} steps={steps} />
@@ -80,11 +86,11 @@ export function OnboardingShell({
   );
 
   if (embedded) {
-    return <section className="journey-shell journey-shell--embedded ui-theme-light">{content}</section>;
+    return <section className="journey-shell journey-shell--embedded">{content}</section>;
   }
 
   return (
-    <main id="main-content" className="journey-shell ui-theme-light" tabIndex={-1}>
+    <main id="main-content" className="journey-shell" tabIndex={-1}>
       {content}
     </main>
   );

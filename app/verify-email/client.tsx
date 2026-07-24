@@ -2,16 +2,15 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { AuthShell, AuthStateMark, AuthTaskHeader, FormAlert } from "@/components/auth/AuthShell";
 import { Button, ButtonLink, Field, FieldLabel, Input } from "@/components/ui";
+import { assignOwnedLocation } from "@/lib/subdomainRouting";
 
 type State = "idle" | "verifying" | "success" | "error" | "resending" | "resent" | "code-verifying";
 
 const POLL_INTERVAL_MS = 3000;
 
 export function VerifyEmailClient({ token }: { token?: string }) {
-  const router = useRouter();
   const [state, setState] = useState<State>(token ? "verifying" : "idle");
   const [message, setMessage] = useState("");
   const [code, setCode] = useState("");
@@ -31,7 +30,7 @@ export function VerifyEmailClient({ token }: { token?: string }) {
           const body = await res.json() as { verified: boolean };
           if (body.verified) {
             clearInterval(pollRef.current!);
-            router.push("/dashboard");
+            assignOwnedLocation("/dashboard");
           }
         }
       } catch {
@@ -42,7 +41,7 @@ export function VerifyEmailClient({ token }: { token?: string }) {
     poll();
     pollRef.current = setInterval(poll, POLL_INTERVAL_MS);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [token, router]);
+  }, [token]);
 
   // When token is present: verify it immediately.
   useEffect(() => {
