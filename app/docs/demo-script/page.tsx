@@ -448,7 +448,7 @@ Approve at: https://behalfid.com/dashboard/approvals`}</CodeBlock>
       <h3>Narration notes</h3>
       <ul className="docs-list">
         <li>
-          Be honest about scope: <em>&ldquo;BehalfID enforces at the MCP boundary. The check lives in the tool call, not in the model&apos;s memory — so it&apos;s not bypassed by prompt injection or jailbreaks that only affect the model&apos;s reasoning.&rdquo;</em>
+          Be honest about scope: <em>&ldquo;Structural enforcement is where you install action-time hooks or call verify() before tools run. Advisory MCP tools are context for the model — they are not an interception boundary. Prompt injection that only affects model reasoning does not bypass a host PreToolUse hook, but an agent that runs shell outside the hooked path is not caught.&rdquo;</em>
         </li>
         <li>
           Don&apos;t claim agents &ldquo;can&apos;t&rdquo; bypass it in all scenarios — the enforcement works where the integration is wired. An agent that calls <code>vercel deploy</code> directly without going through the MCP tool would not be caught.

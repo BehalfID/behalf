@@ -102,7 +102,7 @@
       "kicker": "Deploy-Genehmigungen",
       "h2Line1": "Von null bis durchgesetzt",
       "h2Line2": "in fünf Minuten.",
-      "bodyAdvanced": "Das erste, was die meisten Teams einrichten: ein Coding-Agent, der frei in das Staging deployen kann, aber vor dem Berühren der Produktion auf menschliche Genehmigung warten muss. BehalfID setzt dies an der MCP-Grenze durch — wo der Tool-Aufruf stattfindet, nicht im Speicher des Modells.",
+      "bodyAdvanced": "Das erste, was die meisten Teams einrichten: ein Coding-Agent, der frei in das Staging deployen kann, aber vor dem Berühren der Produktion auf menschliche Genehmigung warten muss. BehalfID setzt dies dort durch, wo Sie Action-Time-Hooks installieren oder verify() aufrufen — nicht allein über beratendes MCP.",
       "bodySimple": "Das häufigste Setup: Ihr KI-Coding-Assistent kann die Testumgebung jederzeit aktualisieren, aber für die Live-Site ist zuerst Ihre Zustimmung erforderlich. Vier Schritte, in unter fünf Minuten eingerichtet.",
       "step1Title": "Zwei Berechtigungen einrichten",
       "step1Body": "Staging automatisch erlaubt. Produktion erfordert Genehmigung.",
@@ -110,9 +110,9 @@
       "step1SimpleABody": "Ihr Agent kann jederzeit frei in die Testumgebung pushen.",
       "step1SimpleBTitle": "Produktion — zuerst fragen",
       "step1SimpleBBody": "Produktions-Deploys warten, bis Sie sie im Dashboard genehmigen.",
-      "step2Title": "MCP-Durchsetzung einrichten",
-      "step2BodyAdvanced": "Ein Befehl schreibt <code>.mcp.json</code> und die Agenten-Kontextdatei.",
-      "step2BodySimple": "Ein Terminal-Befehl verbindet BehalfID mit den Tools Ihres KI-Agenten. Keine Code-Änderungen an Ihrem Agenten erforderlich.",
+      "step2Title": "Hooks und beratendes MCP einrichten",
+      "step2BodyAdvanced": "Ein Befehl schreibt <code>.mcp.json</code> und die Kontext-Datei; Launcher konfigurieren unterstützte Hooks.",
+      "step2BodySimple": "Ein Terminal-Befehl verbindet BehalfID-Kontext mit Ihrem Agenten. Action-Time-Hooks sind die strukturelle Grenze, wo unterstützt.",
       "step3Title": "Agent versucht Produktions-Deploy — blockiert",
       "step3BodyAdvanced": "Der MCP-Server ruft <verifyCode>verify_action</verifyCode> auf. BehalfID gibt <approvalCode>approvalRequired: true</approvalCode> zurück. Der Agent hält an und berichtet Ihnen.",
       "step3BodySimple": "BehalfID gibt Genehmigung erforderlich zurück. Der Agent hält an und berichtet Ihnen.",
@@ -124,7 +124,7 @@
     "cta": {
       "kicker": "Bereit",
       "h2": "Berechtigungsprüfung hinzufügen.",
-      "body": "Die Durchsetzung ist fail-closed, wo Sie sie integrieren — über SDK oder MCP. Der manuelle Passport-Modus ist Best-Effort für Tests mit bestehenden Agenten, bevor Sie die Integration erstellen.",
+      "body": "Die Durchsetzung ist fail-closed, wo Sie sie integrieren — über SDK, Hooks, Action Gateway oder Site Guard. Beratendes MCP und manueller Passport-Modus sind Best-Effort-Kontext, keine Interzeption. Claude PreToolUse ist bei Config/Netzwerk/Timeout fail-open.",
       "tryDeploy": "Deploy-Genehmigungen ausprobieren"
     }
   },
@@ -469,7 +469,7 @@
       "label": "01",
       "heading": "Durchsetzungsmodell",
       "body1": "BehalfID kontrolliert einen Agenten nicht von selbst. Die App oder der Provider muss BehalfID vor dem Handeln aufrufen. Wenn die Aktion abgelehnt wird, sollte die Integration fail-closed sein und die Aktion nicht ausführen.",
-      "body2": "Fail-Closed bedeutet, dass der Agent bei Ablehnung einen Fehler wirft und der Code, der die Aktion ausführen würde, nie ausgeführt wird. Das Gegenteil — Fail-Open — würde dem Agenten erlauben, fortzufahren, wenn die Prüfung fehlschlägt oder nicht verfügbar ist. Das empfohlene Durchsetzungsmuster von BehalfID ist immer Fail-Closed.",
+      "body2": "Fail-Closed bedeutet, dass der Agent bei Ablehnung einen Fehler wirft und der Code, der die Aktion ausführen würde, nie ausgeführt wird. Das Gegenteil — Fail-Open — würde dem Agenten erlauben, fortzufahren, wenn die Prüfung fehlschlägt oder nicht verfügbar ist. SDK-Adapter sind typischerweise Fail-Closed; der Claude-PreToolUse-Hook ist bei Config/Netzwerk/Timeout Fail-Open. Kein universelles Fail-Closed.",
       "body3": "Die Durchsetzung funktioniert nur, wenn die Integration BehalfID vor dem Handeln aufruft und die Antwort respektiert. Sehen Sie die <sandboxLink>Live-Sandbox</sandboxLink> für eine browserbasierte Demonstration.",
       "note": "BehalfID Site Guard erweitert dieses Muster auf Websites: Ihr Middleware, Worker, Proxy oder Gateway ruft BehalfID auf, bevor geschützte Routen wie Checkout, Formulare, Login, Kontoänderungen, Datenexport oder Admin-Workflows ausgeführt werden."
     },
@@ -564,7 +564,7 @@
       "controls": "Technische Kontrollen",
       "contact": "Kontakt"
     },
-    "statusInProgress": "Zertifizierung in Bearbeitung",
+    "statusInProgress": "Nicht zertifiziert — Kontrollen in Arbeit (Ziel)",
     "statusNotCertified": "Nicht zertifiziert",
     "statusNotApplicable": "Nicht anwendbar",
     "statusImplemented": "Implementiert",

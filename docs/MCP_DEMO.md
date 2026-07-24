@@ -1,12 +1,15 @@
 # BehalfID MCP Demo
 
-This demo shows the CLI/MCP path for local coding agents. Use it when you want Claude Code, Codex, or another MCP-compatible agent to inspect BehalfID permissions and call `verify_action` before risky actions.
+This demo shows the **advisory** CLI/MCP path for local coding agents. Use it when you want Claude Code, Codex, or another MCP-compatible agent to inspect BehalfID permissions and call `verify_action` before risky actions.
+
+**Important:** The MCP server is **not** an interception/enforcement boundary. It exposes tools and writes model instructions. Shell/file enforcement for Claude Code requires the installed `PreToolUse` hook (see `docs/CAPABILITY_MATRIX.md` and `docs/PILOT_TESTER_GUIDE.md`). Do not cite an MCP denial or unavailable MCP tool as proof that a command was blocked.
 
 ## What This Proves
 
 - SDK path: use BehalfID inside your app and call `/api/verify` before execution.
 - Action Gateway path: ask BehalfID to verify and execute a supported action in one call.
-- CLI/MCP path: add BehalfID permission context to a local agentic coding tool.
+- CLI/MCP path: add BehalfID permission **context** and advisory tools to a local agentic coding tool.
+- Action-time hooks (separate): Claude `PreToolUse` can block mapped tools — with documented fail-open outage behavior.
 
 The MCP path does not add provider-native integrations. It gives local tools a permission context, a `get_permissions` tool, and a `verify_action` tool.
 
@@ -69,12 +72,14 @@ Inspect the context file:
 sed -n '1,160p' .behalf/context.md
 ```
 
-The context tells the agent:
+The context tells the agent (advisory instructions — not a host interceptor):
 
 - call `verify_action` before risky, external, state-changing, permissioned, or sensitive actions
 - denied means do not execute
-- unavailable verification means fail closed
+- unavailable verification should be treated as “do not execute” **by the model instructions**
 - approval-required means pause for human approval
+
+These instructions are best-effort. For Claude Code, the structural gate is the `PreToolUse` hook, which fails **open** on missing config and network/timeout verify errors, and fails **closed** on deny, approval-required, malformed/missing-target, and oversized policy input.
 
 ## Diagnose Setup
 
@@ -130,4 +135,4 @@ BehalfID: allowed: false, reason includes approval required
 Agent: pauses for human approval and does not execute automatically.
 ```
 
-If the MCP server cannot verify, the correct behavior is the same as denial for execution purposes: fail closed and do not run the action.
+If the advisory MCP server cannot verify, model instructions say not to run the action. That is not the same as a host-level block. For Claude Code shell/file tools, rely on the PreToolUse hook and its documented outage semantics — do not treat MCP unavailability as enforcement proof.

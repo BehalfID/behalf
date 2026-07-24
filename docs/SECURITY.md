@@ -35,7 +35,7 @@ BehalfID is currently a prototype. It is suitable for local demos and constraine
 - Connected-agent provider metadata is descriptive only. BehalfID does not collect provider credentials, and `externalAgentId` is never treated as authentication.
 - `@behalfid/sdk` makes network requests only when an SDK method is called (`verify`, `createAgent`, `createPermission`, `rotateKey`, `getLogs`). No network request is made on package import or `BehalfID` construction. All requests go to the configured `baseUrl` with `Authorization: Bearer`. `verifyWebhookSignature` is local-only and makes no network requests. The `baseUrl` constructor validates that the value starts with `http://` or `https://` and rejects other values.
 - Public passport links use a separate `bhf_pass_` token scoped to one agent. The passport page intentionally exposes the agent's active permission scopes so external agents can read what they are allowed to do. The token cannot create permissions, rotate keys, view audit logs, or expose API keys, webhook secrets, developer identity, account IDs, or internal DB IDs. Revoked and expired permissions are hidden from the public passport. A passport token is not an API key — treat it like a secret link.
-- BehalfID Site Guard is a planned website-owner enforcement pattern. It should require a separate site key, store only hashed site keys, and avoid logging cookies, authorization headers, raw query strings, page content, or request bodies by default.
+- BehalfID Site Guard is an MVP website-owner policy-check API (`POST /api/site-guard/check`) with site keys. It requires the website to install middleware/proxy/worker enforcement. Store only hashed site keys, and avoid logging cookies, authorization headers, raw query strings, page content, or request bodies by default.
 
 ## Known Prototype Limitations
 
@@ -58,17 +58,20 @@ BehalfID is currently a prototype. It is suitable for local demos and constraine
 - Public passport pages expose active permission scopes by design, including `allowedActions`, `blockedActions`, `requiresApproval`, `resource`, and `scope`. Do not create permissions containing sensitive data that should not be visible to anyone with the passport token.
 - Agent descriptions are informational. The structured permission fields (`allowedActions`, `blockedActions`) are the source of truth exposed to external agents reading the passport.
 - API key hashes are deterministic. A future version should use an HMAC pepper or key identifier plus HMAC hash.
-- Site Guard is not implemented as a production gateway yet. User-Agent detection is spoofable and must remain best-effort; verified agent identity should require a signed credential in a future iteration.
+- Site Guard exists as an MVP policy-check API (`POST /api/site-guard/check`) for websites that install middleware/proxy/worker enforcement. It is not a production gateway or global crawler blocker. User-Agent detection is spoofable and must remain best-effort; verified agent identity should require a signed credential in a future iteration.
+- Claude Code `PreToolUse` hook outage semantics (verified in `packages/cli/src/commands/hook.ts`): fail-closed for deny, approval-required, malformed input, missing mapped command/path targets, and oversized local policy context; fail-open for missing agent/API-key config and for network/API errors including the bounded verify timeout. Do not describe this hook as universally fail-closed.
+- The CLI advisory MCP server (`verify_action` / `get_permissions`) is not an interception boundary. `@behalfid/mcp-runtime` (stdio interceptor) exists in source but is not published to npm as of this doc refresh — see `docs/CAPABILITY_MATRIX.md`.
 - External crawler controls are useful context but not enforcement guarantees. See Google Search Central documentation for robots.txt and sitemaps, OpenAI crawler documentation, and Anthropic crawler documentation when configuring public crawler access.
 
 ## Production Recommendations
 
 - Keep public agent creation disabled and use console or `BEHALFID_SETUP_TOKEN` provisioning.
-- Move rate limiting to Redis, Upstash, or provider-native controls.
-- Add real developer accounts, organizations, and role-based access.
+- Move rate limiting to Redis, Upstash, or provider-native controls when process-local fallbacks are insufficient.
+- Developer accounts, workspaces (accounts), memberships, and role-based authority already exist; continue hardening (failed-auth audit logs, admin-action audit, SAML/non-Google IdPs as needed).
 - Add account-scoped audit logging for failed auth and admin actions.
 - Add log retention controls and export.
 - Add stronger webhook queue observability, alerting, and replay audit logs.
 - Use a stronger key storage design with a secret pepper.
 - Consider disabling public `POST /api/agents` in production and requiring console or provisioning auth.
-- Build Site Guard as a separate site-key authenticated policy-check API with Redis-backed limits and safe access logs before adding worker or middleware packages.
+- Harden Site Guard beyond the MVP (Redis-backed limits, stronger identity than User-Agent, packaged middleware/worker examples) before treating it as production gateway coverage.
+- Treat MongoDB as the production database until an explicit Postgres cutover; keep Postgres runtime flags off in production (`docs/CAPABILITY_MATRIX.md`).

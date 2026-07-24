@@ -37,7 +37,11 @@ behalf permissions create agent_xxx \\
   --action deploy_production --resource vercel.com \\
   --requires-approval`}</CodeBlock>
 
-      <h2>Step 2: Wire up MCP enforcement</h2>
+      <h2>Step 2: Wire up advisory MCP context and hooks</h2>
+      <p>
+        <code>behalf mcp init</code> registers advisory MCP tools. Launchers configure supported
+        action-time hooks. Advisory MCP alone does not intercept tools.
+      </p>
       <CodeBlock label="terminal">{`behalf mcp init && behalf claude`}</CodeBlock>
 
       <h2>Step 3: Agent attempts production deploy — blocked</h2>

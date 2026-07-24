@@ -1,18 +1,35 @@
 # BehalfID Hard-Enforcement Architecture
 
 **Document type:** Internal architecture + product design  
-**Status:** Proposal — pre-implementation  
+**Status:** Living architecture note — **partially implemented** (see inventory below). Remaining sections describe the hard-enforcement target (execution proxy / execution tokens), not a claim that every tier is production-supported.
 **Author role:** Enforcement Architecture Lead  
-**Date:** 2026-05-25
+**Date:** 2026-05-25 (reconciled 2026-07-24)
+
+**Capability truth:** `docs/CAPABILITY_MATRIX.md`
+
+### Implementation inventory (reconcile before citing “unimplemented”)
+
+| Area | Status (2026-07-24) |
+|---|---|
+| `POST /api/verify` + SDK fail-closed adapters | Implemented; production callers must respect the decision |
+| Approval lifecycle (request, approve/deny, grants, webhooks) | Implemented in product (not “future Step 4”) |
+| Action Gateway (limited supported actions) | Implemented MVP; not a general HTTP execution proxy |
+| Coding-agent action-time hooks (Claude PreToolUse, etc.) | Implemented via `@behalfid/cli` — pilot; **not** universal fail-closed on outage (see matrix) |
+| Advisory MCP (`verify_action` / `get_permissions`) | Implemented via CLI — **advisory only**, not interception |
+| MCP interceptor PEP (`@behalfid/mcp-runtime`) | Implemented **in source**; **not** released on npm |
+| Site Guard check API | Implemented MVP where the site installs a caller |
+| Tier 1 general HTTP execution proxy | Still proposal |
+| Tier 2 execution tokens validated by downstream services | Still proposal |
 
 ---
 
 ## Executive Summary
 
-BehalfID's current model relies on agents voluntarily calling `/api/verify` before executing
-actions. The API returns `{ allowed: true | false }` and the agent decides whether to proceed.
-This is advisory enforcement. No structural guarantee prevents an agent from skipping the call
-entirely or ignoring a `denied` response.
+BehalfID can return allow/deny/approval-required for any caller of `/api/verify`, but
+**structural enforcement only exists where an integration owns the execution path** (SDK wrapper,
+action-time hook, Action Gateway, Site Guard middleware, or a future interceptor). Voluntary
+`verify_action` over advisory MCP does not prevent an agent from skipping the call or ignoring
+a denial.
 
 This document answers: **what does BehalfID become if enforcement is real instead of voluntary?**
 
@@ -31,10 +48,11 @@ Before designing, we must be honest about what enforcement means in practice.
 
 | Enforcement tier | BehalfID controls | Bypass difficulty |
 |---|---|---|
-| **Tier 0 — Advisory** (current) | Nothing. Returns allow/deny. | Trivial. Agent ignores the response. |
-| **Tier 1 — Execution proxy** | The HTTP request itself | Hard. Agent must route through BehalfID. |
+| **Tier 0 — Advisory** | Nothing structural. Returns allow/deny (e.g. advisory MCP tools, passport text). | Trivial. Agent ignores the response. |
+| **Tier 1 — Execution proxy** | The HTTP request itself (Action Gateway is a narrow MVP today) | Hard. Agent must route through BehalfID. |
 | **Tier 2 — Execution token** | Authorization at the downstream service | Medium. Requires service to validate token. |
-| **Tier 3 — MCP interceptor** | Tool call dispatch in the agent runtime | Medium. Agent controls MCP config; can be reconfigured. |
+| **Tier 3 — MCP interceptor** | Tool call dispatch in the agent runtime (`@behalfid/mcp-runtime` in source; unpublished) | Medium. Agent controls MCP config; can be reconfigured. |
+| **Tier 3b — Action-time hooks** | Host PreToolUse / beforeShellExecution gates (`@behalfid/cli`) | Medium. Bypass by disabling hooks or using unmapped tools. |
 | **Tier 4 — Cooperative gateway** | API surface of enrolled services | Hard if service enforces it; trivial if not enrolled. |
 
 **There is no Tier 5 for local code execution, LLM reasoning, or services that do not
@@ -521,14 +539,12 @@ before executing.
 // New model: ExecutionToken (redis-backed, TTL 5m)
 ```
 
-**Step 4**: Approval gate materialization (1 week)
+**Step 4**: Approval gate materialization — **shipped** (do not treat as unimplemented)
 
 ```typescript
-// New model: ApprovalRequest
-// New route: POST /api/approvals/{id}/approve
-// New route: POST /api/approvals/{id}/deny
-// New webhook event: approval.requested
-// Dashboard: approval queue view
+// Shipped: ApprovalRequest model, dashboard approve/deny, Action Inbox,
+// webhooks approval.requested / approval.granted / approval.denied,
+// single-use grants with argument fingerprint binding for agent_action
 ```
 
 **Step 5**: Execution receipts (1 week)
@@ -539,14 +555,17 @@ before executing.
 // Receipt HMAC signature for developer verification
 ```
 
-### 8.3 What MVP Does NOT Include
+### 8.3 What the hard-enforcement MVP (proxy + tokens) still does NOT include
 
-- MCP interceptor (Tier 3)
-- Service-side SDK for execution token validation
+Relative to the **Tier 1/2 hard-enforcement proposal** (not a claim that the product has no enforcement today):
+
+- General HTTP execution proxy beyond Action Gateway’s supported actions
+- Service-side SDK for execution token validation / consume
 - Connector marketplace (pre-configured API credentials)
 - Local execution sandbox
+- Published npm release of `@behalfid/mcp-runtime` (code exists; install channel does not)
 
-These are follow-on. The MVP is the HTTP proxy + execution token.
+Already shipped outside this hard-enforcement MVP: approval lifecycle, action-time hooks, advisory MCP, Site Guard MVP, and SDK verify wrappers. See the inventory at the top of this document.
 
 ### 8.4 Integration Path for Developers
 

@@ -13,11 +13,12 @@ export const metadata = {
 const limitations = [
   "No provider-native integrations yet. Connected agents are represented manually inside BehalfID — BehalfID does not call Ollie, ChatGPT, Claude, or Zapier APIs on your behalf.",
   "Manual mode depends on user and agent cooperation. The external agent must read the passport and respect the listed constraints; BehalfID cannot enforce behavior inside third-party providers.",
-  "Site Guard is a planned website-owner enforcement pattern, not a global crawler blocker. It only protects routes or workflows where the website installs middleware, a proxy, worker, or gateway that calls BehalfID and respects the decision.",
-  "Sign in with Google is available for developer accounts. Workspace Google SSO (company domain allowlist and optional password enforcement) is available on Pro and higher. The admin console still uses one shared password. SAML and non-Google IdPs are not supported yet.",
-  "No formal external security audit yet. BehalfID is suitable for constrained deployments and demos, not open public multi-tenant use without further hardening.",
+  "Site Guard is an MVP website-owner enforcement API, not a global crawler blocker. It only protects routes or workflows where the website installs middleware, a proxy, worker, or gateway that calls BehalfID and respects the decision.",
+  "Sign in with Google is available for developer accounts. Workspace Google SSO (company domain allowlist and optional password enforcement) is available on Pro and higher. Workspaces, memberships, and roles exist. The admin console still uses one shared password. SAML and non-Google IdPs are not supported yet.",
+  "No formal external security audit yet. BehalfID is suitable for constrained deployments and demos, not open public multi-tenant use without further hardening. There is no enterprise production-support SLA by default.",
   "Not a replacement for app-level authorization. BehalfID is a pre-action verification layer. Your app still needs its own auth, input validation, and access control.",
-  "Rate limiting falls back to process memory without Upstash Redis. In serverless environments, in-memory counters are not shared across instances."
+  "Rate limiting falls back to process memory without Upstash Redis. In serverless environments, in-memory counters are not shared across instances.",
+  "Claude Code PreToolUse is not universally fail-closed: config/network/timeout outages fail open; deny, approval-required, malformed/missing-target, and oversized policy input fail closed. Advisory MCP is not enforcement."
 ];
 
 const revocationItems = [
@@ -61,7 +62,9 @@ export default function SecurityPage() {
             <p>
               Fail closed means the agent throws on denial and the code that would execute the action
               never runs. The opposite — fail open — would let the agent proceed if the check fails
-              or is unavailable. BehalfID&apos;s recommended enforcement pattern is always fail closed.
+              or is unavailable. SDK adapters and Site Guard follow fail-closed verify-error behavior.
+              Coding-agent hooks are path-specific: Claude PreToolUse fails open on missing config and
+              network/timeout errors. Do not describe BehalfID as universally fail-closed.
             </p>
             <CodeBlock label="enforce.ts">{`const result = await behalf.verify({
   agentId,

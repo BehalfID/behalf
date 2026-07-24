@@ -16,6 +16,21 @@ Phased plan: [docs/INTERCEPTOR_PLAN.md](./docs/INTERCEPTOR_PLAN.md).
 
 ## Install
 
+**Status:** Implemented in this monorepo. **Not published to the public npm registry** as of
+2026-07-24 (`npm view @behalfid/mcp-runtime` returns 404). Do not treat the commands below as
+immediately installable from npm until a release exists. See `docs/CAPABILITY_MATRIX.md`.
+
+From a clone of this repository:
+
+```bash
+cd packages/mcp-runtime
+npm install
+npm run build
+node dist/cli.js
+```
+
+When published:
+
 ```bash
 npm install @behalfid/mcp-runtime
 ```

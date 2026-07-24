@@ -1,6 +1,6 @@
 # Production Deployment Checklist
 
-This checklist is for deploying the current BehalfID product safely. It includes the minimal Site Guard policy check, but not teams/org roles or provider-native integrations.
+This checklist is for deploying the current BehalfID product safely. It includes the Site Guard MVP policy check. Developer workspaces, memberships, and roles exist; treat multi-tenant hardening and provider-native integrations as ongoing. Postgres is optional/gated — Mongo remains the production default (`docs/CAPABILITY_MATRIX.md`).
 
 ## Required Environment Variables
 

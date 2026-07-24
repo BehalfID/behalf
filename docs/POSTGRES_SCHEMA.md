@@ -1,9 +1,10 @@
 # Postgres Schema Reference (v1 + Phase B′ parity)
 
-**Status:** Schema and migrations exist through `0003_schema_parity`. **Not wired to app runtime.**
-
-Production still uses Mongo/Mongoose (`lib/db.ts`, `models/*`). This document describes the
-Drizzle/Postgres schema from PR B / Phase B′ of the migration plan (`docs/DATABASE_MIGRATION.md`).
+**Status:** Schema and migrations exist through Phase B′ parity (`0003`+) plus follow-on fidelity
+migrations. **Default app runtime is still Mongo/Mongoose.** Postgres is gated behind
+`BEHALFID_ALLOW_POSTGRES_RUNTIME` and repository backend flags. CI applies migrations and runs
+smoke/contract suites (`.github/workflows/ci.yml` job `postgres-schema`). See
+`docs/CAPABILITY_MATRIX.md` and `docs/DATABASE_MIGRATION.md`.
 
 ---
 

@@ -86,8 +86,8 @@
       "kicker": "Integration",
       "h2Line1": "Three lines between",
       "h2Line2": "request and execution.",
-      "bodyAdvanced": "Install the SDK and call <code>behalf.verify()</code> before your executor, or enforce at the MCP boundary with the CLI. The fail-closed check lives where the tool runs — in your code, not the model's memory.",
-      "bodySimple": "No matter what tool your AI agent tries to use — browse, buy, deploy, email — it asks BehalfID first. You define the rules once. BehalfID enforces them automatically, every time.",
+      "bodyAdvanced": "Install the SDK and call <code>behalf.verify()</code> before your executor, or use the CLI for action-time hooks plus advisory MCP tools. The check lives where the tool runs — in your code or host hook, not the model's memory.",
+      "bodySimple": "No matter what tool your AI agent tries to use — browse, buy, deploy, email — it asks BehalfID first where you wire the integration. You define the rules once. BehalfID returns allow, deny, or approval required.",
       "quickstart": "Quickstart →",
       "sdkRef": "SDK reference →",
       "aiAgent": "AI Agent",
@@ -102,7 +102,7 @@
       "kicker": "Deploy approvals",
       "h2Line1": "From zero to enforced",
       "h2Line2": "in five minutes.",
-      "bodyAdvanced": "The first thing most teams wire up: a coding agent that can deploy to staging freely, but must pause for human approval before touching production. BehalfID enforces this at the MCP boundary — where the tool call is made, not inside the model's memory.",
+      "bodyAdvanced": "The first thing most teams wire up: a coding agent that can deploy to staging freely, but must pause for human approval before touching production. BehalfID enforces this where you install action-time hooks or call verify() — not via advisory MCP alone.",
       "bodySimple": "The most common setup: your AI coding helper can update the test environment any time, but touching the live site requires your go-ahead first. Four steps, set up in under five minutes.",
       "step1Title": "Set up two permissions",
       "step1Body": "Staging allowed automatically. Production requires approval.",
@@ -110,9 +110,9 @@
       "step1SimpleABody": "Your agent can push to the test environment freely, any time.",
       "step1SimpleBTitle": "Production — ask me first",
       "step1SimpleBBody": "Production deploys pause until you approve them in the dashboard.",
-      "step2Title": "Wire up MCP enforcement",
-      "step2BodyAdvanced": "One command writes <code>.mcp.json</code> and the agent context file.",
-      "step2BodySimple": "One terminal command connects BehalfID to your AI agent's tools. No code changes to your agent needed.",
+      "step2Title": "Wire up hooks and advisory MCP",
+      "step2BodyAdvanced": "One command writes <code>.mcp.json</code> and the agent context file; launchers configure supported hooks.",
+      "step2BodySimple": "One terminal command connects BehalfID context to your AI agent. Action-time hooks provide the structural gate where supported.",
       "step3Title": "Agent attempts production deploy — blocked",
       "step3BodyAdvanced": "The MCP server calls <verifyCode>verify_action</verifyCode>. BehalfID returns <approvalCode>approvalRequired: true</approvalCode>. The agent pauses and reports back to you.",
       "step3BodySimple": "BehalfID returns Approval Required. The agent pauses and reports back to you.",
@@ -124,7 +124,7 @@
     "cta": {
       "kicker": "Ready",
       "h2": "Add approval gates to your coding agents.",
-      "body": "Enforcement is fail-closed where you integrate it — via SDK, MCP, or the CLI. Manual passport mode is best-effort for testing with existing agents before you build the integration.",
+      "body": "Enforcement is fail-closed where you integrate it — via SDK, action-time hooks, Action Gateway, or Site Guard. Advisory MCP tools and manual passport mode are best-effort context, not interception. Claude PreToolUse fails open on config/network/timeout outages.",
       "tryDeploy": "View deploy approvals"
     }
   },
@@ -469,7 +469,7 @@
       "label": "01",
       "heading": "Enforcement model",
       "body1": "BehalfID does not magically control an agent by itself. The app or provider must call BehalfID before acting. If the action is denied, the integration should fail closed and not execute the action.",
-      "body2": "Fail closed means the agent throws on denial and the code that would execute the action never runs. The opposite — fail open — would let the agent proceed if the check fails or is unavailable. BehalfID's recommended enforcement pattern is always fail closed.",
+      "body2": "Fail closed means the agent throws on denial and the code that would execute the action never runs. The opposite — fail open — would let the agent proceed if the check fails or is unavailable. SDK adapters typically fail closed on verify errors; Claude PreToolUse fails open on config/network/timeout. Do not claim universal fail-closed enforcement.",
       "body3": "Enforcement only works when the integration calls BehalfID before acting and respects the response. See the <sandboxLink>live sandbox</sandboxLink> for a browser-based demonstration.",
       "note": "BehalfID Site Guard extends this pattern to websites: your middleware, worker, proxy, or gateway calls BehalfID before protected routes such as checkout, forms, login, account changes, data export, or admin workflows. User-Agent detection is best-effort and spoofable; verified agent identity requires a future signed credential."
     },
@@ -538,7 +538,7 @@
       "intro": "BehalfID has the following known limitations. Please read these carefully before using the platform for sensitive or production workloads.",
       "item1": "No provider-native integrations yet. Connected agents are represented manually inside BehalfID — BehalfID does not call Ollie, ChatGPT, Claude, or Zapier APIs on your behalf.",
       "item2": "Manual mode depends on user and agent cooperation. The external agent must read the passport and respect the listed constraints; BehalfID cannot enforce behavior inside third-party providers.",
-      "item3": "Site Guard is a planned website-owner enforcement pattern, not a global crawler blocker. It only protects routes or workflows where the website installs middleware, a proxy, worker, or gateway that calls BehalfID and respects the decision.",
+      "item3": "Site Guard is an MVP website-owner enforcement API, not a global crawler blocker. It only protects routes or workflows where the website installs middleware, a proxy, worker, or gateway that calls BehalfID and respects the decision.",
       "item4": "Sign in with Google is available for developer accounts. Workspace Google SSO (company domain allowlist and optional password enforcement) is available on Pro and higher. The admin console still uses one shared password. SAML and non-Google IdPs are not supported yet.",
       "item5": "No formal external security audit yet. BehalfID is suitable for constrained deployments and demos, not open public multi-tenant use without further hardening.",
       "item6": "Not a replacement for app-level authorization. BehalfID is a pre-action verification layer. Your app still needs its own auth, input validation, and access control.",
@@ -564,7 +564,7 @@
       "controls": "Technical controls",
       "contact": "Contact"
     },
-    "statusInProgress": "Certification in progress",
+    "statusInProgress": "Not certified — controls in progress (target)",
     "statusNotCertified": "Not certified",
     "statusNotApplicable": "Not applicable",
     "statusImplemented": "Implemented",
@@ -572,7 +572,7 @@
     "soc2": {
       "heading": "SOC 2",
       "statusHeading": "Status",
-      "body1": "BehalfID has not yet completed a SOC 2 Type II audit. We are currently implementing the organizational and technical controls required to achieve SOC 2 Type II certification across the Security, Availability, and Confidentiality trust service criteria.",
+      "body1": "BehalfID has not completed a SOC 2 Type II audit and does not claim SOC 2 certification. We are implementing organizational and technical controls toward a future SOC 2 Type II engagement across the Security, Availability, and Confidentiality trust service criteria. Treat certification as a target, not a current status.",
       "controlsHeading": "Controls in place today",
       "roadmapHeading": "Roadmap",
       "roadmapBody": "We intend to engage a licensed CPA firm for a SOC 2 Type II audit once we have deployed the remaining organizational controls. Target: 2026."

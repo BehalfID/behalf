@@ -10,13 +10,13 @@ Infrastructure-aware developers and engineering teams deploying AI agents in pro
 
 ## Product Purpose
 
-BehalfID is agent permission infrastructure. It verifies every agent action against a scoped permission passport before execution — at the SDK or MCP boundary, in the user's code, not inside the model's memory. Denied actions fail closed. Every decision is logged with a stable request ID and delivered via signed webhook. The core value: certainty that agents cannot exceed what you explicitly permitted.
+BehalfID is agent permission infrastructure. Where an integration calls `verify()` or installs an action-time hook before execution, BehalfID evaluates the action against a scoped permission passport. Advisory MCP tools are context, not an interception boundary. Denied and approval-required actions fail closed in integrated executors; outage behavior is path-specific (Claude PreToolUse fails open on config/network/timeout). Every verification decision that reaches BehalfID is logged with a stable request ID.
 
 ## Brand Personality
 
 Precise. Restrained. Trustworthy.
 
-BehalfID sounds like the team that built the permission layer for a critical system — confident in what it does, quiet about what it doesn't. It never oversells. It never uses AI buzzwords. The product earns trust through specificity: named field names, real request IDs, concrete latency numbers, actual code.
+BehalfID sounds like the team that built the permission layer for a critical system — confident in what it does, quiet about what it doesn't. It never oversells. It never uses AI buzzwords. The product earns trust through specificity: named field names, real request IDs, measured numbers linked to evidence, and actual code.
 
 ## Anti-references
 
@@ -28,7 +28,7 @@ BehalfID sounds like the team that built the permission layer for a critical sys
 
 ## Design Principles
 
-1. **Infrastructure earns trust through specificity.** Show real field names, actual request IDs, concrete latency numbers. No vague claims. Every UI surface should feel like it was built by the same team that built the API.
+1. **Infrastructure earns trust through specificity.** Show real field names and actual request IDs. Show latency or uptime numbers only when linked to measurement evidence. No vague claims. Every UI surface should feel like it was built by the same team that built the API.
 
 2. **Fail-closed UI.** Destructive actions are clearly dangerous. Denied states are semantically correct (red, not neutral grey). Pending states are distinct from idle. Nothing is accidentally permissive in appearance.
 
