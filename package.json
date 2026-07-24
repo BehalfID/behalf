@@ -48,7 +48,7 @@
     "@vercel/analytics": "^2.0.1",
     "drizzle-orm": "^0.45.2",
     "jose": "^6.2.3",
-    "mongoose": "^9.6.1",
+    "mongoose": "^9.7.2",
     "next": "^16.2.6",
     "next-intl": "^4.13.0",
     "nodemailer": "^9.0.1",
