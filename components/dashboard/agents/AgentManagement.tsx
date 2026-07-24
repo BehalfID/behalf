@@ -10,6 +10,10 @@ import {
 } from "react";
 import { getRequiredRoleLabel } from "@/lib/authority";
 import { classifyPermissionRisk } from "@/lib/permissionRisk";
+import {
+  assessPermissionReplacementImpact,
+  permissionDocumentImpactSnapshot
+} from "@/lib/permissionReplacementImpact";
 import type { PolicyTemplate } from "@/lib/policyTemplates";
 import { ConnectionStatusBadge } from "@/components/dashboard/ProfileIntegrationPrimitives";
 import {
@@ -109,7 +113,12 @@ export function AgentStatusBadge({ status }: { status: string }) {
 
 export function PermissionStatusBadge({ permission }: { permission: PermissionManagementRecord }) {
   const status = permissionEffectiveStatus(permission);
-  const variant = status === "active" ? "success" : status === "expired" ? "warning" : "neutral";
+  const variant =
+    status === "active"
+      ? "success"
+      : status === "expired" || status === "inactive"
+        ? "warning"
+        : "neutral";
   return (
     <Badge variant={variant}>
       <span className="ui-status-dot" aria-hidden="true" />
@@ -395,14 +404,24 @@ export function PermissionConstraintList({ permission }: { permission: Permissio
 export function PermissionSummary({
   permission,
   onRevoke,
-  revoking = false
+  onEdit,
+  onResumeReplacement,
+  revoking = false,
+  editing = false,
+  resuming = false
 }: {
   permission: PermissionManagementRecord;
   onRevoke: (permissionId: string) => Promise<void>;
+  onEdit?: (permission: PermissionManagementRecord) => void;
+  onResumeReplacement?: (permission: PermissionManagementRecord) => Promise<void>;
   revoking?: boolean;
+  editing?: boolean;
+  resuming?: boolean;
 }) {
   const status = permissionEffectiveStatus(permission);
   const authorityLevel = permissionAuthorityLevel(permission);
+  const interrupted =
+    permission.status === "inactive" && Boolean(permission.replacesPermissionId);
   return (
     <article className={`permission-summary permission-summary--${status}`}>
       <header className="permission-summary__header">
@@ -412,9 +431,16 @@ export function PermissionSummary({
             <PermissionStatusBadge permission={permission} />
             {permission.requiresApproval ? <Badge variant="warning">Approval required</Badge> : null}
             {permissionIsBroad(permission) ? <Badge variant="destructive">Broad scope</Badge> : null}
+            {interrupted ? <Badge variant="warning">Replacement interrupted</Badge> : null}
           </div>
           <code title={permission.permissionId}>{permission.permissionId}</code>
           {permission.description ? <p>{permission.description}</p> : null}
+          {permission.replacesPermissionId ? (
+            <p className="permission-summary__link">Replaces <code>{permission.replacesPermissionId}</code></p>
+          ) : null}
+          {permission.replacedByPermissionId ? (
+            <p className="permission-summary__link">Replaced by <code>{permission.replacedByPermissionId}</code></p>
+          ) : null}
         </div>
         <div className="permission-summary__authority">
           <span>Required authority</span>
@@ -429,37 +455,68 @@ export function PermissionSummary({
           Created {formatTimestamp(permission.createdAt)}
           {permission.lastUsedAt ? ` · last used ${formatTimestamp(permission.lastUsedAt)}` : " · never used"}
         </span>
-        {permission.status === "active" ? (
-          <div className="permission-summary__revoke">
-            <small>Revocation is immediate and cannot be undone on this record.</small>
-            <ConfirmDialog
-              confirmLabel="Revoke permission"
-              confirmVariant="destructive"
-              description="The next verify() call for this action is denied. This record cannot be restored — create a new permission if needed."
-              loading={revoking}
-              onConfirm={() => onRevoke(permission.permissionId)}
-              title={`Revoke ${permission.action}?`}
-              trigger={(open) => (
+        <div className="permission-summary__actions">
+          {interrupted && onResumeReplacement ? (
+            <div className="permission-summary__resume">
+              <small>The previous permission is revoked. Finish activation to restore access under the replacement policy.</small>
+              <Button
+                aria-label={`Resume replacement for ${permission.action}`}
+                loading={resuming}
+                onClick={() => onResumeReplacement(permission)}
+                size="small"
+                type="button"
+                variant="primary"
+              >
+                Resume replacement
+              </Button>
+            </div>
+          ) : null}
+          {permission.status === "active" ? (
+            <div className="permission-summary__mutate">
+              {onEdit ? (
                 <Button
-                  aria-label={`Revoke ${permission.action} permission`}
-                  loading={revoking}
-                  onClick={open}
+                  aria-label={`Edit and replace ${permission.action} permission`}
+                  disabled={editing}
+                  onClick={() => onEdit(permission)}
                   size="small"
                   type="button"
-                  variant="destructive"
+                  variant="outline"
                 >
-                  Revoke permission
+                  Edit / replace
                 </Button>
-              )}
-            >
-              <dl className="agent-credential-confirmation">
-                <div><dt>Permission</dt><dd><code>{permission.permissionId}</code></dd></div>
-                <div><dt>Action</dt><dd>{permission.action}</dd></div>
-                {permission.resource ? <div><dt>Resource</dt><dd>{permission.resource}</dd></div> : null}
-              </dl>
-            </ConfirmDialog>
-          </div>
-        ) : null}
+              ) : null}
+              <div className="permission-summary__revoke">
+                <small>Revocation is immediate and cannot be undone on this record.</small>
+                <ConfirmDialog
+                  confirmLabel="Revoke permission"
+                  confirmVariant="destructive"
+                  description="The next verify() call for this action is denied. This record cannot be restored — create a new permission if needed."
+                  loading={revoking}
+                  onConfirm={() => onRevoke(permission.permissionId)}
+                  title={`Revoke ${permission.action}?`}
+                  trigger={(open) => (
+                    <Button
+                      aria-label={`Revoke ${permission.action} permission`}
+                      loading={revoking}
+                      onClick={open}
+                      size="small"
+                      type="button"
+                      variant="destructive"
+                    >
+                      Revoke permission
+                    </Button>
+                  )}
+                >
+                  <dl className="agent-credential-confirmation">
+                    <div><dt>Permission</dt><dd><code>{permission.permissionId}</code></dd></div>
+                    <div><dt>Action</dt><dd>{permission.action}</dd></div>
+                    {permission.resource ? <div><dt>Resource</dt><dd>{permission.resource}</dd></div> : null}
+                  </dl>
+                </ConfirmDialog>
+              </div>
+            </div>
+          ) : null}
+        </div>
       </footer>
     </article>
   );
@@ -481,6 +538,105 @@ export function PermissionFormSection({
       {description ? <p className="permission-form-section__description">{description}</p> : null}
       <div className="permission-form-section__fields">{children}</div>
     </fieldset>
+  );
+}
+
+export function PermissionReplacementImpactReview({
+  before,
+  after
+}: {
+  before: PermissionManagementRecord;
+  after: {
+    action: string;
+    resource?: string;
+    requiresApproval?: boolean;
+    allowedActions?: string[];
+    blockedActions?: string[];
+    template?: string;
+    constraints?: PermissionManagementRecord["constraints"];
+  };
+}) {
+  const impact = assessPermissionReplacementImpact(
+    permissionDocumentImpactSnapshot({
+      action: before.action,
+      resource: before.resource,
+      requiresApproval: before.requiresApproval,
+      requiredAuthorityLevel: before.requiredAuthorityLevel,
+      allowedActions: before.allowedActions,
+      blockedActions: before.blockedActions,
+      constraints: before.constraints
+        ? {
+            maxAmount: before.constraints.maxAmount,
+            allowedVendors: before.constraints.allowedVendors,
+            expiresAt: before.constraints.expiresAt
+              ? new Date(before.constraints.expiresAt)
+              : undefined,
+            allowedPaths: before.constraints.allowedPaths,
+            deniedPaths: before.constraints.deniedPaths,
+            deniedCommands: before.constraints.deniedCommands
+          }
+        : undefined,
+      scope: before.scope,
+      template: before.template as never
+    }),
+    {
+      action: after.action,
+      resource: after.resource,
+      requiresApproval: after.requiresApproval,
+      allowedActions: after.allowedActions,
+      blockedActions: after.blockedActions,
+      template: after.template as never,
+      constraints: {
+        maxAmount: after.constraints?.maxAmount,
+        allowedVendors: after.constraints?.allowedVendors
+      }
+    }
+  );
+
+  return (
+    <div className="permission-replacement-review" role="region" aria-label="Replacement security impact">
+      <div className="permission-replacement-review__summary">
+        <strong>
+          {impact.expandsAccess
+            ? "This replacement expands access"
+            : impact.reducesAccess
+              ? "This replacement reduces access"
+              : "This replacement changes the active policy"}
+        </strong>
+        <p>
+          The current permission will be revoked before the replacement becomes active. Creating a new
+          permission is a separate action and does not modify this record.
+        </p>
+        <ul>
+          {impact.changes.map((change) => (
+            <li key={change}>{change}</li>
+          ))}
+        </ul>
+      </div>
+      <div className="permission-replacement-review__columns">
+        <section>
+          <h3>Before · will be revoked</h3>
+          <dl>
+            <div><dt>Permission</dt><dd><code>{before.permissionId}</code></dd></div>
+            <div><dt>Action</dt><dd>{before.action}</dd></div>
+            <div><dt>Resource</dt><dd>{before.resource || "Any"}</dd></div>
+            <div><dt>Approval</dt><dd>{before.requiresApproval ? "Required" : "Not required"}</dd></div>
+          </dl>
+        </section>
+        <section>
+          <h3>After · will become active</h3>
+          <dl>
+            <div><dt>Action</dt><dd>{after.action}</dd></div>
+            <div><dt>Resource</dt><dd>{after.resource || "Any"}</dd></div>
+            <div><dt>Approval</dt><dd>{after.requiresApproval ? "Required" : "Not required"}</dd></div>
+            <div>
+              <dt>Required authority</dt>
+              <dd>{getRequiredRoleLabel(impact.requiredAuthorityLevel)}</dd>
+            </div>
+          </dl>
+        </section>
+      </div>
+    </div>
   );
 }
 

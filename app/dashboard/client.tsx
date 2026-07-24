@@ -32,6 +32,7 @@ import {
   AgentListTable,
   AgentSectionPanel,
   PermissionFormSection,
+  PermissionReplacementImpactReview,
   PermissionSummary,
   PermissionTemplateCard,
   permissionEffectiveStatus,
@@ -133,6 +134,9 @@ type Permission = {
   lastUsedAt?: string | null;
   createdAt?: string;
   updatedAt?: string;
+  replacesPermissionId?: string;
+  replacedByPermissionId?: string;
+  replacementIdempotencyKey?: string;
 };
 type WorkspaceAuthority = {
   role: string;
@@ -2411,7 +2415,11 @@ function AgentView({ agentId }: { agentId: string }) {
   const [secret, setSecret] = useState("");
   const [passportUrl, setPassportUrl] = useState("");
   const [activeSection, setActiveSection] = useState<AgentDetailSection>("overview");
-  const [form, setForm] = useState({
+  const [agentWorking, setAgentWorking] = useState<string | null>(null);
+  const [editingPermission, setEditingPermission] = useState<Permission | null>(null);
+  const [permissionMutationError, setPermissionMutationError] = useState("");
+  const [replacementIdempotencyKey, setReplacementIdempotencyKey] = useState("");
+  const emptyPermissionForm = {
     template: "" as PermissionTemplate | "",
     action: "",
     resource: "",
@@ -2421,7 +2429,8 @@ function AgentView({ agentId }: { agentId: string }) {
     maxAmount: "",
     expiresAt: "",
     scope: ""
-  });
+  };
+  const [form, setForm] = useState(emptyPermissionForm);
   const [agentViewScopeId, setAgentViewScopeId] = useState("");
   const [activePolicyTemplateId, setActivePolicyTemplateId] = useState("");
   const [policyApplying, setPolicyApplying] = useState(false);
@@ -2429,29 +2438,134 @@ function AgentView({ agentId }: { agentId: string }) {
   const [guidelines, setGuidelines] = useState<string[]>([]);
   const [newGuideline, setNewGuideline] = useState("");
   const [guidelinesInitialized, setGuidelinesInitialized] = useState(false);
-  const [agentWorking, setAgentWorking] = useState<string | null>(null);
+
+  const buildPermissionPayload = () => {
+    const resolvedAction = form.action || form.template || "";
+    return {
+      action: resolvedAction,
+      resource: form.resource || undefined,
+      scope: form.scope || undefined,
+      allowedActions: form.allowedActions ? form.allowedActions.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+      blockedActions: form.blockedActions ? form.blockedActions.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+      requiresApproval: form.requiresApproval || undefined,
+      template: form.template || undefined,
+      constraints: {
+        maxAmount: form.maxAmount ? Number(form.maxAmount) : undefined,
+        allowedVendors: form.resource ? [form.resource] : undefined,
+        expiresAt: form.expiresAt || undefined
+      }
+    };
+  };
+
+  const toDateTimeLocalValue = (value?: string) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+    return local.toISOString().slice(0, 16);
+  };
+
+  const beginEditPermission = (permission: Permission) => {
+    setEditingPermission(permission);
+    setPermissionMutationError("");
+    setReplacementIdempotencyKey(
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `prk_${Date.now()}`
+    );
+    setActivePolicyTemplateId("");
+    setAgentViewScopeId("");
+    setForm({
+      template: permission.template ?? "",
+      action: permission.action,
+      resource: permission.resource ?? "",
+      allowedActions: (permission.allowedActions ?? []).join(", "),
+      blockedActions: (permission.blockedActions ?? []).join(", "),
+      requiresApproval: permission.requiresApproval === true,
+      maxAmount:
+        permission.constraints?.maxAmount != null ? String(permission.constraints.maxAmount) : "",
+      expiresAt: toDateTimeLocalValue(permission.constraints?.expiresAt),
+      scope: permission.scope ?? ""
+    });
+    setActiveSection("permissions");
+    window.requestAnimationFrame(() => {
+      document.getElementById("permission-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
+
+  const cancelEditPermission = () => {
+    setEditingPermission(null);
+    setPermissionMutationError("");
+    setReplacementIdempotencyKey("");
+    setForm(emptyPermissionForm);
+  };
+
   const createPermission = async (event: FormEvent) => {
     event.preventDefault();
-    const resolvedAction = form.action || form.template || "";
+    if (editingPermission) return;
+    setPermissionMutationError("");
     setAgentWorking("create-permission");
     try {
       await api(`/api/dashboard/agents/${agentId}/permissions`, {
         method: "POST",
+        body: JSON.stringify(buildPermissionPayload())
+      });
+      setForm(emptyPermissionForm);
+      await detail.reload();
+    } catch (error) {
+      setPermissionMutationError(error instanceof Error ? error.message : "Could not create permission.");
+    } finally {
+      setAgentWorking(null);
+    }
+  };
+
+  const replacePermission = async () => {
+    if (!editingPermission) return;
+    setPermissionMutationError("");
+    setAgentWorking(`replace:${editingPermission.permissionId}`);
+    try {
+      await api(`/api/dashboard/agents/${agentId}/permissions/${editingPermission.permissionId}/replace`, {
+        method: "POST",
         body: JSON.stringify({
-          action: resolvedAction,
-          resource: form.resource || undefined,
-          scope: form.scope || undefined,
-          allowedActions: form.allowedActions ? form.allowedActions.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
-          blockedActions: form.blockedActions ? form.blockedActions.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
-          requiresApproval: form.requiresApproval || undefined,
-          template: form.template || undefined,
-          constraints: {
-            maxAmount: form.maxAmount ? Number(form.maxAmount) : undefined,
-            allowedVendors: form.resource ? [form.resource] : undefined,
-            expiresAt: form.expiresAt || undefined
-          }
+          ...buildPermissionPayload(),
+          expectedUpdatedAt: editingPermission.updatedAt,
+          idempotencyKey: replacementIdempotencyKey || undefined
         })
       });
+      cancelEditPermission();
+      await detail.reload();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not replace permission.";
+      setPermissionMutationError(message);
+      await detail.reload();
+    } finally {
+      setAgentWorking(null);
+    }
+  };
+
+  const resumeInterruptedReplacement = async (permission: Permission) => {
+    if (!permission.replacesPermissionId) return;
+    setPermissionMutationError("");
+    setAgentWorking(`resume:${permission.permissionId}`);
+    try {
+      await api(`/api/dashboard/agents/${agentId}/permissions/${permission.replacesPermissionId}/replace`, {
+        method: "POST",
+        body: JSON.stringify({
+          action: permission.action,
+          resource: permission.resource || undefined,
+          scope: permission.scope || undefined,
+          allowedActions: permission.allowedActions,
+          blockedActions: permission.blockedActions,
+          requiresApproval: permission.requiresApproval,
+          notes: permission.notes,
+          template: permission.template,
+          constraints: permission.constraints,
+          idempotencyKey: permission.replacementIdempotencyKey
+        })
+      });
+      await detail.reload();
+    } catch (error) {
+      setPermissionMutationError(error instanceof Error ? error.message : "Could not resume replacement.");
       await detail.reload();
     } finally {
       setAgentWorking(null);
@@ -2826,24 +2940,40 @@ function AgentView({ agentId }: { agentId: string }) {
         ) : (
           <div className="permission-list">
             {permissions.map((permission) => (
-              <PermissionSummary key={permission.permissionId} onRevoke={revoke} permission={permission} revoking={agentWorking === `revoke:${permission.permissionId}`} />
+              <PermissionSummary
+                key={permission.permissionId}
+                editing={editingPermission?.permissionId === permission.permissionId}
+                onEdit={beginEditPermission}
+                onResumeReplacement={resumeInterruptedReplacement}
+                onRevoke={revoke}
+                permission={permission}
+                resuming={agentWorking === `resume:${permission.permissionId}`}
+                revoking={agentWorking === `revoke:${permission.permissionId}`}
+              />
             ))}
           </div>
         )}
       </section>
       {permissions.length === 50 ? <p className="permission-truncation-note">Showing the latest 50 permission records returned by this agent detail view. Older records may not be included.</p> : null}
+      {permissionMutationError ? (
+        <Alert tone="destructive">Permission change failed: {permissionMutationError}</Alert>
+      ) : null}
       {workspaceAuthority?.authorityLevel === 10 ? (
         <DashboardState
-          description="Viewers can inspect the effective policy and constraints, but cannot create permission records."
+          description="Viewers can inspect the effective policy and constraints, but cannot create or replace permission records."
           kind="access-denied"
-          title="Permission creation is restricted"
+          title="Permission mutations are restricted"
         />
       ) : (
-      <form className="permission-editor" id="permission-editor" onSubmit={createPermission}>
+      <form className="permission-editor" id="permission-editor" onSubmit={editingPermission ? (event) => event.preventDefault() : createPermission}>
         <div className="permission-editor__header">
           <div>
-            <h2>Add permission</h2>
-            <p>Start narrow: identify the action and resource, make allowed and blocked actions explicit, then review approval and authority requirements.</p>
+            <h2>{editingPermission ? "Replace permission" : "Add permission"}</h2>
+            <p>
+              {editingPermission
+                ? "Review the security impact, then confirm. Replacement retires the selected active record and activates a linked successor."
+                : "Start narrow: identify the action and resource, make allowed and blocked actions explicit, then review approval and authority requirements."}
+            </p>
           </div>
           <div className="permission-editor__authority">
             <span>Your delegated role</span>
@@ -2852,6 +2982,28 @@ function AgentView({ agentId }: { agentId: string }) {
             {!canGrantSelectedPermission ? <p className="form-error" role="alert">You do not have authority to grant this permission.</p> : null}
           </div>
         </div>
+        {editingPermission ? (
+          <PermissionReplacementImpactReview
+            after={{
+              action: form.action || form.template || editingPermission.action,
+              resource: form.resource || undefined,
+              requiresApproval: form.requiresApproval,
+              allowedActions: form.allowedActions
+                ? form.allowedActions.split(",").map((item) => item.trim()).filter(Boolean)
+                : undefined,
+              blockedActions: form.blockedActions
+                ? form.blockedActions.split(",").map((item) => item.trim()).filter(Boolean)
+                : undefined,
+              template: form.template || undefined,
+              constraints: {
+                maxAmount: form.maxAmount ? Number(form.maxAmount) : undefined,
+                allowedVendors: form.resource ? [form.resource] : undefined,
+                expiresAt: form.expiresAt || undefined
+              }
+            }}
+            before={editingPermission}
+          />
+        ) : null}
         <PermissionFormSection
           description="Single-permission templates populate the editor for review. Multi-permission templates create each displayed record sequentially when applied."
           legend="Choose a policy template"
@@ -3011,10 +3163,66 @@ function AgentView({ agentId }: { agentId: string }) {
         </label>
         </PermissionFormSection>
         <div className="permission-editor__actions">
-          <p>Creating this permission adds a new active record. Existing permission records are not replaced or revoked.</p>
-        <Button loading={agentWorking === "create-permission"} variant={selectedMultiTemplate ? "outline" : "primary"} type="submit" disabled={!canGrantSelectedPermission || workspaceAuthority?.authorityLevel === 10}>
-          Create permission
-        </Button>
+          {editingPermission ? (
+            <>
+              <p>
+                Confirming replacement revokes <code>{editingPermission.permissionId}</code> and activates a new linked permission.
+                Adding a permission is a different action and does not modify this record.
+              </p>
+              <div className="permission-editor__action-row">
+                <Button onClick={cancelEditPermission} type="button" variant="outline">
+                  Cancel replace
+                </Button>
+                <ConfirmDialog
+                  confirmLabel="Replace permission"
+                  confirmVariant="destructive"
+                  description="The current active permission is revoked first. If activation is interrupted, access stays denied until you retry with the same replacement."
+                  loading={agentWorking === `replace:${editingPermission.permissionId}`}
+                  onConfirm={replacePermission}
+                  title={`Replace ${editingPermission.action}?`}
+                  trigger={(open) => (
+                    <Button
+                      disabled={!canGrantSelectedPermission || workspaceAuthority?.authorityLevel === 10}
+                      loading={agentWorking === `replace:${editingPermission.permissionId}`}
+                      onClick={open}
+                      type="button"
+                      variant="primary"
+                    >
+                      Review and replace
+                    </Button>
+                  )}
+                >
+                  <PermissionReplacementImpactReview
+                    after={{
+                      action: form.action || form.template || editingPermission.action,
+                      resource: form.resource || undefined,
+                      requiresApproval: form.requiresApproval,
+                      allowedActions: form.allowedActions
+                        ? form.allowedActions.split(",").map((item) => item.trim()).filter(Boolean)
+                        : undefined,
+                      blockedActions: form.blockedActions
+                        ? form.blockedActions.split(",").map((item) => item.trim()).filter(Boolean)
+                        : undefined,
+                      template: form.template || undefined,
+                      constraints: {
+                        maxAmount: form.maxAmount ? Number(form.maxAmount) : undefined,
+                        allowedVendors: form.resource ? [form.resource] : undefined,
+                        expiresAt: form.expiresAt || undefined
+                      }
+                    }}
+                    before={editingPermission}
+                  />
+                </ConfirmDialog>
+              </div>
+            </>
+          ) : (
+            <>
+              <p>Creating this permission adds a new active record. Existing permission records are not replaced or revoked.</p>
+              <Button loading={agentWorking === "create-permission"} variant={selectedMultiTemplate ? "outline" : "primary"} type="submit" disabled={!canGrantSelectedPermission || workspaceAuthority?.authorityLevel === 10}>
+                Create permission
+              </Button>
+            </>
+          )}
         </div>
       </form>
       )}

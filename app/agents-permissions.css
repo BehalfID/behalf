@@ -807,6 +807,104 @@
   text-align: right;
 }
 
+.dashboard-shell .permission-summary__actions {
+  display: grid;
+  justify-items: end;
+  gap: 10px;
+}
+
+.dashboard-shell .permission-summary__mutate {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.dashboard-shell .permission-summary__resume,
+.dashboard-shell .permission-summary__link {
+  max-width: 48ch;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.dashboard-shell .permission-summary__resume {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+  text-align: right;
+}
+
+.dashboard-shell .permission-replacement-review {
+  display: grid;
+  gap: 14px;
+  margin: 0 20px 0;
+  padding: 16px;
+  border: 1px solid var(--border-standard);
+  border-radius: var(--radius-small);
+  background: var(--surface-inset);
+}
+
+.dashboard-shell .permission-replacement-review__summary strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-primary);
+}
+
+.dashboard-shell .permission-replacement-review__summary p,
+.dashboard-shell .permission-replacement-review__summary ul {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.dashboard-shell .permission-replacement-review__summary ul {
+  margin-top: 8px;
+  padding-left: 1.1rem;
+}
+
+.dashboard-shell .permission-replacement-review__columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.dashboard-shell .permission-replacement-review__columns h3 {
+  margin: 0 0 8px;
+  font-size: 0.84rem;
+}
+
+.dashboard-shell .permission-replacement-review__columns dl {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.dashboard-shell .permission-replacement-review__columns div {
+  display: grid;
+  gap: 2px;
+}
+
+.dashboard-shell .permission-replacement-review__columns dt {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.dashboard-shell .permission-replacement-review__columns dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.8rem;
+}
+
+.dashboard-shell .permission-editor__action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
 .dashboard-shell .permission-summary__revoke small {
   max-width: 42ch;
   color: var(--text-muted);

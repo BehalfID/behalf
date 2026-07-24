@@ -34,7 +34,7 @@ export async function getAccountAgentDetail(actor: WorkspaceActor, agentId: stri
     Permission.find({ ...accountScopeFilter(actor.accountId), agentId })
       .sort({ createdAt: -1 })
       .limit(50)
-      .select("-_id permissionId action description resource scope allowedActions blockedActions requiresApproval notes template constraints requiredAuthorityLevel status lastUsedAt createdAt updatedAt")
+      .select("-_id permissionId action description resource scope allowedActions blockedActions requiresApproval notes template constraints requiredAuthorityLevel status lastUsedAt createdAt updatedAt replacesPermissionId replacedByPermissionId replacementIdempotencyKey")
       .lean(),
     VerificationLog.find({ ...accountScopeFilter(actor.accountId), agentId })
       .sort({ createdAt: -1 })

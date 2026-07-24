@@ -49,6 +49,11 @@ export {
   findByPermissionId,
   findMatchingForVerify,
   findPermissionsByAgentId,
+  findReplacementByIdempotencyKey,
+  stageReplacementPermission,
+  revokeActivePermissionForReplacement,
+  activateStagedReplacementPermission,
+  abandonStagedReplacementPermission,
   revokePermission,
   updatePermission
 } from "@/lib/repositories/permissions";

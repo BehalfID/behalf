@@ -30,6 +30,8 @@ export function createPublicId(
     | "omsg"
     | "adrec"
     | "adev"
+    | "pra"
+    | "prk"
 ) {
   return `${prefix}_${crypto.randomBytes(12).toString("base64url")}`;
 }
