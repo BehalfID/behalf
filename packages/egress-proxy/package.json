@@ -1,12 +1,12 @@
 {
   "name": "@behalfid/egress-proxy",
   "version": "0.1.0",
-  "description": "Loopback HTTP/CONNECT egress proxy that authorizes agent outbound traffic via BehalfID",
+  "description": "Loopback HTTP/CONNECT egress proxy that authorizes agent outbound traffic via BehalfID (preview / not yet published to npm)",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "behalfid-egress-proxy": "./dist/cli.js"
+    "behalfid-egress-proxy": "dist/cli.js"
   },
   "exports": {
     ".": {

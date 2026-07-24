@@ -1,5 +1,11 @@
 # BehalfID Installation Instructions for AI Agents
 
+> **Preview / unreleased:** `@behalfid/install` and `@behalfid/mcp-runtime` are
+> **not published to npm** yet. Do not instruct users to run
+> `npx @behalfid/install` against the public registry until publication.
+> For local development, build the workspace package and invoke
+> `node packages/install/dist/cli.js` (or install a packed `.tgz`).
+
 This document tells AI coding agents how to install, verify, upgrade, and uninstall BehalfID **without embedding BehalfID-specific installation logic**.
 
 BehalfID owns installation. Your job is to run the official installer commands and interpret JSON output.
@@ -10,7 +16,7 @@ BehalfID owns installation. Your job is to run the official installer commands a
 
 - Node.js >= 18
 - npm available on PATH
-- Network access to download `@behalfid/install` via `npx`
+- Network access to download `@behalfid/install` via `npx` **(after publish)**
 
 ---
 
