@@ -95,3 +95,6 @@ Rewrites each wrappable stdio MCP server **in place** to:
 ## Threat note
 
 Agents can still bypass by editing MCP config (Tier 3 limitation in `docs/ENFORCEMENT_ARCHITECTURE.md`). Hard enforcement requires the host to only load wrapped servers.
+
+Fail-closed outcome matrix: [FAIL_CLOSED.md](./FAIL_CLOSED.md).
+Manual client canaries (live **PENDING**): [MANUAL_CLIENT_CANARIES.md](./MANUAL_CLIENT_CANARIES.md).
