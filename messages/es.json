@@ -23,7 +23,8 @@
     "navigationMenu": "Menú de navegación",
     "mode": "Modo",
     "theme": "Tema",
-    "language": "Idioma"
+    "language": "Idioma",
+    "getStarted": "Empezar"
   },
   "footer": {
     "tagline": "Infraestructura de permisos\npara agentes de IA.",
@@ -755,6 +756,12 @@
     "openNav": "Abrir navegación",
     "closeNav": "Cerrar navegación",
     "docsNav": "Documentación",
+    "website": "Sitio web",
+    "utilities": "Utilidades de documentación",
+    "navGroupStart": "Inicio",
+    "navGroupBuild": "Construir",
+    "navGroupUnderstand": "Entender",
+    "pagerLabel": "Paginación de documentación",
     "simpleModeOn": "Modo simple activado",
     "simpleModeBody": "— algunos detalles técnicos están condensados. Cambia a ",
     "simpleModeSwitch": "Desarrollador",

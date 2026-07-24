@@ -6,7 +6,9 @@ import {
   resolveOwnerForPath,
   resolveSessionCookieDomain,
   resolveSubdomainHosts,
-  resolveSubdomainRedirect
+  resolveSubdomainRedirect,
+  stripLocalePrefix,
+  withLocalePrefix
 } from "@/lib/subdomainRouting";
 
 describe("subdomain routing ownership", () => {
@@ -20,6 +22,81 @@ describe("subdomain routing ownership", () => {
     expect(resolveOwnerForPath("/console")).toBe("console");
     expect(resolveOwnerForPath("/docs/sdk")).toBe("docs");
     expect(resolveOwnerForPath("/")).toBe("www");
+  });
+
+  it("ignores locale prefixes when resolving ownership", () => {
+    expect(stripLocalePrefix("/de/docs")).toEqual({ locale: "de", pathname: "/docs" });
+    expect(stripLocalePrefix("/es/docs/sdk")).toEqual({
+      locale: "es",
+      pathname: "/docs/sdk"
+    });
+    expect(resolveOwnerForPath("/de/docs")).toBe("docs");
+    expect(resolveOwnerForPath("/es/docs/sdk")).toBe("docs");
+    expect(resolveOwnerForPath("/de/login")).toBe("auth");
+    expect(resolveOwnerForPath("/fr/signup")).toBe("auth");
+    expect(resolveOwnerForPath("/de/blog")).toBe("www");
+    expect(withLocalePrefix("/docs", "de")).toBe("/de/docs");
+    expect(withLocalePrefix("/docs", "en")).toBe("/docs");
+    expect(withLocalePrefix("/dashboard", "de")).toBe("/dashboard");
+  });
+
+  it("keeps locale-prefixed docs/auth on their owning hosts", () => {
+    expect(
+      resolveSubdomainRedirect({
+        hostname: "docs.behalfid.com",
+        pathname: "/de/docs",
+        protocol: "https:"
+      })
+    ).toBeNull();
+
+    expect(
+      resolveSubdomainRedirect({
+        hostname: "www.behalfid.com",
+        pathname: "/de/docs",
+        protocol: "https:"
+      })
+    ).toBe("https://docs.behalfid.com/de/docs");
+
+    expect(
+      resolveSubdomainRedirect({
+        hostname: "auth.behalfid.com",
+        pathname: "/de/login",
+        protocol: "https:"
+      })
+    ).toBeNull();
+
+    expect(
+      resolveSubdomainRedirect({
+        hostname: "www.behalfid.com",
+        pathname: "/fr/signup",
+        protocol: "https:"
+      })
+    ).toBe("https://auth.behalfid.com/fr/signup");
+  });
+
+  it("preserves locale on cross-app owned hrefs", () => {
+    expect(
+      resolveOwnedHref("/docs", {
+        hostname: "www.behalfid.com",
+        protocol: "https:",
+        locale: "de"
+      })
+    ).toBe("https://docs.behalfid.com/de/docs");
+
+    expect(
+      resolveOwnedHref("/de/login", {
+        hostname: "docs.behalfid.com",
+        protocol: "https:"
+      })
+    ).toBe("https://auth.behalfid.com/de/login");
+
+    expect(
+      resolveOwnedHref("/dashboard", {
+        hostname: "auth.behalfid.com",
+        protocol: "https:",
+        locale: "de"
+      })
+    ).toBe("https://app.behalfid.com/dashboard");
   });
 
   it("resolves hosts from env overrides", () => {

@@ -8,6 +8,7 @@ import { PublicAuthAction } from "@/components/layout/PublicAuthAction";
 import { ContinueWithGoogle } from "@/components/auth/ContinueWithGoogle";
 import { Logo, ThemeToggle, SocialLinks, LanguageSwitcher } from "@/components/ui";
 import type { PublicAuthAction as PublicAuthActionValue } from "@/lib/publicAuthAction";
+import { crossAppClickHandler } from "@/lib/subdomainRouting";
 
 const primaryLinks = [
   { href: "/docs", key: "docs" },
@@ -118,6 +119,7 @@ export function PublicNavClient({
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={crossAppClickHandler(item.href)}
                 aria-current={isCurrentPath(pathname, item.href) ? "page" : undefined}
               >
                 {t(item.key)}
@@ -141,12 +143,24 @@ export function PublicNavClient({
                 variant="outline"
               />
             ) : null}
-            <Link href="/signup" className="nav-action nav-action--primary">Get started</Link>
+            <Link
+              href="/signup"
+              className="nav-action nav-action--primary"
+              onClick={crossAppClickHandler("/signup")}
+            >
+              {t("getStarted")}
+            </Link>
           </div>
         </div>
 
         <div className="public-nav__mobile-cta">
-          <Link href="/signup" className="nav-action nav-action--primary">Get started</Link>
+          <Link
+            href="/signup"
+            className="nav-action nav-action--primary"
+            onClick={crossAppClickHandler("/signup")}
+          >
+            {t("getStarted")}
+          </Link>
         </div>
       </nav>
 
@@ -175,13 +189,13 @@ export function PublicNavClient({
               <Link
                 key={item.href}
                 href={item.href}
-                onClick={close}
+                onClick={crossAppClickHandler(item.href, close)}
                 aria-current={isCurrentPath(pathname, item.href) ? "page" : undefined}
               >
                 {t(item.key)}
               </Link>
             ))}
-            <Link href="/compliance" onClick={close} aria-current={pathname === "/compliance" ? "page" : undefined}>
+            <Link href="/compliance" onClick={crossAppClickHandler("/compliance", close)} aria-current={pathname === "/compliance" ? "page" : undefined}>
               {t("compliance")}
             </Link>
             <PublicAuthAction
@@ -203,7 +217,13 @@ export function PublicNavClient({
                 variant="outline"
               />
             ) : null}
-            <Link href="/signup" onClick={close} className="public-nav__drawer-cta">Get started</Link>
+            <Link
+              href="/signup"
+              onClick={crossAppClickHandler("/signup", close)}
+              className="public-nav__drawer-cta"
+            >
+              {t("getStarted")}
+            </Link>
             <div className="public-nav__drawer-row">
               <span>{t("theme")}</span>
               <ThemeToggle allowSystem />

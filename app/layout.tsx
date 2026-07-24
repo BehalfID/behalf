@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages } from "next-intl/server";
 import { CookieBanner } from "@/components/ui";
-import { getLocale } from "next-intl/server";
 import "./globals.css";
 import "./design-system-foundation.css";
 import "./auth-onboarding.css";
@@ -65,10 +66,12 @@ export default async function RootLayout({
 }>) {
   const nonce = (await headers()).get("x-nonce") ?? undefined;
   let locale = "en";
+  let messages: Record<string, unknown> = (await import("../messages/en.json")).default;
   try {
     locale = await getLocale();
+    messages = await getMessages();
   } catch {
-    // Not in a locale context (dashboard, api, etc.) — default to English.
+    // Not in a next-intl request context — fall back to English catalog.
   }
   return (
     <html lang={locale} className={`${inter.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
@@ -78,10 +81,12 @@ export default async function RootLayout({
         <script nonce={nonce} dangerouslySetInnerHTML={{ __html: faviconScript }} />
       </head>
       <body>
-        <a href="#main-content" className="skip-link">Skip to main content</a>
-        {children}
-        <CookieBanner />
-        <Analytics />
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <a href="#main-content" className="skip-link">Skip to main content</a>
+          {children}
+          <CookieBanner />
+          <Analytics />
+        </NextIntlClientProvider>
       </body>
     </html>
   );

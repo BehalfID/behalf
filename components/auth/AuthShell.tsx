@@ -1,9 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import type { ReactNode } from "react";
-import { Logo, ThemeToggle } from "@/components/ui";
-import { crossAppClickHandler } from "@/lib/subdomainRouting";
+import { usePathname } from "next/navigation";
+import { Logo, LanguageSwitcher, ThemeToggle } from "@/components/ui";
+import { Link } from "@/i18n/navigation";
+import { crossAppClickHandler, isLocaleAwarePublicPath } from "@/lib/subdomainRouting";
 
 type AuthShellProps = {
   children: ReactNode;
@@ -26,6 +27,9 @@ export function AuthShell({
   termsLabel = "Terms",
   compact = false
 }: AuthShellProps) {
+  const pathname = usePathname() || "/";
+  const showLanguageSwitcher = isLocaleAwarePublicPath(pathname);
+
   return (
     <main
       id="main-content"
@@ -35,6 +39,7 @@ export function AuthShell({
       <header className="auth-entry__header">
         <Logo href={returnHref} markStyle="framed" />
         <div className="auth-entry__header-actions">
+          {showLanguageSwitcher ? <LanguageSwitcher /> : null}
           <ThemeToggle />
           <Link className="auth-entry__return" href={returnHref} onClick={crossAppClickHandler(returnHref)}>
             <span aria-hidden="true">←</span>

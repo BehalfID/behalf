@@ -23,7 +23,8 @@
     "navigationMenu": "Navigationsmenü",
     "mode": "Modus",
     "theme": "Design",
-    "language": "Sprache"
+    "language": "Sprache",
+    "getStarted": "Loslegen"
   },
   "footer": {
     "tagline": "Berechtigungsinfrastruktur\nfür KI-Agenten.",
@@ -755,6 +756,12 @@
     "openNav": "Navigation öffnen",
     "closeNav": "Navigation schließen",
     "docsNav": "Dokumentation",
+    "website": "Website",
+    "utilities": "Dokumentationshilfen",
+    "navGroupStart": "Start",
+    "navGroupBuild": "Entwickeln",
+    "navGroupUnderstand": "Verstehen",
+    "pagerLabel": "Dokumentationsnavigation",
     "simpleModeOn": "Einfacher Modus an",
     "simpleModeBody": "— einige technische Details sind komprimiert. Wechseln Sie zu ",
     "simpleModeSwitch": "Entwickler",

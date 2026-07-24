@@ -8,7 +8,83 @@
  * without hard-coding production DNS into every call site.
  */
 
+import { routing } from "@/i18n/routing";
+
 export type SubdomainApp = "www" | "auth" | "app" | "console" | "docs";
+
+/** First path segments that skip next-intl locale routing (see proxy.shouldBypassIntl). */
+const INTL_BYPASS_SEGMENTS = new Set([
+  "api",
+  "dashboard",
+  "console",
+  "passport",
+  "authenticate",
+  "logout",
+  "onboarding",
+  "design-system",
+  "invite",
+  "workspace",
+  "home-v2"
+]);
+
+const LOCALE_SET = new Set<string>(routing.locales);
+
+/**
+ * Strip a leading locale segment (`/de/docs` → `{ locale: "de", pathname: "/docs" }`).
+ * Leaves the path unchanged when the first segment is not a configured locale.
+ */
+export function stripLocalePrefix(pathname: string): {
+  locale: string | null;
+  pathname: string;
+} {
+  const path =
+    pathname.length > 1 && pathname.endsWith("/")
+      ? pathname.slice(0, -1)
+      : pathname;
+  const parts = path.split("/").filter(Boolean);
+  const first = parts[0] ?? "";
+  if (!first || !LOCALE_SET.has(first)) {
+    return { locale: null, pathname: path || "/" };
+  }
+  const rest = parts.slice(1);
+  return {
+    locale: first,
+    pathname: rest.length === 0 ? "/" : `/${rest.join("/")}`
+  };
+}
+
+/** Paths under app/[locale] that should keep a locale prefix across hosts. */
+export function isLocaleAwarePublicPath(pathname: string): boolean {
+  const { pathname: bare } = stripLocalePrefix(pathname);
+  const parts = bare.split("/").filter(Boolean);
+  if (parts.length === 0) return true;
+  if (INTL_BYPASS_SEGMENTS.has(parts[0]!)) return false;
+  if (parts.length >= 2 && parts[1] === "dashboard") return false;
+  if (
+    parts.length >= 3 &&
+    parts[1] === "api" &&
+    (parts[2] === "dashboard" || parts[2] === "billing")
+  ) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Apply localePrefix:'as-needed' — default locale has no prefix.
+ * No-ops for non-locale-aware paths (dashboard, api, …).
+ */
+export function withLocalePrefix(
+  pathname: string,
+  locale: string | null | undefined
+): string {
+  const path = pathname.startsWith("/") ? pathname : `/${pathname}`;
+  if (!locale || !LOCALE_SET.has(locale) || locale === routing.defaultLocale) {
+    return path;
+  }
+  if (!isLocaleAwarePublicPath(path)) return path;
+  return path === "/" ? `/${locale}` : `/${locale}${path}`;
+}
 
 export type SubdomainHosts = Record<SubdomainApp, string>;
 
@@ -136,9 +212,9 @@ export function resolveAppForHost(
 }
 
 export function resolveOwnerForPath(pathname: string): SubdomainApp {
-  const path = pathname.length > 1 && pathname.endsWith("/")
-    ? pathname.slice(0, -1)
-    : pathname;
+  // Locale prefixes are orthogonal to subdomain ownership:
+  // /de/docs and /docs both belong on the docs host.
+  const { pathname: path } = stripLocalePrefix(pathname);
 
   // Workspace public URLs: /<slug>/dashboard → app
   const parts = path.split("/").filter(Boolean);
@@ -250,10 +326,12 @@ export function resolveOwnedHref(
     protocol?: string;
     env?: NodeJS.ProcessEnv;
     hosts?: SubdomainHosts;
+    /** Current UI locale — used when `path` has no locale prefix. */
+    locale?: string | null;
   }
 ): string {
-  const { pathname, search } = splitPathAndSearch(pathWithSearch);
-  if (!pathname.startsWith("/") || pathname.startsWith("//")) {
+  const { pathname: rawPathname, search } = splitPathAndSearch(pathWithSearch);
+  if (!rawPathname.startsWith("/") || rawPathname.startsWith("//")) {
     return pathWithSearch;
   }
 
@@ -269,8 +347,23 @@ export function resolveOwnedHref(
   const currentApp = matchConfiguredAppForHost(hostname, hosts);
   if (!currentApp) return pathWithSearch;
 
-  const owner = resolveOwnerForPath(pathname);
-  if (owner === currentApp) return pathWithSearch;
+  const { locale: pathLocale, pathname: barePath } = stripLocalePrefix(rawPathname);
+  let locale = pathLocale ?? options?.locale ?? null;
+  if (!locale && typeof window !== "undefined") {
+    locale = stripLocalePrefix(window.location.pathname).locale;
+  }
+  const pathname =
+    pathLocale != null
+      ? rawPathname.length > 1 && rawPathname.endsWith("/")
+        ? rawPathname.slice(0, -1)
+        : rawPathname
+      : withLocalePrefix(barePath, locale);
+
+  const owner = resolveOwnerForPath(barePath);
+  if (owner === currentApp) {
+    // Same host — still return a locale-normalized path when we inherited one.
+    return pathname === rawPathname ? pathWithSearch : `${pathname}${search}`;
+  }
 
   const protocol =
     options?.protocol ??

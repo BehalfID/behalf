@@ -23,7 +23,8 @@
     "navigationMenu": "Navigation menu",
     "mode": "Mode",
     "theme": "Theme",
-    "language": "Language"
+    "language": "Language",
+    "getStarted": "Get started"
   },
   "footer": {
     "tagline": "Approval gates\nfor coding agents.",
@@ -755,6 +756,12 @@
     "openNav": "Open navigation",
     "closeNav": "Close navigation",
     "docsNav": "Documentation",
+    "website": "Website",
+    "utilities": "Documentation utilities",
+    "navGroupStart": "Start",
+    "navGroupBuild": "Build",
+    "navGroupUnderstand": "Understand",
+    "pagerLabel": "Documentation pagination",
     "simpleModeOn": "Simple mode on",
     "simpleModeBody": "— some technical details are condensed. Switch to ",
     "simpleModeSwitch": "Dev",

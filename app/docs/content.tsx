@@ -1,9 +1,10 @@
-import Link from "next/link";
+import { getTranslations } from "next-intl/server";
+import { Link } from "@/i18n/navigation";
 import { DocsLayout } from "@/components/layout/DocsLayout";
 import { CodeBlock as SharedCodeBlock } from "@/components/ui";
 export { DocsCallout } from "@/components/docs/DocsCallout";
 
-export function DocsShell({
+export async function DocsShell({
   title,
   description,
   children,
@@ -16,24 +17,26 @@ export function DocsShell({
   previous?: { href: string; label: string };
   next?: { href: string; label: string };
 }) {
+  const t = await getTranslations("docs");
+
   return (
     <DocsLayout>
       <div className="docs-article__inner">
-        <p className="section-kicker">Documentation</p>
+        <p className="section-kicker">{t("kicker")}</p>
         <h1>{title}</h1>
         {description ? <p className="docs-lede">{description}</p> : null}
         {children}
         {previous || next ? (
-          <nav className="docs-pager" aria-label="Documentation pagination">
+          <nav className="docs-pager" aria-label={t("pagerLabel")}>
             {previous ? (
               <Link className="docs-next" href={previous.href}>
-                <span>Previous</span>
+                <span>{t("previous")}</span>
                 <strong>{previous.label}</strong>
               </Link>
             ) : <span />}
             {next ? (
               <Link className="docs-next" href={next.href}>
-                <span>Next</span>
+                <span>{t("next")}</span>
                 <strong>{next.label}</strong>
               </Link>
             ) : null}

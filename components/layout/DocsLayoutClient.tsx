@@ -1,54 +1,69 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
+import { Link } from "@/i18n/navigation";
 import { PublicAuthAction } from "@/components/layout/PublicAuthAction";
-import { Logo, ThemeToggle, ModeToggle } from "@/components/ui";
+import { LanguageSwitcher, Logo, ThemeToggle, ModeToggle } from "@/components/ui";
 import type { PublicAuthAction as PublicAuthActionValue } from "@/lib/publicAuthAction";
 import { DOCS_SEARCH_INDEX, matchSmartSuggestions } from "@/lib/smartSearch";
+import { crossAppClickHandler } from "@/lib/subdomainRouting";
 
 type DocsNavItem = {
   href: string;
-  label: string;
+  labelKey:
+    | "overview"
+    | "quickstart"
+    | "cli"
+    | "deployApprovals"
+    | "api"
+    | "sdk"
+    | "actionGateway"
+    | "webhooks"
+    | "concepts"
+    | "troubleshooting"
+    | "security"
+    | "siteGuard";
 };
 
 type DocsNavGroup = {
-  label: string;
+  labelKey: "navGroupStart" | "navGroupBuild" | "navGroupUnderstand";
   items: readonly DocsNavItem[];
 };
 
 const docsNavGroups: readonly DocsNavGroup[] = [
   {
-    label: "Start",
+    labelKey: "navGroupStart",
     items: [
-      { href: "/docs", label: "Overview" },
-      { href: "/docs/quickstart", label: "Quickstart" },
-      { href: "/docs/cli", label: "CLI" },
-      { href: "/docs/deploy-approvals", label: "Deploy approvals" }
+      { href: "/docs", labelKey: "overview" },
+      { href: "/docs/quickstart", labelKey: "quickstart" },
+      { href: "/docs/cli", labelKey: "cli" },
+      { href: "/docs/deploy-approvals", labelKey: "deployApprovals" }
     ]
   },
   {
-    label: "Build",
+    labelKey: "navGroupBuild",
     items: [
-      { href: "/docs/api", label: "API" },
-      { href: "/docs/sdk", label: "SDK" },
-      { href: "/docs/action-gateway", label: "Action Gateway" },
-      { href: "/docs/webhooks", label: "Webhooks" }
+      { href: "/docs/api", labelKey: "api" },
+      { href: "/docs/sdk", labelKey: "sdk" },
+      { href: "/docs/action-gateway", labelKey: "actionGateway" },
+      { href: "/docs/webhooks", labelKey: "webhooks" }
     ]
   },
   {
-    label: "Understand",
+    labelKey: "navGroupUnderstand",
     items: [
-      { href: "/docs/concepts", label: "Concepts" },
-      { href: "/docs/troubleshooting", label: "Troubleshooting" },
-      { href: "/security", label: "Security" },
-      { href: "/docs/site-guard", label: "Site Guard" }
+      { href: "/docs/concepts", labelKey: "concepts" },
+      { href: "/docs/troubleshooting", labelKey: "troubleshooting" },
+      { href: "/security", labelKey: "security" },
+      { href: "/docs/site-guard", labelKey: "siteGuard" }
     ]
   }
 ] as const;
 
-export const docsNav: readonly DocsNavItem[] = docsNavGroups.flatMap((group) => [...group.items]);
+export const docsNav: readonly { href: string; labelKey: DocsNavItem["labelKey"] }[] =
+  docsNavGroups.flatMap((group) => [...group.items]);
 
 function SearchIcon() {
   return (
@@ -93,20 +108,28 @@ function useSearch() {
   return { query, setQuery, results };
 }
 
-function DocsNavigation({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
+function DocsNavigation({
+  pathname,
+  onNavigate,
+  t
+}: {
+  pathname: string;
+  onNavigate?: () => void;
+  t: ReturnType<typeof useTranslations<"docs">>;
+}) {
   return (
-    <nav className="docs-nav" aria-label="Documentation">
+    <nav className="docs-nav" aria-label={t("docsNav")}>
       {docsNavGroups.map((group) => (
-        <div className="docs-nav__group" key={group.label}>
-          <p className="docs-nav__label">{group.label}</p>
+        <div className="docs-nav__group" key={group.labelKey}>
+          <p className="docs-nav__label">{t(group.labelKey)}</p>
           {group.items.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              onClick={onNavigate}
+              onClick={crossAppClickHandler(item.href, onNavigate)}
               aria-current={pathname === item.href ? "page" : undefined}
             >
-              <span>{item.label}</span>
+              <span>{t(item.labelKey)}</span>
             </Link>
           ))}
         </div>
@@ -122,6 +145,8 @@ export function DocsLayoutClient({
   authAction: PublicAuthActionValue;
   children: React.ReactNode;
 }) {
+  const t = useTranslations("docs");
+  const tNav = useTranslations("nav");
   const rawPathname = usePathname();
   const pathname = rawPathname.replace(/^\/(en|de|es|fr)(?=\/|$)/, "") || "/";
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -129,7 +154,8 @@ export function DocsLayoutClient({
   const drawer = useSearch();
   const toggleRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
-  const currentLabel = docsNav.find((item) => item.href === pathname)?.label ?? "Docs";
+  const currentLabelKey = docsNav.find((item) => item.href === pathname)?.labelKey;
+  const currentLabel = currentLabelKey ? t(currentLabelKey) : t("docsNav");
   const clearDrawerSearch = drawer.setQuery;
 
   const closeDrawer = useCallback(() => {
@@ -185,7 +211,7 @@ export function DocsLayoutClient({
           ref={toggleRef}
           className="docs-mobile-header__toggle"
           onClick={() => setDrawerOpen((value) => !value)}
-          aria-label={drawerOpen ? "Close navigation" : "Open navigation"}
+          aria-label={drawerOpen ? t("closeNav") : t("openNav")}
           aria-expanded={drawerOpen}
           aria-controls="docs-mobile-drawer"
           type="button"
@@ -199,7 +225,7 @@ export function DocsLayoutClient({
           <button
             type="button"
             className="docs-mobile-backdrop"
-            aria-label="Close navigation"
+            aria-label={t("closeNav")}
             tabIndex={-1}
             onClick={closeDrawer}
           />
@@ -208,12 +234,12 @@ export function DocsLayoutClient({
             ref={drawerRef}
             className="docs-mobile-drawer"
             role="dialog"
-            aria-label="Documentation navigation"
+            aria-label={t("docsNav")}
             aria-modal="true"
           >
             <div className="docs-mobile-drawer__heading">
-              <span>Developer documentation</span>
-              <button type="button" onClick={closeDrawer} aria-label="Close navigation"><CloseIcon /></button>
+              <span>{t("developerDocs")}</span>
+              <button type="button" onClick={closeDrawer} aria-label={t("closeNav")}><CloseIcon /></button>
             </div>
             <label className="docs-search" htmlFor="docs-search-drawer">
               <SearchIcon />
@@ -222,31 +248,39 @@ export function DocsLayoutClient({
                 autoFocus
                 type="search"
                 className="docs-search__input"
-                placeholder="Search docs…"
-                aria-label="Search documentation"
+                placeholder={t("searchPlaceholder")}
+                aria-label={t("searchLabel")}
                 value={drawer.query}
                 onChange={(event) => drawer.setQuery(event.target.value)}
               />
             </label>
 
             {drawer.results !== null ? (
-              <div className="docs-search__results" role="listbox" aria-label="Search results">
+              <div className="docs-search__results" role="listbox" aria-label={t("searchResults")}>
                 {drawer.results.length > 0 ? drawer.results.map((result) => (
-                  <Link key={result.href} href={result.href} className="docs-search__result" onClick={closeDrawer} role="option" aria-selected="false">
+                  <Link
+                    key={result.href}
+                    href={result.href}
+                    className="docs-search__result"
+                    onClick={crossAppClickHandler(result.href, closeDrawer)}
+                    role="option"
+                    aria-selected="false"
+                  >
                     <strong>{result.title}</strong>
                     <span>{result.body}</span>
                   </Link>
                 )) : (
-                  <p className="docs-search__empty" role="status">No results for &ldquo;{drawer.query}&rdquo;</p>
+                  <p className="docs-search__empty" role="status">{t("noResults", { query: drawer.query })}</p>
                 )}
               </div>
             ) : (
-              <DocsNavigation pathname={pathname} onNavigate={closeDrawer} />
+              <DocsNavigation pathname={pathname} onNavigate={closeDrawer} t={t} />
             )}
 
             <div className="docs-mobile-drawer__footer">
-              <span>Theme</span>
+              <span>{tNav("theme")}</span>
               <ThemeToggle />
+              <LanguageSwitcher />
             </div>
           </div>
         </>
@@ -255,7 +289,7 @@ export function DocsLayoutClient({
       <aside className="docs-sidebar">
         <div className="docs-sidebar__brand">
           <Logo markStyle="framed" />
-          <p>Developer documentation</p>
+          <p>{t("developerDocs")}</p>
         </div>
 
         <label className="docs-search docs-search--sidebar" htmlFor="docs-search-sidebar">
@@ -264,19 +298,19 @@ export function DocsLayoutClient({
             id="docs-search-sidebar"
             type="search"
             className="docs-search__input"
-            placeholder="Search docs…"
-            aria-label="Search documentation"
+            placeholder={t("searchPlaceholder")}
+            aria-label={t("searchLabel")}
             value={sidebar.query}
             onChange={(event) => sidebar.setQuery(event.target.value)}
           />
           {sidebar.results !== null && sidebar.results.length > 0 ? (
-            <div className="docs-search__results docs-search__results--popup" role="listbox" aria-label="Search results">
+            <div className="docs-search__results docs-search__results--popup" role="listbox" aria-label={t("searchResults")}>
               {sidebar.results.map((result) => (
                 <Link
                   key={result.href}
                   href={result.href}
                   className="docs-search__result"
-                  onClick={() => sidebar.setQuery("")}
+                  onClick={crossAppClickHandler(result.href, () => sidebar.setQuery(""))}
                   role="option"
                   aria-selected="false"
                 >
@@ -287,37 +321,42 @@ export function DocsLayoutClient({
             </div>
           ) : null}
           {sidebar.results !== null && sidebar.results.length === 0 ? (
-            <p className="docs-search__empty docs-search__empty--inline" role="status">No results</p>
+            <p className="docs-search__empty docs-search__empty--inline" role="status">
+              {t("noResults", { query: sidebar.query })}
+            </p>
           ) : null}
         </label>
 
-        <DocsNavigation pathname={pathname} />
+        <DocsNavigation pathname={pathname} t={t} />
 
         <div className="app-sidebar__footer docs-sidebar__footer">
           <ModeToggle />
           <ThemeToggle />
+          <LanguageSwitcher />
         </div>
       </aside>
 
       <header className="docs-utility-header">
-        <p><span>Docs</span><strong>{currentLabel}</strong></p>
-        <nav aria-label="Documentation utilities">
-          <Link href="/">Website</Link>
-          <Link href="/security">Security</Link>
-          <Link href="/status">Status</Link>
-          <PublicAuthAction action={authAction} className="docs-utility-header__signin" />
+        <p><span>{t("docsNav")}</span><strong>{currentLabel}</strong></p>
+        <nav aria-label={t("utilities")}>
+          <Link href="/" onClick={crossAppClickHandler("/")}>{t("website")}</Link>
+          <Link href="/security" onClick={crossAppClickHandler("/security")}>{t("security")}</Link>
+          <Link href="/status" onClick={crossAppClickHandler("/status")}>{tNav("status")}</Link>
+          <PublicAuthAction action={authAction} className="docs-utility-header__signin" localizeUnauthenticated />
+          <LanguageSwitcher />
         </nav>
       </header>
 
       <article id="main-content" className="docs-article" tabIndex={-1}>
-        <div className="simple-mode-banner" role="note" aria-label="Simple mode is active">
+        <div className="simple-mode-banner" role="note" aria-label={t("simpleModeOn")}>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.4" />
             <path d="M8 7v4M8 5v.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
           </svg>
           <span>
-            <strong>Simple mode on</strong> — some technical details are condensed.{" "}
-            Switch to <strong>Dev</strong> in the nav for full API reference.
+            <strong>{t("simpleModeOn")}</strong> {t("simpleModeBody")}
+            <strong>{t("simpleModeSwitch")}</strong>
+            {t("simpleModeSuffix")}
           </span>
         </div>
         {children}

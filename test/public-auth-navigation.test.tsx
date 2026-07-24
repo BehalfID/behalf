@@ -123,7 +123,9 @@ describe("public navigation integration", () => {
   it("keeps docs on the shared server-resolved action", () => {
     expect(docsWrapper).toContain("getPublicAuthAction");
     expect(occurrenceCount(docsClient, "<PublicAuthAction")).toBe(1);
-    expect(docsClient).toContain('aria-label="Documentation utilities"');
+    expect(docsClient).toContain('aria-label={t("utilities")}');
+    expect(docsClient).toContain("LanguageSwitcher");
+    expect(docsClient).toContain("useTranslations(\"docs\")");
   });
 
   it("keeps homepage and docs shells wired to their existing navigation", () => {
