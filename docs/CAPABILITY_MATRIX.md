@@ -1,7 +1,7 @@
 # BehalfID Capability Matrix
 
-**Purpose:** Single source of truth for what exists in source, what is installable from a public registry, what has been live-validated, and what is production-supported.  
-**As of:** 2026-07-24 (branch tip based on Phase 1 `5de74ec`).  
+**Purpose:** Single source of truth for what exists in source, what is installable from a public registry, what has been live-validated, and what is production-supported.
+**As of:** 2026-07-24 (branch tip based on Phase 1 `5de74ec`).
 **Status vocabulary:**
 
 | Status | Meaning |
