@@ -77,6 +77,12 @@ await runtime.execute(invocation);
 If verification throws, times out, or returns malformed data, the tool is
 **not** executed.
 
+Full outcome matrix (allow / deny / approval / outage / replay / downstream crash):
+[docs/FAIL_CLOSED.md](./docs/FAIL_CLOSED.md).
+
+Manual real-client canaries (live evidence **PENDING**):
+[docs/MANUAL_CLIENT_CANARIES.md](./docs/MANUAL_CLIENT_CANARIES.md).
+
 ## Phase 4 — host wrap
 
 ```bash

@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp/workspace"]
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_example_not_a_real_token"
+      }
+    },
+    "remote-docs": {
+      "url": "https://example.com/mcp"
+    }
+  },
+  "preferences": {
+    "theme": "dark"
+  }
+}

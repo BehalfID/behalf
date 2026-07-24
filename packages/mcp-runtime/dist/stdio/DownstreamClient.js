@@ -93,7 +93,7 @@ export function encodeToolName(serverName, toolName) {
 /** Decode a namespaced tool name; returns null if malformed. */
 export function decodeToolName(encoded, expectedServer) {
     const idx = encoded.indexOf("__");
-    if (idx <= 0 || idx === encoded.length - 2)
+    if (idx === -1 || idx <= 0 || idx === encoded.length - 2)
         return null;
     const server = encoded.slice(0, idx);
     const tool = encoded.slice(idx + 2);

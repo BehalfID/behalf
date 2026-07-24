@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "project-tools": {
+      "command": "node",
+      "args": ["./scripts/mcp-server.js"],
+      "env": {
+        "NODE_ENV": "development"
+      }
+    },
+    "http-bridge": {
+      "url": "https://mcp.example.internal/sse"
+    }
+  }
+}

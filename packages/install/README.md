@@ -19,6 +19,15 @@ Phases complete:
 9. **Integration tests** — end-to-end lifecycle, rollback, detection, verification, and CLI tests under `test/integration/`
 10. **Documentation** — architecture, troubleshooting, and extension guides in `docs/`
 
+## Enforcement vs advisory
+
+- `@behalfid/mcp-audit` — read-only config analysis
+- `@behalfid/cli` MCP tools — **advisory** (`verify_action`); not unavoidable enforcement
+- `@behalfid/mcp-runtime` — **fail-closed** stdio interceptor (true enforcement boundary)
+
+`install --wrap` rewrites existing stdio MCP servers to launch the interceptor.
+Details: [docs/ENFORCEMENT_VS_ADVISORY.md](./docs/ENFORCEMENT_VS_ADVISORY.md).
+
 ## Install / run
 
 ```bash

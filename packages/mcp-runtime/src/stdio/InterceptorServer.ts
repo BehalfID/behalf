@@ -303,7 +303,9 @@ function formatDenial(result: RuntimeExecuteResult, baseUrl: string): string {
   const decision: VerifyDecision | undefined = result.decision;
   const approvalUrl = `${baseUrl.replace(/\/$/, "")}/dashboard/approvals`;
 
-  if (decision?.approvalRequired) {
+  // A resolved denial (human rejected / poll timed out) must not be presented as
+  // still awaiting approval — the tool remains blocked either way.
+  if (decision?.approvalRequired && result.outcome !== "approval-denied") {
     const lines = [
       "APPROVAL REQUIRED — tool was not executed.",
       "",
