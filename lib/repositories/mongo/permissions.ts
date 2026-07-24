@@ -35,6 +35,105 @@ export async function findByPermissionId(permissionId: string, scope: Permission
   return Permission.findOne({ ...scope, permissionId });
 }
 
+export async function findReplacementByIdempotencyKey(
+  accountId: string,
+  idempotencyKey: string
+) {
+  return Permission.findOne({ accountId, replacementIdempotencyKey: idempotencyKey });
+}
+
+export type StageReplacementPermissionInput = CreatePermissionInput & {
+  permissionId: string;
+  accountId: string;
+  agentId: string;
+  action: string;
+  replacesPermissionId: string;
+  replacementIdempotencyKey: string;
+  status: "inactive";
+};
+
+export async function stageReplacementPermission(input: StageReplacementPermissionInput) {
+  return Permission.create(input);
+}
+
+export async function revokeActivePermissionForReplacement(options: {
+  permissionId: string;
+  accountId: string;
+  agentId: string;
+  replacementPermissionId: string;
+  updatedBy: string;
+  expectedUpdatedAt?: Date;
+}) {
+  const filter: Record<string, unknown> = {
+    accountId: options.accountId,
+    agentId: options.agentId,
+    permissionId: options.permissionId,
+    status: "active"
+  };
+  if (options.expectedUpdatedAt) {
+    filter.updatedAt = options.expectedUpdatedAt;
+  }
+  return Permission.findOneAndUpdate(
+    filter,
+    {
+      $set: {
+        status: "revoked",
+        updatedBy: options.updatedBy,
+        replacedByPermissionId: options.replacementPermissionId
+      }
+    },
+    { returnDocument: "after" }
+  );
+}
+
+export async function activateStagedReplacementPermission(options: {
+  permissionId: string;
+  accountId: string;
+  agentId: string;
+  updatedBy: string;
+  replacesPermissionId: string;
+}) {
+  return Permission.findOneAndUpdate(
+    {
+      accountId: options.accountId,
+      agentId: options.agentId,
+      permissionId: options.permissionId,
+      status: "inactive",
+      replacesPermissionId: options.replacesPermissionId
+    },
+    {
+      $set: {
+        status: "active",
+        updatedBy: options.updatedBy
+      }
+    },
+    { returnDocument: "after" }
+  );
+}
+
+export async function abandonStagedReplacementPermission(options: {
+  permissionId: string;
+  accountId: string;
+  agentId: string;
+  updatedBy: string;
+}) {
+  return Permission.findOneAndUpdate(
+    {
+      accountId: options.accountId,
+      agentId: options.agentId,
+      permissionId: options.permissionId,
+      status: "inactive"
+    },
+    {
+      $set: {
+        status: "revoked",
+        updatedBy: options.updatedBy
+      }
+    },
+    { returnDocument: "after" }
+  );
+}
+
 export async function revokePermission(
   permissionId: string,
   scope: PermissionScope = {},
@@ -97,6 +196,11 @@ export const permissionRepository = {
   findOne: findOnePermission,
   findOneAndUpdate: findOneAndUpdatePermission,
   findByPermissionId,
+  findReplacementByIdempotencyKey,
+  stageReplacement: stageReplacementPermission,
+  revokeActiveForReplacement: revokeActivePermissionForReplacement,
+  activateStagedReplacement: activateStagedReplacementPermission,
+  abandonStagedReplacement: abandonStagedReplacementPermission,
   revoke: revokePermission,
   findByAgentId: findPermissionsByAgentId,
   findActiveByAgentId: findActivePermissionsByAgentId,
