@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import type { NextRequest } from "next/server";
 import { timingSafeEqualString } from "@/lib/crypto";
+import { recordAuthFailure } from "@/lib/authEvents";
 import { logger } from "@/lib/logger";
 import Agent, { type AgentDocument } from "@/models/Agent";
 
@@ -38,16 +39,33 @@ export function recordAgentKeyUse(agentId: string, apiKeyHash?: string | null) {
   });
 }
 
+function apiKeyHint(apiKey: string | null): string {
+  if (!apiKey || apiKey.length < 12) return "key:unknown";
+  return `key:${apiKey.slice(0, 10)}…`;
+}
+
 export async function authenticateAgent(request: NextRequest, agentId: string) {
   const apiKey = getBearerToken(request);
 
   if (!apiKey) {
+    await recordAuthFailure({
+      request,
+      surface: "api_key",
+      reason: "invalid_api_key",
+      identityHint: `agent:${agentId}`
+    });
     return { agent: null, error: "Missing or invalid API key." };
   }
 
   const agent = await Agent.findOne({ agentId }).select("+apiKeyHash");
 
   if (!agent) {
+    await recordAuthFailure({
+      request,
+      surface: "api_key",
+      reason: "invalid_api_key",
+      identityHint: apiKeyHint(apiKey)
+    });
     return { agent: null, error: "Unknown agent." };
   }
 
@@ -55,6 +73,12 @@ export async function authenticateAgent(request: NextRequest, agentId: string) {
   const isMatch = timingSafeEqualString(candidateHash, agent.apiKeyHash);
 
   if (!isMatch) {
+    await recordAuthFailure({
+      request,
+      surface: "api_key",
+      reason: "invalid_api_key",
+      identityHint: apiKeyHint(apiKey)
+    });
     return { agent: null, error: "API key does not match this agent." };
   }
 
@@ -67,6 +91,12 @@ export async function authenticateApiKey(request: NextRequest) {
   const apiKey = getBearerToken(request);
 
   if (!apiKey) {
+    await recordAuthFailure({
+      request,
+      surface: "api_key",
+      reason: "invalid_api_key",
+      identityHint: "key:missing"
+    });
     return { agent: null, error: "Missing or invalid API key." };
   }
 
@@ -74,11 +104,23 @@ export async function authenticateApiKey(request: NextRequest) {
   const agent = await Agent.findOne({ apiKeyHash }).select("+apiKeyHash");
 
   if (!agent) {
+    await recordAuthFailure({
+      request,
+      surface: "api_key",
+      reason: "invalid_api_key",
+      identityHint: apiKeyHint(apiKey)
+    });
     return { agent: null, error: "Missing or invalid API key." };
   }
 
   const isMatch = timingSafeEqualString(apiKeyHash, agent.apiKeyHash);
   if (!isMatch) {
+    await recordAuthFailure({
+      request,
+      surface: "api_key",
+      reason: "invalid_api_key",
+      identityHint: apiKeyHint(apiKey)
+    });
     return { agent: null, error: "Missing or invalid API key." };
   }
 

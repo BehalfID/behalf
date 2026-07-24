@@ -385,6 +385,7 @@ export function AgentDetailPage({ agentId }: { agentId: string }) {
 }
 
 function LoginPanel({ onSuccess }: { onSuccess: () => void }) {
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -396,7 +397,7 @@ function LoginPanel({ onSuccess }: { onSuccess: () => void }) {
     try {
       await apiFetch("/api/console/login", {
         method: "POST",
-        body: JSON.stringify({ password })
+        body: JSON.stringify(email.trim() ? { email: email.trim(), password } : { password })
       });
       setPassword("");
       onSuccess();
@@ -417,7 +418,7 @@ function LoginPanel({ onSuccess }: { onSuccess: () => void }) {
           <p>Use this area for internal setup, health checks, webhook operations, and resource inspection.</p>
         </div>
         <ul>
-          <li>Admin-only access</li>
+          <li>Individual console admin accounts</li>
           <li>Environment health</li>
           <li>Webhook event replay</li>
           <li>Operational audit views</li>
@@ -426,9 +427,21 @@ function LoginPanel({ onSuccess }: { onSuccess: () => void }) {
       <form className="console-login__panel" onSubmit={submit}>
         <p className="console-kicker">Console access</p>
         <h1>BehalfID</h1>
-        <p className="console-muted">Internal access for BehalfID administration.</p>
+        <p className="console-muted">
+          Prefer email + password for console admins. Shared password remains available for bootstrap
+          when allowed.
+        </p>
         <label>
-          <span>Admin password</span>
+          <span>Admin email (recommended)</span>
+          <input
+            autoComplete="username"
+            onChange={(event) => setEmail(event.target.value)}
+            type="email"
+            value={email}
+          />
+        </label>
+        <label>
+          <span>Password</span>
           <input
             autoComplete="current-password"
             onChange={(event) => setPassword(event.target.value)}

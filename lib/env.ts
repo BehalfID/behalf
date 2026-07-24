@@ -21,7 +21,10 @@ function hasRedisConfig() {
 }
 
 const OPTIONAL_PRODUCTION_ENV = [
-  "BEHALFID_WEBHOOK_SIGNING_PEPPER"
+  "BEHALFID_WEBHOOK_SIGNING_PEPPER",
+  "SENTRY_DSN",
+  "BEHALFID_MFA_PEPPER",
+  "BEHALFID_ALLOW_SHARED_ADMIN"
 ] as const;
 
 const UNSAFE_ADMIN_PASSWORDS = new Set(["change-me", "changeme", "password", "admin", "replace-this-password"]);

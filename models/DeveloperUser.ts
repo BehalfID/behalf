@@ -40,7 +40,14 @@ const DeveloperUserSchema = new Schema(
     emailVerificationCodeHash: { type: String, select: false },
     /** SHA-256 hash of the pending password reset token. Never returned in API responses. */
     passwordResetTokenHash: { type: String, select: false },
-    passwordResetTokenExpiresAt: { type: Date, select: false }
+    passwordResetTokenExpiresAt: { type: Date, select: false },
+    /** AES-GCM encrypted TOTP secret. Never returned in API responses. */
+    mfaTotpSecretEnc: { type: String, select: false },
+    /** Pending enroll secret before confirm. Never returned. */
+    mfaTotpPendingSecretEnc: { type: String, select: false },
+    mfaEnabledAt: { type: Date, default: null, select: true },
+    /** Hashed one-time backup codes. Never returned. */
+    mfaBackupCodeHashes: { type: [String], select: false, default: undefined }
   },
   { timestamps: true }
 );

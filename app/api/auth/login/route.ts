@@ -7,6 +7,7 @@ import {
   setDeveloperSessionCookie,
   verifyPassword
 } from "@/lib/developerAuth";
+import { recordAuthFailure } from "@/lib/authEvents";
 import { checkAuthRateLimit, checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
@@ -36,21 +37,54 @@ export async function POST(request: NextRequest) {
   if (authLimit.limited) return rateLimitError();
 
   if (await isPasswordLoginBlockedBySso(email)) {
+    await recordAuthFailure({
+      request,
+      surface: "developer_login",
+      reason: "sso_password_blocked",
+      email
+    });
     return jsonError("Password sign-in is disabled for this email domain. Use Continue with Google.", 403);
   }
 
   await connectToDatabase();
   // "+passwordHash" alone keeps the default field set; listing other fields
   // would become an inclusion projection and omit userId/email.
-  const user = await DeveloperUser.findOne({ email }).select("+passwordHash");
+  const user = await DeveloperUser.findOne({ email }).select("+passwordHash +mfaEnabledAt");
   if (!user?.passwordHash) {
     if (user) {
+      await recordAuthFailure({
+        request,
+        surface: "developer_login",
+        reason: "google_only_account",
+        email
+      });
       return jsonError("This account uses Google sign-in. Use Continue with Google.", 401);
     }
+    await recordAuthFailure({
+      request,
+      surface: "developer_login",
+      reason: "unknown_account",
+      email
+    });
     return jsonError("Invalid email or password.", 401);
   }
   if (!(await verifyPassword(password, user.passwordHash))) {
+    await recordAuthFailure({
+      request,
+      surface: "developer_login",
+      reason: "invalid_credentials",
+      email
+    });
     return jsonError("Invalid email or password.", 401);
+  }
+
+  if (user.mfaEnabledAt) {
+    const { createMfaChallengeToken } = await import("@/lib/mfa");
+    const challengeToken = await createMfaChallengeToken(user.userId);
+    return NextResponse.json({
+      mfaRequired: true,
+      mfaToken: challengeToken
+    });
   }
 
   const { token } = await createDeveloperSession(user.userId);

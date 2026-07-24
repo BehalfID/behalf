@@ -46,12 +46,11 @@ export async function GET(request: NextRequest) {
         : ["Optional verification metadata is persisted when clients provide it."])
     ],
     limitations: [
-      "Console uses one admin password for prototype deployments.",
+      "Prefer individual ConsoleAdmin accounts; shared BEHALFID_ADMIN_PASSWORD is bootstrap/legacy when allowed.",
       "Rate limits should use Redis or Upstash in production.",
       "Public API keys are shown only at creation or rotation.",
       "Webhook delivery uses an API-route worker; configure a scheduler for production.",
-      "Webhook delivery is at least once, so receivers should deduplicate by event ID.",
-      "No user accounts, organizations, OAuth, or payments yet."
+      "Webhook delivery is at least once, so receivers should deduplicate by event ID."
     ]
   });
 }

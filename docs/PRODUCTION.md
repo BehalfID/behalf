@@ -191,6 +191,7 @@ Replay policy:
 Operational expectations:
 
 - Schedule `GET /api/webhooks/process` from Vercel Cron or an external scheduler with `Authorization: Bearer <BEHALFID_SETUP_TOKEN>`.
+- Schedule `GET /api/cron/purge-logs` daily (or more often) with the same setup token. This physically deletes verification logs and Site Guard access logs older than each account's plan retention window plus a 7-day grace period.
 - Do not expose `BEHALFID_SETUP_TOKEN`, webhook secrets, or API keys to webhook receivers.
 - Receivers should verify `BehalfID-Signature`, enforce timestamp tolerance, and deduplicate on `BehalfID-Event-ID`.
 - Worker responses and delivery errors are sanitized and should not include stack traces, raw webhook secrets, bearer tokens, cookies, or API keys.
@@ -199,6 +200,12 @@ Operational expectations:
 
 - `GET /api/health` is public liveness only.
 - `GET /api/health/db` requires console auth or `BEHALFID_SETUP_TOKEN` and returns safe database status without stack traces.
+
+## Monitoring (Sentry)
+
+- Set `SENTRY_DSN` in Vercel Production to enable server/edge error reporting.
+- Secret redaction runs in Sentry `beforeSend`. See `docs/compliance/ops/MONITORING.md`.
+- Ops runbooks: `docs/compliance/ops/BACKUP_RESTORE.md`, `BCP_DR.md`, `INCIDENT_RESPONSE.md`.
 
 ## Validation Before Deploy
 
