@@ -1,5 +1,10 @@
 # @behalfid/mcp-audit
 
+> **Preview / unreleased:** This package is **not published to npm** yet.
+> Do not run `npm install @behalfid/mcp-audit` or `npx @behalfid/mcp-audit`
+> against the public registry. Use a local workspace build or packed tarball
+> until the first release is published.
+
 Read-only MCP configuration auditing for BehalfID. Analyzes configured MCP
 servers, applies a pluggable rule set, and returns a structured
 `McpAuditReport` with findings, evidence, remediation actions, and a security
@@ -7,9 +12,11 @@ score.
 
 This package **never** modifies configuration files or executes MCP tools.
 
-## Install
+## Install (after publish)
 
 ```bash
+# Unreleased — use local pack until published:
+#   npm pack -w @behalfid/mcp-audit && npm install ./behalfid-mcp-audit-*.tgz
 npm install @behalfid/mcp-audit
 ```
 

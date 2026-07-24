@@ -1,5 +1,11 @@
 # @behalfid/mcp-runtime
 
+> **Preview / unreleased:** This package is **not published to npm** yet.
+> Do not run `npm install @behalfid/mcp-runtime` or `npx @behalfid/mcp-runtime`
+> against the public registry. Use a local workspace build or packed tarball
+> until the first release is published. Commands that reference
+> `@behalfid/install` are also unreleased until that package is published.
+
 Policy Enforcement Point (PEP) for MCP tool invocations — library **and**
 stdio interceptor.
 
@@ -14,9 +20,11 @@ Static config analysis: `@behalfid/mcp-audit`.
 
 Phased plan: [docs/INTERCEPTOR_PLAN.md](./docs/INTERCEPTOR_PLAN.md).
 
-## Install
+## Install (after publish)
 
 ```bash
+# Unreleased — use local pack until published:
+#   npm pack -w @behalfid/mcp-runtime && npm install ./behalfid-mcp-runtime-*.tgz
 npm install @behalfid/mcp-runtime
 ```
 
@@ -32,6 +40,8 @@ export BEHALFID_DOWNSTREAM_COMMAND=npx
 export BEHALFID_DOWNSTREAM_ARGS='["-y","@modelcontextprotocol/server-filesystem","/tmp"]'
 export BEHALFID_DOWNSTREAM_SERVER=filesystem
 
+# Preview / unreleased until published — prefer local CLI:
+#   node packages/mcp-runtime/dist/cli.js
 npx @behalfid/mcp-runtime
 # or: node node_modules/@behalfid/mcp-runtime/dist/cli.js
 ```

@@ -1,5 +1,12 @@
 # @behalfid/install
 
+> **Preview / unreleased:** This package is **not published to npm** yet.
+> Do not run `npx @behalfid/install` or `npm install @behalfid/install`
+> against the public registry. Use a local workspace build
+> (`node packages/install/dist/cli.js`) or a packed tarball until the first
+> release is published. The default runtime (`@behalfid/mcp-runtime`) is also
+> unreleased.
+
 Universal installation framework for BehalfID.
 
 AI coding agents (Cursor, Claude Code, Codex, VS Code, Windsurf, and future MCP clients) should install, verify, upgrade, and uninstall BehalfID by invoking this package — not by embedding BehalfID-specific installation logic.
@@ -19,9 +26,12 @@ Phases complete:
 9. **Integration tests** — end-to-end lifecycle, rollback, detection, verification, and CLI tests under `test/integration/`
 10. **Documentation** — architecture, troubleshooting, and extension guides in `docs/`
 
-## Install / run
+## Install / run (after publish)
 
 ```bash
+# Unreleased — local preview:
+#   npm run build -w @behalfid/install
+#   node packages/install/dist/cli.js --help
 npx @behalfid/install --help
 ```
 
