@@ -4,6 +4,9 @@
   "workspaces": [
     "packages/*"
   ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
