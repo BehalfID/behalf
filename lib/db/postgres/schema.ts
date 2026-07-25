@@ -381,6 +381,10 @@ export const permissions = pgTable(
     constraints: jsonb("constraints"),
     status: text("status").notNull().default("active"),
     requiredAuthorityLevel: smallint("required_authority_level"),
+    /** Fail-closed permission replacement audit links (Mongo Permission parity). */
+    replacesPermissionId: text("replaces_permission_id"),
+    replacedByPermissionId: text("replaced_by_permission_id"),
+    replacementIdempotencyKey: text("replacement_idempotency_key"),
     createdBy: text("created_by"),
     updatedBy: text("updated_by"),
     lastUsedAt: timestamp("last_used_at", { withTimezone: true, mode: "date" }),
@@ -406,7 +410,12 @@ export const permissions = pgTable(
       table.action,
       table.status
     ),
-    index("permissions_developer_user_status_idx").on(table.developerUserId, table.status)
+    index("permissions_developer_user_status_idx").on(table.developerUserId, table.status),
+    index("permissions_replaces_permission_id_idx").on(table.replacesPermissionId),
+    index("permissions_replaced_by_permission_id_idx").on(table.replacedByPermissionId),
+    uniqueIndex("permissions_account_replacement_idempotency_uq")
+      .on(table.accountId, table.replacementIdempotencyKey)
+      .where(sql`${table.replacementIdempotencyKey} IS NOT NULL`)
   ]
 );
 

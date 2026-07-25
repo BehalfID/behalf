@@ -121,7 +121,8 @@ function migrationSqlPaths(): string[] {
     join(process.cwd(), "drizzle/0002_google_sso.sql"),
     join(process.cwd(), "drizzle/0003_schema_parity.sql"),
     join(process.cwd(), "drizzle/0004_managed_profile_pause_index_parity.sql"),
-    join(process.cwd(), "drizzle/0005_policy_and_integrations.sql")
+    join(process.cwd(), "drizzle/0005_policy_and_integrations.sql"),
+    join(process.cwd(), "drizzle/0006_permission_replacement_parity.sql")
   ];
 }
 
