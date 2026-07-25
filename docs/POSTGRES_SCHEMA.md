@@ -20,15 +20,19 @@ smoke/contract suites (`.github/workflows/ci.yml` job `postgres-schema`). See
 | `drizzle/0001_workspace_slug.sql` | Adds `accounts.slug` + partial unique index |
 | `drizzle/0002_google_sso.sql` | Google SSO fields + `oauth_pending_signups` |
 | `drizzle/0003_schema_parity.sql` | Phase B′: sessions/approvals parity + remaining tables + TTL helpers |
+| `drizzle/0004_managed_profile_pause_index_parity.sql` | Drops the stricter pause-approval unique index; restores Mongo parity |
+| `drizzle/0005_policy_and_integrations.sql` | Policy documents + Slack integration binding tables |
+| `drizzle/0006_permission_replacement_parity.sql` | Phase 4: permission replacement audit columns + `inactive` status |
 | `test/postgres-schema.test.ts` | Static validation (no live Postgres required) |
-| `test/postgres-schema-parity.test.ts` | Static Phase B′ parity checks |
+| `test/postgres-schema-parity.test.ts` | Static schema parity checks, through `0006` |
 | `test/postgres-parity-constraints.test.ts` | Optional live unique/FK/TTL constraint tests |
 | `test/postgres-migration-smoke.test.ts` | Optional live migration smoke test (disposable DB only) |
-| `test/postgres-repository-contracts.test.ts` | Optional Postgres account/agent/membership adapter contract tests |
+| `test/postgres-repository-contracts.test.ts` | Optional Postgres repository adapter contract tests (gated) |
+| `test/postgres-repository-parity.test.ts` | Static Phase 4 parity gate — no database required |
 | `scripts/postgres-smoke.ts` | CLI helper for the migration smoke test |
-| `lib/repositories/postgres/accounts.ts` | Test-only Postgres account adapter (Drizzle) |
-| `lib/repositories/postgres/agents.ts` | Test-only Postgres agent adapter (Drizzle) |
-| `lib/repositories/postgres/memberships.ts` | Test-only Postgres membership/invite adapter (Drizzle) |
+| `lib/repositories/postgres/*.ts` | Test-only Postgres adapters (Drizzle), one module per aggregate |
+| `lib/repositories/postgres/intentionalGaps.ts` | Allowlisted Mongoose lazy-passthrough gaps (Phase 4) |
+| `lib/repositories/postgres/parityAudit.ts` | Runtime-binding-based parity audit used by the static test |
 
 ---
 
@@ -96,6 +100,37 @@ WHERE status = 'pending' AND kind = 'agent_action'
 ```
 
 Mirrors Mongo `approval_pending_tuple_unique` so distinct commands/paths cannot collide.
+
+### `permissions` replacement audit fields (0006, Phase 4)
+
+Fail-closed permission replacement (stage → revoke active → activate staged, or abandon) needs an
+auditable link between the old and new permission plus an idempotency key so a retried client
+request cannot double-replace.
+
+| Column | Type | Notes |
+|---|---|---|
+| `replaces_permission_id` | `TEXT` | Nullable; set on the staged replacement row |
+| `replaced_by_permission_id` | `TEXT` | Nullable; set on the revoked original row once replaced |
+| `replacement_idempotency_key` | `TEXT` | Nullable; caller-supplied idempotency token |
+
+Indexes: non-unique lookup indexes on `replaces_permission_id` and `replaced_by_permission_id`,
+plus a **partial unique index** so at most one in-flight replacement per account/key exists:
+
+```sql
+CREATE UNIQUE INDEX IF NOT EXISTS "permissions_account_replacement_idempotency_uq"
+  ON "permissions" ("account_id", "replacement_idempotency_key")
+  WHERE "replacement_idempotency_key" IS NOT NULL;
+```
+
+### `permissions.status` — `inactive` (0006, Phase 4)
+
+`0006` widens the `permissions_status_check` CHECK constraint from `('active', 'revoked')` to
+`('active', 'revoked', 'inactive')`. `inactive` is the **staged-but-not-yet-active** state for a
+replacement permission: it exists (and is idempotency-key-addressable) but is not yet eligible to
+authorize anything. `activateStagedReplacementPermission` flips it to `active`;
+`abandonStagedReplacementPermission` flips it to `revoked` without ever authorizing a request.
+This mirrors the Mongo `Permission.status` enum, which already includes `inactive`
+(`lib/db/postgres/enums.ts` → `PERMISSION_STATUSES`).
 
 ---
 
@@ -235,18 +270,25 @@ POSTGRES_TEST_URL='postgres://user:pass@localhost:5432/behalf_smoke' \
 
 ## Postgres repository adapters (test-only)
 
-Test-only Drizzle adapters live under `lib/repositories/postgres/`:
+Test-only Drizzle adapters live under `lib/repositories/postgres/`, one module per aggregate
+(`accounts.ts`, `agents.ts`, `memberships.ts`, `managedProfiles.ts`, `permissions.ts`,
+`approvals.ts`, `verificationLogs.ts`, `webhooks.ts`, `stripeEvents.ts`, `users.ts`,
+`sessions.ts`, `apiTokens.ts`, `oauthPending.ts`, `deviceCodes.ts`, …), all re-exported from
+`lib/repositories/postgres/index.ts`.
 
-| Adapter | Functions | Mongo equivalent |
-|---|---|---|
-| `accounts.ts` | `findAccountById`, `findAccountBySlug`, `resetVerificationPeriod`, `incrementVerificationCount` | `lib/repositories/accounts.ts` |
-| `agents.ts` | `countAgentsByAccountId`, `countAgentsByScope` | `lib/repositories/agents.ts` |
-| `memberships.ts` | membership/invite helpers | `lib/repositories/memberships.ts` |
+As of Phase 4, `users`, `sessions`, `apiTokens`, `oauthPending`, `deviceCodes`, `accounts`,
+`agents`, and `permissions` have named-helper Postgres implementations bound in
+`lib/repositories/postgres/runtime.ts` for every aggregate in `POSTGRES_READY_AGGREGATES`. A
+small, explicitly allowlisted set of Mongoose-only query-chaining passthroughs
+(`Model.find()`, `.findOne()`, `.create()`, `.updateOne()`, …) intentionally remain unbound —
+see `lib/repositories/postgres/intentionalGaps.ts`. The static
+`test/postgres-repository-parity.test.ts` gate fails the build if any *non*-allowlisted Mongo
+function export lacks a real Postgres implementation.
 
 **Important:**
 
 - Adapters are **not** exported from `lib/repositories/index.ts` — app runtime still imports Mongo repositories.
-- **Runtime cutover is still not approved.**
+- **Runtime cutover is still not approved.** Phase 4 delivers repository *parity*, not cutover.
 
 ---
 
@@ -280,8 +322,14 @@ index only).
 
 ## Remaining work before runtime cutover
 
-1. Postgres adapters + contract tests for remaining aggregates (permissions, approvals, logs, webhooks, auth).
-2. Export/import scripts (PR C) + staging dual-read (PR D).
-3. Enable `pg_cron` scheduling in the target project.
+1. ~~Postgres adapters + contract tests for remaining aggregates~~ — done for
+   `users`/`sessions`/`apiTokens`/`oauthPending`/`deviceCodes`/`accounts`/`agents`/`permissions`
+   in Phase 4; see `test/postgres-repository-parity.test.ts` and
+   `docs/POSTGRES_STAGING_MIGRATION_REHEARSAL.md`.
+2. Export/import scripts (PR C) + staging dual-read (PR D) — export/import/verify scripts exist
+   (`scripts/migration/*`, run via `npm run migration:export|preflight|import|verify`); a staging
+   rehearsal is documented but **not executed** in Phase 4.
+3. Enable `pg_cron` scheduling in the target project — operator step, see
+   `docs/POSTGRES_PG_CRON.md`; not required for Phase 4 parity.
 4. Per-table cutover (PR E/F) — **not approved yet**.
 5. Do **not** adopt Supabase Auth / browser clients in the same effort.
