@@ -13,6 +13,12 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/db", () => ({ connectToDatabase: mocks.connectToDatabase }));
+vi.mock("@/lib/authEvents", () => ({
+  recordAuthFailure: vi.fn().mockResolvedValue(undefined),
+  clientIpFromRequest: vi.fn().mockReturnValue("unknown"),
+  hashIp: vi.fn().mockReturnValue("iphash"),
+  sanitizeAuthEventForRead: (event: unknown) => event
+}));
 vi.mock("@/lib/rateLimit", () => ({
   checkRateLimit: mocks.checkRateLimit,
   checkAuthRateLimit: mocks.checkAuthRateLimit,
