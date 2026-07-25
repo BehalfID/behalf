@@ -1,4 +1,19 @@
-import { and, eq, gt, inArray, lte, or } from "drizzle-orm";
+import {
+  and,
+  count,
+  eq,
+  gt,
+  gte,
+  inArray,
+  isNull,
+  lt,
+  lte,
+  ne,
+  notInArray,
+  or,
+  type SQL
+} from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type { BehalfPostgresDb } from "@/lib/db/postgres";
 import { developerUsers } from "@/lib/db/postgres/schema";
 import { normalizeEmail } from "@/lib/developerAuth";
@@ -11,6 +26,117 @@ import type {
 
 type UserRow = typeof developerUsers.$inferSelect;
 type UserInsert = typeof developerUsers.$inferInsert;
+
+const columns: Record<string, AnyPgColumn> = {
+  userId: developerUsers.userId,
+  email: developerUsers.email,
+  passwordHash: developerUsers.passwordHash,
+  googleSub: developerUsers.googleSub,
+  authProviders: developerUsers.authProviders,
+  onboardingUseCase: developerUsers.onboardingUseCase,
+  primaryAccountId: developerUsers.primaryAccountId,
+  firstName: developerUsers.firstName,
+  lastName: developerUsers.lastName,
+  jobTitle: developerUsers.jobTitle,
+  phone: developerUsers.phone,
+  onboardingCompletedAt: developerUsers.onboardingCompletedAt,
+  dateOfBirth: developerUsers.dateOfBirth,
+  emailVerified: developerUsers.emailVerified,
+  emailVerificationTokenHash: developerUsers.emailVerificationTokenHash,
+  emailVerificationTokenExpiresAt: developerUsers.emailVerificationTokenExpiresAt,
+  emailVerificationCodeHash: developerUsers.emailVerificationCodeHash,
+  passwordResetTokenHash: developerUsers.passwordResetTokenHash,
+  passwordResetTokenExpiresAt: developerUsers.passwordResetTokenExpiresAt,
+  createdAt: developerUsers.createdAt,
+  updatedAt: developerUsers.updatedAt
+};
+
+function columnFor(key: string) {
+  const column = columns[key];
+  if (!column) throw new Error(`Unsupported user filter field: ${key}`);
+  return column;
+}
+
+function normalizeFilterValue(key: string, value: unknown): unknown {
+  if (key === "email" && typeof value === "string") return normalizeEmail(value);
+  return value;
+}
+
+function fieldCondition(key: string, value: unknown): SQL {
+  const column = columnFor(key);
+  if (value === null) return isNull(column);
+
+  if (value && typeof value === "object" && !Array.isArray(value) && !(value instanceof Date)) {
+    const conditions = Object.entries(value as Record<string, unknown>).map(
+      ([operator, operand]) => {
+        switch (operator) {
+          case "$in":
+            return inArray(
+              column,
+              (operand as unknown[]).map((item) => normalizeFilterValue(key, item))
+            );
+          case "$nin":
+            return notInArray(
+              column,
+              (operand as unknown[]).map((item) => normalizeFilterValue(key, item))
+            );
+          case "$ne":
+            return operand === null
+              ? or(ne(column, operand), isNull(column))!
+              : ne(column, normalizeFilterValue(key, operand));
+          case "$gt":
+            return gt(column, operand);
+          case "$gte":
+            return gte(column, operand);
+          case "$lt":
+            return lt(column, operand);
+          case "$lte":
+            return lte(column, operand);
+          default:
+            throw new Error(`Unsupported user filter operator: ${operator}`);
+        }
+      }
+    );
+    return and(...conditions)!;
+  }
+
+  return eq(column, normalizeFilterValue(key, value));
+}
+
+function buildWhere(filter: Record<string, unknown> = {}): SQL | undefined {
+  const conditions: SQL[] = [];
+  for (const [key, value] of Object.entries(filter)) {
+    if (key === "$or") {
+      const alternatives = (value as Record<string, unknown>[]).map(buildWhere).filter(Boolean) as SQL[];
+      if (alternatives.length) conditions.push(or(...alternatives)!);
+      continue;
+    }
+    if (key === "$and") {
+      const conjunctions = (value as Record<string, unknown>[]).map(buildWhere).filter(Boolean) as SQL[];
+      if (conjunctions.length) conditions.push(and(...conjunctions)!);
+      continue;
+    }
+    conditions.push(fieldCondition(key, value));
+  }
+  return conditions.length ? and(...conditions) : undefined;
+}
+
+function updateByFilterValues(update: Record<string, unknown>): Record<string, unknown> {
+  const set: Record<string, unknown> = {
+    ...normalizeSet((update.$set as UserSet | undefined) ?? {}),
+    updatedAt: new Date()
+  };
+
+  if (update.$unset && typeof update.$unset === "object") {
+    for (const key of Object.keys(update.$unset as Record<string, unknown>)) {
+      if (!columns[key]) throw new Error(`Unsupported user update field: ${key}`);
+      set[key] = null;
+    }
+  }
+
+  void update.$inc;
+  return set;
+}
 
 function toLean(row: UserRow): DeveloperUserLean {
   return {
@@ -252,4 +378,88 @@ export async function deleteUser(db: BehalfPostgresDb, userId: string) {
     .where(eq(developerUsers.userId, userId))
     .returning({ userId: developerUsers.userId });
   return { acknowledged: true, deletedCount: rows.length };
+}
+
+export async function createUserDocument(
+  db: BehalfPostgresDb,
+  input: Record<string, unknown>
+): Promise<DeveloperUserLean> {
+  const values = { ...input };
+  if (typeof values.email === "string") {
+    values.email = normalizeEmail(values.email);
+  }
+  try {
+    const [row] = await db
+      .insert(developerUsers)
+      .values(values as UserInsert)
+      .returning();
+    if (!row) throw new Error("createUserDocument failed to return a row");
+    return toLean(row);
+  } catch (error) {
+    translatePostgresError(error);
+  }
+}
+
+export async function findUsers(
+  db: BehalfPostgresDb,
+  filter: Record<string, unknown> = {}
+): Promise<DeveloperUserLean[]> {
+  const rows = await db.select().from(developerUsers).where(buildWhere(filter));
+  return rows.map(toLean);
+}
+
+export async function findOneUser(
+  db: BehalfPostgresDb,
+  filter: Record<string, unknown>
+): Promise<DeveloperUserLean | null> {
+  const [row] = await db.select().from(developerUsers).where(buildWhere(filter)).limit(1);
+  return row ? toLean(row) : null;
+}
+
+export async function updateUserByFilter(
+  db: BehalfPostgresDb,
+  filter: Record<string, unknown>,
+  update: Record<string, unknown>
+) {
+  return db.transaction(async (tx) => {
+    const [match] = await tx
+      .select({ userId: developerUsers.userId })
+      .from(developerUsers)
+      .where(buildWhere(filter))
+      .limit(1);
+    if (!match) return { acknowledged: true, matchedCount: 0, modifiedCount: 0 };
+    try {
+      const rows = await tx
+        .update(developerUsers)
+        .set(updateByFilterValues(update))
+        .where(eq(developerUsers.userId, match.userId))
+        .returning({ userId: developerUsers.userId });
+      return { acknowledged: true, matchedCount: 1, modifiedCount: rows.length };
+    } catch (error) {
+      translatePostgresError(error);
+    }
+  });
+}
+
+export async function countUserDocuments(
+  db: BehalfPostgresDb,
+  filter: Record<string, unknown> = {}
+) {
+  const [row] = await db
+    .select({ value: count() })
+    .from(developerUsers)
+    .where(buildWhere(filter));
+  return row?.value ?? 0;
+}
+
+export async function userExists(
+  db: BehalfPostgresDb,
+  filter: Record<string, unknown>
+): Promise<Pick<DeveloperUserLean, "userId"> | null> {
+  const row =
+    (await db.query.developerUsers.findFirst({
+      where: buildWhere(filter),
+      columns: { userId: true }
+    })) ?? null;
+  return row ?? null;
 }

@@ -49,7 +49,7 @@ export const PERMISSION_TEMPLATES = [
   "purchase",
   "custom"
 ] as const;
-export const PERMISSION_STATUSES = ["active", "revoked"] as const;
+export const PERMISSION_STATUSES = ["active", "revoked", "inactive"] as const;
 
 export const APPROVAL_KINDS = ["agent_action", "managed_profile_pause"] as const;
 export const APPROVAL_STATUSES = ["pending", "approved", "denied", "used"] as const;

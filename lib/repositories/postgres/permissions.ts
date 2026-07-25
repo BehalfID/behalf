@@ -51,6 +51,9 @@ const columns: Record<string, AnyPgColumn> = {
   constraints: permissions.constraints,
   status: permissions.status,
   requiredAuthorityLevel: permissions.requiredAuthorityLevel,
+  replacesPermissionId: permissions.replacesPermissionId,
+  replacedByPermissionId: permissions.replacedByPermissionId,
+  replacementIdempotencyKey: permissions.replacementIdempotencyKey,
   createdBy: permissions.createdBy,
   updatedBy: permissions.updatedBy,
   lastUsedAt: permissions.lastUsedAt,
@@ -233,6 +236,119 @@ export function findByPermissionId(
   return findOnePermission(db, { ...scope, permissionId });
 }
 
+export function findReplacementByIdempotencyKey(
+  db: BehalfPostgresDb,
+  accountId: string,
+  idempotencyKey: string
+) {
+  return findOnePermission(db, { accountId, replacementIdempotencyKey: idempotencyKey });
+}
+
+export async function stageReplacementPermission(
+  db: BehalfPostgresDb,
+  input: CreatePermissionInput & {
+    permissionId: string;
+    accountId: string;
+    agentId: string;
+    action: string;
+    replacesPermissionId: string;
+    replacementIdempotencyKey: string;
+    status: "inactive";
+  }
+) {
+  return createPermission(db, input);
+}
+
+export async function revokeActivePermissionForReplacement(
+  db: BehalfPostgresDb,
+  options: {
+    permissionId: string;
+    accountId: string;
+    agentId: string;
+    replacementPermissionId: string;
+    updatedBy: string;
+    expectedUpdatedAt?: Date;
+  }
+) {
+  const filter: Record<string, unknown> = {
+    accountId: options.accountId,
+    agentId: options.agentId,
+    permissionId: options.permissionId,
+    status: "active"
+  };
+  if (options.expectedUpdatedAt) {
+    filter.updatedAt = options.expectedUpdatedAt;
+  }
+  return findOneAndUpdatePermission(
+    db,
+    filter,
+    {
+      $set: {
+        status: "revoked",
+        updatedBy: options.updatedBy,
+        replacedByPermissionId: options.replacementPermissionId
+      }
+    },
+    { returnDocument: "after" }
+  );
+}
+
+export async function activateStagedReplacementPermission(
+  db: BehalfPostgresDb,
+  options: {
+    permissionId: string;
+    accountId: string;
+    agentId: string;
+    updatedBy: string;
+    replacesPermissionId: string;
+  }
+) {
+  return findOneAndUpdatePermission(
+    db,
+    {
+      accountId: options.accountId,
+      agentId: options.agentId,
+      permissionId: options.permissionId,
+      status: "inactive",
+      replacesPermissionId: options.replacesPermissionId
+    },
+    {
+      $set: {
+        status: "active",
+        updatedBy: options.updatedBy
+      }
+    },
+    { returnDocument: "after" }
+  );
+}
+
+export async function abandonStagedReplacementPermission(
+  db: BehalfPostgresDb,
+  options: {
+    permissionId: string;
+    accountId: string;
+    agentId: string;
+    updatedBy: string;
+  }
+) {
+  return findOneAndUpdatePermission(
+    db,
+    {
+      accountId: options.accountId,
+      agentId: options.agentId,
+      permissionId: options.permissionId,
+      status: "inactive"
+    },
+    {
+      $set: {
+        status: "revoked",
+        updatedBy: options.updatedBy
+      }
+    },
+    { returnDocument: "after" }
+  );
+}
+
 export function findPermissionsByAgentId(
   db: BehalfPostgresDb,
   agentId: string,
@@ -367,6 +483,28 @@ export function createPostgresPermissionRepository(db: BehalfPostgresDb) {
     ) => findOneAndUpdatePermission(db, filter, update, options),
     findByPermissionId: (permissionId: string, scope?: PermissionScope) =>
       findByPermissionId(db, permissionId, scope),
+    findReplacementByIdempotencyKey: (accountId: string, idempotencyKey: string) =>
+      findReplacementByIdempotencyKey(db, accountId, idempotencyKey),
+    stageReplacement: (
+      input: CreatePermissionInput & {
+        permissionId: string;
+        accountId: string;
+        agentId: string;
+        action: string;
+        replacesPermissionId: string;
+        replacementIdempotencyKey: string;
+        status: "inactive";
+      }
+    ) => stageReplacementPermission(db, input),
+    revokeActiveForReplacement: (
+      options: Parameters<typeof revokeActivePermissionForReplacement>[1]
+    ) => revokeActivePermissionForReplacement(db, options),
+    activateStagedReplacement: (
+      options: Parameters<typeof activateStagedReplacementPermission>[1]
+    ) => activateStagedReplacementPermission(db, options),
+    abandonStagedReplacement: (
+      options: Parameters<typeof abandonStagedReplacementPermission>[1]
+    ) => abandonStagedReplacementPermission(db, options),
     revoke: (
       permissionId: string,
       scope?: PermissionScope,

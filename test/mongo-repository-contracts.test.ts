@@ -57,6 +57,36 @@ import {
   findByTokenHash,
   updateActivity
 } from "@/lib/repositories/sessions";
+import {
+  countUserDocuments,
+  createUser,
+  findByEmail as findUserByEmail,
+  findUsers,
+  updateUserByFilter,
+  userExists,
+  deleteUser
+} from "@/lib/repositories/users";
+import {
+  countApiTokens,
+  createApiToken,
+  deleteApiToken,
+  findApiTokens
+} from "@/lib/repositories/apiTokens";
+import {
+  createPendingSignup,
+  deletePendingSignup,
+  findOnePendingSignup
+} from "@/lib/repositories/oauthPending";
+import {
+  createDeviceCode,
+  findOneAndDeleteAuthorized,
+  findOneDeviceCode,
+  updateStatus as updateDeviceCodeStatus
+} from "@/lib/repositories/deviceCodes";
+import { makeUsersRepositoryContract } from "./repository-contracts/users.contract";
+import { makeApiTokensRepositoryContract } from "./repository-contracts/apiTokens.contract";
+import { makeOAuthPendingRepositoryContract } from "./repository-contracts/oauthPending.contract";
+import { makeDeviceCodesRepositoryContract } from "./repository-contracts/deviceCodes.contract";
 import Permission from "@/models/Permission";
 import {
   permissionRepository,
@@ -269,6 +299,41 @@ makeSessionsRepositoryContract("mongo", async () => ({
   createSession,
   findByTokenHash,
   updateActivity
+}));
+
+makeUsersRepositoryContract("mongo", async () => ({
+  createUser: async (input) => {
+    const user = await createUser(input as never);
+    return user as never;
+  },
+  findByEmail: async (email) => (await findUserByEmail(email)) as never,
+  findUsers: async (filter) => (await findUsers(filter)) as never,
+  countUserDocuments,
+  userExists,
+  updateUserByFilter: async (filter, update) => (await updateUserByFilter(filter, update)) as never,
+  deleteUser: async (userId) => (await deleteUser(userId)) as never
+}));
+
+makeApiTokensRepositoryContract("mongo", async () => ({
+  createApiToken: async (input) => (await createApiToken(input as never)) as never,
+  findApiTokens: async (filter) => (await findApiTokens(filter)) as never,
+  countApiTokens,
+  deleteApiToken: async (filter) => (await deleteApiToken(filter)) as never,
+  seedTenant: async () => {}
+}));
+
+makeOAuthPendingRepositoryContract("mongo", async () => ({
+  createPendingSignup: async (input) => (await createPendingSignup(input as never)) as never,
+  findOnePendingSignup: async (filter) => (await findOnePendingSignup(filter)) as never,
+  deletePendingSignup: async (filter) => (await deletePendingSignup(filter)) as never
+}));
+
+makeDeviceCodesRepositoryContract("mongo", async () => ({
+  createDeviceCode: async (input) => (await createDeviceCode(input as never)) as never,
+  findOneDeviceCode: async (filter) => (await findOneDeviceCode(filter)) as never,
+  updateStatus: (userCode, status, options) => updateDeviceCodeStatus(userCode, status, options),
+  findOneAndDeleteAuthorized: async (deviceCode) =>
+    (await findOneAndDeleteAuthorized(deviceCode)) as never
 }));
 
 makePermissionsRepositoryContract("mongo", async () => {

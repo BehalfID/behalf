@@ -37,6 +37,32 @@ import {
   findByTokenHash as findSessionByTokenHash,
   updateActivity
 } from "@/lib/repositories/postgres/sessions";
+import {
+  countUserDocuments,
+  createUser,
+  deleteUser,
+  findByEmail as findUserByEmail,
+  findUsers,
+  updateUserByFilter,
+  userExists
+} from "@/lib/repositories/postgres/users";
+import {
+  countApiTokens,
+  createApiToken,
+  deleteApiToken,
+  findApiTokens
+} from "@/lib/repositories/postgres/apiTokens";
+import {
+  createPendingSignup,
+  deletePendingSignup,
+  findOnePendingSignup
+} from "@/lib/repositories/postgres/oauthPending";
+import {
+  createDeviceCode,
+  findOneAndDeleteAuthorized,
+  findOneDeviceCode,
+  updateStatus as updateDeviceCodeStatus
+} from "@/lib/repositories/postgres/deviceCodes";
 import { createPostgresVerificationLogRepository } from "@/lib/repositories/postgres/verificationLogs";
 import { createPostgresWebhookRepository } from "@/lib/repositories/postgres/webhooks";
 import {
@@ -54,6 +80,10 @@ import { makeApprovalsRepositoryContract } from "./repository-contracts/approval
 import { makeSessionsRepositoryContract } from "./repository-contracts/sessions.contract";
 import { makeVerificationLogsRepositoryContract } from "./repository-contracts/verificationLogs.contract";
 import { makeWebhooksRepositoryContract } from "./repository-contracts/webhooks.contract";
+import { makeUsersRepositoryContract } from "./repository-contracts/users.contract";
+import { makeApiTokensRepositoryContract } from "./repository-contracts/apiTokens.contract";
+import { makeOAuthPendingRepositoryContract } from "./repository-contracts/oauthPending.contract";
+import { makeDeviceCodesRepositoryContract } from "./repository-contracts/deviceCodes.contract";
 
 const contractsEnabled = isPostgresRepositoryContractsEnabled();
 const rawApiKey = "bhf_sk_contract_abcdefghijklmnopqrstuvwxyz123456";
@@ -384,6 +414,85 @@ if (contractsEnabled) {
       findByTokenHash: (tokenHash, options) => findSessionByTokenHash(db, tokenHash, options),
       updateActivity: (sessionId, lastActivityAt, expiresAt) =>
         updateActivity(db, sessionId, lastActivityAt, expiresAt)
+    };
+  });
+
+  makeUsersRepositoryContract("postgres", async () => {
+    const db = context!.db;
+
+    return {
+      createUser: (input) => createUser(db, input as never),
+      findByEmail: (email) => findUserByEmail(db, email),
+      findUsers: (filter) => findUsers(db, filter),
+      countUserDocuments: (filter) => countUserDocuments(db, filter),
+      userExists: (filter) => userExists(db, filter),
+      updateUserByFilter: (filter, update) => updateUserByFilter(db, filter, update),
+      deleteUser: (userId) => deleteUser(db, userId)
+    };
+  });
+
+  makeApiTokensRepositoryContract("postgres", async () => {
+    const db = context!.db;
+
+    const ensureTenant = async (userId: string, accountId: string) => {
+      await db
+        .insert(accounts)
+        .values({ accountId, name: `${accountId} API Token Account`, plan: "free" })
+        .onConflictDoNothing();
+      await db
+        .insert(developerUsers)
+        .values({
+          userId,
+          email: `${userId}@apitokens.contract.test`,
+          passwordHash: "contract-test-password-hash",
+          primaryAccountId: accountId
+        })
+        .onConflictDoNothing();
+    };
+
+    return {
+      createApiToken: (input) => createApiToken(db, input),
+      findApiTokens: (filter) => findApiTokens(db, filter),
+      countApiTokens: (filter) => countApiTokens(db, filter),
+      deleteApiToken: (filter) => deleteApiToken(db, filter),
+      seedTenant: ensureTenant
+    };
+  });
+
+  makeOAuthPendingRepositoryContract("postgres", async () => {
+    const db = context!.db;
+
+    return {
+      createPendingSignup: (input) => createPendingSignup(db, input),
+      findOnePendingSignup: (filter) => findOnePendingSignup(db, filter),
+      deletePendingSignup: (filter) => deletePendingSignup(db, filter)
+    };
+  });
+
+  makeDeviceCodesRepositoryContract("postgres", async () => {
+    const db = context!.db;
+
+    const ensureUser = async (userId: string) => {
+      await db
+        .insert(developerUsers)
+        .values({
+          userId,
+          email: `${userId}@devicecodes.contract.test`,
+          passwordHash: "contract-test-password-hash"
+        })
+        .onConflictDoNothing();
+    };
+
+    return {
+      createDeviceCode: (input) => createDeviceCode(db, input),
+      findOneDeviceCode: (filter) => findOneDeviceCode(db, filter),
+      updateStatus: async (userCode, status, options) => {
+        if (options?.userId) {
+          await ensureUser(options.userId);
+        }
+        return updateDeviceCodeStatus(db, userCode, status, options);
+      },
+      findOneAndDeleteAuthorized: (deviceCode) => findOneAndDeleteAuthorized(db, deviceCode)
     };
   });
 
