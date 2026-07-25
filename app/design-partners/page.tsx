@@ -141,7 +141,8 @@ Approve at: https://behalfid.com/dashboard/approvals`}</CodeBlock>
           <h2>What we won&apos;t promise</h2>
           <p>
             We&apos;re a small team and this is an early product. We won&apos;t promise
-            enterprise SLAs, SSO, SOC 2, or a white-glove onboarding process.
+            enterprise SLAs, SOC 2, or a white-glove onboarding process. Sign in with Google
+            and workspace Google SSO are available today; SAML and other IdPs are not.
             We will promise to respond quickly, fix things that are broken, and
             build what actually helps your workflow.
           </p>

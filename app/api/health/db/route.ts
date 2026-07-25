@@ -1,8 +1,13 @@
 import mongoose from "mongoose";
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest } from "next/server";
 import { requireSetupTokenOrConsoleApi } from "@/lib/adminAuth";
 import { connectToDatabase } from "@/lib/db";
+import {
+  listRepositoryBackendOverrides,
+  resolveRepositoryBackend
+} from "@/lib/repositories/backend";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
+import { noCacheJson } from "@/lib/responses";
 
 export async function GET(request: NextRequest) {
   const limit = await checkRateLimit(request);
@@ -17,12 +22,25 @@ export async function GET(request: NextRequest) {
 
   try {
     await connectToDatabase();
-    return NextResponse.json({
+    let repositoryBackend: "mongo" | "postgres" = "mongo";
+    try {
+      repositoryBackend = resolveRepositoryBackend();
+    } catch {
+      repositoryBackend = "mongo";
+    }
+
+    return noCacheJson({
       status: "ok",
       service: "behalfid",
-      database: mongoose.connection.readyState === 1 ? "connected" : "connecting"
+      database: mongoose.connection.readyState === 1 ? "connected" : "connecting",
+      postgresConfigured: Boolean(process.env.DATABASE_URL?.trim()),
+      repositoryBackend,
+      repositoryBackendOverrides: listRepositoryBackendOverrides()
     });
   } catch {
-    return NextResponse.json({ status: "error", service: "behalfid", database: "unavailable" }, { status: 503 });
+    return noCacheJson(
+      { status: "error", service: "behalfid", database: "unavailable" },
+      { status: 503 }
+    );
   }
 }

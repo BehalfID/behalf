@@ -300,7 +300,7 @@ describe("POST /api/dashboard/agents/first-setup", () => {
     const json = await response.json();
 
     expect(response.status).toBe(500);
-    expect(json.code).toBe("setup_failed");
+    expect(json.code).toBe("SETUP_FAILED");
     expect(json).not.toHaveProperty("apiKey");
     expect(json).not.toHaveProperty("agent");
     expect(mocks.permissionDeleteMany).toHaveBeenCalledWith(

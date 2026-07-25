@@ -10,7 +10,7 @@ export const BEHALF_CLI_BANNER = String.raw`
 export const BEHALF_CLI_BANNER_TAGLINE = "Agent permission gates";
 
 /** Shown when the terminal is too narrow for the full banner. */
-export const BEHALF_CLI_BANNER_COMPACT = "BehalfID — agent permission gates"; // pragma: allowlist secret
+export const BEHALF_CLI_BANNER_COMPACT = "BehalfID - agent permission gates"; // pragma: allowlist secret // pragma: allowlist secret
 
 const COPPER = "\x1b[38;2;216;138;99m";
 const DIM = "\x1b[2m";
@@ -66,6 +66,7 @@ export function shouldShowCliBanner(input: {
 
   const command = resolveCliCommand(input.argv);
   if (!command) return false;
+  // Root help / bare `behalf` still get the brand banner in interactive TTYs.
   if (command === "__help__") return true;
   if (SCRIPTED_COMMANDS.has(command)) return false;
   return BANNER_COMMANDS.has(command);

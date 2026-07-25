@@ -43,7 +43,8 @@ describe("plan entitlements source of truth", () => {
       managedProfilesEnabled: true,
       requiredManagedProfileModeEnabled: true,
       pauseApprovalsEnabled: true,
-      advancedAuditExportsEnabled: false
+      advancedAuditExportsEnabled: false,
+      googleWorkspaceSsoEnabled: false
     });
   });
 
@@ -58,7 +59,8 @@ describe("plan entitlements source of truth", () => {
       managedProfilesEnabled: true,
       requiredManagedProfileModeEnabled: true,
       pauseApprovalsEnabled: true,
-      advancedAuditExportsEnabled: false
+      advancedAuditExportsEnabled: false,
+      googleWorkspaceSsoEnabled: true
     });
   });
 
@@ -73,7 +75,8 @@ describe("plan entitlements source of truth", () => {
       managedProfilesEnabled: true,
       requiredManagedProfileModeEnabled: true,
       pauseApprovalsEnabled: true,
-      advancedAuditExportsEnabled: false
+      advancedAuditExportsEnabled: false,
+      googleWorkspaceSsoEnabled: true
     });
   });
 
@@ -88,7 +91,8 @@ describe("plan entitlements source of truth", () => {
       managedProfilesEnabled: true,
       requiredManagedProfileModeEnabled: true,
       pauseApprovalsEnabled: true,
-      advancedAuditExportsEnabled: true
+      advancedAuditExportsEnabled: true,
+      googleWorkspaceSsoEnabled: true
     });
   });
 
@@ -105,6 +109,7 @@ describe("plan entitlements source of truth", () => {
     expect(enterprise.requiredManagedProfileModeEnabled).toBe(true);
     expect(enterprise.pauseApprovalsEnabled).toBe(true);
     expect(enterprise.advancedAuditExportsEnabled).toBe(true);
+    expect(enterprise.googleWorkspaceSsoEnabled).toBe(true);
   });
 
   it("normalizes unknown, missing, or invalid plans to free (fail closed)", () => {

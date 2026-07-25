@@ -1,6 +1,7 @@
 export type LogRisk = "low" | "medium" | "high";
 export type LogDecision = "allowed" | "denied" | "approval_required";
 export type DecisionTone = "allowed" | "denied" | "approval";
+export type ApprovalDisplayStatus = "pending" | "approved" | "denied" | "expired" | "consumed";
 
 export type OpsLog = {
   requestId: string;
@@ -76,6 +77,7 @@ export function isManagedProfilePauseApproval(
 }
 
 export function formatPauseApprovalTitle(req: OpsApprovalRequest): string {
+  void req;
   return "Managed profile pause requested";
 }
 
@@ -115,15 +117,37 @@ export function logDecisionTone(log: Pick<OpsLog, "allowed" | "approvalRequired"
 export function logDecisionLabel(log: Pick<OpsLog, "allowed" | "approvalRequired" | "reason" | "decision">) {
   const decision = getLogDecision(log);
   if (decision === "allowed") return "Allowed";
-  if (decision === "approval_required") return "Requires approval";
+  if (decision === "approval_required") return "Approval required";
   return "Denied";
 }
 
 export function logDecisionShortLabel(log: Pick<OpsLog, "allowed" | "approvalRequired" | "reason" | "decision">) {
   const decision = getLogDecision(log);
   if (decision === "allowed") return "Allowed";
-  if (decision === "approval_required") return "Needs approval";
+  if (decision === "approval_required") return "Approval required";
   return "Denied";
+}
+
+export function getApprovalDisplayStatus(
+  req: Pick<OpsApprovalRequest, "status" | "grantExpiresAt">,
+  now = Date.now()
+): ApprovalDisplayStatus {
+  if (req.status === "used") return "consumed";
+  if (req.status === "denied") return "denied";
+  if (req.status === "approved") {
+    const expiresAt = req.grantExpiresAt ? new Date(req.grantExpiresAt).getTime() : Number.NaN;
+    if (Number.isFinite(expiresAt) && expiresAt <= now) return "expired";
+    return "approved";
+  }
+  return "pending";
+}
+
+export function approvalStatusLabel(status: ApprovalDisplayStatus) {
+  if (status === "pending") return "Pending approval";
+  if (status === "approved") return "Approved";
+  if (status === "denied") return "Denied by approver";
+  if (status === "expired") return "Expired";
+  return "Consumed";
 }
 
 export function approvalRequiredMetricLabel(count: number) {

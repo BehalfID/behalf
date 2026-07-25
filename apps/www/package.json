@@ -1,0 +1,6 @@
+{
+  "name": "@behalfid/app-www",
+  "private": true,
+  "description": "Placeholder — marketing/www surface. Live routes still live at repo-root app/ until phase 2 extraction.",
+  "version": "0.0.0"
+}

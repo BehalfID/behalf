@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server";
+import { noCacheJson } from "@/lib/responses";
 
 export async function GET() {
-  return NextResponse.json({
+  return noCacheJson({
     status: "ok",
     service: "behalfid",
     timestamp: new Date().toISOString()

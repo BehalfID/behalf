@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { isDashboardPath } from "@/lib/dashboardShellPresentation";
 
 const CONSENT_KEY = "behalf_cookie_consent";
 
@@ -64,7 +65,7 @@ export function CookieBanner() {
   const [visible, setVisible] = useState(false);
   const [locale, setLocale] = useState("en");
   const pathname = usePathname();
-  const isDashboard = pathname?.startsWith("/dashboard") ?? false;
+  const isDashboard = isDashboardPath(pathname);
 
   useEffect(() => {
     if (!visible) {
@@ -85,7 +86,7 @@ export function CookieBanner() {
   }, [visible, isDashboard]);
 
   useEffect(() => {
-    setLocale(getLocale());
+    queueMicrotask(() => setLocale(getLocale()));
     try {
       const val = localStorage.getItem(CONSENT_KEY);
       if (!val) {

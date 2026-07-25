@@ -8,6 +8,13 @@ Set these in Vercel Production before deploying:
 
 ```env
 MONGODB_URI=
+# Optional Postgres / Supabase (migration tooling + future cutover — does NOT switch runtime alone)
+# DATABASE_URL=
+# POSTGRES_URL=
+# BEHALFID_REPOSITORY_BACKEND=mongo
+# BEHALFID_ALLOW_POSTGRES_RUNTIME=false
+# BEHALFID_REPO_BACKEND_<AGGREGATE>=mongo|postgres
+# BEHALFID_REPO_DUAL_READ=false
 BEHALFID_ADMIN_PASSWORD=
 BEHALFID_SETUP_TOKEN=
 NEXT_PUBLIC_APP_URL=https://behalfid.com
@@ -18,7 +25,9 @@ STRIPE_PRO_PRICE_ID=
 
 Requirements:
 
-- `MONGODB_URI` must point to the production MongoDB database.
+- `MONGODB_URI` must point to the production MongoDB database (still required until cutover).
+- `DATABASE_URL` / `POSTGRES_URL` are for Drizzle migrate, smoke/contract tests, and export/import scripts. They do **not** switch app traffic by themselves.
+- Postgres runtime requires `BEHALFID_ALLOW_POSTGRES_RUNTIME=true` plus `BEHALFID_REPOSITORY_BACKEND=postgres` and/or per-aggregate `BEHALFID_REPO_BACKEND_*` flags. Keep these unset/false in production until a cutover wave is approved.
 - `BEHALFID_ADMIN_PASSWORD` must be strong and must not be a placeholder such as `change-me` or `replace-this-password`.
 - `BEHALFID_SETUP_TOKEN` is used for protected setup, health, and webhook-worker calls. Keep it server-side only.
 - `NEXT_PUBLIC_APP_URL` must be the canonical HTTPS origin.
@@ -33,7 +42,7 @@ Production startup validation fails loudly when required variables are missing o
 - Agent key rotation invalidates the old key immediately, sets `keyRotatedAt`, and clears current-key `lastUsedAt` until the new key is used.
 - Successful agent-key and developer-token authentication update `lastUsedAt` on a best-effort basis. Failed metadata writes must not fail the authenticated request.
 - Invalid, missing, malformed, or previously rotated keys must not update `lastUsedAt`.
-- Logs, webhook payloads, CLI errors, SDK errors, worker summaries, and route errors must not include raw bearer tokens, API keys, developer tokens, passport tokens, setup tokens, Stripe secrets, or webhook signing secrets.
+- Logs, webhook payloads, CLI errors, SDK errors, worker summaries, and route errors must not include raw bearer tokens, API keys, developer tokens, passport tokens, setup tokens, Stripe secrets, webhook signing secrets, or OAuth authorization codes / id tokens.
 
 ## Verification Logs and Retention
 
@@ -66,6 +75,9 @@ OLLAMA_BASE_URL=
 OLLAMA_MODEL=
 OLLAMA_TIMEOUT_MS=
 OLLAMA_PROXY_TOKEN=
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=
 ```
 
 Notes:
@@ -74,6 +86,11 @@ Notes:
 - Keep `BEHALFID_PUBLIC_AGENT_CREATION=false` in production unless intentionally running an open demo.
 - Leave `TRUST_PROXY_XFF` unset on Vercel; BehalfID uses `x-real-ip` there.
 - Ollama variables are optional and only affect AI-assisted permission drafting.
+- `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` enable Sign in with Google and workspace Google SSO. Create an OAuth 2.0 Web client in Google Cloud Console.
+- With subdomain routing (`BEHALFID_SUBDOMAIN_ROUTING=1`), the authorize `redirect_uri` is `{https://BEHALFID_HOST_AUTH}/api/auth/google/callback` (e.g. `https://auth.behalfid.com/api/auth/google/callback`), **not** `NEXT_PUBLIC_APP_URL`. Without subdomain routing it remains `{NEXT_PUBLIC_APP_URL|/APP_BASE_URL}/api/auth/google/callback`.
+- Optional `GOOGLE_OAUTH_BASE_URL` overrides the OAuth origin (no trailing path) for staging or custom clients.
+- Authorized JavaScript origins should include `https://auth.behalfid.com`, `https://www.behalfid.com`, `https://app.behalfid.com` (if used), and `http://localhost:3000` for local.
+- `NEXT_PUBLIC_GOOGLE_CLIENT_ID` should match `GOOGLE_CLIENT_ID` so the login/signup UI can show the Google button without a round-trip.
 
 ## Vercel Setup
 
@@ -174,6 +191,7 @@ Replay policy:
 Operational expectations:
 
 - Schedule `GET /api/webhooks/process` from Vercel Cron or an external scheduler with `Authorization: Bearer <BEHALFID_SETUP_TOKEN>`.
+- Schedule `GET /api/cron/purge-logs` daily (or more often) with the same setup token. This physically deletes verification logs and Site Guard access logs older than each account's plan retention window plus a 7-day grace period.
 - Do not expose `BEHALFID_SETUP_TOKEN`, webhook secrets, or API keys to webhook receivers.
 - Receivers should verify `BehalfID-Signature`, enforce timestamp tolerance, and deduplicate on `BehalfID-Event-ID`.
 - Worker responses and delivery errors are sanitized and should not include stack traces, raw webhook secrets, bearer tokens, cookies, or API keys.
@@ -182,6 +200,12 @@ Operational expectations:
 
 - `GET /api/health` is public liveness only.
 - `GET /api/health/db` requires console auth or `BEHALFID_SETUP_TOKEN` and returns safe database status without stack traces.
+
+## Monitoring (Sentry)
+
+- Set `SENTRY_DSN` in Vercel Production to enable server/edge error reporting.
+- Secret redaction runs in Sentry `beforeSend`. See `docs/compliance/ops/MONITORING.md`.
+- Ops runbooks: `docs/compliance/ops/BACKUP_RESTORE.md`, `BCP_DR.md`, `INCIDENT_RESPONSE.md`.
 
 ## Validation Before Deploy
 

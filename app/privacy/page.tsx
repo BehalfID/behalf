@@ -143,9 +143,9 @@ export default function PrivacyPage() {
             <h3>Authentication cookie</h3>
             <p>
               A session cookie (<code>bhf_dev_session</code>) is set when you log in to the
-              developer dashboard. It is HTTP-only, scoped to this domain, and expires when
-              your session ends or after 30 days of inactivity. This cookie is strictly
-              necessary — the dashboard cannot function without it.
+              developer dashboard. It is HTTP-only, SameSite=Lax, scoped to this domain, and
+              uses a 1-hour inactivity window with a 14-day absolute lifetime. This cookie is
+              strictly necessary — the dashboard cannot function without it.
             </p>
 
             <h3>Preferences</h3>
@@ -200,8 +200,9 @@ export default function PrivacyPage() {
             <h2>6. Data retention</h2>
             <ul>
               <li>
-                <strong>Verification logs</strong> — retained for 90 days, then automatically
-                purged.
+                <strong>Verification logs</strong> — retained according to your plan
+                (Free 7 / Team 30 / Pro 90 / Business 180 / Enterprise up to 365 days), then
+                physically purged after a grace period.
               </li>
               <li>
                 <strong>Webhook delivery records</strong> — retained for 30 days.

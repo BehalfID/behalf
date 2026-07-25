@@ -59,7 +59,17 @@ const AccountSchema = new Schema(
     stripeTrialEnd: { type: Date, default: null },
     stripeCurrentPeriodEnd: { type: Date, default: null },
     verificationCount: { type: Number, default: 0, required: true },
-    verificationPeriodStart: { type: Date, default: Date.now, required: true }
+    verificationPeriodStart: { type: Date, default: Date.now, required: true },
+    /** Workspace Google SSO (domain allowlist + optional password login enforcement). */
+    sso: {
+      provider: { type: String, enum: ["google"], default: "google" },
+      enabled: { type: Boolean, default: false },
+      enforce: { type: Boolean, default: false },
+      allowedEmailDomains: {
+        type: [{ type: String, lowercase: true, trim: true, maxlength: 253 }],
+        default: []
+      }
+    }
   },
   { timestamps: true }
 );

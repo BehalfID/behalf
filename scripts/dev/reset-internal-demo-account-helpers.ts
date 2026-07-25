@@ -213,11 +213,19 @@ export function validateInternalDemoPassword(password: string) {
 
 export function generateInternalDemoPassword(length = MIN_INTERNAL_DEMO_PASSWORD_LENGTH + 2) {
   const targetLength = Math.max(length, MIN_INTERNAL_DEMO_PASSWORD_LENGTH);
-  const bytes = crypto.randomBytes(targetLength);
+  // Rejection sampling: 256 is not divisible by the charset size (74), so
+  // `byte % 74` would bias the first 34 characters. Discard bytes >= limit.
+  const limit = Math.floor(256 / PASSWORD_CHARSET.length) * PASSWORD_CHARSET.length;
   let password = "";
 
-  for (let index = 0; index < targetLength; index += 1) {
-    password += PASSWORD_CHARSET[bytes[index]! % PASSWORD_CHARSET.length];
+  while (password.length < targetLength) {
+    const batch = crypto.randomBytes(Math.max(32, targetLength * 2));
+    for (const byte of batch) {
+      if (byte < limit) {
+        password += PASSWORD_CHARSET[byte % PASSWORD_CHARSET.length];
+        if (password.length === targetLength) break;
+      }
+    }
   }
 
   const requiredSets = [

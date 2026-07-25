@@ -1,19 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
+import { FormAlert } from "@/components/auth/AuthShell";
+import { OnboardingIntro, OnboardingShell, StepActions } from "@/components/onboarding/OnboardingShell";
 import { useDashboardPaths } from "@/components/workspace/WorkspaceProvider";
 
 const STEP_LABELS = [
-  "Surface",
-  "Identity",
-  "Profile",
-  "Gates",
-  "Token",
-  "Integrate",
-  "Test",
-  "Logs"
+  { label: "Surface" },
+  { label: "Identity" },
+  { label: "Control profile" },
+  { label: "Approval gates" },
+  { label: "Credential" },
+  { label: "Integration" },
+  { label: "Test decision" },
+  { label: "Audit logs" }
 ] as const;
+
+const SetupNavigationContext = createContext<{
+  onBack?: () => void;
+  backDisabled?: boolean;
+  step: number;
+}>({ step: 1 });
 
 export function FirstAgentSetupShell({
   step,
@@ -27,35 +35,21 @@ export function FirstAgentSetupShell({
   backDisabled?: boolean;
 }) {
   const { href } = useDashboardPaths();
-  const progress = Math.round((step / STEP_LABELS.length) * 100);
 
   return (
-    <div className="setup-flow first-agent-setup">
-      <header className="setup-flow__bar">
-        <Link href={href("/dashboard")} className="site-logo" aria-label="BehalfID dashboard"> {/* pragma: allowlist secret */}
-          <strong>BehalfID</strong> {/* pragma: allowlist secret */}
-          <small>First agent setup</small>
-        </Link>
-        <div className="setup-flow__progress" aria-label={`Step ${step} of ${STEP_LABELS.length}`}>
-          <span className="setup-flow__step-label">
-            Step {step} · {STEP_LABELS[step - 1] ?? "Setup"}
-          </span>
-          <div className="setup-flow__track" aria-hidden="true">
-            <div className="setup-flow__fill" style={{ width: `${progress}%` }} />
-          </div>
-        </div>
-      </header>
-
-      <main className="setup-flow__main">{children}</main>
-
-      {onBack ? (
-        <div className="setup-actions setup-actions--floating">
-          <button type="button" className="ui-button ui-button--ghost" onClick={onBack} disabled={backDisabled}>
-            Back
-          </button>
-        </div>
-      ) : null}
-    </div>
+    <SetupNavigationContext.Provider value={{ onBack, backDisabled, step }}>
+      <OnboardingShell
+        currentStep={step}
+        embedded
+        exitHref={href("/dashboard")}
+        exitLabel="Exit setup"
+        homeHref={href("/dashboard")}
+        label="First agent setup"
+        steps={STEP_LABELS}
+      >
+        {children}
+      </OnboardingShell>
+    </SetupNavigationContext.Provider>
   );
 }
 
@@ -68,10 +62,14 @@ export function SetupStepIntro({
   helper?: string;
   children: ReactNode;
 }) {
+  const { step } = useContext(SetupNavigationContext);
   return (
     <>
-      <h1 className="setup-heading setup-flow__question">{title}</h1>
-      {helper ? <p className="setup-flow__helper">{helper}</p> : null}
+      <OnboardingIntro
+        eyebrow={`Agent setup · ${STEP_LABELS[step - 1]?.label ?? "Setup"}`}
+        title={title}
+        description={helper ?? "Complete this step to continue."}
+      />
       {children}
     </>
   );
@@ -107,11 +105,13 @@ export function SetupChoiceButton({
   return (
     <button
       type="button"
-      className={`setup-choice${active ? " setup-choice--active" : ""}${hint ? "" : ""}`}
+      className={`setup-choice${active ? " setup-choice--active" : ""}`}
       onClick={onClick}
       aria-pressed={active}
     >
-      <span className="setup-choice__mark setup-choice__mark--radio" aria-hidden="true" />
+      <span className="setup-choice__mark setup-choice__mark--radio" aria-hidden="true">
+        {active ? "✓" : ""}
+      </span>
       <span className="setup-choice__body">
         <strong>{title}</strong>
         <span>{body}</span>
@@ -135,7 +135,7 @@ export function SetupGateChoice({
   return (
     <label className={`setup-choice setup-choice--check${checked ? " setup-choice--active" : ""}`}>
       <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
-      <span className="setup-choice__mark" aria-hidden="true" />
+      <span className="setup-choice__mark" aria-hidden="true">{checked ? "✓" : ""}</span>
       <span className="setup-choice__body">
         <strong>{title}</strong>
         <span>{body}</span>
@@ -148,32 +148,37 @@ export function SetupContinueRow({
   onContinue,
   continueLabel = "Continue",
   disabled,
+  loading,
   error
 }: {
   onContinue: () => void;
   continueLabel?: string;
   disabled?: boolean;
+  loading?: boolean;
   error?: string;
 }) {
+  const { onBack, backDisabled } = useContext(SetupNavigationContext);
   return (
-    <div className="setup-actions">
-      <span aria-hidden="true" />
-      <div className="setup-actions__right">
-        {error ? <p className="form-error setup-error" role="alert">{error}</p> : null}
-        <button type="button" className="ui-button ui-button--primary" onClick={onContinue} disabled={disabled}>
-          {continueLabel}
-        </button>
-      </div>
-    </div>
+    <>
+      {error ? <FormAlert>{error}</FormAlert> : null}
+      <StepActions
+        backDisabled={backDisabled}
+        continueDisabled={disabled}
+        continueLabel={continueLabel}
+        loading={loading}
+        onBack={onBack}
+        onContinue={onContinue}
+      />
+    </>
   );
 }
 
 export function VerificationLockBanner({ emailVerified }: { emailVerified: boolean }) {
   if (emailVerified) return null;
   return (
-    <div className="setup-banner" role="status">
+    <FormAlert tone="notice">
       <strong>Email verification required.</strong> You can review this setup path, but agent creation and tokens stay locked until verification is complete.{" "}
       <Link href="/verify-email">Verify now</Link>
-    </div>
+    </FormAlert>
   );
 }

@@ -17,7 +17,7 @@ function requireHumanAuth(developerToken?: string) {
   const session = readSession();
   if (!session && !developerToken) {
     throw new Error(
-      "Permission grants require human authentication. Run `behalfid login` or pass --developer-token."
+      "Permission grants require human authentication. Run `behalf login` or pass --developer-token."
     );
   }
 }

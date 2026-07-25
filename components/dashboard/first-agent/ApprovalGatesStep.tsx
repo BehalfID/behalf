@@ -23,7 +23,7 @@ export function ApprovalGatesStep({
     <>
       <SetupStepIntro
         title="Select approval gates"
-        helper="Each gate creates a permission with human approval required before the action runs in production."
+        helper="A selected gate pauses the matching production action until an authorized person approves it. These constraints are applied when the agent is created."
       >
         <div className="setup-choices">
           {APPROVAL_GATES.map((gate) => (

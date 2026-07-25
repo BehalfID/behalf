@@ -25,7 +25,16 @@ const PermissionSchema = new Schema(
       expiresAt: { type: Date },
       allowedPaths: [{ type: String, trim: true, maxlength: 500 }],
       deniedPaths: [{ type: String, trim: true, maxlength: 500 }],
-      deniedCommands: [{ type: String, trim: true, maxlength: 500 }]
+      deniedCommands: [{ type: String, trim: true, maxlength: 500 }],
+      /** Stage 5 — match VerificationLog/verify metadata.branch (glob allowed). */
+      allowedBranches: [{ type: String, trim: true, maxlength: 200 }],
+      deniedBranches: [{ type: String, trim: true, maxlength: 200 }],
+      /** Stage 5 — match metadata.environment / env / stage. */
+      allowedEnvironments: [{ type: String, trim: true, maxlength: 80 }],
+      deniedEnvironments: [{ type: String, trim: true, maxlength: 80 }],
+      /** Stage 5 — match metadata.repository / repo. */
+      allowedRepositories: [{ type: String, trim: true, maxlength: 240 }],
+      deniedRepositories: [{ type: String, trim: true, maxlength: 240 }]
     },
     status: {
       type: String,

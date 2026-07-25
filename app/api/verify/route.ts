@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { agentAuthJsonError, jsonAppError } from "@/lib/appErrors";
 import { authenticateAgent } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/db";
 import { authenticateDeveloperToken } from "@/lib/developerToken";
@@ -83,15 +84,19 @@ export async function POST(request: NextRequest) {
 
   const auth = await authenticateAgent(request, agentId);
   if (auth.error || !auth.agent) {
-    return jsonError(auth.error, auth.error === "Unknown agent." ? 404 : 401);
+    return agentAuthJsonError(auth.error);
   }
 
   const { tokenDoc, error: tokenError } = await authenticateDeveloperToken(request);
   if (tokenError) {
-    return jsonError(tokenError, 401);
+    return jsonAppError(tokenError, 401, "INVALID_DEVELOPER_TOKEN");
   }
   if (tokenDoc && auth.agent.accountId !== tokenDoc.accountId) {
-    return jsonError("Agent does not belong to this developer account.", 403);
+    return jsonAppError(
+      "Agent does not belong to this developer account.",
+      403,
+      "AGENT_ACCOUNT_MISMATCH"
+    );
   }
 
   const limit = await checkRateLimit(request, auth.agent.apiKeyHash);
@@ -121,7 +126,7 @@ export async function POST(request: NextRequest) {
       shadow
     });
   } catch {
-    return jsonError("Verification failed closed.", 503);
+    return jsonAppError("Verification failed closed.", 503, "VERIFY_FAILED_CLOSED");
   }
 
   const webhookEventType = decision.shadow

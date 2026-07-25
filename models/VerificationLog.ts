@@ -26,6 +26,17 @@ VerificationLogSchema.index({ developerUserId: 1, agentId: 1, createdAt: -1 });
 // Supports today's log count in getDashboardSummary and general log listing
 // without an agentId filter (when no agentId is in the query).
 VerificationLogSchema.index({ developerUserId: 1, createdAt: -1 });
+// Dashboard /api/dashboard/logs scopes by accountId and sorts by createdAt desc
+// without requiring agentId. The accountId+agentId+createdAt compound cannot
+// efficiently serve that sort (agentId sits between the equality and range keys).
+VerificationLogSchema.index({ accountId: 1, createdAt: -1 });
+
+// Mongo $text indexes intentionally skipped for smart log search:
+// - Search uses case-insensitive substring regex across discrete fields
+//   (requestId, action, vendor, reason, agentId, permissionId), not $text.
+// - A text index would not accelerate that pattern and would force a query rewrite.
+// - Queries are filter-first (account + optional decision/risk/agent/range) and
+//   paginated; per-workspace list volume does not justify text-index write cost.
 
 export type VerificationLogDocument = InferSchemaType<typeof VerificationLogSchema> & {
   _id: mongoose.Types.ObjectId;

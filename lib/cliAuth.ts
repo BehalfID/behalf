@@ -1,8 +1,8 @@
 import type { NextRequest } from "next/server";
+import { jsonAppError } from "@/lib/appErrors";
 import { authenticateApiKey } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/db";
 import { DEVELOPER_SESSION_COOKIE_NAME, getDeveloperFromToken } from "@/lib/developerAuth";
-import { jsonError } from "@/lib/responses";
 
 export type CliAuthContext = {
   userId: string | null;
@@ -13,7 +13,7 @@ export type CliAuthContext = {
 
 export async function requireCliAuth(request: NextRequest): Promise<
   | { auth: CliAuthContext; error: null }
-  | { auth: null; error: ReturnType<typeof jsonError> }
+  | { auth: null; error: ReturnType<typeof jsonAppError> }
 > {
   await connectToDatabase();
 
@@ -61,7 +61,7 @@ export async function requireCliAuthStrict(request: NextRequest) {
   if (result.auth?.source === "anonymous") {
     return {
       auth: null,
-      error: jsonError("Developer authentication required.", 401),
+      error: jsonAppError("Developer authentication required.", 401, "AUTH_REQUIRED"),
     };
   }
   return result;
@@ -72,13 +72,13 @@ export async function requireDeveloperSessionForPause(request: NextRequest) {
   if (result.auth?.source === "anonymous") {
     return {
       auth: null,
-      error: jsonError("Developer authentication required.", 401),
+      error: jsonAppError("Developer authentication required.", 401, "AUTH_REQUIRED"),
     };
   }
   if (result.auth?.source === "agent" || !result.auth?.userId) {
     return {
       auth: null,
-      error: jsonError("Pause leases require a developer session.", 403),
+      error: jsonAppError("Pause leases require a developer session.", 403, "SESSION_REQUIRED"),
     };
   }
   return result;

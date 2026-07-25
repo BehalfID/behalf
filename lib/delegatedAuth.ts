@@ -1,4 +1,4 @@
-import { jsonError } from "@/lib/responses";
+import { jsonAppError, type AppErrorCode } from "@/lib/appErrors";
 import {
   AUTHORITY_LEVELS,
   getAuthorityLevelForRole,
@@ -30,8 +30,11 @@ export type WorkspaceActor = {
   authorityLevel: number;
 };
 
-export function authorityForbidden(message: string) {
-  return jsonError(message, 403);
+export function authorityForbidden(
+  message: string,
+  code: AppErrorCode = "AUTHORITY_FORBIDDEN"
+) {
+  return jsonAppError(message, 403, code);
 }
 
 export class MembershipBootstrapError extends Error {
@@ -283,7 +286,7 @@ export function roleDelegationForbidden(): ReturnType<typeof authorityForbidden>
 }
 
 export function viewerMutationForbidden(): ReturnType<typeof authorityForbidden> {
-  return authorityForbidden("Viewers cannot change workspace resources.");
+  return authorityForbidden("Viewers cannot change workspace resources.", "VIEWER_MUTATION_FORBIDDEN");
 }
 
 export function serializeWorkspaceAuthority(actor: WorkspaceActor) {

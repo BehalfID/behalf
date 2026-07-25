@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server";
+import { PRIVATE_NO_STORE } from "@/lib/cachePolicy";
 
+/**
+ * JSON error body: `{ error, ...details }`.
+ * Prefer `code` / `hint` via `appErrorDetails` or `quotaErrorDetails`
+ * so CLI clients can consume a stable `{ error, code?, hint? }` shape.
+ */
 export function jsonError(message: string, status = 400, details?: Record<string, unknown>) {
-  return NextResponse.json({ error: message, ...details }, { status });
+  const response = NextResponse.json({ error: message, ...details }, { status });
+  response.headers.set("Cache-Control", PRIVATE_NO_STORE);
+  return response;
 }
 
 /**
@@ -10,6 +18,6 @@ export function jsonError(message: string, status = 400, details?: Record<string
  */
 export function noCacheJson(data: unknown, init?: ResponseInit) {
   const response = NextResponse.json(data, init);
-  response.headers.set("Cache-Control", "no-store, private");
+  response.headers.set("Cache-Control", PRIVATE_NO_STORE);
   return response;
 }

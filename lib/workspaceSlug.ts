@@ -40,6 +40,7 @@ const RESERVED_WORKSPACE_SLUGS = new Set([
   "settings",
   "agents",
   "approvals",
+  "adaptive-delegation",
   "inbox",
   "logs",
   "_next",

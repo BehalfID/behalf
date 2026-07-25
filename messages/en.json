@@ -23,7 +23,8 @@
     "navigationMenu": "Navigation menu",
     "mode": "Mode",
     "theme": "Theme",
-    "language": "Language"
+    "language": "Language",
+    "getStarted": "Get started"
   },
   "footer": {
     "tagline": "Approval gates\nfor coding agents.",
@@ -181,7 +182,7 @@
     "s3": {
       "heading": "3. Cookies and local storage",
       "authH": "Authentication cookie",
-      "authBody": "A session cookie (<code>bhf_dev_session</code>) is set when you log in to the developer dashboard. It is HTTP-only, scoped to this domain, and expires when your session ends or after 30 days of inactivity. This cookie is strictly necessary — the dashboard cannot function without it.",
+      "authBody": "A session cookie (<code>bhf_dev_session</code>) is set when you log in to the developer dashboard. It is HTTP-only, SameSite=Lax, scoped to this domain, and uses a 1-hour inactivity window with a 14-day absolute lifetime. This cookie is strictly necessary — the dashboard cannot function without it.",
       "prefsH": "Preferences",
       "prefsBody": "Theme preference (light / dark) is stored in <code>localStorage</code> and never transmitted to our servers.",
       "consentH": "Cookie consent",
@@ -205,7 +206,7 @@
     "s6": {
       "heading": "6. Data retention",
       "item1Strong": "Verification logs",
-      "item1": " — retained for 90 days, then automatically purged.",
+      "item1": " — retained by plan (Free 7 / Team 30 / Pro 90 / Business 180 / Enterprise up to 365 days), then physically purged after a grace period.",
       "item2Strong": "Webhook delivery records",
       "item2": " — retained for 30 days.",
       "item3Strong": "Account data",
@@ -509,7 +510,7 @@
       "item3": "Decision (allowed / denied / approval-required)",
       "item4": "Risk level and denial reason",
       "item5": "Timestamp",
-      "body2": "Logs are scoped to your account and visible in the developer portal. Verification logs are retained for 90 days. You can delete individual log entries or all logs from the logs page."
+      "body2": "Logs are scoped to your account and visible in the developer portal. Verification logs are retained by plan and physically purged after a grace period. You can delete individual log entries or all logs from the logs page."
     },
     "s6": {
       "label": "06",
@@ -538,7 +539,7 @@
       "item1": "No provider-native integrations yet. Connected agents are represented manually inside BehalfID — BehalfID does not call Ollie, ChatGPT, Claude, or Zapier APIs on your behalf.",
       "item2": "Manual mode depends on user and agent cooperation. The external agent must read the passport and respect the listed constraints; BehalfID cannot enforce behavior inside third-party providers.",
       "item3": "Site Guard is a planned website-owner enforcement pattern, not a global crawler blocker. It only protects routes or workflows where the website installs middleware, a proxy, worker, or gateway that calls BehalfID and respects the decision.",
-      "item4": "No enterprise SSO or team roles yet. The admin console uses one shared password. The developer portal has individual accounts but no organizations.",
+      "item4": "Sign in with Google is available for developer accounts. Workspace Google SSO (company domain allowlist and optional password enforcement) is available on Pro and higher. The admin console still uses one shared password. SAML and non-Google IdPs are not supported yet.",
       "item5": "No formal external security audit yet. BehalfID is suitable for constrained deployments and demos, not open public multi-tenant use without further hardening.",
       "item6": "Not a replacement for app-level authorization. BehalfID is a pre-action verification layer. Your app still needs its own auth, input validation, and access control.",
       "item7": "Rate limiting falls back to process memory without Upstash Redis. In serverless environments, in-memory counters are not shared across instances."
@@ -563,7 +564,7 @@
       "controls": "Technical controls",
       "contact": "Contact"
     },
-    "statusInProgress": "Certification in progress",
+    "statusInProgress": "Not Type II certified — controls hardening underway",
     "statusNotCertified": "Not certified",
     "statusNotApplicable": "Not applicable",
     "statusImplemented": "Implemented",
@@ -571,10 +572,10 @@
     "soc2": {
       "heading": "SOC 2",
       "statusHeading": "Status",
-      "body1": "BehalfID has not yet completed a SOC 2 Type II audit. We are currently implementing the organizational and technical controls required to achieve SOC 2 Type II certification across the Security, Availability, and Confidentiality trust service criteria.",
+      "body1": "BehalfID has not completed a SOC 2 Type I or Type II audit with a licensed CPA firm. We are implementing and documenting the organizational and technical controls required for a future SOC 2 engagement across the Security, Availability, Processing Integrity, and Confidentiality trust service criteria.",
       "controlsHeading": "Controls in place today",
       "roadmapHeading": "Roadmap",
-      "roadmapBody": "We intend to engage a licensed CPA firm for a SOC 2 Type II audit once we have deployed the remaining organizational controls. Target: 2026."
+      "roadmapBody": "We intend to engage a licensed CPA firm for a SOC 2 Type II audit once remaining organizational controls and operating evidence are in place. Incident response, backup/restore, and BCP runbooks live under docs/compliance/ops/."
     },
     "iso": {
       "heading": "ISO 27001",
@@ -615,13 +616,13 @@
       "item1": "All data in transit encrypted with TLS 1.2+",
       "item2": "API keys stored only as SHA-256 hashes — never in plaintext",
       "item3": "Developer passwords hashed with scrypt",
-      "item4": "Session cookies are HTTP-only, SameSite-strict, and expire after 30 days of inactivity",
+      "item4": "Session cookies are HTTP-only, SameSite=Lax, with a 1-hour inactivity window and 14-day absolute lifetime",
       "item5": "Webhook payloads signed with HMAC-SHA256; signatures verified before processing",
-      "item6": "Verification logs retained for 90 days, webhook delivery records for 30 days",
+      "item6": "Verification logs retained by plan (Free 7 / Team 30 / Pro 90 / Business 180 / Enterprise up to 365 days) and physically purged after a grace period",
       "item7": "Rate limiting on all public endpoints to prevent abuse",
       "item8": "Audit trail of every permission decision (agent ID, action, outcome, timestamp)",
-      "item9": "IP addresses used only for rate limiting; not persisted or linked to accounts",
-      "item10": "No third-party analytics, advertising trackers, or cross-site tracking scripts"
+      "item9": "IP addresses used for rate limiting and security event logging; not sold or used for advertising",
+      "item10": "No third-party advertising trackers or cross-site tracking scripts"
     },
     "contact": {
       "heading": "Contact",
@@ -724,6 +725,8 @@
     "dobRequired": "Date of birth is required.",
     "ageError": "You must be at least 13 years old to create an account.",
     "authFailed": "Authentication failed.",
+    "continueWithGoogle": "Continue with Google",
+    "orDivider": "or",
     "agreePrefix": "By creating an account you agree to the ",
     "terms": "Terms of Service",
     "and": " and ",
@@ -753,6 +756,12 @@
     "openNav": "Open navigation",
     "closeNav": "Close navigation",
     "docsNav": "Documentation",
+    "website": "Website",
+    "utilities": "Documentation utilities",
+    "navGroupStart": "Start",
+    "navGroupBuild": "Build",
+    "navGroupUnderstand": "Understand",
+    "pagerLabel": "Documentation pagination",
     "simpleModeOn": "Simple mode on",
     "simpleModeBody": "— some technical details are condensed. Switch to ",
     "simpleModeSwitch": "Dev",
@@ -767,6 +776,7 @@
     "webhooks": "Webhooks",
     "siteGuard": "Site Guard",
     "concepts": "Concepts",
+    "troubleshooting": "Troubleshooting",
     "security": "Security",
     "index": {
       "meta": {

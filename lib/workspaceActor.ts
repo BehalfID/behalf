@@ -1,5 +1,5 @@
+import { jsonAppError } from "@/lib/appErrors";
 import { canManageAgents, getWorkspaceActor, viewerMutationForbidden } from "@/lib/delegatedAuth";
-import { jsonError } from "@/lib/responses";
 import type { DeveloperUserDocument } from "@/models/DeveloperUser";
 
 export async function requireWorkspaceMutationActor(
@@ -9,7 +9,10 @@ export async function requireWorkspaceMutationActor(
   const accountId = activeAccountId ?? user.primaryAccountId;
   const actor = await getWorkspaceActor(user.userId, accountId);
   if (!actor) {
-    return { actor: null, error: jsonError("Workspace account required.", 403) };
+    return {
+      actor: null,
+      error: jsonAppError("Workspace account required.", 403, "WORKSPACE_ACCOUNT_REQUIRED")
+    };
   }
   if (!canManageAgents(actor)) {
     return { actor: null, error: viewerMutationForbidden() };

@@ -3,7 +3,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PublicNav } from "@/components/layout/PublicNav";
 import { PublicFooter } from "@/components/layout/PublicFooter";
-import { ButtonLink, SplitCTAButton } from "@/components/ui";
+import { PublicAuthSplitCTA } from "@/components/layout/PublicAuthSplitCTA";
+import { ButtonLink } from "@/components/ui";
 import { getPost, posts } from "../posts";
 
 export function generateStaticParams() {
@@ -71,7 +72,7 @@ export default async function BlogPostPage({
             ← All posts
           </Link>
           <div className="hero__actions">
-            <SplitCTAButton leftLabel="Build" leftHref="/signup" rightLabel="Log In" rightHref="/login" />
+            <PublicAuthSplitCTA leftLabel="Build" leftHref="/signup" />
             <ButtonLink href="/docs">Read the docs</ButtonLink>
           </div>
         </div>

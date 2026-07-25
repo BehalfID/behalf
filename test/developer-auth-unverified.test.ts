@@ -3,6 +3,8 @@ import { hashSessionToken } from "@/lib/developerAuth";
 
 const mocks = vi.hoisted(() => ({
   sessionFindOne: vi.fn(),
+  sessionUpdateOne: vi.fn(),
+  sessionDeleteOne: vi.fn(),
   userFindOne: vi.fn(),
   accountFindOne: vi.fn(),
   membershipFind: vi.fn()
@@ -14,7 +16,11 @@ vi.mock("@/lib/rateLimit", () => ({
   rateLimitError: () => Response.json({ error: "Rate limit exceeded." }, { status: 429 })
 }));
 vi.mock("@/models/DeveloperSession", () => ({
-  default: { findOne: mocks.sessionFindOne }
+  default: {
+    findOne: mocks.sessionFindOne,
+    updateOne: mocks.sessionUpdateOne,
+    deleteOne: mocks.sessionDeleteOne
+  }
 }));
 vi.mock("@/models/DeveloperUser", () => ({
   default: { findOne: mocks.userFindOne }
@@ -49,12 +55,16 @@ function authRequest(path: string, method = "GET") {
 describe("requireDeveloperApi unverified hardening", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.sessionUpdateOne.mockResolvedValue(undefined);
+    mocks.sessionDeleteOne.mockResolvedValue(undefined);
     mocks.sessionFindOne.mockReturnValue({
       lean: vi.fn().mockResolvedValue({
         sessionId: "sess_test",
         userId: "dev_test",
         tokenHash: hashSessionToken(SESSION_TOKEN),
-        expiresAt: new Date(Date.now() + 60_000)
+        expiresAt: new Date(Date.now() + 60_000),
+        lastActivityAt: new Date(),
+        createdAt: new Date()
       })
     });
     mocks.membershipFind.mockReturnValue({
@@ -77,17 +87,25 @@ describe("requireDeveloperApi unverified hardening", () => {
     });
   });
 
-  it("allows unverified GET dashboard reads", async () => {
+  it("blocks unverified dashboard reads", async () => {
     const { requireDeveloperApi } = await import("@/lib/developerAuth");
     const result = await requireDeveloperApi(authRequest("/api/dashboard/summary", "GET"));
+    expect(result.error).not.toBeNull();
+    expect(result.user).toBeNull();
+  });
+
+  it("allows unverified verification-status reads", async () => {
+    const { requireDeveloperApi } = await import("@/lib/developerAuth");
+    const result = await requireDeveloperApi(authRequest("/api/auth/verification-status", "GET"));
     expect(result.error).toBeNull();
     expect(result.user?.email).toBe("dev@example.com");
   });
 
-  it("allows unverified account setup mutations", async () => {
+  it("blocks unverified account setup mutations", async () => {
     const { requireDeveloperApi } = await import("@/lib/developerAuth");
     const result = await requireDeveloperApi(authRequest("/api/onboarding/account-setup", "PATCH"));
-    expect(result.error).toBeNull();
+    expect(result.error).not.toBeNull();
+    expect(result.user).toBeNull();
   });
 
   it("blocks unverified dashboard mutations", async () => {

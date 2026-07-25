@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { jsonAppError } from "@/lib/appErrors";
 import { hashApiKey } from "@/lib/auth";
 import {
   isPublicAgentCreationEnabled,
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
 
   const { tokenDoc, error: tokenError } = await authenticateDeveloperToken(request);
   if (tokenError) {
-    return jsonError(tokenError, 401);
+    return jsonAppError(tokenError, 401, "INVALID_DEVELOPER_TOKEN");
   }
 
   if (!tokenDoc) {

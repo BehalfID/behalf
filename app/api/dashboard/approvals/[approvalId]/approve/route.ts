@@ -1,19 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import {
-  approvalForbidden,
-  canApproveRequest,
   getWorkspaceActor,
   viewerMutationForbidden
 } from "@/lib/delegatedAuth";
-import {
-  isBindableAgentAction,
-  isValidBoundApprovalFields,
-  LEGACY_UNBOUND_APPROVAL_MESSAGE
-} from "@/lib/approvalIntent";
-import { accountScopeFilter } from "@/lib/accountAccess";
+import { resolveApprovalDecision } from "@/lib/approvals/resolveApproval";
 import { jsonError } from "@/lib/responses";
-import ApprovalRequest, { APPROVAL_GRANT_TTL_MS } from "@/models/ApprovalRequest";
 
 type RouteContext = {
   params: Promise<{ approvalId: string }>;
@@ -29,45 +21,18 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (!actor) return jsonError("Workspace account required.", 403);
   if (actor.authorityLevel <= 10) return viewerMutationForbidden();
 
-  const approval = await ApprovalRequest.findOne({
+  const result = await resolveApprovalDecision({
+    actor,
     approvalId,
-    ...accountScopeFilter(actor.accountId),
-    status: "pending"
-  }).lean();
-  if (!approval) {
-    return jsonError("Approval request not found or already resolved.", 404);
-  }
-  if (!canApproveRequest(actor, approval)) {
-    return approvalForbidden();
+    decision: "approve"
+  });
+
+  if (!result.ok) {
+    return jsonError(result.error, result.status);
   }
 
-  // Legacy unbound command/file approvals cannot be approved after intent binding.
-  if (
-    approval.kind !== "managed_profile_pause" &&
-    isBindableAgentAction(approval.action) &&
-    !isValidBoundApprovalFields(approval)
-  ) {
-    return jsonError(LEGACY_UNBOUND_APPROVAL_MESSAGE, 409);
-  }
-
-  const now = new Date();
-  const grantExpiresAt = new Date(now.getTime() + APPROVAL_GRANT_TTL_MS);
-
-  const result = await ApprovalRequest.updateOne(
-    { approvalId, ...accountScopeFilter(actor.accountId), status: "pending" },
-    {
-      $set: {
-        status: "approved",
-        resolvedBy: auth.user.userId,
-        resolvedAt: now,
-        grantExpiresAt
-      }
-    }
-  );
-
-  if (result.matchedCount !== 1) {
-    return jsonError("Approval request not found or already resolved.", 404);
-  }
-
-  return NextResponse.json({ approved: true, grantExpiresAt: grantExpiresAt.toISOString() });
+  return NextResponse.json({
+    approved: true,
+    grantExpiresAt: result.grantExpiresAt
+  });
 }

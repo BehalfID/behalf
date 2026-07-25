@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import { apiRequest, resolveBaseUrl } from "../lib/client.js";
 import { isJsonMode, printJson, printKv, printSuccess, printTable, runAction } from "../lib/output.js";
+import { requireSession } from "../lib/auth.js";
 import { patchConfig, readSession } from "../lib/config.js";
 
 type Agent = {
@@ -13,12 +14,6 @@ type Agent = {
   lastUsedAt?: string;
   createdAt: string;
 };
-
-function requireSession() {
-  if (!readSession()) {
-    throw new Error("This command requires you to be logged in. Run `behalf login`.");
-  }
-}
 
 export function agentsCommand() {
   const cmd = new Command("agents").description("manage agents");

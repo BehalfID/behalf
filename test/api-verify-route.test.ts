@@ -89,8 +89,44 @@ describe("POST /api/verify route", () => {
 
     expect(missing.status).toBe(401);
     expect(invalid.status).toBe(401);
+    await expect(missing.json()).resolves.toMatchObject({
+      error: "Missing or invalid API key.",
+      code: "AGENT_AUTH_REQUIRED"
+    });
     expect(routeMocks.verifyAction).not.toHaveBeenCalled();
     expect(routeMocks.emitWebhookEvent).not.toHaveBeenCalled();
+  });
+
+  it("returns AGENT_NOT_FOUND with 404 for unknown agents", async () => {
+    routeMocks.authenticateAgent.mockResolvedValue({
+      agent: null,
+      error: "Unknown agent."
+    });
+    const { POST } = await import("@/app/api/verify/route");
+
+    const response = await POST(verifyRequest({ agentId: "agent_missing", action: "purchase" }));
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Unknown agent.",
+      code: "AGENT_NOT_FOUND"
+    });
+    expect(routeMocks.verifyAction).not.toHaveBeenCalled();
+  });
+
+  it("returns INVALID_DEVELOPER_TOKEN when developer token auth fails", async () => {
+    routeMocks.authenticateDeveloperToken.mockResolvedValue({
+      tokenDoc: null,
+      error: "Invalid developer token."
+    });
+    const { POST } = await import("@/app/api/verify/route");
+
+    const response = await POST(verifyRequest({ agentId: "agent_test", action: "purchase" }));
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Invalid developer token.",
+      code: "INVALID_DEVELOPER_TOKEN"
+    });
+    expect(routeMocks.verifyAction).not.toHaveBeenCalled();
   });
 
   it("returns a denied decision, queues a denied webhook, and omits raw secrets", async () => {

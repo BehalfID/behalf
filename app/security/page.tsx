@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { PublicNav } from "@/components/layout/PublicNav";
 import { PublicFooter } from "@/components/layout/PublicFooter";
-import { ButtonLink, CodeBlock, SplitCTAButton } from "@/components/ui";
+import { PublicAuthSplitCTA } from "@/components/layout/PublicAuthSplitCTA";
+import { ButtonLink, CodeBlock } from "@/components/ui";
 
 export const metadata = {
   title: "Security and trust — BehalfID",
@@ -13,7 +14,7 @@ const limitations = [
   "No provider-native integrations yet. Connected agents are represented manually inside BehalfID — BehalfID does not call Ollie, ChatGPT, Claude, or Zapier APIs on your behalf.",
   "Manual mode depends on user and agent cooperation. The external agent must read the passport and respect the listed constraints; BehalfID cannot enforce behavior inside third-party providers.",
   "Site Guard is a planned website-owner enforcement pattern, not a global crawler blocker. It only protects routes or workflows where the website installs middleware, a proxy, worker, or gateway that calls BehalfID and respects the decision.",
-  "No enterprise SSO or team roles yet. The admin console uses one shared password. The developer portal has individual accounts but no organizations.",
+  "Sign in with Google is available for developer accounts. Workspace Google SSO (company domain allowlist and optional password enforcement) is available on Pro and higher. The admin console still uses one shared password. SAML and non-Google IdPs are not supported yet.",
   "No formal external security audit yet. BehalfID is suitable for constrained deployments and demos, not open public multi-tenant use without further hardening.",
   "Not a replacement for app-level authorization. BehalfID is a pre-action verification layer. Your app still needs its own auth, input validation, and access control.",
   "Rate limiting falls back to process memory without Upstash Redis. In serverless environments, in-memory counters are not shared across instances."
@@ -34,7 +35,7 @@ export default function SecurityPage() {
       <div className="security-page">
         <header className="security-hero">
           <p className="section-kicker">Security and trust</p>
-          <h1>Security and trust</h1>
+          <h1>Enforcement model,<br />trust posture, limitations.</h1>
           <p className="security-lede">
             BehalfID is designed to verify agent actions before they happen, keep secrets out of
             public views, and make denied actions fail closed when integrated.
@@ -355,7 +356,7 @@ if (!result.allowed) {
               issue in the project repository.
             </p>
             <div className="hero__actions">
-              <SplitCTAButton leftLabel="Build" leftHref="/signup" rightLabel="Log In" rightHref="/login" />
+              <PublicAuthSplitCTA leftLabel="Build" leftHref="/signup" />
               <ButtonLink href="/docs">Docs</ButtonLink>
             </div>
           </div>

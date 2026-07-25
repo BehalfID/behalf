@@ -29,7 +29,7 @@ export function ControlProfileStep({
     <>
       <SetupStepIntro
         title="Choose a control profile"
-        helper={`Recommended for ${surface.replace(/_/g, " ")}: ${CONTROL_PROFILE_LABELS[recommended]}. Profiles shape baseline permissions and how strictly gates require approval.`}
+        helper={`A control profile sets the starting permission posture; approval gates are reviewed next. Recommended for ${surface.replace(/_/g, " ")}: ${CONTROL_PROFILE_LABELS[recommended]}.`}
       >
         <SetupChoiceGrid columns={2}>
           {CONTROL_PROFILES.map((profile) => (

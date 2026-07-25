@@ -1,7 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { haptic } from "@/lib/haptic";
+import {
+  parseThemePreference,
+  resolveTheme,
+  THEME_CHANGE_EVENT,
+  THEME_STORAGE_KEY,
+  type Theme,
+  type ThemePreference
+} from "@/lib/theme";
+
+const PREFERENCE_OPTIONS: { value: ThemePreference; label: string }[] = [
+  { value: "system", label: "System" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" }
+];
 
 function SunIcon() {
   return (
@@ -33,30 +47,160 @@ function MoonIcon() {
   );
 }
 
-export function ThemeToggle() {
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
-  const [mounted, setMounted] = useState(false);
+type ThemeToggleProps = {
+  allowSystem?: boolean;
+};
 
-  useEffect(() => {
-    const stored = localStorage.getItem("theme") as "dark" | "light" | null;
-    const resolved =
-      stored ?? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-    document.documentElement.setAttribute("data-theme", resolved);
-    queueMicrotask(() => {
-      setTheme(resolved);
-      setMounted(true);
-    });
-  }, []);
+function readPreference(): ThemePreference {
+  try {
+    return parseThemePreference(localStorage.getItem(THEME_STORAGE_KEY));
+  } catch {
+    return "system";
+  }
+}
 
-  function toggle() {
-    haptic("light");
-    const next = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    localStorage.setItem("theme", next);
-    document.documentElement.setAttribute("data-theme", next);
+function applyPreference(preference: ThemePreference, systemPrefersDark: boolean) {
+  try {
+    if (preference === "system") {
+      localStorage.removeItem(THEME_STORAGE_KEY);
+    } else {
+      localStorage.setItem(THEME_STORAGE_KEY, preference);
+    }
+  } catch {
+    // Storage can be unavailable in hardened browser contexts.
   }
 
-  if (!mounted) return <span className="theme-toggle-placeholder" />;
+  const resolved = resolveTheme(preference, systemPrefersDark);
+  document.documentElement.setAttribute("data-theme", resolved);
+  window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
+  return resolved;
+}
+
+function preferenceLabel(preference: ThemePreference) {
+  return PREFERENCE_OPTIONS.find((option) => option.value === preference)?.label ?? "System";
+}
+
+export function ThemeToggle({ allowSystem = false }: ThemeToggleProps) {
+  const [preference, setPreference] = useState<ThemePreference>("system");
+  const [theme, setTheme] = useState<Theme>("dark");
+  const [mounted, setMounted] = useState(false);
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const close = useCallback(() => setOpen(false), []);
+
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    let active = true;
+
+    function sync() {
+      const nextPreference = readPreference();
+      const resolved = resolveTheme(nextPreference, media.matches);
+      document.documentElement.setAttribute("data-theme", resolved);
+      queueMicrotask(() => {
+        if (!active) return;
+        setPreference(nextPreference);
+        setTheme(resolved);
+        setMounted(true);
+      });
+    }
+
+    function syncSystemPreference() {
+      if (readPreference() === "system") sync();
+    }
+
+    function syncStoredPreference(event: StorageEvent) {
+      if (event.key === THEME_STORAGE_KEY || event.key === null) sync();
+    }
+
+    sync();
+    media.addEventListener("change", syncSystemPreference);
+    window.addEventListener("storage", syncStoredPreference);
+    window.addEventListener(THEME_CHANGE_EVENT, sync);
+
+    return () => {
+      active = false;
+      media.removeEventListener("change", syncSystemPreference);
+      window.removeEventListener("storage", syncStoredPreference);
+      window.removeEventListener(THEME_CHANGE_EVENT, sync);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function handleKey(event: KeyboardEvent) {
+      if (event.key === "Escape") close();
+    }
+
+    function handleClick(event: MouseEvent) {
+      if (!containerRef.current?.contains(event.target as Node)) close();
+    }
+
+    document.addEventListener("keydown", handleKey);
+    document.addEventListener("mousedown", handleClick);
+    return () => {
+      document.removeEventListener("keydown", handleKey);
+      document.removeEventListener("mousedown", handleClick);
+    };
+  }, [open, close]);
+
+  function choose(nextPreference: ThemePreference) {
+    haptic("light");
+    const nextTheme = applyPreference(
+      nextPreference,
+      window.matchMedia("(prefers-color-scheme: dark)").matches
+    );
+    setPreference(nextPreference);
+    setTheme(nextTheme);
+    close();
+  }
+
+  if (!mounted) {
+    return <span className={allowSystem ? "theme-switcher-placeholder" : "theme-toggle-placeholder"} />;
+  }
+
+  if (allowSystem) {
+    return (
+      <div className="theme-switcher" ref={containerRef}>
+        <button
+          aria-expanded={open}
+          aria-haspopup="listbox"
+          aria-label="Theme preference"
+          className="theme-switcher__toggle"
+          onClick={() => setOpen((value) => !value)}
+          title={`Theme: ${preferenceLabel(preference)}`}
+          type="button"
+        >
+          <span className="theme-switcher__icon">{theme === "dark" ? <MoonIcon /> : <SunIcon />}</span>
+          <span className="theme-switcher__label">{preferenceLabel(preference)}</span>
+        </button>
+
+        {open ? (
+          <div aria-label="Theme preference" className="theme-switcher__dropdown" role="listbox">
+            {PREFERENCE_OPTIONS.map((option) => (
+              <button
+                aria-selected={option.value === preference}
+                className={`theme-switcher__option${
+                  option.value === preference ? " theme-switcher__option--active" : ""
+                }`}
+                key={option.value}
+                onClick={() => choose(option.value)}
+                role="option"
+                type="button"
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  function toggle() {
+    choose(theme === "dark" ? "light" : "dark");
+  }
 
   return (
     <button

@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
         permissionIds
       });
       return jsonError("First agent setup failed while applying permissions.", 500, {
-        code: "setup_failed"
+        code: "SETUP_FAILED"
       });
     }
 

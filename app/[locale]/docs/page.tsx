@@ -39,6 +39,7 @@ export default async function DocsPage({
     { href: "/docs/api" as const,               title: t("api"),            body: "Use public REST endpoints for agents, permissions, verification, logs, and key rotation." },
     { href: "/docs/webhooks" as const,          title: t("webhooks"),       body: "Receive signed events for allowed, denied, and approval-required decisions via an outbox-backed delivery system." },
     { href: "/docs/concepts" as const,          title: t("concepts"),       body: "Understand permission passports, fail-closed enforcement, approval-required flows, audit logs, and MCP enforcement." },
+    { href: "/docs/troubleshooting" as const,   title: t("troubleshooting"), body: "Diagnose verify denials, CLI doctor, auth errors, webhook delivery failures, and installer codes with actionable fixes." },
     { href: "/security" as const,               title: t("security"),       body: "How BehalfID handles secrets, tokens, fail-closed enforcement, audit logs, and current limitations." },
     { href: "/docs/site-guard" as const,        title: t("siteGuard"),      body: "Design website middleware, workers, or gateways that enforce AI access rules before protected routes run." },
     { href: "/docs/action-gateway" as const,    title: t("actionGateway"),  body: "Route safe public web reads through BehalfID so denied actions fail before execution." },

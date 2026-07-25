@@ -1,10 +1,21 @@
 import mongoose, { Schema, type InferSchemaType, type Model } from "mongoose";
 
+export const AUTH_PROVIDERS = ["password", "google"] as const;
+export type AuthProvider = (typeof AUTH_PROVIDERS)[number];
+
 const DeveloperUserSchema = new Schema(
   {
     userId: { type: String, required: true, unique: true, index: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
-    passwordHash: { type: String, required: true, select: false },
+    /** Optional for Google-only accounts; required for password auth. */
+    passwordHash: { type: String, required: false, select: false },
+    /** Google OIDC `sub` claim. Unique when set. */
+    googleSub: { type: String, unique: true, sparse: true, index: true, select: false },
+    /** How this user can authenticate. Defaults inferred from passwordHash for legacy rows. */
+    authProviders: {
+      type: [{ type: String, enum: AUTH_PROVIDERS }],
+      default: undefined
+    },
     onboardingUseCase: {
       type: String,
       enum: ["personal", "website", "sdk"],
@@ -29,7 +40,14 @@ const DeveloperUserSchema = new Schema(
     emailVerificationCodeHash: { type: String, select: false },
     /** SHA-256 hash of the pending password reset token. Never returned in API responses. */
     passwordResetTokenHash: { type: String, select: false },
-    passwordResetTokenExpiresAt: { type: Date, select: false }
+    passwordResetTokenExpiresAt: { type: Date, select: false },
+    /** AES-GCM encrypted TOTP secret. Never returned in API responses. */
+    mfaTotpSecretEnc: { type: String, select: false },
+    /** Pending enroll secret before confirm. Never returned. */
+    mfaTotpPendingSecretEnc: { type: String, select: false },
+    mfaEnabledAt: { type: Date, default: null, select: true },
+    /** Hashed one-time backup codes. Never returned. */
+    mfaBackupCodeHashes: { type: [String], select: false, default: undefined }
   },
   { timestamps: true }
 );

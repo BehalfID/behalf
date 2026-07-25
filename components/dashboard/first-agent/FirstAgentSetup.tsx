@@ -72,6 +72,9 @@ export function FirstAgentSetup({
   const [runningTest, setRunningTest] = useState(false);
   const [error, setError] = useState("");
 
+  /* These effects hydrate recommendations from route/account context without
+     changing the creation payload or server-side validation. */
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!surface) return;
     setControlProfile(recommendControlProfile(surface));
@@ -91,6 +94,7 @@ export function FirstAgentSetup({
   useEffect(() => {
     if (initialSurface && !surface) setSurface(initialSurface);
   }, [initialSurface, surface]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const toggleGate = useCallback((gate: ApprovalGate, enabled: boolean) => {
     setApprovalGates((current) => {
@@ -257,12 +261,16 @@ export function FirstAgentSetup({
 
       {step === 5 ? (
         <AgentTokenStep
+          approvalGates={approvalGates}
           apiKey={apiKey}
           agentName={name}
+          controlProfile={controlProfile}
           creating={creating}
+          environment={environment}
           onCreate={() => void createAgent()}
           emailVerified={emailVerified}
           error={error}
+          surface={surface as AgentSurface}
         />
       ) : null}
 

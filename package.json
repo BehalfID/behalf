@@ -1,4 +1,9 @@
 {
+  "name": "behalf",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -6,16 +11,20 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:unit": "vitest run",
+    "test:packages": "npm run test -w @behalfid/egress-proxy -w @behalfid/install -w @behalfid/github-action --if-present",
     "test:e2e": "node test/e2e/layout.test.js",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "build:sdk": "npm --prefix packages/sdk run build",
+    "build:sdk": "npm run build -w @behalfid/sdk",
+    "build:mcp-audit": "npm run build -w @behalfid/mcp-audit",
+    "build:mcp-runtime": "npm run build -w @behalfid/mcp-runtime",
     "cleanup:demo": "tsx scripts/cleanup-demo-data.ts",
     "seed:status": "tsx scripts/seed-status.ts",
     "check:ollama": "node scripts/check-ollama-config.js",
     "ollama:proxy": "node scripts/ollama-secure-proxy.js",
-    "build:cli": "npm --prefix packages/cli run build",
+    "build:cli": "npm run build -w @behalfid/cli",
+    "build:egress-proxy": "npm run build -w @behalfid/egress-proxy",
     "test:sdk:pack": "bash scripts/test-sdk-pack.sh",
     "test:live": "RUN_LIVE_TESTS=true vitest run --config vitest.live.config.ts",
     "seed:live-test": "tsx scripts/seed-live-test-permission.ts",
@@ -26,16 +35,24 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "test:postgres-smoke": "RUN_POSTGRES_MIGRATION_SMOKE=true vitest run test/postgres-migration-smoke.test.ts",
-    "test:postgres-repositories": "RUN_POSTGRES_REPOSITORY_CONTRACTS=true vitest run test/postgres-repository-contracts.test.ts"
+    "test:postgres-smoke": "tsx scripts/postgres-smoke.ts",
+    "test:postgres-repositories": "RUN_POSTGRES_REPOSITORY_CONTRACTS=true vitest run test/postgres-repository-contracts.test.ts",
+    "migration:export": "tsx scripts/migration/export-mongo.ts",
+    "migration:preflight": "tsx scripts/migration/preflight-mongo.ts",
+    "migration:import": "tsx scripts/migration/import-postgres.ts",
+    "migration:verify": "tsx scripts/migration/verify-import.ts",
+    "migration:reverse-sync": "tsx scripts/migration/reverse-sync.ts"
   },
   "dependencies": {
+    "@sentry/nextjs": "^10.68.0",
     "@vercel/analytics": "^2.0.1",
     "drizzle-orm": "^0.45.2",
+    "jose": "^6.2.3",
     "mongoose": "^9.6.1",
     "next": "^16.2.6",
     "next-intl": "^4.13.0",
     "nodemailer": "^9.0.1",
+    "otpauth": "^9.4.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "stripe": "^22.1.1"
@@ -64,6 +81,9 @@
     "vitest": "^4.1.6"
   },
   "overrides": {
+    "@esbuild-kit/core-utils": {
+      "esbuild": "^0.25.0"
+    },
     "postcss": "^8.5.13"
   }
 }

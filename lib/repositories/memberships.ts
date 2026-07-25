@@ -1,94 +1,34 @@
-import { BILLABLE_WORKSPACE_ROLES, type WorkspaceRole } from "@/lib/authority";
-import AccountInvite from "@/models/AccountInvite";
-import AccountMembership, { type AccountMembershipDocument } from "@/models/AccountMembership";
+/** Public repository facade — dispatches via BEHALFID_REPOSITORY_BACKEND. */
+import * as mongo from "@/lib/repositories/mongo/memberships";
+import { delegate } from "@/lib/repositories/delegate";
 
-type MembershipLean = {
-  membershipId: string;
-  accountId: string;
-  userId: string;
-  role: string;
-  createdAt?: Date;
-};
+export type {
+  MembershipLean,
+  PendingInviteLean,
+} from "@/lib/repositories/mongo/memberships";
 
-type PendingInviteLean = {
-  inviteId: string;
-  email: string;
-  role: string;
-  invitedBy: string;
-  createdAt?: Date;
-};
+export {
+  membershipModel,
+  inviteModel,
+} from "@/lib/repositories/mongo/memberships";
 
-export async function countBillableSeatsByAccountId(accountId: string) {
-  return AccountMembership.countDocuments({
-    accountId,
-    role: { $in: [...BILLABLE_WORKSPACE_ROLES] }
-  });
-}
-
-export async function findMembershipByAccountAndUser(
-  accountId: string,
-  userId: string
-): Promise<MembershipLean | null> {
-  return AccountMembership.findOne({ accountId, userId }).lean();
-}
-
-export async function findMembershipsByAccountId(accountId: string): Promise<MembershipLean[]> {
-  return AccountMembership.find({ accountId }).sort({ createdAt: 1 }).lean();
-}
-
-export async function createMembership(input: {
-  membershipId: string;
-  accountId: string;
-  userId: string;
-  role: WorkspaceRole;
-}): Promise<AccountMembershipDocument> {
-  return AccountMembership.create(input);
-}
-
-export async function updateMembershipRole(
-  membershipId: string,
-  accountId: string,
-  role: string
-) {
-  return AccountMembership.updateOne({ membershipId, accountId }, { $set: { role } });
-}
-
-export async function deleteMembership(membershipId: string, accountId: string) {
-  return AccountMembership.deleteOne({ membershipId, accountId });
-}
-
-export async function findPendingInvitesByAccountId(accountId: string): Promise<PendingInviteLean[]> {
-  return AccountInvite.find({ accountId, status: "pending" }).sort({ createdAt: -1 }).lean();
-}
-
-export async function upsertPendingInvite(
-  accountId: string,
-  email: string,
-  update: {
-    role: string;
-    invitedBy: string;
-    inviteTokenHash: string;
-    inviteTokenExpiresAt: Date;
-    inviteId: string;
-  }
-): Promise<PendingInviteLean> {
-  const doc = await AccountInvite.findOneAndUpdate(
-    { accountId, email, status: "pending" },
-    {
-      $set: {
-        role: update.role,
-        invitedBy: update.invitedBy,
-        inviteTokenHash: update.inviteTokenHash,
-        inviteTokenExpiresAt: update.inviteTokenExpiresAt
-      },
-      $setOnInsert: {
-        inviteId: update.inviteId,
-        accountId,
-        email,
-        status: "pending"
-      }
-    },
-    { upsert: true, returnDocument: "after" }
-  ).lean();
-  return doc as PendingInviteLean;
-}
+export const countBillableSeatsByAccountId = delegate("memberships", "countBillableSeatsByAccountId", mongo.countBillableSeatsByAccountId);
+export const findMembershipByAccountAndUser = delegate("memberships", "findMembershipByAccountAndUser", mongo.findMembershipByAccountAndUser);
+export const findMembershipsByAccountId = delegate("memberships", "findMembershipsByAccountId", mongo.findMembershipsByAccountId);
+export const createMembership = delegate("memberships", "createMembership", mongo.createMembership);
+export const updateMembershipRole = delegate("memberships", "updateMembershipRole", mongo.updateMembershipRole);
+export const deleteMembership = delegate("memberships", "deleteMembership", mongo.deleteMembership);
+export const findMembershipByUserAndAccount = delegate("memberships", "findMembershipByUserAndAccount", mongo.findMembershipByUserAndAccount);
+export const ensureOwnerMembership = delegate("memberships", "ensureOwnerMembership", mongo.ensureOwnerMembership);
+export const createMembershipOrFindExisting = delegate("memberships", "createMembershipOrFindExisting", mongo.createMembershipOrFindExisting);
+export const findInviteByTokenHash = delegate("memberships", "findInviteByTokenHash", mongo.findInviteByTokenHash);
+export const acceptInvite = delegate("memberships", "acceptInvite", mongo.acceptInvite);
+export const revokeInvite = delegate("memberships", "revokeInvite", mongo.revokeInvite);
+export const findPendingInvitesByAccountId = delegate("memberships", "findPendingInvitesByAccountId", mongo.findPendingInvitesByAccountId);
+export const upsertPendingInvite = delegate("memberships", "upsertPendingInvite", mongo.upsertPendingInvite);
+export const findMembershipsByUserId = delegate("memberships", "findMembershipsByUserId", mongo.findMembershipsByUserId);
+export const deleteMembershipsByAccountId = delegate("memberships", "deleteMembershipsByAccountId", mongo.deleteMembershipsByAccountId);
+export const deleteMembershipById = delegate("memberships", "deleteMembershipById", mongo.deleteMembershipById);
+export const countMembershipsByAccountExcludingUser = delegate("memberships", "countMembershipsByAccountExcludingUser", mongo.countMembershipsByAccountExcludingUser);
+export const deleteInvitesByAccountId = delegate("memberships", "deleteInvitesByAccountId", mongo.deleteInvitesByAccountId);
+export const markInviteAccepted = delegate("memberships", "markInviteAccepted", mongo.markInviteAccepted);

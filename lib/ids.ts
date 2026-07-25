@@ -1,7 +1,35 @@
 import crypto from "crypto";
 
 export function createPublicId(
-  prefix: "acct" | "agent" | "perm" | "log" | "req" | "evt" | "wh" | "dlv" | "user" | "sess" | "tok" | "dev" | "site" | "sgr" | "sgk" | "apr" | "enq" | "mbr" | "inv" | "pprf" | "pause" | "clia"
+  prefix:
+    | "acct"
+    | "agent"
+    | "perm"
+    | "log"
+    | "req"
+    | "evt"
+    | "wh"
+    | "dlv"
+    | "user"
+    | "sess"
+    | "tok"
+    | "dev"
+    | "site"
+    | "sgr"
+    | "sgk"
+    | "apr"
+    | "enq"
+    | "mbr"
+    | "inv"
+    | "pprf"
+    | "pause"
+    | "clia"
+    | "pend"
+    | "pol"
+    | "ibind"
+    | "omsg"
+    | "adrec"
+    | "adev"
 ) {
   return `${prefix}_${crypto.randomBytes(12).toString("base64url")}`;
 }

@@ -23,7 +23,8 @@
     "navigationMenu": "Navigationsmenü",
     "mode": "Modus",
     "theme": "Design",
-    "language": "Sprache"
+    "language": "Sprache",
+    "getStarted": "Loslegen"
   },
   "footer": {
     "tagline": "Berechtigungsinfrastruktur\nfür KI-Agenten.",
@@ -538,7 +539,7 @@
       "item1": "Noch keine nativen Provider-Integrationen. Verbundene Agenten werden manuell in BehalfID repräsentiert — BehalfID ruft keine Ollie-, ChatGPT-, Claude- oder Zapier-APIs in Ihrem Namen auf.",
       "item2": "Der manuelle Modus hängt von der Kooperation des Benutzers und des Agenten ab. Der externe Agent muss den Passport lesen und die aufgeführten Einschränkungen respektieren; BehalfID kann kein Verhalten in Drittanbieter-Providern erzwingen.",
       "item3": "Site Guard ist ein geplantes Website-Besitzer-Durchsetzungsmuster, kein globaler Crawler-Blocker. Es schützt nur Routen oder Workflows, wo die Website Middleware, einen Proxy, Worker oder Gateway installiert, der BehalfID aufruft und die Entscheidung respektiert.",
-      "item4": "Noch kein Enterprise-SSO oder Teamrollen. Die Admin-Konsole verwendet ein gemeinsames Passwort. Das Entwicklerportal hat individuelle Konten, aber keine Organisationen.",
+      "item4": "Google-Anmeldung ist für Entwicklerkonten verfügbar. Workspace-Google-SSO (Unternehmensdomain-Allowlist und optionale Passwort-Durchsetzung) ist ab Pro verfügbar. Die Admin-Konsole nutzt weiterhin ein gemeinsames Passwort. SAML und Nicht-Google-IdPs werden noch nicht unterstützt.",
       "item5": "Noch kein formales externes Sicherheitsaudit. BehalfID ist für eingeschränkte Bereitstellungen und Demos geeignet, nicht für offene öffentliche Multi-Tenant-Nutzung ohne weitere Härtung.",
       "item6": "Kein Ersatz für App-Level-Autorisierung. BehalfID ist eine Pre-Action-Verifizierungsschicht. Ihre App braucht weiterhin eigene Auth, Eingabevalidierung und Zugriffskontrolle.",
       "item7": "Rate-Limiting fällt ohne Upstash Redis auf Prozess-Memory zurück. In serverlosen Umgebungen werden In-Memory-Zähler nicht über Instanzen hinweg geteilt."
@@ -563,7 +564,7 @@
       "controls": "Technische Kontrollen",
       "contact": "Kontakt"
     },
-    "statusInProgress": "Zertifizierung in Bearbeitung",
+    "statusInProgress": "Noch nicht Type-II-zertifiziert — Kontrollen werden gehaertet",
     "statusNotCertified": "Nicht zertifiziert",
     "statusNotApplicable": "Nicht anwendbar",
     "statusImplemented": "Implementiert",
@@ -615,9 +616,9 @@
       "item1": "Alle Daten bei der Übertragung mit TLS 1.2+ verschlüsselt",
       "item2": "API-Schlüssel nur als SHA-256-Hashes gespeichert — niemals im Klartext",
       "item3": "Entwicklerpasswörter mit scrypt gehasht",
-      "item4": "Sitzungs-Cookies sind HTTP-only, SameSite-strict und laufen nach 30 Tagen Inaktivität ab",
+      "item4": "Sitzungs-Cookies sind HTTP-only, SameSite=Lax, mit 1 Stunde Inaktivitaet und 14 Tagen absoluter Lebensdauer",
       "item5": "Webhook-Payloads mit HMAC-SHA256 signiert; Signaturen werden vor der Verarbeitung verifiziert",
-      "item6": "Verifizierungslogs 90 Tage aufbewahrt, Webhook-Zustellungsaufzeichnungen 30 Tage",
+      "item6": "Verifikationsprotokolle werden planbasiert aufbewahrt (Free 7 / Team 30 / Pro 90 / Business 180 / Enterprise bis 365 Tage) und nach einer Schonfrist physisch geloescht",
       "item7": "Rate-Limiting auf allen öffentlichen Endpunkten zur Missbrauchsprävention",
       "item8": "Audit-Trail jeder Berechtigungsentscheidung (Agenten-ID, Aktion, Ergebnis, Zeitstempel)",
       "item9": "IP-Adressen nur für Rate-Limiting verwendet; nicht dauerhaft gespeichert oder mit Konten verknüpft",
@@ -724,6 +725,8 @@
     "dobRequired": "Geburtsdatum ist erforderlich.",
     "ageError": "Sie müssen mindestens 13 Jahre alt sein, um ein Konto zu erstellen.",
     "authFailed": "Authentifizierung fehlgeschlagen.",
+    "continueWithGoogle": "Weiter mit Google",
+    "orDivider": "oder",
     "agreePrefix": "Mit der Erstellung eines Kontos stimmen Sie den ",
     "terms": "Nutzungsbedingungen",
     "and": " und der ",
@@ -753,6 +756,12 @@
     "openNav": "Navigation öffnen",
     "closeNav": "Navigation schließen",
     "docsNav": "Dokumentation",
+    "website": "Website",
+    "utilities": "Dokumentationshilfen",
+    "navGroupStart": "Start",
+    "navGroupBuild": "Entwickeln",
+    "navGroupUnderstand": "Verstehen",
+    "pagerLabel": "Dokumentationsnavigation",
     "simpleModeOn": "Einfacher Modus an",
     "simpleModeBody": "— einige technische Details sind komprimiert. Wechseln Sie zu ",
     "simpleModeSwitch": "Entwickler",
@@ -767,6 +776,7 @@
     "webhooks": "Webhooks",
     "siteGuard": "Site Guard",
     "concepts": "Konzepte",
+    "troubleshooting": "Fehlerbehebung",
     "security": "Sicherheit",
     "index": {
       "meta": {

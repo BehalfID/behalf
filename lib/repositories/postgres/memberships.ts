@@ -1,8 +1,12 @@
-import { and, asc, count, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, ne } from "drizzle-orm";
 import type { BehalfPostgresDb } from "@/lib/db/postgres";
 import { accountInvites, accountMemberships } from "@/lib/db/postgres/schema";
 import { BILLABLE_WORKSPACE_ROLES, type WorkspaceRole } from "@/lib/authority";
 import { normalizeEmail } from "@/lib/developerAuth";
+import {
+  DuplicateKeyError,
+  translatePostgresError
+} from "@/lib/repositories/errors";
 
 type MembershipLean = {
   membershipId: string;
@@ -19,6 +23,16 @@ type PendingInviteLean = {
   invitedBy: string;
   createdAt?: Date;
 };
+
+function toMembershipLean(row: typeof accountMemberships.$inferSelect): MembershipLean {
+  return {
+    membershipId: row.membershipId,
+    accountId: row.accountId,
+    userId: row.userId,
+    role: row.role,
+    createdAt: row.createdAt
+  };
+}
 
 export async function countBillableSeatsByAccountId(db: BehalfPostgresDb, accountId: string) {
   const [row] = await db
@@ -47,17 +61,15 @@ export async function findMembershipByAccountAndUser(
       )
     })) ?? null;
 
-  if (!row) {
-    return null;
-  }
+  return row ? toMembershipLean(row) : null;
+}
 
-  return {
-    membershipId: row.membershipId,
-    accountId: row.accountId,
-    userId: row.userId,
-    role: row.role,
-    createdAt: row.createdAt
-  };
+export async function findMembershipByUserAndAccount(
+  db: BehalfPostgresDb,
+  userId: string,
+  accountId: string
+): Promise<MembershipLean | null> {
+  return findMembershipByAccountAndUser(db, accountId, userId);
 }
 
 export async function findMembershipsByAccountId(
@@ -69,13 +81,18 @@ export async function findMembershipsByAccountId(
     orderBy: asc(accountMemberships.createdAt)
   });
 
-  return rows.map((row) => ({
-    membershipId: row.membershipId,
-    accountId: row.accountId,
-    userId: row.userId,
-    role: row.role,
-    createdAt: row.createdAt
-  }));
+  return rows.map(toMembershipLean);
+}
+
+export async function findMembershipsByUserId(
+  db: BehalfPostgresDb,
+  userId: string
+): Promise<MembershipLean[]> {
+  const rows = await db.query.accountMemberships.findMany({
+    where: eq(accountMemberships.userId, userId),
+    orderBy: asc(accountMemberships.createdAt)
+  });
+  return rows.map(toMembershipLean);
 }
 
 export async function createMembership(
@@ -87,17 +104,87 @@ export async function createMembership(
     role: WorkspaceRole;
   }
 ) {
-  const [row] = await db
-    .insert(accountMemberships)
-    .values({
-      membershipId: input.membershipId,
-      accountId: input.accountId,
-      userId: input.userId,
-      role: input.role
-    })
-    .returning();
+  try {
+    const [row] = await db
+      .insert(accountMemberships)
+      .values({
+        membershipId: input.membershipId,
+        accountId: input.accountId,
+        userId: input.userId,
+        role: input.role
+      })
+      .returning();
+    return row;
+  } catch (error) {
+    translatePostgresError(error);
+  }
+}
 
-  return row;
+export async function ensureOwnerMembership(
+  db: BehalfPostgresDb,
+  userId: string,
+  accountId: string,
+  membershipId: string
+): Promise<MembershipLean | null> {
+  try {
+    const [row] = await db
+      .insert(accountMemberships)
+      .values({
+        membershipId,
+        userId,
+        accountId,
+        role: "OWNER"
+      })
+      .onConflictDoNothing({
+        target: [accountMemberships.accountId, accountMemberships.userId]
+      })
+      .returning();
+    if (row) return toMembershipLean(row);
+    return findMembershipByUserAndAccount(db, userId, accountId);
+  } catch (error) {
+    try {
+      translatePostgresError(error);
+    } catch (translated) {
+      if (translated instanceof DuplicateKeyError) {
+        return findMembershipByUserAndAccount(db, userId, accountId);
+      }
+      throw translated;
+    }
+  }
+}
+
+export async function createMembershipOrFindExisting(
+  db: BehalfPostgresDb,
+  input: {
+    membershipId: string;
+    accountId: string;
+    userId: string;
+    role: WorkspaceRole;
+  }
+): Promise<MembershipLean> {
+  try {
+    const [row] = await db
+      .insert(accountMemberships)
+      .values({
+        membershipId: input.membershipId,
+        accountId: input.accountId,
+        userId: input.userId,
+        role: input.role
+      })
+      .returning();
+    if (!row) throw new Error("createMembershipOrFindExisting failed to return a row");
+    return toMembershipLean(row);
+  } catch (error) {
+    try {
+      translatePostgresError(error);
+    } catch (translated) {
+      if (translated instanceof DuplicateKeyError) {
+        const existing = await findMembershipByAccountAndUser(db, input.accountId, input.userId);
+        if (existing) return existing;
+      }
+      throw translated;
+    }
+  }
 }
 
 export async function updateMembershipRole(
@@ -108,7 +195,7 @@ export async function updateMembershipRole(
 ) {
   return db
     .update(accountMemberships)
-    .set({ role })
+    .set({ role, updatedAt: new Date() })
     .where(
       and(
         eq(accountMemberships.membershipId, membershipId),
@@ -130,6 +217,95 @@ export async function deleteMembership(
         eq(accountMemberships.accountId, accountId)
       )
     );
+}
+
+export async function deleteMembershipById(db: BehalfPostgresDb, membershipId: string) {
+  const rows = await db
+    .delete(accountMemberships)
+    .where(eq(accountMemberships.membershipId, membershipId))
+    .returning({ membershipId: accountMemberships.membershipId });
+  return { acknowledged: true, deletedCount: rows.length };
+}
+
+export async function deleteMembershipsByAccountId(db: BehalfPostgresDb, accountId: string) {
+  const rows = await db
+    .delete(accountMemberships)
+    .where(eq(accountMemberships.accountId, accountId))
+    .returning({ membershipId: accountMemberships.membershipId });
+  return { acknowledged: true, deletedCount: rows.length };
+}
+
+export async function countMembershipsByAccountExcludingUser(
+  db: BehalfPostgresDb,
+  accountId: string,
+  userId: string
+) {
+  const [row] = await db
+    .select({ value: count() })
+    .from(accountMemberships)
+    .where(and(eq(accountMemberships.accountId, accountId), ne(accountMemberships.userId, userId)));
+  return row?.value ?? 0;
+}
+
+export async function findInviteByTokenHash(db: BehalfPostgresDb, tokenHash: string) {
+  return (
+    (await db.query.accountInvites.findFirst({
+      where: eq(accountInvites.inviteTokenHash, tokenHash)
+    })) ?? null
+  );
+}
+
+export async function acceptInvite(db: BehalfPostgresDb, inviteId: string, userId: string) {
+  const rows = await db
+    .update(accountInvites)
+    .set({
+      status: "accepted",
+      acceptedAt: new Date(),
+      acceptedByUserId: userId,
+      updatedAt: new Date()
+    })
+    .where(and(eq(accountInvites.inviteId, inviteId), eq(accountInvites.status, "pending")))
+    .returning({ inviteId: accountInvites.inviteId });
+  return { acknowledged: true, matchedCount: rows.length, modifiedCount: rows.length };
+}
+
+export async function revokeInvite(db: BehalfPostgresDb, accountId: string, inviteId: string) {
+  const rows = await db
+    .update(accountInvites)
+    .set({ status: "revoked", updatedAt: new Date() })
+    .where(
+      and(
+        eq(accountInvites.inviteId, inviteId),
+        eq(accountInvites.accountId, accountId),
+        eq(accountInvites.status, "pending")
+      )
+    )
+    .returning({ inviteId: accountInvites.inviteId });
+  return { acknowledged: true, matchedCount: rows.length, modifiedCount: rows.length };
+}
+
+export async function markInviteAccepted(
+  db: BehalfPostgresDb,
+  inviteId: string,
+  userId: string,
+  options?: { pendingOnly?: boolean }
+) {
+  const pendingOnly = options?.pendingOnly !== false;
+  const rows = await db
+    .update(accountInvites)
+    .set({
+      status: "accepted",
+      acceptedAt: new Date(),
+      acceptedByUserId: userId,
+      updatedAt: new Date()
+    })
+    .where(
+      pendingOnly
+        ? and(eq(accountInvites.inviteId, inviteId), eq(accountInvites.status, "pending"))
+        : eq(accountInvites.inviteId, inviteId)
+    )
+    .returning({ inviteId: accountInvites.inviteId });
+  return { acknowledged: true, matchedCount: rows.length, modifiedCount: rows.length };
 }
 
 export async function findPendingInvitesByAccountId(
@@ -164,38 +340,51 @@ export async function upsertPendingInvite(
 ): Promise<PendingInviteLean> {
   const normalizedEmail = normalizeEmail(email);
 
-  const [row] = await db
-    .insert(accountInvites)
-    .values({
-      inviteId: update.inviteId,
-      accountId,
-      email: normalizedEmail,
-      role: update.role,
-      status: "pending",
-      invitedBy: update.invitedBy,
-      inviteTokenHash: update.inviteTokenHash,
-      inviteTokenExpiresAt: update.inviteTokenExpiresAt
-    })
-    .onConflictDoUpdate({
-      target: [accountInvites.accountId, accountInvites.email, accountInvites.status],
-      set: {
+  try {
+    const [row] = await db
+      .insert(accountInvites)
+      .values({
+        inviteId: update.inviteId,
+        accountId,
+        email: normalizedEmail,
         role: update.role,
+        status: "pending",
         invitedBy: update.invitedBy,
         inviteTokenHash: update.inviteTokenHash,
         inviteTokenExpiresAt: update.inviteTokenExpiresAt
-      }
-    })
-    .returning({
-      inviteId: accountInvites.inviteId,
-      email: accountInvites.email,
-      role: accountInvites.role,
-      invitedBy: accountInvites.invitedBy,
-      createdAt: accountInvites.createdAt
-    });
+      })
+      .onConflictDoUpdate({
+        target: [accountInvites.accountId, accountInvites.email, accountInvites.status],
+        set: {
+          role: update.role,
+          invitedBy: update.invitedBy,
+          inviteTokenHash: update.inviteTokenHash,
+          inviteTokenExpiresAt: update.inviteTokenExpiresAt,
+          updatedAt: new Date()
+        }
+      })
+      .returning({
+        inviteId: accountInvites.inviteId,
+        email: accountInvites.email,
+        role: accountInvites.role,
+        invitedBy: accountInvites.invitedBy,
+        createdAt: accountInvites.createdAt
+      });
 
-  if (!row) {
-    throw new Error("upsertPendingInvite failed to return a row");
+    if (!row) {
+      throw new Error("upsertPendingInvite failed to return a row");
+    }
+
+    return row;
+  } catch (error) {
+    translatePostgresError(error);
   }
+}
 
-  return row;
+export async function deleteInvitesByAccountId(db: BehalfPostgresDb, accountId: string) {
+  const rows = await db
+    .delete(accountInvites)
+    .where(eq(accountInvites.accountId, accountId))
+    .returning({ inviteId: accountInvites.inviteId });
+  return { acknowledged: true, deletedCount: rows.length };
 }

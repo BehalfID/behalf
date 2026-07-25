@@ -23,7 +23,8 @@ export async function WorkspaceProtectedDashboard({
     | "docs"
     | "settings"
     | "managed-profiles"
-    | "managed-profiles-activity";
+    | "managed-profiles-activity"
+    | "adaptive-delegation";
   id?: string;
   agentSection?: AgentDetailSection;
 }) {

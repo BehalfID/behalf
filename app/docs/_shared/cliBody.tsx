@@ -1,0 +1,369 @@
+import Link from "next/link";
+import { CLI_NPM_INSTALL_COMMAND } from "@/lib/cliInstallCommands";
+import { CodeBlock as SharedCodeBlock } from "@/components/ui";
+import { DocsCallout } from "@/components/docs/DocsCallout";
+
+function CodeBlock({ children, label }: { children: string; label?: string }) {
+  return <SharedCodeBlock className="docs-code" label={label}>{children}</SharedCodeBlock>;
+}
+
+/** Shared CLI docs body for EN and locale routes. */
+export function CliDocsBody() {
+  return (
+    <>
+      <h2>Install</h2>
+      <p>Install the CLI, then confirm the version. For the Trajectus pilot, require <code>0.2.11</code> or newer — stop and contact the operator if the build is older.</p>
+      <CodeBlock label="npm (Windows / macOS / Linux)">{CLI_NPM_INSTALL_COMMAND}</CodeBlock>
+      <CodeBlock label="curl (macOS / Linux only)">{`curl -fsSL https://behalfid.com/install.sh | sh`}</CodeBlock>
+      <p>Optional version pin for <code>install.sh</code> — assign the variable to the executing shell (<code>sh</code>), not to <code>curl</code>:</p>
+      <CodeBlock label="curl with pinned version (macOS / Linux only)">{`curl -fsSL https://behalfid.com/install.sh | BEHALF_VERSION=v0.2.11 sh`}</CodeBlock>
+      <p>Homebrew is macOS only:</p>
+      <CodeBlock label="Homebrew (macOS only)">{`brew install BehalfID/tap/behalf`}</CodeBlock>
+      <p>Verify the install (required):</p>
+      <CodeBlock label="terminal">{`behalf --version`}</CodeBlock>
+
+      <h2>Setup wizard</h2>
+      <p>Run <code>behalf init</code> to walk through base URL, authentication, and API key configuration interactively.</p>
+      <CodeBlock label="terminal">{`behalf init`}</CodeBlock>
+      <p>The wizard stores config at <code>~/.behalf/config.json</code> and session at <code>~/.behalf/session</code>.</p>
+
+      <h2>Auth</h2>
+      <CodeBlock label="terminal">{`behalf login         # log in with email and password
+behalf whoami        # show current authenticated user
+behalf logout        # clear the session`}</CodeBlock>
+
+      <h2>Agents</h2>
+      <CodeBlock label="terminal">{`behalf agents list
+behalf agents create --name "My Bot"
+behalf agents create --name "Ollie" --type connected --provider ollie --save`}</CodeBlock>
+      <p>
+        Pass <code>--save</code> to write the new agent ID and API key directly to
+        <code> ~/.behalf/config.json</code>. The API key is only returned once.
+      </p>
+
+      <h2>Permissions</h2>
+      <p>
+        Permission grants require human authentication. Run <code>behalf login</code> or pass
+        <code>--developer-token</code> with a <code>bhf_dev_...</code> developer token.
+        Agent API keys are for verification only and cannot create or revoke permissions.
+      </p>
+      <CodeBlock label="terminal">{`behalf login
+behalf permissions create agent_xxx \\
+  --action access_data \\
+  --resource gmail.com \\
+  --allowed "read labels,summarize messages" \\
+  --blocked "send email,delete messages" \\
+  --requires-approval
+
+behalf permissions create agent_xxx \\
+  --action purchase \\
+  --resource amazon.com \\
+  --max-amount 50 \\
+  --template purchase`}</CodeBlock>
+
+      <h2>Verify an action</h2>
+      <p>
+        Use <code>behalf verify</code> to run a one-off action check. The command exits with
+        code <code>0</code> on allow and <code>1</code> on deny — safe to use in scripts.
+      </p>
+      <CodeBlock label="terminal">{`behalf verify agent_xxx --action browse_web --vendor web
+behalf verify agent_xxx --action purchase --vendor amazon.com --amount 25`}</CodeBlock>
+      <p>
+        Pass <code>--json</code> to get machine-readable output. The exit code still reflects
+        the allow/deny decision.
+      </p>
+      <CodeBlock label="terminal">{`behalf --json verify agent_xxx --action purchase --vendor amazon.com --amount 100`}</CodeBlock>
+      <CodeBlock label="denied response">{`{
+  "requestId": "req_xxx",
+  "allowed": false,
+  "reason": "Amount exceeds maxAmount constraint.",
+  "risk": "high"
+}`}</CodeBlock>
+
+      <h2>Logs</h2>
+      <CodeBlock label="terminal">{`behalf logs agent_xxx`}</CodeBlock>
+
+      <h2>Advisory MCP server</h2>
+      <p>
+        BehalfID ships a Model Context Protocol (MCP) server that makes real-time
+        <code> verify_action</code> and <code> get_permissions</code> available to any AI tool that supports MCP. Run{" "}
+        <code>behalf mcp init</code> once per project to wire it in.
+      </p>
+      <p>
+        The MCP server is advisory: it gives the model tools and instructions, but it does not
+        intercept another tool&apos;s execution. For Claude Code shell/file enforcement, use and verify
+        the separate <code>PreToolUse</code> hook installed by <code>behalf claude</code>.
+      </p>
+      <CodeBlock label="terminal">{`behalf config set agent-id agent_xxx
+behalf config set api-key bhf_sk_xxx
+behalf mcp init`}</CodeBlock>
+      <p>
+        <code>mcp init</code> writes two files to the current directory:
+      </p>
+      <ul className="docs-list">
+        <li><code>.mcp.json</code> — registers the <code>behalfid</code> MCP server (merged with any existing config)</li>
+        <li><code>.behalf/context.md</code> — a markdown brief of the agent&apos;s active permissions</li>
+      </ul>
+      <p>
+        If a <code>CLAUDE.md</code> or <code>AGENTS.md</code> file is present, the CLI
+        offers to append <code>@.behalf/context.md</code> so the AI tool loads the context
+        automatically on startup.
+      </p>
+      <CodeBlock label=".mcp.json">{`{
+  "mcpServers": {
+    "behalfid": {
+      "type": "stdio",
+      "command": "behalf",
+      "args": ["mcp", "start"]
+    }
+  }
+}`}</CodeBlock>
+      <p>
+        The MCP server exposes <code>get_permissions</code> for inspection and
+        <code> verify_action</code> for explicit advisory checks. The context file instructs the AI to call
+        <code> verify_action</code> before risky or permissioned actions, stop on denied decisions,
+        fail closed if verification is unavailable, and pause when approval is required.
+      </p>
+      <CodeBlock label="terminal">{`behalf mcp status           # show config and cached permissions for this directory
+behalf mcp init --refresh   # force-refresh the permissions cache from the server
+behalf mcp init --dry-run   # preview what would be written without writing
+behalf doctor               # diagnose CLI and MCP setup`}</CodeBlock>
+
+      <h2>Launch AI tools with BehalfID setup</h2>
+      <p>
+        The <code>behalf claude</code>, <code>behalf codex</code>, and <code>behalf run</code> commands
+        fetch the latest permissions, write <code>.behalf/context.md</code> and <code>.mcp.json</code>,
+        install supported action-time hooks, and then launch the tool. The context and MCP server are
+        advisory; the Claude <code>PreToolUse</code> hook is the action-time gate.
+        The launcher prints the agent, base URL, context file, MCP config, and command it is
+        about to run. It does not print API keys.
+      </p>
+      <CodeBlock label="terminal">{`behalf claude              # install/verify the Claude PreToolUse hook, then launch
+behalf codex               # configure supported Codex hook/MCP setup, then launch
+behalf run cursor          # configure supported Cursor hook/MCP setup, then launch
+behalf claude --resume     # pass extra flags straight through to the tool`}</CodeBlock>
+
+      <p>
+        For a runnable local walkthrough with allowed, denied, and approval-required examples,
+        see <code>docs/MCP_DEMO.md</code>.
+      </p>
+
+      <h2>Managed Profiles</h2>
+      <p>
+        <strong>Control what coding agents can do before they touch protected repos.</strong>
+      </p>
+      <p>
+        Managed Profiles let teams put coding-agent CLIs behind a workspace policy checkpoint,
+        install local shims, resolve policy before the real tool starts, and record safe activity
+        for review.
+      </p>
+      <ul className="docs-list">
+        <li>Enforce managed or required mode for protected repos</li>
+        <li>Simulate policy before launching a tool</li>
+        <li>Approve required-mode pause requests</li>
+        <li>Review activity without exposing raw paths or git remotes</li>
+      </ul>
+
+      <h3>First-run quickstart</h3>
+      <CodeBlock label="terminal">{`${CLI_NPM_INSTALL_COMMAND}
+behalf login
+behalf profile install
+behalf profile status --tool claude
+behalf profile simulate --tool claude
+claude`}</CodeBlock>
+      <p>
+        Ensure <code>~/.behalf/bin</code> is early in PATH. Enable Managed Profiles policy in the{" "}
+        <Link href="/dashboard/managed-profiles">dashboard</Link> before expecting enforcement.
+      </p>
+
+      <h3>Dashboard setup</h3>
+      <p>
+        The <Link href="/dashboard/managed-profiles">Managed profiles</Link> onboarding card walks through
+        the same install → status → simulate → launch flow. After your first shim launch, enroll
+        protected repos from <Link href="/dashboard/managed-profiles/activity">Managed Profile Activity</Link>{" "}
+        using repo hashes — not raw git remotes or local paths.
+      </p>
+
+      <h3>Policy simulation</h3>
+      <CodeBlock label="terminal">{`behalf profile simulate --tool claude
+behalf profile simulate --tool codex --repo 0123456789abcdef --branch main`}</CodeBlock>
+      <p>
+        Dry-runs policy resolution without launching a tool. The dashboard simulator uses the same API.
+      </p>
+
+      <h3>Protected repos and required mode</h3>
+      <p>
+        Enroll repos by policy repo hash (for example <code>0123456789abcdef</code>). Set mode to{" "}
+        <code>managed</code> or <code>required</code>. When BehalfID successfully returns a{" "}
+        <code>required</code> policy, the managed launch path enforces required-mode prerequisites
+        (agent credentials and a valid profile or session) before starting the tool.
+      </p>
+      <p>
+        Managed Profiles govern the BehalfID-managed launch path (shim → session-policy → real binary).
+        Directly invoking the underlying binary, changing PATH precedence, deleting the shim, or otherwise
+        intentionally bypassing the local integration is not prevented by the current implementation.
+        Server-side policy evaluations, approval decisions, and authorization results remain authoritative
+        when requests reach BehalfID. Local shim enforcement is best-effort and is not a tamper-resistant
+        endpoint security control.
+      </p>
+
+      <h3>Required-mode pause approval</h3>
+      <CodeBlock label="terminal">{`behalf pause --duration 30m --reason "incident response" --tool claude
+behalf pause status apr_example`}</CodeBlock>
+      <p>
+        When pause approval is required, the CLI prints an approval id and dashboard link. Approvers
+        review at <Link href="/dashboard/approvals">Approvals</Link> or{" "}
+        <Link href="/dashboard/inbox">Needs attention</Link>.
+      </p>
+
+      <h3>Privacy</h3>
+      <p>
+        Activity and approvals show repo hashes, tool, branch, and device id — not raw git remotes,
+        local source paths, home directories, or secrets. See{" "}
+        <Link href="/docs/demo-script">Demo script</Link> for a 2–3 minute recording walkthrough and launch
+        checklist.
+      </p>
+      <p>
+        Full CLI reference: <code>packages/cli/README.md</code>.
+      </p>
+
+      <h3 id="managed-profiles-troubleshooting">Troubleshooting first-run failures</h3>
+      <p>
+        Run <code>behalf profile doctor</code> first. Each warning or error includes a <code>fix:</code> line.
+        Common issues:
+      </p>
+      <ul className="docs-list">
+        <li>
+          <strong><code>~/.behalf/bin</code> not first in PATH</strong> — Managed tools resolve the real binary
+          instead of the shim. Add <code>export PATH=&quot;$HOME/.behalf/bin:$PATH&quot;</code> to your shell
+          config, restart the terminal, and confirm with <code>behalf profile status</code> (PATH ordering:
+          ok).
+        </li>
+        <li>
+          <strong>Real <code>claude</code>/<code>codex</code>/<code>cursor</code> binary not found</strong> —
+          Install the tool first. <code>behalf profile install</code> skips tools whose binaries are missing.
+          Doctor shows which real binary could not be resolved.
+        </li>
+        <li>
+          <strong>Unauthenticated CLI</strong> — Run <code>behalf login</code>. Status and simulate need a
+          session; when the server returns <code>required</code>, launches refuse to start without agent
+          credentials.
+        </li>
+        <li>
+          <strong>Server unavailable</strong> — Behavior depends on the local policy cache. A fresh cached{" "}
+          <code>required</code> policy causes the managed launch path to fail closed so a previously required
+          context is not silently downgraded. If no usable cached required policy exists (missing or expired
+          cache), the CLI may fall back to unmanaged operation so a BehalfID outage does not indefinitely
+          block developer work. Check base URL with <code>behalf config get base-url</code> and network
+          access to the API.
+        </li>
+        <li>
+          <strong>Required mode prerequisites</strong> — When mode is <code>required</code> and the server
+          response is available, missing agent credentials or an incomplete profile/session cause the shim to
+          refuse launch. That is separate from the outage fallback above: server-down with no usable required
+          cache may continue unmanaged; server-down with a fresh cached required policy fails closed.
+        </li>
+        <li>
+          <strong>Protected repo hash not appearing</strong> — Run from inside a git repo. Status shows{" "}
+          <code>policy repo hash</code>; if <code>(none)</code>, confirm git remote or local root detection.
+          Enroll only after a shim launch records activity.
+        </li>
+        <li>
+          <strong>Activity not appearing after launch</strong> — Confirm PATH order (shim, not real binary),
+          authentication, and that Managed Profiles policy is enabled in the dashboard. Wait a few seconds and
+          refresh <Link href="/dashboard/managed-profiles/activity">Activity</Link>.
+        </li>
+      </ul>
+      <p>
+        For a printable pass/fail checklist, see the{" "}
+        <Link href="/docs/demo-script">fresh-workspace smoke test</Link>. Deeper verify/auth/webhook diagnosis:{" "}
+        <Link href="/docs/troubleshooting">Troubleshooting</Link>.
+      </p>
+
+      <h2>Deploy approval workflow</h2>
+      <p>
+        The most common first use case: an AI coding agent (Claude Code, Codex, Cursor) that
+        can deploy to staging autonomously but must pause for human approval before touching
+        production.
+      </p>
+
+      <h3>1. Set up permissions</h3>
+      <p>
+        Create two permissions for your coding agent — one that allows staging deploys
+        without approval, and one that requires approval for production.
+      </p>
+      <CodeBlock label="terminal">{`# Allow staging deploys — no approval required
+behalf permissions create agent_xxx \\
+  --action deploy \\
+  --resource vercel.com \\
+  --allowed "deploy to staging, create preview deployment" \\
+  --blocked "deploy to production, promote to production"
+
+# Production deploy requires human approval
+behalf permissions create agent_xxx \\
+  --action deploy_production \\
+  --resource vercel.com \\
+  --allowed "promote staging to production" \\
+  --requires-approval`}</CodeBlock>
+
+      <h3>2. Launch your AI tool with BehalfID setup</h3>
+      <CodeBlock label="terminal">{`behalf config set agent-id agent_xxx
+behalf config set api-key bhf_sk_xxx
+behalf mcp init
+behalf claude       # or: behalf codex`}</CodeBlock>
+
+      <h3>3. The approval flow in practice</h3>
+      <p>
+        In this advisory MCP example, when the agent attempts a production deploy, it calls{" "}
+        <code>verify_action(action: &quot;deploy_production&quot;, vendor: &quot;vercel.com&quot;)</code>.
+        BehalfID returns <code>{`"allowed": false, "reason": "Permission requires approval before execution."`}</code>.
+        The agent pauses and reports the <code>requestId</code>. You approve in the dashboard
+        or via webhook, then the agent retries — now allowed. This model-mediated flow is not the
+        Claude Code action-time hook and should not be used as proof of shell non-execution.
+      </p>
+      <CodeBlock label="what the agent sees">{`verify_action("deploy_production", "vercel.com")
+
+{
+  "requestId": "req_Abc123xyz",
+  "allowed": false,
+  "reason": "Permission requires approval before execution.",
+  "risk": "medium"
+}
+
+→ Agent pauses: "Deployment to production requires approval (req_Abc123xyz)."
+→ Webhook fires to your configured endpoint (Slack, PagerDuty, etc.)
+→ You approve in the BehalfID dashboard
+→ Agent calls verify_action again → allowed → deploy runs`}</CodeBlock>
+
+      <h3>4. Audit the decisions</h3>
+      <p>
+        Every verify call — allowed, denied, and approval-required — is logged with a stable{" "}
+        <code>requestId</code>. Filter by decision type in the{" "}
+        <Link href="/dashboard/logs">Logs view</Link> or export as CSV for post-mortems.
+      </p>
+      <CodeBlock label="terminal">{`behalf logs agent_xxx          # tail recent verification decisions`}</CodeBlock>
+
+      <h2>Config</h2>
+      <CodeBlock label="terminal">{`behalf config set api-key bhf_sk_xxx
+behalf config set agent-id agent_xxx
+behalf config set base-url https://behalfid.com
+behalf config get api-key
+behalf config list`}</CodeBlock>
+
+      <h2>Global --json flag</h2>
+      <p>
+        Add <code>--json</code> before any subcommand to get machine-readable output.
+        Errors are also emitted as JSON. Works with every command.
+      </p>
+      <CodeBlock label="terminal">{`behalf --json agents list
+behalf --json verify agent_xxx --action purchase -v amazon.com`}</CodeBlock>
+
+      <DocsCallout tone="tip" title="Debugging">
+        <p>
+          Run <code>behalf doctor</code> when MCP or hooks look wrong. For verify denials and auth errors, see{" "}
+          <Link href="/docs/troubleshooting">Troubleshooting</Link>.
+        </p>
+      </DocsCallout>
+    </>
+  );
+}

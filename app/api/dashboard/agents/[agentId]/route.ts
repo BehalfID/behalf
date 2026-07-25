@@ -3,6 +3,7 @@ import { parseAgentMetadata } from "@/lib/agents";
 import { backfillLegacyAgentsForActor } from "@/lib/accountAgents";
 import { accountScopeFilter } from "@/lib/accountAccess";
 import { getAccountAgentDetail } from "@/lib/accountDashboardData";
+import { jsonAppError } from "@/lib/appErrors";
 import { serializeAgent } from "@/lib/dashboardData";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import { getWorkspaceActor, serializeWorkspaceAuthority } from "@/lib/delegatedAuth";
@@ -21,10 +22,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
   if (auth.error || !auth.user) return auth.error;
   const { agentId } = await context.params;
   const actor = await getWorkspaceActor(auth.user.userId, auth.activeAccountId);
-  if (!actor) return jsonError("Workspace account required.", 403);
+  if (!actor) return jsonAppError("Workspace account required.", 403, "WORKSPACE_ACCOUNT_REQUIRED");
 
   const detail = await getAccountAgentDetail(actor, agentId);
-  if (!detail) return jsonError("Agent not found.", 404);
+  if (!detail) return jsonAppError("Agent not found.", 404, "NOT_FOUND");
   return noCacheJson({
     ...detail,
     workspaceAuthority: serializeWorkspaceAuthority(actor)
@@ -90,7 +91,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   }
 
   const actor = await getWorkspaceActor(auth.user.userId, auth.activeAccountId);
-  if (!actor) return jsonError("Workspace account required.", 403);
+  if (!actor) return jsonAppError("Workspace account required.", 403, "WORKSPACE_ACCOUNT_REQUIRED");
 
   await backfillLegacyAgentsForActor(actor);
 
@@ -100,7 +101,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     { returnDocument: "after" }
   );
 
-  if (!agent) return jsonError("Agent not found.", 404);
+  if (!agent) return jsonAppError("Agent not found.", 404, "NOT_FOUND");
 
   return NextResponse.json({ agent: serializeAgent(agent) });
 }

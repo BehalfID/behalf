@@ -45,7 +45,8 @@ describe("production environment validation", () => {
 
     expect(result.valid).toBe(true);
     expect(result.warnings).toEqual(expect.arrayContaining([
-      "BEHALFID_PUBLIC_AGENT_CREATION=true allows anonymous agent creation."
+      "BEHALFID_PUBLIC_AGENT_CREATION=true allows anonymous agent creation.",
+      "GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET are not configured; Sign in with Google is disabled."
     ]));
   });
 

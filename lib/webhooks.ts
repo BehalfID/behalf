@@ -1,13 +1,17 @@
 import crypto from "crypto";
 import net from "net";
 import { createPublicId, createWebhookSecret } from "@/lib/ids";
-import WebhookEventModel from "@/models/WebhookEvent";
+import { createEvent } from "@/lib/repositories/webhooks";
 
 export const WEBHOOK_EVENT_TYPES = [
   "verification.allowed",
   "verification.denied",
   "verification.approval_required",
   "verification.shadow",
+  "approval.requested",
+  "approval.approved",
+  "approval.denied",
+  "approval.used",
   "agent.created",
   "agent.disabled",
   "agent.enabled",
@@ -185,7 +189,7 @@ export async function emitWebhookEvent(event: WebhookEvent | null) {
 }
 
 export async function enqueueWebhookEvent(event: WebhookEvent) {
-  await WebhookEventModel.create({
+  await createEvent({
     eventId: event.eventId,
     accountId: event.accountId,
     developerUserId: event.developerUserId,

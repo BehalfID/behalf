@@ -1,7 +1,10 @@
+import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentDeveloperContext } from "@/lib/developerAuth";
+import { requiresEmailVerificationRedirect } from "@/lib/emailVerificationGuard";
 import { requireWorkspaceMembershipBySlug } from "@/lib/accountContext";
 import { shouldForceAccountSetup } from "@/lib/onboardingRedirect";
+import { REQUEST_PATH_HEADER, resolveOwnedHref } from "@/lib/subdomainRouting";
 import { validateWorkspaceSlug } from "@/lib/workspaceSlug";
 import { WorkspaceDashboardProviders } from "./providers";
 
@@ -19,13 +22,33 @@ export default async function WorkspaceDashboardLayout({
     notFound();
   }
 
+  const requestHeaders = await headers();
+  const requestPath = requestHeaders.get(REQUEST_PATH_HEADER);
+  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
+
   const context = await getCurrentDeveloperContext();
   if (!context?.user) {
-    redirect(`/login?next=/${workspaceSlug}/dashboard`);
+    const fallback = `/${workspaceSlug}/dashboard`;
+    const nextTarget =
+      requestPath &&
+      (requestPath === fallback ||
+        requestPath.startsWith(`${fallback}/`) ||
+        requestPath.startsWith(`${fallback}?`))
+        ? requestPath
+        : fallback;
+    redirect(
+      resolveOwnedHref(`/login?next=${encodeURIComponent(nextTarget)}`, {
+        hostname: host
+      })
+    );
+  }
+
+  if (requiresEmailVerificationRedirect(context.user)) {
+    redirect(resolveOwnedHref("/verify-email", { hostname: host }));
   }
 
   if (await shouldForceAccountSetup(context.user.userId)) {
-    redirect("/onboarding");
+    redirect(resolveOwnedHref("/onboarding", { hostname: host }));
   }
 
   const resolved = await requireWorkspaceMembershipBySlug(context.user.userId, workspaceSlug);

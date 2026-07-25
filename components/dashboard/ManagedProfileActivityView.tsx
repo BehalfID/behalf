@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { Button, ButtonLink, EmptyState, PageHeader } from "@/components/ui";
+import { Button, ButtonLink, EmptyState, PageHeader, PageLoadingState, RefreshingIndicator } from "@/components/ui";
+import {
+  EnforcementModeBadge,
+  type EnforcementMode,
+} from "@/components/dashboard/ProfileIntegrationPrimitives";
 import { useDashboardApi, useDashboardPaths } from "@/components/workspace/WorkspaceProvider";
 import {
   activitySummaryFromEvents,
@@ -10,7 +14,7 @@ import {
 } from "@/lib/cliAuditActivityTypes";
 import { formatOpsTime } from "./opsLogTypes";
 
-type PolicyMode = "unmanaged" | "managed" | "required";
+type PolicyMode = EnforcementMode;
 
 type ActivityResponse = {
   events: ManagedProfileActivityEvent[];
@@ -162,7 +166,7 @@ function ActivityEventCard({
       <p className="ops-event-card__primary">
         <span className="ops-event-card__agent">{event.tool ?? "—"}</span>
         <span className="ops-event-card__sep">·</span>
-        <span>{modeLabel(event.mode)}</span>
+        {event.mode ? <EnforcementModeBadge mode={event.mode} /> : <span>{modeLabel(event.mode)}</span>}
       </p>
       <p className="ops-event-card__meta">
         Repo {formatActivityRepo(event)} · Branch {event.branch ?? "—"}
@@ -253,8 +257,6 @@ export function ManagedProfileActivityView() {
       setNextCursor(response.nextCursor);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Request failed.");
-      setEvents([]);
-      setNextCursor(null);
     } finally {
       setLoading(false);
     }
@@ -344,11 +346,16 @@ export function ManagedProfileActivityView() {
   const summary = activitySummaryFromEvents(events);
   const hasFilters = Boolean(tool || mode || eventType || repo || branch || range);
 
+  if (loading && !events.length) {
+    return <PageLoadingState label="Loading managed profile activity" variant="activity" />;
+  }
+
   return (
     <div className="ops-console managed-activity-console">
       <PageHeader
+        eyebrow="CLI governance"
         title="Managed profile activity"
-        description="See local coding-agent policy decisions and pause events."
+        description="Trace local coding-agent policy decisions, pause requests, and repository enrollment signals."
         action={
           <ButtonLink href={href("/dashboard/managed-profiles")} variant="secondary">
             Edit managed profile policy
@@ -356,6 +363,7 @@ export function ManagedProfileActivityView() {
         }
         className="dashboard-header ops-console__header"
       />
+      {loading ? <RefreshingIndicator label="Refreshing managed profile activity" /> : null}
 
       <div className="ops-metrics" aria-label="Activity summary">
         <span className="ops-metrics__item">
@@ -435,7 +443,7 @@ export function ManagedProfileActivityView() {
             <option value="24h">24h</option>
             <option value="7d">7d</option>
           </select>
-          <button type="button" className="ops-btn ops-btn--ghost ops-cmd__refresh" onClick={() => void reload()}>
+          <button type="button" className="ops-btn ops-btn--ghost ops-cmd__refresh" disabled={loading} onClick={() => void reload()}>
             Refresh
           </button>
         </div>
@@ -487,9 +495,7 @@ export function ManagedProfileActivityView() {
             </p>
           ) : null}
           <div className="setup-form__row">
-            <Button disabled={enrollSubmitting} type="submit" variant="primary">
-              {enrollSubmitting ? "Saving…" : "Add protected repo"}
-            </Button>
+            <Button loading={enrollSubmitting} type="submit" variant="primary">Add protected repo</Button>
             <Button disabled={enrollSubmitting} onClick={closeEnrollForm} type="button" variant="secondary">
               Cancel
             </Button>
@@ -535,7 +541,9 @@ export function ManagedProfileActivityView() {
                   </td>
                   <td>{eventTypeLabel(event.eventType)}</td>
                   <td className="ops-events__mono">{event.tool ?? "—"}</td>
-                  <td>{modeLabel(event.mode)}</td>
+                  <td>
+                    {event.mode ? <EnforcementModeBadge mode={event.mode} /> : modeLabel(event.mode)}
+                  </td>
                   <td className="ops-events__mono">
                     {formatActivityRepo(event)}
                     {event.repo && protectedRepoStatusByHash.get(event.repo) === "enforced" ? (
@@ -592,7 +600,7 @@ export function ManagedProfileActivityView() {
         </div>
       </div>
 
-      {!events.length && !loading && !hasFilters ? (
+      {!events.length && !loading && !hasFilters && !error ? (
         <EmptyState className="dashboard-empty managed-activity-empty">
           <p className="managed-activity-empty__title">No managed profile activity yet</p>
           <p className="managed-activity-empty__detail">

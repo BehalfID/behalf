@@ -1,7 +1,7 @@
 {
   "name": "@behalfid/cli",
   "version": "0.2.11",
-  "description": "Official CLI for BehalfID — agent permission management",
+  "description": "Official CLI for BehalfID - agent permission management",
   "type": "module",
   "bin": {
     "behalf": "dist/index.js",
@@ -17,6 +17,9 @@
   },
   "dependencies": {
     "commander": "^13.0.0"
+  },
+  "optionalDependencies": {
+    "@behalfid/egress-proxy": "*"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",

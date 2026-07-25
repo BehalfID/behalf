@@ -31,7 +31,7 @@ export default function ApiDocsPage() {
       <div className="endpoint-list">
         {endpoints.map(([method, path, body]) => (
           <div className="endpoint-card" key={path}>
-            <span>{method}</span>
+            <span data-method={method}>{method}</span>
             <code>{path}</code>
             <p>{body}</p>
           </div>
@@ -148,7 +148,7 @@ export default function ApiDocsPage() {
       <div className="endpoint-list">
         {passportEndpoints.map(([method, path, body]) => (
           <div className="endpoint-card" key={path}>
-            <span>{method}</span>
+            <span data-method={method}>{method}</span>
             <code>{path}</code>
             <p>{body}</p>
           </div>

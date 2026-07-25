@@ -21,7 +21,10 @@ function hasRedisConfig() {
 }
 
 const OPTIONAL_PRODUCTION_ENV = [
-  "BEHALFID_WEBHOOK_SIGNING_PEPPER"
+  "BEHALFID_WEBHOOK_SIGNING_PEPPER",
+  "SENTRY_DSN",
+  "BEHALFID_MFA_PEPPER",
+  "BEHALFID_ALLOW_SHARED_ADMIN"
 ] as const;
 
 const UNSAFE_ADMIN_PASSWORDS = new Set(["change-me", "changeme", "password", "admin", "replace-this-password"]);
@@ -107,6 +110,18 @@ export function validateProductionEnv(): EnvValidationResult {
     if (!hasValue(name)) {
       result.warnings.push(`${name} is not configured.`);
     }
+  }
+
+  const hasGoogleId = hasValue("GOOGLE_CLIENT_ID");
+  const hasGoogleSecret = hasValue("GOOGLE_CLIENT_SECRET");
+  if (hasGoogleId !== hasGoogleSecret) {
+    result.warnings.push(
+      "Google sign-in is partially configured; set both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET or neither."
+    );
+  } else if (!hasGoogleId) {
+    result.warnings.push(
+      "GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET are not configured; Sign in with Google is disabled."
+    );
   }
 
   if (process.env.BEHALFID_PUBLIC_AGENT_CREATION === "true") {

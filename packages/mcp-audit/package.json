@@ -1,0 +1,44 @@
+{
+  "name": "@behalfid/mcp-audit",
+  "version": "0.1.0",
+  "description": "BehalfID MCP Auditing Engine — read-only security analysis of MCP server configurations",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "sideEffects": false,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/behalfid/behalf.git",
+    "directory": "packages/mcp-audit"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "typescript": "^6.0.3"
+  },
+  "keywords": [
+    "mcp",
+    "audit",
+    "security",
+    "ai-agent",
+    "behalfid",
+    "model-context-protocol"
+  ]
+}

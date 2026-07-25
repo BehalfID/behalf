@@ -29,6 +29,7 @@ export default function ConceptsPage() {
     ["Fail-closed enforcement", "When BehalfID denies an action, the executor should throw or return before running the tool. This is fail closed: verify first, execute second, and stop on denial, approval-required decisions, unavailable checks, or missing constrained inputs. The opposite would be fail open, where the tool proceeds when a check fails."],
     ["Deploy approvals", "A common first workflow: an AI coding agent (Claude Code, Codex, Cursor) has two permissions — deploy on vercel.com (requiresApproval: false, staging only) and deploy_production on vercel.com (requiresApproval: true). When the agent attempts a production deploy, verify_action returns allowed: false with reason 'Permission requires approval before execution.' The agent pauses and surfaces the requestId. After you approve in the dashboard, the agent retries and the action is allowed."],
     ["MCP enforcement", "The behalf CLI ships a Model Context Protocol server that exposes a verify_action tool. When an AI tool (Claude Code, Codex, Cursor) connects to the MCP server, it calls verify_action before executing any risky or external action. behalf mcp init writes .mcp.json and .behalf/context.md to the project directory; behalf claude and behalf codex fetch the latest permissions and launch the tool with the server already wired in. Denial means do not execute; approval-required means pause for human sign-off."],
+    ["Google SSO", "Developer accounts can sign in with Google (OIDC). Workspaces on Pro and higher can allowlist company email domains and optionally enforce Google sign-in for those domains. Invites are still required to join a workspace. SAML and non-Google IdPs are not supported yet."],
     ["Managed Profiles", "Managed Profiles let teams put coding-agent CLIs behind a workspace policy checkpoint. Install local shims for tools like claude, codex, and cursor; resolve policy before the real tool starts; and record safe activity for review. Modes are unmanaged, managed, or required — required fails closed when policy cannot be verified. Protected repos are identified by policy repo hash, not raw git remotes or local paths. Required-mode pause requests can require dashboard approval before enforcement is paused."],
     ["Site Guard", "A planned website-owner enforcement pattern for AI access rules. llms.txt-style files can declare intent; Site Guard should enforce rules only when installed as middleware, proxy, worker, or gateway that calls BehalfID before protected routes execute."],
     ["Scope templates", "Reusable permission patterns organized by category: data access, communication, scheduling, commerce, content, and admin. Each template provides a default action, allowed actions, blocked actions, and a requires-approval flag that you can edit before saving. Examples: read_email (access_data on gmail.com), browse_web, schedule_meeting, purchase."],
@@ -43,6 +44,7 @@ export default function ConceptsPage() {
       title="Concepts"
       description="The core nouns behind BehalfID's runtime action authorization model — agents, permissions, fail-closed enforcement, approval gates, and audit logs."
       previous={{ href: "/docs/site-guard", label: "Site Guard" }}
+      next={{ href: "/docs/troubleshooting", label: "Troubleshooting" }}
     >
       <div className="concept-grid">
         {concepts.map(([title, body]) => (
@@ -68,6 +70,26 @@ export default function ConceptsPage() {
         <p>
           BehalfID does not use this value as authentication. It is metadata only.
         </p>
+      </section>
+      <section className="docs-anchor-section">
+        <h2>How the pieces connect</h2>
+        <p>
+          A typical coding-agent path is: create an agent → attach permissions (or a{" "}
+          <Link href="/docs/policy-templates">policy template</Link>) → wire{" "}
+          <Link href="/docs/cli">CLI/MCP</Link> or call <Link href="/docs/sdk">verify()</Link>{" "}
+          before tools run → handle approval-required decisions in the{" "}
+          <Link href="/docs/deploy-approvals">approvals</Link> flow → observe outcomes via{" "}
+          <Link href="/docs/webhooks">webhooks</Link> and audit logs. Manual passport links
+          help communicate scopes to assistants you cannot modify; they are not a substitute
+          for call-site enforcement.
+        </p>
+        <ul className="docs-list">
+          <li><Link href="/docs/cli">Coding agent quickstart (CLI &amp; MCP)</Link></li>
+          <li><Link href="/docs/quickstart">SDK Quickstart</Link></li>
+          <li><Link href="/docs/action-gateway">Action Gateway</Link> — execute only after verify</li>
+          <li><Link href="/docs/site-guard">Site Guard</Link> — route checks for website owners</li>
+          <li><Link href="/docs/api">API reference</Link></li>
+        </ul>
       </section>
       <section className="docs-anchor-section">
         <h2>Security model</h2>

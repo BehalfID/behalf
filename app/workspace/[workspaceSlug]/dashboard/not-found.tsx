@@ -1,11 +1,15 @@
+import { ButtonLink, DashboardState, Logo } from "@/components/ui";
+
 export default function WorkspaceNotFound() {
   return (
-    <main className="app-shell" style={{ padding: "3rem 1.5rem", maxWidth: 640, margin: "0 auto" }}>
-      <h1>Workspace not found</h1>
-      <p>That workspace URL does not exist, or you do not have access to it.</p>
-      <p>
-        <a href="/dashboard">Go to your dashboard</a>
-      </p>
+    <main id="main-content" className="dashboard-state-page" tabIndex={-1}>
+      <Logo href="/" markStyle="framed" subtitle="Control plane" />
+      <DashboardState
+        action={<ButtonLink href="/dashboard">Go to your dashboard</ButtonLink>}
+        description="That workspace URL does not exist, or your account does not have access to it."
+        kind="no-workspace"
+        title="Workspace not found"
+      />
     </main>
   );
 }

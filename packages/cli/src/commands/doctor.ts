@@ -10,6 +10,7 @@ import {
   hasCursorBeforeShellHook,
 } from "./run.js";
 import { isJsonMode, printJson, runAction } from "../lib/output.js";
+import { checkCliVersionUpdate } from "../lib/version.js";
 
 type Check = {
   name: string;
@@ -192,6 +193,8 @@ export async function runDoctorChecks(cwd = process.cwd()): Promise<Check[]> {
       : "BehalfID beforeShellExecution hook not found in ~/.cursor/hooks.json",
     fix: "Run `behalf cursor` to install it.",
   });
+
+  checks.push(await checkCliVersionUpdate());
 
   const cursorOnPath = isOnPath("cursor");
   checks.push({

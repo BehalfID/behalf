@@ -128,4 +128,20 @@ describe("Action Gateway public fetch enforcement", () => {
     expect(result.truncated).toBe(true);
     expect(result.excerpt.length).toBeLessThanOrEqual(4_000);
   });
+
+  it("decodes HTML entities once without double-unescaping &amp;", async () => {
+    gatewayMocks.httpsRequest.mockImplementation(
+      mockHttpResponse({
+        headers: { "content-type": "text/html" },
+        body: "<html><title>A &lt; B &amp; C &amp;lt;script&amp;gt;</title><body>x &amp; y</body></html>"
+      })
+    );
+    const { fetchPublicWebRead } = await import("@/lib/actionGateway");
+
+    const result = await fetchPublicWebRead("https://example.com/page");
+
+    expect(result.title).toBe("A < B & C &lt;script&gt;");
+    expect(result.excerpt).toContain("x & y");
+    expect(result.excerpt).not.toContain("<script>");
+  });
 });

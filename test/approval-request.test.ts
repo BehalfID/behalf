@@ -48,6 +48,17 @@ vi.mock("@/models/ApprovalRequest", () => ({
   APPROVAL_GRANT_TTL_MS: 30 * 60 * 1_000
 }));
 
+vi.mock("@/lib/approvals/emitLifecycle", () => ({
+  emitApprovalRequested: vi.fn().mockResolvedValue(undefined),
+  emitApprovalApproved: vi.fn().mockResolvedValue(undefined),
+  emitApprovalDenied: vi.fn().mockResolvedValue(undefined),
+  emitApprovalUsed: vi.fn().mockResolvedValue(undefined)
+}));
+
+vi.mock("@/lib/policyEngine/loadPolicy", () => ({
+  loadPolicyDocument: vi.fn().mockResolvedValue(null)
+}));
+
 function mockPermissions(permissions: unknown[]) {
   modelMocks.permissionFind.mockReturnValue({
     sort: vi.fn().mockResolvedValue(permissions)

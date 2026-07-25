@@ -1,60 +1,137 @@
 import { describe, expect, it } from "vitest";
 import { getTableName, getTableColumns } from "drizzle-orm";
+import { getTableConfig } from "drizzle-orm/pg-core";
 import { coreTables, type CoreTableName } from "@/lib/db/postgres/schema";
 import { isPostgresConfigured } from "@/lib/db/postgres";
 
 const EXPECTED_CORE_TABLES: CoreTableName[] = [
   "accounts",
   "developerUsers",
+  "oauthPendingSignups",
   "developerSessions",
   "developerApiTokens",
   "accountMemberships",
   "accountInvites",
+  "deviceCodes",
   "agents",
   "permissions",
+  "permissionProfiles",
   "approvalRequests",
   "verificationLogs",
   "webhookEndpoints",
   "webhookEvents",
+  "webhookDeliveries",
+  "stripeWebhookEvents",
+  "enterpriseInquiries",
   "managedProfilePolicies",
   "managedProfileProtectedRepos",
-  "cliAuditActivities"
+  "cliPauseLeases",
+  "cliAuditActivities",
+  "sites",
+  "siteAccessRules",
+  "siteAccessLogs",
+  "siteGuardKeys",
+  "statusComponents",
+  "statusIncidents",
+  "policyDocuments",
+  "integrationBindings",
+  "collaborationMessageRefs"
 ];
 
 const EXPECTED_SQL_TABLE_NAMES = [
   "accounts",
   "developer_users",
+  "oauth_pending_signups",
   "developer_sessions",
   "developer_api_tokens",
   "account_memberships",
   "account_invites",
+  "device_codes",
   "agents",
   "permissions",
+  "permission_profiles",
   "approval_requests",
   "verification_logs",
   "webhook_endpoints",
   "webhook_events",
+  "webhook_deliveries",
+  "stripe_webhook_events",
+  "enterprise_inquiries",
   "managed_profile_policies",
   "managed_profile_protected_repos",
-  "cli_audit_activities"
+  "cli_pause_leases",
+  "cli_audit_activities",
+  "sites",
+  "site_access_rules",
+  "site_access_logs",
+  "site_guard_keys",
+  "status_components",
+  "status_incidents",
+  "policy_documents",
+  "integration_bindings",
+  "collaboration_message_refs"
 ];
 
 const CRITICAL_COLUMNS: Record<string, string[]> = {
-  accounts: ["accountId", "slug", "plan", "verificationCount"],
-  developerUsers: ["userId", "email", "passwordHash"],
-  developerSessions: ["sessionId", "userId", "tokenHash", "expiresAt"],
+  developerUsers: ["userId", "email", "passwordHash", "googleSub", "authProviders"],
+  accounts: ["accountId", "slug", "plan", "verificationCount", "sso"],
+  oauthPendingSignups: ["pendingId", "googleSub", "email", "tokenHash", "expiresAt"],
+  developerSessions: ["sessionId", "userId", "tokenHash", "expiresAt", "lastActivityAt"],
   developerApiTokens: ["tokenId", "userId", "accountId", "tokenHash"],
   accountMemberships: ["membershipId", "accountId", "userId", "role"],
   accountInvites: ["inviteId", "accountId", "email", "status"],
+  deviceCodes: ["codeId", "deviceCode", "userCode", "expiresAt", "status"],
   agents: ["agentId", "accountId", "apiKeyHash", "status"],
   permissions: ["permissionId", "accountId", "agentId", "action", "constraints", "status"],
-  approvalRequests: ["approvalId", "requestId", "accountId", "status", "kind"],
+  permissionProfiles: ["profileId", "accountId", "permissions", "status"],
+  approvalRequests: [
+    "approvalId",
+    "requestId",
+    "accountId",
+    "status",
+    "kind",
+    "argumentFingerprint",
+    "usedAt"
+  ],
   verificationLogs: ["logId", "requestId", "accountId", "agentId", "allowed", "metadata"],
   webhookEndpoints: ["webhookId", "accountId", "url", "secretHash", "events", "status"],
   webhookEvents: ["eventId", "accountId", "payload", "status", "attempts"],
+  webhookDeliveries: ["deliveryId", "accountId", "webhookId", "eventId", "status"],
+  stripeWebhookEvents: ["eventId", "type", "processedAt"],
+  enterpriseInquiries: ["inquiryId", "email", "company", "status"],
   managedProfilePolicies: ["policyId", "accountId", "workHours", "toolModes", "pausePolicy"],
   managedProfileProtectedRepos: ["policyId", "accountId", "repoHash", "mode"],
-  cliAuditActivities: ["auditId", "accountId", "eventType", "reason", "metadata"]
+  cliPauseLeases: ["leaseId", "accountId", "userId", "granted", "expiresAt"],
+  cliAuditActivities: ["auditId", "accountId", "eventType", "reason", "metadata"],
+  sites: ["siteId", "accountId", "domain", "status"],
+  siteAccessRules: ["ruleId", "siteId", "accountId", "allowedPaths", "status"],
+  siteAccessLogs: ["requestId", "siteId", "accountId", "allowed", "risk"],
+  siteGuardKeys: ["keyId", "siteId", "keyHash", "status"],
+  statusComponents: ["componentId", "name", "status", "enabled"],
+  statusIncidents: ["incidentId", "title", "status", "severity", "updates"],
+  policyDocuments: ["policyId", "accountId", "version", "enabled", "rules"],
+  integrationBindings: [
+    "bindingId",
+    "accountId",
+    "provider",
+    "status",
+    "teamId",
+    "channelId",
+    "botToken",
+    "signingSecret",
+    "identityMap",
+    "createdBy"
+  ],
+  collaborationMessageRefs: [
+    "refId",
+    "accountId",
+    "provider",
+    "bindingId",
+    "approvalId",
+    "channelId",
+    "messageTs",
+    "status"
+  ]
 };
 
 const TENANT_SCOPED_TABLES: CoreTableName[] = [
@@ -63,13 +140,23 @@ const TENANT_SCOPED_TABLES: CoreTableName[] = [
   "accountInvites",
   "agents",
   "permissions",
+  "permissionProfiles",
   "approvalRequests",
   "verificationLogs",
   "webhookEndpoints",
   "webhookEvents",
+  "webhookDeliveries",
   "managedProfilePolicies",
   "managedProfileProtectedRepos",
-  "cliAuditActivities"
+  "cliPauseLeases",
+  "cliAuditActivities",
+  "sites",
+  "siteAccessRules",
+  "siteAccessLogs",
+  "siteGuardKeys",
+  "policyDocuments",
+  "integrationBindings",
+  "collaborationMessageRefs"
 ];
 
 describe("postgres schema (static)", () => {
@@ -102,8 +189,7 @@ describe("postgres schema (static)", () => {
       { table: coreTables.accounts, col: "accountId" },
       { table: coreTables.developerUsers, col: "userId" },
       { table: coreTables.agents, col: "agentId" },
-      { table: coreTables.permissions, col: "permissionId" },
-      { table: coreTables.verificationLogs, col: "logId" }
+      { table: coreTables.permissions, col: "permissionId" }
     ];
 
     for (const { table, col } of idColumns) {
@@ -112,6 +198,24 @@ describe("postgres schema (static)", () => {
       expect(column.columnType).toBe("PgText");
       expect(column.primary).toBe(true);
     }
+  });
+
+  it("models verification log partition keys as composite constraints", () => {
+    const config = getTableConfig(coreTables.verificationLogs);
+    const primaryKeyColumns = config.primaryKeys.flatMap((key) =>
+      key.columns.map((column) => column.name)
+    );
+    const requestCreatedIndex = config.indexes.find(
+      (entry) => entry.config.name === "verification_logs_request_created_uq"
+    );
+
+    expect(primaryKeyColumns).toEqual(["log_id", "created_at"]);
+    expect(requestCreatedIndex?.config.unique).toBe(true);
+    expect(
+      requestCreatedIndex?.config.columns.map((column) =>
+        "name" in column ? column.name : null
+      )
+    ).toEqual(["request_id", "created_at"]);
   });
 
   it("isPostgresConfigured is false without env vars in test", () => {
@@ -204,6 +308,10 @@ describe("postgres runtime isolation (static)", () => {
           files.push(...scanRepoFiles(full));
           continue;
         }
+        // composition.ts is the intentional wiring point for optional Postgres.
+        if (entry === "composition.ts") continue;
+        // delegate.ts is the runtime Postgres dispatch layer.
+        if (entry === "delegate.ts") continue;
         if (entry.endsWith(".ts")) {
           files.push(full);
         }

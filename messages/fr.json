@@ -23,7 +23,8 @@
     "navigationMenu": "Menu de navigation",
     "mode": "Mode",
     "theme": "Thème",
-    "language": "Langue"
+    "language": "Langue",
+    "getStarted": "Commencer"
   },
   "footer": {
     "tagline": "Infrastructure de permissions\npour agents IA.",
@@ -538,7 +539,7 @@
       "item1": "Pas encore d'intégrations natives des fournisseurs. Les agents connectés sont représentés manuellement dans BehalfID — BehalfID n'appelle pas les APIs Ollie, ChatGPT, Claude ou Zapier en votre nom.",
       "item2": "Le mode manuel dépend de la coopération de l'utilisateur et de l'agent. L'agent externe doit lire le passeport et respecter les contraintes listées ; BehalfID ne peut pas imposer un comportement dans les fournisseurs tiers.",
       "item3": "Site Guard est un modèle d'application prévu pour les propriétaires de sites web, pas un bloqueur de crawlers global. Il protège uniquement les routes ou workflows où le site installe un middleware, proxy, worker ou gateway qui appelle BehalfID et respecte la décision.",
-      "item4": "Pas encore de SSO d'entreprise ni de rôles d'équipe. La console d'administration utilise un mot de passe partagé. Le portail développeur a des comptes individuels mais pas d'organisations.",
+      "item4": "La connexion avec Google est disponible pour les comptes développeur. Le SSO Google d’espace de travail (liste de domaines d’entreprise et application optionnelle du mot de passe) est disponible à partir de Pro. La console d’administration utilise encore un mot de passe partagé. SAML et les IdP non Google ne sont pas encore pris en charge.",
       "item5": "Pas encore d'audit de sécurité externe formel. BehalfID convient aux déploiements contraints et aux démos, pas à une utilisation multi-tenant publique ouverte sans durcissement supplémentaire.",
       "item6": "Pas un remplacement pour l'autorisation au niveau de l'application. BehalfID est une couche de vérification préalable à l'action. Votre app a encore besoin de son propre auth, de la validation des entrées et du contrôle d'accès.",
       "item7": "La limitation de débit revient à la mémoire de processus sans Upstash Redis. Dans les environnements sans serveur, les compteurs en mémoire ne sont pas partagés entre les instances."
@@ -563,7 +564,7 @@
       "controls": "Contrôles techniques",
       "contact": "Contact"
     },
-    "statusInProgress": "Certification en cours",
+    "statusInProgress": "Pas encore certifie Type II — renforcement des controles en cours",
     "statusNotCertified": "Non certifié",
     "statusNotApplicable": "Non applicable",
     "statusImplemented": "Implémenté",
@@ -615,9 +616,9 @@
       "item1": "Toutes les données en transit chiffrées avec TLS 1.2+",
       "item2": "Clés API stockées uniquement sous forme de hachages SHA-256 — jamais en clair",
       "item3": "Mots de passe développeur hachés avec scrypt",
-      "item4": "Cookies de session HTTP-only, SameSite-strict, expirant après 30 jours d'inactivité",
+      "item4": "Cookies de session HTTP-only, SameSite=Lax, fenetre d inactivity de 1 heure et duree absolue de 14 jours",
       "item5": "Payloads webhook signés avec HMAC-SHA256 ; signatures vérifiées avant traitement",
-      "item6": "Journaux de vérification conservés 90 jours, enregistrements de livraison webhook 30 jours",
+      "item6": "Journaux de verification conserves par plan (Free 7 / Team 30 / Pro 90 / Business 180 / Enterprise jusqu a 365 jours) et purges physiquement apres un delai de grace",
       "item7": "Limitation de débit sur tous les endpoints publics pour prévenir les abus",
       "item8": "Piste d'audit de chaque décision de permission (ID agent, action, résultat, horodatage)",
       "item9": "Adresses IP utilisées uniquement pour la limitation de débit ; non persistées ni liées aux comptes",
@@ -724,6 +725,8 @@
     "dobRequired": "La date de naissance est requise.",
     "ageError": "Vous devez avoir au moins 13 ans pour créer un compte.",
     "authFailed": "Échec de l'authentification.",
+    "continueWithGoogle": "Continuer avec Google",
+    "orDivider": "ou",
     "agreePrefix": "En créant un compte, vous acceptez les ",
     "terms": "Conditions d'utilisation",
     "and": " et la ",
@@ -753,6 +756,12 @@
     "openNav": "Ouvrir la navigation",
     "closeNav": "Fermer la navigation",
     "docsNav": "Documentation",
+    "website": "Site web",
+    "utilities": "Utilitaires de documentation",
+    "navGroupStart": "Démarrer",
+    "navGroupBuild": "Construire",
+    "navGroupUnderstand": "Comprendre",
+    "pagerLabel": "Pagination de la documentation",
     "simpleModeOn": "Mode simple activé",
     "simpleModeBody": "— certains détails techniques sont condensés. Passez à ",
     "simpleModeSwitch": "Développeur",
@@ -767,6 +776,7 @@
     "webhooks": "Webhooks",
     "siteGuard": "Site Guard",
     "concepts": "Concepts",
+    "troubleshooting": "Dépannage",
     "security": "Sécurité",
     "index": {
       "meta": {
