@@ -30,18 +30,40 @@ export async function getAccountAgentDetail(actor: WorkspaceActor, agentId: stri
 
   await backfillLegacyAgentResources(actor, agentId);
 
-  const [permissions, logs] = await Promise.all([
-    Permission.find({ ...accountScopeFilter(actor.accountId), agentId })
+  const recentDeniedSince = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const permissionScope = { ...accountScopeFilter(actor.accountId), agentId };
+  const [
+    permissions,
+    activePermissions,
+    approvalGatedPermissions,
+    revokedPermissions,
+    recentDeniedActions
+  ] = await Promise.all([
+    Permission.find(permissionScope)
       .sort({ createdAt: -1 })
       .limit(50)
-      .select("-_id permissionId action description resource scope allowedActions blockedActions requiresApproval notes template constraints requiredAuthorityLevel status lastUsedAt createdAt updatedAt")
+      .select("-_id permissionId action description resource scope allowedActions blockedActions requiresApproval notes template constraints requiredAuthorityLevel replacesPermissionId replacedByPermissionId status lastUsedAt createdAt updatedAt")
       .lean(),
-    VerificationLog.find({ ...accountScopeFilter(actor.accountId), agentId })
-      .sort({ createdAt: -1 })
-      .limit(25)
-      .select("-_id requestId agentId permissionId action amount vendor allowed reason risk createdAt")
-      .lean()
+    Permission.countDocuments({ ...permissionScope, status: "active" }),
+    Permission.countDocuments({ ...permissionScope, status: "active", requiresApproval: true }),
+    Permission.countDocuments({ ...permissionScope, status: "revoked" }),
+    VerificationLog.countDocuments({
+      ...accountScopeFilter(actor.accountId),
+      agentId,
+      allowed: false,
+      createdAt: { $gte: recentDeniedSince }
+    })
   ]);
 
-  return { agent: serializeAgent(agent), permissions, logs };
+  return {
+    agent: serializeAgent(agent),
+    permissions,
+    securityPosture: {
+      activePermissions,
+      approvalGatedPermissions,
+      revokedPermissions,
+      recentDeniedActions,
+      recentDeniedSince: recentDeniedSince.toISOString()
+    }
+  };
 }

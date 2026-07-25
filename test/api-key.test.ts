@@ -21,6 +21,12 @@ vi.mock("@/lib/rateLimit", () => ({
   rateLimitError: () => Response.json({ error: "Rate limit exceeded." }, { status: 429 })
 }));
 vi.mock("@/lib/db", () => ({ connectToDatabase: keyMocks.connectToDatabase }));
+vi.mock("@/lib/authEvents", () => ({
+  recordAuthFailure: vi.fn().mockResolvedValue(undefined),
+  clientIpFromRequest: vi.fn().mockReturnValue("unknown"),
+  hashIp: vi.fn().mockReturnValue("iphash"),
+  sanitizeAuthEventForRead: (event: unknown) => event
+}));
 vi.mock("@/lib/ids", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/ids")>()),
   createApiKey: keyMocks.createApiKey

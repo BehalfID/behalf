@@ -59,9 +59,12 @@ describe("agent and permission presentation", () => {
     expect(css).toContain("content: attr(data-label)");
   });
 
-  it("does not add a permission replacement mutation to the dashboard client", () => {
+  it("keeps permission replacement out of the dashboard shell and in agent detail", () => {
     const dashboard = source("app/dashboard/client.tsx");
+    const editor = source("components/dashboard/agent-detail/PermissionEditor.tsx");
+
+    expect(dashboard).toContain("AgentDetailShell");
     expect(dashboard).not.toMatch(/permissions\/.+\/replace/);
-    expect(dashboard).toContain("Existing permission records are not replaced or revoked.");
+    expect(editor).toMatch(/permissions\/\$\{initialPermission\.permissionId\}\/replace/);
   });
 });

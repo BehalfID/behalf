@@ -45,13 +45,11 @@ describe("managed profiles and integrations presentation", () => {
   });
 
   it("keeps agent integration paths scoped to the selected identity", () => {
-    const dashboard = source("app/dashboard/client.tsx");
+    const integrations = source("components/dashboard/agent-detail/AgentIntegrations.tsx");
 
-    expect(dashboard).toContain('aria-label="Integration posture"');
-    expect(dashboard).toContain("Operator-maintained status");
-    expect(dashboard).toContain("None stored");
-    expect(dashboard).toContain("Managed Profiles apply to supported local CLI launch shims");
-    expect(dashboard).toContain("This path does not intercept the external agent");
-    expect(dashboard).not.toContain("Google Antigravity");
+    expect(integrations).toContain("Credential status");
+    expect(integrations).toContain("Passport and manual integration");
+    expect(integrations).toContain("External integration metadata");
+    expect(integrations).not.toContain("Google Antigravity");
   });
 });
