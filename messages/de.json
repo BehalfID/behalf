@@ -564,7 +564,7 @@
       "controls": "Technische Kontrollen",
       "contact": "Kontakt"
     },
-    "statusInProgress": "Nicht zertifiziert — Kontrollen in Arbeit (Ziel)",
+    "statusInProgress": "Noch nicht Type-II-zertifiziert — Kontrollen werden gehärtet",
     "statusNotCertified": "Nicht zertifiziert",
     "statusNotApplicable": "Nicht anwendbar",
     "statusImplemented": "Implementiert",
@@ -572,7 +572,7 @@
     "soc2": {
       "heading": "SOC 2",
       "statusHeading": "Status",
-      "body1": "BehalfID hat noch kein SOC 2 Typ II-Audit abgeschlossen. Wir implementieren derzeit die organisatorischen und technischen Kontrollen, die erforderlich sind, um die SOC 2 Typ II-Zertifizierung über die Vertrauensdienstkriterien Sicherheit, Verfügbarkeit und Vertraulichkeit zu erreichen.",
+      "body1": "BehalfID hat weder ein SOC 2 Typ I- noch ein Typ II-Audit mit einer zugelassenen Wirtschaftsprüfungsgesellschaft abgeschlossen. Wir implementieren und dokumentieren die organisatorischen und technischen Kontrollen für ein künftiges SOC 2-Engagement über die Vertrauensdienstkriterien Sicherheit, Verfügbarkeit, Verarbeitungsintegrität und Vertraulichkeit. SOC 2 Typ II ist ein künftiges Ziel, keine aktuelle Zertifizierung.",
       "controlsHeading": "Heute vorhandene Kontrollen",
       "roadmapHeading": "Roadmap",
       "roadmapBody": "Wir beabsichtigen, eine lizenzierte Wirtschaftsprüfungsgesellschaft für ein SOC 2 Typ II-Audit zu beauftragen, sobald wir die verbleibenden organisatorischen Kontrollen eingesetzt haben. Ziel: 2026."
@@ -616,9 +616,9 @@
       "item1": "Alle Daten bei der Übertragung mit TLS 1.2+ verschlüsselt",
       "item2": "API-Schlüssel nur als SHA-256-Hashes gespeichert — niemals im Klartext",
       "item3": "Entwicklerpasswörter mit scrypt gehasht",
-      "item4": "Sitzungs-Cookies sind HTTP-only, SameSite-strict und laufen nach 30 Tagen Inaktivität ab",
+      "item4": "Sitzungs-Cookies sind HTTP-only, SameSite=Lax, mit 1 Stunde Inaktivitaet und 14 Tagen absoluter Lebensdauer",
       "item5": "Webhook-Payloads mit HMAC-SHA256 signiert; Signaturen werden vor der Verarbeitung verifiziert",
-      "item6": "Verifizierungslogs 90 Tage aufbewahrt, Webhook-Zustellungsaufzeichnungen 30 Tage",
+      "item6": "Verifikationsprotokolle werden planbasiert aufbewahrt (Free 7 / Team 30 / Pro 90 / Business 180 / Enterprise bis 365 Tage) und nach einer Schonfrist physisch geloescht",
       "item7": "Rate-Limiting auf allen öffentlichen Endpunkten zur Missbrauchsprävention",
       "item8": "Audit-Trail jeder Berechtigungsentscheidung (Agenten-ID, Aktion, Ergebnis, Zeitstempel)",
       "item9": "IP-Adressen nur für Rate-Limiting verwendet; nicht dauerhaft gespeichert oder mit Konten verknüpft",

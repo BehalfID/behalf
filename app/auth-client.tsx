@@ -38,7 +38,34 @@ export function AuthPage({
   const oauthError = useMemo(() => searchParams.get("error")?.trim() || "", [searchParams]);
   const [error, setError] = useState(oauthError);
   const [submitting, setSubmitting] = useState(false);
+  const [mfaToken, setMfaToken] = useState<string | null>(null);
+  const [mfaCode, setMfaCode] = useState("");
   const redirectPath = safeNextPath(nextPath) ?? (mode === "signup" ? "/verify-email" : "/dashboard");
+
+  const submitMfa = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!mfaToken) return;
+    setError("");
+    setSubmitting(true);
+    try {
+      const response = await fetch("/api/auth/mfa/verify", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mfaToken, code: mfaCode })
+      });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        setError(body?.error ?? "MFA verification failed.");
+        return;
+      }
+      assignOwnedLocation(redirectPath);
+    } catch {
+      setError("We could not reach BehalfID. Check your connection and try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -74,7 +101,14 @@ export function AuthPage({
 
       const body = (await response.json().catch(() => null)) as {
         user?: { emailVerified?: boolean };
+        mfaRequired?: boolean;
+        mfaToken?: string;
       } | null;
+
+      if (mode === "login" && body?.mfaRequired && body.mfaToken) {
+        setMfaToken(body.mfaToken);
+        return;
+      }
 
       if (mode === "signup" || body?.user?.emailVerified === false) {
         assignOwnedLocation("/verify-email");
@@ -88,6 +122,64 @@ export function AuthPage({
       setSubmitting(false);
     }
   };
+
+  if (mfaToken) {
+    return (
+      <AuthShell
+        support={
+          <AuthPrinciple
+            eyebrow="Authorization control plane"
+            title="Confirm it is you."
+            description="Enter the six-digit code from your authenticator app to finish signing in."
+            points={[
+              { label: "Factor", value: "Password plus TOTP" },
+              { label: "Expiry", value: "Challenge expires in five minutes" },
+              { label: "Backup", value: "Use a backup code if you lost your device" }
+            ]}
+          />
+        }
+      >
+        <form className="auth-task" onSubmit={submitMfa} aria-busy={submitting}>
+          <AuthTaskHeader
+            eyebrow="Two-factor authentication"
+            title="Authenticator code"
+            description="Open your authenticator app and enter the current code for BehalfID."
+          />
+          <div className="auth-task__fields">
+            <Field>
+              <FieldLabel htmlFor="auth-mfa-code">Authentication code</FieldLabel>
+              <Input
+                autoComplete="one-time-code"
+                id="auth-mfa-code"
+                inputMode="numeric"
+                onChange={(event) => setMfaCode(event.target.value)}
+                pattern="[0-9]*"
+                required
+                value={mfaCode}
+              />
+            </Field>
+          </div>
+          {error ? <FormAlert id="auth-submit-error">{error}</FormAlert> : null}
+          <Button loading={submitting} variant="primary" type="submit">
+            {submitting ? "Verifying…" : "Verify and continue"}
+          </Button>
+          <p className="auth-task__row auth-task__row--center">
+            <button
+              className="button-link"
+              type="button"
+              onClick={() => {
+                setMfaToken(null);
+                setMfaCode("");
+                setError("");
+              }}
+            >
+              Back to sign in
+            </button>
+          </p>
+        </form>
+      </AuthShell>
+    );
+  }
 
   return (
     <AuthShell

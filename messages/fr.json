@@ -564,7 +564,7 @@
       "controls": "Contrôles techniques",
       "contact": "Contact"
     },
-    "statusInProgress": "Non certifié — contrôles en cours (cible)",
+    "statusInProgress": "Pas encore certifié Type II — renforcement des contrôles en cours",
     "statusNotCertified": "Non certifié",
     "statusNotApplicable": "Non applicable",
     "statusImplemented": "Implémenté",
@@ -572,7 +572,7 @@
     "soc2": {
       "heading": "SOC 2",
       "statusHeading": "Statut",
-      "body1": "BehalfID n'a pas encore complété un audit SOC 2 Type II. Nous mettons actuellement en œuvre les contrôles organisationnels et techniques requis pour obtenir la certification SOC 2 Type II selon les critères de services de confiance Sécurité, Disponibilité et Confidentialité.",
+      "body1": "BehalfID n'a pas complété d'audit SOC 2 Type I ou Type II auprès d'un cabinet CPA agréé. Nous mettons en œuvre et documentons les contrôles organisationnels et techniques requis pour un futur engagement SOC 2 selon les critères de services de confiance Sécurité, Disponibilité, Intégrité du traitement et Confidentialité. Le SOC 2 Type II est un objectif futur, pas une certification actuelle.",
       "controlsHeading": "Contrôles en place aujourd'hui",
       "roadmapHeading": "Feuille de route",
       "roadmapBody": "Nous avons l'intention de mandater un cabinet CPA agréé pour un audit SOC 2 Type II une fois que nous aurons déployé les contrôles organisationnels restants. Objectif : 2026."
@@ -616,9 +616,9 @@
       "item1": "Toutes les données en transit chiffrées avec TLS 1.2+",
       "item2": "Clés API stockées uniquement sous forme de hachages SHA-256 — jamais en clair",
       "item3": "Mots de passe développeur hachés avec scrypt",
-      "item4": "Cookies de session HTTP-only, SameSite-strict, expirant après 30 jours d'inactivité",
+      "item4": "Cookies de session HTTP-only, SameSite=Lax, fenetre d inactivity de 1 heure et duree absolue de 14 jours",
       "item5": "Payloads webhook signés avec HMAC-SHA256 ; signatures vérifiées avant traitement",
-      "item6": "Journaux de vérification conservés 90 jours, enregistrements de livraison webhook 30 jours",
+      "item6": "Journaux de verification conserves par plan (Free 7 / Team 30 / Pro 90 / Business 180 / Enterprise jusqu a 365 jours) et purges physiquement apres un delai de grace",
       "item7": "Limitation de débit sur tous les endpoints publics pour prévenir les abus",
       "item8": "Piste d'audit de chaque décision de permission (ID agent, action, résultat, horodatage)",
       "item9": "Adresses IP utilisées uniquement pour la limitation de débit ; non persistées ni liées aux comptes",

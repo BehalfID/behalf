@@ -18,13 +18,13 @@ const TECHNICAL_CONTROLS = [
   "All data in transit encrypted with TLS 1.2+",
   "API keys stored only as SHA-256 hashes — never in plaintext",
   "Developer passwords hashed with scrypt",
-  "Session cookies are HTTP-only, SameSite-strict, and expire after 30 days of inactivity",
+  "Session cookies are HTTP-only, SameSite=Lax, with a 1-hour inactivity window and 14-day absolute lifetime",
   "Webhook payloads signed with HMAC-SHA256; signatures verified before processing",
-  "Verification logs retained for 90 days, webhook delivery records for 30 days",
+  "Verification logs retained by plan (Free 7 / Team 30 / Pro 90 / Business 180 / Enterprise up to 365 days) and physically purged after a grace period",
   "Rate limiting on all public endpoints to prevent abuse",
   "Audit trail of every permission decision (agent ID, action, outcome, timestamp)",
-  "IP addresses used only for rate limiting; not persisted or linked to accounts",
-  "No third-party analytics, advertising trackers, or cross-site tracking scripts",
+  "IP addresses used for rate limiting and security event logging; not sold or used for advertising",
+  "No third-party advertising trackers or cross-site tracking scripts",
 ];
 
 export default function CompliancePage() {
@@ -69,14 +69,16 @@ export default function CompliancePage() {
 
             <h3>Status</h3>
             <div className="compliance-badge compliance-badge--planned">
-              Not certified — controls in progress (target)
+              Not Type II certified — controls hardening underway
             </div>
             <p>
-              BehalfID has not completed a SOC 2 Type II audit and does not claim SOC 2
-              certification. We are implementing organizational and technical controls toward a
-              future SOC 2 Type II engagement across the Security, Availability, and
-              Confidentiality trust service criteria. Treat certification as a <strong>target</strong>,
-              not a current status.
+              BehalfID has not completed a SOC 2 Type I or Type II audit with a licensed
+              CPA firm. We are implementing and documenting the organizational and
+              technical controls required for a future SOC 2 engagement across the
+              Security, Availability, Processing Integrity, and Confidentiality trust
+              service criteria. SOC 2 Type II is a <strong>future target</strong>, not a
+              current certification. Public engineering docs may still describe constrained
+              deployment guidance while this work continues.
             </p>
 
             <h3>Controls in place</h3>
@@ -92,7 +94,7 @@ export default function CompliancePage() {
               <li>
                 <strong>CC7 — System operations.</strong> Audit logs record every permission
                 decision with a stable request ID, timestamp, agent, action, and outcome.
-                Logs are retained for 90 days.
+                Retention is plan-based and logs are physically purged after a grace period.
               </li>
               <li>
                 <strong>CC9 — Risk mitigation.</strong> Rate limiting, HMAC-verified webhooks,
@@ -117,7 +119,10 @@ export default function CompliancePage() {
               <li>Formal information security policy and risk register</li>
               <li>Vendor risk assessments for all sub-processors</li>
               <li>Employee security awareness training program</li>
-              <li>Incident response and business continuity plan</li>
+              <li>
+                Incident response, backup/restore, and business continuity runbooks
+                (see <code>docs/compliance/ops/</code>); restore drills ongoing
+              </li>
               <li>Change management policy and access review cadence</li>
               <li>Third-party penetration test</li>
               <li>Engagement with a licensed CPA firm for Type II audit</li>
@@ -169,7 +174,7 @@ export default function CompliancePage() {
               </li>
               <li>
                 <strong>A.8.15 — Logging.</strong> Audit logs for every verification decision;
-                consent state logged server-side; 90-day retention with automatic purge.
+                consent state logged server-side; plan-based retention with scheduled physical purge.
               </li>
               <li>
                 <strong>A.5.29 — Information security during disruption.</strong> Rate limiting
@@ -212,7 +217,7 @@ export default function CompliancePage() {
                 <strong>Not passing PHI as metadata.</strong> Verification call metadata
                 fields (e.g., <code>vendor</code>, <code>resource</code>, <code>metadata</code>)
                 should not contain PHI. If <code>BEHALFID_LOG_METADATA</code> is enabled, those
-                fields are stored in audit logs for 90 days.
+                fields are stored in audit logs for your plan&apos;s retention window.
               </li>
               <li>
                 <strong>Ensuring your integration is the enforcement layer.</strong> BehalfID
@@ -238,7 +243,7 @@ export default function CompliancePage() {
               <li>All data encrypted in transit (TLS 1.2+) — aligns with HIPAA Technical Safeguards §164.312(e).</li>
               <li>Access controls: API keys, sessions, and role scoping — aligns with §164.312(a).</li>
               <li>Audit logs for all verification decisions — aligns with §164.312(b).</li>
-              <li>Automatic log purge (90 days) limits unnecessary PHI retention exposure.</li>
+              <li>Automatic plan-based log purge limits unnecessary retention exposure.</li>
             </ul>
           </section>
 

@@ -42,10 +42,10 @@ BehalfID is currently a prototype. It is suitable for local demos and constraine
 - `POST /api/agents` can still be made public with `BEHALFID_PUBLIC_AGENT_CREATION=true`; use that only for local prototype mode or constrained demos.
 - Disabled agents are denied on `/api/verify`, but can still rotate keys and manage permissions while authenticated; this is intentional for recovery/prototype administration.
 - Rate limiting is process-local unless Upstash Redis is configured. Vercel/serverless memory counters are not shared and reset on cold start or redeploy.
-- Failed authentication attempts are not stored in verification logs.
-- The admin console still uses one admin password; the developer portal has individual accounts, multi-user workspaces (memberships/roles), Sign in with Google, and workspace Google SSO domain enforcement (not SAML / arbitrary IdPs).
-- There is no CSRF token system beyond SameSite cookies and Origin checks.
+- Failed authentication attempts are stored as AuthEvent security records (no passwords or tokens) with short retention.
+- The admin console supports individual ConsoleAdmin accounts; shared `BEHALFID_ADMIN_PASSWORD` is bootstrap/legacy only when enabled.
 - Audit logs always contain action, vendor/resource, and amount when provided, and those fields may still be sensitive. Optional `metadata` is only persisted when `BEHALFID_LOG_METADATA` is not `false`.
+- Verification and Site Guard access logs are physically purged on a schedule by plan retention + grace (`GET /api/cron/purge-logs`).
 - Webhook delivery is at least once, not exactly once. Receivers should deduplicate by event ID.
 - The webhook worker is an API route intended for Vercel cron or an external scheduler, not a dedicated queue service.
 - Webhook event details expose the event payload to console admins for debugging. Event payload serializers must continue excluding API keys, setup tokens, webhook secrets, and rotated keys.
@@ -66,10 +66,10 @@ BehalfID is currently a prototype. It is suitable for local demos and constraine
 ## Production Recommendations
 
 - Keep public agent creation disabled and use console or `BEHALFID_SETUP_TOKEN` provisioning.
-- Move rate limiting to Redis, Upstash, or provider-native controls when process-local fallbacks are insufficient.
-- Developer accounts, workspaces (accounts), memberships, and role-based authority already exist; continue hardening (failed-auth audit logs, admin-action audit, SAML/non-Google IdPs as needed).
-- Add account-scoped audit logging for failed auth and admin actions.
-- Add log retention controls and export.
+- Keep public agent creation disabled and use console or `BEHALFID_SETUP_TOKEN` provisioning.
+- Keep rate limiting on Redis/Upstash in production (required by env validation).
+- Prefer individual ConsoleAdmin accounts over shared admin password.
+- Schedule `/api/cron/purge-logs` alongside the webhook worker.
 - Add stronger webhook queue observability, alerting, and replay audit logs.
 - Use a stronger key storage design with a secret pepper.
 - Consider disabling public `POST /api/agents` in production and requiring console or provisioning auth.

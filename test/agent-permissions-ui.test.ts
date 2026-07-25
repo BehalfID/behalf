@@ -59,13 +59,16 @@ describe("agent and permission presentation", () => {
     expect(css).toContain("content: attr(data-label)");
   });
 
-  it("wires create, replace, and revoke as distinct permission mutations in the dashboard client", () => {
+  it("keeps permission replacement out of the dashboard shell and in agent detail", () => {
     const dashboard = source("app/dashboard/client.tsx");
-    expect(dashboard).toMatch(/permissions\/\$\{editingPermission\.permissionId\}\/replace/);
-    expect(dashboard).toContain("Existing permission records are not replaced or revoked.");
-    expect(dashboard).toContain("Replace permission");
-    expect(dashboard).toContain("Creating this permission adds a new active record.");
-    expect(dashboard).toContain("Review and replace");
-    expect(dashboard).toContain("permissionMutationError");
+    const editor = source("components/dashboard/agent-detail/PermissionEditor.tsx");
+
+    expect(dashboard).toContain("AgentDetailShell");
+    expect(dashboard).not.toMatch(/permissions\/.+\/replace/);
+    expect(editor).toMatch(/permissions\/\$\{initialPermission\.permissionId\}\/replace/);
+    expect(editor).toContain("expectedUpdatedAt");
+    expect(editor).toContain("idempotencyKey");
+    expect(editor).toContain("replacementIdempotencyKey");
+    expect(editor).toContain('result.status !== "active"');
   });
 });

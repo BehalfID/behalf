@@ -112,18 +112,46 @@ export function hasValidSetupToken(request: NextRequest) {
   return verifySetupToken(getSetupToken(request) ?? "");
 }
 
-export function createConsoleSessionValue() {
-  const password = getAdminPassword();
-  if (!password) {
-    return null;
-  }
-
-  const issuedAt = Date.now();
-  const nonce = crypto.randomBytes(12).toString("base64url");
-  return `${issuedAt}.${nonce}.${signSession(issuedAt, nonce, password)}`;
+function getSessionSigningSecret() {
+  return (
+    process.env.BEHALFID_SETUP_TOKEN?.trim() ||
+    process.env.BEHALFID_ADMIN_PASSWORD?.trim() ||
+    "dev-console-session"
+  );
 }
 
-export function isValidConsoleSession(value?: string) {
+function signAdminSession(adminId: string, issuedAt: number, nonce: string) {
+  return crypto
+    .createHmac("sha256", getSessionSigningSecret())
+    .update(`admin.${adminId}.${issuedAt}.${nonce}`)
+    .digest("base64url");
+}
+
+export function createConsoleAdminSessionValue(adminId: string) {
+  const issuedAt = Date.now();
+  const nonce = crypto.randomBytes(12).toString("base64url");
+  return `v2.${adminId}.${issuedAt}.${nonce}.${signAdminSession(adminId, issuedAt, nonce)}`;
+}
+
+export function parseConsoleSession(value?: string): { kind: "shared" } | { kind: "admin"; adminId: string } | null {
+  if (!value) return null;
+  if (value.startsWith("v2.")) {
+    const parts = value.split(".");
+    if (parts.length !== 5) return null;
+    const [, adminId, issuedAtRaw, nonce, signature] = parts;
+    const issuedAt = Number(issuedAtRaw);
+    if (!adminId || !Number.isFinite(issuedAt) || !nonce || !signature) return null;
+    if (issuedAt + SESSION_TTL_SECONDS * 1000 <= Date.now()) return null;
+    if (!timingSafeEqualString(signature, signAdminSession(adminId, issuedAt, nonce))) return null;
+    return { kind: "admin", adminId };
+  }
+  if (isValidSharedConsoleSession(value)) {
+    return { kind: "shared" };
+  }
+  return null;
+}
+
+function isValidSharedConsoleSession(value?: string) {
   const password = getAdminPassword();
   if (!password || !value) {
     return false;
@@ -145,6 +173,21 @@ export function isValidConsoleSession(value?: string) {
   }
 
   return timingSafeEqualString(signature, signSession(issuedAt, nonce, password));
+}
+
+export function createConsoleSessionValue() {
+  const password = getAdminPassword();
+  if (!password) {
+    return null;
+  }
+
+  const issuedAt = Date.now();
+  const nonce = crypto.randomBytes(12).toString("base64url");
+  return `${issuedAt}.${nonce}.${signSession(issuedAt, nonce, password)}`;
+}
+
+export function isValidConsoleSession(value?: string) {
+  return parseConsoleSession(value) !== null;
 }
 
 export async function hasConsoleSession() {

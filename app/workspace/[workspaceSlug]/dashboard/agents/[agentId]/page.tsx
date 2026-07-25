@@ -8,5 +8,5 @@ export const metadata: Metadata = {
 
 export default async function Page({ params }: { params: Promise<{ agentId: string }> }) {
   const { agentId } = await params;
-  return <WorkspaceProtectedDashboard view="agent" id={agentId} />;
+  return <WorkspaceProtectedDashboard view="agent" id={agentId} agentSection="overview" />;
 }

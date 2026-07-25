@@ -49,6 +49,7 @@
     "migration:reverse-sync": "tsx scripts/migration/reverse-sync.ts"
   },
   "dependencies": {
+    "@sentry/nextjs": "^10.68.0",
     "@vercel/analytics": "^2.0.1",
     "drizzle-orm": "^0.45.2",
     "jose": "^6.2.3",
@@ -56,6 +57,7 @@
     "next": "^16.2.11",
     "next-intl": "^4.13.0",
     "nodemailer": "^9.0.1",
+    "otpauth": "^9.4.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "stripe": "^22.1.1"

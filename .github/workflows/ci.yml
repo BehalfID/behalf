@@ -111,7 +111,9 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:17
+        # Pull via Google's Docker Hub mirror — registry-1.docker.io often
+        # times out ("context deadline exceeded") from shared Actions runners.
+        image: mirror.gcr.io/library/postgres:17
         env:
           POSTGRES_PASSWORD: postgres
           POSTGRES_USER: postgres

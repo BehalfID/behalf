@@ -364,4 +364,12 @@ describe("replacePermissionForAgent", () => {
       })
     });
   });
+
+  it("blocks viewers before reading or mutating permissions", async () => {
+    const result = await replace({}, { role: "VIEWER" });
+    expect("error" in result && result.error?.status).toBe(403);
+    expect(mocks.agentFindOne).not.toHaveBeenCalled();
+    expect(mocks.permissionFindOne).not.toHaveBeenCalled();
+    expect(mocks.stageReplacementPermission).not.toHaveBeenCalled();
+  });
 });

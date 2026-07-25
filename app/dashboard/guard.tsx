@@ -7,7 +7,8 @@ import { REQUEST_PATH_HEADER, resolveOwnedHref, splitPathAndSearch } from "@/lib
 import { extractDashboardSubpath, workspaceDashboardHref } from "@/lib/workspaceSlug";
 import { ensureAccountHasSlug } from "@/lib/workspaceSlugServer";
 import { findAccountByIdLean } from "@/lib/repositories/accounts";
-import { DashboardViews } from "./client";
+import { DashboardShell } from "./client";
+import type { AgentDetailSection } from "@/components/dashboard/agent-detail/types";
 
 /**
  * Legacy /dashboard/* entry. Temporarily redirects authenticated users to
@@ -15,7 +16,8 @@ import { DashboardViews } from "./client";
  */
 export async function ProtectedDashboard({
   view,
-  id
+  id,
+  agentSection = "overview"
 }: {
   view:
     | "home"
@@ -35,6 +37,7 @@ export async function ProtectedDashboard({
     | "managed-profiles-activity"
     | "adaptive-delegation";
   id?: string;
+  agentSection?: AgentDetailSection;
 }) {
   const requestHeaders = await headers();
   const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
@@ -59,7 +62,7 @@ export async function ProtectedDashboard({
     }
     if (slug) {
       // Reconstruct subpath from view for the temporary redirect.
-      const subpath = legacyViewToSubpath(view, id);
+      const subpath = legacyViewToSubpath(view, id, agentSection);
       redirect(`${workspaceDashboardHref(slug, subpath)}${requestSearch}`);
     }
   }
@@ -67,9 +70,10 @@ export async function ProtectedDashboard({
   // Controlled setup fallback when slug cannot be resolved — avoid redirect loops.
   const showSetupBanner = await shouldShowAccountSetupBannerForUser(context.user.userId);
   return (
-    <DashboardViews
+    <DashboardShell
       view={view}
       id={id}
+      agentSection={agentSection}
       emailVerified={context.user.emailVerified !== false}
       showSetupBanner={showSetupBanner}
     />
@@ -78,13 +82,16 @@ export async function ProtectedDashboard({
 
 function legacyViewToSubpath(
   view: string,
-  id?: string
+  id?: string,
+  agentSection: AgentDetailSection = "overview"
 ): string {
   switch (view) {
     case "home":
       return "";
     case "agent":
-      return id ? `/agents/${id}` : "/agents";
+      return id
+        ? `/agents/${id}${agentSection === "overview" ? "" : `/${agentSection}`}`
+        : "/agents";
     case "webhook":
       return id ? `/webhooks/${id}` : "/webhooks";
     case "first-agent":
