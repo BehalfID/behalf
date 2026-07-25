@@ -70,7 +70,7 @@ export async function ProtectedDashboard({
   // Controlled setup fallback when slug cannot be resolved — avoid redirect loops.
   const showSetupBanner = await shouldShowAccountSetupBannerForUser(context.user.userId);
   return (
-    <DashboardViews
+    <DashboardShell
       view={view}
       id={id}
       agentSection={agentSection}
