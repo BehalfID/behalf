@@ -461,8 +461,43 @@
   background: var(--bg);
 }
 
-.permission-editor__columns,
+.permission-editor__columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
 .permission-replacement-review {
+  display: grid;
+  gap: 14px;
+}
+
+.permission-replacement-review__summary {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--accent-soft);
+}
+
+.permission-replacement-review__summary strong {
+  color: var(--text);
+}
+
+.permission-replacement-review__summary p,
+.permission-replacement-review__summary ul {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.permission-replacement-review__summary ul {
+  padding-left: 1.2rem;
+}
+
+.permission-replacement-review__columns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
@@ -593,7 +628,7 @@ html[data-theme="light"] .ui-tabs {
   .permission-template-grid--agent-detail,
   .permission-details__grid,
   .permission-editor__columns,
-  .permission-replacement-review,
+  .permission-replacement-review__columns,
   .permission-review-list,
   .agent-activity-row dl,
   .permission-editor__steps {

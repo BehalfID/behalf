@@ -119,7 +119,13 @@ export function AgentPermissions({
     if (permission.status === "active") {
       return (
         <>
-          <Button onClick={() => openReplace(permission)} type="button">Replace permission</Button>
+          <Button
+            aria-label={`Edit and replace ${permission.action} permission`}
+            onClick={() => openReplace(permission)}
+            type="button"
+          >
+            Edit / replace
+          </Button>
           <Button onClick={() => void revoke(permission)} type="button" variant="danger">Revoke</Button>
         </>
       );
@@ -127,12 +133,13 @@ export function AgentPermissions({
     if (permission.status === "inactive" && permission.replacesPermissionId) {
       return (
         <Button
+          aria-label={`Resume replacement for ${permission.action}`}
           disabled={resumingId === permission.permissionId}
           onClick={() => void resumeInterruptedReplacement(permission)}
           type="button"
           variant="primary"
         >
-          {resumingId === permission.permissionId ? "Resuming…" : "Resume interrupted replacement"}
+          {resumingId === permission.permissionId ? "Resuming…" : "Resume replacement"}
         </Button>
       );
     }

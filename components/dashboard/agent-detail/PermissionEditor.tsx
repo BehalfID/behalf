@@ -276,11 +276,11 @@ export function PermissionEditor({
       onClose();
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : "Permission save failed.";
-      setError(
+      const detail =
         mode === "replace" && /idempotencyKey|interrupted|Access remains denied/i.test(message)
           ? `${message} Retry keeps the same replacement attempt.`
-          : message
-      );
+          : message;
+      setError(mode === "replace" ? `Permission change failed: ${detail}` : detail);
       if (mode === "replace") {
         await onSaved().catch(() => undefined);
       }
@@ -416,7 +416,7 @@ export function PermissionEditor({
 
             {step === 4 ? (
               <div>
-                <h3>Review the complete resulting policy</h3>
+                <h3>{mode === "replace" ? "Review and replace" : "Review the complete resulting policy"}</h3>
                 {mode === "replace" && initialPermission ? (
                   <PermissionReplacementReview before={initialPermission} after={drafts[0]} />
                 ) : (
@@ -442,8 +442,8 @@ export function PermissionEditor({
                 ) : null}
                 <p className="field-help">
                   {mode === "replace"
-                    ? "Confirming revokes the selected permission first, then activates the staged replacement. If activation is interrupted, access stays denied until you retry with the same replacement attempt."
-                    : `Confirming creates ${drafts.length} permission${drafts.length === 1 ? "" : "s"}. No write occurs before confirmation.`}
+                    ? "Confirming replacement revokes the selected permission first, then activates the staged replacement. If activation is interrupted, access stays denied until you retry or resume with the same replacement attempt."
+                    : `Confirming creates ${drafts.length} permission${drafts.length === 1 ? "" : "s"}. Existing permission records are not replaced or revoked. No write occurs before confirmation.`}
                 </p>
               </div>
             ) : null}
