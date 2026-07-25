@@ -67,6 +67,12 @@ function normalizeUpdate(update: Record<string, unknown>): Partial<AccountInsert
     }
     result[key] = value;
   }
+  if (update.$unset && typeof update.$unset === "object") {
+    for (const key of Object.keys(update.$unset as Record<string, unknown>)) {
+      if (!columns[key]) throw new Error(`Unsupported account update field: ${key}`);
+      result[key] = null;
+    }
+  }
   return { ...result, updatedAt: new Date() } as Partial<AccountInsert>;
 }
 
@@ -232,4 +238,62 @@ export async function incrementVerificationCount(db: BehalfPostgresDb, accountId
       updatedAt: new Date()
     })
     .where(eq(accounts.accountId, accountId));
+}
+
+export const createAccountDocument = createAccount;
+export const findAccounts = listAccounts;
+export const findOneAccount = findAccount;
+export const countAccountDocuments = countAccounts;
+
+export async function findOneAndUpdateAccount(
+  db: BehalfPostgresDb,
+  filter: Record<string, unknown>,
+  update: Record<string, unknown>,
+  options: Record<string, unknown> = {}
+): Promise<AccountLean | null> {
+  return db.transaction(async (tx) => {
+    const [before] = await tx
+      .select()
+      .from(accounts)
+      .where(buildWhere(filter))
+      .limit(1)
+      .for("update");
+    if (!before) return null;
+    try {
+      const [after] = await tx
+        .update(accounts)
+        .set(normalizeUpdate(update))
+        .where(eq(accounts.accountId, before.accountId))
+        .returning();
+      const row = options.returnDocument === "after" || options.new === true ? after : before;
+      return row ? toLean(row) : null;
+    } catch (error) {
+      translatePostgresError(error);
+    }
+  });
+}
+
+export async function updateAccountByFilter(
+  db: BehalfPostgresDb,
+  filter: Record<string, unknown>,
+  update: Record<string, unknown>
+) {
+  return db.transaction(async (tx) => {
+    const [match] = await tx
+      .select({ accountId: accounts.accountId })
+      .from(accounts)
+      .where(buildWhere(filter))
+      .limit(1);
+    if (!match) return { acknowledged: true, matchedCount: 0, modifiedCount: 0 };
+    try {
+      const rows = await tx
+        .update(accounts)
+        .set(normalizeUpdate(update))
+        .where(eq(accounts.accountId, match.accountId))
+        .returning({ accountId: accounts.accountId });
+      return { acknowledged: true, matchedCount: 1, modifiedCount: rows.length };
+    } catch (error) {
+      translatePostgresError(error);
+    }
+  });
 }

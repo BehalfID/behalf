@@ -1,4 +1,5 @@
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq, gt, gte, inArray, isNull, lt, lte, ne, notInArray, or, type SQL } from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type { BehalfPostgresDb } from "@/lib/db/postgres";
 import { developerSessions } from "@/lib/db/postgres/schema";
 import { translatePostgresError } from "@/lib/repositories/errors";
@@ -8,6 +9,75 @@ import type {
 } from "@/lib/repositories/sessions";
 
 type SessionRow = typeof developerSessions.$inferSelect;
+
+const columns: Record<string, AnyPgColumn> = {
+  sessionId: developerSessions.sessionId,
+  userId: developerSessions.userId,
+  tokenHash: developerSessions.tokenHash,
+  expiresAt: developerSessions.expiresAt,
+  lastActivityAt: developerSessions.lastActivityAt,
+  activeAccountId: developerSessions.activeAccountId,
+  createdAt: developerSessions.createdAt
+};
+
+function columnFor(key: string) {
+  const column = columns[key];
+  if (!column) throw new Error(`Unsupported session filter field: ${key}`);
+  return column;
+}
+
+function fieldCondition(key: string, value: unknown): SQL {
+  const column = columnFor(key);
+  if (value === null) return isNull(column);
+
+  if (value && typeof value === "object" && !Array.isArray(value) && !(value instanceof Date)) {
+    const conditions = Object.entries(value as Record<string, unknown>).map(
+      ([operator, operand]) => {
+        switch (operator) {
+          case "$in":
+            return inArray(column, operand as unknown[]);
+          case "$nin":
+            return notInArray(column, operand as unknown[]);
+          case "$ne":
+            return operand === null
+              ? or(ne(column, operand), isNull(column))!
+              : ne(column, operand);
+          case "$gt":
+            return gt(column, operand);
+          case "$gte":
+            return gte(column, operand);
+          case "$lt":
+            return lt(column, operand);
+          case "$lte":
+            return lte(column, operand);
+          default:
+            throw new Error(`Unsupported session filter operator: ${operator}`);
+        }
+      }
+    );
+    return and(...conditions)!;
+  }
+
+  return eq(column, value);
+}
+
+function buildWhere(filter: Record<string, unknown> = {}): SQL | undefined {
+  const conditions: SQL[] = [];
+  for (const [key, value] of Object.entries(filter)) {
+    if (key === "$or") {
+      const alternatives = (value as Record<string, unknown>[]).map(buildWhere).filter(Boolean) as SQL[];
+      if (alternatives.length) conditions.push(or(...alternatives)!);
+      continue;
+    }
+    if (key === "$and") {
+      const conjunctions = (value as Record<string, unknown>[]).map(buildWhere).filter(Boolean) as SQL[];
+      if (conjunctions.length) conditions.push(and(...conjunctions)!);
+      continue;
+    }
+    conditions.push(fieldCondition(key, value));
+  }
+  return conditions.length ? and(...conditions) : undefined;
+}
 
 function toLean(row: SessionRow): DeveloperSessionLean {
   return {
@@ -161,4 +231,28 @@ export async function clearActiveAccountIdForUserAccount(
     )
     .returning({ sessionId: developerSessions.sessionId });
   return { acknowledged: true, matchedCount: rows.length, modifiedCount: rows.length };
+}
+
+export async function deleteSession(db: BehalfPostgresDb, filter: Record<string, unknown>) {
+  return db.transaction(async (tx) => {
+    const [match] = await tx
+      .select({ sessionId: developerSessions.sessionId })
+      .from(developerSessions)
+      .where(buildWhere(filter))
+      .limit(1);
+    if (!match) return { acknowledged: true, deletedCount: 0 };
+    const rows = await tx
+      .delete(developerSessions)
+      .where(eq(developerSessions.sessionId, match.sessionId))
+      .returning({ sessionId: developerSessions.sessionId });
+    return { acknowledged: true, deletedCount: rows.length };
+  });
+}
+
+export async function deleteSessions(db: BehalfPostgresDb, filter: Record<string, unknown>) {
+  const rows = await db
+    .delete(developerSessions)
+    .where(buildWhere(filter))
+    .returning({ sessionId: developerSessions.sessionId });
+  return { acknowledged: true, deletedCount: rows.length };
 }

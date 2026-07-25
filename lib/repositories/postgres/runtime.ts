@@ -128,7 +128,13 @@ function bindAccounts(db: BehalfPostgresDb): typeof mongoAccounts {
     findAccountAndUpdate: bindDb(db, pgAccounts.findAccountAndUpdate),
     countAccounts: bindDb(db, pgAccounts.countAccounts),
     resetVerificationPeriod: bindDb(db, pgAccounts.resetVerificationPeriod),
-    incrementVerificationCount: bindDb(db, pgAccounts.incrementVerificationCount)
+    incrementVerificationCount: bindDb(db, pgAccounts.incrementVerificationCount),
+    createAccountDocument: bindDb(db, pgAccounts.createAccountDocument),
+    findAccounts: bindDb(db, pgAccounts.findAccounts),
+    findOneAccount: bindDb(db, pgAccounts.findOneAccount),
+    findOneAndUpdateAccount: bindDb(db, pgAccounts.findOneAndUpdateAccount),
+    updateAccountByFilter: bindDb(db, pgAccounts.updateAccountByFilter),
+    countAccountDocuments: bindDb(db, pgAccounts.countAccountDocuments)
   });
 }
 
@@ -144,7 +150,12 @@ function bindAgents(db: BehalfPostgresDb): typeof mongoAgents {
     updateAgents: bindDb(db, pgAgents.updateAgents),
     deleteAgents: bindDb(db, pgAgents.deleteAgents),
     rotateAgentKey: bindDb(db, pgAgents.rotateAgentKey),
-    touchAgentLastUsedAt: bindDb(db, pgAgents.touchAgentLastUsedAt)
+    touchAgentLastUsedAt: bindDb(db, pgAgents.touchAgentLastUsedAt),
+    findAgents: bindDb(db, pgAgents.findAgents),
+    findOneAgent: bindDb(db, pgAgents.findOneAgent),
+    findOneAndUpdateAgent: bindDb(db, pgAgents.findOneAndUpdateAgent),
+    deleteAgent: bindDb(db, pgAgents.deleteAgent),
+    countAgents: bindDb(db, pgAgents.countAgents)
   });
 }
 
@@ -196,6 +207,20 @@ function bindPermissions(db: BehalfPostgresDb): typeof mongoPermissions {
     findMatchingForVerify: bindDb(db, pgPermissions.findMatchingForVerify),
     createPermission: bindDb(db, pgPermissions.createPermission),
     findByPermissionId: bindDb(db, pgPermissions.findByPermissionId),
+    findReplacementByIdempotencyKey: bindDb(db, pgPermissions.findReplacementByIdempotencyKey),
+    stageReplacementPermission: bindDb(db, pgPermissions.stageReplacementPermission),
+    revokeActivePermissionForReplacement: bindDb(
+      db,
+      pgPermissions.revokeActivePermissionForReplacement
+    ),
+    activateStagedReplacementPermission: bindDb(
+      db,
+      pgPermissions.activateStagedReplacementPermission
+    ),
+    abandonStagedReplacementPermission: bindDb(
+      db,
+      pgPermissions.abandonStagedReplacementPermission
+    ),
     revokePermission: bindDb(db, pgPermissions.revokePermission),
     findPermissionsByAgentId: bindDb(db, pgPermissions.findPermissionsByAgentId),
     findActivePermissionsByAgentId: bindDb(db, pgPermissions.findActivePermissionsByAgentId),
@@ -296,7 +321,13 @@ function bindUsers(db: BehalfPostgresDb): typeof mongoUsers {
     updateUser: bindDb(db, pgUsers.updateUser),
     updateUserAtomic: bindDb(db, pgUsers.updateUserAtomic),
     findUnverifiedExpired: bindDb(db, pgUsers.findUnverifiedExpired),
-    deleteUser: bindDb(db, pgUsers.deleteUser)
+    deleteUser: bindDb(db, pgUsers.deleteUser),
+    createUserDocument: bindDb(db, pgUsers.createUserDocument),
+    findUsers: bindDb(db, pgUsers.findUsers),
+    findOneUser: bindDb(db, pgUsers.findOneUser),
+    updateUserByFilter: bindDb(db, pgUsers.updateUserByFilter),
+    countUserDocuments: bindDb(db, pgUsers.countUserDocuments),
+    userExists: bindDb(db, pgUsers.userExists)
   });
 }
 
@@ -311,7 +342,9 @@ function bindSessions(db: BehalfPostgresDb): typeof mongoSessions {
     deleteByUserId: bindDb(db, pgSessions.deleteByUserId),
     deleteManyByUserId: bindDb(db, pgSessions.deleteManyByUserId),
     updateActiveAccountId: bindDb(db, pgSessions.updateActiveAccountId),
-    clearActiveAccountIdForUserAccount: bindDb(db, pgSessions.clearActiveAccountIdForUserAccount)
+    clearActiveAccountIdForUserAccount: bindDb(db, pgSessions.clearActiveAccountIdForUserAccount),
+    deleteSession: bindDb(db, pgSessions.deleteSession),
+    deleteSessions: bindDb(db, pgSessions.deleteSessions)
   });
 }
 
@@ -324,7 +357,11 @@ function bindApiTokens(db: BehalfPostgresDb): typeof mongoApiTokens {
     deleteByTokenId: bindDb(db, pgApiTokens.deleteByTokenId),
     deleteManyByUserId: bindDb(db, pgApiTokens.deleteManyByUserId),
     deleteManyByUserOrAccount: bindDb(db, pgApiTokens.deleteManyByUserOrAccount),
-    touchLastUsed: bindDb(db, pgApiTokens.touchLastUsed)
+    touchLastUsed: bindDb(db, pgApiTokens.touchLastUsed),
+    findApiTokens: bindDb(db, pgApiTokens.findApiTokens),
+    createApiTokenDocument: bindDb(db, pgApiTokens.createApiTokenDocument),
+    countApiTokens: bindDb(db, pgApiTokens.countApiTokens),
+    deleteApiToken: bindDb(db, pgApiTokens.deleteApiToken)
   });
 }
 
@@ -335,7 +372,10 @@ function bindOauthPending(db: BehalfPostgresDb): typeof mongoOauthPending {
     findByTokenHash: bindDb(db, pgOauthPending.findByTokenHash),
     findByGoogleSub: bindDb(db, pgOauthPending.findByGoogleSub),
     deleteByPendingId: bindDb(db, pgOauthPending.deleteByPendingId),
-    deleteExpired: bindDb(db, pgOauthPending.deleteExpired)
+    deleteExpired: bindDb(db, pgOauthPending.deleteExpired),
+    findOnePendingSignup: bindDb(db, pgOauthPending.findOnePendingSignup),
+    createPendingSignupDocument: bindDb(db, pgOauthPending.createPendingSignupDocument),
+    deletePendingSignup: bindDb(db, pgOauthPending.deletePendingSignup)
   });
 }
 
@@ -346,7 +386,10 @@ function bindDeviceCodes(db: BehalfPostgresDb): typeof mongoDeviceCodes {
     findByUserCode: bindDb(db, pgDeviceCodes.findByUserCode),
     findOneAndDeleteAuthorized: bindDb(db, pgDeviceCodes.findOneAndDeleteAuthorized),
     updateStatus: bindDb(db, pgDeviceCodes.updateStatus),
-    deleteExpired: bindDb(db, pgDeviceCodes.deleteExpired)
+    deleteExpired: bindDb(db, pgDeviceCodes.deleteExpired),
+    findOneDeviceCode: bindDb(db, pgDeviceCodes.findOneDeviceCode),
+    createDeviceCodeDocument: bindDb(db, pgDeviceCodes.createDeviceCodeDocument),
+    deleteDeviceCode: bindDb(db, pgDeviceCodes.deleteDeviceCode)
   });
 }
 
