@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { clearDeveloperSessionCookie, hashSessionToken } from "@/lib/developerAuth";
+import { safeOAuthNextPath } from "@/lib/googleOAuthClient";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import DeveloperSession from "@/models/DeveloperSession";
 
@@ -13,7 +14,8 @@ export async function GET(request: NextRequest) {
     await connectToDatabase();
     await DeveloperSession.deleteOne({ tokenHash: hashSessionToken(token) });
   }
-  const response = NextResponse.redirect(new URL("/", request.nextUrl.origin));
+  const next = safeOAuthNextPath(request.nextUrl.searchParams.get("next"));
+  const response = NextResponse.redirect(new URL(next ?? "/", request.nextUrl.origin));
   clearDeveloperSessionCookie(response);
   return response;
 }

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { AuthPrinciple, AuthShell, AuthStateMark, AuthTaskHeader, FormAlert } from "@/components/auth/AuthShell";
 import { Button, Field, FieldDescription, FieldLabel, Input } from "@/components/ui";
@@ -103,7 +102,11 @@ export function AuthenticateClient({ prefillCode, email }: Props) {
             {status === "loading" ? "Authorizing CLI…" : "Authorize CLI"}
           </Button>
           <p className="auth-task__row auth-task__row--center">
-            Not your account? <Link href="/logout?next=/authenticate">Switch account</Link>
+            Not your account?{" "}
+            {/* Document navigation is intentional: GET /logout clears the session before redirecting.
+                Do not use next/link — production prefetch would log the user out on page load. */}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+            <a href="/logout?next=/authenticate">Switch account</a>
           </p>
         </form>
       )}
