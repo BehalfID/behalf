@@ -3,6 +3,8 @@
 **Scope:** npm packages under `packages/*` plus the private GitHub Action.
 **Constraint for this phase:** prepare only — **do not** `npm publish`, create
 GitHub Releases, deploy, push, or merge until an explicit human publish step.
+That explicit step was completed for `@behalfid/sdk@0.2.3` and
+`@behalfid/cli@0.2.15` on 2026-07-26; the remaining packages stay prepare-only.
 
 Related scripts (run from repo root after `npm ci` and package builds):
 
@@ -21,8 +23,8 @@ node scripts/release/verify-cli-artifact.mjs <path-to-cli.tgz> <version>
 
 | Package | Local version | npm status | Notes |
 | --- | --- | --- | --- |
-| `@behalfid/sdk` | **0.2.3** | published **0.2.1** (drifted) | Corrected provenance metadata after rejected 0.2.2 publish — **must not reuse 0.2.2** |
-| `@behalfid/cli` | **0.2.15** | published **0.2.14** (drifted) | Latest CLI banner fix — **must not reuse 0.2.14** |
+| `@behalfid/sdk` | **0.2.3** | published **0.2.3** (current) | Published with npm provenance; rejected 0.2.2 tag remains immutable |
+| `@behalfid/cli` | **0.2.15** | published **0.2.15** (current) | Latest CLI banner fix released to npm, GitHub, and Homebrew |
 | `@behalfid/mcp-audit` | 0.1.0 | **unpublished** | Preview docs only |
 | `@behalfid/mcp-runtime` | 0.1.0 | **unpublished** | Preview docs only |
 | `@behalfid/install` | 0.1.0 | **unpublished** | Preview docs only; optional dep on mcp-runtime |
