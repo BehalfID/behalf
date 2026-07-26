@@ -1,6 +1,6 @@
 {
   "name": "@behalfid/sdk",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "BehalfID SDK — runtime permission verification for AI agents. Define what agents may do, verify before execution, fail closed.",
   "keywords": [
     "ai-agent",
@@ -63,7 +63,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/behalfid/behalf.git",
+    "url": "git+https://github.com/BehalfID/behalf.git",
     "directory": "packages/sdk"
   },
   "engines": {

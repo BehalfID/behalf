@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing SDK tag to publish (for example sdk-v0.2.2)."
+        description: "Existing SDK tag to publish (for example sdk-v0.2.3)."
         required: true
         type: string
 
@@ -119,7 +119,7 @@ jobs:
           if (pkg.version !== process.env.EXPECTED_VERSION) {
             fail(`package version ${pkg.version} != ${process.env.EXPECTED_VERSION}`);
           }
-          if (!pkg.repository?.url?.toLowerCase().includes("github.com/behalfid/behalf")) {
+          if (pkg.repository?.url !== "git+https://github.com/BehalfID/behalf.git") {
             fail(`unexpected repository URL: ${pkg.repository?.url}`);
           }
           if (pkg.repository.directory !== "packages/sdk") {

@@ -45,4 +45,10 @@ describe("SDK release workflow", () => {
     expect(WORKFLOW).toContain("NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}");
     expect(WORKFLOW).not.toContain("npm version");
   });
+
+  it("requires the exact repository URL used by npm provenance", () => {
+    expect(WORKFLOW).toContain(
+      'pkg.repository?.url !== "git+https://github.com/BehalfID/behalf.git"'
+    );
+  });
 });
