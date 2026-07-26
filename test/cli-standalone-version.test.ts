@@ -29,8 +29,8 @@ function shellAvailable(cmd: string): boolean {
 }
 
 describe("CLI standalone version embedding", () => {
-  it("package metadata is 0.2.13", () => {
-    expect(PKG_VERSION).toBe("0.2.13");
+  it("package metadata is 0.2.14", () => {
+    expect(PKG_VERSION).toBe("0.2.14");
   });
 
   it("Node/npm CLI reports the package version", () => {
@@ -45,7 +45,7 @@ describe("CLI standalone version embedding", () => {
     });
     expect(ver.status, ver.stderr + ver.stdout).toBe(0);
     expect(ver.stdout.trim()).toBe(PKG_VERSION);
-    expect(ver.stdout.trim()).toBe("0.2.13");
+    expect(ver.stdout.trim()).toBe("0.2.14");
   }, 120_000);
 
   it("release workflow injects build-time version define and has no 0.2.9 pin", () => {
@@ -60,6 +60,13 @@ describe("CLI standalone version embedding", () => {
     expect(script).toMatch(/__BEHALF_CLI_VERSION__/);
     expect(script).toMatch(/--define\s+"__BEHALF_CLI_VERSION__=\$\{CLI_VERSION_JSON\}"/);
     expect(script).toMatch(/CLI_VERSION_JSON=\$\(node -p "JSON\.stringify\(require\('\.\/package\.json'\)\.version\)"\)/);
+  });
+
+  it("release workflow keeps the root workspace install intact", () => {
+    const workflow = readFileSync(RELEASE_WORKFLOW, "utf8");
+
+    expect(workflow).toContain("- name: Install root dependencies");
+    expect(workflow).not.toContain("- name: Install CLI dependencies");
   });
 
   it("package, tag, tarball, and binary version all derive from package.json", () => {
@@ -122,7 +129,7 @@ describe("CLI standalone version embedding", () => {
       });
       expect(outside.status, outside.stderr + outside.stdout).toBe(0);
       expect(outside.stdout.replace(/\r/g, "").trim()).toBe(PKG_VERSION);
-      expect(outside.stdout.replace(/\r/g, "").trim()).toBe("0.2.13");
+      expect(outside.stdout.replace(/\r/g, "").trim()).toBe("0.2.14");
     } finally {
       rmSync(emptyDir, { recursive: true, force: true });
     }

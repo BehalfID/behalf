@@ -124,10 +124,6 @@ jobs:
       - name: Install root dependencies
         run: npm ci
 
-      - name: Install CLI dependencies
-        run: npm ci
-        working-directory: packages/cli
-
       - name: Pre-publish checks
         run: |
           set -euo pipefail

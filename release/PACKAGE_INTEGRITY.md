@@ -22,7 +22,7 @@ node scripts/release/verify-cli-artifact.mjs <path-to-cli.tgz> <version>
 | Package | Local version | npm status | Notes |
 | --- | --- | --- | --- |
 | `@behalfid/sdk` | **0.2.2** | published **0.2.1** (drifted) | Adapters + client changes since 0.2.1 — **must not reuse 0.2.1** |
-| `@behalfid/cli` | **0.2.13** | published **0.2.11** (drifted) | Policy/completion/egress/auth changes — **must not reuse 0.2.11** |
+| `@behalfid/cli` | **0.2.14** | published **0.2.11** (drifted) | Policy/completion/egress/auth changes — **must not reuse 0.2.11** |
 | `@behalfid/mcp-audit` | 0.1.0 | **unpublished** | Preview docs only |
 | `@behalfid/mcp-runtime` | 0.1.0 | **unpublished** | Preview docs only |
 | `@behalfid/install` | 0.1.0 | **unpublished** | Preview docs only; optional dep on mcp-runtime |
@@ -58,7 +58,7 @@ published package engines.
 2. **`@behalfid/mcp-audit@0.1.0`** — first publish (if shipping MCP suite).
 3. **`@behalfid/mcp-runtime@0.1.0`** — first publish; needed before install.
 4. **`@behalfid/egress-proxy@0.1.0`** — first publish; needed before CLI optional.
-5. **`@behalfid/cli@0.2.13`** — after egress-proxy if advertising egress features.
+5. **`@behalfid/cli@0.2.14`** — after egress-proxy if advertising egress features.
 6. **`@behalfid/install@0.1.0`** — after mcp-runtime (optionalDependency).
 7. **`@behalfid/github-action`** — tag/ref release of the Action (not npm);
    rebuild `dist/` with `npm run build -w @behalfid/github-action` before tagging.
@@ -87,7 +87,7 @@ Skip unpublished packages in a wave if product is not ready; keep README
 
 1. **Do not unpublish** unless within npm’s unpublish window and legally required;
    prefer `npm deprecate <pkg>@<bad> "message"` pointing to the last good version.
-2. Publish a **forward fix** (`0.2.3` / `0.2.14`, etc.) that restores behavior.
+2. Publish a **forward fix** (`0.2.3` / `0.2.15`, etc.) that restores behavior.
 3. If a bad version is critically broken, deprecate it immediately and pin docs /
    install instructions to the last good version.
 4. Homebrew / standalone CLI binaries (if shipped for that version): publish
