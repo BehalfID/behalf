@@ -10,7 +10,7 @@ export const BEHALF_CLI_BANNER = [
   "   //______||",
   "  //        \\",
   " //         //",
-  "//_________||",
+  "//_________//",
 ].join("\n");
 
 export const BEHALF_CLI_BANNER_TAGLINE = "Agent permission gates";
