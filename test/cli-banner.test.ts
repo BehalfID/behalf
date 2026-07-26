@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  BEHALF_CLI_BANNER,
   BEHALF_CLI_BANNER_COMPACT,
+  BEHALF_CLI_BANNER_MIN_COLUMNS,
   formatCliBanner,
   isBannerDisabledByEnv,
   resolveCliCommand,
@@ -44,7 +46,27 @@ describe("CLI banner", () => {
   });
 
   it("uses a compact fallback on narrow terminals", () => {
-    const narrow = formatCliBanner({ columns: 32, useColor: false });
+    const narrow = formatCliBanner({
+      columns: Math.max(1, BEHALF_CLI_BANNER_MIN_COLUMNS - 1),
+      useColor: false
+    });
     expect(narrow).toBe(BEHALF_CLI_BANNER_COMPACT);
+  });
+
+  it("renders the current B art without a wordmark on art lines", () => {
+    const artLines = BEHALF_CLI_BANNER.split("\n");
+    const wide = formatCliBanner({ columns: 80, useColor: false });
+
+    expect(wide).toBe([...artLines, "Agent permission gates"].join("\n"));
+    expect(artLines.every((line) => !line.includes("BehalfID"))).toBe(true);
+    expect(BEHALF_CLI_BANNER_MIN_COLUMNS).toBe(
+      Math.max(...artLines.map((line) => line.length)) + 4
+    );
+  });
+
+  it("colors the B monogram when color is enabled", () => {
+    const colored = formatCliBanner({ columns: 80, useColor: true });
+    expect(colored).toContain("\x1b[38;2;216;138;99m");
+    expect(colored).toContain(BEHALF_CLI_BANNER.split("\n")[0].trim());
   });
 });

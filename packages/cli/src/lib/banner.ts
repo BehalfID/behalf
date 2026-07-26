@@ -1,19 +1,32 @@
-/** Full-width ASCII banner for interactive terminal sessions. */
-export const BEHALF_CLI_BANNER = String.raw`
-  ____  _                 _ _     _ ___ 
- | __ )| |__   ___  _ __ | | |   | |_ _|
- |  _ \| '_ \ / _ \| '_ \| | | |   | || | 
- | |_) | | | | (_) | | | | | |___| || | 
- |____/|_| |_|\___/|_| |_|_|_____|_|___|
-`.trimEnd();
+/**
+ * Slanted-back "B" monogram banner.
+ * Only the left spine steps inward (forward lean); bowls and crossbars stay upright.
+ * Spacing is tuned for monospace terminals (tighter than proportional Word/Docs).
+ */
+export const BEHALF_CLI_BANNER = [
+  "      _______",
+  "     //     \\",
+  "    //      //",
+  "   //______||",
+  "  //        \\",
+  " //         //",
+  "//_________||",
+].join("\n");
 
 export const BEHALF_CLI_BANNER_TAGLINE = "Agent permission gates";
 
 /** Shown when the terminal is too narrow for the full banner. */
 export const BEHALF_CLI_BANNER_COMPACT = "BehalfID - agent permission gates"; // pragma: allowlist secret // pragma: allowlist secret
 
+const BANNER_LINE_PAD = 4;
+
+/** Minimum columns to render the B banner (longest art line + pad). */
+export const BEHALF_CLI_BANNER_MIN_COLUMNS =
+  Math.max(...BEHALF_CLI_BANNER.split("\n").map((line) => line.length)) + BANNER_LINE_PAD;
+
 const COPPER = "\x1b[38;2;216;138;99m";
 const DIM = "\x1b[2m";
+const BOLD = "\x1b[1m";
 const RESET = "\x1b[0m";
 
 const BANNER_COMMANDS = new Set(["init", "doctor", "login", "whoami"]);
@@ -78,13 +91,18 @@ export function formatCliBanner(options?: {
 }): string {
   const columns = options?.columns ?? 80;
   const useColor = options?.useColor ?? false;
-  const bannerLines = BEHALF_CLI_BANNER.trim().split("\n");
+  const bannerLines = BEHALF_CLI_BANNER.split("\n");
   const lines =
-    columns < bannerLines[0].length + 4
+    columns < BEHALF_CLI_BANNER_MIN_COLUMNS
       ? [BEHALF_CLI_BANNER_COMPACT]
       : [...bannerLines, BEHALF_CLI_BANNER_TAGLINE];
 
   if (!useColor) return lines.join("\n");
+
+  const isCompact = lines.length === 1;
+  if (isCompact) {
+    return `${BOLD}Behalf${COPPER}ID${RESET}${DIM} - agent permission gates${RESET}`;
+  }
 
   return lines
     .map((line, index) => {
