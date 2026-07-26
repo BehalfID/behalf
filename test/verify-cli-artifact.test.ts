@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
+import { spawnNpm } from "../scripts/release/run-npm.mjs";
 
 const VERIFIER = join(process.cwd(), "scripts", "release", "verify-cli-artifact.mjs");
 
@@ -13,16 +14,11 @@ function sha256File(path: string) {
 
 describe("verify-cli-artifact", () => {
   it("accepts a locally packed CLI tarball for 0.2.15", () => {
-    const build = spawnSync("npm", ["run", "build:cli"], {
-      encoding: "utf8",
-      shell: process.platform === "win32",
-    });
+    const build = spawnNpm(["run", "build:cli"]);
     expect(build.status, build.stderr + build.stdout).toBe(0);
 
-    const pack = spawnSync("npm", ["pack", "--json"], {
+    const pack = spawnNpm(["pack", "--json"], {
       cwd: join(process.cwd(), "packages", "cli"),
-      encoding: "utf8",
-      shell: process.platform === "win32",
     });
     expect(pack.status, pack.stderr + pack.stdout).toBe(0);
     const meta = JSON.parse(pack.stdout) as Array<{ filename: string }>;

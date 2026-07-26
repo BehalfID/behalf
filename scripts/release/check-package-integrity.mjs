@@ -24,9 +24,10 @@ import {
   statSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, extname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { spawnNpm } from "./run-npm.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, "../..");
@@ -47,6 +48,24 @@ const DEPENDENCY_EDGES = [
   { from: "@behalfid/install", field: "optionalDependencies", to: "@behalfid/mcp-runtime" },
 ];
 
+/** Text extensions compared with LF-normalized content (CRLF checkout / tsc noise). */
+const TEXT_COMPARE_EXTS = new Set([
+  ".md",
+  ".js",
+  ".cjs",
+  ".mjs",
+  ".ts",
+  ".cts",
+  ".mts",
+  ".json",
+  ".yml",
+  ".yaml",
+  ".txt",
+  ".map",
+  ".css",
+  ".html",
+]);
+
 function fail(message) {
   console.error(`check-package-integrity: FAIL — ${message}`);
   process.exitCode = 1;
@@ -55,9 +74,7 @@ function fail(message) {
 function run(cmd, args, opts = {}) {
   const result = spawnSync(cmd, args, {
     encoding: "utf8",
-    // Avoid shell concatenation on Windows; npm.cmd is resolved via PATHEXT when shell is false
-    // but spawn of bare "npm" needs shell on win32. Prefer npm via process.env.ComSpec only when needed.
-    shell: process.platform === "win32",
+    shell: false,
     windowsHide: true,
     ...opts,
   });
@@ -81,7 +98,7 @@ function cmpSemver(a, b) {
 }
 
 function npmView(name, field) {
-  const r = run("npm", ["view", name, field, "--json"], { cwd: REPO_ROOT });
+  const r = spawnNpm(["view", name, field, "--json"], { cwd: REPO_ROOT });
   if (r.status !== 0) {
     const err = `${r.stderr || ""}${r.stdout || ""}`;
     if (/E404|404 Not Found/i.test(err)) return { missing: true };
@@ -114,6 +131,22 @@ function sha256File(path) {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
+/**
+ * Content digest for integrity compare.
+ * Text files: LF-normalize before hashing so Windows CRLF checkout / local
+ * builds do not false-fail against LF published tarballs. Binary: raw bytes.
+ * Real content changes still fail (EOL-only does not).
+ */
+function contentDigest(path) {
+  const buf = readFileSync(path);
+  const ext = extname(path).toLowerCase();
+  if (!TEXT_COMPARE_EXTS.has(ext)) {
+    return createHash("sha256").update(buf).digest("hex");
+  }
+  const normalized = buf.toString("utf8").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  return createHash("sha256").update(normalized, "utf8").digest("hex");
+}
+
 function extractTarball(tgz, dest) {
   const r = run("tar", ["-xzf", tgz, "-C", dest]);
   if (r.status !== 0) {
@@ -122,7 +155,7 @@ function extractTarball(tgz, dest) {
 }
 
 function packLocal(pkgDir, outDir) {
-  const r = run("npm", ["pack", "--pack-destination", outDir, "--silent"], {
+  const r = spawnNpm(["pack", "--pack-destination", outDir, "--silent"], {
     cwd: pkgDir,
   });
   if (r.status !== 0) {
@@ -176,7 +209,7 @@ function comparePackages(localPkgRoot, pubPkgRoot) {
       }
       continue;
     }
-    if (sha256File(join(localPkgRoot, f)) !== sha256File(join(pubPkgRoot, f))) {
+    if (contentDigest(join(localPkgRoot, f)) !== contentDigest(join(pubPkgRoot, f))) {
       differing.push(f);
     }
   }
@@ -276,7 +309,7 @@ function main() {
       const localOut = mkdtempSync(join(work, "local-"));
       const pubOut = mkdtempSync(join(work, "pub-"));
       const localTgz = packLocal(dir, localOut);
-      const packPub = run("npm", ["pack", `${name}@${publishedVersion}`, "--pack-destination", pubOut], {
+      const packPub = spawnNpm(["pack", `${name}@${publishedVersion}`, "--pack-destination", pubOut], {
         cwd: work,
       });
       if (packPub.status !== 0) {

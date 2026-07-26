@@ -57,6 +57,8 @@ There is **no** fail-open path that turns an unavailable verify into an implicit
 
 ## Approval identity rules (product)
 
+Permission replacement/review and Action Inbox approval UI exist in product. Live two-person Trajectus approval evidence remains PENDING in `EVIDENCE_TEMPLATE.md`.
+
 - Requester must not successfully approve their own request (`You cannot approve your own request.` or UI disabled).
 - Approver must be a different authorized user.
 - Grant is intent-bound: changed command must not consume the prior grant.

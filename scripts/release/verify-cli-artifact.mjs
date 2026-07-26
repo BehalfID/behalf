@@ -8,6 +8,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
+import { spawnNpm } from "./run-npm.mjs";
 
 const tarball = process.argv[2];
 const expectedVersion = process.argv[3];
@@ -101,10 +102,9 @@ try {
   console.log(`entries: ${entries.length} (no secrets / unrelated paths)`);
 
   // Install production deps so `node dist/index.js --version` can resolve commander.
-  const npmInstall = spawnSync(
-    "npm",
+  const npmInstall = spawnNpm(
     ["install", "--omit=dev", "--ignore-scripts", "--no-package-lock"],
-    { cwd: pkgRoot, encoding: "utf8", shell: process.platform === "win32" }
+    { cwd: pkgRoot }
   );
   if (npmInstall.status !== 0) {
     console.error(npmInstall.stderr || npmInstall.stdout || "npm install in packed package failed");

@@ -1,0 +1,240 @@
+name: Package Release
+
+# Publishes one of the unpublished workspace packages after main-tip integrity,
+# build/test, package-integrity, pack-smoke, and dry-run checks succeed.
+#
+# Allowlist only (do not add SDK or CLI here — those use sdk-release.yml /
+# cli-release.yml with immutable tags):
+#   mcp-audit | mcp-runtime | egress-proxy | install
+#
+# Recommended first-publish order:
+#   1. mcp-audit
+#   2. mcp-runtime   (required before install optionalDependency resolves)
+#   3. egress-proxy  (publish before advertising CLI egress features)
+#   4. install
+#
+# Recovery notes:
+# - If npm reports the version already exists, do not overwrite or unpublish.
+#   Bump the package version and re-run workflow_dispatch.
+# - Never invent package paths, registries, or shell inputs — the map below is
+#   the only supported selection surface.
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: "Allowlisted package key to publish."
+        required: true
+        type: choice
+        options:
+          - mcp-audit
+          - mcp-runtime
+          - egress-proxy
+          - install
+      dist_tag:
+        description: "npm dist-tag for the publish."
+        required: true
+        type: choice
+        default: next
+        options:
+          - next
+          - latest
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: package-release-${{ github.event.inputs.package }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and publish package
+    runs-on: ubuntu-latest
+    environment: npm-release
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify checkout is current origin/main
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          HEAD_COMMIT=$(git rev-parse HEAD)
+          MAIN_COMMIT=$(git rev-parse origin/main)
+          if [ "$HEAD_COMMIT" != "$MAIN_COMMIT" ]; then
+            echo "Checked-out commit ($HEAD_COMMIT) is not origin/main ($MAIN_COMMIT)."
+            echo "Package releases must run from the current main tip."
+            exit 1
+          fi
+          echo "Integrity OK: HEAD=$HEAD_COMMIT matches origin/main"
+
+      - name: Resolve allowlisted package
+        id: pkg
+        env:
+          PACKAGE_KEY: ${{ github.event.inputs.package }}
+          DIST_TAG: ${{ github.event.inputs.dist_tag }}
+        run: |
+          set -euo pipefail
+          case "$PACKAGE_KEY" in
+            mcp-audit)
+              PACKAGE_NAME="@behalfid/mcp-audit"
+              PACKAGE_DIR="packages/mcp-audit"
+              ;;
+            mcp-runtime)
+              PACKAGE_NAME="@behalfid/mcp-runtime"
+              PACKAGE_DIR="packages/mcp-runtime"
+              ;;
+            egress-proxy)
+              PACKAGE_NAME="@behalfid/egress-proxy"
+              PACKAGE_DIR="packages/egress-proxy"
+              ;;
+            install)
+              PACKAGE_NAME="@behalfid/install"
+              PACKAGE_DIR="packages/install"
+              ;;
+            *)
+              echo "Unsupported package key: $PACKAGE_KEY"
+              exit 1
+              ;;
+          esac
+          if [ "$DIST_TAG" != "next" ] && [ "$DIST_TAG" != "latest" ]; then
+            echo "Unsupported dist-tag: $DIST_TAG"
+            exit 1
+          fi
+          if [ ! -f "$PACKAGE_DIR/package.json" ]; then
+            echo "Missing package.json at $PACKAGE_DIR"
+            exit 1
+          fi
+          VERSION=$(node -p "require('./${PACKAGE_DIR}/package.json').version")
+          NAME=$(node -p "require('./${PACKAGE_DIR}/package.json').name")
+          if [ "$NAME" != "$PACKAGE_NAME" ]; then
+            echo "package.json name ($NAME) != expected ($PACKAGE_NAME)"
+            exit 1
+          fi
+          if ! printf '%s\n' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Refusing non-stable semver: $VERSION"
+            exit 1
+          fi
+          {
+            echo "package_key=${PACKAGE_KEY}"
+            echo "package_name=${PACKAGE_NAME}"
+            echo "package_dir=${PACKAGE_DIR}"
+            echo "version=${VERSION}"
+            echo "dist_tag=${DIST_TAG}"
+          } >> "$GITHUB_OUTPUT"
+          echo "Resolved $PACKAGE_NAME@$VERSION (dir=$PACKAGE_DIR, tag=$DIST_TAG)"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          registry-url: "https://registry.npmjs.org"
+          cache: npm
+
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: Fail if version already exists on npm
+        env:
+          PACKAGE_NAME: ${{ steps.pkg.outputs.package_name }}
+          EXPECTED_VERSION: ${{ steps.pkg.outputs.version }}
+        run: |
+          set -euo pipefail
+          set +e
+          VIEW_OUT=$(npm view "${PACKAGE_NAME}@${EXPECTED_VERSION}" version --json 2>&1)
+          VIEW_STATUS=$?
+          set -e
+          if [ "$VIEW_STATUS" -eq 0 ]; then
+            echo "Refusing to publish: ${PACKAGE_NAME}@${EXPECTED_VERSION} already exists on npm."
+            printf '%s\n' "$VIEW_OUT"
+            exit 1
+          fi
+          if ! printf '%s\n' "$VIEW_OUT" | grep -Eiq 'E404|404 Not Found|is not in this registry'; then
+            echo "npm view failed unexpectedly while checking for an existing version:"
+            printf '%s\n' "$VIEW_OUT"
+            exit 1
+          fi
+          echo "Version ${PACKAGE_NAME}@${EXPECTED_VERSION} is not on npm yet."
+
+      - name: Build, typecheck, and test selected package
+        env:
+          PACKAGE_KEY: ${{ steps.pkg.outputs.package_key }}
+          PACKAGE_NAME: ${{ steps.pkg.outputs.package_name }}
+        run: |
+          set -euo pipefail
+          case "$PACKAGE_KEY" in
+            mcp-audit)
+              npm run build -w "$PACKAGE_NAME"
+              ;;
+            mcp-runtime)
+              npm run build -w "$PACKAGE_NAME"
+              npm run typecheck -w "$PACKAGE_NAME"
+              npm run test -w "$PACKAGE_NAME"
+              ;;
+            egress-proxy)
+              npm run build -w "$PACKAGE_NAME"
+              npm run test -w "$PACKAGE_NAME"
+              ;;
+            install)
+              npm run build -w "$PACKAGE_NAME"
+              npm run typecheck -w "$PACKAGE_NAME"
+              npm run test -w "$PACKAGE_NAME"
+              ;;
+            *)
+              echo "Unsupported package key: $PACKAGE_KEY"
+              exit 1
+              ;;
+          esac
+
+      - name: Package integrity validation
+        run: node scripts/release/check-package-integrity.mjs
+
+      - name: Pack smoke validation
+        run: node scripts/release/pack-smoke.mjs
+
+      - name: Reject unexpected tracked changes
+        run: |
+          set -euo pipefail
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Working tree has unexpected tracked/untracked changes after build/test:"
+            git status --porcelain
+            exit 1
+          fi
+
+      - name: npm publish dry-run
+        working-directory: ${{ steps.pkg.outputs.package_dir }}
+        env:
+          PACKAGE_NAME: ${{ steps.pkg.outputs.package_name }}
+          EXPECTED_VERSION: ${{ steps.pkg.outputs.version }}
+          DIST_TAG: ${{ steps.pkg.outputs.dist_tag }}
+        run: |
+          set -euo pipefail
+          set +e
+          DRY_OUT=$(npm publish --dry-run --access public --tag "$DIST_TAG" --provenance=false 2>&1)
+          DRY_STATUS=$?
+          set -e
+          printf '%s\n' "$DRY_OUT"
+          if [ "$DRY_STATUS" -ne 0 ]; then
+            echo "npm publish --dry-run failed with status $DRY_STATUS"
+            exit 1
+          fi
+          if printf '%s\n' "$DRY_OUT" | grep -Eiq \
+            'npm auto-corrected|errors corrected|script name was cleaned|repository\.url was normalized'; then
+            echo "npm publish dry-run reported package.json auto-correction; refusing to publish"
+            exit 1
+          fi
+          if ! printf '%s\n' "$DRY_OUT" | grep -Fq "${PACKAGE_NAME}@${EXPECTED_VERSION}"; then
+            echo "npm publish dry-run did not confirm ${PACKAGE_NAME}@${EXPECTED_VERSION}"
+            exit 1
+          fi
+          echo "npm publish dry-run OK for ${PACKAGE_NAME}@${EXPECTED_VERSION} (tag=${DIST_TAG})"
+
+      - name: Publish package to npm
+        working-directory: ${{ steps.pkg.outputs.package_dir }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          DIST_TAG: ${{ steps.pkg.outputs.dist_tag }}
+        run: npm publish --access public --provenance --tag "$DIST_TAG"

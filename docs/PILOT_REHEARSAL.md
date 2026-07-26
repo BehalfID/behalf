@@ -11,7 +11,7 @@ The rebuilt and relinked Windows Claude Code 2.1.209 path has now passed both ac
 - Allowed: Claude invoked the real shell tool for `echo behalfid-allowed`, real shell output appeared, and BehalfID recorded an allowed `execute_command` / `shell` decision with request ID `req_8MLJRFhKUgTVeYpj`. The hook exited normally with no error or libuv assertion.
 - Denied: Claude attempted the real shell tool for `echo behalfid-canary`, the hook reported `BehalfID: blocked by policy.`, no shell-result output contained the marker, and BehalfID recorded a denied decision with reason `command_blocked` and request ID `req_qkBkxJ1tCPtkZ-WU`. The hook did not crash.
 
-Approval-required validation is **paused**, not passed. The current agent-detail dashboard does not provide a clear, safe workflow for replacing or editing the canary permission. Do not improvise a permission mutation to continue this pilot. Dashboard information architecture and permission-management UX will be handled in a separate PR; resume the approval canary only after that workflow is explicitly available and authorized.
+Approval support is **implemented** (permission replacement/review and Action Inbox approval UI). Live two-person Trajectus approval evidence remains **PENDING** — do not treat prior allow/deny canaries as an approval pass. Canonical Phase 3 pilot steps live under `pilot/` (`CHECKLIST.md`, `EXPECTED_OUTCOMES.md`, `EVIDENCE_TEMPLATE.md`); keep those PENDING until a human records sanitized two-person evidence.
 
 ## Enforcement architecture and outage contract
 
@@ -133,11 +133,11 @@ Required proof:
 
 The command text will normally appear in Claude's proposed tool call and the agent may describe it in prose. Label those separately from the shell-result area. A server-side denied row alone is insufficient: the capture must prove non-execution.
 
-## D. Approval-required canary — paused
+## D. Approval-required canary — evidence pending
 
-Do not execute this section while the agent-detail dashboard lacks a clear, safe permission replacement/editing workflow. The dashboard information architecture and permission-management UX are separate-PR work. The steps below remain the acceptance criteria for when the pilot operator explicitly unpauses this canary; they are not evidence that it has run or passed.
+Permission replacement/review and Action Inbox approval UI are available. This section is no longer blocked on missing UI. Live two-person Trajectus evidence is still **PENDING**; follow `pilot/CHECKLIST.md` sections 3–6 and record results in `pilot/EVIDENCE_TEMPLATE.md` (keep `docs/PILOT_*.md` historical — `pilot/` is canonical).
 
-Before continuing, have the authorized pilot operator replace or update the phase B/C canary permission so exactly one intended `execute_command` / `shell` permission matches and it has:
+Before continuing, have the authorized pilot operator replace or update the phase B/C canary permission (via the permission replacement/review UI or an authorized API path) so exactly one intended `execute_command` / `shell` permission matches and it has:
 
 ```text
 requiresApproval: true
