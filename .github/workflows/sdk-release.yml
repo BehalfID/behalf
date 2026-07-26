@@ -1,0 +1,163 @@
+name: SDK Release
+
+# Publishes @behalfid/sdk only after the tag, package version, source commit,
+# build, tests, and packed consumer install all agree.
+#
+# Recovery notes:
+# - Never move or reuse a failed release tag after a source correction. Bump
+#   the package version and create a new sdk-vX.Y.Z tag.
+# - If npm reports that the version already exists, do not overwrite or
+#   unpublish it. Bump the package version and release a new tag.
+
+on:
+  push:
+    tags:
+      - "sdk-v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing SDK tag to publish (for example sdk-v0.2.2)."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  release:
+    name: Build and publish SDK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Resolve release tag
+        id: version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REQUESTED_TAG: ${{ github.event.inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            TAG="$REQUESTED_TAG"
+          else
+            TAG="$REF_NAME"
+          fi
+          if ! printf '%s\n' "$TAG" | grep -Eq '^sdk-v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Invalid SDK release tag: $TAG. Expected sdk-vX.Y.Z."
+            exit 1
+          fi
+          VERSION="${TAG#sdk-v}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.version.outputs.tag }}
+          fetch-depth: 0
+
+      - name: Verify tag, package, and main integrity
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.version.outputs.tag }}"
+          VERSION="${{ steps.version.outputs.version }}"
+          PKG_VERSION=$(node -p "require('./packages/sdk/package.json').version")
+          if [ "$PKG_VERSION" != "$VERSION" ]; then
+            echo "package.json version ($PKG_VERSION) != tag version ($VERSION)"
+            exit 1
+          fi
+          if [ "sdk-v${PKG_VERSION}" != "$TAG" ]; then
+            echo "tag ($TAG) is not exactly sdk-v<package.json version> (sdk-v${PKG_VERSION})"
+            exit 1
+          fi
+          TAG_COMMIT=$(git rev-list -n 1 "$TAG")
+          HEAD_COMMIT=$(git rev-parse HEAD)
+          if [ "$TAG_COMMIT" != "$HEAD_COMMIT" ]; then
+            echo "checked-out commit ($HEAD_COMMIT) != tag commit ($TAG_COMMIT)"
+            exit 1
+          fi
+          git fetch origin main
+          if ! git merge-base --is-ancestor "$TAG_COMMIT" origin/main; then
+            echo "tag commit $TAG_COMMIT is not contained in origin/main"
+            exit 1
+          fi
+          echo "Integrity OK: tag=$TAG commit=$TAG_COMMIT version=$PKG_VERSION"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          registry-url: "https://registry.npmjs.org"
+          cache: npm
+
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: Pre-publish checks
+        run: |
+          set -euo pipefail
+          npx tsc --noEmit
+          npm run build:sdk
+          npx vitest run \
+            test/sdk-release-workflow.test.ts \
+            test/sdk-exports.test.ts \
+            test/sdk-site-guard.test.ts \
+            test/safe-verify-abort.test.ts \
+            test/webhooks.test.ts
+          npm run test:sdk:pack
+
+      - name: Verify SDK package metadata
+        env:
+          EXPECTED_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          node <<'NODE'
+          const pkg = require("./packages/sdk/package.json");
+          const fail = (message) => {
+            console.error(message);
+            process.exit(1);
+          };
+          if (pkg.name !== "@behalfid/sdk") fail(`unexpected package name: ${pkg.name}`);
+          if (pkg.version !== process.env.EXPECTED_VERSION) {
+            fail(`package version ${pkg.version} != ${process.env.EXPECTED_VERSION}`);
+          }
+          if (!pkg.repository?.url?.toLowerCase().includes("github.com/behalfid/behalf")) {
+            fail(`unexpected repository URL: ${pkg.repository?.url}`);
+          }
+          if (pkg.repository.directory !== "packages/sdk") {
+            fail(`unexpected repository directory: ${pkg.repository.directory}`);
+          }
+          if (pkg.main !== "./dist/index.js" || pkg.types !== "./dist/index.d.ts") {
+            fail("SDK entry points do not target dist");
+          }
+          console.log(`SDK package metadata OK: ${pkg.name}@${pkg.version}`);
+          NODE
+
+      - name: npm publish dry-run
+        working-directory: packages/sdk
+        env:
+          EXPECTED_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          set +e
+          DRY_OUT=$(npm publish --dry-run --access public --provenance=false 2>&1)
+          DRY_STATUS=$?
+          set -e
+          printf '%s\n' "$DRY_OUT"
+          if [ "$DRY_STATUS" -ne 0 ]; then
+            echo "npm publish --dry-run failed with status $DRY_STATUS"
+            exit 1
+          fi
+          if printf '%s\n' "$DRY_OUT" | grep -Eiq \
+            'npm auto-corrected|errors corrected|script name was cleaned|repository\.url was normalized'; then
+            echo "npm publish dry-run reported package.json auto-correction; refusing to publish"
+            exit 1
+          fi
+          if ! printf '%s\n' "$DRY_OUT" | grep -Fq "@behalfid/sdk@${EXPECTED_VERSION}"; then
+            echo "npm publish dry-run did not confirm @behalfid/sdk@${EXPECTED_VERSION}"
+            exit 1
+          fi
+
+      - name: Publish SDK to npm
+        run: npm publish --access public --provenance
+        working-directory: packages/sdk
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

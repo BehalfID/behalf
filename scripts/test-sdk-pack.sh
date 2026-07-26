@@ -5,8 +5,22 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+native_path() {
+  local path="$1"
+  if command -v wslpath >/dev/null 2>&1 &&
+    grep -qi microsoft /proc/sys/kernel/osrelease 2>/dev/null; then
+    wslpath -w "$path"
+  elif command -v cygpath >/dev/null 2>&1; then
+    cygpath -w "$path"
+  else
+    printf '%s\n' "$path"
+  fi
+}
+
+NODE_BIN=$(command -v node || command -v node.exe)
+
 echo "→ Building SDK…"
-npm --prefix "$REPO_ROOT/packages/sdk" run build
+npm --prefix "$(native_path "$REPO_ROOT/packages/sdk")" run build
 
 echo "→ Packing SDK…"
 cd "$REPO_ROOT/packages/sdk"
@@ -16,17 +30,22 @@ TARBALL_ABS="$REPO_ROOT/packages/sdk/$TARBALL"
 echo "  Packed: $TARBALL_ABS"
 
 echo "→ Creating temp project…"
-TMPDIR=$(mktemp -d)
+if command -v wslpath >/dev/null 2>&1 &&
+  grep -qi microsoft /proc/sys/kernel/osrelease 2>/dev/null; then
+  TMPDIR=$(mktemp -d "$REPO_ROOT/sdk-pack-smoke-XXXXXX")
+else
+  TMPDIR=$(mktemp -d)
+fi
 trap 'rm -rf "$TMPDIR"; rm -f "$TARBALL_ABS"' EXIT
 
 cd "$TMPDIR"
 npm init -y --quiet >/dev/null
 
 echo "→ Installing packed tarball…"
-npm install --quiet "$TARBALL_ABS"
+npm install --quiet "$(native_path "$TARBALL_ABS")"
 
 echo "→ Running ESM smoke test…"
-node --input-type=module -e "
+"$NODE_BIN" --input-type=module -e "
 import('@behalfid/sdk').then((m) => {
   if (typeof m.BehalfID !== 'function') {
     throw new Error('FAIL: BehalfID is ' + typeof m.BehalfID + ', expected function');
