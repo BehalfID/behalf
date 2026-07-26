@@ -5,25 +5,36 @@
 
 export {
   countAccounts,
+  countAccountDocuments,
   createAccount,
+  createAccountDocument,
   findAccount,
   findAccountAndUpdate,
   findAccountById,
   findAccountByIdLean,
   findAccountBySlug,
   findAccountBySlugLean,
+  findAccounts,
+  findOneAccount,
+  findOneAndUpdateAccount,
   incrementVerificationCount,
   listAccounts,
   resetVerificationPeriod,
-  updateAccount
+  updateAccount,
+  updateAccountByFilter
 } from "@/lib/repositories/postgres/accounts";
 export {
+  countAgents,
   countAgentsByAccountId,
   countAgentsByScope,
   createAgent,
+  deleteAgent,
   deleteAgents,
   findAgentByAgentId,
   findAgentByApiKeyHash,
+  findAgents,
+  findOneAgent,
+  findOneAndUpdateAgent,
   listAgents,
   rotateAgentKey,
   touchAgentLastUsedAt,
@@ -31,21 +42,28 @@ export {
   updateAgents
 } from "@/lib/repositories/postgres/agents";
 export {
+  countApiTokens,
   countByUserId as countApiTokensByUserId,
   createApiToken,
+  createApiTokenDocument,
+  deleteApiToken,
   deleteByTokenId as deleteApiTokenByTokenId,
   deleteManyByUserId as deleteApiTokensByUserId,
   deleteManyByUserOrAccount as deleteApiTokensByUserOrAccount,
+  findApiTokens,
   findByTokenHash as findApiTokenByTokenHash,
   listByUserId as listApiTokensByUserId,
   touchLastUsed as touchApiTokenLastUsed
 } from "@/lib/repositories/postgres/apiTokens";
 export {
   createDeviceCode,
+  createDeviceCodeDocument,
+  deleteDeviceCode,
   deleteExpired as deleteExpiredDeviceCodes,
   findByDeviceCode,
   findByUserCode as findDeviceCodeByUserCode,
   findOneAndDeleteAuthorized,
+  findOneDeviceCode,
   updateStatus as updateDeviceCodeStatus
 } from "@/lib/repositories/postgres/deviceCodes";
 export {
@@ -84,11 +102,14 @@ export {
 } from "@/lib/repositories/postgres/memberships";
 export {
   createPendingSignup,
+  createPendingSignupDocument,
   deleteByPendingId as deleteOAuthPendingByPendingId,
   deleteExpired as deleteExpiredOAuthPending,
+  deletePendingSignup,
   findByGoogleSub as findOAuthPendingByGoogleSub,
   findByPendingId,
-  findByTokenHash as findOAuthPendingByTokenHash
+  findByTokenHash as findOAuthPendingByTokenHash,
+  findOnePendingSignup
 } from "@/lib/repositories/postgres/oauthPending";
 export {
   deletePolicyDocument,
@@ -98,6 +119,8 @@ export {
   upsertPolicyDocument
 } from "@/lib/repositories/postgres/policyDocuments";
 export {
+  abandonStagedReplacementPermission,
+  activateStagedReplacementPermission,
   countPermissions,
   createPermission,
   createPostgresPermissionRepository,
@@ -110,7 +133,10 @@ export {
   findOnePermission,
   findPermissions,
   findPermissionsByAgentId,
+  findReplacementByIdempotencyKey,
+  revokeActivePermissionForReplacement,
   revokePermission,
+  stageReplacementPermission,
   updatePermission,
   updatePermissions
 } from "@/lib/repositories/postgres/permissions";
@@ -139,13 +165,17 @@ export {
   deleteByTokenHash as deleteSessionByTokenHash,
   deleteByUserId as deleteSessionByUserId,
   deleteManyByUserId as deleteSessionsByUserId,
+  deleteSession,
+  deleteSessions,
   findBySessionId,
   findByTokenHash as findSessionByTokenHash,
   updateActiveAccountId,
   updateActivity
 } from "@/lib/repositories/postgres/sessions";
 export {
+  countUserDocuments,
   createUser,
+  createUserDocument,
   deleteUser,
   existsByEmail,
   existsByEmailOrGoogleSub,
@@ -157,9 +187,13 @@ export {
   findByUserIds,
   findByVerificationCodeHash,
   findByVerificationTokenHash,
+  findOneUser,
   findUnverifiedExpired,
+  findUsers,
   updateUser,
-  updateUserAtomic
+  updateUserAtomic,
+  updateUserByFilter,
+  userExists
 } from "@/lib/repositories/postgres/users";
 export {
   aggregateStats,

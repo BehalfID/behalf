@@ -22,6 +22,31 @@ export {
 export const findMatchingForVerify = delegate("permissions", "findMatchingForVerify", mongo.findMatchingForVerify);
 export const createPermission = delegate("permissions", "createPermission", mongo.createPermission);
 export const findByPermissionId = delegate("permissions", "findByPermissionId", mongo.findByPermissionId);
+export const findReplacementByIdempotencyKey = delegate(
+  "permissions",
+  "findReplacementByIdempotencyKey",
+  mongo.findReplacementByIdempotencyKey
+);
+export const stageReplacementPermission = delegate(
+  "permissions",
+  "stageReplacementPermission",
+  mongo.stageReplacementPermission
+);
+export const revokeActivePermissionForReplacement = delegate(
+  "permissions",
+  "revokeActivePermissionForReplacement",
+  mongo.revokeActivePermissionForReplacement
+);
+export const activateStagedReplacementPermission = delegate(
+  "permissions",
+  "activateStagedReplacementPermission",
+  mongo.activateStagedReplacementPermission
+);
+export const abandonStagedReplacementPermission = delegate(
+  "permissions",
+  "abandonStagedReplacementPermission",
+  mongo.abandonStagedReplacementPermission
+);
 export const revokePermission = delegate("permissions", "revokePermission", mongo.revokePermission);
 export const findPermissionsByAgentId = delegate("permissions", "findPermissionsByAgentId", mongo.findPermissionsByAgentId);
 export const findActivePermissionsByAgentId = delegate("permissions", "findActivePermissionsByAgentId", mongo.findActivePermissionsByAgentId);

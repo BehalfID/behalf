@@ -120,6 +120,9 @@ type Permission = {
   lastUsedAt?: string | null;
   createdAt?: string;
   updatedAt?: string;
+  replacesPermissionId?: string;
+  replacedByPermissionId?: string;
+  replacementIdempotencyKey?: string;
 };
 type WorkspaceAuthority = {
   role: string;

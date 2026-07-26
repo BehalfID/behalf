@@ -102,7 +102,7 @@
       "kicker": "Approbations de déploiement",
       "h2Line1": "De zéro à appliqué",
       "h2Line2": "en cinq minutes.",
-      "bodyAdvanced": "La première chose que la plupart des équipes configurent : un agent de codage qui peut déployer librement en staging, mais doit s'arrêter pour approbation humaine avant de toucher la production. BehalfID applique cela à la frontière MCP — là où l'appel d'outil est effectué, pas dans la mémoire du modèle.",
+      "bodyAdvanced": "La première chose que la plupart des équipes configurent : un agent de codage qui peut déployer librement en staging, mais doit s'arrêter pour approbation humaine avant de toucher la production. BehalfID applique cela là où vous installez des hooks d'action ou appelez verify() — pas via le MCP consultatif seul.",
       "bodySimple": "La configuration la plus courante : votre assistant de codage IA peut mettre à jour l'environnement de test à tout moment, mais toucher le site live nécessite votre accord d'abord. Quatre étapes, configurées en moins de cinq minutes.",
       "step1Title": "Configurer deux permissions",
       "step1Body": "Staging autorisé automatiquement. Production nécessite une approbation.",
@@ -110,9 +110,9 @@
       "step1SimpleABody": "Votre agent peut pousser vers l'environnement de test librement, à tout moment.",
       "step1SimpleBTitle": "Production — demander d'abord",
       "step1SimpleBBody": "Les déploiements en production sont mis en pause jusqu'à ce que vous les approuviez dans le tableau de bord.",
-      "step2Title": "Connecter l'application MCP",
-      "step2BodyAdvanced": "Une commande écrit <code>.mcp.json</code> et le fichier de contexte de l'agent.",
-      "step2BodySimple": "Une commande de terminal connecte BehalfID aux outils de votre agent IA. Aucune modification de code de votre agent n'est nécessaire.",
+      "step2Title": "Connecter hooks et MCP consultatif",
+      "step2BodyAdvanced": "Une commande écrit <code>.mcp.json</code> et le fichier de contexte ; les launchers configurent les hooks pris en charge.",
+      "step2BodySimple": "Une commande de terminal connecte le contexte BehalfID à votre agent. Les hooks d'action sont la porte structurelle là où ils sont pris en charge.",
       "step3Title": "L'agent tente un déploiement en production — bloqué",
       "step3BodyAdvanced": "Le serveur MCP appelle <verifyCode>verify_action</verifyCode>. BehalfID retourne <approvalCode>approvalRequired: true</approvalCode>. L'agent s'arrête et vous rapporte.",
       "step3BodySimple": "BehalfID retourne Approbation requise. L'agent s'arrête et vous rapporte.",
@@ -124,7 +124,7 @@
     "cta": {
       "kicker": "Prêt",
       "h2": "Ajoutez la vérification des permissions.",
-      "body": "L'application est fail-closed là où vous l'intégrez — via SDK ou MCP. Le mode passeport manuel est au mieux pour tester avec des agents existants avant de construire l'intégration.",
+      "body": "L'application est fail-closed là où vous l'intégrez — via SDK, hooks, Action Gateway ou Site Guard. Le MCP consultatif et le mode passeport sont au mieux du contexte, pas de l'interception. Claude PreToolUse est fail-open sur config/réseau/timeout.",
       "tryDeploy": "Essayer les approbations de déploiement"
     }
   },
@@ -469,7 +469,7 @@
       "label": "01",
       "heading": "Modèle d'application",
       "body1": "BehalfID ne contrôle pas magiquement un agent par lui-même. L'application ou le fournisseur doit appeler BehalfID avant d'agir. Si l'action est refusée, l'intégration doit échouer de manière fermée et ne pas exécuter l'action.",
-      "body2": "Fail-closed signifie que l'agent lance une exception en cas de refus et que le code qui exécuterait l'action ne s'exécute jamais. L'inverse — fail-open — permettrait à l'agent de continuer si la vérification échoue ou n'est pas disponible. Le modèle d'application recommandé par BehalfID est toujours fail-closed.",
+      "body2": "Fail-closed signifie que l'agent lance une exception en cas de refus et que le code qui exécuterait l'action ne s'exécute jamais. L'inverse — fail-open — permettrait à l'agent de continuer si la vérification échoue ou n'est pas disponible. Les adaptateurs SDK échouent généralement en fail-closed ; le hook PreToolUse Claude est fail-open sur config/réseau/timeout. Pas de fail-closed universel.",
       "body3": "L'application ne fonctionne que lorsque l'intégration appelle BehalfID avant d'agir et respecte la réponse. Consultez le <sandboxLink>bac à sable en direct</sandboxLink> pour une démonstration dans le navigateur.",
       "note": "BehalfID Site Guard étend ce modèle aux sites web : votre middleware, worker, proxy ou gateway appelle BehalfID avant l'exécution de routes protégées telles que le paiement, les formulaires, la connexion, les modifications de compte, l'exportation de données ou les flux d'administration."
     },
@@ -564,7 +564,7 @@
       "controls": "Contrôles techniques",
       "contact": "Contact"
     },
-    "statusInProgress": "Pas encore certifie Type II — renforcement des controles en cours",
+    "statusInProgress": "Pas encore certifié Type II — renforcement des contrôles en cours",
     "statusNotCertified": "Non certifié",
     "statusNotApplicable": "Non applicable",
     "statusImplemented": "Implémenté",
@@ -572,7 +572,7 @@
     "soc2": {
       "heading": "SOC 2",
       "statusHeading": "Statut",
-      "body1": "BehalfID n'a pas encore complété un audit SOC 2 Type II. Nous mettons actuellement en œuvre les contrôles organisationnels et techniques requis pour obtenir la certification SOC 2 Type II selon les critères de services de confiance Sécurité, Disponibilité et Confidentialité.",
+      "body1": "BehalfID n'a pas complété d'audit SOC 2 Type I ou Type II auprès d'un cabinet CPA agréé. Nous mettons en œuvre et documentons les contrôles organisationnels et techniques requis pour un futur engagement SOC 2 selon les critères de services de confiance Sécurité, Disponibilité, Intégrité du traitement et Confidentialité. Le SOC 2 Type II est un objectif futur, pas une certification actuelle.",
       "controlsHeading": "Contrôles en place aujourd'hui",
       "roadmapHeading": "Feuille de route",
       "roadmapBody": "Nous avons l'intention de mandater un cabinet CPA agréé pour un audit SOC 2 Type II une fois que nous aurons déployé les contrôles organisationnels restants. Objectif : 2026."

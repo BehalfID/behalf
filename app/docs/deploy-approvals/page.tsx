@@ -53,23 +53,27 @@ behalf permissions create agent_xxx \\
   --blocked "rollback without approval,delete production deployment" \\
   --requires-approval`}</CodeBlock>
 
-      <h2>Step 2 — Wire up MCP enforcement</h2>
-      <p>Run this once in your project directory to register the BehalfID MCP server and write the agent context file:</p>
+      <h2>Step 2 — Wire up advisory MCP context (and hooks)</h2>
+      <p>
+        Run this once in your project directory to register the BehalfID advisory MCP server and write the agent context file.
+        For Claude Code shell/file enforcement, also ensure the PreToolUse hook is installed (the launcher configures supported hooks).
+        Advisory MCP alone does not intercept tools.
+      </p>
       <CodeBlock label="terminal">{`behalf config set agent-id agent_xxx
 behalf config set api-key bhf_sk_xxx
 behalf mcp init`}</CodeBlock>
       <p>
-        This creates <code>.mcp.json</code> (registers the MCP server) and{" "}
+        This creates <code>.mcp.json</code> (registers the advisory MCP server) and{" "}
         <code>.behalf/context.md</code> (tells the agent its permissions and the approval protocol).
       </p>
 
-      <h2>Step 3 — Launch your agent with enforcement active</h2>
+      <h2>Step 3 — Launch your agent with hooks and context active</h2>
       <CodeBlock label="terminal">{`behalf claude      # Claude Code
 behalf codex       # Codex CLI
 behalf run cursor  # Cursor`}</CodeBlock>
       <p>
-        The launcher refreshes the permissions cache and starts the MCP server before launching the tool.
-        Every <code>verify_action</code> call during the session goes through your live BehalfID permissions.
+        The launcher refreshes the permissions cache, starts the advisory MCP server, and configures supported action-time hooks before launching the tool.
+        Every <code>verify_action</code> call is advisory; Claude mapped tools are gated by PreToolUse with documented fail-open outage behavior.
       </p>
 
       <h2>Step 4 — The agent hits the approval gate</h2>

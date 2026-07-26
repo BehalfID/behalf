@@ -35,13 +35,13 @@ export function AgentPermissions({
   reload: () => Promise<void>;
 }) {
   const { apiJson } = useDashboardApi();
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "revoked">("active");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "revoked" | "inactive">("active");
   const [approvalFilter, setApprovalFilter] = useState<"all" | "required" | "not_required">("all");
   const [actionFilter, setActionFilter] = useState("");
   const [resourceFilter, setResourceFilter] = useState("");
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [error, setError] = useState("");
-
+  const [resumingId, setResumingId] = useState<string | null>(null);
   const filtered = useMemo(() => permissions.filter((permission) => {
     if (statusFilter !== "all" && permission.status !== statusFilter) return false;
     if (approvalFilter === "required" && !permission.requiresApproval) return false;
@@ -85,6 +85,67 @@ export function AgentPermissions({
     }
   };
 
+  const resumeInterruptedReplacement = async (permission: AgentPermission) => {
+    if (permission.status !== "inactive" || !permission.replacesPermissionId) return;
+    setError("");
+    setResumingId(permission.permissionId);
+    try {
+      await apiJson(`/api/dashboard/agents/${agentId}/permissions/${permission.replacesPermissionId}/replace`, {
+        method: "POST",
+        body: JSON.stringify({
+          action: permission.action,
+          description: permission.description,
+          resource: permission.resource,
+          scope: permission.scope,
+          allowedActions: permission.allowedActions,
+          blockedActions: permission.blockedActions,
+          requiresApproval: permission.requiresApproval,
+          notes: permission.notes,
+          template: permission.template,
+          constraints: permission.constraints,
+          idempotencyKey: permission.replacementIdempotencyKey
+        })
+      });
+      await reload();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Could not resume replacement.");
+      await reload().catch(() => undefined);
+    } finally {
+      setResumingId(null);
+    }
+  };
+
+  const permissionActions = (permission: AgentPermission) => {
+    if (permission.status === "active") {
+      return (
+        <>
+          <Button
+            aria-label={`Edit and replace ${permission.action} permission`}
+            onClick={() => openReplace(permission)}
+            type="button"
+          >
+            Edit / replace
+          </Button>
+          <Button onClick={() => void revoke(permission)} type="button" variant="danger">Revoke</Button>
+        </>
+      );
+    }
+    if (permission.status === "inactive" && permission.replacesPermissionId) {
+      return (
+        <Button
+          aria-label={`Resume replacement for ${permission.action}`}
+          disabled={resumingId === permission.permissionId}
+          onClick={() => void resumeInterruptedReplacement(permission)}
+          type="button"
+          variant="primary"
+        >
+          {resumingId === permission.permissionId ? "Resuming…" : "Resume replacement"}
+        </Button>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className="agent-section-stack">
       <section className="dashboard-panel agent-permissions-toolbar">
@@ -107,6 +168,7 @@ export function AgentPermissions({
             <span>Status</span>
             <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}>
               <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
               <option value="revoked">Revoked</option>
               <option value="all">All</option>
             </select>
@@ -142,12 +204,7 @@ export function AgentPermissions({
         <div className="permission-details-list">
           {filtered.map((permission) => (
             <PermissionDetails
-              actions={permission.status === "active" ? (
-                <>
-                  <Button onClick={() => openReplace(permission)} type="button">Replace permission</Button>
-                  <Button onClick={() => void revoke(permission)} type="button" variant="danger">Revoke</Button>
-                </>
-              ) : null}
+              actions={permissionActions(permission)}
               key={permission.permissionId}
               permission={permission}
             />

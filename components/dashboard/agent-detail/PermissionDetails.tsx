@@ -59,7 +59,13 @@ export function PermissionDetails({
           <p>{permissionConstraintSummary(permission)}</p>
         </div>
         <div className="permission-details__status">
-          <Badge>{permission.status === "active" ? "Active" : "Revoked"}</Badge>
+          <Badge>
+            {permission.status === "active"
+              ? "Active"
+              : permission.status === "inactive"
+                ? "Inactive (interrupted)"
+                : "Revoked"}
+          </Badge>
           {permission.requiresApproval ? <Badge>Approval required</Badge> : <Badge>No approval required</Badge>}
         </div>
       </header>

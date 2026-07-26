@@ -31,7 +31,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
     "requiresApproval",
     "notes",
     "template",
-    "constraints"
+    "constraints",
+    "expectedUpdatedAt",
+    "idempotencyKey"
   ]);
   if (unknownError) return jsonError(unknownError);
 

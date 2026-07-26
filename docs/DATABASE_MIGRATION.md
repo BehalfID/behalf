@@ -1,8 +1,13 @@
 # Database Migration Plan: MongoDB/Mongoose → Supabase/Postgres (v1)
 
-**Status:** Active migration plan. Postgres schema v1 (Drizzle + SQL migrations) exists but is
-**not wired to runtime** — Mongo/Mongoose remains the production backing store. See
-`docs/POSTGRES_SCHEMA.md` and `lib/db/postgres/`.
+**Status:** Active migration plan. Postgres schema v1 (Drizzle + SQL migrations) exists;
+repository adapters and CI migration smoke/contracts exist; **default production runtime remains
+Mongo/Mongoose**. Postgres is **gated / in progress** (`BEHALFID_ALLOW_POSTGRES_RUNTIME` + backend
+flags). See `docs/POSTGRES_SCHEMA.md`, `docs/CAPABILITY_MATRIX.md`, and `lib/db/postgres/`.
+
+**Phase 4 (repository parity) docs:** `docs/POSTGRES_PG_CRON.md` (TTL scheduling decision —
+operator-enabled, not a Phase 4 gate) and `docs/POSTGRES_STAGING_MIGRATION_REHEARSAL.md`
+(staging rehearsal plan — **prepare-only, not executed** in Phase 4).
 
 **Scope of this document:** feasibility analysis, target schema design, and a phased
 migration sequence. It deliberately does **not** introduce Supabase client code, change
@@ -896,12 +901,32 @@ Each PR is independently shippable and reversible. **No PR changes auth.**
 - **Done (0005):** Policy + collaboration integration tables (`drizzle/0005_policy_and_integrations.sql`):
   `policy_documents`, `integration_bindings`, `collaboration_message_refs` (+ enums,
   RLS deny-all baseline). Matches `models/PolicyDocument.ts` / `models/IntegrationBinding.ts`.
+- **Done (0006, Phase 4):** Permission replacement parity (`drizzle/0006_permission_replacement_parity.sql`):
+  `permissions.status` CHECK widened to include `inactive` (staged-not-yet-active replacement);
+  audit/idempotency columns `replaces_permission_id`, `replaced_by_permission_id`,
+  `replacement_idempotency_key`; lookup indexes + a partial unique index on
+  `(account_id, replacement_idempotency_key)` so a retried replacement request cannot
+  double-replace. See `docs/POSTGRES_SCHEMA.md` § permissions replacement audit fields.
+- **Done (Phase 4):** Named-helper Postgres repository parity for `users`, `sessions`,
+  `apiTokens`, `oauthPending`, `deviceCodes`, `accounts`, `agents`, and `permissions`, gated by
+  a static, no-database test (`test/postgres-repository-parity.test.ts`) that audits the actual
+  runtime binding (`lib/repositories/postgres/runtime.ts`) against every Mongo function export.
+  A small, explicitly named set of Mongoose-only query-chaining passthroughs (`Model.find()`,
+  `.findOne()`, `.create()`, `.updateOne()`, `.deleteMany()`, …) intentionally remain unbound —
+  see `lib/repositories/postgres/intentionalGaps.ts` (`INTENTIONAL_POSTGRES_GAPS`). Application
+  code never calls these lazy passthroughs on the Postgres backend; the named domain helpers
+  cover the real call surface.
 - **Backend selection (latch + per-table flags):** Global postgres requires
   `BEHALFID_ALLOW_POSTGRES_RUNTIME=true`. Per-aggregate overrides use
   `BEHALFID_REPO_BACKEND_<AGGREGATE>` (`mongo`|`postgres`). See §13 PR A / §14 rollback.
-- **Not done yet:** CI job that applies migrations against live Postgres; enabling `pg_cron`
-  in the target deployment; completing method-level parity on Postgres adapters (lazy Mongoose
-  helpers and some edge APIs still throw “not implemented on postgres”).
+- **Done (CI):** GitHub Actions job `postgres-schema` applies migrations against live Postgres 17
+  and runs `npm run test:postgres-smoke` plus `npm run test:postgres-repositories`
+  (`.github/workflows/ci.yml`). Migration-fidelity smoke is no longer “not done.”
+- **Not done yet:** Enabling `pg_cron` in the target deployment — this is an **operator step**
+  taken at production cutover time, not a Phase 4 gate; see `docs/POSTGRES_PG_CRON.md`.
+  Method-level parity on Postgres adapters is done for all Phase 4 aggregates (named helpers);
+  only the allowlisted Mongoose lazy-passthrough surface (`lib/repositories/postgres/intentionalGaps.ts`)
+  still throws “not implemented on postgres” by design.
 - Connection module (`lib/db/postgres/index.ts`) exists; composition may call it only when
   the latch + backend flags select postgres.
 - **Next after B′:** Close method-level adapter gaps and pass `test/repository-contracts/*`
@@ -920,7 +945,9 @@ Each PR is independently shippable and reversible. **No PR changes auth.**
   `test/migration-export-transform.test.ts`.
 - **Done:** npm scripts `migration:export|preflight|import|verify`.
 - **Ops remaining:** run preflight against production Mongo and rehearse
-  export → import → verify on the Supabase staging project before any table flip.
+  export → import → verify on the Supabase staging project before any table flip. The rehearsal
+  steps, verification checklist, cutover plan, and rollback plan are written up in
+  `docs/POSTGRES_STAGING_MIGRATION_REHEARSAL.md` — **prepare-only; not executed in Phase 4.**
 
 ### PR D — Non-production migration test
 

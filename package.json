@@ -4,6 +4,9 @@
   "workspaces": [
     "packages/*"
   ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -26,6 +29,8 @@
     "build:cli": "npm run build -w @behalfid/cli",
     "build:egress-proxy": "npm run build -w @behalfid/egress-proxy",
     "test:sdk:pack": "bash scripts/test-sdk-pack.sh",
+    "check:package-integrity": "node scripts/release/check-package-integrity.mjs",
+    "test:pack-smoke": "node scripts/release/pack-smoke.mjs",
     "test:live": "RUN_LIVE_TESTS=true vitest run --config vitest.live.config.ts",
     "seed:live-test": "tsx scripts/seed-live-test-permission.ts",
     "dev:reset-internal-demo": "tsx scripts/dev/reset-internal-demo-account.ts",
@@ -48,8 +53,8 @@
     "@vercel/analytics": "^2.0.1",
     "drizzle-orm": "^0.45.2",
     "jose": "^6.2.3",
-    "mongoose": "^9.6.1",
-    "next": "^16.2.6",
+    "mongoose": "^9.7.2",
+    "next": "^16.2.11",
     "next-intl": "^4.13.0",
     "nodemailer": "^9.0.1",
     "otpauth": "^9.4.1",
@@ -70,7 +75,7 @@
     "@vitest/coverage-v8": "^4.1.6",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9.39.4",
-    "eslint-config-next": "^16.2.4",
+    "eslint-config-next": "^16.2.11",
     "mongodb-memory-server": "^10.4.3",
     "openai": "^6.39.0",
     "playwright": "^1.60.0",
@@ -84,6 +89,9 @@
     "@esbuild-kit/core-utils": {
       "esbuild": "^0.25.0"
     },
-    "postcss": "^8.5.13"
+    "@swc/helpers": "^0.5.17",
+    "postcss": "^8.5.18",
+    "sharp": "^0.35.0",
+    "undici": "^6.27.0"
   }
 }

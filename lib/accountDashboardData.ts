@@ -42,7 +42,7 @@ export async function getAccountAgentDetail(actor: WorkspaceActor, agentId: stri
     Permission.find(permissionScope)
       .sort({ createdAt: -1 })
       .limit(50)
-      .select("-_id permissionId action description resource scope allowedActions blockedActions requiresApproval notes template constraints requiredAuthorityLevel replacesPermissionId replacedByPermissionId status lastUsedAt createdAt updatedAt")
+      .select("-_id permissionId action description resource scope allowedActions blockedActions requiresApproval notes template constraints requiredAuthorityLevel status lastUsedAt createdAt updatedAt replacesPermissionId replacedByPermissionId replacementIdempotencyKey")
       .lean(),
     Permission.countDocuments({ ...permissionScope, status: "active" }),
     Permission.countDocuments({ ...permissionScope, status: "active", requiresApproval: true }),

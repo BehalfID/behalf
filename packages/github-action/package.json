@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@actions/core": "^1.11.1"
+    "@actions/core": "^2.0.3"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
@@ -18,7 +18,7 @@
     "vitest": "^4.1.0"
   },
   "overrides": {
-    "undici": "^6.24.0"
+    "undici": "^6.27.0"
   },
   "engines": {
     "node": ">=20"

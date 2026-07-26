@@ -1,17 +1,23 @@
 # Adapter Compatibility Matrix
 
-Status as of 2026-05-28. All adapters are EXPERIMENTAL — not official vendor integrations.
+Status as of 2026-07-24. All adapters are EXPERIMENTAL — not official vendor integrations.
+Package publish status: `@behalfid/sdk` and `@behalfid/cli` are on npm; `@behalfid/mcp-runtime`,
+`@behalfid/install`, and `@behalfid/mcp-audit` are **source-only** (not on npm). See
+`docs/CAPABILITY_MATRIX.md`.
 
 ## Summary
 
 | Adapter | Status | Unit tests | Allowed-path live | Denied-path live | Runtime verified | npm-publishable | Production-ready? |
 |---|---|---|---|---|---|---|---|
-| OpenAI | Experimental | ✅ | ✅ opt-in (seeded) | ✅ opt-in | BehalfID only | Not yet | No |
-| Anthropic / Claude | Experimental | ✅ | ✅ opt-in (seeded) | ✅ opt-in | BehalfID only | Not yet | No |
-| LangChain | Experimental | ✅ | ✅ opt-in (seeded) | ✅ opt-in | BehalfID only | Not yet | No |
-| LlamaIndex | Experimental | ✅ | No | No | No | Not yet | No |
-| Vercel | Deployment example | ✅ (unit) | No | No | No | Not yet | No |
-| Stripe | Permission example | ✅ | No (no seeded perm) | ✅ opt-in | BehalfID only | Not yet | No |
+| OpenAI | Experimental | ✅ | ✅ opt-in (seeded) | ✅ opt-in | BehalfID only | Via `@behalfid/sdk` subpath | No |
+| Anthropic / Claude | Experimental | ✅ | ✅ opt-in (seeded) | ✅ opt-in | BehalfID only | Via `@behalfid/sdk` subpath | No |
+| LangChain | Experimental | ✅ | ✅ opt-in (seeded) | ✅ opt-in | BehalfID only | Via `@behalfid/sdk` subpath | No |
+| LlamaIndex | Experimental | ✅ | No | No | No | Via `@behalfid/sdk` subpath | No |
+| Vercel | Deployment example | ✅ (unit) | No | No | No | Not an SDK export | No |
+| Stripe | Permission example | ✅ | No (no seeded perm) | ✅ opt-in | BehalfID only | Via `@behalfid/sdk` subpath | No |
+| Claude Code PreToolUse hook | Pilot / experimental | ✅ | Pilot rehearsal | Pilot rehearsal | Hook unit + CLI artifact | Via `@behalfid/cli` | No — not universal fail-closed |
+| Advisory MCP (`verify_action`) | Advisory context | ✅ | Observation only | N/A | N/A | Via `@behalfid/cli` | **Not enforcement** |
+| `@behalfid/mcp-runtime` interceptor | Source PEP | ✅ | No public install channel | — | Unit only | **Not on npm** | No |
 
 "Runtime verified" means tested against a live instance of the actual SDK/framework (not just mocks).
 "BehalfID only" means the BehalfID verify path has been live-tested; vendor SDK execution paths use mocks.
@@ -130,8 +136,8 @@ These are **compatibility adapters, not official partnerships**. No adapter in t
 | Mapped tools | Write, Edit, MultiEdit, NotebookEdit → `write_file`; Read → `read_file`; Bash, PowerShell, Monitor(with `command`) → `execute_command`; Agent, Task → `spawn_agent`; WebFetch, WebSearch → `browse_web`; `mcp__*` → `mcp_tool` |
 | Policy transport | Sanitized `policyContext` only (`filePath` / `command` + `cwd` / `home`); never Write contents or Edit replacement bodies |
 | Constraint evaluation | `allowedPaths` / `deniedPaths` / `deniedCommands` via `/api/verify` |
-| Fail-open | Missing config; network/API errors and the bounded five-second verify timeout |
-| Fail-closed | Malformed root/tool input, missing command/path for mapped shell/file tools, and oversized local policy input |
+| Fail-open | Missing agent ID / API key config; network/API errors and the bounded five-second verify timeout |
+| Fail-closed | Deny decisions; approval-required; malformed root/tool input; missing command/path for mapped shell/file tools; oversized local policy input |
 | Intentionally unmapped | Monitor without a shell `command` (e.g. WebSocket-only); Glob, Grep, TodoWrite, and other non-governed tools |
 | Known limitations | Not universal Claude Code security — only tool calls routed through the installed PreToolUse hook are checked. |
 | Before claiming production-ready | Expand Monitor coverage only when a clean existing action mapping exists |

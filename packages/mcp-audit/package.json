@@ -1,7 +1,7 @@
 {
   "name": "@behalfid/mcp-audit",
   "version": "0.1.0",
-  "description": "BehalfID MCP Auditing Engine — read-only security analysis of MCP server configurations",
+  "description": "BehalfID MCP Auditing Engine — read-only security analysis of MCP server configurations (preview / not yet published to npm)",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

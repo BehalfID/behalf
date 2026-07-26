@@ -43,6 +43,13 @@
       "when": 1784678400000,
       "tag": "0005_policy_and_integrations",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784764800000,
+      "tag": "0006_permission_replacement_parity",
+      "breakpoints": true
     }
   ]
 }

@@ -33,6 +33,10 @@ export type VerifyResult = {
     allowed: boolean;
     reason: string;
     risk: RiskLevel;
+    /** Present when the action is denied pending human approval. */
+    approvalRequired?: boolean;
+    /** Approval record id when `approvalRequired` is true. */
+    approvalId?: string;
 };
 export type ExecuteActionInput = {
     agentId: string;

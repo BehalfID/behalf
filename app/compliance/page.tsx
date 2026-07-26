@@ -76,7 +76,8 @@ export default function CompliancePage() {
               CPA firm. We are implementing and documenting the organizational and
               technical controls required for a future SOC 2 engagement across the
               Security, Availability, Processing Integrity, and Confidentiality trust
-              service criteria. Public engineering docs may still describe constrained
+              service criteria. SOC 2 Type II is a <strong>future target</strong>, not a
+              current certification. Public engineering docs may still describe constrained
               deployment guidance while this work continues.
             </p>
 
@@ -101,8 +102,10 @@ export default function CompliancePage() {
               </li>
               <li>
                 <strong>A1 — Availability.</strong> The service is hosted on Vercel with
-                automatic redundancy and global edge delivery. MongoDB Atlas provides
-                managed database availability.
+                managed platform redundancy and global edge delivery. MongoDB Atlas provides
+                managed database availability. BehalfID does <strong>not</strong> publish a
+                contractual uptime SLA (including any 99.99% claim) or a verified p99 latency SLO
+                at this time — see the status page for component state, not an SLA.
               </li>
               <li>
                 <strong>C1 — Confidentiality.</strong> Secrets (API keys, webhook signing

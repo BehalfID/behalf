@@ -154,7 +154,7 @@ describe("permission detail and draft behavior", () => {
   it("does not offer replacement for a revoked permission", async () => {
     const source = await readFile(join(process.cwd(), "components/dashboard/agent-detail/AgentPermissions.tsx"), "utf8");
     expect(source).toContain('permission.status === "active"');
-    expect(source).toContain("Replace permission");
+    expect(source).toContain("Edit / replace");
     expect(source).not.toContain('permission.status === "revoked" ? <Button');
   });
 

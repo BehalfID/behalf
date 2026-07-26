@@ -1,12 +1,12 @@
 {
   "name": "@behalfid/mcp-runtime",
   "version": "0.1.0",
-  "description": "BehalfID MCP Policy Enforcement Point — intercept MCP tools, verify via BehalfID, enforce, and proxy",
+  "description": "BehalfID MCP Policy Enforcement Point — intercept MCP tools, verify via BehalfID, enforce, and proxy (preview / not yet published to npm)",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "behalfid-mcp-runtime": "./dist/cli.js"
+    "behalfid-mcp-runtime": "dist/cli.js"
   },
   "exports": {
     ".": {
@@ -21,7 +21,10 @@
     "docs"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "sideEffects": false,
   "license": "MIT",

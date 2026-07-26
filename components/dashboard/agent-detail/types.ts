@@ -60,7 +60,7 @@ export type PermissionConstraints = {
 export type AgentPermission = {
   permissionId: string;
   action: string;
-  status: "active" | "revoked";
+  status: "active" | "revoked" | "inactive";
   description?: string;
   resource?: string;
   scope?: string;
@@ -73,6 +73,7 @@ export type AgentPermission = {
   requiredAuthorityLevel?: number;
   replacesPermissionId?: string | null;
   replacedByPermissionId?: string | null;
+  replacementIdempotencyKey?: string | null;
   lastUsedAt?: string | null;
   createdAt?: string;
   updatedAt?: string;

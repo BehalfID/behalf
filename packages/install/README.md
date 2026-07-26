@@ -1,10 +1,21 @@
 # @behalfid/install
 
+> **Preview / unreleased:** This package is **not published to npm** yet.
+> Do not run `npx @behalfid/install` or `npm install @behalfid/install`
+> against the public registry. Use a local workspace build
+> (`node packages/install/dist/cli.js`) or a packed tarball until the first
+> release is published. The default runtime (`@behalfid/mcp-runtime`) is also
+> unreleased.
+
 Universal installation framework for BehalfID.
 
 AI coding agents (Cursor, Claude Code, Codex, VS Code, Windsurf, and future MCP clients) should install, verify, upgrade, and uninstall BehalfID by invoking this package — not by embedding BehalfID-specific installation logic.
 
 ## Status
+
+**Publish status:** Implemented in this monorepo. **Not on the public npm registry** as of
+2026-07-24 (`npm view @behalfid/install` returns 404). Prefer building from
+`packages/install` until a release is published. See `docs/CAPABILITY_MATRIX.md`.
 
 Phases complete:
 
@@ -19,9 +30,21 @@ Phases complete:
 9. **Integration tests** — end-to-end lifecycle, rollback, detection, verification, and CLI tests under `test/integration/`
 10. **Documentation** — architecture, troubleshooting, and extension guides in `docs/`
 
-## Install / run
+## Enforcement vs advisory
+
+- `@behalfid/mcp-audit` — read-only config analysis
+- `@behalfid/cli` MCP tools — **advisory** (`verify_action`); not unavoidable enforcement
+- `@behalfid/mcp-runtime` — **fail-closed** stdio interceptor (true enforcement boundary)
+
+`install --wrap` rewrites existing stdio MCP servers to launch the interceptor.
+Details: [docs/ENFORCEMENT_VS_ADVISORY.md](./docs/ENFORCEMENT_VS_ADVISORY.md).
+
+## Install / run (after publish)
 
 ```bash
+# Unreleased — local preview:
+#   npm run build -w @behalfid/install
+#   node packages/install/dist/cli.js --help
 npx @behalfid/install --help
 ```
 

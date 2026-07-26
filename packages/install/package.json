@@ -1,12 +1,12 @@
 {
   "name": "@behalfid/install",
   "version": "0.1.0",
-  "description": "BehalfID AI Installation Framework — universal installer for AI coding agents",
+  "description": "BehalfID AI Installation Framework — universal installer for AI coding agents (preview / not yet published to npm)",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "behalf-install": "./dist/cli.js"
+    "behalf-install": "dist/cli.js"
   },
   "exports": {
     ".": {

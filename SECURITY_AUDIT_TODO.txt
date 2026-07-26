@@ -89,3 +89,13 @@
 # - npm audit: 0 vulnerabilities (root, cli, sdk, examples/enforcement-demo, examples/node-demo, examples/webhook-receiver, examples/site-guard-express, examples/site-guard-nextjs, packages/github-action)
 # - Unit tests: 625/625 passed
 # - No hardcoded secrets detected
+
+# Last audit: 2026-07-24 (Task 1B production advisories)
+# Result: PASSED
+# - npm audit --omit=dev: 0 vulnerabilities (was 4 high + 2 moderate)
+#   - next ^16.2.6 → ^16.2.11 (July 2026 security release)
+#   - mongoose ^9.6.1 → ^9.7.2 (resolved 9.8.0; GHSA-664h-wqgq-64gw)
+#   - overrides: postcss ^8.5.18, sharp ^0.35.0, undici ^6.27.0, @swc/helpers ^0.5.17
+#   - @behalfid/github-action: @actions/core ^1.11.1 → ^2.0.3 (http-client 3.0.2 / undici 6.28.0)
+# - Unit tests: 1606 passed, 6 skipped
+# - No hardcoded secrets detected

@@ -9,9 +9,9 @@ This project includes the CLI/MCP server, the JavaScript SDK, a public permissio
 ## What It Does
 
 **Coding agent enforcement (primary use case):**
-- Block production deploys, database migrations, `git push` to main, file deletions, and billing API calls.
+- Block production deploys, database migrations, `git push` to main, file deletions, and billing API calls where action-time hooks or SDK wrappers are installed.
 - Require human approval before high-risk actions and let the agent retry after you approve.
-- Wire into Claude Code, Codex, and Cursor via the CLI/MCP path — no code changes to the agent.
+- Wire into Claude Code, Codex, and Cursor via the CLI — hooks for structural gates; advisory MCP for permission context.
 
 **Core platform:**
 - Add native agents and connected agents with one-time API keys.
@@ -96,11 +96,11 @@ API keys and developer tokens are shown only once. Store them in environment var
 
 ## API Usage
 
-Public API docs are available at `/docs` and in [docs/API.md](docs/API.md). Demo commands are in [docs/DEMO.md](docs/DEMO.md). The local coding-agent MCP workflow is in [docs/MCP_DEMO.md](docs/MCP_DEMO.md). Two-user Claude Code pilot rehearsal materials are in [docs/PILOT_REHEARSAL.md](docs/PILOT_REHEARSAL.md), [docs/PILOT_TESTER_GUIDE.md](docs/PILOT_TESTER_GUIDE.md), and [docs/PILOT_RESULTS_TEMPLATE.md](docs/PILOT_RESULTS_TEMPLATE.md).
+Public API docs are available at `/docs` and in [docs/API.md](docs/API.md). Capability honesty status (implemented / installable / live-validated / production-supported) is in [docs/CAPABILITY_MATRIX.md](docs/CAPABILITY_MATRIX.md). Demo commands are in [docs/DEMO.md](docs/DEMO.md). The local coding-agent MCP workflow is in [docs/MCP_DEMO.md](docs/MCP_DEMO.md). Two-user Claude Code pilot rehearsal materials are in [docs/PILOT_REHEARSAL.md](docs/PILOT_REHEARSAL.md), [docs/PILOT_TESTER_GUIDE.md](docs/PILOT_TESTER_GUIDE.md), and [docs/PILOT_RESULTS_TEMPLATE.md](docs/PILOT_RESULTS_TEMPLATE.md).
 
 BehalfID has four developer adoption paths:
 
-- **CLI/MCP path (coding agents):** wire `verify_action` into Claude Code, Codex, and Cursor with `behalf mcp init && behalf claude`. No code changes to the agent required.
+- **CLI/MCP path (coding agents):** wire action-time hooks where supported, plus advisory `verify_action` tools, with `behalf mcp init && behalf claude`. Hooks are the structural gate; advisory MCP is not interception.
 - **SDK path:** call `behalf.verify()` inside your app before a tool action executes. Works with any Node.js agent or automation.
 - **Action Gateway path:** call BehalfID to verify and execute a supported safe action in one request.
 - **Site Guard path:** call `/api/site-guard/check` from server-side middleware before protected routes are served.
@@ -154,7 +154,7 @@ behalf doctor
 behalf claude   # or: behalf codex
 ```
 
-`behalf mcp init` creates `.behalf/context.md` and merges a BehalfID server entry into `.mcp.json`. The MCP server is advisory: its instructions tell the model not to execute after denied, approval-required, or unavailable verification, but it does not intercept another tool. Claude Code action-time enforcement comes from the separate `PreToolUse` hook installed by `behalf claude`; its network/config outage path currently fails open. See [docs/MCP_DEMO.md](docs/MCP_DEMO.md) and [docs/COMPATIBILITY_MATRIX.md](docs/COMPATIBILITY_MATRIX.md).
+`behalf mcp init` creates `.behalf/context.md` and merges a BehalfID server entry into `.mcp.json`. The MCP server is advisory: its instructions tell the model not to execute after denied, approval-required, or unavailable verification, but it does not intercept another tool. Claude Code action-time enforcement comes from the separate `PreToolUse` hook installed by `behalf claude`: deny, approval-required, malformed/missing-target, and oversized policy input fail closed; missing config and network/timeout verify errors fail open. See [docs/MCP_DEMO.md](docs/MCP_DEMO.md), [docs/COMPATIBILITY_MATRIX.md](docs/COMPATIBILITY_MATRIX.md), and [docs/CAPABILITY_MATRIX.md](docs/CAPABILITY_MATRIX.md).
 
 ## Site Guard MVP
 

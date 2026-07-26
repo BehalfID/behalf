@@ -38,15 +38,17 @@ const PermissionSchema = new Schema(
     },
     status: {
       type: String,
-      enum: ["active", "revoked"],
+      enum: ["active", "revoked", "inactive"],
       default: "active",
       index: true
     },
     /** Minimum workspace authority level required to grant or manage this permission. */
     requiredAuthorityLevel: { type: Number, min: 0, max: 100, index: true },
-    /** Audit links for create-and-retire permission replacement. */
+    /** Audit links for fail-closed permission replacement. */
     replacesPermissionId: { type: String, index: true },
     replacedByPermissionId: { type: String, index: true },
+    /** Client/server idempotency key scoped per account for replacement retries. */
+    replacementIdempotencyKey: { type: String },
     createdBy: { type: String, index: true },
     updatedBy: { type: String },
     lastUsedAt: { type: Date }
@@ -58,6 +60,15 @@ PermissionSchema.index({ accountId: 1, agentId: 1, action: 1, status: 1 });
 PermissionSchema.index({ developerUserId: 1, agentId: 1, action: 1, status: 1 });
 // Supports active-permission count in getDashboardSummary (no agentId filter).
 PermissionSchema.index({ developerUserId: 1, status: 1 });
+PermissionSchema.index(
+  { accountId: 1, replacementIdempotencyKey: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      replacementIdempotencyKey: { $type: "string" }
+    }
+  }
+);
 
 export type PermissionDocument = InferSchemaType<typeof PermissionSchema> & {
   _id: mongoose.Types.ObjectId;

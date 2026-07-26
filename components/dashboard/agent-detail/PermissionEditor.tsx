@@ -25,14 +25,29 @@ import type {
 
 export type PermissionEditorMode = "create" | "replace" | "template";
 
+type ReplacementImpact = {
+  expandsAccess?: boolean;
+  reducesAccess?: boolean;
+  changes?: string[];
+};
+
 type ReplacementResult = {
   retiredPermissionId: string;
   retiredStatus: "revoked";
   permissionId: string;
   status: "active";
   requiredAuthorityLevel: number;
-  overlapPermissionIds: string[];
+  idempotencyKey: string;
+  resumed?: boolean;
+  impact?: ReplacementImpact;
 };
+
+function createReplacementIdempotencyKey() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `prk_${Date.now()}`;
+}
 
 function ConstraintFields({
   draft,
@@ -188,6 +203,7 @@ export function PermissionEditor({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [replacementResult, setReplacementResult] = useState<ReplacementResult | null>(null);
+  const [replacementIdempotencyKey] = useState(() => createReplacementIdempotencyKey());
   const draft = drafts[currentIndex] ?? drafts[0];
 
   useEffect(() => {
@@ -232,8 +248,20 @@ export function PermissionEditor({
       if (mode === "replace" && initialPermission) {
         const result = await apiJson<ReplacementResult>(
           `/api/dashboard/agents/${agentId}/permissions/${initialPermission.permissionId}/replace`,
-          { method: "POST", body: JSON.stringify(serializePermissionDraft(drafts[0])) }
+          {
+            method: "POST",
+            body: JSON.stringify({
+              ...serializePermissionDraft(drafts[0]),
+              expectedUpdatedAt: initialPermission.updatedAt,
+              idempotencyKey: replacementIdempotencyKey
+            })
+          }
         );
+        if (result.status !== "active") {
+          setError("Replacement did not activate. Access remains denied. Retry with the same attempt to finish activation.");
+          await onSaved();
+          return;
+        }
         setReplacementResult(result);
         await onSaved();
         return;
@@ -247,7 +275,15 @@ export function PermissionEditor({
       await onSaved();
       onClose();
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Permission save failed.");
+      const message = requestError instanceof Error ? requestError.message : "Permission save failed.";
+      const detail =
+        mode === "replace" && /idempotencyKey|interrupted|Access remains denied/i.test(message)
+          ? `${message} Retry keeps the same replacement attempt.`
+          : message;
+      setError(mode === "replace" ? `Permission change failed: ${detail}` : detail);
+      if (mode === "replace") {
+        await onSaved().catch(() => undefined);
+      }
     } finally {
       setSaving(false);
     }
@@ -280,6 +316,15 @@ export function PermissionEditor({
           <code>{replacementResult.retiredPermissionId}</code>
           <p><strong>New permission active</strong></p>
           <code>{replacementResult.permissionId}</code>
+          {replacementResult.resumed ? (
+            <p>This retry finished an interrupted replacement without restoring the old grant.</p>
+          ) : null}
+          {replacementResult.impact?.expandsAccess ? (
+            <p role="status">This replacement expands access relative to the previous permission.</p>
+          ) : null}
+          {replacementResult.impact?.reducesAccess ? (
+            <p role="status">This replacement reduces access relative to the previous permission.</p>
+          ) : null}
           <p>The retired permission remains in audit history and links to its replacement.</p>
           <Button variant="primary" onClick={onClose} type="button">Done</Button>
         </div>
@@ -371,7 +416,7 @@ export function PermissionEditor({
 
             {step === 4 ? (
               <div>
-                <h3>Review the complete resulting policy</h3>
+                <h3>{mode === "replace" ? "Review and replace" : "Review the complete resulting policy"}</h3>
                 {mode === "replace" && initialPermission ? (
                   <PermissionReplacementReview before={initialPermission} after={drafts[0]} />
                 ) : (
@@ -397,8 +442,8 @@ export function PermissionEditor({
                 ) : null}
                 <p className="field-help">
                   {mode === "replace"
-                    ? "Confirming retires only the selected permission and creates a new active permission with a new ID."
-                    : `Confirming creates ${drafts.length} permission${drafts.length === 1 ? "" : "s"}. No write occurs before confirmation.`}
+                    ? "Confirming replacement revokes the selected permission first, then activates the staged replacement. If activation is interrupted, access stays denied until you retry or resume with the same replacement attempt."
+                    : `Confirming creates ${drafts.length} permission${drafts.length === 1 ? "" : "s"}. Existing permission records are not replaced or revoked. No write occurs before confirmation.`}
                 </p>
               </div>
             ) : null}
@@ -411,7 +456,11 @@ export function PermissionEditor({
               {step < 4 ? <Button variant="primary" onClick={nextStep} type="button">Continue</Button> : null}
               {step === 4 ? (
                 <Button disabled={!canSave || saving} variant="primary" onClick={() => void submit()} type="button">
-                  {saving ? "Saving…" : mode === "replace" ? "Confirm replacement" : `Create ${drafts.length} permission${drafts.length === 1 ? "" : "s"}`}
+                  {saving
+                    ? "Saving…"
+                    : mode === "replace"
+                      ? (error ? "Retry replacement" : "Confirm replacement")
+                      : `Create ${drafts.length} permission${drafts.length === 1 ? "" : "s"}`}
                 </Button>
               ) : null}
             </div>

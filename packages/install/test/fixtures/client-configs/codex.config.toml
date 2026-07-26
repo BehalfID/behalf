@@ -1,0 +1,13 @@
+model = "gpt-5"
+model_reasoning_effort = "high"
+
+[mcp_servers.filesystem]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+
+[mcp_servers.filesystem.env]
+HOME = "/tmp"
+
+[mcp_servers.shell]
+command = "node"
+args = ["./codex-shell-mcp.js"]

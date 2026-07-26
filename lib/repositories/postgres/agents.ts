@@ -258,3 +258,68 @@ export async function touchAgentLastUsedAt(
 ) {
   return updateAgent(db, filter, { $set: { lastUsedAt } });
 }
+
+export async function findAgents(
+  db: BehalfPostgresDb,
+  filter: Record<string, unknown> = {},
+  options: { select?: string; sort?: Record<string, 1 | -1> } = {}
+) {
+  return listAgents(db, filter, options);
+}
+
+export async function findOneAgent(
+  db: BehalfPostgresDb,
+  filter: Record<string, unknown>
+): Promise<AgentRow | null> {
+  const [row] = await db.select().from(agents).where(buildWhere(filter)).limit(1);
+  return row ?? null;
+}
+
+export async function findOneAndUpdateAgent(
+  db: BehalfPostgresDb,
+  filter: Record<string, unknown>,
+  update: Record<string, unknown>,
+  options: Record<string, unknown> = {}
+): Promise<AgentRow | null> {
+  return db.transaction(async (tx) => {
+    const [before] = await tx
+      .select()
+      .from(agents)
+      .where(buildWhere(filter))
+      .limit(1)
+      .for("update");
+    if (!before) return null;
+    try {
+      const [after] = await tx
+        .update(agents)
+        .set(updateValues(update))
+        .where(eq(agents.agentId, before.agentId))
+        .returning();
+      const row = options.returnDocument === "after" || options.new === true ? after : before;
+      return row ?? null;
+    } catch (error) {
+      translatePostgresError(error);
+    }
+  });
+}
+
+export async function deleteAgent(db: BehalfPostgresDb, filter: Record<string, unknown>) {
+  return db.transaction(async (tx) => {
+    const [match] = await tx
+      .select({ agentId: agents.agentId })
+      .from(agents)
+      .where(buildWhere(filter))
+      .limit(1);
+    if (!match) return { acknowledged: true, deletedCount: 0 };
+    const rows = await tx
+      .delete(agents)
+      .where(eq(agents.agentId, match.agentId))
+      .returning({ agentId: agents.agentId });
+    return { acknowledged: true, deletedCount: rows.length };
+  });
+}
+
+export async function countAgents(db: BehalfPostgresDb, filter: Record<string, unknown> = {}) {
+  const [row] = await db.select({ value: count() }).from(agents).where(buildWhere(filter));
+  return row?.value ?? 0;
+}

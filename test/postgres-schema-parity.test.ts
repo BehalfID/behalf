@@ -8,9 +8,11 @@ import {
   coreTables,
   developerSessions,
   deviceCodes,
+  permissions,
   sites,
   siteGuardKeys
 } from "@/lib/db/postgres/schema";
+import { PERMISSION_STATUSES } from "@/lib/db/postgres/enums";
 
 describe("postgres schema parity (static, Phase B′)", () => {
   it("developer sessions require lastActivityAt with default", () => {
@@ -214,5 +216,58 @@ describe("postgres schema parity (static, Phase B′)", () => {
     expect(sql).toContain("behalf_purge_expired_device_codes");
     expect(sql).toContain("behalf_purge_expired_oauth_pending_signups");
     expect(sql).toContain("behalf_schedule_ttl_cleanup");
+  });
+
+  it("migration journal registers 0006_permission_replacement_parity", () => {
+    const journal = JSON.parse(
+      readFileSync(join(process.cwd(), "drizzle/meta/_journal.json"), "utf8")
+    ) as { entries: Array<{ tag: string }> };
+    expect(journal.entries.map((entry) => entry.tag)).toContain(
+      "0006_permission_replacement_parity"
+    );
+  });
+
+  it("0006 adds permission replacement columns and widens the status CHECK constraint", () => {
+    const sql = readFileSync(
+      join(process.cwd(), "drizzle/0006_permission_replacement_parity.sql"),
+      "utf8"
+    );
+    expect(sql).toMatch(
+      /ADD CONSTRAINT "permissions_status_check" CHECK \("status" IN \('active', 'revoked', 'inactive'\)\)/
+    );
+    expect(sql).toContain(
+      'ADD COLUMN IF NOT EXISTS "replaces_permission_id" text'
+    );
+    expect(sql).toContain(
+      'ADD COLUMN IF NOT EXISTS "replaced_by_permission_id" text'
+    );
+    expect(sql).toContain(
+      'ADD COLUMN IF NOT EXISTS "replacement_idempotency_key" text'
+    );
+    expect(sql).toMatch(
+      /CREATE UNIQUE INDEX IF NOT EXISTS "permissions_account_replacement_idempotency_uq"[\s\S]*"account_id"[\s\S]*"replacement_idempotency_key"[\s\S]*WHERE "replacement_idempotency_key" IS NOT NULL/
+    );
+  });
+
+  it("permissions table declares replacement audit columns and a partial unique idempotency index", () => {
+    const columns = getTableColumns(permissions);
+    expect(columns.replacesPermissionId).toBeDefined();
+    expect(columns.replacedByPermissionId).toBeDefined();
+    expect(columns.replacementIdempotencyKey).toBeDefined();
+
+    const config = getTableConfig(permissions);
+    const idempotencyIndex = config.indexes.find(
+      (entry) => entry.config.name === "permissions_account_replacement_idempotency_uq"
+    );
+    expect(idempotencyIndex?.config.unique).toBe(true);
+    expect(
+      idempotencyIndex?.config.columns.map((column) =>
+        "name" in column ? column.name : null
+      )
+    ).toEqual(["account_id", "replacement_idempotency_key"]);
+  });
+
+  it("PERMISSION_STATUSES includes the fail-closed replacement staging status 'inactive'", () => {
+    expect(PERMISSION_STATUSES).toContain("inactive");
   });
 });

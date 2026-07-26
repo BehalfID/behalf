@@ -66,5 +66,9 @@ describe("agent and permission presentation", () => {
     expect(dashboard).toContain("AgentDetailShell");
     expect(dashboard).not.toMatch(/permissions\/.+\/replace/);
     expect(editor).toMatch(/permissions\/\$\{initialPermission\.permissionId\}\/replace/);
+    expect(editor).toContain("expectedUpdatedAt");
+    expect(editor).toContain("idempotencyKey");
+    expect(editor).toContain("replacementIdempotencyKey");
+    expect(editor).toContain('result.status !== "active"');
   });
 });
