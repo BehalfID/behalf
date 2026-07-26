@@ -64,6 +64,8 @@ Preview packages were never published — removing a local tarball install is su
 
 ## 5. Pending approvals (PENDING)
 
+Action Inbox and permission replacement/review UI are the supported cleanup surfaces (approval product support is implemented; live Trajectus evidence may still be PENDING).
+
 - [ ] **PENDING** Deny or leave-to-expire any leftover canary approval requests in Action Inbox
 - [ ] **PENDING** Confirm no open grant that could allow a later identical retry unintentionally
 

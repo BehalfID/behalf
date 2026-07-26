@@ -51,6 +51,8 @@ Legend: `PENDING` | `PASS` | `FAIL` | `BLOCKED` | `SKIPPED` (with reason).
 
 ## 3. Approval-required test (PENDING)
 
+Approval support is implemented (permission replacement/review + Action Inbox). Live two-person Trajectus evidence remains PENDING — do not mark PASS without sanitized requester/approver captures in `EVIDENCE_TEMPLATE.md`.
+
 Requires exactly one matching permission with `requiresApproval: true`. Do not leave a broader non-approval permission that could satisfy first.
 
 **Marker:** `echo behalfid-approval-canary`

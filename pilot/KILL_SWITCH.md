@@ -41,6 +41,8 @@ Re-enable only after root cause is understood. Confirm via Claude `/hooks`.
 
 ### 4. Revoke canary authorization (PENDING)
 
+Use Action Inbox / permission replacement UI where available (approval support is implemented; live Trajectus evidence may still be PENDING).
+
 - [ ] **PENDING** Revoke canary agent API key **only if** authorized and the key may have leaked into evidence
 - [ ] **PENDING** Otherwise disable or remove canary permissions so further verifies deny
 - [ ] **PENDING** Deny outstanding canary approval requests in Action Inbox

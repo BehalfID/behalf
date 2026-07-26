@@ -19,6 +19,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { spawnNpm } from "./run-npm.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, "../..");
@@ -200,10 +201,8 @@ function assertReadmeLicense(pkgRoot) {
 }
 
 function packPackage(pkgDir, outDir) {
-  const r = spawnSync("npm", ["pack", "--pack-destination", outDir, "--silent"], {
+  const r = spawnNpm(["pack", "--pack-destination", outDir, "--silent"], {
     cwd: pkgDir,
-    encoding: "utf8",
-    shell: process.platform === "win32",
   });
   if (r.status !== 0) throw new Error(r.stderr || r.stdout || `npm pack failed in ${pkgDir}`);
   const tgz = readdirSync(outDir).filter((f) => f.endsWith(".tgz"));
@@ -258,10 +257,8 @@ async function main() {
         join(consumer, "package.json"),
         JSON.stringify({ name: "smoke-consumer", private: true, type: "module" }, null, 2)
       );
-      const install = spawnSync("npm", ["install", tgz, "--no-package-lock"], {
+      const install = spawnNpm(["install", tgz, "--no-package-lock"], {
         cwd: consumer,
-        encoding: "utf8",
-        shell: process.platform === "win32",
       });
       if (install.status !== 0) {
         throw new Error(install.stderr || install.stdout || "consumer npm install failed");

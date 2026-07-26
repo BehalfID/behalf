@@ -1,6 +1,7 @@
 # Pilot evidence template
 
-**Live pilot status: PENDING — no pass claim.**  
+**Live pilot status: PENDING — no pass claim.**
+Approval UI (permission replacement/review + Action Inbox) is available; live two-person Trajectus approval evidence remains PENDING.
 Fill only sanitized fields. Leave unused rows blank. Do not paste secrets.
 
 Branch / commit under test:  

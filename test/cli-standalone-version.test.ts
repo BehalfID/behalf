@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
+import { spawnNpm } from "../scripts/release/run-npm.mjs";
 
 const ROOT = process.cwd();
 const PKG_JSON = join(ROOT, "packages", "cli", "package.json");
@@ -19,11 +20,12 @@ const PKG_VERSION = (
 const RELEASE_WORKFLOW = join(ROOT, ".github", "workflows", "cli-release.yml");
 const BUILD_SCRIPT = join(ROOT, "scripts", "release", "build-cli-binaries.sh");
 const DIST_INDEX = join(ROOT, "packages", "cli", "dist", "index.js");
+const BUN_COMMAND = process.platform === "win32" ? "bun.cmd" : "bun";
 
 function shellAvailable(cmd: string): boolean {
   const probe = spawnSync(cmd, ["--version"], {
     encoding: "utf8",
-    shell: process.platform === "win32",
+    shell: false,
   });
   return probe.status === 0;
 }
@@ -34,10 +36,7 @@ describe("CLI standalone version embedding", () => {
   });
 
   it("Node/npm CLI reports the package version", () => {
-    const build = spawnSync("npm", ["run", "build:cli"], {
-      encoding: "utf8",
-      shell: process.platform === "win32",
-    });
+    const build = spawnNpm(["run", "build:cli"]);
     expect(build.status, build.stderr + build.stdout).toBe(0);
 
     const ver = spawnSync(process.execPath, [DIST_INDEX, "--version"], {
@@ -97,7 +96,7 @@ describe("CLI standalone version embedding", () => {
     "standalone Linux executable reports package version and works outside the repo",
     () => {
     // Real Bun compile + execute; do not replace with source-text assertions.
-    if (!shellAvailable("bun")) {
+    if (!shellAvailable(BUN_COMMAND)) {
       throw new Error(
         "Bun is required on Linux to smoke-test the standalone CLI binary"
       );
