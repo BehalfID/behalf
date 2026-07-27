@@ -1,0 +1,10 @@
+# Demo target for BehalfID delete_files gating.
+
+This file is intentionally disposable. The demo script deletes it.
+Restore with:
+
+  node examples/delete-file-demo/seed.mjs
+
+or:
+
+  git checkout -- "examples/delete-file-demo/Untitled document.txt"
