@@ -14972,3 +14972,11 @@ html[data-theme="light"] .ops-btn--approve {
     padding-block: 4px;
   }
 }
+
+.browser-cli__header {
+  margin-top: 0;
+}
+
+.browser-cli__header h1 {
+  font-size: 1.5rem;
+}

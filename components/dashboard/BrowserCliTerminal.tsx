@@ -241,10 +241,9 @@ export function BrowserCliTerminal({
   return (
     <div className="browser-cli">
       <PageHeader
-        className="dashboard-header"
+        className="dashboard-header browser-cli__header"
         description="Run real BehalfID CLI commands in the browser. Shells and filesystem tools are rejected."
-        eyebrow="CLI"
-        title="Browser terminal"
+        title="CLI"
         action={
           <div className="browser-cli__actions">
             <Button type="button" onClick={() => void copyOutput()}>

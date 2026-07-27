@@ -302,8 +302,8 @@ async function executeParsed(
     const decision = await verifyAction({
       agentId: agent.agentId,
       accountId: actor.accountId,
-      developerUserId: agent.developerUserId,
-      agentStatus: agent.status,
+      developerUserId: agent.developerUserId ?? undefined,
+      agentStatus: agent.status ?? undefined,
       action: parsed.action,
       vendor: parsed.vendor,
       amount: parsed.amount,

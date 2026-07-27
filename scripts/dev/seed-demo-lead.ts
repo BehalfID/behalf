@@ -27,7 +27,7 @@ async function main() {
     primaryAccountId: owner.primaryAccountId
   });
   await AccountMembership.create({
-    membershipId: createPublicId("mem"),
+    membershipId: createPublicId("mbr"),
     accountId: owner.primaryAccountId,
     userId,
     role: "ENGINEERING_LEAD",
