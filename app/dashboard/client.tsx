@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Fragment, FormEvent, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdaptiveDelegationConsole } from "@/components/dashboard/AdaptiveDelegationConsole";
+import { BrowserCliTerminal } from "@/components/dashboard/BrowserCliTerminal";
 import { OpsLogConsole } from "@/components/dashboard/OpsLogConsole";
 import { PendingActionsQueue } from "@/components/dashboard/PendingActionsQueue";
 import { DecisionIndicator } from "@/components/dashboard/OpsEventPrimitives";
@@ -464,7 +465,7 @@ export function DashboardViews({
   emailVerified = true,
   showSetupBanner = false
 }: {
-  view: "home" | "onboarding" | "first-agent" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "inbox" | "docs" | "settings" | "managed-profiles" | "managed-profiles-activity" | "adaptive-delegation";
+  view: "home" | "onboarding" | "first-agent" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "inbox" | "docs" | "settings" | "managed-profiles" | "managed-profiles-activity" | "adaptive-delegation" | "cli";
   id?: string;
   agentSection?: AgentDetailSection;
   emailVerified?: boolean;
@@ -502,6 +503,7 @@ export function DashboardViews({
         {view === "managed-profiles" ? <ManagedProfilesView /> : null}
         {view === "managed-profiles-activity" ? <ManagedProfileActivityView /> : null}
         {view === "adaptive-delegation" ? <AdaptiveDelegationConsole /> : null}
+        {view === "cli" ? <BrowserCliTerminal /> : null}
     </Fragment>
   );
 }
@@ -513,7 +515,7 @@ export function DashboardShell({
   emailVerified = true,
   showSetupBanner = false
 }: {
-  view: "home" | "onboarding" | "first-agent" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "inbox" | "docs" | "settings" | "managed-profiles" | "managed-profiles-activity" | "adaptive-delegation";
+  view: "home" | "onboarding" | "first-agent" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "inbox" | "docs" | "settings" | "managed-profiles" | "managed-profiles-activity" | "adaptive-delegation" | "cli";
   id?: string;
   agentSection?: AgentDetailSection;
   emailVerified?: boolean;

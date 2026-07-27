@@ -24,7 +24,8 @@ export function getDashboardContentVariant(pathname: string): DashboardContentVa
     subpath === "/logs" ||
     subpath === "/approvals" ||
     subpath === "/inbox" ||
-    subpath === "/adaptive-delegation"
+    subpath === "/adaptive-delegation" ||
+    subpath === "/cli"
   ) {
     return "wide";
   }

@@ -111,14 +111,14 @@ export function AgentDetailShell({
       </section>
       <Tabs items={tabs} />
       {error ? <p className="form-error" role="alert">{error}</p> : null}
-      <main className="agent-detail-content">
+      <div className="agent-detail-content">
         {section === "overview" ? <AgentOverview agent={agent} posture={securityPosture} reload={reload} /> : null}
         {section === "permissions" ? (
           <AgentPermissions agentId={agentId} permissions={permissions} reload={reload} workspaceAuthority={workspaceAuthority} />
         ) : null}
         {section === "integrations" ? <AgentIntegrations agent={agent} permissions={permissions} reload={reload} /> : null}
         {section === "activity" ? <AgentActivity agentId={agentId} /> : null}
-      </main>
+      </div>
     </div>
   );
 }

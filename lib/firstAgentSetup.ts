@@ -102,7 +102,13 @@ const GATE_PERMISSIONS: Record<ApprovalGate, FirstAgentPermissionInput> = {
     gate: "production_deploys",
     action: "deploy_production",
     resource: "production",
-    allowedActions: ["promote staging build to production", "deploy to production"],
+    // Include the primary action so passport/verify on the permission action
+    // reaches the approval gate instead of failing the allowedActions narrow.
+    allowedActions: [
+      "deploy_production",
+      "promote staging build to production",
+      "deploy to production"
+    ],
     blockedActions: ["rollback without approval", "delete production deployment"],
     requiresApproval: true,
     notes: "Production deploy gate from first-agent setup."
@@ -111,7 +117,7 @@ const GATE_PERMISSIONS: Record<ApprovalGate, FirstAgentPermissionInput> = {
     gate: "secret_env_changes",
     action: "secrets_write",
     resource: "environment",
-    allowedActions: ["update environment variables", "write secrets"],
+    allowedActions: ["secrets_write", "update environment variables", "write secrets"],
     blockedActions: ["read raw secret values", "export secrets"],
     requiresApproval: true,
     notes: "Secret and environment variable gate from first-agent setup."
@@ -120,7 +126,12 @@ const GATE_PERMISSIONS: Record<ApprovalGate, FirstAgentPermissionInput> = {
     gate: "infrastructure_mutations",
     action: "infrastructure.mutate",
     resource: "production",
-    allowedActions: ["create infrastructure", "update infrastructure", "delete infrastructure"],
+    allowedActions: [
+      "infrastructure.mutate",
+      "create infrastructure",
+      "update infrastructure",
+      "delete infrastructure"
+    ],
     blockedActions: ["bypass approval workflow"],
     requiresApproval: true,
     notes: "Infrastructure mutation gate from first-agent setup."
@@ -129,7 +140,11 @@ const GATE_PERMISSIONS: Record<ApprovalGate, FirstAgentPermissionInput> = {
     gate: "database_schema_changes",
     action: "database_migrate_production",
     resource: "production",
-    allowedActions: ["run production migration", "apply schema change"],
+    allowedActions: [
+      "database_migrate_production",
+      "run production migration",
+      "apply schema change"
+    ],
     blockedActions: ["drop production database", "destructive migration without approval"],
     requiresApproval: true,
     notes: "Database schema gate from first-agent setup."
@@ -138,7 +153,12 @@ const GATE_PERMISSIONS: Record<ApprovalGate, FirstAgentPermissionInput> = {
     gate: "billing_payment_actions",
     action: "billing_vendor_api",
     resource: "billing",
-    allowedActions: ["charge payment method", "update billing settings", "call vendor billing API"],
+    allowedActions: [
+      "billing_vendor_api",
+      "charge payment method",
+      "update billing settings",
+      "call vendor billing API"
+    ],
     blockedActions: ["refund without approval"],
     requiresApproval: true,
     notes: "Billing and vendor API gate from first-agent setup."
@@ -147,7 +167,12 @@ const GATE_PERMISSIONS: Record<ApprovalGate, FirstAgentPermissionInput> = {
     gate: "external_network_actions",
     action: "external.network",
     resource: "external",
-    allowedActions: ["call external API", "send outbound webhook", "fetch remote resource"],
+    allowedActions: [
+      "external.network",
+      "call external API",
+      "send outbound webhook",
+      "fetch remote resource"
+    ],
     blockedActions: ["exfiltrate credentials"],
     requiresApproval: true,
     notes: "External network gate from first-agent setup."
@@ -159,7 +184,7 @@ const BASELINE_PERMISSIONS: Partial<Record<ControlProfile, FirstAgentPermissionI
     {
       action: "create_content",
       resource: "local-filesystem",
-      allowedActions: ["read files", "write files", "run tests"],
+      allowedActions: ["create_content", "read files", "write files", "run tests"],
       blockedActions: ["deploy to production", "write secrets", "push to remote repository"],
       requiresApproval: false,
       notes: "Conservative baseline from first-agent setup."
@@ -169,7 +194,7 @@ const BASELINE_PERMISSIONS: Partial<Record<ControlProfile, FirstAgentPermissionI
     {
       action: "deploy",
       resource: "staging",
-      allowedActions: ["deploy to staging", "create preview deployment"],
+      allowedActions: ["deploy", "deploy to staging", "create preview deployment"],
       blockedActions: ["deploy to production", "modify production environment variables"],
       requiresApproval: false,
       notes: "Balanced staging baseline from first-agent setup."
@@ -179,7 +204,7 @@ const BASELINE_PERMISSIONS: Partial<Record<ControlProfile, FirstAgentPermissionI
     {
       action: "deploy",
       resource: "staging",
-      allowedActions: ["deploy to staging", "create preview deployment"],
+      allowedActions: ["deploy", "deploy to staging", "create preview deployment"],
       blockedActions: ["deploy to production", "promote to production"],
       requiresApproval: false,
       notes: "Production-strict staging baseline from first-agent setup."
