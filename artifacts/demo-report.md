@@ -89,7 +89,7 @@ The product is demo-ready for a customer / investor walkthrough covering signup 
 ef0523c Make BehalfID demo-ready with browser CLI and agent-create fixes.
 20be2d3 Assert CLI dashboard route uses the wide content variant.
 6eec8db Polish demo artifacts: mojibake, CLI header, recording script.
-(+ follow-up commit for re-recorded demo.mp4 / meta)
+46034fb Re-record product demo after CLI and copy polish.
 ```
 
 ## 13. Remaining limitations
