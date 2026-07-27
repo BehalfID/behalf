@@ -99,3 +99,9 @@
 #   - @behalfid/github-action: @actions/core ^1.11.1 → ^2.0.3 (http-client 3.0.2 / undici 6.28.0)
 # - Unit tests: 1606 passed, 6 skipped
 # - No hardcoded secrets detected
+
+# Last audit: 2026-07-27
+# Result: PASSED
+# - npm audit: 0 vulnerabilities (root, cli, sdk, examples/enforcement-demo, examples/node-demo, examples/webhook-receiver, examples/site-guard-express, examples/site-guard-nextjs, packages/github-action)
+# - Unit tests: 1613 passed, 78 skipped (165/166 files; mongo-repository-contracts.test.ts could not run in this sandbox because outbound access to fastdl.mongodb.org is policy-denied — not a code/security issue)
+# - No hardcoded secrets detected
