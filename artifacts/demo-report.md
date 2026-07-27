@@ -67,17 +67,17 @@ The product is demo-ready for a customer / investor walkthrough covering signup 
 | This report | `artifacts/demo-report.md` |
 | Screenshots | `artifacts/screenshots/*.png` (24 frames) |
 | Recording meta | `artifacts/demo-recording-meta.json` |
-| Duration | ~2.6 minutes (157s) |
+| Duration | ~2.6 minutes (157.6s) — re-recorded after CLI header / mojibake polish |
 
 ## 9. Tests executed
 
 - `vitest` unit suite: **1690 passed**, 5 skipped; **1 failed** pre-existing (`test/cli-standalone-version.test.ts` requires Bun on Linux — environment limitation, unrelated to this work).
-- Focused: `test/browser-cli-parse.test.ts`, `test/first-agent-setup.test.ts`, `test/dashboard-shell.test.tsx` (CLI wide variant).
+- Focused (final): `test/browser-cli-parse.test.ts`, `test/first-agent-setup.test.ts`, `test/dashboard-shell.test.tsx` — **28 passed**.
 - Manual/API walkthrough: signup, verify, onboarding, first-setup, CLI allow/deny/approval, lead approve, re-verify.
 
 ## 10. Production build
 
-- `npm run build` — **success** (Next.js 16.2.11 Turbopack). CLI routes present under `/workspace/[workspaceSlug]/dashboard/cli`.
+- `npm run build` — **success** (EXIT:0). CLI routes present under `/dashboard/cli` and `/workspace/[workspaceSlug]/dashboard/cli`.
 
 ## 11. Git branch
 
@@ -85,7 +85,12 @@ The product is demo-ready for a customer / investor walkthrough covering signup 
 
 ## 12. Commits
 
-See `git log main..HEAD --oneline` on the branch (demo-ready polish, shell test, follow-up fixes).
+```text
+ef0523c Make BehalfID demo-ready with browser CLI and agent-create fixes.
+20be2d3 Assert CLI dashboard route uses the wide content variant.
+6eec8db Polish demo artifacts: mojibake, CLI header, recording script.
+(+ follow-up commit for re-recorded demo.mp4 / meta)
+```
 
 ## 13. Remaining limitations
 
@@ -95,7 +100,7 @@ See `git log main..HEAD --oneline` on the branch (demo-ready polish, shell test,
 4. **Home skeleton** can still flash briefly on cold navigations; recording waits for content before the final frame.
 5. **Stripe / billing / SMTP** not configured in this local demo environment — billing portal and real email delivery are out of scope for the recording.
 6. Pre-existing Bun-only CLI standalone test fails in this environment.
-7. Free-plan seat count briefly exceeds limit while a demo lead is seeded for approval (expected for the dual-persona approval beat).
+7. Free-plan seat count briefly exceeds limit while a demo lead is seeded for approval; the recorder deletes lead memberships before the final home frame.
 
 ---
 
