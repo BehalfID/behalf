@@ -57,7 +57,6 @@ export default async function WorkspaceBillingPage({
       protectedRepoCount={policy?.protectedRepos?.length ?? 0}
       verificationCount={account?.verificationCount ?? 0}
       verificationPeriodStart={(account?.verificationPeriodStart ?? new Date()).toISOString()}
-      embedded
     />
   );
 }
