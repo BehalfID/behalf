@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useState, type FormEvent } from "react";
-import { DashboardShellLayout } from "@/components/layout/DashboardShell";
 import { Button, Card, PageHeader } from "@/components/ui";
 import {
   OperationsNavigation,
@@ -22,7 +21,7 @@ import {
   getUsageLimitState,
   getUsageStatusLabel
 } from "@/lib/usageDisplay";
-import { useDashboardApi, useOptionalWorkspace } from "@/components/workspace/WorkspaceProvider";
+import { useDashboardApi } from "@/components/workspace/WorkspaceProvider";
 
 type BillingProps = {
   plan: Plan;
@@ -34,8 +33,6 @@ type BillingProps = {
   protectedRepoCount: number;
   verificationCount: number;
   verificationPeriodStart: string;
-  /** When true, skip the outer dashboard shell (already provided by workspace layout). */
-  embedded?: boolean;
 };
 
 function formatDate(value: string) {
@@ -90,10 +87,8 @@ export function BillingClient({
   seatCount,
   protectedRepoCount,
   verificationCount,
-  verificationPeriodStart,
-  embedded = false
+  verificationPeriodStart
 }: BillingProps) {
-  const workspace = useOptionalWorkspace();
   const { fetch: dashboardFetch } = useDashboardApi();
   const [loading, setLoading] = useState<"checkout" | "portal" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -295,10 +290,6 @@ export function BillingClient({
     </>
   );
 
-  const wrapShell = !embedded && !workspace;
-  if (wrapShell) {
-    return <DashboardShellLayout>{content}</DashboardShellLayout>;
-  }
   return content;
 }
 

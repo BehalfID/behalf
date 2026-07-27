@@ -33,7 +33,6 @@ import {
 } from "@/components/dashboard/opsLogTypes";
 import { CLI_NPM_INSTALL_COMMAND } from "@/lib/cliInstallCommands";
 import { SessionInactivityMonitor } from "@/components/auth/SessionInactivityMonitor";
-import { DashboardShellLayout } from "@/components/layout/DashboardShell";
 import {
   Alert,
   Badge,
@@ -521,7 +520,7 @@ export function DashboardShell({
   showSetupBanner?: boolean;
 }) {
   return (
-    <DashboardShellLayout>
+    <>
       <SessionInactivityMonitor />
       <DashboardViews
         view={view}
@@ -530,7 +529,7 @@ export function DashboardShell({
         emailVerified={emailVerified}
         showSetupBanner={showSetupBanner}
       />
-    </DashboardShellLayout>
+    </>
   );
 }
 
