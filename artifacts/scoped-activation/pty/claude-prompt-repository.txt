@@ -1,0 +1,36 @@
+# Scoped activation interactive prompt transcript
+# choice=repository
+# method=fake-tty-arrow-keys (fixture; not live Cursor/Claude/Codex GUI)
+
+
+Enable BehalfID protection?
+
+BehalfID verifies AI-agent actions against your permissions and can require approval before sensitive actions execute.
+
+  ❯ For this session
+    For a limited time
+    For this repository
+    Always enable
+    Not now
+
+Enable BehalfID protection?
+
+BehalfID verifies AI-agent actions against your permissions and can require approval before sensitive actions execute.
+
+    For this session
+  ❯ For a limited time
+    For this repository
+    Always enable
+    Not now
+
+Enable BehalfID protection?
+
+BehalfID verifies AI-agent actions against your permissions and can require approval before sensitive actions execute.
+
+    For this session
+    For a limited time
+  ❯ For this repository
+    Always enable
+    Not now
+
+
