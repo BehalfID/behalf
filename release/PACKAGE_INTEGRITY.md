@@ -68,7 +68,7 @@ exist only where ranges cannot admit a fixed release:
 
 | Override | Where | Why |
 | --- | --- | --- |
-| `brace-expansion: ^5.0.8` | root + `packages/install` | GHSA-mh99 has **no 1.x patch**; eslint’s `minimatch@3` still requests `^1.1.7`. Compatible CJS API; avoids eslint 10 major upgrade. |
+| `brace-expansion: ^5.0.8` + `minimatch@3: npm:minimatch@10.2.5` | root | GHSA on brace-expansion 1.x; eslint 9 still requests `minimatch@3`, which cannot call brace-expansion 5’s `{ expand }` named export (`expand is not a function`). Alias minimatch@3 → 10.2.5 so eslint keeps patched brace-expansion 5 without an eslint 10 major upgrade. |
 | `esbuild: 0.28.1` (+ keep `@esbuild-kit/core-utils.esbuild: ^0.25.0`) | root + `packages/install` | `tsup@8.5` requests `^0.27.0` (excludes 0.28.1). Pin 0.28.1 for GHSA-g7r4; keep esbuild-kit on 0.25.x. Install also lists `esbuild@0.28.1` as a direct devDependency so the workspace lock cannot stick on 0.27.7. |
 | `postcss: ^8.5.18` | root + example | Transitive via Next; keep patched PostCSS without unrelated majors. |
 | `sharp: ^0.35.0` | root + example | `next@16.2.x` still optionalDepends on `sharp@^0.34.5`, which excludes 0.35.0. Override required for GHSA-f88m. sharp 0.35 / Next 16.2.11 both require Node `>=20.9.0` (example engines raised accordingly; monorepo root remains `>=22.12.0`). |
