@@ -198,6 +198,48 @@ describe("findMatchingRepositoryDecision (deepest match)", () => {
   });
 });
 
+describe("canonical scenario roots (project / project-old / project2)", () => {
+  it("inherits for nested paths and rejects deceptive siblings", async () => {
+    const home = tempHome();
+    const {
+      canonicalizePath,
+      isPathInsideOrEqual,
+      upsertRepositoryDecision,
+      resolveActivation,
+    } = await loadProtection(home);
+
+    const project = canonicalizePath(join(home, "root", "project"));
+    const nestedApi = canonicalizePath(join(project, "src", "api"));
+    const projectOld = canonicalizePath(join(home, "root", "project-old"));
+    const project2 = canonicalizePath(join(home, "root", "project2"));
+    mkdirSync(nestedApi, { recursive: true });
+    mkdirSync(projectOld, { recursive: true });
+    mkdirSync(project2, { recursive: true });
+
+    upsertRepositoryDecision(project, true, "user");
+
+    expect(isPathInsideOrEqual(nestedApi, project)).toBe(true);
+    expect(isPathInsideOrEqual(join(project, "src"), project)).toBe(true);
+    expect(isPathInsideOrEqual(projectOld, project)).toBe(false);
+    expect(isPathInsideOrEqual(project2, project)).toBe(false);
+
+    expect(resolveActivation({ cwd: nestedApi, interactive: true }).mode).toBe("repository");
+    expect(resolveActivation({ cwd: projectOld, interactive: true }).shouldPrompt).toBe(true);
+    expect(resolveActivation({ cwd: project2, interactive: true }).shouldPrompt).toBe(true);
+  });
+
+  it("normalizes .. segments before containment", async () => {
+    const home = tempHome();
+    const { canonicalizePath, isPathInsideOrEqual } = await loadProtection(home);
+    const project = canonicalizePath(join(home, "root", "project"));
+    mkdirSync(join(project, "src"), { recursive: true });
+    const viaDotDot = join(project, "src", "..", "src", "api");
+    mkdirSync(canonicalizePath(viaDotDot), { recursive: true });
+    expect(isPathInsideOrEqual(viaDotDot, project)).toBe(true);
+    expect(isPathInsideOrEqual(join(project, "..", "project-old"), project)).toBe(false);
+  });
+});
+
 describe("pathDepth helper", () => {
   it("counts segments without depending on trailing separators", async () => {
     const home = tempHome();

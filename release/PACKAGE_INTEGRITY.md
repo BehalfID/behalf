@@ -4,7 +4,7 @@
 **Constraint for this phase:** prepare only — **do not** `npm publish`, create
 GitHub Releases, deploy, push, or merge until an explicit human publish step.
 That explicit step was completed for `@behalfid/sdk@0.2.3` and
-`@behalfid/cli@0.2.15` on 2026-07-26; the remaining packages stay prepare-only.
+`@behalfid/cli@0.2.15` on 2026-07-26; local CLI is pending **0.2.16** (scoped activation). Remaining packages stay prepare-only.
 
 Related scripts (run from repo root after `npm ci` and package builds):
 
@@ -29,7 +29,7 @@ content and file-inventory drift still fail. Markdown is also pinned to LF via
 | Package | Local version | npm status | Notes |
 | --- | --- | --- | --- |
 | `@behalfid/sdk` | **0.2.3** | published **0.2.3** (current) | Published with npm provenance; rejected 0.2.2 tag remains immutable |
-| `@behalfid/cli` | **0.2.15** | published **0.2.15** (current) | Latest CLI banner fix released to npm, GitHub, and Homebrew |
+| `@behalfid/cli` | **0.2.16** | published **0.2.15** | Pending publish: scoped agent activation |
 | `@behalfid/mcp-audit` | 0.1.0 | **unpublished** | Preview docs only |
 | `@behalfid/mcp-runtime` | 0.1.0 | **unpublished** | Preview docs only |
 | `@behalfid/install` | 0.1.0 | **unpublished** | Preview docs only; optional dep on mcp-runtime |

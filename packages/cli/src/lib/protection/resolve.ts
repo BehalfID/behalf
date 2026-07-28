@@ -4,7 +4,6 @@ import { parseDurationToIso } from "./parseDuration.js";
 import { resolveRepositoryRoot } from "./repo.js";
 import {
   createActivationSessionId,
-  ENV_ENABLED,
   readSessionActivation,
 } from "./session.js";
 import {
@@ -172,7 +171,9 @@ export function resolveActivation(
     });
   }
 
-  // 7. Session env
+  // 7. Session env — require BOTH session id and enabled flag (spec).
+  // Do not honor BEHALFID_ENABLED alone: a bare BEHALFID_ENABLED=0 would
+  // otherwise bypass always-on / later defaults without a real session context.
   const session = readSessionActivation(env);
   if (session.sessionId && session.enabled !== undefined) {
     return resolution({
@@ -186,21 +187,6 @@ export function resolveActivation(
       repositoryRoot: session.repositoryRoot,
       shouldPrompt: false,
     });
-  }
-  // Also honor BEHALFID_ENABLED alone as a weak session signal
-  if (env[ENV_ENABLED] !== undefined && env[ENV_ENABLED] !== "") {
-    const sessionOnly = readSessionActivation(env);
-    if (sessionOnly.enabled !== undefined) {
-      return resolution({
-        enabled: sessionOnly.enabled,
-        mode: "session",
-        reason: "Activation taken from BEHALFID_ENABLED environment",
-        source: "env",
-        sessionId: sessionOnly.sessionId,
-        repositoryRoot: sessionOnly.repositoryRoot,
-        shouldPrompt: false,
-      });
-    }
   }
 
   // 8. User-wide always

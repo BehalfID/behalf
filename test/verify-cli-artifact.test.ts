@@ -13,7 +13,7 @@ function sha256File(path: string) {
 }
 
 describe("verify-cli-artifact", () => {
-  it("accepts a locally packed CLI tarball for 0.2.15", () => {
+  it("accepts a locally packed CLI tarball for 0.2.16", () => {
     const build = spawnNpm(["run", "build:cli"]);
     expect(build.status, build.stderr + build.stdout).toBe(0);
 
@@ -23,10 +23,10 @@ describe("verify-cli-artifact", () => {
     expect(pack.status, pack.stderr + pack.stdout).toBe(0);
     const meta = JSON.parse(pack.stdout) as Array<{ filename: string }>;
     const filename = meta[0]?.filename;
-    expect(filename).toMatch(/behalfid-cli-0\.2\.15\.tgz$/);
+    expect(filename).toMatch(/behalfid-cli-0\.2\.16\.tgz$/);
     const tarball = join(process.cwd(), "packages", "cli", filename);
 
-    const verify = spawnSync(process.execPath, [VERIFIER, tarball, "0.2.15"], {
+    const verify = spawnSync(process.execPath, [VERIFIER, tarball, "0.2.16"], {
       encoding: "utf8",
     });
     expect(verify.status, verify.stderr + verify.stdout).toBe(0);

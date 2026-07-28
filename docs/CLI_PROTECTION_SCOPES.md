@@ -128,7 +128,7 @@ When a launch resolves activation, rules apply in this order (first match wins):
 3. **Explicit launch flags** (`--behalf`, `--no-behalf`, `--behalf-for`, `--behalf-repository`) — override local preferences only; disable is ignored under required policy
 4. **Deepest matching repository decision** (nested or ancestor, via containment) — enabled or disabled
 5. **Active timed decision** (not expired; absolute `expiresAt`)
-6. **Session environment** (`BEHALFID_SESSION_ID` + `BEHALFID_ENABLED`, or `BEHALFID_ENABLED` alone)
+6. **Session environment** (`BEHALFID_SESSION_ID` **and** `BEHALFID_ENABLED` together)
 7. **Always enable** (user-wide)
 8. **Interactive, unresolved** — show the prompt
 9. **Noninteractive / CI, unresolved** — default **on** for agent launches (does not hang; preserves historical `behalf <tool>` behavior)
@@ -154,7 +154,7 @@ When protection is enabled for a session (or default-on in CI), the child agent 
 | `BEHALFID_ACTIVATION_MODE` | Active mode (`session`, `timed`, `repository`, `always`, `disabled`, `managed-profile`, …) |
 | `BEHALFID_REPOSITORY_ROOT` | Canonical repo root when applicable |
 
-Because these travel with the process environment, **changing the working directory during a session does not drop protection**. Session choices are **not** written to `protection.json`.
+Because these travel with the process environment, **changing the working directory during a session does not drop protection**. Session choices are **not** written to `protection.json`. Resolution only treats an env session as active when **both** `BEHALFID_SESSION_ID` and `BEHALFID_ENABLED` are set — a bare `BEHALFID_ENABLED=0` cannot bypass always-on or other local decisions.
 
 Local decisions that *are* persisted live in `~/.behalf/protection.json`. Optional audit lines go to `~/.behalf/logs/protection-events.jsonl` (no secrets).
 

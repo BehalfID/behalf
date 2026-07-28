@@ -179,6 +179,27 @@ describe("resolveActivation precedence", () => {
     });
     expect(idOnly.source).not.toBe("env");
     expect(idOnly.shouldPrompt).toBe(true);
+
+    // Bare BEHALFID_ENABLED=0 must not bypass always-on (no session id).
+    const { enableAlways } = await loadProtection(home);
+    enableAlways();
+    const spoofDisable = resolveActivation({
+      cwd: home,
+      interactive: false,
+      env: { [ENV_ENABLED]: "0" },
+    });
+    expect(spoofDisable.enabled).toBe(true);
+    expect(spoofDisable.mode).toBe("always");
+    expect(spoofDisable.source).not.toBe("env");
+
+    // Bare BEHALFID_ENABLED=1 alone is also insufficient without session id.
+    const spoofEnable = resolveActivation({
+      cwd: home,
+      interactive: true,
+      env: { [ENV_ENABLED]: "1" },
+    });
+    expect(spoofEnable.source).not.toBe("env");
+    expect(spoofEnable.mode).toBe("always");
   });
 
   it("always-on applies when no more specific decision exists", async () => {
