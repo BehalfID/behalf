@@ -110,6 +110,20 @@ Real GUI executables: present on PATH in this environment but **not** launched i
 ## Git
 
 - **Branch:** `feature/scoped-agent-activation`
+- **Working tree:** clean
 - **Merge:** NOT MERGED
 - **Release/tag/publish:** NOT PUBLISHED / NOT TAGGED
-- See `git log main..HEAD` for full commit list after final validation commits.
+- **Commits on branch (`main..HEAD`):**
+  - `ebdba78` Add scoped activation resolver and persistence
+  - `a3af426` Document CLI protection activation scopes
+  - `354cd0d` Wire scoped activation into CLI commands and agent launches
+  - `3ce7905` Add tests for scoped agent activation
+  - `6050e96` Fix protection docs to match shipped CLI commands
+  - `608102b` fix(cli): require session id with BEHALFID_ENABLED
+  - `86ade24` docs: add scoped agent activation readiness report
+  - `b454783` fix(cli): harden scoped activation environment handling
+  - `082c045` test(cli): validate interactive protection prompts through pty
+  - `97f4907` test(cli): cover symlink, git worktree, and session spoof activation
+  - `28b2c77` fix(tooling): restore scoped activation lint validation
+  - `bc3dd3b` chore(cli): prepare 0.2.16 release candidate
+  - `3db186d` docs(cli): finalize scoped activation readiness report
