@@ -2,121 +2,114 @@
 
 **Branch:** `feature/scoped-agent-activation`  
 **Date:** 2026-07-28  
-**Status:** `READY WITH LIMITATIONS`
+**Final status:** `READY FOR MERGE WITH DOCUMENTED ENVIRONMENT LIMITATIONS`
 
-## Status
+## Final status
 
-`READY WITH LIMITATIONS`
+`READY FOR MERGE WITH DOCUMENTED ENVIRONMENT LIMITATIONS`
 
-All automated gates required for this feature pass (CLI build, protection/managed/run-gate tests, package-integrity after CLI `0.2.16` bump, pack-smoke, scenario harness). Interactive GUI launches of Cursor / Claude Code / Codex were **not** driven through a live TTY prompt in this environment; launch wiring for all three was validated via `launchTool` dry-run with captured child env/args, plus unit/integration tests.
+Publication status: **NOT PUBLISHED**  
+Merge status: **NOT MERGED**  
+Tag status: **NOT TAGGED**
+
+Limitations that remain environmental (not blocking merge):
+
+1. Live Cursor / Claude Code / Codex **GUI** sessions were not interactively driven (would hang automation). Interactive prompt UX was validated via **fake-TTY arrow-key `select()`** plus **fixture-binary `launchTool`** for all three agents.
+2. Symlink tests skip with reason when the OS denies symlink/junction creation (`EPERM`).
+3. CLI `0.2.16` release candidate is packed and verified locally but **not published**.
 
 ## Architecture verified
 
-| Area | Verified | Notes |
-|------|----------|-------|
-| Central resolver | Yes | `resolveActivation` / `resolveLaunchActivation` — single precedence path |
-| Persistence | Yes | Atomic `~/.behalf/protection.json`; sessions env-only |
-| Path containment | Yes | `path.relative` / canonicalize — not string prefix |
-| Session propagation | Yes | `BEHALFID_SESSION_ID` + `BEHALFID_ENABLED` (+ mode/root) |
-| Precedence | Yes | required → managed → flags → repo → timed → session → always → prompt / CI default-on |
-| Noninteractive fallback | Yes | No hang; default-on for unresolved agent launches |
+| Area | Result |
+|------|--------|
+| Central resolver | Yes |
+| Persistence (atomic `protection.json`) | Yes |
+| Path containment (canonicalize / realpath) | Yes |
+| Session propagation | Yes — well-formed `actsess_*` + `ENABLED=1` only; cannot downgrade stronger scopes |
+| Precedence | Yes |
+| Noninteractive default-on | Yes |
 
-## Defects found during final validation
+## Interactive validation
 
-1. **Security:** Bare `BEHALFID_ENABLED=0` (without `BEHALFID_SESSION_ID`) could bypass always-on because it was treated as a weak session signal before always-on in precedence.  
-   **Fix:** Require both env vars for session activation (`608102b`).
-2. **Package integrity:** Local CLI content differed from published `@behalfid/cli@0.2.15`.  
-   **Fix:** Bump to `0.2.16` (pending publish).
-3. **Docs drift:** Precedence text still mentioned `BEHALFID_ENABLED` alone; aligned with the fix.
+Method legend: **fixture wrapper** = real `launchTool` / prompt code with fixture agent binary + mocked spawn; **fake-TTY** = real arrow-key `select()` renderer; **resolver-only** = not used as sole evidence for launch paths.
 
-## Automated validation
+| Integration | Wrapper | PTY/prompt | Choices | Child launch | Env | Args | Exit code | Method |
+|-------------|---------|------------|---------|--------------|-----|------|-----------|--------|
+| Cursor | Yes | Yes | repo / not-now / session / timed / required | Yes | Yes | Yes | Yes | fixture wrapper + fake-TTY transcript |
+| Claude Code | Yes | Yes | same | Yes | Yes | Yes | Yes | fixture wrapper + fake-TTY transcript |
+| Codex | Yes | Yes | same | Yes | Yes | Yes | Yes | fixture wrapper + fake-TTY transcript |
 
-| Command | Result | Counts / notes |
-|---------|--------|----------------|
-| `npm run build:cli` | PASS | `tsc` for `@behalfid/cli@0.2.16` |
-| `npx vitest run` protection + managed + run-gate + standalone version | PASS | **90 passed**, 1 skipped (Linux-only bun binary) |
-| Broader `test/cli-*.test.ts` suite (20 files) | PASS with flake | 224 passed; 2 session-policy route tests timed out once under load; **re-ran in isolation on branch: 26/26 PASS**; same tests PASS on `main` in isolation → treated as load flake, not branch regression |
-| `npm run check:package-integrity` | PASS | CLI `0.2.16` > published `0.2.15` (PENDING publish) |
-| `npm run test:pack-smoke` | PASS | pack-smoke: OK |
-| `npx vitest run test/verify-cli-artifact.test.ts` | PASS | 2/2 |
-| `npx eslint` on touched CLI paths | TOOLING FAIL | Pre-existing `Minimatch.braceExpand` / `expand is not a function` in ESLint 9.39.4 stack — not introduced by this branch |
-| Root `next build` | NOT RUN | No app/Next changes on this branch |
+Transcripts: `artifacts/scoped-activation/pty/`
 
-## Manual / scenario validation (A–H)
+Real GUI executables: present on PATH in this environment but **not** launched interactively.
 
-Harness: `node scripts/dev/validate-scoped-activation.mjs` → **18/18 PASS**.  
-Agent dry-run: `node scripts/dev/launch-dry-run-agents.mjs` (fake spawn; real `launchTool` path).
+## Filesystem validation
 
-| Scenario | Result | Evidence |
-|----------|--------|----------|
-| A Repository + nested inheritance | PASS | Nested `src/api` → mode `repository`, status JSON enabled; root = project |
-| B Sibling isolation | PASS | `project-old` / `project2` → `shouldPrompt=true` |
-| C Not now | PASS | Re-prompts; not persisted |
-| D Timed + expiry | PASS | Active at +30m; prompts after +90m (injected clock) |
-| E Always-on | PASS | Unrelated repo activates without prompt |
-| F Session | PASS | Env set; survives cwd change; does not persist after env cleared |
-| G Required Managed Profile | PASS | `--no-behalf` + disabled repo + spoofed env still enabled/`managed-profile` |
-| H Noninteractive | PASS | `protection status --json` exit 0 in 410ms; default-on without prompt |
+| Case | Result |
+|------|--------|
+| Nested inheritance | PASS |
+| Deceptive siblings (`project-old`, `project2`) | PASS |
+| Symlink to repo root (junction/symlink) | PASS when OS allows; skip on EPERM |
+| Symlink escape outside protected root | PASS — no inheritance via textual path |
+| Broken symlink | PASS — not treated as inside |
+| Git standard repo | PASS |
+| Linked git worktree (`.git` file) | PASS — activation keyed by **canonical worktree path** |
+| Nested git repo override | PASS |
+| Deleted worktree path | PASS — elsewhere prompts again |
 
-### Interactive GUI prompt
+## Tooling (ESLint)
 
-**Not testable** in this run: opening live Cursor / Claude / Codex GUIs and answering the arrow-key prompt would hang the automation environment. Prompt UX is covered by unit tests (`select` mock) and the interactive `shouldPrompt` resolver path.
+| Check | Result |
+|-------|--------|
+| Touched-file eslint | **PASS** (`--max-warnings 0`) |
+| Root cause | Pre-existing: root override `brace-expansion: ^5.0.8` broke `minimatch@3` (`require('brace-expansion')` expected a function; v5 exports `{ expand }`). Reproduced on `main` worktree. |
+| Fix | `minimatch@3` → `npm:minimatch@10.2.5` while keeping `brace-expansion: ^5.0.8` (0 audit vulns) |
+| `npm audit` | **0 vulnerabilities** |
 
-## Integration matrix
+## Release candidate
 
-| Integration | Automated | Manual (GUI) | Result | Limitation |
-|-------------|----------:|-------------:|--------|------------|
-| Cursor | Yes (`launchTool` + launch tests + dry-run) | No live TTY/GUI | PASS (wiring) | Binary on PATH (`cursor.cmd`); GUI not interactively prompted |
-| Claude Code | Yes (same + PreToolUse install observed in dry-run) | No live TTY/GUI | PASS (wiring) | Binary on PATH; GUI not interactively prompted |
-| Codex | Yes (same + hooks/MCP install observed in dry-run) | No live TTY/GUI | PASS (wiring) | Binary on PATH; GUI not interactively prompted |
+| Field | Value |
+|-------|--------|
+| Package | `@behalfid/cli` |
+| Version | `0.2.16` |
+| Tarball | `artifacts/scoped-activation/release-candidate/behalfid-cli-0.2.16.tgz` |
+| SHA-256 | `900948A49F316A4D951E9FACA1FDDD4E3DA4A4B560E53CD4ED77AFC44E41DDCD` |
+| Installed `--version` | `0.2.16` |
+| `protection --help` | lists status/enable/disable/reset/list |
+| Package integrity | **OK** (local 0.2.16 > published 0.2.15 — PENDING publish) |
+| Publication | **NOT PUBLISHED** |
 
-Dry-run results (all three): `enabled=1`, `mode=session`, session id present, `--behalf` stripped, `--keep-arg xyz` preserved, exit `0`.
+## Automated tests
 
-## Security review
+| Command | Result |
+|---------|--------|
+| `npm run build:cli` | PASS |
+| Protection + managed + run-gate + version/artifact suite | **118 passed**, 1 skipped |
+| `npm run check:package-integrity` | PASS |
+| `npm run test:pack-smoke` | PASS |
+| Touched-file eslint | PASS |
+| Scenario harness `validate-scoped-activation.mjs` | 18/18 (prior) |
+| Root Next production build | **Not run** (no app changes) |
+
+## Security findings
 
 | Attempt | Outcome |
 |---------|---------|
-| Deceptive prefix (`project` vs `project-old` / `project2`) | Rejected |
-| Nested inheritance | Accepted |
-| `..` normalization | Contained correctly |
-| Negative / huge / shell-like duration (`-1h`, `9999d`, `$(reboot)`) | Rejected |
-| Malformed `protection.json` | Backup + warning; no silent destroy |
-| Bare `BEHALFID_ENABLED=0` vs always-on | **Fixed** — cannot bypass |
-| Required + `--no-behalf` / disabled repo / env spoof | Cannot bypass |
-| Launch flag stripping / no shell interpolation | Args passed as argv array to `spawn`/`spawnSync` |
+| Bare `BEHALFID_ENABLED=0/1` | Ignored without well-formed session id |
+| Malformed / short / non-`actsess_` session ids | Ignored |
+| Well-formed session + `ENABLED=0` vs always-on | Cannot downgrade |
+| Well-formed session + `ENABLED=0` vs repository | Cannot downgrade |
+| Required + `--no-behalf` / spoofed session disable | Cannot bypass |
+| Symlink escape | Canonical realpath — no false inheritance |
+| Deceptive path prefix | Rejected |
+| Bad durations | Rejected |
+| Malformed protection.json | Backup + warning |
 
-Local audit log only (`protection-events.jsonl`); secret-like keys denied in audit writer.
+**Trust model:** `BEHALFID_SESSION_ID` is **correlation**, not authentication. Only launcher-shaped `actsess_*` ids with `ENABLED=1` activate session scope; disable via env cannot weaken stronger scopes.
 
-## Documentation verification
+## Git
 
-Compared `docs/CLI_PROTECTION_SCOPES.md` and `behalf protection --help` / `enable --help`:
-
-- Commands match: `status`, `enable`, `disable`, `list`, `reset` (no `remove-repository`)
-- Flags: `--session`, `--for`, `--repository`, `--always`
-- Launch flags: `--behalf`, `--no-behalf`, `--behalf-for`, `--behalf-repository`
-- Session env docs updated to require both variables
-
-## Git state
-
-**Branch:** `feature/scoped-agent-activation` (clean after report commit)
-
-**Commits (`main..HEAD`):**
-
-1. `ebdba78` — Add scoped activation resolver and persistence  
-2. `a3af426` — Document CLI protection activation scopes  
-3. `354cd0d` — Wire scoped activation into CLI commands and agent launches  
-4. `3ce7905` — Add tests for scoped agent activation  
-5. `6050e96` — Fix protection docs to match shipped CLI commands  
-6. `608102b` — fix(cli): require session id with BEHALFID_ENABLED  
-
-## Limitations
-
-1. **No live interactive prompt** against real Cursor / Claude / Codex GUIs in this validation pass.  
-2. **CLI not yet published** — integrity is PENDING at `0.2.16` until release workflow publishes.  
-3. **ESLint invocation** on touched paths fails due to existing Minimatch tooling error in the workspace.  
-4. **Symlink escape / Git worktree** path cases: containment uses `realpathSync` when paths exist; dedicated worktree/symlink matrix was not run as separate OS fixtures beyond canonicalize behavior.  
-5. **Antigravity** is not in `MANAGED_TOOLS` — out of scope / N/A.
-
-## Conclusion
-
-Implementation is merge-ready from an automated and harness perspective, with explicit environment limitations on live IDE GUI prompting. Marked **READY WITH LIMITATIONS** (not `READY`) solely because Cursor / Claude Code / Codex were not manually interactively prompted end-to-end.
+- **Branch:** `feature/scoped-agent-activation`
+- **Merge:** NOT MERGED
+- **Release/tag/publish:** NOT PUBLISHED / NOT TAGGED
+- See `git log main..HEAD` for full commit list after final validation commits.
