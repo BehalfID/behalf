@@ -254,12 +254,13 @@ behalf protection disable --always
 
 `--repository` persists a repository **disabled** decision for that root (not the same as **Not now**). `--always` clears the user-wide always-on setting. You can pass both in one invocation.
 
-To delete a stored repository decision entirely (instead of storing an explicit disable):
+To clear stored repository decisions entirely (instead of storing an explicit disable), use reset:
 
 ```bash
-behalf protection remove-repository /path/to/repo
+behalf protection reset --repositories
 ```
 
+That removes all local repository decisions. Organization / Managed Profile remote configuration is never modified.
 ### List
 
 ```bash
