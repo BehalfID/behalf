@@ -21,22 +21,37 @@ export type SessionActivation = {
 /**
  * Read session activation from env. Sessions are env-only (never written to
  * protection.json).
+ *
+ * Trust model: `BEHALFID_SESSION_ID` is a **correlation** id for a launch
+ * process tree, not an authentication secret. Only well-formed ids minted by
+ * the launcher (`actsess_…`) are recognized. A spoofed id cannot be relied on
+ * as proof of authority.
  */
 export function readSessionActivation(
   env: NodeJS.ProcessEnv = process.env
 ): SessionActivation {
-  const sessionId = env[ENV_SESSION_ID]?.trim() || undefined;
+  const rawId = env[ENV_SESSION_ID]?.trim() || undefined;
+  const sessionId = isWellFormedSessionId(rawId) ? rawId : undefined;
   const mode = env[ENV_MODE]?.trim() || undefined;
   const repositoryRoot = env[ENV_REPO_ROOT]?.trim() || undefined;
   const rawEnabled = env[ENV_ENABLED]?.trim();
   let enabled: boolean | undefined;
   if (rawEnabled !== undefined && rawEnabled !== "") {
-    enabled =
-      rawEnabled === "1" ||
-      rawEnabled.toLowerCase() === "true" ||
-      rawEnabled.toLowerCase() === "yes";
+    const lower = rawEnabled.toLowerCase();
+    if (rawEnabled === "1" || lower === "true" || lower === "yes") {
+      enabled = true;
+    } else if (rawEnabled === "0" || lower === "false" || lower === "no") {
+      enabled = false;
+    }
   }
   return { sessionId, enabled, mode, repositoryRoot };
+}
+
+/** Launcher-minted session ids only (`actsess_` + base64url-ish body). */
+export function isWellFormedSessionId(value: string | undefined): boolean {
+  if (!value) return false;
+  if (value.length < 16 || value.length > 128) return false;
+  return /^actsess_[A-Za-z0-9_-]+$/.test(value);
 }
 
 /**

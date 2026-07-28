@@ -161,7 +161,7 @@ describe("resolveActivation precedence", () => {
       cwd: home,
       interactive: false,
       env: {
-        [ENV_SESSION_ID]: "actsess_test123",
+        [ENV_SESSION_ID]: "actsess_test1234567890",
         [ENV_ENABLED]: "1",
         [ENV_MODE]: "session",
       },
@@ -169,7 +169,7 @@ describe("resolveActivation precedence", () => {
     expect(both.enabled).toBe(true);
     expect(both.mode).toBe("session");
     expect(both.source).toBe("env");
-    expect(both.sessionId).toBe("actsess_test123");
+    expect(both.sessionId).toBe("actsess_test1234567890");
 
     // Session id alone (no ENABLED) is not an active session decision.
     const idOnly = resolveActivation({

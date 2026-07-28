@@ -154,7 +154,10 @@ When protection is enabled for a session (or default-on in CI), the child agent 
 | `BEHALFID_ACTIVATION_MODE` | Active mode (`session`, `timed`, `repository`, `always`, `disabled`, `managed-profile`, …) |
 | `BEHALFID_REPOSITORY_ROOT` | Canonical repo root when applicable |
 
-Because these travel with the process environment, **changing the working directory during a session does not drop protection**. Session choices are **not** written to `protection.json`. Resolution only treats an env session as active when **both** `BEHALFID_SESSION_ID` and `BEHALFID_ENABLED` are set — a bare `BEHALFID_ENABLED=0` cannot bypass always-on or other local decisions.
+Because these travel with the process environment, **changing the working directory during a session does not drop protection**. Session choices are **not** written to `protection.json`. Resolution only treats an env session as active when **both** a well-formed
+`BEHALFID_SESSION_ID` (`actsess_…`) and `BEHALFID_ENABLED=1` are set. Session IDs
+are **correlation**, not authentication — a spoofed id with `BEHALFID_ENABLED=0`
+cannot disable repository, always-on, timed, or organization-required protection.
 
 Local decisions that *are* persisted live in `~/.behalf/protection.json`. Optional audit lines go to `~/.behalf/logs/protection-events.jsonl` (no secrets).
 

@@ -63,6 +63,7 @@ export {
   ENV_SESSION_ID,
   buildActivationEnv,
   createActivationSessionId,
+  isWellFormedSessionId,
   readSessionActivation,
   type SessionActivation,
 } from "./session.js";

@@ -212,7 +212,7 @@ export async function resolveLaunchActivation(
   const stderr = input.stderr ?? process.stderr;
   const parsed = toResolverFlags(input.flags ?? {});
 
-  let resolution = resolveActivation({
+  const resolution = resolveActivation({
     cwd,
     agent: input.agent,
     managedPolicyMode: input.managedPolicyMode ?? null,

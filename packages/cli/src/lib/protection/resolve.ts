@@ -96,7 +96,7 @@ function resolution(
  * 3. explicit launch flags (enable/disable/timed/repository) — user override of local prefs only
  * 4–5. deepest matching repository decision (nested or ancestor via containment)
  * 6. active timed decision
- * 7. active session env (BEHALFID_SESSION_ID + BEHALFID_ENABLED)
+ * 7. active session env with ENABLED=1 (correlation; cannot disable stronger scopes)
  * 8. alwaysEnabled
  * 9. interactive → shouldPrompt, enabled false
  * 10. noninteractive unresolved → enabled true, mode session, source default
@@ -171,23 +171,23 @@ export function resolveActivation(
     });
   }
 
-  // 7. Session env — require BOTH session id and enabled flag (spec).
-  // Do not honor BEHALFID_ENABLED alone: a bare BEHALFID_ENABLED=0 would
-  // otherwise bypass always-on / later defaults without a real session context.
+  // 7. Session env — require BOTH a well-formed session id and enabled flag.
+  // Session ids are correlation, not auth. An enabled session may activate when
+  // nothing stronger applies. A disabled session (ENABLED=0) must NEVER
+  // downgrade always-on / fall through past stronger scopes — ignore disable.
   const session = readSessionActivation(env);
-  if (session.sessionId && session.enabled !== undefined) {
+  if (session.sessionId && session.enabled === true) {
     return resolution({
-      enabled: session.enabled,
+      enabled: true,
       mode: (session.mode as ActivationResolution["mode"]) || "session",
-      reason: session.enabled
-        ? "Active session activation via environment"
-        : "Session environment disables activation",
+      reason: "Active session activation via environment",
       source: "env",
       sessionId: session.sessionId,
       repositoryRoot: session.repositoryRoot,
       shouldPrompt: false,
     });
   }
+  // session.enabled === false (or malformed id): ignore — do not downgrade
 
   // 8. User-wide always
   if (store.alwaysEnabled) {
