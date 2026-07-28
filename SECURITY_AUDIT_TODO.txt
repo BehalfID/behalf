@@ -99,3 +99,16 @@
 #   - @behalfid/github-action: @actions/core ^1.11.1 → ^2.0.3 (http-client 3.0.2 / undici 6.28.0)
 # - Unit tests: 1606 passed, 6 skipped
 # - No hardcoded secrets detected
+
+# Last audit: 2026-07-28
+# Result: PASSED
+# - npm audit: 0 vulnerabilities (root, packages/cli, packages/sdk, packages/install,
+#   packages/mcp-audit, packages/mcp-runtime, packages/egress-proxy, packages/github-action,
+#   examples/enforcement-demo, examples/node-demo, examples/webhook-receiver,
+#   examples/site-guard-express, examples/site-guard-nextjs)
+# - Unit tests: 1613 passed, 78 skipped (root); 146 passed (egress-proxy, install, github-action)
+#   - test/mongo-repository-contracts.test.ts (73 tests) could not execute: MongoMemoryServer
+#     binary download blocked by this sandbox's outbound network policy (fastdl.mongodb.org);
+#     unrelated to source changes and runs normally in GitHub Actions CI
+# - No hardcoded secrets detected (grepped for API key/AWS key/private-key/Slack-token patterns;
+#   only committed env file is .env.example; no key/cert files tracked)
