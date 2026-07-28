@@ -15,6 +15,7 @@
 | Approval lifecycle (request, approve/deny, grants, webhooks) | Implemented in product (not “future Step 4”) |
 | Action Gateway (limited supported actions) | Implemented MVP; not a general HTTP execution proxy |
 | Coding-agent action-time hooks (Claude PreToolUse, etc.) | Implemented via `@behalfid/cli` — pilot; **not** universal fail-closed on outage (see matrix) |
+| Scoped CLI protection activation (session / timed / repository / always) | Local launch gating via `@behalfid/cli`; org / required Managed Profile cannot be bypassed — see `docs/CLI_PROTECTION_SCOPES.md` |
 | Advisory MCP (`verify_action` / `get_permissions`) | Implemented via CLI — **advisory only**, not interception |
 | MCP interceptor PEP (`@behalfid/mcp-runtime`) | Implemented **in source**; **not** released on npm |
 | Site Guard check API | Implemented MVP where the site installs a caller |
