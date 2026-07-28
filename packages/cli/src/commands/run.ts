@@ -18,6 +18,13 @@ import {
   prepareEgressLaunch,
   type EgressMode,
 } from "../lib/egressLaunch.js";
+import {
+  agentFromToolKey,
+  mergeActivationEnv,
+  resolveLaunchActivation,
+  stripActivationFlags,
+  type ActivationFlagOpts,
+} from "../lib/activation.js";
 
 type ToolDef = {
   binary: string;
@@ -344,23 +351,60 @@ export function refreshPermissionsInBackground(agentId: string, deps: LaunchDeps
   }
 }
 
+export type LaunchToolOpts = {
+  egress?: EgressMode;
+  /** Commander-parsed activation flags (merged with argv-stripped flags). */
+  activation?: ActivationFlagOpts;
+  interactive?: boolean;
+};
+
 export async function launchTool(
   toolKey: string,
   extraArgs: string[],
   deps: LaunchDeps = {},
-  launchOpts: { egress?: EgressMode } = {}
+  launchOpts: LaunchToolOpts = {}
 ): Promise<number> {
   const tool = TOOLS[toolKey];
   if (!tool) throw new Error(`Unknown tool "${toolKey}". Supported: ${Object.keys(TOOLS).join(", ")}`);
+
+  const stderr = deps.stderr ?? process.stderr;
+  const stdout = deps.stdout ?? process.stdout;
+  const spawnFn = deps.spawn ?? spawnSync;
+  const egressMode = launchOpts.egress ?? parseEgressMode(process.env.BEHALFID_EGRESS_MODE);
+  const cwd = process.cwd();
+
+  // Strip activation flags from passthrough argv, then merge with commander opts.
+  const stripped = stripActivationFlags(extraArgs);
+  const activationFlags: ActivationFlagOpts = {
+    ...stripped.flags,
+    ...launchOpts.activation,
+  };
+  const toolArgs = stripped.remaining;
+
+  const activation = await resolveLaunchActivation({
+    cwd,
+    agent: agentFromToolKey(toolKey),
+    flags: activationFlags,
+    interactive: launchOpts.interactive,
+    stderr,
+  });
+
+  // "Not now" / disabled: launch the real tool without BehalfID enforcement setup.
+  if (!activation.enabled) {
+    stderr.write(
+      `Launching ${tool.binary} without BehalfID protection (${activation.reason}).\n`
+    );
+    const result: SpawnSyncReturns<Buffer> = spawnFn(tool.binary, toolArgs, {
+      stdio: "inherit",
+      env: mergeActivationEnv(activation, process.env),
+    });
+    return result.status ?? 1;
+  }
 
   const config = readConfig();
   const agentId = config.agentId ?? process.env.BEHALFID_AGENT_ID;
   const apiKey = resolveApiKey();
   const baseUrl = resolveBaseUrl();
-  const stderr = deps.stderr ?? process.stderr;
-  const stdout = deps.stdout ?? process.stdout;
-  const spawnFn = deps.spawn ?? spawnSync;
-  const egressMode = launchOpts.egress ?? parseEgressMode(process.env.BEHALFID_EGRESS_MODE);
 
   if (!agentId) {
     throw new Error(
@@ -373,7 +417,6 @@ export async function launchTool(
     );
   }
 
-  const cwd = process.cwd();
   const status = getProjectSetupStatus(cwd);
 
   // Resolve permissions. Fast path: any cached detail (even stale) lets us
@@ -452,7 +495,7 @@ export async function launchTool(
     }
   }
 
-  let childEnv = process.env;
+  let childEnv = mergeActivationEnv(activation, process.env);
   let stopEgress: (() => Promise<void>) | undefined;
   if (egressMode !== "off") {
     try {
@@ -462,7 +505,7 @@ export async function launchTool(
         apiKey,
         agentId
       });
-      childEnv = prepared.env;
+      childEnv = mergeActivationEnv(activation, prepared.env);
       stopEgress = prepared.stop;
       stderr.write(`Egress proxy (${egressMode}) → ${prepared.env.HTTPS_PROXY ?? "n/a"}\n`);
     } catch (err) {
@@ -482,13 +525,14 @@ export async function launchTool(
     `Launching ${tool.binary} with BehalfID enforcement.\n` +
     `Agent: ${agentId}\n` +
     `Base URL: ${baseUrl}\n` +
+    `Activation: ${activation.mode} (${activation.reason})\n` +
     `Context: ${setup.contextFile}\n` +
     `MCP config: ${setup.mcpJsonFile}\n` +
-    `Command: ${tool.binary}${extraArgs.length ? ` ${extraArgs.map(redactArg).join(" ")}` : ""}\n`
+    `Command: ${tool.binary}${toolArgs.length ? ` ${toolArgs.map(redactArg).join(" ")}` : ""}\n`
   );
 
   try {
-    const result: SpawnSyncReturns<Buffer> = spawnFn(tool.binary, extraArgs, {
+    const result: SpawnSyncReturns<Buffer> = spawnFn(tool.binary, toolArgs, {
       stdio: "inherit",
       env: childEnv
     });
@@ -504,10 +548,19 @@ function toolCommand(toolKey: string, description: string) {
     .allowUnknownOption(true)
     .passThroughOptions(true)
     .option("--egress <mode>", "egress interception: off|advise|enforce (default: off)")
-    .argument("[args...]", `arguments to pass to ${toolKey}`)
+    .argument(
+      "[args...]",
+      `arguments to pass to ${toolKey} (also: --behalf, --no-behalf, --behalf-for <dur>, --behalf-repository [path])`
+    )
     .action(
       runAction(async (args: string[], opts: { egress?: string }) => {
-        process.exit(await launchTool(toolKey, args, {}, { egress: parseEgressMode(opts.egress) }));
+        // Activation flags stay in argv and are stripped inside launchTool so
+        // Commander boolean --no-* negation does not collide with --behalf.
+        process.exit(
+          await launchTool(toolKey, args ?? [], {}, {
+            egress: parseEgressMode(opts.egress),
+          })
+        );
       })
     );
 }

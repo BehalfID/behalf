@@ -30,6 +30,7 @@ import {
   pauseCommand,
   resumeCommand,
 } from "./commands/profile.js";
+import { protectionCommand } from "./commands/protection.js";
 
 const rawArgs = process.argv.slice(2);
 const jsonMode = rawArgs.includes("--json");
@@ -88,6 +89,9 @@ Examples:
   behalf profile install                        install managed shims for claude/codex/cursor
   behalf profile status                         show shim and policy status
   behalf pause --duration 30m --reason "..."    request a policy-approved pause lease
+  behalf protection status                      show scoped protection activation
+  behalf protection enable --repository         enable protection for this repo
+  behalf claude --behalf                        launch Claude with protection this session
   behalf mcp init                               set up BehalfID enforcement in this directory
   behalf scan                                   inspect repo and suggest BehalfID policies
   behalf scan --json                            machine-readable policy suggestions
@@ -121,6 +125,7 @@ program.addCommand(profileCommand());
 program.addCommand(shimLaunchCommand(), { hidden: true });
 program.addCommand(pauseCommand());
 program.addCommand(resumeCommand());
+program.addCommand(protectionCommand());
 program.addCommand(scanCommand());
 program.addCommand(hookCommand());
 program.addCommand(completionCommand(program));
