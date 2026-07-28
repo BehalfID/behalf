@@ -358,7 +358,7 @@ export function applyPromptChoice(
 
   if (choice.mode === "timed") {
     const expiresAt = parseDurationToIso(choice.duration, now);
-    const decision = addTimedDecision(expiresAt, source);
+    const decision = addTimedDecision(expiresAt, source, now);
     return resolution({
       enabled: true,
       mode: "timed",

@@ -236,11 +236,18 @@ export type LaunchToolInput = {
   args: string[];
   cwd?: string;
   interactive?: boolean;
+  /** Test / DI hooks — production callers omit these. */
+  deps?: {
+    spawn?: typeof spawn;
+    resolveSessionPolicy?: typeof resolveSessionPolicy;
+  };
 };
 
 export async function launchManagedTool(input: LaunchToolInput): Promise<number> {
   const cwd = input.cwd ?? process.cwd();
-  const policy = await resolveSessionPolicy({ tool: input.tool, cwd });
+  const resolvePolicy = input.deps?.resolveSessionPolicy ?? resolveSessionPolicy;
+  const spawnFn = input.deps?.spawn ?? spawn;
+  const policy = await resolvePolicy({ tool: input.tool, cwd });
 
   if (policy.mode === "required") {
     const ext = readExtendedConfig();
@@ -305,7 +312,7 @@ export async function launchManagedTool(input: LaunchToolInput): Promise<number>
   }
 
   return await new Promise<number>((resolve, reject) => {
-    const child = spawn(realPath, stripped.remaining, {
+    const child = spawnFn(realPath, stripped.remaining, {
       cwd,
       env,
       stdio: "inherit",

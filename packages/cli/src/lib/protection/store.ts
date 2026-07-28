@@ -336,10 +336,13 @@ export function removeRepositoryDecision(root: string): boolean {
 
 export function addTimedDecision(
   expiresAt: string,
-  source: ActivationSource = "user"
+  source: ActivationSource = "user",
+  now: Date = new Date()
 ): BehalfActivationDecision {
-  const { store } = readActivationStore();
-  const nowIso = new Date().toISOString();
+  // Use the same `now` for read/purge/write so callers that inject a clock
+  // (tests, applyPromptChoice) do not immediately purge a just-created entry.
+  const { store } = readActivationStore(now);
+  const nowIso = now.toISOString();
   const decision: BehalfActivationDecision = {
     id: newDecisionId("acttime"),
     mode: "timed",
@@ -349,7 +352,7 @@ export function addTimedDecision(
     source,
   };
   store.timed.push(decision);
-  writeActivationStore(store);
+  writeActivationStore(store, now);
   appendProtectionEvent("protection.enabled.timed", {
     source,
     decisionId: decision.id,
