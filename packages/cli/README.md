@@ -7,6 +7,8 @@ Managed Profiles let teams put coding-agent CLIs behind a workspace policy check
 - Approve required-mode pause requests
 - Review activity without exposing raw paths or git remotes
 
+Before a tool starts, the CLI also resolves **local protection activation scopes** (session, timed, repository, always, or skip for this launch). Organization / `required` Managed Profile policy always wins and cannot be bypassed. Full user guide: [`docs/CLI_PROTECTION_SCOPES.md`](../../docs/CLI_PROTECTION_SCOPES.md).
+
 ## What Managed Profiles do
 
 Managed profiles intercept `claude`, `codex`, and `cursor` through local shims. When you run a tool through the shim:

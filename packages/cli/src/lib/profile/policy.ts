@@ -235,10 +235,19 @@ export type LaunchToolInput = {
   tool: ManagedTool;
   args: string[];
   cwd?: string;
+  interactive?: boolean;
+  /** Test / DI hooks — production callers omit these. */
+  deps?: {
+    spawn?: typeof spawn;
+    resolveSessionPolicy?: typeof resolveSessionPolicy;
+  };
 };
 
 export async function launchManagedTool(input: LaunchToolInput): Promise<number> {
-  const policy = await resolveSessionPolicy({ tool: input.tool, cwd: input.cwd });
+  const cwd = input.cwd ?? process.cwd();
+  const resolvePolicy = input.deps?.resolveSessionPolicy ?? resolveSessionPolicy;
+  const spawnFn = input.deps?.spawn ?? spawn;
+  const policy = await resolvePolicy({ tool: input.tool, cwd });
 
   if (policy.mode === "required") {
     const ext = readExtendedConfig();
@@ -252,13 +261,29 @@ export async function launchManagedTool(input: LaunchToolInput): Promise<number>
     }
   }
 
+  const {
+    agentFromToolKey,
+    mergeActivationEnv,
+    resolveLaunchActivation,
+    stripActivationFlags,
+  } = await import("../activation.js");
+
+  const stripped = stripActivationFlags(input.args);
+  const activation = await resolveLaunchActivation({
+    cwd,
+    agent: agentFromToolKey(input.tool),
+    managedPolicyMode: policy.mode,
+    flags: stripped.flags,
+    interactive: input.interactive,
+  });
+
   const realPath = resolveRealBinaryPath(input.tool);
   if (!realPath) {
     throw new Error(`Real ${input.tool} binary not found. Run \`behalf profile install\`.`);
   }
 
   const baseUrl = resolveBaseUrl();
-  const env: NodeJS.ProcessEnv = {
+  let env: NodeJS.ProcessEnv = {
     ...process.env,
     BEHALF_MODE: policy.mode,
     BEHALF_SESSION_ID: policy.sessionId,
@@ -267,13 +292,28 @@ export async function launchManagedTool(input: LaunchToolInput): Promise<number>
   if (policy.profileId) env.BEHALF_PROFILE_ID = policy.profileId;
   if (policy.workspaceId) env.BEHALF_WORKSPACE_ID = policy.workspaceId;
 
-  if (policy.mode !== "unmanaged" && policy.reason && process.env.BEHALF_VERBOSE === "1") {
-    process.stderr.write(`Managed profile: ${policy.mode} — ${policy.reason}\n`);
+  // When protection is skipped (unmanaged + not now), still launch the real
+  // binary but clear managed-session markers that imply enforcement.
+  if (!activation.enabled) {
+    env = mergeActivationEnv(activation, {
+      ...process.env,
+      BEHALF_MODE: "unmanaged",
+    });
+    if (process.env.BEHALF_VERBOSE === "1") {
+      process.stderr.write(
+        `Launching ${input.tool} without BehalfID protection (${activation.reason})\n`
+      );
+    }
+  } else {
+    env = mergeActivationEnv(activation, env);
+    if (policy.mode !== "unmanaged" && policy.reason && process.env.BEHALF_VERBOSE === "1") {
+      process.stderr.write(`Managed profile: ${policy.mode} — ${policy.reason}\n`);
+    }
   }
 
   return await new Promise<number>((resolve, reject) => {
-    const child = spawn(realPath, input.args, {
-      cwd: input.cwd ?? process.cwd(),
+    const child = spawnFn(realPath, stripped.remaining, {
+      cwd,
       env,
       stdio: "inherit",
     });

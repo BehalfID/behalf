@@ -4,7 +4,7 @@
 **Constraint for this phase:** prepare only — **do not** `npm publish`, create
 GitHub Releases, deploy, push, or merge until an explicit human publish step.
 That explicit step was completed for `@behalfid/sdk@0.2.3` and
-`@behalfid/cli@0.2.15` on 2026-07-26; the remaining packages stay prepare-only.
+`@behalfid/cli@0.2.15` on 2026-07-26; local CLI is pending **0.2.16** (scoped activation). Remaining packages stay prepare-only.
 
 Related scripts (run from repo root after `npm ci` and package builds):
 
@@ -29,7 +29,7 @@ content and file-inventory drift still fail. Markdown is also pinned to LF via
 | Package | Local version | npm status | Notes |
 | --- | --- | --- | --- |
 | `@behalfid/sdk` | **0.2.3** | published **0.2.3** (current) | Published with npm provenance; rejected 0.2.2 tag remains immutable |
-| `@behalfid/cli` | **0.2.15** | published **0.2.15** (current) | Latest CLI banner fix released to npm, GitHub, and Homebrew |
+| `@behalfid/cli` | **0.2.16** | published **0.2.15** | Pending publish: scoped agent activation |
 | `@behalfid/mcp-audit` | 0.1.0 | **unpublished** | Preview docs only |
 | `@behalfid/mcp-runtime` | 0.1.0 | **unpublished** | Preview docs only |
 | `@behalfid/install` | 0.1.0 | **unpublished** | Preview docs only; optional dep on mcp-runtime |
@@ -68,7 +68,7 @@ exist only where ranges cannot admit a fixed release:
 
 | Override | Where | Why |
 | --- | --- | --- |
-| `brace-expansion: ^5.0.8` | root + `packages/install` | GHSA-mh99 has **no 1.x patch**; eslint’s `minimatch@3` still requests `^1.1.7`. Compatible CJS API; avoids eslint 10 major upgrade. |
+| `brace-expansion: ^5.0.8` + `minimatch@3: npm:minimatch@10.2.5` | root | GHSA on brace-expansion 1.x; eslint 9 still requests `minimatch@3`, which cannot call brace-expansion 5’s `{ expand }` named export (`expand is not a function`). Alias minimatch@3 → 10.2.5 so eslint keeps patched brace-expansion 5 without an eslint 10 major upgrade. |
 | `esbuild: 0.28.1` (+ keep `@esbuild-kit/core-utils.esbuild: ^0.25.0`) | root + `packages/install` | `tsup@8.5` requests `^0.27.0` (excludes 0.28.1). Pin 0.28.1 for GHSA-g7r4; keep esbuild-kit on 0.25.x. Install also lists `esbuild@0.28.1` as a direct devDependency so the workspace lock cannot stick on 0.27.7. |
 | `postcss: ^8.5.18` | root + example | Transitive via Next; keep patched PostCSS without unrelated majors. |
 | `sharp: ^0.35.0` | root + example | `next@16.2.x` still optionalDepends on `sharp@^0.34.5`, which excludes 0.35.0. Override required for GHSA-f88m. sharp 0.35 / Next 16.2.11 both require Node `>=20.9.0` (example engines raised accordingly; monorepo root remains `>=22.12.0`). |

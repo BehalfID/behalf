@@ -31,8 +31,8 @@ function shellAvailable(cmd: string): boolean {
 }
 
 describe("CLI standalone version embedding", () => {
-  it("package metadata is 0.2.15", () => {
-    expect(PKG_VERSION).toBe("0.2.15");
+  it("package metadata is 0.2.16", () => {
+    expect(PKG_VERSION).toBe("0.2.16");
   });
 
   it("Node/npm CLI reports the package version", () => {
@@ -44,7 +44,7 @@ describe("CLI standalone version embedding", () => {
     });
     expect(ver.status, ver.stderr + ver.stdout).toBe(0);
     expect(ver.stdout.trim()).toBe(PKG_VERSION);
-    expect(ver.stdout.trim()).toBe("0.2.15");
+    expect(ver.stdout.trim()).toBe("0.2.16");
   }, 120_000);
 
   it("release workflow injects build-time version define and has no 0.2.9 pin", () => {
@@ -128,7 +128,7 @@ describe("CLI standalone version embedding", () => {
       });
       expect(outside.status, outside.stderr + outside.stdout).toBe(0);
       expect(outside.stdout.replace(/\r/g, "").trim()).toBe(PKG_VERSION);
-      expect(outside.stdout.replace(/\r/g, "").trim()).toBe("0.2.15");
+      expect(outside.stdout.replace(/\r/g, "").trim()).toBe("0.2.16");
     } finally {
       rmSync(emptyDir, { recursive: true, force: true });
     }
