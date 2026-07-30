@@ -75,6 +75,14 @@ export function isPublicStatusPagePath(pathname: string): boolean {
   return pathname === "/status" || localeStatusPattern.test(pathname);
 }
 
+/** Unauthenticated provider redirects — keep middleware minimal and reliable. */
+export function isOAuthPublicCallbackPath(pathname: string): boolean {
+  return (
+    pathname === "/api/auth/github/callback" ||
+    pathname === "/api/auth/google/callback"
+  );
+}
+
 function isStaticAssetPath(pathname: string): boolean {
   // Extension-like resource IDs under /api/** must still pass through sanitization.
   if (pathname.startsWith("/api/")) return false;
@@ -85,6 +93,7 @@ function isStaticAssetPath(pathname: string): boolean {
 
 export function shouldBypassProxy(pathname: string) {
   return (
+    isOAuthPublicCallbackPath(pathname) ||
     pathname === "/api/health" ||
     pathname === "/api/health/db" ||
     pathname === "/api/status" ||
@@ -98,7 +107,7 @@ export function shouldBypassProxy(pathname: string) {
 }
 
 const privatePagePattern =
-  /^\/(?:authenticate|console|dashboard|forgot-password|invite|login|logout|onboarding|passport|reset-password|signup|verify-email|workspace)(?:\/|$)/;
+  /^\/(?:auth|authenticate|console|dashboard|forgot-password|invite|login|logout|onboarding|passport|reset-password|signup|verify-email|workspace)(?:\/|$)/;
 
 /** Explicit defense-in-depth for request-specific HTML and every non-public API. */
 export function shouldUsePrivateNoStore(pathname: string): boolean {

@@ -3,6 +3,12 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 describe("dashboard account deletion UI", () => {
+  it("settings page includes connected accounts section", () => {
+    const clientSource = readFileSync(join(process.cwd(), "app/dashboard/client.tsx"), "utf-8");
+    expect(clientSource).toContain("LinkedAccountsSection");
+    expect(clientSource).toContain("#account-security");
+  });
+
   it("settings page includes self-service delete account flow", () => {
     const clientSource = readFileSync(join(process.cwd(), "app/dashboard/client.tsx"), "utf-8");
     expect(clientSource).toContain('"/api/auth/account"');

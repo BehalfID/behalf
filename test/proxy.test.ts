@@ -9,6 +9,7 @@ vi.mock("@/i18n/routing", () => ({
 }));
 
 import {
+  isOAuthPublicCallbackPath,
   isPublicStatusPagePath,
   shouldBypassIntl,
   shouldBypassProxy,
@@ -19,6 +20,8 @@ describe("proxy public bypasses", () => {
   it("bypasses health and static requests", () => {
     expect(shouldBypassProxy("/api/health")).toBe(true);
     expect(shouldBypassProxy("/api/health/db")).toBe(true);
+    expect(shouldBypassProxy("/api/auth/github/callback")).toBe(true);
+    expect(shouldBypassProxy("/api/auth/google/callback")).toBe(true);
     expect(shouldBypassProxy("/_next/static/chunks/app.js")).toBe(true);
     expect(shouldBypassProxy("/favicon.ico")).toBe(true);
     expect(shouldBypassProxy("/brand/logo.svg")).toBe(true);
@@ -35,6 +38,12 @@ describe("proxy public bypasses", () => {
 
   it("keeps dashboard requests on the proxy path", () => {
     expect(shouldBypassProxy("/dashboard")).toBe(false);
+  });
+
+  it("identifies OAuth provider callback paths", () => {
+    expect(isOAuthPublicCallbackPath("/api/auth/github/callback")).toBe(true);
+    expect(isOAuthPublicCallbackPath("/api/auth/google/callback")).toBe(true);
+    expect(isOAuthPublicCallbackPath("/api/auth/github")).toBe(false);
   });
 
   it("keeps internal and redirect routes out of locale rewriting", () => {
