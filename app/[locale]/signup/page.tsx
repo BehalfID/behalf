@@ -2,6 +2,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentDeveloper } from "@/lib/developerAuth";
+import { isGitHubOAuthConfigured } from "@/lib/authProviders/providers/github";
 import { isGoogleOAuthConfigured } from "@/lib/googleOAuth";
 import { shouldForceAccountSetup } from "@/lib/onboardingRedirect";
 import { AuthPage } from "../auth-client";
@@ -37,5 +38,11 @@ export default async function SignupPage({
     if (await shouldForceAccountSetup(user.userId)) redirect("/onboarding");
     redirect("/dashboard");
   }
-  return <AuthPage mode="signup" googleEnabled={isGoogleOAuthConfigured()} />;
+  return (
+    <AuthPage
+      mode="signup"
+      googleEnabled={isGoogleOAuthConfigured()}
+      githubEnabled={isGitHubOAuthConfigured()}
+    />
+  );
 }

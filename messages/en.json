@@ -737,6 +737,7 @@
     "ageError": "You must be at least 13 years old to create an account.",
     "authFailed": "Authentication failed.",
     "continueWithGoogle": "Continue with Google",
+    "continueWithGitHub": "Continue with GitHub",
     "orDivider": "or",
     "agreePrefix": "By creating an account you agree to the ",
     "terms": "Terms of Service",

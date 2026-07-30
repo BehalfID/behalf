@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
+import { ContinueWithGitHub } from "@/components/auth/ContinueWithGitHub";
 import { ContinueWithGoogle } from "@/components/auth/ContinueWithGoogle";
 import { AuthPrinciple, AuthShell, AuthTaskHeader, FormAlert } from "@/components/auth/AuthShell";
 import { Button, Field, FieldLabel, Input } from "@/components/ui";
+import { oauthErrorMessage } from "@/lib/authProviders/oauthErrors";
 import { assignOwnedLocation, crossAppClickHandler } from "@/lib/subdomainRouting";
 
 /** Returns the latest date of birth that satisfies the minimum age (YYYY-MM-DD). */
@@ -24,27 +26,39 @@ export function AuthPage({
   mode,
   nextPath,
   initialEmail = "",
-  googleEnabled = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID)
+  googleEnabled = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID),
+  githubEnabled = false
 }: {
   mode: "login" | "signup";
   nextPath?: string;
   initialEmail?: string;
   googleEnabled?: boolean;
+  githubEnabled?: boolean;
 }) {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
-  const oauthError = useMemo(() => searchParams.get("error")?.trim() || "", [searchParams]);
+  // `error` carries legacy free-text from the Google callback; `oauth_error`
+  // carries a code so the wording lives in the app rather than in a redirect URL.
+  const oauthError = useMemo(() => {
+    const code = searchParams.get("oauth_error")?.trim();
+    if (code) return oauthErrorMessage(code);
+    return searchParams.get("error")?.trim() || "";
+  }, [searchParams]);
+  const oauthMfaPending = searchParams.get("oauth_mfa") === "1";
   const [error, setError] = useState(oauthError);
   const [submitting, setSubmitting] = useState(false);
-  const [mfaToken, setMfaToken] = useState<string | null>(null);
+  // A GitHub sign-in that needs a second factor arrives here by redirect with
+  // the challenge held in an httpOnly cookie, so there is no token to keep.
+  const [mfaToken, setMfaToken] = useState<string | null>(oauthMfaPending ? "" : null);
   const [mfaCode, setMfaCode] = useState("");
   const redirectPath = safeNextPath(nextPath) ?? (mode === "signup" ? "/verify-email" : "/dashboard");
+  const showOauth = googleEnabled || githubEnabled;
 
   const submitMfa = async (event: FormEvent) => {
     event.preventDefault();
-    if (!mfaToken) return;
+    if (mfaToken === null) return;
     setError("");
     setSubmitting(true);
     try {
@@ -52,7 +66,8 @@ export function AuthPage({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mfaToken, code: mfaCode })
+        // An empty token means the challenge is in the OAuth cookie instead.
+        body: JSON.stringify(mfaToken ? { mfaToken, code: mfaCode } : { code: mfaCode })
       });
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as { error?: string } | null;
@@ -123,7 +138,7 @@ export function AuthPage({
     }
   };
 
-  if (mfaToken) {
+  if (mfaToken !== null) {
     return (
       <AuthShell
         support={
@@ -205,9 +220,10 @@ export function AuthPage({
             : "Enter the account credentials for your BehalfID control plane."}
         />
 
-        {googleEnabled ? (
+        {showOauth ? (
           <div className="auth-task__oauth">
-            <ContinueWithGoogle mode={mode} next={nextPath} />
+            {githubEnabled ? <ContinueWithGitHub mode={mode} next={nextPath} /> : null}
+            {googleEnabled ? <ContinueWithGoogle mode={mode} next={nextPath} /> : null}
             <p className="auth-divider" role="separator">
               <span>or</span>
             </p>
