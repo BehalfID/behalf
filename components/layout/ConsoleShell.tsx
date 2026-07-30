@@ -7,6 +7,7 @@ import { Logo, ThemeToggle } from "@/components/ui";
 
 type NavIconName =
   | "home"
+  | "analytics"
   | "agents"
   | "sites"
   | "webhooks"
@@ -23,6 +24,7 @@ const consoleNavSections = [
     label: "Operations",
     items: [
       { href: "/console", label: "Home", icon: "home" as const },
+      { href: "/console/analytics", label: "Analytics", icon: "analytics" as const },
       { href: "/console/logs", label: "Audit logs", icon: "logs" as const },
       { href: "/console/status", label: "Status page", icon: "status" as const },
       { href: "/console/enterprise-inquiries", label: "Enterprise", icon: "enterprise" as const }
@@ -53,7 +55,7 @@ function isConsoleNavItemActive(pathname: string, href: string) {
 }
 
 function getConsoleContentVariant(pathname: string): ContentVariant {
-  if (pathname === "/console/logs") return "wide";
+  if (pathname === "/console/logs" || pathname === "/console/analytics") return "wide";
   if (
     /^\/console\/agents\/[^/]+$/.test(pathname) ||
     /^\/console\/webhooks\/[^/]+$/.test(pathname) ||
@@ -67,6 +69,7 @@ function getConsoleContentVariant(pathname: string): ContentVariant {
 function NavIcon({ name }: { name: NavIconName }) {
   const paths: Record<NavIconName, React.ReactNode> = {
     home: <><path d="M3 8.5 10 3l7 5.5" /><path d="M5 7.5V17h10V7.5M8 17v-5h4v5" /></>,
+    analytics: <><path d="M3 16.5h14" /><path d="M5.5 16.5V11M9 16.5V6M12.5 16.5v-7M16 16.5V8" /></>,
     agents: <><circle cx="10" cy="8" r="3" /><path d="M4.5 17c.8-3.2 2.6-4.8 5.5-4.8s4.7 1.6 5.5 4.8" /></>,
     sites: <><path d="M4 4h12v12H4z" /><path d="M7 7h6M7 10h6M7 13h3" /></>,
     webhooks: <><circle cx="6" cy="6" r="2.5" /><circle cx="14" cy="8" r="2.5" /><circle cx="9" cy="15" r="2.5" /><path d="m8 6.5 3.5.8M12.5 10l-2 2.8M7.5 12.8 6.8 8.5" /></>,

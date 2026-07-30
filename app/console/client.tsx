@@ -4,6 +4,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { TimeSeriesChart, type ChartSeries } from "@/components/console/AnalyticsCharts";
 import { DecisionIndicator } from "@/components/dashboard/OpsEventPrimitives";
 import { ConnectionStatusBadge } from "@/components/dashboard/ProfileIntegrationPrimitives";
 import {
@@ -95,13 +96,37 @@ type LogSummary = {
 };
 
 type DailyActivity = {
-  date: string;
-  total: number;
+  bucketStart: string;
+  attempts: number;
+  enforced: number;
   allowed: number;
   denied: number;
+  approvalRequired: number;
+  indeterminate: number;
+  shadow: number;
+};
+
+/**
+ * Today's verification totals. Outcomes are mutually exclusive and computed
+ * over the current UTC day; shadow-mode attempts are reported separately
+ * because they never gated an agent.
+ */
+type TodayTotals = {
+  attempts: number;
+  enforced: number;
+  allowed: number;
+  denied: number;
+  approvalRequired: number;
+  indeterminate: number;
+  shadow: number;
+  highRisk: number;
+  /** Null when there were no enforced attempts, so no rate is defined. */
+  denyRatePercent: number | null;
 };
 
 type Summary = {
+  timezone: string;
+  asOf: string;
   totalAgents: number;
   activePermissions: number;
   logsToday: number;
@@ -111,9 +136,9 @@ type Summary = {
   pendingApprovals: number;
   highRiskToday: number;
   totalAuditLogs: number;
-  errorRateToday: number;
   totalCustomers: number;
   paidCustomers: number;
+  today: TodayTotals;
   dailyActivity: DailyActivity[];
 };
 
@@ -504,8 +529,8 @@ function DashboardView() {
           <Header
             title="Dashboard"
             action={
-              <ButtonLink variant="primary" href="/console/agents">
-                Manage agents
+              <ButtonLink variant="primary" href="/console/analytics">
+                Open analytics
               </ButtonLink>
             }
           />
@@ -535,22 +560,34 @@ function DashboardView() {
           <section className="console-metrics">
             <StatCard label="Total agents" value={data.totalAgents} />
             <StatCard label="Active permissions" value={data.activePermissions} />
-            <StatCard label="Total customers" value={data.totalCustomers} />
-            <StatCard label="Paid customers" value={data.paidCustomers} />
+            <StatCard label="Total workspaces" value={data.totalCustomers} />
+            <StatCard label="Paid workspaces" value={data.paidCustomers} />
             <StatCard label="Total users" value={data.totalUsers} />
-            <StatCard label="New users today" value={data.newUsersToday} />
+            <StatCard label="New users today (UTC)" value={data.newUsersToday} />
             <StatCard label="Total audit logs" value={data.totalAuditLogs} />
-            <StatCard label="Logs today" value={data.logsToday} />
-            <Metric label="Error rate today" value={`${data.errorRateToday}%`} />
+            <StatCard label="Attempts today (UTC)" value={data.today.attempts} />
+            <StatCard label="Allowed today" value={data.today.allowed} />
+            <StatCard label="Denied today" value={data.today.denied} />
+            <StatCard label="Approval required today" value={data.today.approvalRequired} />
+            <StatCard label="Shadow mode today" value={data.today.shadow} />
+            <Metric
+              label="Deny rate today"
+              value={data.today.denyRatePercent === null ? "—" : `${data.today.denyRatePercent}%`}
+            />
             <Metric
               label="Last result"
-              value={data.lastVerification ? (data.lastVerification.allowed ? "Allowed" : "Denied") : "None"}
+              value={describeLastResult(data.lastVerification)}
             />
           </section>
+          <p className="console-muted console-metrics-note">
+            Today means the current UTC day. Deny rate is a share of{" "}
+            {data.today.enforced.toLocaleString()} enforced attempts and excludes approval pauses and
+            shadow mode. A dash means no enforced attempts, so the rate is undefined.
+          </p>
 
           {/* Activity graph */}
           <section>
-            <SectionTitle title="Verification activity (last 14 days)" />
+            <SectionTitle title="Verification activity (last 14 days, UTC)" />
             <ActivityChart data={data.dailyActivity} />
           </section>
 
@@ -581,79 +618,41 @@ function DashboardView() {
   );
 }
 
+const ACTIVITY_SERIES: ChartSeries[] = [
+  { key: "allowed", label: "Allowed", tone: "allow" },
+  { key: "denied", label: "Denied", tone: "deny" },
+  { key: "approvalRequired", label: "Approval required", tone: "approval" },
+  { key: "shadow", label: "Shadow mode", tone: "shadow" }
+];
+
 function ActivityChart({ data }: { data: DailyActivity[] }) {
-  const maxVal = Math.max(...data.map((d) => d.total), 1);
-  const chartH = 120;
-  const barW = 28;
-  const gap = 8;
-  const labelH = 28;
-  const totalW = data.length * (barW + gap) - gap;
+  const points = data.map((entry) => ({
+    bucketStart: entry.bucketStart,
+    values: {
+      allowed: entry.allowed,
+      denied: entry.denied,
+      approvalRequired: entry.approvalRequired,
+      shadow: entry.shadow
+    }
+  }));
 
   return (
-    <div className="console-chart" aria-label="Verification activity chart">
-      <svg
-        width="100%"
-        viewBox={`0 0 ${totalW} ${chartH + labelH}`}
-        preserveAspectRatio="xMidYMid meet"
-        style={{ overflow: "visible" }}
-      >
-        {data.map((entry, i) => {
-          const x = i * (barW + gap);
-          const allowedH = Math.round((entry.allowed / maxVal) * chartH);
-          const deniedH = Math.round((entry.denied / maxVal) * chartH);
-          const totalH = allowedH + deniedH;
-          const shortLabel = entry.date.slice(5); // MM-DD
-          return (
-            <g key={entry.date}>
-              <title>{entry.date}: {entry.total} total ({entry.allowed} allowed, {entry.denied} denied)</title>
-              {/* denied portion (top, red) */}
-              {deniedH > 0 && (
-                <rect
-                  x={x}
-                  y={chartH - totalH}
-                  width={barW}
-                  height={deniedH}
-                  className="console-chart__bar--denied"
-                />
-              )}
-              {/* allowed portion (bottom, green) */}
-              {allowedH > 0 && (
-                <rect
-                  x={x}
-                  y={chartH - allowedH}
-                  width={barW}
-                  height={allowedH}
-                  className="console-chart__bar--allowed"
-                />
-              )}
-              {/* zero state */}
-              {entry.total === 0 && (
-                <rect
-                  x={x}
-                  y={chartH - 2}
-                  width={barW}
-                  height={2}
-                  className="console-chart__bar--empty"
-                />
-              )}
-              <text
-                x={x + barW / 2}
-                y={chartH + labelH - 4}
-                textAnchor="middle"
-                className="console-chart__label"
-              >
-                {shortLabel}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
-      <div className="console-chart__legend">
-        <span className="console-chart__legend-item console-chart__legend-item--allowed">Allowed</span>
-        <span className="console-chart__legend-item console-chart__legend-item--denied">Denied</span>
-      </div>
+    <div className="console-chart">
+      <TimeSeriesChart
+        points={points}
+        series={ACTIVITY_SERIES}
+        granularity="day"
+        valueLabel="attempts"
+      />
     </div>
   );
+}
+
+function describeLastResult(log: VerificationLog | null) {
+  if (!log) return "None";
+  if (log.allowed) return "Allowed";
+  if (log.approvalRequired) return "Approval required";
+  return "Denied";
 }
 
 function HealthStrip({ data }: { data: Summary }) {
@@ -687,6 +686,7 @@ function HealthStrip({ data }: { data: Summary }) {
 }
 
 const QUICK_ACTIONS = [
+  { label: "Analytics", href: "/console/analytics" },
   { label: "View logs", href: "/console/logs" },
   { label: "Manage agents", href: "/console/agents" },
   { label: "Webhooks", href: "/console/webhooks" },
