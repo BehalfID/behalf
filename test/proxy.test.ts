@@ -9,6 +9,7 @@ vi.mock("@/i18n/routing", () => ({
 }));
 
 import {
+  isPublicStatusPagePath,
   shouldBypassIntl,
   shouldBypassProxy,
   shouldUsePrivateNoStore
@@ -69,5 +70,21 @@ describe("private no-store classification", () => {
     expect(shouldUsePrivateNoStore("/docs")).toBe(false);
     expect(shouldUsePrivateNoStore("/robots.txt")).toBe(false);
     expect(shouldUsePrivateNoStore("/api/status")).toBe(false);
+    expect(shouldUsePrivateNoStore("/status")).toBe(false);
+    expect(shouldUsePrivateNoStore("/de/status")).toBe(false);
+  });
+});
+
+describe("public status page routing", () => {
+  it("recognizes canonical and locale-prefixed status paths", () => {
+    expect(isPublicStatusPagePath("/status")).toBe(true);
+    expect(isPublicStatusPagePath("/en/status")).toBe(true);
+    expect(isPublicStatusPagePath("/de/status")).toBe(true);
+    expect(isPublicStatusPagePath("/dashboard")).toBe(false);
+  });
+
+  it("keeps locale status pages on the public intl path", () => {
+    expect(shouldBypassIntl("/status")).toBe(false);
+    expect(shouldBypassIntl("/de/status")).toBe(false);
   });
 });
