@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { recordAuthFailure } from "@/lib/authEvents";
+import { clearedOAuthCookie, OAUTH_MFA_COOKIE } from "@/lib/authProviders/oauthState";
 import {
   createDeveloperSession,
   requireDashboardMutationOrigin,
@@ -32,9 +33,14 @@ export async function POST(request: NextRequest) {
   const unknownError = rejectUnknownFields(body, ["mfaToken", "code", "backupCode"]);
   if (unknownError) return jsonError(unknownError);
 
-  const mfaToken = readString(body.mfaToken);
   const code = readString(body.code);
   const backupCode = readString(body.backupCode);
+
+  // An OAuth sign-in cannot hand the challenge to the client through a redirect
+  // without putting it in the URL, so the callback leaves it in an httpOnly
+  // cookie instead. Password sign-in keeps posting the token in the body.
+  const mfaToken =
+    readString(body.mfaToken) || request.cookies.get(OAUTH_MFA_COOKIE)?.value || "";
 
   const challenge = verifyMfaChallengeToken(mfaToken);
   if (!challenge) {
@@ -91,5 +97,6 @@ export async function POST(request: NextRequest) {
     }
   });
   setDeveloperSessionCookie(response, token);
+  response.cookies.set(OAUTH_MFA_COOKIE, "", clearedOAuthCookie());
   return response;
 }

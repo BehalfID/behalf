@@ -13,6 +13,7 @@ import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
 import { isPasswordLoginBlockedBySso } from "@/lib/workspaceSso";
+import { oauthOnlyLoginMessage } from "@/lib/authProviders/loginHints";
 import DeveloperUser from "@/models/DeveloperUser";
 
 export async function POST(request: NextRequest) {
@@ -49,16 +50,16 @@ export async function POST(request: NextRequest) {
   await connectToDatabase();
   // "+passwordHash" alone keeps the default field set; listing other fields
   // would become an inclusion projection and omit userId/email.
-  const user = await DeveloperUser.findOne({ email }).select("+passwordHash +mfaEnabledAt");
+  const user = await DeveloperUser.findOne({ email }).select("+passwordHash +mfaEnabledAt authProviders");
   if (!user?.passwordHash) {
     if (user) {
       await recordAuthFailure({
         request,
         surface: "developer_login",
-        reason: "google_only_account",
+        reason: "oauth_only_account",
         email
       });
-      return jsonError("This account uses Google sign-in. Use Continue with Google.", 401);
+      return jsonError(oauthOnlyLoginMessage(user.authProviders), 401);
     }
     await recordAuthFailure({
       request,
