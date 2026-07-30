@@ -28,11 +28,14 @@ import {
   CONNECTION_STATUSES,
   DEVICE_CODE_STATUSES,
   ENTERPRISE_INQUIRY_STATUSES,
+  EXTERNAL_IDENTITY_PROVIDERS,
+  IDENTITY_AUDIT_ACTIONS,
   INTEGRATION_BINDING_STATUSES,
   INTEGRATION_PROVIDERS,
   INVITE_ROLES,
   INVITE_STATUSES,
   MANAGED_PROFILE_MODES,
+  OAUTH_FLOW_MODES,
   ONBOARDING_USE_CASES,
   PAUSE_SCOPES,
   PERMISSION_PROFILE_STATUSES,
@@ -176,7 +179,11 @@ export const oauthPendingSignups = pgTable(
   "oauth_pending_signups",
   {
     pendingId: text("pending_id").primaryKey(),
-    googleSub: text("google_sub").notNull(),
+    /** Legacy Google-only column, still populated for Google rows. */
+    googleSub: text("google_sub"),
+    /** Provider-neutral identity key. Google rows mirror `google_sub` here. */
+    provider: text("provider").notNull().default("google"),
+    providerAccountId: text("provider_account_id"),
     email: text("email").notNull(),
     emailVerified: boolean("email_verified").notNull(),
     firstName: text("first_name"),
@@ -186,8 +193,108 @@ export const oauthPendingSignups = pgTable(
     createdAt: timestamptz().notNull().defaultNow()
   },
   (table) => [
+    check(
+      "oauth_pending_signups_provider_check",
+      sql`${table.provider} IN (${sql.raw(sqlInList(EXTERNAL_IDENTITY_PROVIDERS))})`
+    ),
     index("oauth_pending_signups_google_sub_idx").on(table.googleSub),
+    index("oauth_pending_signups_provider_account_idx").on(
+      table.provider,
+      table.providerAccountId
+    ),
     index("oauth_pending_signups_expires_at_idx").on(table.expiresAt)
+  ]
+);
+
+/**
+ * Human login identities linked to a developer account.
+ *
+ * Provider-neutral by design: a `github_id` column on `developer_users` would
+ * have to be repeated for every future provider and cannot express "this
+ * provider account is already claimed by another user" as a constraint.
+ */
+export const externalIdentities = pgTable(
+  "external_identities",
+  {
+    identityId: text("identity_id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => developerUsers.userId, { onDelete: "cascade" }),
+    provider: text("provider").notNull(),
+    /** Provider's immutable account key (GitHub numeric id, Google sub). */
+    providerAccountId: text("provider_account_id").notNull(),
+    providerUsername: text("provider_username"),
+    providerEmail: text("provider_email"),
+    providerEmailVerified: boolean("provider_email_verified").notNull().default(false),
+    linkedAt: timestamp("linked_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+    lastLoginAt: timestamp("last_login_at", { withTimezone: true, mode: "date" }),
+    ...createdUpdatedAt()
+  },
+  (table) => [
+    check(
+      "external_identities_provider_check",
+      sql`${table.provider} IN (${sql.raw(sqlInList(EXTERNAL_IDENTITY_PROVIDERS))})`
+    ),
+    uniqueIndex("external_identities_provider_account_uq").on(
+      table.provider,
+      table.providerAccountId
+    ),
+    uniqueIndex("external_identities_user_provider_uq").on(table.userId, table.provider)
+  ]
+);
+
+/** In-flight OAuth authorization requests. See models/OAuthAuthorizationState.ts. */
+export const oauthAuthorizationStates = pgTable(
+  "oauth_authorization_states",
+  {
+    stateId: text("state_id").primaryKey(),
+    provider: text("provider").notNull(),
+    mode: text("mode").notNull(),
+    stateHash: text("state_hash").notNull().unique(),
+    codeVerifier: text("code_verifier").notNull(),
+    next: text("next"),
+    userId: text("user_id").references(() => developerUsers.userId, { onDelete: "cascade" }),
+    consumedAt: timestamp("consumed_at", { withTimezone: true, mode: "date" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+    createdAt: timestamptz().notNull().defaultNow()
+  },
+  (table) => [
+    check(
+      "oauth_authorization_states_provider_check",
+      sql`${table.provider} IN (${sql.raw(sqlInList(EXTERNAL_IDENTITY_PROVIDERS))})`
+    ),
+    check(
+      "oauth_authorization_states_mode_check",
+      sql`${table.mode} IN (${sql.raw(sqlInList(OAUTH_FLOW_MODES))})`
+    ),
+    index("oauth_authorization_states_expires_at_idx").on(table.expiresAt)
+  ]
+);
+
+/** Durable identity lifecycle history. See models/IdentityAuditLog.ts. */
+export const identityAuditLogs = pgTable(
+  "identity_audit_logs",
+  {
+    entryId: text("entry_id").primaryKey(),
+    userId: text("user_id").notNull(),
+    action: text("action").notNull(),
+    provider: text("provider").notNull(),
+    providerAccountId: text("provider_account_id").notNull(),
+    providerUsername: text("provider_username"),
+    ipHash: text("ip_hash"),
+    context: text("context"),
+    createdAt: timestamptz().notNull().defaultNow()
+  },
+  (table) => [
+    check(
+      "identity_audit_logs_action_check",
+      sql`${table.action} IN (${sql.raw(sqlInList(IDENTITY_AUDIT_ACTIONS))})`
+    ),
+    check(
+      "identity_audit_logs_provider_check",
+      sql`${table.provider} IN (${sql.raw(sqlInList(EXTERNAL_IDENTITY_PROVIDERS))})`
+    ),
+    index("identity_audit_logs_user_created_idx").on(table.userId, table.createdAt)
   ]
 );
 
@@ -1255,6 +1362,9 @@ export const coreTables = {
   accounts,
   developerUsers,
   oauthPendingSignups,
+  externalIdentities,
+  oauthAuthorizationStates,
+  identityAuditLogs,
   developerSessions,
   developerApiTokens,
   accountMemberships,

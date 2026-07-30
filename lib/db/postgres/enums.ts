@@ -9,6 +9,19 @@ export const TEAM_SIZES = ["1", "2-5", "6-20", "21-50", "51+"] as const;
 
 export const ONBOARDING_USE_CASES = ["personal", "website", "sdk"] as const;
 
+/** Human login identity providers that can be linked to a developer account. */
+export const EXTERNAL_IDENTITY_PROVIDERS = ["github", "google"] as const;
+/** Modes an OAuth authorization request can be started in. */
+export const OAUTH_FLOW_MODES = ["login", "signup", "link"] as const;
+/** Identity lifecycle actions recorded in the durable identity audit log. */
+export const IDENTITY_AUDIT_ACTIONS = [
+  "identity_linked",
+  "identity_unlinked",
+  "identity_registered",
+  "identity_login",
+  "identity_link_rejected"
+] as const;
+
 export const WORKSPACE_ROLES = [
   "OWNER",
   "ENGINEERING_LEAD",

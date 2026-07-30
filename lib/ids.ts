@@ -25,6 +25,8 @@ export function createPublicId(
     | "pause"
     | "clia"
     | "pend"
+    | "extid"
+    | "oas"
     | "pol"
     | "ibind"
     | "omsg"
