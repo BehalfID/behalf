@@ -1,3 +1,8 @@
+"use client";
+
+// crossAppClickHandler resolves owned subdomains at click time via window.location,
+// so these links must be bound on the client.
+
 import { useTranslations } from "next-intl";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
