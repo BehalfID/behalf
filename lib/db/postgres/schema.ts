@@ -135,7 +135,7 @@ export const developerUsers = pgTable(
     /** Nullable for Google-only accounts. */
     passwordHash: text("password_hash"),
     googleSub: text("google_sub"),
-    authProviders: jsonb("auth_providers").$type<Array<"password" | "google">>(),
+    authProviders: jsonb("auth_providers").$type<Array<"password" | "google" | "github">>(),
     onboardingUseCase: text("onboarding_use_case").notNull().default("sdk"),
     primaryAccountId: text("primary_account_id").references(() => accounts.accountId, {
       onDelete: "set null"

@@ -1,6 +1,6 @@
 import mongoose, { Schema, type InferSchemaType, type Model } from "mongoose";
 
-export const AUTH_PROVIDERS = ["password", "google"] as const;
+export const AUTH_PROVIDERS = ["password", "google", "github"] as const;
 export type AuthProvider = (typeof AUTH_PROVIDERS)[number];
 
 const DeveloperUserSchema = new Schema(

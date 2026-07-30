@@ -1,10 +1,14 @@
 import OAuthPendingSignup from "@/models/OAuthPendingSignup";
+import type { ExternalIdentityProvider } from "@/models/ExternalIdentity";
 import { translateDuplicateKey } from "@/lib/repositories/errors";
 
 export type OAuthPendingSignupLean = {
   _id?: unknown;
   pendingId: string;
-  googleSub: string;
+  /** Legacy Google key; null for provider-neutral pending rows (e.g. GitHub). */
+  googleSub?: string | null;
+  provider?: ExternalIdentityProvider;
+  providerAccountId?: string | null;
   email: string;
   emailVerified: boolean;
   firstName?: string | null;

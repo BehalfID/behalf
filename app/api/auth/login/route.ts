@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
         reason: "oauth_only_account",
         email
       });
-      return jsonError(oauthOnlyLoginMessage(user.authProviders), 401);
+      return jsonError(oauthOnlyLoginMessage(user.authProviders ?? undefined), 401);
     }
     await recordAuthFailure({
       request,
