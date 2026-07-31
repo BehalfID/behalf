@@ -41,7 +41,7 @@ export function listAgents(
   const query = Agent.find(filter);
   if (options.select) query.select(options.select);
   if (options.sort) query.sort(options.sort);
-  return query;
+  return query.lean();
 }
 
 export async function updateAgent(
@@ -79,8 +79,10 @@ export function findAgents(filter: Record<string, unknown> = {}) {
   return Agent.find(filter);
 }
 
-export function findOneAgent(filter: Record<string, unknown>) {
-  return Agent.findOne(filter);
+export function findOneAgent(filter: Record<string, unknown>, options: { select?: string } = {}) {
+  const query = Agent.findOne(filter);
+  if (options.select) query.select(options.select);
+  return query.lean();
 }
 
 export function findOneAndUpdateAgent(

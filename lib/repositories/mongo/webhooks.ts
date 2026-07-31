@@ -19,13 +19,21 @@ export async function createEvent(input: Partial<WebhookEventDocument>) {
 export function findEndpoint(filter: Record<string, unknown>, select?: string) {
   const query = WebhookEndpoint.findOne(filter);
   if (select) query.select(select);
-  return query;
+  return query.lean();
 }
 
-export function listEndpoints(filter: Record<string, unknown>, select?: string) {
+export function listEndpoints(
+  filter: Record<string, unknown>,
+  selectOrOptions: string | { sort?: Record<string, 1 | -1>; limit?: number; skip?: number; select?: string } = {}
+) {
+  const options =
+    typeof selectOrOptions === "string" ? { select: selectOrOptions } : selectOrOptions;
   const query = WebhookEndpoint.find(filter);
-  if (select) query.select(select);
-  return query;
+  if (options.sort) query.sort(options.sort);
+  if (options.select) query.select(options.select);
+  if (options.skip) query.skip(options.skip);
+  if (options.limit) query.limit(options.limit);
+  return query.lean();
 }
 
 export function findActiveEndpointsForEvent(

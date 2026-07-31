@@ -5,14 +5,13 @@ import {
   getVerificationSeries,
   utcDayWindow
 } from "@/lib/adminAnalytics";
-import { connectToDatabase } from "@/lib/db";
 import { noCacheJson } from "@/lib/responses";
-import Agent from "@/models/Agent";
-import Permission from "@/models/Permission";
-import VerificationLog from "@/models/VerificationLog";
-import DeveloperUser from "@/models/DeveloperUser";
-import ApprovalRequest from "@/models/ApprovalRequest";
-import Account from "@/models/Account";
+import { countAccountDocuments } from "@/lib/repositories/accounts";
+import { countAgents } from "@/lib/repositories/agents";
+import { countApprovals } from "@/lib/repositories/approvals";
+import { countPermissions } from "@/lib/repositories/permissions";
+import { countUserDocuments } from "@/lib/repositories/users";
+import { countLogs, findOneLog } from "@/lib/repositories/verificationLogs";
 
 const ACTIVITY_DAYS = 14;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -33,8 +32,6 @@ export async function GET(request: NextRequest) {
     return authError;
   }
 
-  await connectToDatabase();
-
   const now = new Date();
   const today = utcDayWindow(now);
   const activityStart = new Date(today.end.getTime() - ACTIVITY_DAYS * DAY_MS);
@@ -52,18 +49,15 @@ export async function GET(request: NextRequest) {
     todayTotals,
     dailyActivity
   ] = await Promise.all([
-    Agent.countDocuments({}),
-    Permission.countDocuments({ status: "active" }),
-    VerificationLog.findOne({})
-      .sort({ createdAt: -1 })
-      .select("-_id requestId agentId action allowed approvalRequired shadow reason risk createdAt")
-      .lean(),
-    DeveloperUser.countDocuments({}),
-    DeveloperUser.countDocuments({ createdAt: { $gte: today.start, $lt: today.end } }),
-    ApprovalRequest.countDocuments({ status: "pending" }).catch(() => 0),
-    VerificationLog.countDocuments({}),
-    Account.countDocuments({}),
-    Account.countDocuments({ plan: { $in: ["pro", "team", "business", "enterprise"] } }),
+    countAgents({}),
+    countPermissions({ status: "active" }),
+    findOneLog({}, { select: "-_id requestId agentId action allowed approvalRequired shadow reason risk createdAt" }),
+    countUserDocuments({}),
+    countUserDocuments({ createdAt: { $gte: today.start, $lt: today.end } }),
+    countApprovals({ status: "pending" }).catch(() => 0),
+    countLogs({}),
+    countAccountDocuments({}),
+    countAccountDocuments({ plan: { $in: ["pro", "team", "business", "enterprise"] } }),
     getVerificationOutcomeTotals({ start: today.start, end: today.end }),
     getVerificationSeries({ start: activityStart, end: today.end, granularity: "day" })
   ]);

@@ -7,7 +7,7 @@ import { requireWorkspaceMutationActor } from "@/lib/workspaceActor";
 import { createApiKey } from "@/lib/ids";
 import { jsonError } from "@/lib/responses";
 import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
-import Agent from "@/models/Agent";
+import { updateAgent } from "@/lib/repositories/agents";
 
 type RouteContext = {
   params: Promise<{ agentId: string }>;
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const { agentId } = await context.params;
   const apiKey = createApiKey();
-  const result = await Agent.updateOne(accountAgentFilter(actor, agentId), {
+  const result = await updateAgent(accountAgentFilter(actor, agentId), {
     $set: { apiKeyHash: hashApiKey(apiKey), keyRotatedAt: new Date() },
     $unset: { lastUsedAt: "" }
   });

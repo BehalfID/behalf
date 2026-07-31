@@ -1,8 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireConsoleApi } from "@/lib/adminAuth";
-import { connectToDatabase } from "@/lib/db";
-import StatusIncident from "@/models/StatusIncident";
 import { randomUUID } from "crypto";
+import { createIncident, findStatusIncidents } from "@/lib/repositories/status";
 
 const VALID_INCIDENT_STATUSES = ["investigating", "identified", "watching", "fixed"] as const;
 const VALID_SEVERITIES = ["minor", "major", "critical"] as const;
@@ -13,12 +12,7 @@ export async function GET(request: NextRequest) {
   const authError = await requireConsoleApi(request);
   if (authError) return authError;
 
-  await connectToDatabase();
-
-  const incidents = await StatusIncident.find({})
-    .sort({ createdAt: -1 })
-    .select("-_id incidentId title message status severity componentIds updates resolvedAt createdAt updatedAt")
-    .lean();
+  const incidents = await findStatusIncidents({}, { sort: { createdAt: -1 }, select: "-_id incidentId title message status severity componentIds updates resolvedAt createdAt updatedAt" });
 
   return NextResponse.json({ incidents });
 }
@@ -26,8 +20,6 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const authError = await requireConsoleApi(request);
   if (authError) return authError;
-
-  await connectToDatabase();
 
   const body = (await request.json().catch(() => null)) as {
     title?: string;
@@ -44,7 +36,7 @@ export async function POST(request: NextRequest) {
   const status: IncStatus = VALID_INCIDENT_STATUSES.includes(body.status as IncStatus) ? (body.status as IncStatus) : "investigating";
   const severity: IncSeverity = VALID_SEVERITIES.includes(body.severity as IncSeverity) ? (body.severity as IncSeverity) : "minor";
 
-  const incident = await StatusIncident.create({
+  const incident = await createIncident({
     incidentId: randomUUID(),
     title: body.title.trim().slice(0, 200),
     message: body.message?.trim().slice(0, 2000) ?? undefined,

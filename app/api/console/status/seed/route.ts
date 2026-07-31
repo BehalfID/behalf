@@ -7,9 +7,8 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { requireConsoleApi } from "@/lib/adminAuth";
-import { connectToDatabase } from "@/lib/db";
-import StatusComponent from "@/models/StatusComponent";
 import { randomUUID } from "crypto";
+import { createComponent, findOneStatusComponent } from "@/lib/repositories/status";
 
 const DEFAULT_COMPONENTS = [
   { name: "Verification API",    description: "Action verification endpoint — /api/verify",           group: "Core API",            sortOrder: 10 },
@@ -27,18 +26,16 @@ export async function POST(request: NextRequest) {
   const authError = await requireConsoleApi(request);
   if (authError) return authError;
 
-  await connectToDatabase();
-
   const results: { name: string; action: "created" | "skipped" }[] = [];
 
   for (const comp of DEFAULT_COMPONENTS) {
-    const existing = await StatusComponent.findOne({ name: comp.name });
+    const existing = await findOneStatusComponent({ name: comp.name });
     if (existing) {
       results.push({ name: comp.name, action: "skipped" });
       continue;
     }
 
-    await StatusComponent.create({
+    await createComponent({
       componentId: randomUUID(),
       name: comp.name,
       description: comp.description,

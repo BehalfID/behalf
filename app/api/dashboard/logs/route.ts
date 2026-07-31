@@ -14,7 +14,7 @@ import {
   type VerificationLogListItem
 } from "@/lib/verificationLogs";
 import { noCacheJson } from "@/lib/responses";
-import VerificationLog from "@/models/VerificationLog";
+import { countLogs, findLogs } from "@/lib/repositories/verificationLogs";
 
 export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
@@ -33,13 +33,9 @@ export async function GET(request: NextRequest) {
   // Summary stats are computed via an aggregation pipeline to avoid fetching
   // up to 1000 documents into JavaScript just for counting.
   const [rawLogs, total, summary] = await Promise.all([
-    VerificationLog.find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .select("-_id requestId agentId permissionId action amount vendor allowed approvalRequired reason risk shadow metadata createdAt")
+    findLogs(query, { sort: { createdAt: -1 }, limit: limit, skip: skip, select: "-_id requestId agentId permissionId action amount vendor allowed approvalRequired reason risk shadow metadata createdAt" })
       .lean<VerificationLogListItem[]>(),
-    VerificationLog.countDocuments(query),
+    countLogs(query),
     getVerificationLogSummaryAgg(query)
   ]);
   const withEnvironment = rawLogs.map((log) => ({

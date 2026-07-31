@@ -5,19 +5,16 @@ import { readJsonObject } from "@/lib/request";
 import { jsonError, noCacheJson } from "@/lib/responses";
 import { normalizeSiteDomain } from "@/lib/siteGuard";
 import { readString, rejectUnknownFields } from "@/lib/validation";
-import Site from "@/models/Site";
+import { createSiteDocument, findOneSite, findSites } from "@/lib/repositories/sites";
 
 export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
 
-  const sites = await Site.find({
+  const sites = await findSites({
     developerUserId: auth.user.userId,
     ...(auth.activeAccountId ? { accountId: auth.activeAccountId } : {})
-  })
-    .sort({ createdAt: -1 })
-    .select("-_id siteId name domain status createdAt updatedAt")
-    .lean();
+  }, { sort: { createdAt: -1 }, select: "-_id siteId name domain status createdAt updatedAt" });
 
   return noCacheJson({ sites });
 }
@@ -39,10 +36,10 @@ export async function POST(request: NextRequest) {
   if (!name) return jsonError("name is required.");
   if (!domain) return jsonError("domain must be a hostname.");
 
-  const existing = await Site.findOne({ accountId: auth.activeAccountId, domain }).lean();
+  const existing = await findOneSite({ accountId: auth.activeAccountId, domain });
   if (existing) return jsonError("A Site Guard site already uses this domain.", 409);
 
-  const site = await Site.create({
+  const site = await createSiteDocument({
     siteId: createPublicId("site"),
     accountId: auth.activeAccountId,
     developerUserId: auth.user.userId,

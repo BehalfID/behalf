@@ -11,7 +11,7 @@ import { requireWorkspaceMutationActor } from "@/lib/workspaceActor";
 import { readJsonObject } from "@/lib/request";
 import { jsonError, noCacheJson } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
-import Agent from "@/models/Agent";
+import { findOneAndUpdateAgent } from "@/lib/repositories/agents";
 
 type RouteContext = {
   params: Promise<{ agentId: string }>;
@@ -95,7 +95,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   await backfillLegacyAgentsForActor(actor);
 
-  const agent = await Agent.findOneAndUpdate(
+  const agent = await findOneAndUpdateAgent(
     { ...accountScopeFilter(actor.accountId), agentId },
     { $set: update },
     { returnDocument: "after" }

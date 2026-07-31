@@ -5,8 +5,7 @@ import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { parseSiteGuardPaths } from "@/lib/siteGuard";
 import { readString, rejectUnknownFields } from "@/lib/validation";
-import Site from "@/models/Site";
-import SiteAccessRule from "@/models/SiteAccessRule";
+import { createRuleDocument, findOneSite } from "@/lib/repositories/sites";
 
 type RouteContext = {
   params: Promise<{ siteId: string }>;
@@ -46,14 +45,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (blocked.error || !blocked.paths) return jsonError(blocked.error ?? "blockedPaths are invalid.");
 
   const { siteId } = await context.params;
-  const site = await Site.findOne({
+  const site = await findOneSite({
     developerUserId: auth.user.userId,
     accountId: auth.activeAccountId,
     siteId
   });
   if (!site) return jsonError("Site not found.", 404);
 
-  const rule = await SiteAccessRule.create({
+  const rule = await createRuleDocument({
     ruleId: createPublicId("sgr"),
     siteId,
     accountId: site.accountId,

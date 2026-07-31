@@ -7,9 +7,9 @@ import {
   permissionGrantForbidden,
   viewerMutationForbidden
 } from "@/lib/delegatedAuth";
+import { findOnePermission, revokePermission } from "@/lib/repositories/permissions";
 import { jsonError } from "@/lib/responses";
 import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
-import Permission from "@/models/Permission";
 
 type RouteContext = {
   params: Promise<{ agentId: string; permissionId: string }>;
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const actor = await getWorkspaceActor(auth.user.userId, auth.activeAccountId);
   if (!actor) return jsonError("Workspace account required.", 403);
 
-  const permission = await Permission.findOne({
+  const permission = await findOnePermission({
     ...accountScopeFilter(actor.accountId),
     agentId,
     permissionId
@@ -35,9 +35,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   if (permission.status !== "revoked") {
-    permission.status = "revoked";
-    permission.updatedBy = auth.user.userId;
-    await permission.save();
+    await revokePermission(accountScopeFilter(actor.accountId), permissionId, auth.user.userId);
   }
 
   await emitWebhookEvent(

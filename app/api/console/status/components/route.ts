@@ -1,19 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireConsoleApi } from "@/lib/adminAuth";
-import { connectToDatabase } from "@/lib/db";
-import StatusComponent from "@/models/StatusComponent";
 import { randomUUID } from "crypto";
+import { createComponent, findStatusComponents } from "@/lib/repositories/status";
 
 export async function GET(request: NextRequest) {
   const authError = await requireConsoleApi(request);
   if (authError) return authError;
 
-  await connectToDatabase();
-
-  const components = await StatusComponent.find({})
-    .sort({ sortOrder: 1, name: 1 })
-    .select("-_id componentId name description group sortOrder status enabled createdAt updatedAt")
-    .lean();
+  const components = await findStatusComponents({}, { sort: { sortOrder: 1, name: 1 }, select: "-_id componentId name description group sortOrder status enabled createdAt updatedAt" });
 
   return NextResponse.json({ components });
 }
@@ -21,8 +15,6 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const authError = await requireConsoleApi(request);
   if (authError) return authError;
-
-  await connectToDatabase();
 
   const body = (await request.json().catch(() => null)) as {
     name?: string;
@@ -40,7 +32,7 @@ export async function POST(request: NextRequest) {
   type CompStatus = typeof validStatuses[number];
   const status: CompStatus = validStatuses.includes(body.status as CompStatus) ? (body.status as CompStatus) : "operational";
 
-  const component = await StatusComponent.create({
+  const component = await createComponent({
     componentId: randomUUID(),
     name: body.name.trim().slice(0, 120),
     description: body.description?.trim().slice(0, 500) ?? undefined,

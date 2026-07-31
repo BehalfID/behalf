@@ -6,12 +6,12 @@ import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { rejectUnknownFields } from "@/lib/validation";
 import {
+import { createEndpoint, listEndpoints } from "@/lib/repositories/webhooks";
   createSigningSecret,
   validateWebhookEvents,
   validateWebhookUrl,
   WEBHOOK_EVENT_TYPES
 } from "@/lib/webhooks";
-import WebhookEndpoint from "@/models/WebhookEndpoint";
 
 export async function GET(request: NextRequest) {
   const authError = await requireConsoleApi(request);
@@ -20,10 +20,7 @@ export async function GET(request: NextRequest) {
   }
 
   const accountId = await getConsoleAccountId();
-  const webhooks = await WebhookEndpoint.find({ accountId })
-    .sort({ createdAt: -1 })
-    .select("-_id webhookId url secretPreview events status lastTriggeredAt createdAt updatedAt")
-    .lean();
+  const webhooks = await listEndpoints({ accountId }, { sort: { createdAt: -1 }, select: "-_id webhookId url secretPreview events status lastTriggeredAt createdAt updatedAt" });
 
   return NextResponse.json({ webhooks, eventTypes: WEBHOOK_EVENT_TYPES });
 }
@@ -52,7 +49,7 @@ export async function POST(request: NextRequest) {
 
   const accountId = await getConsoleAccountId();
   const signing = createSigningSecret();
-  const webhook = await WebhookEndpoint.create({
+  const webhook = await createEndpoint({
     webhookId: createPublicId("wh"),
     accountId,
     url,

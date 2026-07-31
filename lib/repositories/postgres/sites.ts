@@ -417,10 +417,16 @@ export async function touchLastUsed(
   return { acknowledged: true, matchedCount: rows.length, modifiedCount: rows.length };
 }
 
-export async function findSites(db: BehalfPostgresDb, filter: Record<string, unknown> = {}) {
+export async function findSites(
+  db: BehalfPostgresDb,
+  filter: Record<string, unknown> = {},
+  options: { sort?: Record<string, 1 | -1>; limit?: number; skip?: number; select?: string } = {}
+) {
   return db.query.sites.findMany({
     where: buildWhere(siteColumns, filter),
-    orderBy: desc(sites.createdAt)
+    orderBy: desc(sites.createdAt),
+    limit: options.limit,
+    offset: options.skip
   });
 }
 
@@ -428,7 +434,11 @@ export async function createSiteDocument(db: BehalfPostgresDb, input: Record<str
   return createSite(db, input as Parameters<typeof createSite>[1]);
 }
 
-export async function findOneSite(db: BehalfPostgresDb, filter: Record<string, unknown>) {
+export async function findOneSite(
+  db: BehalfPostgresDb,
+  filter: Record<string, unknown>,
+  _options: { select?: string } = {}
+) {
   return (
     (await db.query.sites.findFirst({
       where: buildWhere(siteColumns, filter)
@@ -453,10 +463,16 @@ export async function findOneAndUpdateSite(
   return returnAfter ? (row ?? null) : before;
 }
 
-export async function findRules(db: BehalfPostgresDb, filter: Record<string, unknown> = {}) {
+export async function findRules(
+  db: BehalfPostgresDb,
+  filter: Record<string, unknown> = {},
+  options: { sort?: Record<string, 1 | -1>; limit?: number; skip?: number; select?: string } = {}
+) {
   return db.query.siteAccessRules.findMany({
     where: buildWhere(ruleColumns, filter),
-    orderBy: desc(siteAccessRules.createdAt)
+    orderBy: desc(siteAccessRules.createdAt),
+    limit: options.limit,
+    offset: options.skip
   });
 }
 
@@ -489,10 +505,16 @@ export async function findOneAndUpdateRule(
   return returnAfter ? (row ?? null) : before;
 }
 
-export async function findAccessLogs(db: BehalfPostgresDb, filter: Record<string, unknown> = {}) {
+export async function findAccessLogs(
+  db: BehalfPostgresDb,
+  filter: Record<string, unknown> = {},
+  options: { sort?: Record<string, 1 | -1>; limit?: number; skip?: number; select?: string } = {}
+) {
   return db.query.siteAccessLogs.findMany({
     where: buildWhere(logColumns, filter),
-    orderBy: desc(siteAccessLogs.createdAt)
+    orderBy: desc(siteAccessLogs.createdAt),
+    limit: options.limit,
+    offset: options.skip
   });
 }
 
@@ -504,10 +526,16 @@ export async function deleteAccessLogs(db: BehalfPostgresDb, filter: Record<stri
   return { acknowledged: true, deletedCount: rows.length };
 }
 
-export async function findKeys(db: BehalfPostgresDb, filter: Record<string, unknown> = {}) {
+export async function findKeys(
+  db: BehalfPostgresDb,
+  filter: Record<string, unknown> = {},
+  options: { sort?: Record<string, 1 | -1>; limit?: number; skip?: number; select?: string } = {}
+) {
   return db.query.siteGuardKeys.findMany({
     where: buildWhere(keyColumns, filter),
-    orderBy: desc(siteGuardKeys.createdAt)
+    orderBy: desc(siteGuardKeys.createdAt),
+    limit: options.limit,
+    offset: options.skip
   });
 }
 

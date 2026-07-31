@@ -418,7 +418,8 @@ export async function createUserDocument(
 
 export async function findUsers(
   db: BehalfPostgresDb,
-  filter: Record<string, unknown> = {}
+  filter: Record<string, unknown> = {},
+  _options: { sort?: Record<string, 1 | -1>; limit?: number; skip?: number; select?: string } = {}
 ): Promise<DeveloperUserLean[]> {
   const rows = await db.select().from(developerUsers).where(buildWhere(filter));
   return rows.map(toLean);

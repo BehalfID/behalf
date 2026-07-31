@@ -131,8 +131,16 @@ export function createUserDocument(input: Record<string, unknown>) {
   return DeveloperUser.create(input);
 }
 
-export function findUsers(filter: Record<string, unknown> = {}) {
-  return DeveloperUser.find(filter);
+export function findUsers(
+  filter: Record<string, unknown> = {},
+  options: { sort?: Record<string, 1 | -1>; limit?: number; skip?: number; select?: string } = {}
+) {
+  const query = DeveloperUser.find(filter);
+  if (options.sort) query.sort(options.sort);
+  if (options.select) query.select(options.select);
+  if (options.skip) query.skip(options.skip);
+  if (options.limit) query.limit(options.limit);
+  return query.lean();
 }
 
 export function findOneUser(filter: Record<string, unknown>) {

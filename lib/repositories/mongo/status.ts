@@ -73,29 +73,54 @@ export async function deleteIncident(incidentId: string) {
   return StatusIncident.findOneAndDelete({ incidentId }).lean();
 }
 
+type StatusQueryOptions = {
+  sort?: Record<string, 1 | -1>;
+  limit?: number;
+  skip?: number;
+  select?: string;
+};
+
 /** Mongo query primitives for routes that need an exact model query shape. */
-export function findStatusComponents(filter: Record<string, unknown> = {}) {
-  return StatusComponent.find(filter);
+export function findStatusComponents(
+  filter: Record<string, unknown> = {},
+  options: StatusQueryOptions = {}
+) {
+  const query = StatusComponent.find(filter);
+  if (options.sort) query.sort(options.sort);
+  else query.sort({ sortOrder: 1, name: 1 });
+  if (options.select) query.select(options.select);
+  if (options.skip) query.skip(options.skip);
+  if (options.limit) query.limit(options.limit);
+  return query.lean();
 }
 
 export function findOneStatusComponent(filter: Record<string, unknown>) {
-  return StatusComponent.findOne(filter);
+  return StatusComponent.findOne(filter).lean();
 }
 
 export function findOneAndDeleteStatusComponent(filter: Record<string, unknown>) {
-  return StatusComponent.findOneAndDelete(filter);
+  return StatusComponent.findOneAndDelete(filter).lean();
 }
 
-export function findStatusIncidents(filter: Record<string, unknown> = {}) {
-  return StatusIncident.find(filter);
+export function findStatusIncidents(
+  filter: Record<string, unknown> = {},
+  options: StatusQueryOptions = {}
+) {
+  const query = StatusIncident.find(filter);
+  if (options.sort) query.sort(options.sort);
+  else query.sort({ createdAt: -1 });
+  if (options.select) query.select(options.select);
+  if (options.skip) query.skip(options.skip);
+  if (options.limit) query.limit(options.limit);
+  return query.lean();
 }
 
 export function findOneStatusIncident(filter: Record<string, unknown>) {
-  return StatusIncident.findOne(filter);
+  return StatusIncident.findOne(filter).lean();
 }
 
 export function findOneAndDeleteStatusIncident(filter: Record<string, unknown>) {
-  return StatusIncident.findOneAndDelete(filter);
+  return StatusIncident.findOneAndDelete(filter).lean();
 }
 
 export const statusComponentRepository = { create: createComponent, find: findStatusComponents, findOne: findOneStatusComponent, findOneAndDelete: findOneAndDeleteStatusComponent };

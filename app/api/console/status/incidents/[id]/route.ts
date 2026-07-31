@@ -1,7 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireConsoleApi } from "@/lib/adminAuth";
-import { connectToDatabase } from "@/lib/db";
-import StatusIncident from "@/models/StatusIncident";
+import {
+  findOneAndDeleteStatusIncident,
+  findOneStatusIncident,
+  updateIncident
+} from "@/lib/repositories/status";
 
 const VALID_INCIDENT_STATUSES = ["investigating", "identified", "watching", "fixed"];
 const VALID_SEVERITIES = ["minor", "major", "critical"];
@@ -12,8 +15,6 @@ export async function PATCH(
 ) {
   const authError = await requireConsoleApi(request);
   if (authError) return authError;
-
-  await connectToDatabase();
 
   const { id } = await params;
   const body = (await request.json().catch(() => null)) as {
@@ -29,50 +30,58 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  const incident = await StatusIncident.findOne({ incidentId: id });
+  const incident = await findOneStatusIncident({ incidentId: id });
   if (!incident) {
     return NextResponse.json({ error: "Incident not found" }, { status: 404 });
   }
 
-  if (body.title !== undefined) incident.title = body.title.trim().slice(0, 200);
-  if (body.message !== undefined) incident.message = body.message?.trim().slice(0, 2000);
+  const update: Record<string, unknown> = {};
+
+  if (body.title !== undefined) update.title = body.title.trim().slice(0, 200);
+  if (body.message !== undefined) update.message = body.message?.trim().slice(0, 2000);
   if (body.severity !== undefined && VALID_SEVERITIES.includes(body.severity)) {
-    incident.severity = body.severity as typeof incident.severity;
+    update.severity = body.severity;
   }
   if (body.status !== undefined && VALID_INCIDENT_STATUSES.includes(body.status)) {
-    incident.status = body.status as typeof incident.status;
+    update.status = body.status;
     if (body.status === "fixed" && !incident.resolvedAt) {
-      incident.resolvedAt = new Date();
+      update.resolvedAt = new Date();
     } else if (body.status !== "fixed") {
-      incident.resolvedAt = undefined;
+      update.resolvedAt = null;
     }
   }
   if (Array.isArray(body.componentIds)) {
-    incident.componentIds = body.componentIds;
+    update.componentIds = body.componentIds;
   }
 
-  // Append an update entry if updateBody is provided
   if (body.updateBody?.trim()) {
-    incident.updates.push({
-      body: body.updateBody.trim().slice(0, 2000),
-      status: (incident.status as "investigating" | "identified" | "watching" | "fixed"),
-      createdAt: new Date()
-    } as typeof incident.updates[number]);
+    const status = (update.status as string | undefined) ?? incident.status;
+    update.updates = [
+      ...(incident.updates ?? []),
+      {
+        body: body.updateBody.trim().slice(0, 2000),
+        status: status as "investigating" | "identified" | "watching" | "fixed",
+        createdAt: new Date()
+      }
+    ];
   }
 
-  await incident.save();
+  const updated = await updateIncident(id, update);
+  if (!updated) {
+    return NextResponse.json({ error: "Incident not found" }, { status: 404 });
+  }
 
   return NextResponse.json({
     incident: {
-      incidentId: incident.incidentId,
-      title: incident.title,
-      message: incident.message,
-      status: incident.status,
-      severity: incident.severity,
-      componentIds: incident.componentIds,
-      updates: incident.updates,
-      resolvedAt: incident.resolvedAt,
-      updatedAt: incident.updatedAt
+      incidentId: updated.incidentId,
+      title: updated.title,
+      message: updated.message,
+      status: updated.status,
+      severity: updated.severity,
+      componentIds: updated.componentIds,
+      updates: updated.updates,
+      resolvedAt: updated.resolvedAt,
+      updatedAt: updated.updatedAt
     }
   });
 }
@@ -84,10 +93,8 @@ export async function DELETE(
   const authError = await requireConsoleApi(request);
   if (authError) return authError;
 
-  await connectToDatabase();
-
   const { id } = await params;
-  const deleted = await StatusIncident.findOneAndDelete({ incidentId: id });
+  const deleted = await findOneAndDeleteStatusIncident({ incidentId: id });
   if (!deleted) {
     return NextResponse.json({ error: "Incident not found" }, { status: 404 });
   }

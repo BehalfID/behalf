@@ -1,8 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import { jsonError } from "@/lib/responses";
-import Site from "@/models/Site";
-import SiteGuardKey from "@/models/SiteGuardKey";
+import { findOneAndUpdateKey, findOneSite } from "@/lib/repositories/sites";
 
 type RouteContext = {
   params: Promise<{ siteId: string; keyId: string }>;
@@ -14,14 +13,14 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
   if (!auth.activeAccountId) return jsonError("Developer account is required.", 409);
   const { siteId, keyId } = await context.params;
 
-  const site = await Site.findOne({ developerUserId: auth.user.userId, accountId: auth.activeAccountId, siteId }).lean();
+  const site = await findOneSite({ developerUserId: auth.user.userId, accountId: auth.activeAccountId, siteId });
   if (!site) return jsonError("Site not found.", 404);
 
-  const key = await SiteGuardKey.findOneAndUpdate(
+  const key = await findOneAndUpdateKey(
     { developerUserId: auth.user.userId, accountId: auth.activeAccountId, siteId, keyId, status: "active" },
     { $set: { status: "revoked" } },
     { returnDocument: "after" }
-  ).select("-_id keyId siteId name keyPreview status updatedAt");
+  );
 
   if (!key) return jsonError("Site Guard key not found or already revoked.", 404);
 

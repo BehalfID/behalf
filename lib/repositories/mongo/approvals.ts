@@ -129,8 +129,16 @@ export function findOneApproval(filter: Record<string, unknown>) {
   return ApprovalRequest.findOne(filter);
 }
 
-export function findApprovals(filter: Record<string, unknown> = {}) {
-  return ApprovalRequest.find(filter);
+export function findApprovals(
+  filter: Record<string, unknown> = {},
+  options: { sort?: Record<string, 1 | -1>; limit?: number; skip?: number; select?: string } = {}
+) {
+  const query = ApprovalRequest.find(filter);
+  if (options.sort) query.sort(options.sort);
+  if (options.select) query.select(options.select);
+  if (options.skip) query.skip(options.skip);
+  if (options.limit) query.limit(options.limit);
+  return query.lean();
 }
 
 export function updateApproval(filter: Record<string, unknown>, update: Record<string, unknown>) {

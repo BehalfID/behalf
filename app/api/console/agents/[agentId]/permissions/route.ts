@@ -13,7 +13,7 @@ import {
   rejectUnknownFields
 } from "@/lib/validation";
 import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
-import Permission from "@/models/Permission";
+import { createPermission } from "@/lib/repositories/permissions";
 
 type RouteContext = {
   params: Promise<{ agentId: string }>;
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return jsonError("Agent not found.", 404);
   }
 
-  const permission = await Permission.create({
+  const permission = await createPermission({
     permissionId: createPublicId("perm"),
     accountId,
     agentId,

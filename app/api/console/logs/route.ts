@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireConsoleApi } from "@/lib/adminAuth";
 import { getConsoleAccountId } from "@/lib/consoleData";
 import {
+import { countLogs, findLogs } from "@/lib/repositories/verificationLogs";
   buildVerificationLogQuery,
   calculateVerificationLogSummary,
   logsToCsv,
@@ -9,7 +10,6 @@ import {
   withAgentNames,
   type VerificationLogListItem
 } from "@/lib/verificationLogs";
-import VerificationLog from "@/models/VerificationLog";
 
 export async function GET(request: NextRequest) {
   const authError = await requireConsoleApi(request);
@@ -22,21 +22,14 @@ export async function GET(request: NextRequest) {
   const query = buildVerificationLogQuery(request.nextUrl.searchParams, { accountId });
 
   const [rawLogs, total, summaryLogs] = await Promise.all([
-    VerificationLog.find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .select(
+    findLogs(query, { sort: { createdAt: -1 }, limit: limit, skip: skip, select: 
         "-_id requestId accountId developerUserId agentId permissionId action amount vendor allowed approvalRequired reason risk shadow createdAt"
-      )
+       })
       .lean<VerificationLogListItem[]>(),
-    VerificationLog.countDocuments(query),
-    VerificationLog.find(query)
-      .sort({ createdAt: -1 })
-      .limit(1000)
-      .select(
+    countLogs(query),
+    findLogs(query, { sort: { createdAt: -1 }, limit: 1000, select: 
         "-_id requestId accountId developerUserId agentId permissionId action amount vendor allowed approvalRequired reason risk shadow createdAt"
-      )
+       })
       .lean<VerificationLogListItem[]>()
   ]);
   const logs = await withAgentNames(rawLogs, { accountId });

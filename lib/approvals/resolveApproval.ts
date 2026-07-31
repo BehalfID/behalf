@@ -9,10 +9,11 @@ import {
   canDenyRequest,
   type WorkspaceActor
 } from "@/lib/delegatedAuth";
-import type { ApprovalRequestDocument } from "@/models/ApprovalRequest";
 import {
-  approvalRepository as ApprovalRequest,
-  APPROVAL_GRANT_TTL_MS
+  APPROVAL_GRANT_TTL_MS,
+  findOneApproval,
+  updateApproval,
+  type ApprovalLean
 } from "@/lib/repositories/approvals";
 
 export type ResolveApprovalDecision = "approve" | "deny";
@@ -30,24 +31,6 @@ export type ResolveApprovalResult =
       error: string;
     };
 
-type ApprovalLean = {
-  approvalId: string;
-  accountId?: string | null;
-  developerUserId?: string | null;
-  kind?: ApprovalRequestDocument["kind"] | null;
-  agentId?: string | null;
-  permissionId?: string | null;
-  action: string;
-  vendor?: string | null;
-  amount?: number | null;
-  argumentPreview?: string | null;
-  argumentKind?: string | null;
-  argumentFingerprint?: string | null;
-  requiredAuthorityLevel?: number | null;
-  requestId?: string | null;
-  status?: string | null;
-};
-
 /**
  * Shared approve/deny mutation used by dashboard routes and Slack interactions.
  */
@@ -58,11 +41,11 @@ export async function resolveApprovalDecision(input: {
 }): Promise<ResolveApprovalResult> {
   const { actor, approvalId, decision } = input;
 
-  const approval = (await ApprovalRequest.findOne({
+  const approval = (await findOneApproval({
     approvalId,
     accountId: actor.accountId,
     status: "pending"
-  }).lean()) as ApprovalLean | null;
+  })) as ApprovalLean | null;
 
   if (!approval) {
     return { ok: false, status: 404, error: "Approval request not found or already resolved." };
@@ -82,7 +65,7 @@ export async function resolveApprovalDecision(input: {
 
     const now = new Date();
     const grantExpiresAt = new Date(now.getTime() + APPROVAL_GRANT_TTL_MS);
-    const result = await ApprovalRequest.updateOne(
+    const result = await updateApproval(
       { approvalId, accountId: actor.accountId, status: "pending" },
       {
         $set: {
@@ -127,7 +110,7 @@ export async function resolveApprovalDecision(input: {
   }
 
   const now = new Date();
-  const result = await ApprovalRequest.updateOne(
+  const result = await updateApproval(
     { approvalId, accountId: actor.accountId, status: "pending" },
     {
       $set: {
