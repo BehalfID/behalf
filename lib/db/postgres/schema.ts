@@ -168,6 +168,10 @@ export const developerUsers = pgTable(
     lastSignInAt: timestamp("last_sign_in_at", { withTimezone: true, mode: "date" }),
     lastSignInMethod: text("last_sign_in_method"),
     lastSignInUserAgent: text("last_sign_in_user_agent"),
+    mfaTotpSecretEnc: text("mfa_totp_secret_enc"),
+    mfaTotpPendingSecretEnc: text("mfa_totp_pending_secret_enc"),
+    mfaEnabledAt: timestamp("mfa_enabled_at", { withTimezone: true, mode: "date" }),
+    mfaBackupCodeHashes: jsonb("mfa_backup_code_hashes").$type<string[]>(),
     ...createdUpdatedAt()
   },
   (table) => [

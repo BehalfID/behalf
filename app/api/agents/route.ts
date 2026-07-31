@@ -7,24 +7,21 @@ import {
 } from "@/lib/adminAuth";
 import { getDefaultAccountId } from "@/lib/account";
 import { parseAgentMetadata } from "@/lib/agents";
-import { connectToDatabase } from "@/lib/db";
 import { authenticateDeveloperToken } from "@/lib/developerToken";
 import { createApiKey, createPublicId } from "@/lib/ids";
 import { checkAgentLimit, quotaErrorDetails } from "@/lib/quota";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
+import { createAgent } from "@/lib/repositories/agents";
 import { readString, rejectUnknownFields } from "@/lib/validation";
 import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
-import Agent from "@/models/Agent";
 
 export async function POST(request: NextRequest) {
   const ipLimit = await checkRateLimit(request);
   if (ipLimit.limited) {
     return rateLimitError();
   }
-
-  await connectToDatabase();
 
   const { tokenDoc, error: tokenError } = await authenticateDeveloperToken(request);
   if (tokenError) {
@@ -78,7 +75,7 @@ export async function POST(request: NextRequest) {
   const apiKey = createApiKey();
   const agentId = createPublicId("agent");
 
-  await Agent.create({
+  await createAgent({
     agentId,
     accountId,
     ...(developerUserId ? { developerUserId } : {}),

@@ -1,9 +1,8 @@
 import crypto from "crypto";
 import { NextResponse, type NextRequest } from "next/server";
-import { connectToDatabase } from "@/lib/db";
 import { createPublicId, createUserCode } from "@/lib/ids";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
-import DeviceCode from "@/models/DeviceCode";
+import * as deviceCodes from "@/lib/repositories/deviceCodes";
 
 const DEVICE_CODE_TTL_MS = 15 * 60 * 1000;
 
@@ -11,12 +10,10 @@ export async function POST(request: NextRequest) {
   const limit = await checkRateLimit(request);
   if (limit.limited) return rateLimitError();
 
-  await connectToDatabase();
-
   const deviceCode = crypto.randomBytes(32).toString("base64url");
   const userCode = createUserCode();
 
-  await DeviceCode.create({
+  await deviceCodes.createDeviceCode({
     codeId: createPublicId("dev"),
     deviceCode,
     userCode,

@@ -2,12 +2,11 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { agentAuthJsonError } from "@/lib/appErrors";
 import { authenticateAgent, hashApiKey } from "@/lib/auth";
-import { connectToDatabase } from "@/lib/db";
 import { createApiKey } from "@/lib/ids";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
+import { updateAgent } from "@/lib/repositories/agents";
 import { jsonError } from "@/lib/responses";
 import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
-import Agent from "@/models/Agent";
 
 type RouteContext = {
   params: Promise<{ agentId: string }>;
@@ -24,8 +23,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return rateLimitError();
   }
 
-  await connectToDatabase();
-
   const auth = await authenticateAgent(request, agentId);
   if (auth.error || !auth.agent) {
     return agentAuthJsonError(auth.error);
@@ -37,7 +34,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   const apiKey = createApiKey();
-  const result = await Agent.updateOne(
+  const result = await updateAgent(
     { agentId, apiKeyHash: auth.agent.apiKeyHash },
     {
       $set: { apiKeyHash: hashApiKey(apiKey), keyRotatedAt: new Date() },

@@ -27,6 +27,10 @@ export type DeveloperUserLean = {
   lastSignInAt?: Date;
   lastSignInMethod?: "password" | "github" | "google" | "passkey";
   lastSignInUserAgent?: string;
+  mfaTotpSecretEnc?: string;
+  mfaTotpPendingSecretEnc?: string;
+  mfaEnabledAt?: Date | null;
+  mfaBackupCodeHashes?: string[];
   createdAt?: Date;
   updatedAt?: Date;
 };

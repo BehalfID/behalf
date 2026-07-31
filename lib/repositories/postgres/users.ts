@@ -51,6 +51,10 @@ const columns: Record<string, AnyPgColumn> = {
   lastSignInAt: developerUsers.lastSignInAt,
   lastSignInMethod: developerUsers.lastSignInMethod,
   lastSignInUserAgent: developerUsers.lastSignInUserAgent,
+  mfaTotpSecretEnc: developerUsers.mfaTotpSecretEnc,
+  mfaTotpPendingSecretEnc: developerUsers.mfaTotpPendingSecretEnc,
+  mfaEnabledAt: developerUsers.mfaEnabledAt,
+  mfaBackupCodeHashes: developerUsers.mfaBackupCodeHashes,
   createdAt: developerUsers.createdAt,
   updatedAt: developerUsers.updatedAt
 };
@@ -167,6 +171,10 @@ function toLean(row: UserRow): DeveloperUserLean {
     lastSignInAt: row.lastSignInAt ?? undefined,
     lastSignInMethod: (row.lastSignInMethod as DeveloperUserLean["lastSignInMethod"]) ?? undefined,
     lastSignInUserAgent: row.lastSignInUserAgent ?? undefined,
+    mfaTotpSecretEnc: row.mfaTotpSecretEnc ?? undefined,
+    mfaTotpPendingSecretEnc: row.mfaTotpPendingSecretEnc ?? undefined,
+    mfaEnabledAt: row.mfaEnabledAt,
+    mfaBackupCodeHashes: row.mfaBackupCodeHashes ?? undefined,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
   };
