@@ -1,31 +1,27 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  membershipFind: vi.fn(),
-  membershipFindOne: vi.fn(),
-  accountFind: vi.fn(),
-  accountFindOne: vi.fn(),
-  sessionUpdateOne: vi.fn()
+  findMembershipsByUserId: vi.fn(),
+  findMembershipByUserAndAccount: vi.fn(),
+  findAccountByIdLean: vi.fn(),
+  findAccountBySlugLean: vi.fn(),
+  listAccounts: vi.fn(),
+  updateActiveAccountId: vi.fn()
 }));
 
-vi.mock("@/models/AccountMembership", () => ({
-  default: {
-    find: mocks.membershipFind,
-    findOne: mocks.membershipFindOne
-  }
+vi.mock("@/lib/repositories/memberships", () => ({
+  findMembershipsByUserId: mocks.findMembershipsByUserId,
+  findMembershipByUserAndAccount: mocks.findMembershipByUserAndAccount
 }));
 
-vi.mock("@/models/Account", () => ({
-  default: {
-    find: mocks.accountFind,
-    findOne: mocks.accountFindOne
-  }
+vi.mock("@/lib/repositories/accounts", () => ({
+  findAccountByIdLean: mocks.findAccountByIdLean,
+  findAccountBySlugLean: mocks.findAccountBySlugLean,
+  listAccounts: mocks.listAccounts
 }));
 
-vi.mock("@/models/DeveloperSession", () => ({
-  default: {
-    updateOne: mocks.sessionUpdateOne
-  }
+vi.mock("@/lib/repositories/sessions", () => ({
+  updateActiveAccountId: mocks.updateActiveAccountId
 }));
 
 describe("account context", () => {
@@ -34,11 +30,10 @@ describe("account context", () => {
   });
 
   it("uses session active account when user is a member", async () => {
-    mocks.membershipFind.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        lean: vi.fn().mockResolvedValue([{ accountId: "acct_primary" }, { accountId: "acct_team" }])
-      })
-    });
+    mocks.findMembershipsByUserId.mockResolvedValue([
+      { accountId: "acct_primary" },
+      { accountId: "acct_team" }
+    ]);
     const { resolveActiveAccountId } = await import("@/lib/accountContext");
     await expect(
       resolveActiveAccountId("user_a", {
@@ -49,11 +44,7 @@ describe("account context", () => {
   });
 
   it("falls back to primary account for single-account users", async () => {
-    mocks.membershipFind.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        lean: vi.fn().mockResolvedValue([{ accountId: "acct_primary" }])
-      })
-    });
+    mocks.findMembershipsByUserId.mockResolvedValue([{ accountId: "acct_primary" }]);
     const { resolveActiveAccountId } = await import("@/lib/accountContext");
     await expect(
       resolveActiveAccountId("user_a", {
@@ -64,9 +55,7 @@ describe("account context", () => {
   });
 
   it("rejects switching to accounts without membership", async () => {
-    mocks.membershipFindOne.mockReturnValue({
-      lean: vi.fn().mockResolvedValue(null)
-    });
+    mocks.findMembershipByUserAndAccount.mockResolvedValue(null);
     const { switchActiveAccount } = await import("@/lib/accountContext");
     await expect(switchActiveAccount("user_a", "sess_a", "acct_other")).resolves.toEqual({
       error: "You do not have access to that workspace."
@@ -74,13 +63,15 @@ describe("account context", () => {
   });
 
   it("allows switching only to member accounts", async () => {
-    mocks.membershipFindOne.mockReturnValue({
-      lean: vi.fn().mockResolvedValue({ membershipId: "mbr_team", accountId: "acct_team", userId: "user_a" })
+    mocks.findMembershipByUserAndAccount.mockResolvedValue({
+      membershipId: "mbr_team",
+      accountId: "acct_team",
+      userId: "user_a"
     });
-    mocks.accountFindOne.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        lean: vi.fn().mockResolvedValue({ accountId: "acct_team", name: "Team", slug: "team" })
-      })
+    mocks.findAccountByIdLean.mockResolvedValue({
+      accountId: "acct_team",
+      name: "Team",
+      slug: "team"
     });
     const { switchActiveAccount } = await import("@/lib/accountContext");
     await expect(switchActiveAccount("user_a", "sess_a", "acct_team")).resolves.toEqual({
@@ -89,29 +80,18 @@ describe("account context", () => {
       slug: "team",
       name: "Team"
     });
-    expect(mocks.sessionUpdateOne).toHaveBeenCalledWith(
-      { sessionId: "sess_a", userId: "user_a" },
-      { $set: { activeAccountId: "acct_team" } }
-    );
+    expect(mocks.updateActiveAccountId).toHaveBeenCalledWith("user_a", "sess_a", "acct_team");
   });
 
   it("includes slug on UserAccountSummary rows", async () => {
-    mocks.membershipFind.mockReturnValue({
-      sort: vi.fn().mockReturnValue({
-        lean: vi.fn().mockResolvedValue([
-          { accountId: "acct_primary", role: "OWNER", userId: "user_a" },
-          { accountId: "acct_team", role: "ENGINEER", userId: "user_a" }
-        ])
-      })
-    });
-    mocks.accountFind.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        lean: vi.fn().mockResolvedValue([
-          { accountId: "acct_primary", name: "Primary", slug: "primary" },
-          { accountId: "acct_team", name: "Team", slug: "team" }
-        ])
-      })
-    });
+    mocks.findMembershipsByUserId.mockResolvedValue([
+      { accountId: "acct_primary", role: "OWNER", userId: "user_a" },
+      { accountId: "acct_team", role: "ENGINEER", userId: "user_a" }
+    ]);
+    mocks.listAccounts.mockResolvedValue([
+      { accountId: "acct_primary", name: "Primary", slug: "primary" },
+      { accountId: "acct_team", name: "Team", slug: "team" }
+    ]);
     const { listUserAccounts } = await import("@/lib/accountContext");
     await expect(listUserAccounts("user_a", "acct_primary")).resolves.toEqual([
       {
@@ -132,11 +112,7 @@ describe("account context", () => {
   });
 
   it("clears stale session activeAccountId when membership was removed", async () => {
-    mocks.membershipFind.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        lean: vi.fn().mockResolvedValue([{ accountId: "acct_primary" }])
-      })
-    });
+    mocks.findMembershipsByUserId.mockResolvedValue([{ accountId: "acct_primary" }]);
     const { resolveActiveAccountId } = await import("@/lib/accountContext");
     await expect(
       resolveActiveAccountId("user_a", {
@@ -145,9 +121,6 @@ describe("account context", () => {
         primaryAccountId: "acct_primary"
       })
     ).resolves.toBe("acct_primary");
-    expect(mocks.sessionUpdateOne).toHaveBeenCalledWith(
-      { sessionId: "sess_a", userId: "user_a" },
-      { $unset: { activeAccountId: "" } }
-    );
+    expect(mocks.updateActiveAccountId).toHaveBeenCalledWith("user_a", "sess_a", null);
   });
 });

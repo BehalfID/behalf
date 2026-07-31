@@ -40,7 +40,13 @@ const EXPECTED_CORE_TABLES: CoreTableName[] = [
   "statusIncidents",
   "policyDocuments",
   "integrationBindings",
-  "collaborationMessageRefs"
+  "collaborationMessageRefs",
+  "authEvents",
+  "consoleAdmins",
+  "adminAuditLogs",
+  "permissionReplacementAudits",
+  "adaptiveDelegationRecommendations",
+  "adaptiveDelegationEvents"
 ];
 
 const EXPECTED_SQL_TABLE_NAMES = [
@@ -79,7 +85,13 @@ const EXPECTED_SQL_TABLE_NAMES = [
   "status_incidents",
   "policy_documents",
   "integration_bindings",
-  "collaboration_message_refs"
+  "collaboration_message_refs",
+  "auth_events",
+  "console_admins",
+  "admin_audit_logs",
+  "permission_replacement_audits",
+  "adaptive_delegation_recommendations",
+  "adaptive_delegation_events"
 ];
 
 const CRITICAL_COLUMNS: Record<string, string[]> = {
@@ -92,7 +104,11 @@ const CRITICAL_COLUMNS: Record<string, string[]> = {
     "passwordLastUsedAt",
     "lastSignInAt",
     "lastSignInMethod",
-    "lastSignInUserAgent"
+    "lastSignInUserAgent",
+    "mfaTotpSecretEnc",
+    "mfaTotpPendingSecretEnc",
+    "mfaEnabledAt",
+    "mfaBackupCodeHashes"
   ],
   accounts: ["accountId", "slug", "plan", "verificationCount", "sso"],
   oauthPendingSignups: ["pendingId", "googleSub", "email", "tokenHash", "expiresAt", "provider", "providerAccountId"],
@@ -172,7 +188,30 @@ const CRITICAL_COLUMNS: Record<string, string[]> = {
     "channelId",
     "messageTs",
     "status"
-  ]
+  ],
+  authEvents: ["eventId", "surface", "outcome", "reason", "ipHash", "expiresAt", "createdAt"],
+  consoleAdmins: ["adminId", "email", "passwordHash", "role"],
+  adminAuditLogs: ["entryId", "adminId", "action", "createdAt"],
+  permissionReplacementAudits: [
+    "eventId",
+    "accountId",
+    "agentId",
+    "actorUserId",
+    "type",
+    "oldPermissionId",
+    "createdAt"
+  ],
+  adaptiveDelegationRecommendations: [
+    "recommendationId",
+    "accountId",
+    "agentId",
+    "kind",
+    "status",
+    "action",
+    "confidence",
+    "fingerprint"
+  ],
+  adaptiveDelegationEvents: ["eventId", "accountId", "recommendationId", "type"]
 };
 
 const TENANT_SCOPED_TABLES: CoreTableName[] = [
@@ -265,7 +304,27 @@ describe("postgres schema (static)", () => {
 });
 
 describe("postgres runtime isolation (static)", () => {
-  const RUNTIME_GLOB_DIRS = ["app", "lib/repositories", "lib/quota.ts", "lib/verify.ts", "lib/db.ts"];
+  // Health probes may talk to Postgres directly. App business routes should
+  // otherwise go through public repository facades.
+  const ALLOWED_APP_POSTGRES_CLIENT_IMPORTS = new Set(["app/api/health/db/route.ts"]);
+
+  // Type-only imports from postgres modules are acceptable when the public
+  // facade re-exports the same types (legacy import paths during cutover).
+  const ALLOWED_APP_POSTGRES_REPO_IMPORTS = new Set([
+    "app/api/auth/github/route.ts",
+    "app/api/auth/identities/[provider]/route.ts"
+  ]);
+
+  // Postgres-only auth satellite facades and dual-dispatch adapters.
+  const ALLOWED_REPO_POSTGRES_CLIENT_FILES = new Set([
+    "lib/repositories/composition.ts",
+    "lib/repositories/delegate.ts",
+    "lib/repositories/adaptiveDelegation.ts",
+    "lib/repositories/externalIdentities.ts",
+    "lib/repositories/identityAudit.ts",
+    "lib/repositories/oauthAuthorizationStates.ts",
+    "lib/repositories/passkeys.ts"
+  ]);
 
   it("app routes do not import lib/db/postgres", async () => {
     const { readFileSync, readdirSync, statSync } = await import("node:fs");
@@ -282,6 +341,8 @@ describe("postgres runtime isolation (static)", () => {
           continue;
         }
         if (!/\.(ts|tsx)$/.test(entry)) continue;
+        const rel = relative(process.cwd(), full);
+        if (ALLOWED_APP_POSTGRES_CLIENT_IMPORTS.has(rel)) continue;
         const content = readFileSync(full, "utf8");
         if (
           content.includes("@/lib/db/postgres") ||
@@ -289,7 +350,7 @@ describe("postgres runtime isolation (static)", () => {
           content.includes("drizzle-orm") ||
           content.includes("getPostgresDb")
         ) {
-          offenders.push(relative(process.cwd(), full));
+          offenders.push(rel);
         }
       }
     }
@@ -313,12 +374,14 @@ describe("postgres runtime isolation (static)", () => {
           continue;
         }
         if (!/\.(ts|tsx)$/.test(entry)) continue;
+        const rel = relative(process.cwd(), full);
+        if (ALLOWED_APP_POSTGRES_REPO_IMPORTS.has(rel)) continue;
         const content = readFileSync(full, "utf8");
         if (
           content.includes("@/lib/repositories/postgres") ||
           content.includes("lib/repositories/postgres")
         ) {
-          offenders.push(relative(process.cwd(), full));
+          offenders.push(rel);
         }
       }
     }
@@ -337,7 +400,7 @@ describe("postgres runtime isolation (static)", () => {
 
   it("mongo repository modules do not import postgres client", async () => {
     const { readFileSync, readdirSync, statSync } = await import("node:fs");
-    const { join } = await import("node:path");
+    const { join, relative } = await import("node:path");
     const repoDir = join(process.cwd(), "lib/repositories");
 
     function scanRepoFiles(dir: string): string[] {
@@ -349,10 +412,6 @@ describe("postgres runtime isolation (static)", () => {
           files.push(...scanRepoFiles(full));
           continue;
         }
-        // composition.ts is the intentional wiring point for optional Postgres.
-        if (entry === "composition.ts") continue;
-        // delegate.ts is the runtime Postgres dispatch layer.
-        if (entry === "delegate.ts") continue;
         if (entry.endsWith(".ts")) {
           files.push(full);
         }
@@ -361,6 +420,8 @@ describe("postgres runtime isolation (static)", () => {
     }
 
     for (const file of scanRepoFiles(repoDir)) {
+      const rel = relative(process.cwd(), file);
+      if (ALLOWED_REPO_POSTGRES_CLIENT_FILES.has(rel)) continue;
       const content = readFileSync(file, "utf8");
       expect(content, file).not.toMatch(/lib\/db\/postgres|drizzle-orm|getPostgresDb/);
     }

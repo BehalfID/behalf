@@ -7,47 +7,43 @@ import {
 import type { NormalizedLoginIdentity } from "@/lib/authProviders/providers/types";
 
 const mocks = vi.hoisted(() => ({
-  identityFindOne: vi.fn(),
-  identityCreate: vi.fn(),
-  identityDeleteOne: vi.fn(),
-  identityCountDocuments: vi.fn(),
-  identityUpdateOne: vi.fn(),
-  identityFind: vi.fn(),
-  userFindOne: vi.fn(),
-  userUpdateOne: vi.fn(),
-  userExists: vi.fn(),
-  recordIdentityAudit: vi.fn(),
-  passkeyCount: vi.fn(),
-  passkeyExists: vi.fn()
+  getPostgresDb: vi.fn(() => ({})),
+  findByProviderAccount: vi.fn(),
+  findByUserAndProvider: vi.fn(),
+  listByUserId: vi.fn(),
+  createExternalIdentity: vi.fn(),
+  deleteByUserAndProvider: vi.fn(),
+  findByUserId: vi.fn(),
+  updateUser: vi.fn(),
+  existsByEmail: vi.fn(),
+  countPasskeysByUserId: vi.fn(),
+  passkeyExists: vi.fn(),
+  recordIdentityAudit: vi.fn()
 }));
 
-vi.mock("@/models/ExternalIdentity", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/models/ExternalIdentity")>();
-  return {
-    ...actual,
-    default: {
-      findOne: mocks.identityFindOne,
-      find: mocks.identityFind,
-      create: mocks.identityCreate,
-      deleteOne: mocks.identityDeleteOne,
-      countDocuments: mocks.identityCountDocuments,
-      updateOne: mocks.identityUpdateOne
-    }
-  };
-});
-vi.mock("@/models/DeveloperUser", () => ({
-  default: {
-    findOne: mocks.userFindOne,
-    updateOne: mocks.userUpdateOne,
-    exists: mocks.userExists
-  }
+vi.mock("@/lib/db/postgres", () => ({
+  getPostgresDb: mocks.getPostgresDb
 }));
-vi.mock("@/models/PasskeyCredential", () => ({
-  default: {
-    countDocuments: mocks.passkeyCount,
-    exists: mocks.passkeyExists
-  }
+
+vi.mock("@/lib/repositories/postgres/externalIdentities", () => ({
+  findByProviderAccount: mocks.findByProviderAccount,
+  findByUserAndProvider: mocks.findByUserAndProvider,
+  listByUserId: mocks.listByUserId,
+  createExternalIdentity: mocks.createExternalIdentity,
+  deleteByUserAndProvider: mocks.deleteByUserAndProvider
 }));
+
+vi.mock("@/lib/repositories/postgres/users", () => ({
+  findByUserId: mocks.findByUserId,
+  updateUser: mocks.updateUser,
+  existsByEmail: mocks.existsByEmail
+}));
+
+vi.mock("@/lib/repositories/postgres/passkeys", () => ({
+  countPasskeysByUserId: mocks.countPasskeysByUserId,
+  passkeyExists: mocks.passkeyExists
+}));
+
 vi.mock("@/lib/authProviders/identityAudit", () => ({
   recordIdentityAudit: mocks.recordIdentityAudit
 }));
@@ -65,18 +61,13 @@ const githubIdentity: NormalizedLoginIdentity = {
 describe("resolveProviderLogin", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.identityFindOne.mockReturnValue({
-      select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue(null) })
-    });
-    mocks.userExists.mockResolvedValue(null);
+    mocks.getPostgresDb.mockReturnValue({});
+    mocks.findByProviderAccount.mockResolvedValue(null);
+    mocks.existsByEmail.mockResolvedValue(false);
   });
 
   it("returns existing_identity when the provider account is linked", async () => {
-    mocks.identityFindOne.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        lean: vi.fn().mockResolvedValue({ userId: "user_1" })
-      })
-    });
+    mocks.findByProviderAccount.mockResolvedValue({ userId: "user_1" });
     await expect(resolveProviderLogin(githubIdentity)).resolves.toEqual({
       kind: "existing_identity",
       userId: "user_1"
@@ -84,7 +75,7 @@ describe("resolveProviderLogin", () => {
   });
 
   it("requires explicit link when verified email belongs to another account", async () => {
-    mocks.userExists.mockResolvedValue({ _id: "exists" });
+    mocks.existsByEmail.mockResolvedValue(true);
     await expect(resolveProviderLogin(githubIdentity)).resolves.toEqual({
       kind: "requires_explicit_link"
     });
@@ -107,25 +98,16 @@ describe("resolveProviderLogin", () => {
 describe("linkIdentity", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.identityFindOne.mockReturnValue({
-      select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue(null) })
-    });
-    mocks.identityCreate.mockResolvedValue({});
-    mocks.userFindOne.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        lean: vi.fn().mockResolvedValue({ userId: "user_1", authProviders: ["password"] })
-      })
-    });
-    mocks.userUpdateOne.mockResolvedValue({});
+    mocks.getPostgresDb.mockReturnValue({});
+    mocks.findByProviderAccount.mockResolvedValue(null);
+    mocks.createExternalIdentity.mockResolvedValue({});
+    mocks.findByUserId.mockResolvedValue({ userId: "user_1", authProviders: ["password"] });
+    mocks.updateUser.mockResolvedValue({});
     mocks.recordIdentityAudit.mockResolvedValue(undefined);
   });
 
   it("rejects when the identity is linked to another user", async () => {
-    mocks.identityFindOne.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        lean: vi.fn().mockResolvedValue({ userId: "other_user" })
-      })
-    });
+    mocks.findByProviderAccount.mockResolvedValue({ userId: "other_user" });
     await expect(
       linkIdentity({ userId: "user_1", identity: githubIdentity })
     ).resolves.toEqual({ ok: false, code: "identity_linked_elsewhere" });
@@ -138,30 +120,19 @@ describe("linkIdentity", () => {
 describe("unlinkIdentity", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.identityFindOne.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        lean: vi.fn().mockResolvedValue({
-          identityId: "extid_1",
-          providerAccountId: "999",
-          providerUsername: "octocat"
-        })
-      })
+    mocks.getPostgresDb.mockReturnValue({});
+    mocks.findByUserAndProvider.mockResolvedValue({
+      identityId: "extid_1",
+      providerAccountId: "999",
+      providerUsername: "octocat"
     });
-    mocks.userFindOne.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        lean: vi.fn().mockResolvedValue({ userId: "user_1", passwordHash: null })
-      })
-    });
-    mocks.identityFind.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        lean: vi.fn().mockResolvedValue([
-          { provider: "github", providerAccountId: "999" }
-        ])
-      })
-    });
-    mocks.passkeyCount.mockResolvedValue(0);
-    mocks.identityDeleteOne.mockResolvedValue({});
-    mocks.userUpdateOne.mockResolvedValue({});
+    mocks.findByUserId.mockResolvedValue({ userId: "user_1", passwordHash: null });
+    mocks.listByUserId.mockResolvedValue([
+      { provider: "github", providerAccountId: "999" }
+    ]);
+    mocks.countPasskeysByUserId.mockResolvedValue(0);
+    mocks.deleteByUserAndProvider.mockResolvedValue({});
+    mocks.updateUser.mockResolvedValue({});
     mocks.recordIdentityAudit.mockResolvedValue(undefined);
   });
 
@@ -175,18 +146,14 @@ describe("unlinkIdentity", () => {
   });
 
   it("allows unlink when a password remains", async () => {
-    mocks.userFindOne.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        lean: vi.fn().mockResolvedValue({ userId: "user_1", passwordHash: "hash" })
-      })
-    });
+    mocks.findByUserId.mockResolvedValue({ userId: "user_1", passwordHash: "hash" });
     await expect(
       unlinkIdentity({ userId: "user_1", provider: "github" })
     ).resolves.toEqual({ ok: true });
   });
 
   it("refuses unlink that would leave passkey-only", async () => {
-    mocks.passkeyCount.mockResolvedValue(1);
+    mocks.countPasskeysByUserId.mockResolvedValue(1);
     await expect(
       unlinkIdentity({ userId: "user_1", provider: "github" })
     ).resolves.toEqual({ ok: false, code: "passkey_only_forbidden" });

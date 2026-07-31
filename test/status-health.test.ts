@@ -8,20 +8,32 @@ import {
 
 const dbMocks = vi.hoisted(() => ({
   connectToDatabase: vi.fn(),
-  resolveRepositoryBackendFor: vi.fn(() => "mongo"),
-  ping: vi.fn(),
-  findOne: vi.fn(),
-  statusComponentFind: vi.fn(),
-  statusIncidentFind: vi.fn()
+  isPostgresRuntimeEnabled: vi.fn(() => false),
+  isPostgresConfigured: vi.fn(() => false),
+  findBySessionId: vi.fn(),
+  findOnePermission: vi.fn(),
+  findOneApproval: vi.fn(),
+  listComponents: vi.fn(),
+  listIncidents: vi.fn(),
+  ping: vi.fn()
 }));
 
 vi.mock("@/lib/db", () => ({
   connectToDatabase: dbMocks.connectToDatabase
 }));
 
-vi.mock("@/lib/repositories/backend", () => ({
-  resolveRepositoryBackendFor: dbMocks.resolveRepositoryBackendFor
+vi.mock("@/lib/db/postgres", () => ({
+  isPostgresConfigured: dbMocks.isPostgresConfigured,
+  getPostgresDb: vi.fn()
 }));
+
+vi.mock("@/lib/repositories/backend", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/repositories/backend")>();
+  return {
+    ...actual,
+    isPostgresRuntimeEnabled: dbMocks.isPostgresRuntimeEnabled
+  };
+});
 
 vi.mock("@/lib/logger", () => ({
   logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() }
@@ -31,78 +43,27 @@ vi.mock("mongoose", () => ({
   default: {
     connection: {
       get db() {
-        return dbMocks.ping.mock ? { admin: () => ({ ping: dbMocks.ping }) } : null;
+        return { admin: () => ({ ping: dbMocks.ping }) };
       }
     }
   }
 }));
 
-vi.mock("@/models/DeveloperSession", () => ({
-  default: {
-    findOne: (...args: unknown[]) => ({
-      select: () => ({
-        maxTimeMS: () => ({
-          lean: () => dbMocks.findOne("sessions", ...args)
-        })
-      })
-    })
-  }
+vi.mock("@/lib/repositories/sessions", () => ({
+  findBySessionId: dbMocks.findBySessionId
 }));
 
-vi.mock("@/models/Permission", () => ({
-  default: {
-    findOne: (...args: unknown[]) => ({
-      select: () => ({
-        maxTimeMS: () => ({
-          lean: () => dbMocks.findOne("permissions", ...args)
-        })
-      })
-    })
-  }
+vi.mock("@/lib/repositories/permissions", () => ({
+  findOnePermission: dbMocks.findOnePermission
 }));
 
-vi.mock("@/models/ApprovalRequest", () => ({
-  default: {
-    findOne: (...args: unknown[]) => ({
-      select: () => ({
-        maxTimeMS: () => ({
-          lean: () => dbMocks.findOne("approvals", ...args)
-        })
-      })
-    })
-  }
+vi.mock("@/lib/repositories/approvals", () => ({
+  findOneApproval: dbMocks.findOneApproval
 }));
 
-vi.mock("@/models/StatusComponent", () => ({
-  default: {
-    find: (...args: unknown[]) => ({
-      sort: () => ({
-        select: () => ({
-          limit: () => ({
-            maxTimeMS: () => ({
-              lean: () => dbMocks.statusComponentFind(...args)
-            })
-          })
-        })
-      })
-    })
-  }
-}));
-
-vi.mock("@/models/StatusIncident", () => ({
-  default: {
-    find: (...args: unknown[]) => ({
-      sort: () => ({
-        select: () => ({
-          limit: () => ({
-            maxTimeMS: () => ({
-              lean: () => dbMocks.statusIncidentFind(...args)
-            })
-          })
-        })
-      })
-    })
-  }
+vi.mock("@/lib/repositories/status", () => ({
+  listComponents: dbMocks.listComponents,
+  listIncidents: dbMocks.listIncidents
 }));
 
 function service(
@@ -184,11 +145,15 @@ describe("getSystemStatus", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env = { ...originalEnv };
+    dbMocks.isPostgresRuntimeEnabled.mockReturnValue(false);
+    dbMocks.isPostgresConfigured.mockReturnValue(false);
     dbMocks.connectToDatabase.mockResolvedValue(undefined);
     dbMocks.ping.mockResolvedValue({ ok: 1 });
-    dbMocks.findOne.mockResolvedValue({ _id: "probe" });
-    dbMocks.statusComponentFind.mockResolvedValue([]);
-    dbMocks.statusIncidentFind.mockResolvedValue([]);
+    dbMocks.findBySessionId.mockResolvedValue({ sessionId: "probe" });
+    dbMocks.findOnePermission.mockResolvedValue({ permissionId: "probe" });
+    dbMocks.findOneApproval.mockResolvedValue({ approvalId: "probe" });
+    dbMocks.listComponents.mockResolvedValue([]);
+    dbMocks.listIncidents.mockResolvedValue([]);
   });
 
   afterEach(() => {
