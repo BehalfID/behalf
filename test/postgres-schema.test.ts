@@ -11,6 +11,8 @@ const EXPECTED_CORE_TABLES: CoreTableName[] = [
   "externalIdentities",
   "oauthAuthorizationStates",
   "identityAuditLogs",
+  "passkeyCredentials",
+  "webauthnChallenges",
   "developerSessions",
   "developerApiTokens",
   "accountMemberships",
@@ -48,6 +50,8 @@ const EXPECTED_SQL_TABLE_NAMES = [
   "external_identities",
   "oauth_authorization_states",
   "identity_audit_logs",
+  "passkey_credentials",
+  "webauthn_challenges",
   "developer_sessions",
   "developer_api_tokens",
   "account_memberships",
@@ -79,7 +83,17 @@ const EXPECTED_SQL_TABLE_NAMES = [
 ];
 
 const CRITICAL_COLUMNS: Record<string, string[]> = {
-  developerUsers: ["userId", "email", "passwordHash", "googleSub", "authProviders"],
+  developerUsers: [
+    "userId",
+    "email",
+    "passwordHash",
+    "googleSub",
+    "authProviders",
+    "passwordLastUsedAt",
+    "lastSignInAt",
+    "lastSignInMethod",
+    "lastSignInUserAgent"
+  ],
   accounts: ["accountId", "slug", "plan", "verificationCount", "sso"],
   oauthPendingSignups: ["pendingId", "googleSub", "email", "tokenHash", "expiresAt", "provider", "providerAccountId"],
   externalIdentities: [
@@ -92,6 +106,17 @@ const CRITICAL_COLUMNS: Record<string, string[]> = {
   ],
   oauthAuthorizationStates: ["stateId", "provider", "mode", "stateHash", "codeVerifier", "expiresAt"],
   identityAuditLogs: ["entryId", "userId", "action", "provider", "providerAccountId", "createdAt"],
+  passkeyCredentials: [
+    "credentialRecordId",
+    "userId",
+    "credentialId",
+    "publicKey",
+    "signCount",
+    "nickname",
+    "userHandle",
+    "lastUsedAt"
+  ],
+  webauthnChallenges: ["challengeId", "challengeHash", "kind", "expiresAt"],
   developerSessions: ["sessionId", "userId", "tokenHash", "expiresAt", "lastActivityAt"],
   developerApiTokens: ["tokenId", "userId", "accountId", "tokenHash"],
   accountMemberships: ["membershipId", "accountId", "userId", "role"],

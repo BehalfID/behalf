@@ -12,10 +12,13 @@ const mocks = vi.hoisted(() => ({
   identityDeleteOne: vi.fn(),
   identityCountDocuments: vi.fn(),
   identityUpdateOne: vi.fn(),
+  identityFind: vi.fn(),
   userFindOne: vi.fn(),
   userUpdateOne: vi.fn(),
   userExists: vi.fn(),
-  recordIdentityAudit: vi.fn()
+  recordIdentityAudit: vi.fn(),
+  passkeyCount: vi.fn(),
+  passkeyExists: vi.fn()
 }));
 
 vi.mock("@/models/ExternalIdentity", async (importOriginal) => {
@@ -24,6 +27,7 @@ vi.mock("@/models/ExternalIdentity", async (importOriginal) => {
     ...actual,
     default: {
       findOne: mocks.identityFindOne,
+      find: mocks.identityFind,
       create: mocks.identityCreate,
       deleteOne: mocks.identityDeleteOne,
       countDocuments: mocks.identityCountDocuments,
@@ -36,6 +40,12 @@ vi.mock("@/models/DeveloperUser", () => ({
     findOne: mocks.userFindOne,
     updateOne: mocks.userUpdateOne,
     exists: mocks.userExists
+  }
+}));
+vi.mock("@/models/PasskeyCredential", () => ({
+  default: {
+    countDocuments: mocks.passkeyCount,
+    exists: mocks.passkeyExists
   }
 }));
 vi.mock("@/lib/authProviders/identityAudit", () => ({
@@ -142,7 +152,14 @@ describe("unlinkIdentity", () => {
         lean: vi.fn().mockResolvedValue({ userId: "user_1", passwordHash: null })
       })
     });
-    mocks.identityCountDocuments.mockResolvedValue(0);
+    mocks.identityFind.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        lean: vi.fn().mockResolvedValue([
+          { provider: "github", providerAccountId: "999" }
+        ])
+      })
+    });
+    mocks.passkeyCount.mockResolvedValue(0);
     mocks.identityDeleteOne.mockResolvedValue({});
     mocks.userUpdateOne.mockResolvedValue({});
     mocks.recordIdentityAudit.mockResolvedValue(undefined);
@@ -152,6 +169,9 @@ describe("unlinkIdentity", () => {
     await expect(
       unlinkIdentity({ userId: "user_1", provider: "github" })
     ).resolves.toEqual({ ok: false, code: "unlink_last_method" });
+    expect(mocks.recordIdentityAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "method_removal_rejected" })
+    );
   });
 
   it("allows unlink when a password remains", async () => {
@@ -163,5 +183,12 @@ describe("unlinkIdentity", () => {
     await expect(
       unlinkIdentity({ userId: "user_1", provider: "github" })
     ).resolves.toEqual({ ok: true });
+  });
+
+  it("refuses unlink that would leave passkey-only", async () => {
+    mocks.passkeyCount.mockResolvedValue(1);
+    await expect(
+      unlinkIdentity({ userId: "user_1", provider: "github" })
+    ).resolves.toEqual({ ok: false, code: "passkey_only_forbidden" });
   });
 });
