@@ -5,7 +5,6 @@
  *  - Data is scoped strictly to the authenticated developer (no cross-account leakage)
  *  - Pending approvals are returned and sorted pending-first
  *  - Recently denied high-risk logs (within 48h) are included
- *  - Denied high-risk logs outside the 48h window are excluded
  *  - Agent names are enriched from the Agent model
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,9 +12,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const routeMocks = vi.hoisted(() => ({
   requireDeveloperApi: vi.fn(),
   getWorkspaceActor: vi.fn(),
-  approvalFind: vi.fn(),
-  logFind: vi.fn(),
-  agentFind: vi.fn()
+  findApprovals: vi.fn(),
+  findLogs: vi.fn(),
+  listAgents: vi.fn(),
+  findUsers: vi.fn()
 }));
 
 vi.mock("@/lib/developerAuth", () => ({
@@ -28,46 +28,21 @@ vi.mock("@/lib/delegatedAuth", () => ({
   serializeWorkspaceAuthority: vi.fn(() => ({ roleLabel: "Owner" }))
 }));
 
-vi.mock("@/models/ApprovalRequest", () => ({
-  default: { find: routeMocks.approvalFind },
-  APPROVAL_GRANT_TTL_MS: 30 * 60 * 1_000
+vi.mock("@/lib/repositories/approvals", () => ({
+  findApprovals: routeMocks.findApprovals
 }));
 
-vi.mock("@/models/VerificationLog", () => ({
-  default: { find: routeMocks.logFind }
+vi.mock("@/lib/repositories/verificationLogs", () => ({
+  findLogs: routeMocks.findLogs
 }));
 
-vi.mock("@/models/Agent", () => ({
-  default: { find: routeMocks.agentFind }
+vi.mock("@/lib/repositories/agents", () => ({
+  listAgents: routeMocks.listAgents
 }));
 
-function approvalChain(rows: unknown[]) {
-  const chain = {
-    sort: vi.fn(() => chain),
-    limit: vi.fn(() => chain),
-    select: vi.fn(() => chain),
-    lean: vi.fn(async () => rows)
-  };
-  return chain;
-}
-
-function logChain(rows: unknown[]) {
-  const chain = {
-    sort: vi.fn(() => chain),
-    limit: vi.fn(() => chain),
-    select: vi.fn(() => chain),
-    lean: vi.fn(async () => rows)
-  };
-  return chain;
-}
-
-function agentChain(rows: unknown[]) {
-  const chain = {
-    select: vi.fn(() => chain),
-    lean: vi.fn(async () => rows)
-  };
-  return chain;
-}
+vi.mock("@/lib/repositories/users", () => ({
+  findUsers: routeMocks.findUsers
+}));
 
 function request(path = "/api/dashboard/inbox") {
   const url = new URL(`http://localhost${path}`);
@@ -138,6 +113,7 @@ const agentRow = { agentId: "agent_test", name: "Claude Code" };
 describe("GET /api/dashboard/inbox", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    routeMocks.findUsers.mockResolvedValue([]);
   });
 
   it("requires authentication", async () => {
@@ -148,18 +124,18 @@ describe("GET /api/dashboard/inbox", () => {
     const res = await GET(request());
 
     expect(res).toBe(sentinel);
-    expect(routeMocks.approvalFind).not.toHaveBeenCalled();
+    expect(routeMocks.findApprovals).not.toHaveBeenCalled();
   });
 
   it("returns pending approvals and denied high-risk logs for authenticated developer", async () => {
     authOk();
-    routeMocks.approvalFind.mockReturnValue(approvalChain([pendingApproval]));
-    routeMocks.logFind.mockReturnValue(logChain([deniedHighRiskLog]));
-    routeMocks.agentFind.mockReturnValue(agentChain([agentRow]));
+    routeMocks.findApprovals.mockResolvedValue([pendingApproval]);
+    routeMocks.findLogs.mockResolvedValue([deniedHighRiskLog]);
+    routeMocks.listAgents.mockResolvedValue([agentRow]);
 
     const { GET } = await import("@/app/api/dashboard/inbox/route");
     const res = await GET(request());
-    const body = await res.json() as { pendingApprovals: unknown[]; deniedHighRisk: unknown[] };
+    const body = (await res.json()) as { pendingApprovals: unknown[]; deniedHighRisk: unknown[] };
 
     expect(body.pendingApprovals).toHaveLength(1);
     expect(body.deniedHighRisk).toHaveLength(1);
@@ -167,54 +143,50 @@ describe("GET /api/dashboard/inbox", () => {
 
   it("scopes approval query to the active account", async () => {
     authOk("dev_abc", "acct_abc");
-    routeMocks.approvalFind.mockReturnValue(approvalChain([]));
-    routeMocks.logFind.mockReturnValue(logChain([]));
-    routeMocks.agentFind.mockReturnValue(agentChain([]));
+    routeMocks.findApprovals.mockResolvedValue([]);
+    routeMocks.findLogs.mockResolvedValue([]);
 
     const { GET } = await import("@/app/api/dashboard/inbox/route");
     await GET(request());
 
-    const [approvalFilter] = routeMocks.approvalFind.mock.calls[0];
+    const [approvalFilter] = routeMocks.findApprovals.mock.calls[0];
     expect(approvalFilter.accountId).toBe("acct_abc");
   });
 
   it("scopes log query to the active account", async () => {
     authOk("dev_abc", "acct_abc");
-    routeMocks.approvalFind.mockReturnValue(approvalChain([]));
-    routeMocks.logFind.mockReturnValue(logChain([]));
-    routeMocks.agentFind.mockReturnValue(agentChain([]));
+    routeMocks.findApprovals.mockResolvedValue([]);
+    routeMocks.findLogs.mockResolvedValue([]);
 
     const { GET } = await import("@/app/api/dashboard/inbox/route");
     await GET(request());
 
-    const [logFilter] = routeMocks.logFind.mock.calls[0];
+    const [logFilter] = routeMocks.findLogs.mock.calls[0];
     expect(logFilter.accountId).toBe("acct_abc");
   });
 
   it("queries only status pending and approved for approvals", async () => {
     authOk();
-    routeMocks.approvalFind.mockReturnValue(approvalChain([]));
-    routeMocks.logFind.mockReturnValue(logChain([]));
-    routeMocks.agentFind.mockReturnValue(agentChain([]));
+    routeMocks.findApprovals.mockResolvedValue([]);
+    routeMocks.findLogs.mockResolvedValue([]);
 
     const { GET } = await import("@/app/api/dashboard/inbox/route");
     await GET(request());
 
-    const [approvalFilter] = routeMocks.approvalFind.mock.calls[0];
+    const [approvalFilter] = routeMocks.findApprovals.mock.calls[0];
     expect(approvalFilter.status.$in).toEqual(expect.arrayContaining(["pending", "approved"]));
     expect(approvalFilter.status.$in).toHaveLength(2);
   });
 
   it("queries only denied high-risk logs (allowed=false, risk=high)", async () => {
     authOk();
-    routeMocks.approvalFind.mockReturnValue(approvalChain([]));
-    routeMocks.logFind.mockReturnValue(logChain([]));
-    routeMocks.agentFind.mockReturnValue(agentChain([]));
+    routeMocks.findApprovals.mockResolvedValue([]);
+    routeMocks.findLogs.mockResolvedValue([]);
 
     const { GET } = await import("@/app/api/dashboard/inbox/route");
     await GET(request());
 
-    const [logFilter] = routeMocks.logFind.mock.calls[0];
+    const [logFilter] = routeMocks.findLogs.mock.calls[0];
     expect(logFilter.allowed).toBe(false);
     expect(logFilter.risk).toBe("high");
     expect(logFilter.createdAt.$gte).toBeInstanceOf(Date);
@@ -222,13 +194,16 @@ describe("GET /api/dashboard/inbox", () => {
 
   it("attaches agent names to both pending approvals and denied logs", async () => {
     authOk();
-    routeMocks.approvalFind.mockReturnValue(approvalChain([pendingApproval]));
-    routeMocks.logFind.mockReturnValue(logChain([deniedHighRiskLog]));
-    routeMocks.agentFind.mockReturnValue(agentChain([agentRow]));
+    routeMocks.findApprovals.mockResolvedValue([pendingApproval]);
+    routeMocks.findLogs.mockResolvedValue([deniedHighRiskLog]);
+    routeMocks.listAgents.mockResolvedValue([agentRow]);
 
     const { GET } = await import("@/app/api/dashboard/inbox/route");
     const res = await GET(request());
-    const body = await res.json() as { pendingApprovals: Array<{ agentName: string }>; deniedHighRisk: Array<{ agentName: string }> };
+    const body = (await res.json()) as {
+      pendingApprovals: Array<{ agentName: string }>;
+      deniedHighRisk: Array<{ agentName: string }>;
+    };
 
     expect(body.pendingApprovals[0].agentName).toBe("Claude Code");
     expect(body.deniedHighRisk[0].agentName).toBe("Claude Code");
@@ -236,14 +211,13 @@ describe("GET /api/dashboard/inbox", () => {
 
   it("sorts pending approvals before approved ones", async () => {
     authOk();
-    // Return approved first from DB, pending second — route should reorder
-    routeMocks.approvalFind.mockReturnValue(approvalChain([approvedApproval, pendingApproval]));
-    routeMocks.logFind.mockReturnValue(logChain([]));
-    routeMocks.agentFind.mockReturnValue(agentChain([agentRow]));
+    routeMocks.findApprovals.mockResolvedValue([approvedApproval, pendingApproval]);
+    routeMocks.findLogs.mockResolvedValue([]);
+    routeMocks.listAgents.mockResolvedValue([agentRow]);
 
     const { GET } = await import("@/app/api/dashboard/inbox/route");
     const res = await GET(request());
-    const body = await res.json() as { pendingApprovals: Array<{ status: string }> };
+    const body = (await res.json()) as { pendingApprovals: Array<{ status: string }> };
 
     expect(body.pendingApprovals[0].status).toBe("pending");
     expect(body.pendingApprovals[1].status).toBe("approved");
@@ -251,13 +225,12 @@ describe("GET /api/dashboard/inbox", () => {
 
   it("returns empty arrays when there is nothing in the inbox", async () => {
     authOk();
-    routeMocks.approvalFind.mockReturnValue(approvalChain([]));
-    routeMocks.logFind.mockReturnValue(logChain([]));
-    routeMocks.agentFind.mockReturnValue(agentChain([]));
+    routeMocks.findApprovals.mockResolvedValue([]);
+    routeMocks.findLogs.mockResolvedValue([]);
 
     const { GET } = await import("@/app/api/dashboard/inbox/route");
     const res = await GET(request());
-    const body = await res.json() as { pendingApprovals: unknown[]; deniedHighRisk: unknown[] };
+    const body = (await res.json()) as { pendingApprovals: unknown[]; deniedHighRisk: unknown[] };
 
     expect(body.pendingApprovals).toEqual([]);
     expect(body.deniedHighRisk).toEqual([]);
@@ -273,23 +246,22 @@ describe("GET /api/dashboard/inbox", () => {
 
     const { GET } = await import("@/app/api/dashboard/inbox/route");
     const res = await GET(request());
-    const body = await res.json() as { pendingApprovals: unknown[]; deniedHighRisk: unknown[] };
+    const body = (await res.json()) as { pendingApprovals: unknown[]; deniedHighRisk: unknown[] };
 
     expect(body.pendingApprovals).toEqual([]);
     expect(body.deniedHighRisk).toEqual([]);
-    expect(routeMocks.approvalFind).not.toHaveBeenCalled();
+    expect(routeMocks.findApprovals).not.toHaveBeenCalled();
   });
 
   it("skips the agent name lookup when there are no results", async () => {
     authOk();
-    routeMocks.approvalFind.mockReturnValue(approvalChain([]));
-    routeMocks.logFind.mockReturnValue(logChain([]));
-    routeMocks.agentFind.mockReturnValue(agentChain([]));
+    routeMocks.findApprovals.mockResolvedValue([]);
+    routeMocks.findLogs.mockResolvedValue([]);
 
     const { GET } = await import("@/app/api/dashboard/inbox/route");
     await GET(request());
 
-    expect(routeMocks.agentFind).not.toHaveBeenCalled();
+    expect(routeMocks.listAgents).not.toHaveBeenCalled();
   });
 
   it("includes argument preview fields and does not expose policyContext", async () => {
@@ -301,13 +273,13 @@ describe("GET /api/dashboard/inbox", () => {
       argumentPreview: "npm test",
       argumentPreviewTruncated: false
     };
-    routeMocks.approvalFind.mockReturnValue(approvalChain([boundApproval]));
-    routeMocks.logFind.mockReturnValue(logChain([]));
-    routeMocks.agentFind.mockReturnValue(agentChain([agentRow]));
+    routeMocks.findApprovals.mockResolvedValue([boundApproval]);
+    routeMocks.findLogs.mockResolvedValue([]);
+    routeMocks.listAgents.mockResolvedValue([agentRow]);
 
     const { GET } = await import("@/app/api/dashboard/inbox/route");
     const res = await GET(request());
-    const body = await res.json() as {
+    const body = (await res.json()) as {
       pendingApprovals: Array<Record<string, unknown>>;
     };
 
@@ -317,7 +289,7 @@ describe("GET /api/dashboard/inbox", () => {
     expect(body.pendingApprovals[0]).not.toHaveProperty("policyContext");
     expect(body.pendingApprovals[0]).not.toHaveProperty("argumentFingerprint");
 
-    const selectArg = routeMocks.approvalFind.mock.results[0].value.select.mock.calls[0][0] as string;
+    const selectArg = routeMocks.findApprovals.mock.calls[0][1].select as string;
     expect(selectArg).toContain("argumentKind");
     expect(selectArg).toContain("argumentPreview");
     expect(selectArg).not.toContain("argumentFingerprint");

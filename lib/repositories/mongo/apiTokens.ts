@@ -29,7 +29,10 @@ export async function findByTokenHash(tokenHash: string): Promise<DeveloperApiTo
 export async function createApiToken(input: CreateApiTokenInput): Promise<DeveloperApiTokenLean> {
   try {
     const token = await DeveloperApiToken.create(input);
-    return token.toObject() as DeveloperApiTokenLean;
+    if (token && typeof (token as { toObject?: () => DeveloperApiTokenLean }).toObject === "function") {
+      return (token as { toObject: () => DeveloperApiTokenLean }).toObject();
+    }
+    return token as DeveloperApiTokenLean;
   } catch (error) {
     translateDuplicateKey(error, "A developer token with this ID already exists.");
   }

@@ -8,10 +8,10 @@ const mocks = vi.hoisted(() => ({
   createDeveloperAccount: vi.fn(),
   createDeveloperSession: vi.fn(),
   setDeveloperSessionCookie: vi.fn(),
-  pendingFindOne: vi.fn(),
-  pendingDeleteOne: vi.fn(),
-  userExists: vi.fn(),
-  userCreate: vi.fn()
+  findByPendingId: vi.fn(),
+  deleteByPendingId: vi.fn(),
+  existsByEmailOrGoogleSub: vi.fn(),
+  createUser: vi.fn()
 }));
 
 vi.mock("@/lib/db", () => ({ connectToDatabase: mocks.connectToDatabase }));
@@ -27,17 +27,13 @@ vi.mock("@/lib/developerAuth", async (importOriginal) => ({
   setDeveloperSessionCookie: mocks.setDeveloperSessionCookie
 }));
 vi.mock("@/lib/account", () => ({ createDeveloperAccount: mocks.createDeveloperAccount }));
-vi.mock("@/models/OAuthPendingSignup", () => ({
-  default: {
-    findOne: mocks.pendingFindOne,
-    deleteOne: mocks.pendingDeleteOne
-  }
+vi.mock("@/lib/repositories/oauthPending", () => ({
+  findByPendingId: mocks.findByPendingId,
+  deleteByPendingId: mocks.deleteByPendingId
 }));
-vi.mock("@/models/DeveloperUser", () => ({
-  default: {
-    exists: mocks.userExists,
-    create: mocks.userCreate
-  }
+vi.mock("@/lib/repositories/users", () => ({
+  existsByEmailOrGoogleSub: mocks.existsByEmailOrGoogleSub,
+  createUser: mocks.createUser
 }));
 
 function makeCompleteRequest(body: Record<string, unknown>, cookie?: string) {
@@ -59,11 +55,14 @@ describe("POST /api/auth/google/complete", () => {
     mocks.checkRateLimit.mockResolvedValue({ limited: false });
     mocks.checkAuthRateLimit.mockResolvedValue({ limited: false });
     mocks.createDeveloperAccount.mockResolvedValue({ accountId: "acct_1" });
-    mocks.createDeveloperSession.mockResolvedValue({ token: "sess_token", session: { sessionId: "sess_1" } });
+    mocks.createDeveloperSession.mockResolvedValue({
+      token: "sess_token",
+      session: { sessionId: "sess_1" }
+    });
     mocks.setDeveloperSessionCookie.mockImplementation(() => undefined);
-    mocks.pendingDeleteOne.mockResolvedValue({});
-    mocks.userExists.mockResolvedValue(null);
-    mocks.userCreate.mockResolvedValue({
+    mocks.deleteByPendingId.mockResolvedValue({});
+    mocks.existsByEmailOrGoogleSub.mockResolvedValue(false);
+    mocks.createUser.mockResolvedValue({
       userId: "user_new",
       email: "new@acme.com",
       emailVerified: true
@@ -89,19 +88,15 @@ describe("POST /api/auth/google/complete", () => {
   it("creates a Google user after valid DOB when pending cookie is present", async () => {
     const { hashPendingSignupToken } = await import("@/lib/googleOAuth");
     const pendingToken = "pending-token-value";
-    mocks.pendingFindOne.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        lean: vi.fn().mockResolvedValue({
-          pendingId: "pend_1",
-          googleSub: "google-sub-1",
-          email: "new@acme.com",
-          emailVerified: true,
-          firstName: "Ada",
-          lastName: "Lovelace",
-          tokenHash: hashPendingSignupToken(pendingToken),
-          expiresAt: new Date(Date.now() + 60_000)
-        })
-      })
+    mocks.findByPendingId.mockResolvedValue({
+      pendingId: "pend_1",
+      googleSub: "google-sub-1",
+      email: "new@acme.com",
+      emailVerified: true,
+      firstName: "Ada",
+      lastName: "Lovelace",
+      tokenHash: hashPendingSignupToken(pendingToken),
+      expiresAt: new Date(Date.now() + 60_000)
     });
 
     const { POST } = await import("@/app/api/auth/google/complete/route");
@@ -114,7 +109,7 @@ describe("POST /api/auth/google/complete", () => {
       )
     );
     expect(res.status).toBe(200);
-    expect(mocks.userCreate).toHaveBeenCalledWith(
+    expect(mocks.createUser).toHaveBeenCalledWith(
       expect.objectContaining({
         email: "new@acme.com",
         googleSub: "google-sub-1",

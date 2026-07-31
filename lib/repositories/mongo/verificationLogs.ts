@@ -1,8 +1,7 @@
 import Agent from "@/models/Agent";
 import VerificationLog, { type VerificationLogDocument } from "@/models/VerificationLog";
 import type { PipelineStage } from "mongoose";
-import { lazyModelMethod } from "@/lib/repositories/mongoModelAdapter";
-import { applyQueryOptions, asLean, selectLean } from "@/lib/repositories/mongoModelAdapter";
+import { applyQueryOptions, asLean, lazyModelMethod, selectLean, thenableQuery } from "@/lib/repositories/mongoModelAdapter";
 
 export type VerificationLogLean = VerificationLogDocument;
 export type VerificationLogRepository = typeof verificationLogRepository;
@@ -25,17 +24,19 @@ export function findLogs(
   filter: Record<string, unknown>,
   options: { sort?: Record<string, 1 | -1>; limit?: number; skip?: number; select?: string } = {}
 ) {
-  return asLean(applyQueryOptions(VerificationLog.find(filter), {
-    ...options,
-    sort: options.sort ?? { createdAt: -1 }
-  }));
+  return thenableQuery(
+    applyQueryOptions(VerificationLog.find(filter), {
+      ...options,
+      sort: options.sort ?? { createdAt: -1 }
+    })
+  );
 }
 
 export function findOneLog(
   filter: Record<string, unknown>,
   options: { select?: string; sort?: Record<string, 1 | -1> } = {}
 ) {
-  return asLean(applyQueryOptions(VerificationLog.findOne(filter), options));
+  return thenableQuery(applyQueryOptions(VerificationLog.findOne(filter), options));
 }
 
 export async function countLogs(filter: Record<string, unknown>) {

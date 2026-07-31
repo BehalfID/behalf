@@ -163,9 +163,13 @@ const mocks = vi.hoisted(() => ({
   }
 }));
 
-vi.mock("@/lib/repositories/accounts", () => ({
-  findAccountBySlugLean: mocks.findAccountBySlugLean
-}));
+vi.mock("@/lib/repositories/accounts", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/repositories/accounts")>();
+  return {
+    ...actual,
+    findAccountBySlugLean: mocks.findAccountBySlugLean
+  };
+});
 
 vi.mock("@/lib/developerAuth", () => ({
   requireDeveloperApi: mocks.requireDeveloperApi,

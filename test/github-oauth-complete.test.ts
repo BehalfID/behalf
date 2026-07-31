@@ -8,13 +8,13 @@ const mocks = vi.hoisted(() => ({
   createDeveloperAccount: vi.fn(),
   createDeveloperSession: vi.fn(),
   setDeveloperSessionCookie: vi.fn(),
-  pendingFindOne: vi.fn(),
-  pendingDeleteOne: vi.fn(),
-  userExists: vi.fn(),
-  userCreate: vi.fn(),
-  userDeleteOne: vi.fn(),
-  identityExists: vi.fn(),
-  identityCreate: vi.fn(),
+  findByPendingId: vi.fn(),
+  deleteByPendingId: vi.fn(),
+  existsByEmail: vi.fn(),
+  createUser: vi.fn(),
+  deleteUser: vi.fn(),
+  existsByProviderAccount: vi.fn(),
+  createExternalIdentity: vi.fn(),
   recordIdentityAudit: vi.fn()
 }));
 
@@ -34,29 +34,19 @@ vi.mock("@/lib/account", () => ({ createDeveloperAccount: mocks.createDeveloperA
 vi.mock("@/lib/authProviders/identityAudit", () => ({
   recordIdentityAudit: mocks.recordIdentityAudit
 }));
-vi.mock("@/models/OAuthPendingSignup", () => ({
-  default: {
-    findOne: mocks.pendingFindOne,
-    deleteOne: mocks.pendingDeleteOne
-  }
+vi.mock("@/lib/repositories/oauthPending", () => ({
+  findByPendingId: mocks.findByPendingId,
+  deleteByPendingId: mocks.deleteByPendingId
 }));
-vi.mock("@/models/DeveloperUser", () => ({
-  default: {
-    exists: mocks.userExists,
-    create: mocks.userCreate,
-    deleteOne: mocks.userDeleteOne
-  }
+vi.mock("@/lib/repositories/users", () => ({
+  existsByEmail: mocks.existsByEmail,
+  createUser: mocks.createUser,
+  deleteUser: mocks.deleteUser
 }));
-vi.mock("@/models/ExternalIdentity", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/models/ExternalIdentity")>();
-  return {
-    ...actual,
-    default: {
-      exists: mocks.identityExists,
-      create: mocks.identityCreate
-    }
-  };
-});
+vi.mock("@/lib/repositories/externalIdentities", () => ({
+  existsByProviderAccount: mocks.existsByProviderAccount,
+  createExternalIdentity: mocks.createExternalIdentity
+}));
 
 function makeCompleteRequest(body: Record<string, unknown>, cookie?: string) {
   const headers: Record<string, string> = {
@@ -82,15 +72,15 @@ describe("POST /api/auth/github/complete", () => {
       session: { sessionId: "sess_1" }
     });
     mocks.setDeveloperSessionCookie.mockImplementation(() => undefined);
-    mocks.pendingDeleteOne.mockResolvedValue({});
-    mocks.userExists.mockResolvedValue(null);
-    mocks.identityExists.mockResolvedValue(null);
-    mocks.userCreate.mockResolvedValue({
+    mocks.deleteByPendingId.mockResolvedValue({});
+    mocks.existsByEmail.mockResolvedValue(false);
+    mocks.existsByProviderAccount.mockResolvedValue(false);
+    mocks.createUser.mockResolvedValue({
       userId: "user_new",
       email: "new@example.com",
       emailVerified: true
     });
-    mocks.identityCreate.mockResolvedValue({});
+    mocks.createExternalIdentity.mockResolvedValue({});
     mocks.recordIdentityAudit.mockResolvedValue(undefined);
   });
 
@@ -103,20 +93,16 @@ describe("POST /api/auth/github/complete", () => {
   it("creates a GitHub user after valid DOB when pending cookie is present", async () => {
     const { hashEmailToken } = await import("@/lib/developerAuth");
     const pendingToken = "pending-token-value";
-    mocks.pendingFindOne.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        lean: vi.fn().mockResolvedValue({
-          pendingId: "pend_1",
-          provider: "github",
-          providerAccountId: "12345",
-          email: "new@example.com",
-          emailVerified: true,
-          firstName: "Ada",
-          lastName: "Lovelace",
-          tokenHash: hashEmailToken(pendingToken),
-          expiresAt: new Date(Date.now() + 60_000)
-        })
-      })
+    mocks.findByPendingId.mockResolvedValue({
+      pendingId: "pend_1",
+      provider: "github",
+      providerAccountId: "12345",
+      email: "new@example.com",
+      emailVerified: true,
+      firstName: "Ada",
+      lastName: "Lovelace",
+      tokenHash: hashEmailToken(pendingToken),
+      expiresAt: new Date(Date.now() + 60_000)
     });
 
     const { POST } = await import("@/app/api/auth/github/complete/route");
@@ -129,14 +115,14 @@ describe("POST /api/auth/github/complete", () => {
       )
     );
     expect(res.status).toBe(200);
-    expect(mocks.userCreate).toHaveBeenCalledWith(
+    expect(mocks.createUser).toHaveBeenCalledWith(
       expect.objectContaining({
         email: "new@example.com",
         authProviders: ["github"],
         emailVerified: true
       })
     );
-    expect(mocks.identityCreate).toHaveBeenCalledWith(
+    expect(mocks.createExternalIdentity).toHaveBeenCalledWith(
       expect.objectContaining({
         provider: "github",
         providerAccountId: "12345"

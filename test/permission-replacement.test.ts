@@ -9,8 +9,16 @@ const mocks = vi.hoisted(() => ({
   revokeActivePermissionForReplacement: vi.fn(),
   activateStagedReplacementPermission: vi.fn(),
   abandonStagedReplacementPermission: vi.fn(),
-  auditCreate: vi.fn(),
+  loggerInfo: vi.fn(),
   emitWebhookEvent: vi.fn()
+}));
+
+vi.mock("@/lib/logger", () => ({
+  logger: {
+    info: mocks.loggerInfo,
+    warn: vi.fn(),
+    error: vi.fn()
+  }
 }));
 
 vi.mock("@/lib/ids", () => ({
@@ -27,13 +35,17 @@ vi.mock("@/lib/webhooks", () => ({
   emitWebhookEvent: mocks.emitWebhookEvent
 }));
 
-vi.mock("@/lib/repositories/permissions", () => ({
-  findReplacementByIdempotencyKey: mocks.findReplacementByIdempotencyKey,
-  stageReplacementPermission: mocks.stageReplacementPermission,
-  revokeActivePermissionForReplacement: mocks.revokeActivePermissionForReplacement,
-  activateStagedReplacementPermission: mocks.activateStagedReplacementPermission,
-  abandonStagedReplacementPermission: mocks.abandonStagedReplacementPermission
-}));
+vi.mock("@/lib/repositories/permissions", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/repositories/permissions")>();
+  return {
+    ...actual,
+    findReplacementByIdempotencyKey: mocks.findReplacementByIdempotencyKey,
+    stageReplacementPermission: mocks.stageReplacementPermission,
+    revokeActivePermissionForReplacement: mocks.revokeActivePermissionForReplacement,
+    activateStagedReplacementPermission: mocks.activateStagedReplacementPermission,
+    abandonStagedReplacementPermission: mocks.abandonStagedReplacementPermission
+  };
+});
 
 vi.mock("@/models/Permission", () => ({
   default: {
@@ -50,11 +62,17 @@ vi.mock("@/models/Agent", () => ({
 
 vi.mock("@/models/PermissionProfile", () => ({ default: {} }));
 
-vi.mock("@/models/PermissionReplacementAudit", () => ({
-  default: {
-    create: mocks.auditCreate
-  }
-}));
+function auditTypes() {
+  return mocks.loggerInfo.mock.calls
+    .filter((call) => call[0] === "permission_replacement_audit")
+    .map((call) => call[1]?.type);
+}
+
+function auditPayloads() {
+  return mocks.loggerInfo.mock.calls
+    .filter((call) => call[0] === "permission_replacement_audit")
+    .map((call) => call[1]);
+}
 
 function actor(role: WorkspaceRole = "OWNER", accountId = "acct_test") {
   return {
@@ -123,7 +141,6 @@ beforeEach(() => {
     requiredAuthorityLevel: 40
   });
   mocks.abandonStagedReplacementPermission.mockResolvedValue({ status: "revoked" });
-  mocks.auditCreate.mockResolvedValue({});
   mocks.emitWebhookEvent.mockResolvedValue(undefined);
 });
 
@@ -166,11 +183,8 @@ describe("replacePermissionForAgent", () => {
     expect(mocks.revokeActivePermissionForReplacement.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.activateStagedReplacementPermission.mock.invocationCallOrder[0]
     );
-    expect(mocks.auditCreate.mock.calls.map((call) => call[0].type)).toEqual([
-      "attempted",
-      "completed"
-    ]);
-    expect(mocks.auditCreate.mock.calls.at(-1)?.[0].metadata).toMatchObject({
+    expect(auditTypes()).toEqual(["attempted", "completed"]);
+    expect(auditPayloads().at(-1)).toMatchObject({
       oldPermissionId: "perm_old",
       replacementPermissionId: "perm_replacement"
     });
@@ -229,10 +243,7 @@ describe("replacePermissionForAgent", () => {
     );
     expect("error" in result && result.error?.status).toBe(403);
     expect(mocks.stageReplacementPermission).not.toHaveBeenCalled();
-    expect(mocks.auditCreate.mock.calls.map((call) => call[0].type)).toEqual([
-      "attempted",
-      "rejected"
-    ]);
+    expect(auditTypes()).toEqual(["attempted", "rejected"]);
   });
 
   it("denies cross-account mutation by scoping agent and permission lookups", async () => {
@@ -267,10 +278,7 @@ describe("replacePermissionForAgent", () => {
       expect.objectContaining({ permissionId: "perm_replacement" })
     );
     expect(mocks.activateStagedReplacementPermission).not.toHaveBeenCalled();
-    expect(mocks.auditCreate.mock.calls.map((call) => call[0].type)).toEqual([
-      "attempted",
-      "rejected"
-    ]);
+    expect(auditTypes()).toEqual(["attempted", "rejected"]);
   });
 
   it("is idempotent when the replacement already completed for the same key", async () => {
@@ -289,7 +297,7 @@ describe("replacePermissionForAgent", () => {
       status: "active"
     });
     expect(mocks.stageReplacementPermission).not.toHaveBeenCalled();
-    expect(mocks.auditCreate.mock.calls.map((call) => call[0].type)).toContain("completed");
+    expect(auditTypes()).toContain("completed");
   });
 
   it("resumes activation after failure between revoke and activation", async () => {
@@ -309,10 +317,7 @@ describe("replacePermissionForAgent", () => {
     });
     expect(mocks.activateStagedReplacementPermission).toHaveBeenCalled();
     expect(mocks.stageReplacementPermission).not.toHaveBeenCalled();
-    expect(mocks.auditCreate.mock.calls.map((call) => call[0].type)).toEqual([
-      "attempted",
-      "completed"
-    ]);
+    expect(auditTypes()).toEqual(["attempted", "completed"]);
   });
 
   it("leaves access denied and reports interruption when activation fails after revoke", async () => {
@@ -326,10 +331,7 @@ describe("replacePermissionForAgent", () => {
       replacementPermissionId: "perm_replacement",
       idempotencyKey: "idem_1"
     });
-    expect(mocks.auditCreate.mock.calls.map((call) => call[0].type)).toEqual([
-      "attempted",
-      "interrupted"
-    ]);
+    expect(auditTypes()).toEqual(["attempted", "interrupted"]);
   });
 
   it("never activates a second replacement while an active revoke CAS can only win once", async () => {
@@ -354,14 +356,10 @@ describe("replacePermissionForAgent", () => {
 
   it("links old and replacement ids across audit completed metadata", async () => {
     await replace();
-    const completed = mocks.auditCreate.mock.calls.find((call) => call[0].type === "completed")?.[0];
+    const completed = auditPayloads().find((payload) => payload.type === "completed");
     expect(completed).toMatchObject({
       oldPermissionId: "perm_old",
-      replacementPermissionId: "perm_replacement",
-      metadata: expect.objectContaining({
-        oldPermissionId: "perm_old",
-        replacementPermissionId: "perm_replacement"
-      })
+      replacementPermissionId: "perm_replacement"
     });
   });
 

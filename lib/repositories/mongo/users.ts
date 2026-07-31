@@ -100,7 +100,10 @@ export async function existsByEmailOrGoogleSub(email: string, googleSub: string)
 export async function createUser(input: CreateUserInput): Promise<DeveloperUserLean> {
   try {
     const user = await DeveloperUser.create({ ...input, email: normalizedEmail(input.email) });
-    return user.toObject() as DeveloperUserLean;
+    if (user && typeof (user as { toObject?: () => DeveloperUserLean }).toObject === "function") {
+      return (user as { toObject: () => DeveloperUserLean }).toObject();
+    }
+    return user as DeveloperUserLean;
   } catch (error) {
     translateDuplicateKey(error, "A user with this email already exists.");
   }
