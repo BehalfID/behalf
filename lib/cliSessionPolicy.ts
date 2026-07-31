@@ -1,4 +1,3 @@
-import { connectToDatabase } from "@/lib/db";
 import { hashCliRepo } from "@/lib/cliRepoHash";
 import { createPublicId } from "@/lib/ids";
 import {
@@ -15,9 +14,8 @@ import {
   type ManagedProfilePausePolicy,
   validatePauseRequestAgainstPolicy,
 } from "@/lib/managedProfilePolicy";
-import Account, { type AccountDocument } from "@/models/Account";
-import CliAuditLog from "@/models/CliAuditLog";
-import CliPauseLease from "@/models/CliPauseLease";
+import { findAccount, type AccountLean } from "@/lib/repositories/accounts";
+import { createAuditLog, createLease, findActiveLeases } from "@/lib/repositories/cli";
 import type { CliAuthContext } from "@/lib/cliAuth";
 
 export type CliSessionPolicyMode = "unmanaged" | "managed" | "required";
@@ -71,7 +69,7 @@ function isWithinLegacyWorkHours(now = new Date()): boolean {
 
 /** Exported for tests — legacy onboarding/account fallback when no persisted policy applies. */
 export function resolveLegacyCliSessionPolicy(
-  account: Pick<AccountDocument, "accountId" | "accountType" | "onboarding">,
+  account: Pick<AccountLean, "accountId" | "accountType" | "onboarding">,
   now = new Date()
 ): Omit<CliSessionPolicyResult, "sessionId" | "workspaceId"> & { workspaceId: string } {
   const controlAreas = account.onboarding?.controlAreas ?? [];
@@ -129,16 +127,13 @@ export function resolveLegacyCliSessionPolicy(
 }
 
 async function findActivePauseLease(auth: CliAuthContext, input: CliSessionPolicyInput) {
-  const query: Record<string, unknown> = {
-    granted: true,
-    expiresAt: { $gt: new Date() },
-  };
-  if (auth.userId) query.userId = auth.userId;
-  else if (auth.accountId) query.accountId = auth.accountId;
-  else if (input.deviceId) query.deviceId = input.deviceId;
+  const filter: { accountId?: string; userId?: string; deviceId?: string } = {};
+  if (auth.userId) filter.userId = auth.userId;
+  else if (auth.accountId) filter.accountId = auth.accountId;
+  else if (input.deviceId) filter.deviceId = input.deviceId;
   else return null;
 
-  const leases = await CliPauseLease.find(query).sort({ expiresAt: -1 }).limit(20).lean();
+  const leases = await findActiveLeases(filter);
   for (const lease of leases) {
     if (lease.scope === "all") return lease;
     if (lease.scope === "current_repo" && lease.repo && input.repoRoot && lease.repo === input.repoRoot) {
@@ -211,8 +206,7 @@ export async function resolveManagedProfilePolicyDecision(
   auth: CliAuthContext,
   input: ManagedProfilePolicyDecisionInput
 ): Promise<ManagedProfilePolicyDecisionResult> {
-  await connectToDatabase();
-
+  
   const fallbackPausePolicy = defaultManagedProfilePolicy(auth.accountId ?? "unknown").pausePolicy;
 
   if (!auth.accountId) {
@@ -226,7 +220,7 @@ export async function resolveManagedProfilePolicyDecision(
     };
   }
 
-  const account = await Account.findOne({ accountId: auth.accountId }).lean();
+  const account = await findAccount({ accountId: auth.accountId });
   if (!account) {
     return {
       mode: "unmanaged",
@@ -291,8 +285,7 @@ export async function resolveCliSessionPolicy(
   input: CliSessionPolicyInput,
   options?: ResolveCliSessionPolicyOptions
 ): Promise<CliSessionPolicyResult> {
-  await connectToDatabase();
-
+  
   const sessionId = createPublicId("sess");
   const devMode = devPolicyMode();
   if (devMode) {
@@ -337,7 +330,7 @@ export async function resolveCliSessionPolicy(
     };
   }
 
-  const account = await Account.findOne({ accountId: auth.accountId }).lean();
+  const account = await findAccount({ accountId: auth.accountId });
   if (!account) {
     return {
       mode: "unmanaged",
@@ -409,7 +402,7 @@ export async function recordCliAuditEvent(input: {
   metadata?: Record<string, unknown>;
 }) {
   const { sanitizeCliAuditMetadata, sanitizeCliAuditRepo } = await import("@/lib/cliAuditActivity");
-  await CliAuditLog.create({
+  await createAuditLog({
     auditId: createPublicId("clia"),
     accountId: input.auth.accountId,
     userId: input.auth.userId,
@@ -481,8 +474,7 @@ export async function requestCliPauseLease(
   auth: CliAuthContext,
   input: CliPauseInput
 ): Promise<CliPauseResult> {
-  await connectToDatabase();
-
+  
   const managedPolicy = auth.accountId
     ? await loadEffectiveManagedProfilePolicy(auth.accountId)
     : null;
@@ -531,7 +523,7 @@ export async function requestCliPauseLease(
         const expiresAt = new Date(Date.now() + durationMinutes * 60 * 1000);
         const leaseId = createPublicId("pause");
 
-        await CliPauseLease.create({
+        await createLease({
           leaseId,
           accountId: auth.accountId,
           userId: auth.userId,
@@ -638,7 +630,7 @@ export async function requestCliPauseLease(
   const expiresAt = new Date(Date.now() + input.durationMinutes * 60 * 1000);
   const leaseId = createPublicId("pause");
 
-  await CliPauseLease.create({
+  await createLease({
     leaseId,
     accountId: auth.accountId,
     userId: auth.userId,

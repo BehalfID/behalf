@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const replayMocks = vi.hoisted(() => ({
   requireConsoleApi: vi.fn(),
   getConsoleAccountId: vi.fn(),
-  findOneAndUpdate: vi.fn(),
-  exists: vi.fn()
+  findOneAndUpdateEvent: vi.fn(),
+  webhookEventExists: vi.fn()
 }));
 
 vi.mock("@/lib/adminAuth", () => ({
@@ -15,39 +15,32 @@ vi.mock("@/lib/consoleData", () => ({
   getConsoleAccountId: replayMocks.getConsoleAccountId
 }));
 
-vi.mock("@/models/WebhookEvent", () => ({
-  default: {
-    findOneAndUpdate: replayMocks.findOneAndUpdate,
-    exists: replayMocks.exists
-  }
+vi.mock("@/lib/repositories/webhooks", () => ({
+  findOneAndUpdateEvent: replayMocks.findOneAndUpdateEvent,
+  webhookEventExists: replayMocks.webhookEventExists
 }));
-
-function queryResult(value: unknown) {
-  return {
-    select: vi.fn(() => ({
-      lean: vi.fn(async () => value)
-    }))
-  };
-}
 
 describe("POST /api/console/webhook-events/[eventId]/replay", () => {
   beforeEach(() => {
     replayMocks.requireConsoleApi.mockResolvedValue(null);
     replayMocks.getConsoleAccountId.mockResolvedValue("acct_test");
-    replayMocks.findOneAndUpdate.mockReturnValue(queryResult(null));
-    replayMocks.exists.mockResolvedValue(null);
+    replayMocks.findOneAndUpdateEvent.mockResolvedValue(null);
+    replayMocks.webhookEventExists.mockResolvedValue(null);
   });
 
   it("requires console authorization", async () => {
-    replayMocks.requireConsoleApi.mockResolvedValue(Response.json({ error: "Console authentication required." }, { status: 401 }));
+    replayMocks.requireConsoleApi.mockResolvedValue(
+      Response.json({ error: "Console authentication required." }, { status: 401 })
+    );
     const { POST } = await import("@/app/api/console/webhook-events/[eventId]/replay/route");
 
-    const response = await POST(new Request("http://localhost/api/console/webhook-events/evt_test/replay") as never, {
-      params: Promise.resolve({ eventId: "evt_test" })
-    });
+    const response = await POST(
+      new Request("http://localhost/api/console/webhook-events/evt_test/replay") as never,
+      { params: Promise.resolve({ eventId: "evt_test" }) }
+    );
 
     expect(response.status).toBe(401);
-    expect(replayMocks.findOneAndUpdate).not.toHaveBeenCalled();
+    expect(replayMocks.findOneAndUpdateEvent).not.toHaveBeenCalled();
   });
 
   it("replays a dead-lettered event by resetting it to pending", async () => {
@@ -60,12 +53,13 @@ describe("POST /api/console/webhook-events/[eventId]/replay", () => {
       lastError: null,
       completedAt: null
     };
-    replayMocks.findOneAndUpdate.mockReturnValue(queryResult(replayedEvent));
+    replayMocks.findOneAndUpdateEvent.mockResolvedValue(replayedEvent);
     const { POST } = await import("@/app/api/console/webhook-events/[eventId]/replay/route");
 
-    const response = await POST(new Request("http://localhost/api/console/webhook-events/evt_dead/replay") as never, {
-      params: Promise.resolve({ eventId: "evt_dead" })
-    });
+    const response = await POST(
+      new Request("http://localhost/api/console/webhook-events/evt_dead/replay") as never,
+      { params: Promise.resolve({ eventId: "evt_dead" }) }
+    );
     const json = await response.json();
 
     expect(response.status).toBe(200);
@@ -76,7 +70,7 @@ describe("POST /api/console/webhook-events/[eventId]/replay", () => {
         nextAttemptAt: "2026-05-19T12:00:00.000Z"
       }
     });
-    expect(replayMocks.findOneAndUpdate).toHaveBeenCalledWith(
+    expect(replayMocks.findOneAndUpdateEvent).toHaveBeenCalledWith(
       {
         accountId: "acct_test",
         eventId: "evt_dead",
@@ -87,25 +81,25 @@ describe("POST /api/console/webhook-events/[eventId]/replay", () => {
         $set: expect.objectContaining({
           status: "pending",
           attempts: 0,
-          deadLetter: false,
-          lastError: null,
-          completedAt: null
-        }),
-        $unset: { processingStartedAt: "" }
+          deadLetter: false
+        })
       }),
       { returnDocument: "after" }
     );
   });
 
   it("rejects completed events instead of duplicating them", async () => {
-    replayMocks.exists.mockImplementation(async (query: Record<string, unknown>) =>
-      query.status === "processing" ? null : { _id: "evt_completed" }
-    );
+    replayMocks.findOneAndUpdateEvent.mockResolvedValue(null);
+    replayMocks.webhookEventExists.mockImplementation(async (filter: { status?: string }) => {
+      if (filter.status === "processing") return null;
+      return { eventId: "evt_done" };
+    });
     const { POST } = await import("@/app/api/console/webhook-events/[eventId]/replay/route");
 
-    const response = await POST(new Request("http://localhost/api/console/webhook-events/evt_completed/replay") as never, {
-      params: Promise.resolve({ eventId: "evt_completed" })
-    });
+    const response = await POST(
+      new Request("http://localhost/api/console/webhook-events/evt_done/replay") as never,
+      { params: Promise.resolve({ eventId: "evt_done" }) }
+    );
     const json = await response.json();
 
     expect(response.status).toBe(409);

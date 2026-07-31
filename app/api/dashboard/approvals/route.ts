@@ -3,10 +3,10 @@ import { accountScopeFilter } from "@/lib/accountAccess";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import { enrichApprovalForActor, getWorkspaceActor, serializeWorkspaceAuthority } from "@/lib/delegatedAuth";
 import { noCacheJson } from "@/lib/responses";
-import Agent from "@/models/Agent";
-import ApprovalRequest from "@/models/ApprovalRequest";
-import DeveloperUser from "@/models/DeveloperUser";
 import { BEHALF_CLI_PAUSE_AGENT_ID } from "@/lib/managedProfilePauseApproval";
+import { listAgents } from "@/lib/repositories/agents";
+import { findApprovals } from "@/lib/repositories/approvals";
+import { findUsers } from "@/lib/repositories/users";
 
 const APPROVAL_SELECT =
   "-_id approvalId requestId kind agentId permissionId action vendor amount status resolvedBy resolvedAt usedAt grantExpiresAt requiredAuthorityLevel developerUserId createdAt argumentKind argumentPreview argumentPreviewTruncated pauseTool pauseRepo pauseBranch pauseDeviceId pauseScope requestedDurationMinutes pauseReason contextReason";
@@ -29,11 +29,7 @@ export async function GET(request: NextRequest) {
     query.status = "pending";
   }
 
-  const approvals = await ApprovalRequest.find(query)
-    .sort({ createdAt: -1 })
-    .limit(100)
-    .select(APPROVAL_SELECT)
-    .lean();
+  const approvals = await findApprovals(query, { sort: { createdAt: -1 }, limit: 100, select: APPROVAL_SELECT });
 
   const agentIds = [
     ...new Set(
@@ -43,9 +39,7 @@ export async function GET(request: NextRequest) {
     ),
   ];
   const agents = agentIds.length
-    ? await Agent.find({ ...accountScopeFilter(actor.accountId), agentId: { $in: agentIds } })
-        .select("-_id agentId name")
-        .lean()
+    ? await listAgents({ ...accountScopeFilter(actor.accountId), agentId: { $in: agentIds } }, { select: "-_id agentId name" })
     : [];
   const nameMap = new Map(agents.map((a) => [a.agentId, a.name]));
 
@@ -57,9 +51,7 @@ export async function GET(request: NextRequest) {
     ),
   ];
   const requesters = requesterIds.length
-    ? await DeveloperUser.find({ userId: { $in: requesterIds } })
-        .select("-_id userId email firstName lastName")
-        .lean()
+    ? await findUsers({ userId: { $in: requesterIds } }, { select: "-_id userId email firstName lastName" })
     : [];
   const requesterMap = new Map(
     requesters.map((u) => {

@@ -215,11 +215,14 @@ function buildIncidentWhere(filter: Record<string, unknown> = {}): SQL | undefin
 
 export async function findStatusComponents(
   db: BehalfPostgresDb,
-  filter: Record<string, unknown> = {}
+  filter: Record<string, unknown> = {},
+  _options: { sort?: Record<string, 1 | -1>; limit?: number; skip?: number; select?: string } = {}
 ) {
   return db.query.statusComponents.findMany({
     where: buildComponentWhere(filter),
-    orderBy: [asc(statusComponents.sortOrder), asc(statusComponents.name)]
+    orderBy: [asc(statusComponents.sortOrder), asc(statusComponents.name)],
+    limit: _options.limit,
+    offset: _options.skip
   });
 }
 
@@ -245,11 +248,14 @@ export async function findOneAndDeleteStatusComponent(
 
 export async function findStatusIncidents(
   db: BehalfPostgresDb,
-  filter: Record<string, unknown> = {}
+  filter: Record<string, unknown> = {},
+  _options: { sort?: Record<string, 1 | -1>; limit?: number; skip?: number; select?: string } = {}
 ) {
   const rows = await db.query.statusIncidents.findMany({
     where: buildIncidentWhere(filter),
-    orderBy: desc(statusIncidents.createdAt)
+    orderBy: desc(statusIncidents.createdAt),
+    limit: _options.limit,
+    offset: _options.skip
   });
   return rows.map(normalizeIncident);
 }

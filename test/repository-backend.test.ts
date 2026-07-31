@@ -7,7 +7,7 @@ import {
 import { getRepositories, resetRepositoryCacheForTests } from "@/lib/repositories/composition";
 
 describe("repository backend selection", () => {
-  it("defaults to mongo", () => {
+  it("defaults to mongo when the Postgres latch is off", () => {
     expect(resolveRepositoryBackend({})).toBe("mongo");
     expect(resolveRepositoryBackend({ BEHALFID_REPOSITORY_BACKEND: "mongo" })).toBe("mongo");
   });
@@ -18,6 +18,14 @@ describe("repository backend selection", () => {
     ).toThrow(/BEHALFID_ALLOW_POSTGRES_RUNTIME=true/i);
   });
 
+  it("defaults to postgres when the safety latch is set and backend is unset", () => {
+    expect(
+      resolveRepositoryBackend({
+        BEHALFID_ALLOW_POSTGRES_RUNTIME: "true"
+      })
+    ).toBe("postgres");
+  });
+
   it("allows postgres when the safety latch is set", () => {
     expect(
       resolveRepositoryBackend({
@@ -25,6 +33,15 @@ describe("repository backend selection", () => {
         BEHALFID_ALLOW_POSTGRES_RUNTIME: "true"
       })
     ).toBe("postgres");
+  });
+
+  it("honors explicit mongo even when the latch is set", () => {
+    expect(
+      resolveRepositoryBackend({
+        BEHALFID_REPOSITORY_BACKEND: "mongo",
+        BEHALFID_ALLOW_POSTGRES_RUNTIME: "true"
+      })
+    ).toBe("mongo");
   });
 
   it("resolves per-aggregate overrides over the global default", () => {

@@ -1,9 +1,8 @@
 import { type NextRequest } from "next/server";
-import { connectToDatabase } from "@/lib/db";
 import { hashEmailToken } from "@/lib/developerAuth";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { jsonError } from "@/lib/responses";
-import DeveloperUser from "@/models/DeveloperUser";
+import * as users from "@/lib/repositories/users";
 import { NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
@@ -22,44 +21,29 @@ export async function POST(request: NextRequest) {
 
   if (!token && !code) return jsonError("Verification token or code is required.");
 
-  await connectToDatabase();
-
   let user;
 
   if (token) {
     const tokenHash = hashEmailToken(token);
-    user = await DeveloperUser.findOne({
-      emailVerificationTokenHash: tokenHash,
-      emailVerificationTokenExpiresAt: { $gt: new Date() }
-    })
-      .select("+emailVerificationTokenHash +emailVerificationTokenExpiresAt")
-      .lean();
+    user = await users.findByVerificationTokenHash(tokenHash);
   } else if (code) {
     const normalized = code.replace(/-/g, "").toUpperCase();
     const codeHash = hashEmailToken(normalized);
-    user = await DeveloperUser.findOne({
-      emailVerificationCodeHash: codeHash,
-      emailVerificationTokenExpiresAt: { $gt: new Date() }
-    })
-      .select("+emailVerificationCodeHash +emailVerificationTokenExpiresAt")
-      .lean();
+    user = await users.findByVerificationCodeHash(codeHash);
   }
 
   if (!user) {
     return jsonError("This verification link or code is invalid or has expired.", 400);
   }
 
-  await DeveloperUser.updateOne(
-    { userId: user.userId },
-    {
-      $set: { emailVerified: true },
-      $unset: {
-        emailVerificationTokenHash: "",
-        emailVerificationTokenExpiresAt: "",
-        emailVerificationCodeHash: ""
-      }
+  await users.updateUserAtomic(user.userId, {
+    $set: { emailVerified: true },
+    $unset: {
+      emailVerificationTokenHash: "",
+      emailVerificationTokenExpiresAt: "",
+      emailVerificationCodeHash: ""
     }
-  );
+  });
 
   return NextResponse.json({ ok: true });
 }

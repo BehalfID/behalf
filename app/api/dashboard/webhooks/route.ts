@@ -11,21 +11,18 @@ import {
   validateWebhookUrl,
   WEBHOOK_EVENT_TYPES
 } from "@/lib/webhooks";
-import WebhookEndpoint from "@/models/WebhookEndpoint";
 import { getPlanEntitlements, normalizePlan } from "@/lib/plans";
+import { createEndpoint, listEndpoints } from "@/lib/repositories/webhooks";
 
 export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
   const plan = normalizePlan(auth.account?.plan);
   const entitlements = getPlanEntitlements(plan);
-  const webhooks = await WebhookEndpoint.find({
+  const webhooks = await listEndpoints({
     developerUserId: auth.user.userId,
     ...(auth.activeAccountId ? { accountId: auth.activeAccountId } : {})
-  })
-    .sort({ createdAt: -1 })
-    .select("-_id webhookId url secretPreview events status lastTriggeredAt createdAt updatedAt")
-    .lean();
+  }, { sort: { createdAt: -1 }, select: "-_id webhookId url secretPreview events status lastTriggeredAt createdAt updatedAt" });
   return noCacheJson({
     webhooks,
     eventTypes: WEBHOOK_EVENT_TYPES,
@@ -56,7 +53,7 @@ export async function POST(request: NextRequest) {
   if (eventsError || !events) return jsonError(eventsError ?? "Invalid webhook events.");
 
   const signing = createSigningSecret();
-  const webhook = await WebhookEndpoint.create({
+  const webhook = await createEndpoint({
     webhookId: createPublicId("wh"),
     accountId: auth.account?.accountId ?? auth.activeAccountId ?? auth.user.userId,
     developerUserId: auth.user.userId,

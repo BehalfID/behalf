@@ -1,5 +1,5 @@
 import Permission, { type PermissionDocument } from "@/models/Permission";
-import { lazyModelMethod } from "@/lib/repositories/mongoModelAdapter";
+import { applyQueryOptions, asLean, lazyModelMethod } from "@/lib/repositories/mongoModelAdapter";
 
 export type PermissionLean = PermissionDocument;
 export type PermissionRepository = typeof permissionRepository;
@@ -160,6 +160,13 @@ export async function updatePermission(
   return Permission.updateOne(filter, update);
 }
 
+export async function updatePermissions(
+  filter: Record<string, unknown>,
+  update: Record<string, unknown>
+) {
+  return Permission.updateMany(filter, update);
+}
+
 export async function deletePermissions(filter: Record<string, unknown>) {
   return Permission.deleteMany(filter);
 }
@@ -169,8 +176,11 @@ export async function countPermissions(filter: Record<string, unknown>) {
 }
 
 /** Mongo query primitives for routes that need an exact model query shape. */
-export function findPermissions(filter: Record<string, unknown> = {}) {
-  return Permission.find(filter);
+export function findPermissions(
+  filter: Record<string, unknown> = {},
+  options: { sort?: Record<string, 1 | -1>; limit?: number; skip?: number; select?: string } = {}
+) {
+  return asLean(applyQueryOptions(Permission.find(filter), options));
 }
 
 export function findOnePermission(filter: Record<string, unknown>) {

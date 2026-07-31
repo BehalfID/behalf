@@ -9,6 +9,8 @@ vi.mock("@/i18n/routing", () => ({
 }));
 
 import {
+  isOAuthPublicCallbackPath,
+  isPublicStatusPagePath,
   shouldBypassIntl,
   shouldBypassProxy,
   shouldUsePrivateNoStore
@@ -18,6 +20,8 @@ describe("proxy public bypasses", () => {
   it("bypasses health and static requests", () => {
     expect(shouldBypassProxy("/api/health")).toBe(true);
     expect(shouldBypassProxy("/api/health/db")).toBe(true);
+    expect(shouldBypassProxy("/api/auth/github/callback")).toBe(true);
+    expect(shouldBypassProxy("/api/auth/google/callback")).toBe(true);
     expect(shouldBypassProxy("/_next/static/chunks/app.js")).toBe(true);
     expect(shouldBypassProxy("/favicon.ico")).toBe(true);
     expect(shouldBypassProxy("/brand/logo.svg")).toBe(true);
@@ -34,6 +38,12 @@ describe("proxy public bypasses", () => {
 
   it("keeps dashboard requests on the proxy path", () => {
     expect(shouldBypassProxy("/dashboard")).toBe(false);
+  });
+
+  it("identifies OAuth provider callback paths", () => {
+    expect(isOAuthPublicCallbackPath("/api/auth/github/callback")).toBe(true);
+    expect(isOAuthPublicCallbackPath("/api/auth/google/callback")).toBe(true);
+    expect(isOAuthPublicCallbackPath("/api/auth/github")).toBe(false);
   });
 
   it("keeps internal and redirect routes out of locale rewriting", () => {
@@ -69,5 +79,21 @@ describe("private no-store classification", () => {
     expect(shouldUsePrivateNoStore("/docs")).toBe(false);
     expect(shouldUsePrivateNoStore("/robots.txt")).toBe(false);
     expect(shouldUsePrivateNoStore("/api/status")).toBe(false);
+    expect(shouldUsePrivateNoStore("/status")).toBe(false);
+    expect(shouldUsePrivateNoStore("/de/status")).toBe(false);
+  });
+});
+
+describe("public status page routing", () => {
+  it("recognizes canonical and locale-prefixed status paths", () => {
+    expect(isPublicStatusPagePath("/status")).toBe(true);
+    expect(isPublicStatusPagePath("/en/status")).toBe(true);
+    expect(isPublicStatusPagePath("/de/status")).toBe(true);
+    expect(isPublicStatusPagePath("/dashboard")).toBe(false);
+  });
+
+  it("keeps locale status pages on the public intl path", () => {
+    expect(shouldBypassIntl("/status")).toBe(false);
+    expect(shouldBypassIntl("/de/status")).toBe(false);
   });
 });

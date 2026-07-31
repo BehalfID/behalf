@@ -3,9 +3,9 @@ import { requireDeveloperApi } from "@/lib/developerAuth";
 import { getWorkspaceActor } from "@/lib/delegatedAuth";
 import { noCacheJson } from "@/lib/responses";
 import { matchFieldCompletions, matchSmartSuggestions, type SmartSuggestion } from "@/lib/smartSearch";
-import VerificationLog from "@/models/VerificationLog";
 import { accountScopeFilter } from "@/lib/accountAccess";
 import { retentionSince } from "@/lib/quota";
+import { findLogs } from "@/lib/repositories/verificationLogs";
 
 type FacetRow = { action?: string | null; vendor?: string | null; agentId?: string | null };
 
@@ -35,10 +35,7 @@ export async function GET(request: NextRequest) {
     const filter: Record<string, unknown> = { ...accountScopeFilter(actor.accountId) };
     if (retentionStart) filter.createdAt = { $gte: retentionStart };
 
-    const recent = await VerificationLog.find(filter)
-      .sort({ createdAt: -1 })
-      .limit(80)
-      .select("-_id action vendor agentId")
+    const recent = await findLogs(filter, { sort: { createdAt: -1 }, limit: 80, select: "-_id action vendor agentId" })
       .lean<FacetRow[]>();
 
     const seen = new Set<string>();

@@ -15,6 +15,8 @@ import {
 import {
   abandonStagedReplacementPermission,
   activateStagedReplacementPermission,
+  createPermission,
+  findOnePermission,
   findReplacementByIdempotencyKey,
   revokeActivePermissionForReplacement,
   stageReplacementPermission
@@ -22,11 +24,10 @@ import {
 import { jsonError } from "@/lib/responses";
 import { isRecord, parseOptionalAmount, parseOptionalDate, readString } from "@/lib/validation";
 import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
-import Agent from "@/models/Agent";
-import Permission from "@/models/Permission";
-import PermissionProfile from "@/models/PermissionProfile";
-import PermissionReplacementAudit from "@/models/PermissionReplacementAudit";
 import { accountScopeFilter } from "@/lib/accountAccess";
+import { findOneAgent } from "@/lib/repositories/agents";
+import { findPermissionProfile } from "@/lib/repositories/permissionProfiles";
+import { logger } from "@/lib/logger";
 
 export type PermissionBody = Record<string, unknown>;
 
@@ -44,7 +45,9 @@ async function recordPermissionReplacementAudit(input: {
   metadata?: Record<string, unknown>;
 }) {
   try {
-    await PermissionReplacementAudit.create({
+    // BLOCKER: permission_replacement_audits has no Postgres table yet.
+    // Audit is best-effort and must not block fail-closed replacement control flow.
+    logger.info("permission_replacement_audit", {
       eventId: createPublicId("pra"),
       accountId: input.accountId,
       agentId: input.agentId,
@@ -53,12 +56,7 @@ async function recordPermissionReplacementAudit(input: {
       oldPermissionId: input.oldPermissionId,
       replacementPermissionId: input.replacementPermissionId,
       idempotencyKey: input.idempotencyKey,
-      reason: input.reason,
-      metadata: {
-        oldPermissionId: input.oldPermissionId,
-        replacementPermissionId: input.replacementPermissionId,
-        ...input.metadata
-      }
+      reason: input.reason
     });
   } catch {
     // Audit must not block fail-closed replacement control flow.
@@ -263,7 +261,7 @@ export async function createPermissionForAgent(options: {
     return { error: viewerMutationForbidden() };
   }
 
-  const agent = await Agent.findOne({
+  const agent = await findOneAgent({
     ...accountScopeFilter(options.actor.accountId),
     agentId: options.agentId
   });
@@ -282,7 +280,7 @@ export async function createPermissionForAgent(options: {
   const { requiredAuthorityLevel } = classifyPermissionRisk(parsed.classificationInput);
   const permissionId = createPublicId("perm");
 
-  await Permission.create({
+  await createPermission({
     permissionId,
     accountId: options.actor.accountId,
     developerUserId: options.userId,
@@ -331,13 +329,13 @@ export async function replacePermissionForAgent(options: {
   if (idempotencyParsed.error) return { error: idempotencyParsed.error };
   const idempotencyKey = idempotencyParsed.key ?? createPublicId("prk");
 
-  const agent = await Agent.findOne({
+  const agent = await findOneAgent({
     ...accountScopeFilter(options.actor.accountId),
     agentId: options.agentId
   });
   if (!agent) return { error: jsonError("Agent not found.", 404) };
 
-  const existing = await Permission.findOne({
+  const existing = await findOnePermission({
     ...accountScopeFilter(options.actor.accountId),
     agentId: options.agentId,
     permissionId: options.permissionId
@@ -563,7 +561,7 @@ export async function replacePermissionForAgent(options: {
   if (existing.status !== "active") {
     const stagedSuccessor =
       existing.replacedByPermissionId
-        ? await Permission.findOne({
+        ? await findOnePermission({
             ...accountScopeFilter(options.actor.accountId),
             agentId: options.agentId,
             permissionId: existing.replacedByPermissionId,
@@ -825,12 +823,10 @@ export async function applyPermissionProfile(options: {
   agentId: string;
   profileId: string;
 }) {
-  const profile = await PermissionProfile.findOne({
-    profileId: options.profileId,
-    accountId: options.actor.accountId,
-    status: "active"
-  }).lean();
-  if (!profile) return { error: jsonError("Permission profile not found.", 404) };
+  const profile = await findPermissionProfile(options.profileId, options.actor.accountId);
+  if (!profile || profile.status !== "active") {
+    return { error: jsonError("Permission profile not found.", 404) };
+  }
 
   if (options.actor.authorityLevel < profile.requiredAuthorityLevel) {
     return { error: permissionGrantForbidden() };

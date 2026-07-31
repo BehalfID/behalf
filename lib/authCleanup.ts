@@ -1,6 +1,5 @@
-import { connectToDatabase } from "@/lib/db";
 import { deleteDeveloperUser } from "@/lib/accountDeletion";
-import DeveloperUser from "@/models/DeveloperUser";
+import { findUnverifiedExpired } from "@/lib/repositories/users";
 
 export const UNVERIFIED_ACCOUNT_RETENTION_MS = 1000 * 60 * 60 * 24 * 3;
 
@@ -16,15 +15,8 @@ export type UnverifiedAccountCleanupSummary = {
 export async function cleanupUnverifiedAccounts(
   retentionMs = UNVERIFIED_ACCOUNT_RETENTION_MS
 ): Promise<UnverifiedAccountCleanupSummary> {
-  await connectToDatabase();
-
   const cutoff = new Date(Date.now() - retentionMs);
-  const staleUsers = await DeveloperUser.find({
-    emailVerified: false,
-    createdAt: { $lte: cutoff }
-  })
-    .select("userId")
-    .lean();
+  const staleUsers = await findUnverifiedExpired(cutoff);
 
   const summary: UnverifiedAccountCleanupSummary = {
     scanned: staleUsers.length,

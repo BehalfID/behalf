@@ -13,6 +13,7 @@ import "./agents-permissions.css";
 import "./approvals-activity.css";
 import "./profiles-integrations.css";
 import "./settings-operations.css";
+import "./analytics.css";
 import "./public-docs.css";
 
 const inter = Inter({

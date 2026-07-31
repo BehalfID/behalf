@@ -1,0 +1,293 @@
+import type { NextRequest } from "next/server";
+import { recordIdentityAudit } from "@/lib/authProviders/identityAudit";
+import { canRemoveLoginMethod } from "@/lib/authProviders/loginMethodSafety";
+import type { NormalizedLoginIdentity } from "@/lib/authProviders/providers/types";
+import { getPostgresDb } from "@/lib/db/postgres";
+import { normalizeEmail } from "@/lib/developerAuth";
+import { createPublicId } from "@/lib/ids";
+import { DuplicateKeyError } from "@/lib/repositories/errors";
+import * as externalIdentities from "@/lib/repositories/postgres/externalIdentities";
+import type { ExternalIdentityProvider } from "@/lib/repositories/postgres/externalIdentities";
+import * as users from "@/lib/repositories/postgres/users";
+
+export type { ExternalIdentityProvider };
+
+export type LinkedIdentitySummary = {
+  provider: ExternalIdentityProvider;
+  providerUsername: string | null;
+  providerEmail: string | null;
+  linkedAt: string | null;
+  lastLoginAt: string | null;
+};
+
+function isDuplicateKeyError(error: unknown): boolean {
+  return error instanceof DuplicateKeyError;
+}
+
+export async function findIdentity(
+  provider: ExternalIdentityProvider,
+  providerAccountId: string
+) {
+  return externalIdentities.findByProviderAccount(getPostgresDb(), provider, providerAccountId);
+}
+
+export async function listIdentitiesForUser(
+  userId: string
+): Promise<LinkedIdentitySummary[]> {
+  const identities = await externalIdentities.listByUserId(getPostgresDb(), userId);
+
+  return identities.map((identity) => ({
+    provider: identity.provider,
+    providerUsername: identity.providerUsername ?? null,
+    providerEmail: identity.providerEmail ?? null,
+    linkedAt: identity.linkedAt ? new Date(identity.linkedAt).toISOString() : null,
+    lastLoginAt: identity.lastLoginAt ? new Date(identity.lastLoginAt).toISOString() : null
+  }));
+}
+
+export type LinkIdentityResult =
+  | { ok: true; identityId: string }
+  | { ok: false; code: "identity_linked_elsewhere" | "already_linked" };
+
+/**
+ * Attaches a provider identity to an already-authenticated account.
+ *
+ * This is the only path that creates a link for an existing account. There is
+ * deliberately no "same email, so it must be the same person" shortcut: a
+ * provider asserting an address proves control of that address today, not that
+ * the BehalfID account was created by whoever controls it now. Silent merging
+ * on email is how OAuth account-takeover chains usually start.
+ */
+export async function linkIdentity(options: {
+  userId: string;
+  identity: NormalizedLoginIdentity;
+  request?: NextRequest;
+  context?: string;
+}): Promise<LinkIdentityResult> {
+  const { userId, identity } = options;
+  const db = getPostgresDb();
+
+  const existing = await externalIdentities.findByProviderAccount(
+    db,
+    identity.provider,
+    identity.providerAccountId
+  );
+
+  if (existing) {
+    if (existing.userId === userId) {
+      return { ok: false, code: "already_linked" };
+    }
+    await recordIdentityAudit({
+      userId,
+      action: "identity_link_rejected",
+      provider: identity.provider,
+      providerAccountId: identity.providerAccountId,
+      providerUsername: identity.username,
+      request: options.request,
+      context: options.context ?? "link"
+    });
+    return { ok: false, code: "identity_linked_elsewhere" };
+  }
+
+  const identityId = createPublicId("extid");
+  try {
+    await externalIdentities.createExternalIdentity(db, {
+      identityId,
+      userId,
+      provider: identity.provider,
+      providerAccountId: identity.providerAccountId,
+      providerUsername: identity.username,
+      providerEmail: identity.email ? normalizeEmail(identity.email) : null,
+      providerEmailVerified: identity.emailVerified,
+      linkedAt: new Date()
+    });
+  } catch (error) {
+    // The unique indexes are the real arbiter under concurrency: two callbacks
+    // racing to claim the same provider account both pass the read above.
+    if (isDuplicateKeyError(error)) {
+      const winner = await externalIdentities.findByProviderAccount(
+        db,
+        identity.provider,
+        identity.providerAccountId
+      );
+      return {
+        ok: false,
+        code: winner?.userId === userId ? "already_linked" : "identity_linked_elsewhere"
+      };
+    }
+    throw error;
+  }
+
+  await addAuthProvider(userId, identity.provider);
+  await recordIdentityAudit({
+    userId,
+    action: "identity_linked",
+    provider: identity.provider,
+    providerAccountId: identity.providerAccountId,
+    providerUsername: identity.username,
+    request: options.request,
+    context: options.context ?? "settings"
+  });
+
+  return { ok: true, identityId };
+}
+
+export type UnlinkIdentityResult =
+  | { ok: true }
+  | { ok: false; code: "not_linked" | "unlink_last_method" | "passkey_only_forbidden" };
+
+/**
+ * Detaches a provider identity, refusing when it is the account's only safe
+ * recovery path. Uses the shared login-method safety service so passkeys,
+ * passwords, and OAuth identities share one policy.
+ */
+export async function unlinkIdentity(options: {
+  userId: string;
+  provider: ExternalIdentityProvider;
+  request?: NextRequest;
+  context?: string;
+}): Promise<UnlinkIdentityResult> {
+  const { userId, provider } = options;
+  const db = getPostgresDb();
+
+  const identity = await externalIdentities.findByUserAndProvider(db, userId, provider);
+  if (!identity) {
+    return { ok: false, code: "not_linked" };
+  }
+
+  const allowed = await canRemoveLoginMethod(userId, { kind: provider });
+  if (!allowed.allowed) {
+    await recordIdentityAudit({
+      userId,
+      action: "method_removal_rejected",
+      provider,
+      providerAccountId: identity.providerAccountId,
+      providerUsername: identity.providerUsername ?? null,
+      request: options.request,
+      context: allowed.reason ?? "settings"
+    });
+    return {
+      ok: false,
+      code:
+        allowed.reason === "passkey_only_forbidden"
+          ? "passkey_only_forbidden"
+          : allowed.reason === "not_found"
+            ? "not_linked"
+            : "unlink_last_method"
+    };
+  }
+
+  await externalIdentities.deleteByUserAndProvider(db, userId, provider);
+  await removeAuthProvider(userId, provider);
+  await recordIdentityAudit({
+    userId,
+    action: "identity_unlinked",
+    provider,
+    providerAccountId: identity.providerAccountId,
+    providerUsername: identity.providerUsername ?? null,
+    request: options.request,
+    context: options.context ?? "settings"
+  });
+
+  return { ok: true };
+}
+
+export async function touchIdentityLogin(options: {
+  provider: ExternalIdentityProvider;
+  providerAccountId: string;
+  identity: NormalizedLoginIdentity;
+}) {
+  await externalIdentities.touchLoginMetadata(
+    getPostgresDb(),
+    options.provider,
+    options.providerAccountId,
+    {
+      lastLoginAt: new Date(),
+      // Display metadata is refreshed on every sign-in so a renamed GitHub
+      // account does not show a stale handle in account settings.
+      providerUsername: options.identity.username,
+      providerEmail: options.identity.email ? normalizeEmail(options.identity.email) : null,
+      providerEmailVerified: options.identity.emailVerified
+    }
+  );
+}
+
+/**
+ * Keeps DeveloperUser.authProviders in step with the link table.
+ *
+ * The array remains the fast path for "can this account use a password?"
+ * checks scattered through login and deletion; external_identities is the
+ * authoritative record of which provider account is attached.
+ */
+async function addAuthProvider(userId: string, provider: ExternalIdentityProvider) {
+  const db = getPostgresDb();
+  const user = await users.findByUserId(db, userId);
+  if (!user) return;
+
+  const providers = new Set<string>(
+    user.authProviders?.length ? user.authProviders : user.passwordHash ? ["password"] : []
+  );
+  providers.add(provider);
+  await users.updateUser(db, userId, { authProviders: Array.from(providers) });
+}
+
+async function removeAuthProvider(userId: string, provider: ExternalIdentityProvider) {
+  const db = getPostgresDb();
+  const user = await users.findByUserId(db, userId);
+  if (!user) return;
+
+  const providers = new Set<string>(
+    user.authProviders?.length ? user.authProviders : user.passwordHash ? ["password"] : []
+  );
+  providers.delete(provider);
+  if (user.passwordHash) providers.add("password");
+  await users.updateUser(db, userId, { authProviders: Array.from(providers) });
+}
+
+export type LoginResolution =
+  | { kind: "existing_identity"; userId: string }
+  | { kind: "requires_explicit_link" }
+  | { kind: "new_account"; email: string }
+  | { kind: "email_unverified" };
+
+/**
+ * Decides what an unauthenticated provider callback means, without side effects.
+ *
+ * The three-way split is the heart of the account-merging policy:
+ *   - a known identity signs its owner in;
+ *   - an unknown identity whose verified email already belongs to an account is
+ *     refused and told to link from settings — never merged;
+ *   - an unknown identity with an unclaimed verified email registers.
+ *
+ * The middle branch is technically distinguishable from the third by anyone who
+ * reaches it, but reaching it requires the provider to have verified that email
+ * for the requester, i.e. they already control the address. Someone who controls
+ * the address can learn the same fact from password reset, so this is not a new
+ * disclosure — and the user-facing copy still never confirms an account exists.
+ */
+export async function resolveProviderLogin(
+  identity: NormalizedLoginIdentity
+): Promise<LoginResolution> {
+  const db = getPostgresDb();
+  const linked = await externalIdentities.findByProviderAccount(
+    db,
+    identity.provider,
+    identity.providerAccountId
+  );
+
+  if (linked) {
+    return { kind: "existing_identity", userId: linked.userId };
+  }
+
+  if (!identity.email || !identity.emailVerified) {
+    return { kind: "email_unverified" };
+  }
+
+  const email = normalizeEmail(identity.email);
+  const existingAccount = await users.existsByEmail(db, email);
+  if (existingAccount) {
+    return { kind: "requires_explicit_link" };
+  }
+
+  return { kind: "new_account", email };
+}

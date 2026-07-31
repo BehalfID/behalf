@@ -13,6 +13,7 @@ export const AUTH_EVENT_REASONS = [
   "invalid_credentials",
   "unknown_account",
   "google_only_account",
+  "oauth_only_account",
   "sso_password_blocked",
   "invalid_api_key",
   "invalid_mfa",

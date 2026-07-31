@@ -4,7 +4,7 @@ import { getConsoleAccountId } from "@/lib/consoleData";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
-import Site from "@/models/Site";
+import { findOneAndUpdateSite } from "@/lib/repositories/sites";
 
 type RouteContext = {
   params: Promise<{ siteId: string }>;
@@ -24,11 +24,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   const accountId = await getConsoleAccountId();
   const { siteId } = await context.params;
-  const site = await Site.findOneAndUpdate(
+  const site = await findOneAndUpdateSite(
     { accountId, siteId },
     { $set: { status } },
     { returnDocument: "after" }
-  ).select("-_id siteId developerUserId name domain status createdAt updatedAt");
+  );
   if (!site) return jsonError("Site not found.", 404);
 
   return NextResponse.json({ site });

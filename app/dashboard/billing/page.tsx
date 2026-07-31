@@ -1,15 +1,13 @@
 import { redirect } from "next/navigation";
-import { connectToDatabase } from "@/lib/db";
 import { getCurrentDeveloperContext } from "@/lib/developerAuth";
 import { shouldForceAccountSetup } from "@/lib/onboardingRedirect";
 import { workspaceDashboardHref } from "@/lib/workspaceSlug";
 import { ensureAccountHasSlug } from "@/lib/workspaceSlugServer";
-import { findAccountByIdLean } from "@/lib/repositories/accounts";
+import { findAccountByIdLean, findOneAccount } from "@/lib/repositories/accounts";
+import { countAgents } from "@/lib/repositories/agents";
+import { findManagedProfilePolicyByAccountId } from "@/lib/repositories/managedProfiles";
 import { normalizePlan } from "@/lib/plans";
 import { countBillableSeats } from "@/lib/quota";
-import Account from "@/models/Account";
-import Agent from "@/models/Agent";
-import ManagedProfilePolicy from "@/models/ManagedProfilePolicy";
 import { BillingClient } from "./client";
 
 export const metadata = { title: "Billing — BehalfID" };
@@ -28,18 +26,14 @@ export default async function BillingPage() {
     if (slug) redirect(workspaceDashboardHref(slug, "/billing"));
   }
 
-  await connectToDatabase();
-
-  const account = accountId
-    ? await Account.findOne({ accountId }).lean()
-    : null;
+  const account = accountId ? await findOneAccount({ accountId }) : null;
 
   const [agentCount, seatCount, policy] = await Promise.all([
-    accountId ? Agent.countDocuments({ accountId }) : Agent.countDocuments({ developerUserId: user.userId }),
-    accountId ? countBillableSeats(accountId) : Promise.resolve(0),
     accountId
-      ? ManagedProfilePolicy.findOne({ accountId }).select("protectedRepos").lean()
-      : Promise.resolve(null)
+      ? countAgents({ accountId })
+      : countAgents({ developerUserId: user.userId }),
+    accountId ? countBillableSeats(accountId) : Promise.resolve(0),
+    accountId ? findManagedProfilePolicyByAccountId(accountId) : Promise.resolve(null)
   ]);
 
   return (

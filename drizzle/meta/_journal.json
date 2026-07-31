@@ -50,6 +50,41 @@
       "when": 1784764800000,
       "tag": "0006_permission_replacement_parity",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784851200000,
+      "tag": "0007_external_identities",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1785513600000,
+      "tag": "0008_passkeys_auth_usage",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1785600000000,
+      "tag": "0009_console_auth_audit_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1785686400000,
+      "tag": "0010_developer_user_mfa",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1785772800000,
+      "tag": "0011_adaptive_delegation",
+      "breakpoints": true
     }
   ]
 }

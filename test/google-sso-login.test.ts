@@ -71,6 +71,23 @@ describe("POST /api/auth/login SSO enforcement", () => {
     expect(mocks.userFindOne).not.toHaveBeenCalled();
   });
 
+  it("directs GitHub-only accounts to GitHub sign-in", async () => {
+    mocks.userFindOne.mockReturnValue({
+      select: vi.fn().mockResolvedValue({
+        userId: "user_1",
+        email: "dev@acme.com",
+        passwordHash: null,
+        authProviders: ["github"],
+        emailVerified: true
+      })
+    });
+    const { POST } = await import("@/app/api/auth/login/route");
+    const res = await POST(makeLoginRequest({ email: "dev@acme.com", password: "longpassword1" }));
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.error).toMatch(/GitHub/);
+  });
+
   it("directs Google-only accounts to Google sign-in", async () => {
     mocks.userFindOne.mockReturnValue({
       select: vi.fn().mockResolvedValue({

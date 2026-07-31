@@ -47,6 +47,14 @@ const columns: Record<string, AnyPgColumn> = {
   emailVerificationCodeHash: developerUsers.emailVerificationCodeHash,
   passwordResetTokenHash: developerUsers.passwordResetTokenHash,
   passwordResetTokenExpiresAt: developerUsers.passwordResetTokenExpiresAt,
+  passwordLastUsedAt: developerUsers.passwordLastUsedAt,
+  lastSignInAt: developerUsers.lastSignInAt,
+  lastSignInMethod: developerUsers.lastSignInMethod,
+  lastSignInUserAgent: developerUsers.lastSignInUserAgent,
+  mfaTotpSecretEnc: developerUsers.mfaTotpSecretEnc,
+  mfaTotpPendingSecretEnc: developerUsers.mfaTotpPendingSecretEnc,
+  mfaEnabledAt: developerUsers.mfaEnabledAt,
+  mfaBackupCodeHashes: developerUsers.mfaBackupCodeHashes,
   createdAt: developerUsers.createdAt,
   updatedAt: developerUsers.updatedAt
 };
@@ -159,6 +167,14 @@ function toLean(row: UserRow): DeveloperUserLean {
     emailVerificationCodeHash: row.emailVerificationCodeHash ?? undefined,
     passwordResetTokenHash: row.passwordResetTokenHash ?? undefined,
     passwordResetTokenExpiresAt: row.passwordResetTokenExpiresAt ?? undefined,
+    passwordLastUsedAt: row.passwordLastUsedAt ?? undefined,
+    lastSignInAt: row.lastSignInAt ?? undefined,
+    lastSignInMethod: (row.lastSignInMethod as DeveloperUserLean["lastSignInMethod"]) ?? undefined,
+    lastSignInUserAgent: row.lastSignInUserAgent ?? undefined,
+    mfaTotpSecretEnc: row.mfaTotpSecretEnc ?? undefined,
+    mfaTotpPendingSecretEnc: row.mfaTotpPendingSecretEnc ?? undefined,
+    mfaEnabledAt: row.mfaEnabledAt,
+    mfaBackupCodeHashes: row.mfaBackupCodeHashes ?? undefined,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
   };
@@ -402,7 +418,8 @@ export async function createUserDocument(
 
 export async function findUsers(
   db: BehalfPostgresDb,
-  filter: Record<string, unknown> = {}
+  filter: Record<string, unknown> = {},
+  _options: { sort?: Record<string, 1 | -1>; limit?: number; skip?: number; select?: string } = {}
 ): Promise<DeveloperUserLean[]> {
   const rows = await db.select().from(developerUsers).where(buildWhere(filter));
   return rows.map(toLean);

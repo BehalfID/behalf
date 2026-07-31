@@ -1,5 +1,4 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { connectToDatabase } from "@/lib/db";
 import {
   generateSecureToken,
   getDeveloperFromToken,
@@ -11,7 +10,7 @@ import { sendEmail } from "@/lib/email";
 import { verifyEmailTemplate } from "@/lib/emailTemplates";
 import { createUserCode } from "@/lib/ids";
 import { checkAuthRateLimit, checkRateLimit, rateLimitError } from "@/lib/rateLimit";
-import DeveloperUser from "@/models/DeveloperUser";
+import * as users from "@/lib/repositories/users";
 
 const VERIFICATION_TOKEN_TTL_MS = 1000 * 60 * 60 * 24; // 24 hours
 const COOKIE_NAME = "behalfid_developer";
@@ -42,17 +41,11 @@ export async function POST(request: NextRequest) {
   const verificationCode = createUserCode();
   const verificationCodeHash = hashEmailToken(verificationCode.replace("-", ""));
 
-  await connectToDatabase();
-  await DeveloperUser.updateOne(
-    { userId: user.userId },
-    {
-      $set: {
-        emailVerificationTokenHash: verificationTokenHash,
-        emailVerificationTokenExpiresAt: new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS),
-        emailVerificationCodeHash: verificationCodeHash
-      }
-    }
-  );
+  await users.updateUser(user.userId, {
+    emailVerificationTokenHash: verificationTokenHash,
+    emailVerificationTokenExpiresAt: new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS),
+    emailVerificationCodeHash: verificationCodeHash
+  });
 
   try {
     const baseUrl = (process.env.APP_BASE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");

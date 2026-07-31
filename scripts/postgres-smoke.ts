@@ -23,6 +23,11 @@ export const CORE_TABLES = [
   "accounts",
   "developer_users",
   "oauth_pending_signups",
+  "external_identities",
+  "oauth_authorization_states",
+  "identity_audit_logs",
+  "passkey_credentials",
+  "webauthn_challenges",
   "developer_sessions",
   "developer_api_tokens",
   "account_memberships",
@@ -50,7 +55,13 @@ export const CORE_TABLES = [
   "status_incidents",
   "policy_documents",
   "integration_bindings",
-  "collaboration_message_refs"
+  "collaboration_message_refs",
+  "auth_events",
+  "console_admins",
+  "admin_audit_logs",
+  "permission_replacement_audits",
+  "adaptive_delegation_recommendations",
+  "adaptive_delegation_events"
 ] as const;
 
 /** Indexes that must exist after the full migration chain (by stable SQL name). */
@@ -81,7 +92,13 @@ export const CRITICAL_INDEX_NAMES = [
   "device_codes_user_code_unique",
   "policy_documents_account_id_unique",
   "integration_bindings_account_provider_team_channel_uq",
-  "collaboration_message_refs_account_approval_provider_uq"
+  "collaboration_message_refs_account_approval_provider_uq",
+  "external_identities_provider_account_uq",
+  "passkey_credentials_credential_id_uq",
+  "passkey_credentials_user_created_idx",
+  "webauthn_challenges_expires_at_idx",
+  "external_identities_user_provider_uq",
+  "oauth_pending_signups_provider_account_idx"
 ] as const;
 
 export const VERIFICATION_LOG_MAINTENANCE_FUNCTIONS = [
@@ -122,7 +139,12 @@ function migrationSqlPaths(): string[] {
     join(process.cwd(), "drizzle/0003_schema_parity.sql"),
     join(process.cwd(), "drizzle/0004_managed_profile_pause_index_parity.sql"),
     join(process.cwd(), "drizzle/0005_policy_and_integrations.sql"),
-    join(process.cwd(), "drizzle/0006_permission_replacement_parity.sql")
+    join(process.cwd(), "drizzle/0006_permission_replacement_parity.sql"),
+    join(process.cwd(), "drizzle/0007_external_identities.sql"),
+    join(process.cwd(), "drizzle/0008_passkeys_auth_usage.sql"),
+    join(process.cwd(), "drizzle/0009_console_auth_audit_tables.sql"),
+    join(process.cwd(), "drizzle/0010_developer_user_mfa.sql"),
+    join(process.cwd(), "drizzle/0011_adaptive_delegation.sql")
   ];
 }
 

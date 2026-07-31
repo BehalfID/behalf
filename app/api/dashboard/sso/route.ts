@@ -1,13 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { connectToDatabase } from "@/lib/db";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import { canManageMembers, getWorkspaceActor } from "@/lib/delegatedAuth";
 import { getPlanEntitlements, normalizePlan } from "@/lib/plans";
+import { findOneAndUpdateAccount } from "@/lib/repositories/accounts";
 import { readJsonObject } from "@/lib/request";
 import { jsonError, noCacheJson } from "@/lib/responses";
 import { rejectUnknownFields } from "@/lib/validation";
 import { readWorkspaceSso, validateSsoDomainList } from "@/lib/workspaceSso";
-import Account from "@/models/Account";
 
 export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
@@ -59,8 +58,7 @@ export async function PATCH(request: NextRequest) {
     return jsonError("Add at least one company email domain before enabling Google SSO.");
   }
 
-  await connectToDatabase();
-  const updated = await Account.findOneAndUpdate(
+  const updated = await findOneAndUpdateAccount(
     { accountId: auth.activeAccountId },
     {
       $set: {
@@ -73,7 +71,7 @@ export async function PATCH(request: NextRequest) {
       }
     },
     { returnDocument: "after" }
-  ).lean();
+  );
 
   return noCacheJson({
     ok: true,

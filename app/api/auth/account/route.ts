@@ -7,13 +7,12 @@ import {
   requireVerifiedDeveloperApi,
   verifyPassword
 } from "@/lib/developerAuth";
-import { connectToDatabase } from "@/lib/db";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
-import DeveloperSession from "@/models/DeveloperSession";
-import DeveloperUser from "@/models/DeveloperUser";
+import * as sessions from "@/lib/repositories/sessions";
+import * as users from "@/lib/repositories/users";
 
 const DELETE_CONFIRMATION = "DELETE";
 
@@ -41,8 +40,7 @@ export async function DELETE(request: NextRequest) {
     return jsonError(`Type ${DELETE_CONFIRMATION} to confirm account deletion.`, 400);
   }
 
-  await connectToDatabase();
-  const user = await DeveloperUser.findOne({ userId: auth.user.userId }).select("+passwordHash");
+  const user = await users.findByUserId(auth.user.userId);
   if (!user) {
     return jsonError("Invalid password.", 401);
   }
@@ -63,7 +61,7 @@ export async function DELETE(request: NextRequest) {
 
   const token = request.cookies.get("behalfid_developer")?.value;
   if (token) {
-    await DeveloperSession.deleteOne({ tokenHash: hashSessionToken(token) });
+    await sessions.deleteByTokenHash(hashSessionToken(token));
   }
 
   const response = NextResponse.json({ deleted: true });

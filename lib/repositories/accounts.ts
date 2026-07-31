@@ -33,3 +33,13 @@ export const findOneAccount = delegate("accounts", "findOneAccount", mongo.findO
 export const findOneAndUpdateAccount = delegate("accounts", "findOneAndUpdateAccount", mongo.findOneAndUpdateAccount);
 export const updateAccountByFilter = delegate("accounts", "updateAccountByFilter", mongo.updateAccountByFilter);
 export const countAccountDocuments = delegate("accounts", "countAccountDocuments", mongo.countAccountDocuments);
+export const findAccountsEnforcingSsoForDomain = delegate(
+  "accounts",
+  "findAccountsEnforcingSsoForDomain",
+  mongo.findAccountsEnforcingSsoForDomain
+);
+export const findAccountsWithSsoForDomain = delegate(
+  "accounts",
+  "findAccountsWithSsoForDomain",
+  mongo.findAccountsWithSsoForDomain
+);

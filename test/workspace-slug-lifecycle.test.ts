@@ -1,41 +1,44 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { leanQuery } from "./helpers/mongoQueryMock";
 
 const mocks = vi.hoisted(() => ({
   findAccountBySlugLean: vi.fn(),
   findAccountByIdLean: vi.fn(),
-  accountCreate: vi.fn(),
-  accountFindOne: vi.fn(),
-  accountUpdateOne: vi.fn(),
-  developerUserUpdateOne: vi.fn(),
+  findAccount: vi.fn(),
+  createAccount: vi.fn(),
+  updateAccount: vi.fn(),
+  updateUser: vi.fn(),
   ensureAccountMembership: vi.fn(),
   getWorkspaceActor: vi.fn(),
   canManageMembers: vi.fn(),
   agentCountDocuments: vi.fn(),
   membershipFind: vi.fn(),
-  developerUserFindOne: vi.fn()
+  developerUserFindOne: vi.fn(),
+  accountUpdateOne: vi.fn()
 }));
 
 vi.mock("@/lib/repositories/accounts", () => ({
   findAccountBySlugLean: mocks.findAccountBySlugLean,
-  findAccountByIdLean: mocks.findAccountByIdLean
+  findAccountByIdLean: mocks.findAccountByIdLean,
+  findAccount: mocks.findAccount,
+  createAccount: mocks.createAccount,
+  updateAccount: mocks.updateAccount
+}));
+
+vi.mock("@/lib/repositories/users", () => ({
+  updateUser: mocks.updateUser,
+  findByUserId: vi.fn()
 }));
 
 vi.mock("@/models/Account", () => ({
   default: {
-    create: mocks.accountCreate,
-    findOne: mocks.accountFindOne,
     updateOne: mocks.accountUpdateOne
   }
 }));
 
 vi.mock("@/models/DeveloperUser", () => ({
   default: {
-    updateOne: mocks.developerUserUpdateOne,
-    findOne: vi.fn(() => ({
-      select: vi.fn().mockReturnValue({
-        lean: mocks.developerUserFindOne
-      })
-    }))
+    findOne: vi.fn(() => leanQuery(null))
   }
 }));
 
@@ -45,11 +48,7 @@ vi.mock("@/models/Agent", () => ({
 
 vi.mock("@/models/AccountMembership", () => ({
   default: {
-    find: vi.fn(() => ({
-      select: vi.fn().mockReturnValue({
-        lean: mocks.membershipFind
-      })
-    }))
+    find: vi.fn(() => leanQuery([]))
   }
 }));
 
@@ -64,14 +63,6 @@ vi.mock("@/lib/delegatedAuth", async (importOriginal) => {
 });
 
 vi.mock("@/lib/db", () => ({ connectToDatabase: vi.fn(async () => undefined) }));
-
-function accountFindOneLean(value: unknown) {
-  mocks.accountFindOne.mockReturnValue({
-    select: vi.fn().mockReturnValue({
-      lean: vi.fn().mockResolvedValue(value)
-    })
-  });
-}
 
 describe("resolvePermanentWorkspaceSlugSeed", () => {
   it("uses companyName for business accounts", async () => {
@@ -118,26 +109,19 @@ describe("resolvePermanentWorkspaceSlugSeed", () => {
 describe("createDeveloperAccount", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.developerUserUpdateOne.mockResolvedValue({});
+    mocks.updateUser.mockResolvedValue({ matchedCount: 1 });
     mocks.ensureAccountMembership.mockResolvedValue(undefined);
   });
 
   it("creates an account payload with no own slug property", async () => {
-    mocks.accountCreate.mockImplementation(async (doc: Record<string, unknown>) => doc);
-    mocks.accountFindOne.mockImplementation((query: { accountId: string }) => ({
-      // Mimic a Mongo document that never received a slug key.
-      then: undefined,
-      ...query,
-      name: "leeza"
-    }));
-    // Account.findOne returns a thenable-like in production; provide a resolved doc.
-    mocks.accountFindOne.mockResolvedValue({ accountId: "acct_a", name: "leeza" });
+    mocks.createAccount.mockImplementation(async (doc: Record<string, unknown>) => doc);
+    mocks.findAccount.mockResolvedValue({ accountId: "acct_a", name: "leeza" });
 
     const { createDeveloperAccount } = await import("@/lib/account");
     await createDeveloperAccount("dev_leeza", "leeza@trajectus.com");
 
-    expect(mocks.accountCreate).toHaveBeenCalledTimes(1);
-    const payload = mocks.accountCreate.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(mocks.createAccount).toHaveBeenCalledTimes(1);
+    const payload = mocks.createAccount.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(Object.prototype.hasOwnProperty.call(payload, "slug")).toBe(false);
     expect(payload).toEqual(
       expect.objectContaining({ accountId: expect.any(String), name: "leeza" })
@@ -147,11 +131,11 @@ describe("createDeveloperAccount", () => {
 
   it("creates two separate incomplete accounts without slug allocation", async () => {
     const created: Record<string, unknown>[] = [];
-    mocks.accountCreate.mockImplementation(async (doc: Record<string, unknown>) => {
+    mocks.createAccount.mockImplementation(async (doc: Record<string, unknown>) => {
       created.push({ ...doc });
       return doc;
     });
-    mocks.accountFindOne.mockImplementation(async (query: { accountId: string }) => {
+    mocks.findAccount.mockImplementation(async (query: { accountId: string }) => {
       const match = created.find((row) => row.accountId === query.accountId);
       return match ? { ...match } : null;
     });
@@ -195,22 +179,15 @@ describe("completeAccountSetup slug lifecycle", () => {
     mocks.canManageMembers.mockReturnValue(true);
     mocks.findAccountBySlugLean.mockResolvedValue(null);
     mocks.agentCountDocuments.mockResolvedValue(0);
-    mocks.membershipFind.mockResolvedValue([]);
-    mocks.developerUserFindOne.mockResolvedValue(null);
-    mocks.developerUserUpdateOne.mockResolvedValue({ matchedCount: 1 });
+    mocks.updateUser.mockResolvedValue({ matchedCount: 1 });
 
     let storedSlug: string | null = null;
-    accountFindOneLean({ accountId: "acct_trajectus", slug: storedSlug });
-    mocks.accountFindOne.mockImplementation(() => ({
-      select: vi.fn().mockReturnValue({
-        lean: vi.fn().mockImplementation(async () => ({
-          accountId: "acct_trajectus",
-          slug: storedSlug
-        }))
-      })
+    mocks.findAccountByIdLean.mockImplementation(async () => ({
+      accountId: "acct_trajectus",
+      slug: storedSlug
     }));
-    mocks.accountUpdateOne.mockImplementation(async (_filter: unknown, update: { $set: { slug?: string } }) => {
-      if (update.$set.slug) storedSlug = update.$set.slug;
+    mocks.updateAccount.mockImplementation(async (_accountId: string, update: { slug?: string }) => {
+      if (update.slug) storedSlug = update.slug;
       return { matchedCount: 1, modifiedCount: 1 };
     });
   });
@@ -220,11 +197,9 @@ describe("completeAccountSetup slug lifecycle", () => {
     const result = await completeAccountSetup("dev_leeza", "acct_trajectus", completionBody);
     expect(result.error).toBeNull();
     expect(result.nextRoute).toBe("/trajectus/dashboard/agents/new");
-    expect(mocks.accountUpdateOne).toHaveBeenCalledWith(
-      { accountId: "acct_trajectus" },
-      expect.objectContaining({
-        $set: expect.objectContaining({ slug: "trajectus", companyName: "Trajectus" })
-      })
+    expect(mocks.updateAccount).toHaveBeenCalledWith(
+      "acct_trajectus",
+      expect.objectContaining({ slug: "trajectus", companyName: "Trajectus" })
     );
   });
 
@@ -239,13 +214,12 @@ describe("completeAccountSetup slug lifecycle", () => {
       authorityLevel: 100
     });
     let slugA: string | undefined;
-    mocks.accountFindOne.mockImplementation(() => ({
-      select: vi.fn().mockReturnValue({
-        lean: vi.fn().mockImplementation(async () => ({ accountId: "acct_aaaa", slug: slugA }))
-      })
+    mocks.findAccountByIdLean.mockImplementation(async () => ({
+      accountId: "acct_aaaa",
+      slug: slugA
     }));
-    mocks.accountUpdateOne.mockImplementation(async (_f: unknown, update: { $set: { slug?: string } }) => {
-      if (update.$set.slug) slugA = update.$set.slug;
+    mocks.updateAccount.mockImplementation(async (_id: string, update: { slug?: string }) => {
+      if (update.slug) slugA = update.slug;
       return { matchedCount: 1, modifiedCount: 1 };
     });
     const first = await completeAccountSetup("dev_a", "acct_aaaa", {
@@ -265,13 +239,12 @@ describe("completeAccountSetup slug lifecycle", () => {
       slug === "acme" ? { accountId: "acct_aaaa", slug } : null
     );
     let slugB: string | undefined;
-    mocks.accountFindOne.mockImplementation(() => ({
-      select: vi.fn().mockReturnValue({
-        lean: vi.fn().mockImplementation(async () => ({ accountId: "acct_bbbb", slug: slugB }))
-      })
+    mocks.findAccountByIdLean.mockImplementation(async () => ({
+      accountId: "acct_bbbb",
+      slug: slugB
     }));
-    mocks.accountUpdateOne.mockImplementation(async (_f: unknown, update: { $set: { slug?: string } }) => {
-      if (update.$set.slug) slugB = update.$set.slug;
+    mocks.updateAccount.mockImplementation(async (_id: string, update: { slug?: string }) => {
+      if (update.slug) slugB = update.slug;
       return { matchedCount: 1, modifiedCount: 1 };
     });
     const second = await completeAccountSetup("dev_b", "acct_bbbb", {
@@ -304,24 +277,22 @@ describe("completeAccountSetup slug lifecycle", () => {
     expect(result.error).toMatch(
       /exhausting deterministic candidates|allocation failed|duplicate-key retries/i
     );
-    expect(mocks.developerUserUpdateOne).not.toHaveBeenCalled();
+    expect(mocks.updateUser).not.toHaveBeenCalled();
   });
 
   it("does not mark onboarding complete when account update fails", async () => {
-    mocks.accountUpdateOne.mockResolvedValue({ matchedCount: 0, modifiedCount: 0 });
+    mocks.updateAccount.mockResolvedValue({ matchedCount: 0, modifiedCount: 0 });
     const { completeAccountSetup } = await import("@/lib/accountSetup");
     const result = await completeAccountSetup("dev_leeza", "acct_trajectus", completionBody);
     expect(result.error).toMatch(/Account update failed|Slug persistence verification failed/i);
-    expect(mocks.developerUserUpdateOne).not.toHaveBeenCalled();
+    expect(mocks.updateUser).not.toHaveBeenCalled();
   });
 
   it("preserves an existing valid legacy slug when company name changes", async () => {
-    accountFindOneLean({ accountId: "acct_trajectus", slug: "trajectus" });
-    mocks.accountFindOne.mockImplementation(() => ({
-      select: vi.fn().mockReturnValue({
-        lean: vi.fn().mockResolvedValue({ accountId: "acct_trajectus", slug: "trajectus" })
-      })
-    }));
+    mocks.findAccountByIdLean.mockResolvedValue({
+      accountId: "acct_trajectus",
+      slug: "trajectus"
+    });
     const { completeAccountSetup } = await import("@/lib/accountSetup");
     const result = await completeAccountSetup("dev_leeza", "acct_trajectus", {
       ...completionBody,
@@ -330,41 +301,37 @@ describe("completeAccountSetup slug lifecycle", () => {
     });
     expect(result.error).toBeNull();
     expect(result.nextRoute).toBe("/trajectus/dashboard/agents/new");
-    expect(mocks.accountUpdateOne).toHaveBeenCalledWith(
-      { accountId: "acct_trajectus" },
-      expect.objectContaining({
-        $set: expect.not.objectContaining({ slug: expect.any(String) })
-      })
+    expect(mocks.updateAccount).toHaveBeenCalledWith(
+      "acct_trajectus",
+      expect.not.objectContaining({ slug: expect.any(String) })
     );
   });
 
   it("retry after failure succeeds cleanly", async () => {
     let failOnce = true;
-    mocks.accountUpdateOne.mockImplementation(async (_filter: unknown, update: { $set: { slug?: string } }) => {
+    let storedSlug: string | null = null;
+    mocks.findAccountByIdLean.mockImplementation(async () => ({
+      accountId: "acct_trajectus",
+      slug: storedSlug
+    }));
+    mocks.updateAccount.mockImplementation(async (_id: string, update: { slug?: string }) => {
       if (failOnce) {
         failOnce = false;
         return { matchedCount: 0, modifiedCount: 0 };
       }
-      if (update.$set.slug) {
-        accountFindOneLean({ accountId: "acct_trajectus", slug: update.$set.slug });
-        mocks.accountFindOne.mockImplementation(() => ({
-          select: vi.fn().mockReturnValue({
-            lean: vi.fn().mockResolvedValue({ accountId: "acct_trajectus", slug: update.$set.slug })
-          })
-        }));
-      }
+      if (update.slug) storedSlug = update.slug;
       return { matchedCount: 1, modifiedCount: 1 };
     });
 
     const { completeAccountSetup } = await import("@/lib/accountSetup");
     const first = await completeAccountSetup("dev_leeza", "acct_trajectus", completionBody);
     expect(first.error).toMatch(/Account update failed|Slug persistence verification failed/i);
-    expect(mocks.developerUserUpdateOne).not.toHaveBeenCalled();
+    expect(mocks.updateUser).not.toHaveBeenCalled();
 
     const second = await completeAccountSetup("dev_leeza", "acct_trajectus", completionBody);
     expect(second.error).toBeNull();
     expect(second.nextRoute).toBe("/trajectus/dashboard/agents/new");
-    expect(mocks.developerUserUpdateOne).toHaveBeenCalledTimes(1);
+    expect(mocks.updateUser).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -380,11 +347,19 @@ describe("ensureAccountHasSlug backfill eligibility", () => {
     onboarding: { firstSetupGoal: "create_agent" }
   };
 
-  beforeEach(() => {
-    vi.resetAllMocks();
+  beforeEach(async () => {
+    vi.clearAllMocks();
     mocks.agentCountDocuments.mockResolvedValue(0);
-    mocks.membershipFind.mockResolvedValue([{ userId: "dev_owner" }]);
-    mocks.developerUserFindOne.mockResolvedValue({ onboardingCompletedAt: null });
+    mocks.accountUpdateOne.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
+
+    const AccountMembership = (await import("@/models/AccountMembership")).default as {
+      find: ReturnType<typeof vi.fn>;
+    };
+    const DeveloperUser = (await import("@/models/DeveloperUser")).default as {
+      findOne: ReturnType<typeof vi.fn>;
+    };
+    AccountMembership.find = vi.fn(() => leanQuery([{ userId: "dev_owner" }]));
+    DeveloperUser.findOne = vi.fn(() => leanQuery({ onboardingCompletedAt: null }));
   });
 
   it("denies backfill for partial onboarding without owner completion", async () => {
@@ -404,11 +379,13 @@ describe("ensureAccountHasSlug backfill eligibility", () => {
       }
       return { ...partialOnboardingAccount };
     });
-    mocks.developerUserFindOne.mockResolvedValue({
-      onboardingCompletedAt: "2026-07-12T00:00:00.000Z"
-    });
+    const DeveloperUser = (await import("@/models/DeveloperUser")).default as {
+      findOne: ReturnType<typeof vi.fn>;
+    };
+    DeveloperUser.findOne = vi.fn(() =>
+      leanQuery({ onboardingCompletedAt: "2026-07-12T00:00:00.000Z" })
+    );
     mocks.findAccountBySlugLean.mockResolvedValue(null);
-    mocks.accountUpdateOne.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
 
     const { isAccountEligibleForSlugBackfill, ensureAccountHasSlug } = await import(
       "@/lib/workspaceSlugServer"
@@ -425,7 +402,10 @@ describe("ensureAccountHasSlug backfill eligibility", () => {
       createdAt: "2026-01-01T00:00:00.000Z",
       verificationCount: 0
     });
-    mocks.membershipFind.mockResolvedValue([]);
+    const AccountMembership = (await import("@/models/AccountMembership")).default as {
+      find: ReturnType<typeof vi.fn>;
+    };
+    AccountMembership.find = vi.fn(() => leanQuery([]));
     mocks.agentCountDocuments.mockResolvedValue(0);
     const { isAccountEligibleForSlugBackfill } = await import("@/lib/workspaceSlugServer");
     await expect(isAccountEligibleForSlugBackfill("acct_legacy")).resolves.toBe(true);
@@ -441,7 +421,10 @@ describe("ensureAccountHasSlug backfill eligibility", () => {
       verificationCount: 0
     });
     mocks.agentCountDocuments.mockResolvedValue(2);
-    mocks.membershipFind.mockResolvedValue([]);
+    const AccountMembership = (await import("@/models/AccountMembership")).default as {
+      find: ReturnType<typeof vi.fn>;
+    };
+    AccountMembership.find = vi.fn(() => leanQuery([]));
     const { isAccountEligibleForSlugBackfill } = await import("@/lib/workspaceSlugServer");
     await expect(isAccountEligibleForSlugBackfill("acct_agents")).resolves.toBe(true);
   });
@@ -456,7 +439,10 @@ describe("ensureAccountHasSlug backfill eligibility", () => {
       verificationCount: 3
     });
     mocks.agentCountDocuments.mockResolvedValue(0);
-    mocks.membershipFind.mockResolvedValue([]);
+    const AccountMembership = (await import("@/models/AccountMembership")).default as {
+      find: ReturnType<typeof vi.fn>;
+    };
+    AccountMembership.find = vi.fn(() => leanQuery([]));
     const { isAccountEligibleForSlugBackfill } = await import("@/lib/workspaceSlugServer");
     await expect(isAccountEligibleForSlugBackfill("acct_verify")).resolves.toBe(true);
   });

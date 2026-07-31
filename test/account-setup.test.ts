@@ -163,9 +163,13 @@ const mocks = vi.hoisted(() => ({
   }
 }));
 
-vi.mock("@/lib/repositories/accounts", () => ({
-  findAccountBySlugLean: mocks.findAccountBySlugLean
-}));
+vi.mock("@/lib/repositories/accounts", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/repositories/accounts")>();
+  return {
+    ...actual,
+    findAccountBySlugLean: mocks.findAccountBySlugLean
+  };
+});
 
 vi.mock("@/lib/developerAuth", () => ({
   requireDeveloperApi: mocks.requireDeveloperApi,
@@ -249,8 +253,8 @@ describe("account setup API", () => {
         onboarding: null
       })
     });
-    mocks.DeveloperUser.updateOne.mockResolvedValue({});
-    mocks.Account.updateOne.mockResolvedValue({});
+    mocks.DeveloperUser.updateOne.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
+    mocks.Account.updateOne.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
   });
 
   it("rejects completion without required names", async () => {

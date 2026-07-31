@@ -1,6 +1,9 @@
 import { getPlanEntitlements } from "@/lib/plans";
-import Account from "@/models/Account";
-import AccountMembership from "@/models/AccountMembership";
+import {
+  findAccountsEnforcingSsoForDomain,
+  findAccountsWithSsoForDomain
+} from "@/lib/repositories/accounts";
+import { findMembershipsByUserId } from "@/lib/repositories/memberships";
 
 /** Public email providers that must not be used for workspace SSO enforce domains. */
 export const PUBLIC_EMAIL_DOMAINS = new Set([
@@ -89,13 +92,7 @@ export async function isPasswordLoginBlockedBySso(email: string): Promise<boolea
   const domain = emailDomain(email);
   if (!domain || isPublicEmailDomain(domain)) return false;
 
-  const accounts = await Account.find({
-    "sso.enabled": true,
-    "sso.enforce": true,
-    "sso.allowedEmailDomains": domain
-  })
-    .select("accountId plan sso")
-    .lean();
+  const accounts = await findAccountsEnforcingSsoForDomain(domain);
 
   for (const account of accounts) {
     const entitlements = getPlanEntitlements(account.plan);
@@ -120,17 +117,11 @@ export async function resolvePreferredSsoAccountId(
   const domain = emailDomain(email);
   if (!domain) return null;
 
-  const memberships = await AccountMembership.find({ userId }).select("accountId").lean();
+  const memberships = await findMembershipsByUserId(userId);
   if (memberships.length === 0) return null;
 
   const accountIds = memberships.map((m) => m.accountId);
-  const accounts = await Account.find({
-    accountId: { $in: accountIds },
-    "sso.enabled": true,
-    "sso.allowedEmailDomains": domain
-  })
-    .select("accountId plan sso")
-    .lean();
+  const accounts = await findAccountsWithSsoForDomain(accountIds, domain);
 
   for (const account of accounts) {
     const entitlements = getPlanEntitlements(account.plan);

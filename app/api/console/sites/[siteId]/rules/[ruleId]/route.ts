@@ -4,7 +4,7 @@ import { getConsoleAccountId } from "@/lib/consoleData";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
-import SiteAccessRule from "@/models/SiteAccessRule";
+import { findOneAndUpdateRule } from "@/lib/repositories/sites";
 
 type RouteContext = {
   params: Promise<{ siteId: string; ruleId: string }>;
@@ -24,7 +24,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   const accountId = await getConsoleAccountId();
   const { siteId, ruleId } = await context.params;
-  const rule = await SiteAccessRule.findOneAndUpdate(
+  const rule = await findOneAndUpdateRule(
     { accountId, siteId, ruleId },
     { $set: { status } },
     { returnDocument: "after" }

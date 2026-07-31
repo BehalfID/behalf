@@ -11,17 +11,13 @@ import {
 import { jsonError, noCacheJson } from "@/lib/responses";
 
 const statusMocks = vi.hoisted(() => ({
-  connectToDatabase: vi.fn(),
-  componentFind: vi.fn(),
-  incidentFind: vi.fn()
+  listComponents: vi.fn(async () => []),
+  listIncidents: vi.fn(async () => [])
 }));
 
-vi.mock("@/lib/db", () => ({ connectToDatabase: statusMocks.connectToDatabase }));
-vi.mock("@/models/StatusComponent", () => ({
-  default: { find: statusMocks.componentFind }
-}));
-vi.mock("@/models/StatusIncident", () => ({
-  default: { find: statusMocks.incidentFind }
+vi.mock("@/lib/repositories/status", () => ({
+  listComponents: statusMocks.listComponents,
+  listIncidents: statusMocks.listIncidents
 }));
 
 function cacheControlFor(
@@ -36,19 +32,8 @@ function cacheControlFor(
 describe("cache policy", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    statusMocks.connectToDatabase.mockResolvedValue(undefined);
-    statusMocks.componentFind.mockReturnValue({
-      sort: vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue([]) })
-      })
-    });
-    statusMocks.incidentFind.mockReturnValue({
-      sort: vi.fn().mockReturnValue({
-        limit: vi.fn().mockReturnValue({
-          select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue([]) })
-        })
-      })
-    });
+    statusMocks.listComponents.mockResolvedValue([]);
+    statusMocks.listIncidents.mockResolvedValue([]);
   });
 
   it("sets no-store on private JSON and every JSON error", () => {
@@ -94,7 +79,7 @@ describe("cache policy", () => {
     const status = await getStatus();
     expect(status.headers.get("Cache-Control")).toBe(PUBLIC_STATUS_CACHE);
 
-    statusMocks.connectToDatabase.mockRejectedValueOnce(new Error("database unavailable"));
+    statusMocks.listComponents.mockRejectedValueOnce(new Error("database unavailable"));
     const fallback = await getStatus();
     expect(fallback.headers.get("Cache-Control")).toBe(PRIVATE_NO_STORE);
   });

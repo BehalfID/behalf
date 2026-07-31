@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireConsoleApi } from "@/lib/adminAuth";
 import { getConsoleAccountId } from "@/lib/consoleData";
-import WebhookEvent from "@/models/WebhookEvent";
+import { listEvents } from "@/lib/repositories/webhooks";
 
 export async function GET(request: NextRequest) {
   const authError = await requireConsoleApi(request);
@@ -27,11 +27,7 @@ export async function GET(request: NextRequest) {
     query.deadLetter = true;
   }
 
-  const events = await WebhookEvent.find(query)
-    .sort({ createdAt: -1 })
-    .limit(100)
-    .select("-_id eventId type status attempts nextAttemptAt deadLetter lastError completedAt createdAt updatedAt")
-    .lean();
+  const events = await listEvents(query, { sort: { createdAt: -1 }, limit: 100, select: "-_id eventId type status attempts nextAttemptAt deadLetter lastError completedAt createdAt updatedAt" });
 
   return NextResponse.json({ events });
 }

@@ -1,6 +1,6 @@
 import DeveloperUser, { type AuthProvider } from "@/models/DeveloperUser";
 import { translateDuplicateKey } from "@/lib/repositories/errors";
-import { lazyModelMethod } from "@/lib/repositories/mongoModelAdapter";
+import { applyQueryOptions, asLean, lazyModelMethod, selectLean } from "@/lib/repositories/mongoModelAdapter";
 
 export type DeveloperUserLean = {
   _id?: unknown;
@@ -23,6 +23,14 @@ export type DeveloperUserLean = {
   emailVerificationCodeHash?: string;
   passwordResetTokenHash?: string;
   passwordResetTokenExpiresAt?: Date;
+  passwordLastUsedAt?: Date;
+  lastSignInAt?: Date;
+  lastSignInMethod?: "password" | "github" | "google" | "passkey";
+  lastSignInUserAgent?: string;
+  mfaTotpSecretEnc?: string;
+  mfaTotpPendingSecretEnc?: string;
+  mfaEnabledAt?: Date | null;
+  mfaBackupCodeHashes?: string[];
   createdAt?: Date;
   updatedAt?: Date;
 };
@@ -36,9 +44,7 @@ function normalizedEmail(email: string) {
 }
 
 async function queryOneLean(filter: Record<string, unknown>, options?: UserLookupOptions) {
-  const query = DeveloperUser.findOne(filter);
-  if (options?.select) query.select(options.select);
-  return (await query.lean()) as DeveloperUserLean | null;
+  return selectLean<DeveloperUserLean | null>(DeveloperUser.findOne(filter), options?.select);
 }
 
 export function findByEmail(email: string, options?: UserLookupOptions) {
@@ -94,7 +100,10 @@ export async function existsByEmailOrGoogleSub(email: string, googleSub: string)
 export async function createUser(input: CreateUserInput): Promise<DeveloperUserLean> {
   try {
     const user = await DeveloperUser.create({ ...input, email: normalizedEmail(input.email) });
-    return user.toObject() as DeveloperUserLean;
+    if (user && typeof (user as { toObject?: () => DeveloperUserLean }).toObject === "function") {
+      return (user as { toObject: () => DeveloperUserLean }).toObject();
+    }
+    return user as DeveloperUserLean;
   } catch (error) {
     translateDuplicateKey(error, "A user with this email already exists.");
   }
@@ -123,8 +132,11 @@ export function createUserDocument(input: Record<string, unknown>) {
   return DeveloperUser.create(input);
 }
 
-export function findUsers(filter: Record<string, unknown> = {}) {
-  return DeveloperUser.find(filter);
+export function findUsers(
+  filter: Record<string, unknown> = {},
+  options: { sort?: Record<string, 1 | -1>; limit?: number; skip?: number; select?: string } = {}
+): Promise<DeveloperUserLean[]> {
+  return asLean<DeveloperUserLean[]>(applyQueryOptions(DeveloperUser.find(filter), options));
 }
 
 export function findOneUser(filter: Record<string, unknown>) {

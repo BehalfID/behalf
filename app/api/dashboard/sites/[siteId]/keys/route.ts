@@ -5,8 +5,7 @@ import { readJsonObject } from "@/lib/request";
 import { jsonError, noCacheJson } from "@/lib/responses";
 import { hashSiteGuardKey, previewSiteGuardKey } from "@/lib/siteGuardKey";
 import { readString, rejectUnknownFields } from "@/lib/validation";
-import Site from "@/models/Site";
-import SiteGuardKey from "@/models/SiteGuardKey";
+import { createKeyDocument, findKeys, findOneSite } from "@/lib/repositories/sites";
 
 type RouteContext = {
   params: Promise<{ siteId: string }>;
@@ -18,13 +17,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
   if (!auth.activeAccountId) return jsonError("Developer account is required.", 409);
   const { siteId } = await context.params;
 
-  const site = await Site.findOne({ developerUserId: auth.user.userId, accountId: auth.activeAccountId, siteId }).lean();
+  const site = await findOneSite({ developerUserId: auth.user.userId, accountId: auth.activeAccountId, siteId });
   if (!site) return jsonError("Site not found.", 404);
 
-  const keys = await SiteGuardKey.find({ developerUserId: auth.user.userId, accountId: auth.activeAccountId, siteId })
-    .sort({ createdAt: -1 })
-    .select("-_id keyId siteId name keyPreview status lastUsedAt createdAt updatedAt")
-    .lean();
+  const keys = await findKeys({ developerUserId: auth.user.userId, accountId: auth.activeAccountId, siteId }, { sort: { createdAt: -1 }, select: "-_id keyId siteId name keyPreview status lastUsedAt createdAt updatedAt" });
 
   return noCacheJson({ keys });
 }
@@ -46,11 +42,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (name.length > 120) return jsonError("name must be 120 characters or fewer.");
 
   const { siteId } = await context.params;
-  const site = await Site.findOne({ developerUserId: auth.user.userId, accountId: auth.activeAccountId, siteId }).lean();
+  const site = await findOneSite({ developerUserId: auth.user.userId, accountId: auth.activeAccountId, siteId });
   if (!site) return jsonError("Site not found.", 404);
 
   const rawKey = createSiteGuardKey();
-  const keyDoc = await SiteGuardKey.create({
+  const keyDoc = await createKeyDocument({
     keyId: createPublicId("sgk"),
     siteId,
     accountId: auth.activeAccountId,

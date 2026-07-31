@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireConsoleApi } from "@/lib/adminAuth";
 import { getConsoleAccountId } from "@/lib/consoleData";
 import { jsonError } from "@/lib/responses";
-import WebhookEvent from "@/models/WebhookEvent";
+import { findOneAndUpdateEvent, webhookEventExists } from "@/lib/repositories/webhooks";
 
 type RouteContext = {
   params: Promise<{ eventId: string }>;
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const { eventId } = await context.params;
   const accountId = await getConsoleAccountId();
-  const event = await WebhookEvent.findOneAndUpdate(
+  const event = await findOneAndUpdateEvent(
     {
       accountId,
       eventId,
@@ -37,17 +37,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
     {
       returnDocument: "after"
     }
-  )
-    .select("-_id eventId status attempts nextAttemptAt deadLetter lastError completedAt")
-    .lean();
+  );
 
   if (!event) {
-    const processingEvent = await WebhookEvent.exists({ accountId, eventId, status: "processing" });
+    const processingEvent = await webhookEventExists({ accountId, eventId, status: "processing" });
     if (processingEvent) {
       return jsonError("Webhook event is currently processing and cannot be replayed.", 409);
     }
 
-    const existingEvent = await WebhookEvent.exists({ accountId, eventId });
+    const existingEvent = await webhookEventExists({ accountId, eventId });
     if (existingEvent) {
       return jsonError("Only dead-lettered webhook events can be replayed.", 409);
     }

@@ -1,5 +1,4 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { connectToDatabase } from "@/lib/db";
 import {
   hashEmailToken,
   hashPassword,
@@ -12,8 +11,8 @@ import { checkAuthRateLimit, checkRateLimit, rateLimitError } from "@/lib/rateLi
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { rejectUnknownFields } from "@/lib/validation";
-import DeveloperSession from "@/models/DeveloperSession";
-import DeveloperUser from "@/models/DeveloperUser";
+import * as sessions from "@/lib/repositories/sessions";
+import * as users from "@/lib/repositories/users";
 
 export async function POST(request: NextRequest) {
   const limit = await checkRateLimit(request);
@@ -39,13 +38,7 @@ export async function POST(request: NextRequest) {
   // Extra per-email rate limit applied after lookup to prevent enumeration.
   const tokenHash = hashEmailToken(token);
 
-  await connectToDatabase();
-  const user = await DeveloperUser.findOne({
-    passwordResetTokenHash: tokenHash,
-    passwordResetTokenExpiresAt: { $gt: new Date() }
-  })
-    .select("+passwordResetTokenHash +passwordResetTokenExpiresAt email userId")
-    .lean();
+  const user = await users.findByPasswordResetTokenHash(tokenHash);
 
   if (!user) {
     return jsonError("This reset link is invalid or has expired.", 400);
@@ -59,21 +52,18 @@ export async function POST(request: NextRequest) {
 
   // Atomically update password and clear reset token.
   // Also clear any verification token (password reset implies email access).
-  await DeveloperUser.updateOne(
-    { userId: user.userId },
-    {
-      $set: { passwordHash: newPasswordHash, emailVerified: true },
-      $unset: {
-        passwordResetTokenHash: "",
-        passwordResetTokenExpiresAt: "",
-        emailVerificationTokenHash: "",
-        emailVerificationTokenExpiresAt: ""
-      }
+  await users.updateUserAtomic(user.userId, {
+    $set: { passwordHash: newPasswordHash, emailVerified: true },
+    $unset: {
+      passwordResetTokenHash: "",
+      passwordResetTokenExpiresAt: "",
+      emailVerificationTokenHash: "",
+      emailVerificationTokenExpiresAt: ""
     }
-  );
+  });
 
   // Invalidate all existing sessions so compromised sessions are cleared.
-  await DeveloperSession.deleteMany({ userId: user.userId });
+  await sessions.deleteManyByUserId(user.userId);
 
   // Best-effort: send password changed notification.
   try {

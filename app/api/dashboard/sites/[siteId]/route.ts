@@ -3,10 +3,7 @@ import { requireDeveloperApi } from "@/lib/developerAuth";
 import { readJsonObject } from "@/lib/request";
 import { jsonError, noCacheJson } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
-import Site from "@/models/Site";
-import SiteAccessLog from "@/models/SiteAccessLog";
-import SiteAccessRule from "@/models/SiteAccessRule";
-import SiteGuardKey from "@/models/SiteGuardKey";
+import { findAccessLogs, findKeys, findOneAndUpdateSite, findOneSite, findRules } from "@/lib/repositories/sites";
 
 type RouteContext = {
   params: Promise<{ siteId: string }>;
@@ -17,26 +14,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
   if (auth.error || !auth.user) return auth.error;
   const { siteId } = await context.params;
 
-  const site = await Site.findOne({ developerUserId: auth.user.userId, accountId: auth.activeAccountId, siteId })
-    .select("-_id siteId name domain status createdAt updatedAt")
-    .lean();
+  const site = await findOneSite({ developerUserId: auth.user.userId, accountId: auth.activeAccountId, siteId }, { select: "-_id siteId name domain status createdAt updatedAt" });
   if (!site) return jsonError("Site not found.", 404);
 
   const [rules, logs, keys] = await Promise.all([
-    SiteAccessRule.find({ developerUserId: auth.user.userId, accountId: auth.activeAccountId, siteId })
-      .sort({ createdAt: -1 })
-      .limit(50)
-      .select("-_id ruleId siteId name status agentIdentifier userAgentPattern allowedPaths blockedPaths requiresApproval notes createdAt updatedAt")
-      .lean(),
-    SiteAccessLog.find({ developerUserId: auth.user.userId, accountId: auth.activeAccountId, siteId })
-      .sort({ createdAt: -1 })
-      .limit(25)
-      .select("-_id requestId ruleId path userAgent agentIdentifier allowed reason risk createdAt")
-      .lean(),
-    SiteGuardKey.find({ developerUserId: auth.user.userId, accountId: auth.activeAccountId, siteId })
-      .sort({ createdAt: -1 })
-      .select("-_id keyId siteId name keyPreview status lastUsedAt createdAt updatedAt")
-      .lean()
+    findRules({ developerUserId: auth.user.userId, accountId: auth.activeAccountId, siteId }, { sort: { createdAt: -1 }, limit: 50, select: "-_id ruleId siteId name status agentIdentifier userAgentPattern allowedPaths blockedPaths requiresApproval notes createdAt updatedAt" }),
+    findAccessLogs({ developerUserId: auth.user.userId, accountId: auth.activeAccountId, siteId }, { sort: { createdAt: -1 }, limit: 25, select: "-_id requestId ruleId path userAgent agentIdentifier allowed reason risk createdAt" }),
+    findKeys({ developerUserId: auth.user.userId, accountId: auth.activeAccountId, siteId }, { sort: { createdAt: -1 }, select: "-_id keyId siteId name keyPreview status lastUsedAt createdAt updatedAt" })
   ]);
 
   return noCacheJson({ site, rules, logs, keys });
@@ -66,11 +50,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   if (!Object.keys(update).length) return jsonError("At least one editable site field is required.");
 
   const { siteId } = await context.params;
-  const site = await Site.findOneAndUpdate(
+  const site = await findOneAndUpdateSite(
     { developerUserId: auth.user.userId, accountId: auth.activeAccountId, siteId },
     { $set: update },
     { returnDocument: "after" }
-  ).select("-_id siteId name domain status createdAt updatedAt");
+  );
 
   if (!site) return jsonError("Site not found.", 404);
   return NextResponse.json({ site });

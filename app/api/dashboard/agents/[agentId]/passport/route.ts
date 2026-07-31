@@ -6,7 +6,7 @@ import { getWorkspaceActor } from "@/lib/delegatedAuth";
 import { requireWorkspaceMutationActor } from "@/lib/workspaceActor";
 import { createPassportToken } from "@/lib/ids";
 import { jsonError } from "@/lib/responses";
-import Agent from "@/models/Agent";
+import { findOneAndUpdateAgent } from "@/lib/repositories/agents";
 
 type RouteContext = {
   params: Promise<{ agentId: string }>;
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const { agentId } = await context.params;
   const token = createPassportToken();
-  const agent = await Agent.findOneAndUpdate(
+  const agent = await findOneAndUpdateAgent(
     accountAgentFilter(actor, agentId),
     {
       $set: {

@@ -8,7 +8,7 @@ import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
 import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
-import Agent from "@/models/Agent";
+import { createAgent, listAgents } from "@/lib/repositories/agents";
 
 export async function GET(request: NextRequest) {
   const authError = await requireConsoleApi(request);
@@ -17,10 +17,7 @@ export async function GET(request: NextRequest) {
   }
 
   const accountId = await getConsoleAccountId();
-  const agents = await Agent.find({ accountId })
-    .sort({ createdAt: -1 })
-    .select("-_id agentId name status agentType provider externalAgentId externalAgentLabel connectionStatus description lastUsedAt keyRotatedAt createdAt updatedAt")
-    .lean();
+  const agents = await listAgents({ accountId }, { sort: { createdAt: -1 }, select: "-_id agentId name status agentType provider externalAgentId externalAgentLabel connectionStatus description lastUsedAt keyRotatedAt createdAt updatedAt" });
 
   return NextResponse.json({ agents: await Promise.all(agents.map((agent) => serializeAgent(agent))) });
 }
@@ -61,7 +58,7 @@ export async function POST(request: NextRequest) {
   const accountId = await getConsoleAccountId();
   const agentId = createPublicId("agent");
   const apiKey = createApiKey();
-  const agent = await Agent.create({
+  const agent = await createAgent({
     accountId,
     agentId,
     name,

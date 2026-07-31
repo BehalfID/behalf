@@ -28,11 +28,17 @@ import {
   CONNECTION_STATUSES,
   DEVICE_CODE_STATUSES,
   ENTERPRISE_INQUIRY_STATUSES,
+  EXTERNAL_IDENTITY_PROVIDERS,
+  IDENTITY_AUDIT_ACTIONS,
+  IDENTITY_AUDIT_PROVIDERS,
+  LOGIN_METHODS,
+  WEBAUTHN_CHALLENGE_KINDS,
   INTEGRATION_BINDING_STATUSES,
   INTEGRATION_PROVIDERS,
   INVITE_ROLES,
   INVITE_STATUSES,
   MANAGED_PROFILE_MODES,
+  OAUTH_FLOW_MODES,
   ONBOARDING_USE_CASES,
   PAUSE_SCOPES,
   PERMISSION_PROFILE_STATUSES,
@@ -132,7 +138,7 @@ export const developerUsers = pgTable(
     /** Nullable for Google-only accounts. */
     passwordHash: text("password_hash"),
     googleSub: text("google_sub"),
-    authProviders: jsonb("auth_providers").$type<Array<"password" | "google">>(),
+    authProviders: jsonb("auth_providers").$type<Array<"password" | "google" | "github" | "passkey">>(),
     onboardingUseCase: text("onboarding_use_case").notNull().default("sdk"),
     primaryAccountId: text("primary_account_id").references(() => accounts.accountId, {
       onDelete: "set null"
@@ -158,12 +164,24 @@ export const developerUsers = pgTable(
       withTimezone: true,
       mode: "date"
     }),
+    passwordLastUsedAt: timestamp("password_last_used_at", { withTimezone: true, mode: "date" }),
+    lastSignInAt: timestamp("last_sign_in_at", { withTimezone: true, mode: "date" }),
+    lastSignInMethod: text("last_sign_in_method"),
+    lastSignInUserAgent: text("last_sign_in_user_agent"),
+    mfaTotpSecretEnc: text("mfa_totp_secret_enc"),
+    mfaTotpPendingSecretEnc: text("mfa_totp_pending_secret_enc"),
+    mfaEnabledAt: timestamp("mfa_enabled_at", { withTimezone: true, mode: "date" }),
+    mfaBackupCodeHashes: jsonb("mfa_backup_code_hashes").$type<string[]>(),
     ...createdUpdatedAt()
   },
   (table) => [
     check(
       "developer_users_onboarding_use_case_check",
       sql`${table.onboardingUseCase} IN (${sql.raw(sqlInList(ONBOARDING_USE_CASES))})`
+    ),
+    check(
+      "developer_users_last_sign_in_method_check",
+      sql`${table.lastSignInMethod} IS NULL OR ${table.lastSignInMethod} IN (${sql.raw(sqlInList(LOGIN_METHODS))})`
     ),
     uniqueIndex("developer_users_email_lower_uq").on(sql`lower(${table.email})`),
     uniqueIndex("developer_users_google_sub_uq")
@@ -176,7 +194,11 @@ export const oauthPendingSignups = pgTable(
   "oauth_pending_signups",
   {
     pendingId: text("pending_id").primaryKey(),
-    googleSub: text("google_sub").notNull(),
+    /** Legacy Google-only column, still populated for Google rows. */
+    googleSub: text("google_sub"),
+    /** Provider-neutral identity key. Google rows mirror `google_sub` here. */
+    provider: text("provider").notNull().default("google"),
+    providerAccountId: text("provider_account_id"),
     email: text("email").notNull(),
     emailVerified: boolean("email_verified").notNull(),
     firstName: text("first_name"),
@@ -186,8 +208,156 @@ export const oauthPendingSignups = pgTable(
     createdAt: timestamptz().notNull().defaultNow()
   },
   (table) => [
+    check(
+      "oauth_pending_signups_provider_check",
+      sql`${table.provider} IN (${sql.raw(sqlInList(EXTERNAL_IDENTITY_PROVIDERS))})`
+    ),
     index("oauth_pending_signups_google_sub_idx").on(table.googleSub),
+    index("oauth_pending_signups_provider_account_idx").on(
+      table.provider,
+      table.providerAccountId
+    ),
     index("oauth_pending_signups_expires_at_idx").on(table.expiresAt)
+  ]
+);
+
+/**
+ * Human login identities linked to a developer account.
+ *
+ * Provider-neutral by design: a `github_id` column on `developer_users` would
+ * have to be repeated for every future provider and cannot express "this
+ * provider account is already claimed by another user" as a constraint.
+ */
+export const externalIdentities = pgTable(
+  "external_identities",
+  {
+    identityId: text("identity_id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => developerUsers.userId, { onDelete: "cascade" }),
+    provider: text("provider").notNull(),
+    /** Provider's immutable account key (GitHub numeric id, Google sub). */
+    providerAccountId: text("provider_account_id").notNull(),
+    providerUsername: text("provider_username"),
+    providerEmail: text("provider_email"),
+    providerEmailVerified: boolean("provider_email_verified").notNull().default(false),
+    linkedAt: timestamp("linked_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+    lastLoginAt: timestamp("last_login_at", { withTimezone: true, mode: "date" }),
+    ...createdUpdatedAt()
+  },
+  (table) => [
+    check(
+      "external_identities_provider_check",
+      sql`${table.provider} IN (${sql.raw(sqlInList(EXTERNAL_IDENTITY_PROVIDERS))})`
+    ),
+    uniqueIndex("external_identities_provider_account_uq").on(
+      table.provider,
+      table.providerAccountId
+    ),
+    uniqueIndex("external_identities_user_provider_uq").on(table.userId, table.provider)
+  ]
+);
+
+/** In-flight OAuth authorization requests. See models/OAuthAuthorizationState.ts. */
+export const oauthAuthorizationStates = pgTable(
+  "oauth_authorization_states",
+  {
+    stateId: text("state_id").primaryKey(),
+    provider: text("provider").notNull(),
+    mode: text("mode").notNull(),
+    stateHash: text("state_hash").notNull().unique(),
+    codeVerifier: text("code_verifier").notNull(),
+    next: text("next"),
+    userId: text("user_id").references(() => developerUsers.userId, { onDelete: "cascade" }),
+    consumedAt: timestamp("consumed_at", { withTimezone: true, mode: "date" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+    createdAt: timestamptz().notNull().defaultNow()
+  },
+  (table) => [
+    check(
+      "oauth_authorization_states_provider_check",
+      sql`${table.provider} IN (${sql.raw(sqlInList(EXTERNAL_IDENTITY_PROVIDERS))})`
+    ),
+    check(
+      "oauth_authorization_states_mode_check",
+      sql`${table.mode} IN (${sql.raw(sqlInList(OAUTH_FLOW_MODES))})`
+    ),
+    index("oauth_authorization_states_expires_at_idx").on(table.expiresAt)
+  ]
+);
+
+/** Durable identity lifecycle history. See models/IdentityAuditLog.ts. */
+export const identityAuditLogs = pgTable(
+  "identity_audit_logs",
+  {
+    entryId: text("entry_id").primaryKey(),
+    userId: text("user_id").notNull(),
+    action: text("action").notNull(),
+    provider: text("provider").notNull(),
+    providerAccountId: text("provider_account_id").notNull(),
+    providerUsername: text("provider_username"),
+    ipHash: text("ip_hash"),
+    context: text("context"),
+    createdAt: timestamptz().notNull().defaultNow()
+  },
+  (table) => [
+    check(
+      "identity_audit_logs_action_check",
+      sql`${table.action} IN (${sql.raw(sqlInList(IDENTITY_AUDIT_ACTIONS))})`
+    ),
+    check(
+      "identity_audit_logs_provider_check",
+      sql`${table.provider} IN (${sql.raw(sqlInList(IDENTITY_AUDIT_PROVIDERS))})`
+    ),
+    index("identity_audit_logs_user_created_idx").on(table.userId, table.createdAt)
+  ]
+);
+
+/** WebAuthn/passkey public-key credentials. See models/PasskeyCredential.ts. */
+export const passkeyCredentials = pgTable(
+  "passkey_credentials",
+  {
+    credentialRecordId: text("credential_record_id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => developerUsers.userId, { onDelete: "cascade" }),
+    credentialId: text("credential_id").notNull(),
+    publicKey: text("public_key").notNull(),
+    signCount: integer("sign_count").notNull().default(0),
+    transports: jsonb("transports").$type<string[]>(),
+    nickname: text("nickname").notNull(),
+    userHandle: text("user_handle").notNull(),
+    deviceType: text("device_type"),
+    backedUp: boolean("backed_up").notNull().default(false),
+    aaguid: text("aaguid"),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true, mode: "date" }),
+    ...createdUpdatedAt()
+  },
+  (table) => [
+    uniqueIndex("passkey_credentials_credential_id_uq").on(table.credentialId),
+    index("passkey_credentials_user_created_idx").on(table.userId, table.createdAt)
+  ]
+);
+
+/** Short-lived WebAuthn ceremony challenges. See models/WebAuthnChallenge.ts. */
+export const webauthnChallenges = pgTable(
+  "webauthn_challenges",
+  {
+    challengeId: text("challenge_id").primaryKey(),
+    challengeHash: text("challenge_hash").notNull().unique(),
+    kind: text("kind").notNull(),
+    userId: text("user_id").references(() => developerUsers.userId, { onDelete: "cascade" }),
+    consumedAt: timestamp("consumed_at", { withTimezone: true, mode: "date" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+    createdAt: timestamptz().notNull().defaultNow()
+  },
+  (table) => [
+    check(
+      "webauthn_challenges_kind_check",
+      sql`${table.kind} IN (${sql.raw(sqlInList(WEBAUTHN_CHALLENGE_KINDS))})`
+    ),
+    index("webauthn_challenges_expires_at_idx").on(table.expiresAt),
+    index("webauthn_challenges_user_id_idx").on(table.userId)
   ]
 );
 
@@ -1250,11 +1420,167 @@ export const collaborationMessageRefs = pgTable(
   ]
 );
 
+// ---------------------------------------------------------------------------
+// Console / auth telemetry (cutover domains previously Mongo-only)
+// ---------------------------------------------------------------------------
+
+export const authEvents = pgTable(
+  "auth_events",
+  {
+    eventId: text("event_id").primaryKey(),
+    surface: text("surface").notNull(),
+    outcome: text("outcome").notNull().default("failure"),
+    reason: text("reason").notNull(),
+    ipHash: text("ip_hash").notNull(),
+    identityHint: text("identity_hint"),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+    createdAt: timestamptz().notNull().defaultNow()
+  },
+  (table) => [
+    index("auth_events_created_at_idx").on(table.createdAt),
+    index("auth_events_expires_at_idx").on(table.expiresAt),
+    index("auth_events_surface_idx").on(table.surface)
+  ]
+);
+
+export const consoleAdmins = pgTable(
+  "console_admins",
+  {
+    adminId: text("admin_id").primaryKey(),
+    email: text("email").notNull(),
+    passwordHash: text("password_hash").notNull(),
+    role: text("role").notNull().default("owner"),
+    lastLoginAt: timestamp("last_login_at", { withTimezone: true, mode: "date" }),
+    disabledAt: timestamp("disabled_at", { withTimezone: true, mode: "date" }),
+    ...createdUpdatedAt()
+  },
+  (table) => [
+    uniqueIndex("console_admins_email_uq").on(table.email),
+    index("console_admins_disabled_at_idx").on(table.disabledAt)
+  ]
+);
+
+export const adminAuditLogs = pgTable(
+  "admin_audit_logs",
+  {
+    entryId: text("entry_id").primaryKey(),
+    adminId: text("admin_id").notNull(),
+    action: text("action").notNull(),
+    target: text("target"),
+    requestId: text("request_id"),
+    metadata: jsonb("metadata"),
+    createdAt: timestamptz().notNull().defaultNow()
+  },
+  (table) => [
+    index("admin_audit_logs_created_at_idx").on(table.createdAt),
+    index("admin_audit_logs_admin_id_idx").on(table.adminId),
+    index("admin_audit_logs_action_idx").on(table.action)
+  ]
+);
+
+export const permissionReplacementAudits = pgTable(
+  "permission_replacement_audits",
+  {
+    eventId: text("event_id").primaryKey(),
+    accountId: text("account_id").notNull(),
+    agentId: text("agent_id").notNull(),
+    actorUserId: text("actor_user_id").notNull(),
+    type: text("type").notNull(),
+    oldPermissionId: text("old_permission_id").notNull(),
+    replacementPermissionId: text("replacement_permission_id"),
+    idempotencyKey: text("idempotency_key"),
+    reason: text("reason"),
+    metadata: jsonb("metadata"),
+    createdAt: timestamptz().notNull().defaultNow()
+  },
+  (table) => [
+    index("permission_replacement_audits_account_created_idx").on(table.accountId, table.createdAt),
+    index("permission_replacement_audits_old_permission_idx").on(table.oldPermissionId)
+  ]
+);
+
+export const adaptiveDelegationRecommendations = pgTable(
+  "adaptive_delegation_recommendations",
+  {
+    recommendationId: text("recommendation_id").primaryKey(),
+    accountId: text("account_id")
+      .notNull()
+      .references(() => accounts.accountId),
+    agentId: text("agent_id").notNull(),
+    kind: text("kind").notNull().default("reusable_permission"),
+    status: text("status").notNull().default("active"),
+    action: text("action").notNull(),
+    resource: text("resource"),
+    confidence: integer("confidence").notNull(),
+    explanation: text("explanation").notNull(),
+    factors: jsonb("factors").$type<unknown[]>().notNull().default([]),
+    evidence: jsonb("evidence").$type<Record<string, unknown>>().notNull(),
+    proposedPermission: jsonb("proposed_permission").$type<Record<string, unknown> | null>(),
+    proposedTrustProfile: jsonb("proposed_trust_profile").$type<Record<string, unknown> | null>(),
+    proposedOrgDelegation: jsonb("proposed_org_delegation").$type<Record<string, unknown> | null>(),
+    affectedTools: text("affected_tools").array().notNull().default([]),
+    affectedResources: text("affected_resources").array().notNull().default([]),
+    estimatedApprovalReduction: integer("estimated_approval_reduction").notNull().default(0),
+    securityImpact: jsonb("security_impact").$type<Record<string, unknown>>().notNull(),
+    rollbackInstructions: text("rollback_instructions").notNull(),
+    fingerprint: text("fingerprint").notNull(),
+    dismissReason: text("dismiss_reason"),
+    remindAt: timestamp("remind_at", { withTimezone: true, mode: "date" }),
+    acceptedPermissionId: text("accepted_permission_id"),
+    acceptedProfileId: text("accepted_profile_id"),
+    acceptedAgentIds: text("accepted_agent_ids").array(),
+    acceptedBy: text("accepted_by"),
+    dismissedBy: text("dismissed_by"),
+    viewedAt: timestamp("viewed_at", { withTimezone: true, mode: "date" }),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true, mode: "date" }),
+    ...createdUpdatedAt()
+  },
+  (table) => [
+    uniqueIndex("adaptive_delegation_recommendations_account_fingerprint_uq").on(
+      table.accountId,
+      table.fingerprint
+    ),
+    index("adaptive_delegation_rec_account_status_conf_idx").on(
+      table.accountId,
+      table.status,
+      table.confidence
+    ),
+    index("adaptive_delegation_recommendations_agent_idx").on(table.agentId)
+  ]
+);
+
+export const adaptiveDelegationEvents = pgTable(
+  "adaptive_delegation_events",
+  {
+    eventId: text("event_id").primaryKey(),
+    accountId: text("account_id")
+      .notNull()
+      .references(() => accounts.accountId),
+    recommendationId: text("recommendation_id").notNull(),
+    actorUserId: text("actor_user_id"),
+    type: text("type").notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown> | null>(),
+    ...createdUpdatedAt()
+  },
+  (table) => [
+    index("adaptive_delegation_events_account_created_idx").on(table.accountId, table.createdAt),
+    index("adaptive_delegation_events_recommendation_created_idx").on(
+      table.recommendationId,
+      table.createdAt
+    )
+  ]
+);
+
 /** All schema tables exported for static validation and future repository adapters. */
 export const coreTables = {
   accounts,
   developerUsers,
   oauthPendingSignups,
+  externalIdentities,
+  oauthAuthorizationStates,
+  identityAuditLogs,
+  passkeyCredentials,
+  webauthnChallenges,
   developerSessions,
   developerApiTokens,
   accountMemberships,
@@ -1282,7 +1608,13 @@ export const coreTables = {
   statusIncidents,
   policyDocuments,
   integrationBindings,
-  collaborationMessageRefs
+  collaborationMessageRefs,
+  authEvents,
+  consoleAdmins,
+  adminAuditLogs,
+  permissionReplacementAudits,
+  adaptiveDelegationRecommendations,
+  adaptiveDelegationEvents
 } as const;
 
 export type CoreTableName = keyof typeof coreTables;

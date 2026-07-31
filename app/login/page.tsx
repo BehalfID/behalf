@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { getCurrentDeveloper } from "@/lib/developerAuth";
 import { requiresEmailVerificationRedirect } from "@/lib/emailVerificationGuard";
+import { isGitHubOAuthConfigured } from "@/lib/authProviders/providers/github";
+import { isWebAuthnConfigured } from "@/lib/authProviders/webauthnConfig";
 import { isGoogleOAuthConfigured } from "@/lib/googleOAuth";
 import { shouldForceAccountSetup } from "@/lib/onboardingRedirect";
 import { resolveOwnedHref } from "@/lib/subdomainRouting";
@@ -41,7 +43,13 @@ export default async function LoginPage({
   }
   return (
     <Suspense fallback={<main className="auth-page"><p>Loading…</p></main>}>
-      <AuthPage mode="login" nextPath={nextPath} googleEnabled={isGoogleOAuthConfigured()} />
+      <AuthPage
+        mode="login"
+        nextPath={nextPath}
+        googleEnabled={isGoogleOAuthConfigured()}
+        githubEnabled={isGitHubOAuthConfigured()}
+        passkeyEnabled={isWebAuthnConfigured()}
+      />
     </Suspense>
   );
 }

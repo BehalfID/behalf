@@ -1,4 +1,4 @@
-import { and, count, eq, sql, type SQL } from "drizzle-orm";
+import { and, count, eq, inArray, sql, type SQL } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type { BehalfPostgresDb } from "@/lib/db/postgres";
 import { accounts } from "@/lib/db/postgres/schema";
@@ -34,18 +34,32 @@ function toLean(row: AccountRow): AccountLean {
   return row as unknown as AccountLean;
 }
 
+function fieldCondition(key: string, value: unknown): SQL {
+  const column = columns[key];
+  if (!column) {
+    throw new Error(`Unsupported account filter field: ${key}`);
+  }
+  if (value && typeof value === "object" && !Array.isArray(value) && !(value instanceof Date)) {
+    const operators = Object.entries(value as Record<string, unknown>).map(([operator, operand]) => {
+      switch (operator) {
+        case "$in":
+          return inArray(column, operand as unknown[]);
+        default:
+          throw new Error(`Unsupported account filter operator: ${operator}`);
+      }
+    });
+    return and(...operators)!;
+  }
+  if (key === "slug" && typeof value === "string") {
+    return eq(column, value.trim().toLowerCase());
+  }
+  return eq(column, value);
+}
+
 function buildWhere(filter: Record<string, unknown> = {}): SQL | undefined {
   const conditions: SQL[] = [];
   for (const [key, value] of Object.entries(filter)) {
-    const column = columns[key];
-    if (!column) {
-      throw new Error(`Unsupported account filter field: ${key}`);
-    }
-    if (key === "slug" && typeof value === "string") {
-      conditions.push(eq(column, value.trim().toLowerCase()));
-      continue;
-    }
-    conditions.push(eq(column, value));
+    conditions.push(fieldCondition(key, value));
   }
   return conditions.length ? and(...conditions) : undefined;
 }
@@ -296,4 +310,47 @@ export async function updateAccountByFilter(
       translatePostgresError(error);
     }
   });
+}
+
+function ssoDomainMatches(row: AccountRow, domain: string): boolean {
+  const sso = row.sso as
+    | { enabled?: boolean; enforce?: boolean; allowedEmailDomains?: string[] }
+    | null
+    | undefined;
+  if (!sso?.enabled || !Array.isArray(sso.allowedEmailDomains)) return false;
+  const normalized = domain.trim().toLowerCase();
+  return sso.allowedEmailDomains.some((entry) => entry.trim().toLowerCase() === normalized);
+}
+
+/** Accounts with SSO enabled+enforced that list this email domain. */
+export async function findAccountsEnforcingSsoForDomain(db: BehalfPostgresDb, domain: string) {
+  const rows = await db
+    .select()
+    .from(accounts)
+    .where(
+      and(
+        sql`(${accounts.sso}->>'enabled')::boolean = true`,
+        sql`(${accounts.sso}->>'enforce')::boolean = true`
+      )
+    );
+  return rows.filter((row) => ssoDomainMatches(row, domain)).map(toLean);
+}
+
+/** SSO-enabled accounts among the given IDs that list this email domain. */
+export async function findAccountsWithSsoForDomain(
+  db: BehalfPostgresDb,
+  accountIds: string[],
+  domain: string
+) {
+  if (accountIds.length === 0) return [];
+  const rows = await db
+    .select()
+    .from(accounts)
+    .where(
+      and(
+        inArray(accounts.accountId, accountIds),
+        sql`(${accounts.sso}->>'enabled')::boolean = true`
+      )
+    );
+  return rows.filter((row) => ssoDomainMatches(row, domain)).map(toLean);
 }

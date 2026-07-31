@@ -2,7 +2,6 @@ import dns from "dns/promises";
 import http from "http";
 import https from "https";
 import type { IncomingMessage } from "http";
-import { connectToDatabase } from "@/lib/db";
 import { createPublicId } from "@/lib/ids";
 import {
   isPrivateIpAddress,
@@ -12,9 +11,17 @@ import {
   WEBHOOK_MAX_ATTEMPTS,
   type WebhookEvent
 } from "@/lib/webhooks";
-import WebhookDelivery from "@/models/WebhookDelivery";
-import WebhookEndpoint from "@/models/WebhookEndpoint";
-import WebhookEventModel, { type WebhookEventDocument } from "@/models/WebhookEvent";
+import {
+  claimNextEvent as claimNextWebhookEvent,
+  findActiveEndpointsForEvent,
+  insertDeliveries,
+  markEventCompleted as markWebhookEventCompleted,
+  markEventFailed,
+  recoverStuckEvents as recoverStuckWebhookEvents,
+  retryEvent,
+  updateEndpoints,
+  type WebhookEventLean
+} from "@/lib/repositories/webhooks";
 
 const DEFAULT_BATCH_SIZE = 10;
 const STUCK_PROCESSING_MS = 5 * 60 * 1000;
@@ -38,7 +45,6 @@ type DeliveryResult = {
 };
 
 export async function processWebhookEvents(limit = DEFAULT_BATCH_SIZE): Promise<ProcessSummary> {
-  await connectToDatabase();
   const recovery = await recoverStuckEvents();
 
   const summary: ProcessSummary = {
@@ -70,75 +76,17 @@ export async function processWebhookEvents(limit = DEFAULT_BATCH_SIZE): Promise<
 
 async function recoverStuckEvents() {
   const stuckBefore = new Date(Date.now() - STUCK_PROCESSING_MS);
-  const stuckQuery = {
-    status: "processing",
-    processingStartedAt: { $lte: stuckBefore },
-    deadLetter: false
-  } as const;
-
-  const recovered = await WebhookEventModel.updateMany(
-    {
-      ...stuckQuery,
-      attempts: { $lt: WEBHOOK_MAX_ATTEMPTS },
-    },
-    {
-      $set: { status: "pending", nextAttemptAt: new Date() },
-      $unset: { processingStartedAt: "" }
-    }
-  );
-
-  const deadLettered = await WebhookEventModel.updateMany(
-    {
-      ...stuckQuery,
-      attempts: { $gte: WEBHOOK_MAX_ATTEMPTS }
-    },
-    {
-      $set: {
-        status: "failed",
-        deadLetter: true,
-        lastError: "Webhook delivery timed out while processing and reached maximum attempts.",
-        nextAttemptAt: new Date()
-      },
-      $unset: { processingStartedAt: "" }
-    }
-  );
-
-  return {
-    recovered: recovered.modifiedCount ?? 0,
-    deadLettered: deadLettered.modifiedCount ?? 0
-  };
+  return recoverStuckWebhookEvents(stuckBefore, WEBHOOK_MAX_ATTEMPTS);
 }
 
 async function claimNextEvent() {
-  const now = new Date();
-  return WebhookEventModel.findOneAndUpdate(
-    {
-      status: "pending",
-      nextAttemptAt: { $lte: now },
-      attempts: { $lt: WEBHOOK_MAX_ATTEMPTS },
-      deadLetter: false
-    },
-    {
-      $set: { status: "processing", processingStartedAt: now },
-      $inc: { attempts: 1 }
-    },
-    {
-      sort: { nextAttemptAt: 1, createdAt: 1 },
-      returnDocument: "after"
-    }
-  );
+  return claimNextWebhookEvent(WEBHOOK_MAX_ATTEMPTS);
 }
 
-async function processClaimedEvent(event: WebhookEventDocument) {
+async function processClaimedEvent(event: WebhookEventLean) {
   const payload = event.payload as WebhookEvent;
   const attempt = event.attempts;
-  const endpoints = await WebhookEndpoint.find({
-    ...(event.developerUserId
-      ? { developerUserId: event.developerUserId }
-      : { accountId: event.accountId }),
-    status: "active",
-    events: event.type
-  }).select("+secretHash");
+  const endpoints = await findActiveEndpointsForEvent(event);
 
   if (!endpoints.length) {
     await markEventCompleted(event.eventId);
@@ -162,7 +110,7 @@ async function processClaimedEvent(event: WebhookEventDocument) {
   const nextRetryAt = failed && attempt < WEBHOOK_MAX_ATTEMPTS ? nextAttemptAt(attempt) : undefined;
   const lastError = summarizeDeliveryErrors(results);
 
-  await WebhookDelivery.insertMany(
+  await insertDeliveries(
     results.map((result) => ({
       deliveryId: createPublicId("dlv"),
       accountId: event.accountId,
@@ -179,7 +127,7 @@ async function processClaimedEvent(event: WebhookEventDocument) {
     }))
   );
 
-  await WebhookEndpoint.updateMany(
+  await updateEndpoints(
     {
       ...(event.developerUserId
         ? { developerUserId: event.developerUserId }
@@ -195,28 +143,11 @@ async function processClaimedEvent(event: WebhookEventDocument) {
   }
 
   if (attempt >= WEBHOOK_MAX_ATTEMPTS) {
-    await WebhookEventModel.updateOne(
-      { eventId: event.eventId, status: "processing" },
-      {
-        $set: {
-          status: "failed",
-          deadLetter: true,
-          lastError,
-          nextAttemptAt: new Date()
-        },
-        $unset: { processingStartedAt: "" }
-      }
-    );
+    await markEventFailed(event.eventId, lastError ?? "Webhook delivery failed.");
     return { outcome: "failed" as const, deadLettered: true };
   }
 
-  await WebhookEventModel.updateOne(
-    { eventId: event.eventId, status: "processing" },
-    {
-      $set: { status: "pending", nextAttemptAt: nextRetryAt, lastError },
-      $unset: { processingStartedAt: "" }
-    }
-  );
+  await retryEvent(event.eventId, nextRetryAt!, lastError ?? "Webhook delivery failed.");
   return { outcome: "retried" as const };
 }
 
@@ -364,19 +295,7 @@ function nextAttemptAt(attempt: number) {
 }
 
 async function markEventCompleted(eventId: string) {
-  await WebhookEventModel.updateOne(
-    { eventId, status: "processing" },
-    {
-      $set: {
-        status: "completed",
-        deadLetter: false,
-        lastError: null,
-        completedAt: new Date(),
-        nextAttemptAt: new Date()
-      },
-      $unset: { processingStartedAt: "" }
-    }
-  );
+  await markWebhookEventCompleted(eventId);
 }
 
 export function sanitizeDeliveryError(error?: string) {

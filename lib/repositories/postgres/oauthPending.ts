@@ -28,6 +28,8 @@ type PendingInsert = typeof oauthPendingSignups.$inferInsert;
 const columns: Record<string, AnyPgColumn> = {
   pendingId: oauthPendingSignups.pendingId,
   googleSub: oauthPendingSignups.googleSub,
+  provider: oauthPendingSignups.provider,
+  providerAccountId: oauthPendingSignups.providerAccountId,
   email: oauthPendingSignups.email,
   emailVerified: oauthPendingSignups.emailVerified,
   firstName: oauthPendingSignups.firstName,
@@ -111,6 +113,8 @@ function toLean(row: PendingRow): OAuthPendingSignupLean {
   return {
     pendingId: row.pendingId,
     googleSub: row.googleSub,
+    provider: row.provider as OAuthPendingSignupLean["provider"],
+    providerAccountId: row.providerAccountId,
     email: row.email,
     emailVerified: row.emailVerified,
     firstName: row.firstName,
@@ -130,7 +134,9 @@ export async function createPendingSignup(
       .insert(oauthPendingSignups)
       .values({
         pendingId: input.pendingId,
-        googleSub: input.googleSub,
+        googleSub: input.googleSub ?? null,
+        provider: input.provider ?? (input.googleSub ? "google" : "github"),
+        providerAccountId: input.providerAccountId ?? input.googleSub ?? null,
         email: normalizeEmail(input.email),
         emailVerified: input.emailVerified,
         firstName: input.firstName ?? null,

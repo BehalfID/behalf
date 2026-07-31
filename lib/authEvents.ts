@@ -1,11 +1,31 @@
 import crypto from "crypto";
 import type { NextRequest } from "next/server";
-import { connectToDatabase } from "@/lib/db";
+import { getPostgresDb } from "@/lib/db/postgres";
+import { authEvents } from "@/lib/db/postgres/schema";
 import { logger } from "@/lib/logger";
-import AuthEvent, {
-  type AuthEventReason,
-  type AuthEventSurface
-} from "@/models/AuthEvent";
+import { isPostgresRuntimeEnabled } from "@/lib/repositories/backend";
+
+export const AUTH_EVENT_SURFACES = [
+  "developer_login",
+  "console_login",
+  "api_key",
+  "developer_token",
+  "mfa"
+] as const;
+export type AuthEventSurface = (typeof AUTH_EVENT_SURFACES)[number];
+
+export const AUTH_EVENT_REASONS = [
+  "invalid_credentials",
+  "unknown_account",
+  "google_only_account",
+  "oauth_only_account",
+  "sso_password_blocked",
+  "invalid_api_key",
+  "invalid_mfa",
+  "mfa_required",
+  "rate_limited"
+] as const;
+export type AuthEventReason = (typeof AUTH_EVENT_REASONS)[number];
 
 const AUTH_EVENT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const API_KEY_LOG_WINDOW_MS = 60_000;
@@ -61,6 +81,42 @@ function shouldLogApiKeyFailure(identityHint: string | undefined): boolean {
   return true;
 }
 
+async function persistAuthFailure(input: {
+  eventId: string;
+  surface: AuthEventSurface;
+  reason: AuthEventReason;
+  ipHash: string;
+  identityHint?: string;
+  expiresAt: Date;
+}) {
+  if (isPostgresRuntimeEnabled()) {
+    const db = getPostgresDb();
+    await db.insert(authEvents).values({
+      eventId: input.eventId,
+      surface: input.surface,
+      outcome: "failure",
+      reason: input.reason,
+      ipHash: input.ipHash,
+      identityHint: input.identityHint,
+      expiresAt: input.expiresAt
+    });
+    return;
+  }
+
+  const { connectToDatabase } = await import("@/lib/db");
+  const AuthEvent = (await import("@/models/AuthEvent")).default;
+  await connectToDatabase();
+  await AuthEvent.create({
+    eventId: input.eventId,
+    surface: input.surface,
+    outcome: "failure",
+    reason: input.reason,
+    ipHash: input.ipHash,
+    identityHint: input.identityHint,
+    expiresAt: input.expiresAt
+  });
+}
+
 export async function recordAuthFailure(input: {
   request?: NextRequest;
   surface: AuthEventSurface;
@@ -77,12 +133,10 @@ export async function recordAuthFailure(input: {
       }
     }
 
-    await connectToDatabase();
     const ip = input.ip ?? (input.request ? clientIpFromRequest(input.request) : "unknown");
-    await AuthEvent.create({
+    await persistAuthFailure({
       eventId: `ae_${crypto.randomBytes(12).toString("hex")}`,
       surface: input.surface,
-      outcome: "failure",
       reason: input.reason,
       ipHash: hashIp(ip),
       identityHint: input.identityHint ?? emailHint(input.email) ?? undefined,

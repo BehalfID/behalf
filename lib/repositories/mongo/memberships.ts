@@ -2,7 +2,7 @@ import { BILLABLE_WORKSPACE_ROLES, type WorkspaceRole } from "@/lib/authority";
 import AccountInvite from "@/models/AccountInvite";
 import AccountMembership, { type AccountMembershipDocument } from "@/models/AccountMembership";
 import { isMongoDuplicateKeyError } from "@/lib/repositories/errors";
-import { lazyModelAdapter } from "@/lib/repositories/mongoModelAdapter";
+import { applyQueryOptions, asLean, lazyModelAdapter } from "@/lib/repositories/mongoModelAdapter";
 
 export type MembershipLean = {
   membershipId: string;
@@ -35,7 +35,9 @@ export async function findMembershipByAccountAndUser(
 }
 
 export async function findMembershipsByAccountId(accountId: string): Promise<MembershipLean[]> {
-  return AccountMembership.find({ accountId }).sort({ createdAt: 1 }).lean();
+  return asLean<MembershipLean[]>(applyQueryOptions(AccountMembership.find({ accountId }), {
+    sort: { createdAt: 1 }
+  }));
 }
 
 export async function createMembership(input: {
@@ -136,7 +138,9 @@ export async function revokeInvite(accountId: string, inviteId: string) {
 }
 
 export async function findPendingInvitesByAccountId(accountId: string): Promise<PendingInviteLean[]> {
-  return AccountInvite.find({ accountId, status: "pending" }).sort({ createdAt: -1 }).lean();
+  return asLean<PendingInviteLean[]>(applyQueryOptions(AccountInvite.find({ accountId, status: "pending" }), {
+    sort: { createdAt: -1 }
+  }));
 }
 
 export async function upsertPendingInvite(
@@ -172,7 +176,9 @@ export async function upsertPendingInvite(
 }
 
 export async function findMembershipsByUserId(userId: string): Promise<MembershipLean[]> {
-  return AccountMembership.find({ userId }).sort({ createdAt: 1 }).lean();
+  return asLean<MembershipLean[]>(applyQueryOptions(AccountMembership.find({ userId }), {
+    sort: { createdAt: 1 }
+  }));
 }
 
 export async function deleteMembershipsByAccountId(accountId: string) {

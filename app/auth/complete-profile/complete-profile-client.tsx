@@ -18,9 +18,21 @@ function safeNextPath(next?: string | null) {
   return next;
 }
 
+const PROVIDER_LABELS: Record<string, string> = {
+  google: "Google",
+  github: "GitHub"
+};
+
+/** Only providers with a matching completion route may be addressed by query. */
+function safeProvider(raw: string | null): "google" | "github" {
+  return raw === "github" ? "github" : "google";
+}
+
 export function CompleteProfilePage() {
   const searchParams = useSearchParams();
   const nextPath = safeNextPath(searchParams.get("next"));
+  const provider = safeProvider(searchParams.get("provider"));
+  const providerLabel = PROVIDER_LABELS[provider];
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -43,7 +55,7 @@ export function CompleteProfilePage() {
 
     setSubmitting(true);
     try {
-      const response = await fetch("/api/auth/google/complete", {
+      const response = await fetch(`/api/auth/${provider}/complete`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -68,11 +80,11 @@ export function CompleteProfilePage() {
       compact
       support={
         <AuthPrinciple
-          eyebrow="Google sign-up"
+          eyebrow={`${providerLabel} sign-up`}
           title="Almost ready."
-          description="Confirm your age to finish creating your BehalfID workspace after Google authentication."
+          description={`Confirm your age to finish creating your BehalfID workspace after ${providerLabel} authentication.`}
           points={[
-            { label: "Verified email", value: "Taken from your Google account" },
+            { label: "Verified email", value: `Taken from your ${providerLabel} account` },
             { label: "Age check", value: "Required for COPPA compliance" },
             { label: "Next", value: "Workspace onboarding" }
           ]}
@@ -81,7 +93,7 @@ export function CompleteProfilePage() {
     >
       <form className="auth-task" onSubmit={submit} aria-busy={submitting}>
         <AuthTaskHeader
-          eyebrow="Finish Google sign-up"
+          eyebrow={`Finish ${providerLabel} sign-up`}
           title="Confirm your age"
           description="One more step before we create your workspace. We need your date of birth to meet age requirements."
         />

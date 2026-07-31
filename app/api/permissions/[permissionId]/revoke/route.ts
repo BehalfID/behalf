@@ -9,12 +9,14 @@ import {
   permissionGrantForbidden,
   viewerMutationForbidden
 } from "@/lib/delegatedAuth";
-import { connectToDatabase } from "@/lib/db";
 import { requireHumanDeveloperApi } from "@/lib/humanAuth";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
+import {
+  findOnePermission,
+  revokePermission
+} from "@/lib/repositories/permissions";
 import { jsonError } from "@/lib/responses";
 import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
-import Permission from "@/models/Permission";
 
 type RouteContext = {
   params: Promise<{ permissionId: string }>;
@@ -31,8 +33,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return rateLimitError();
   }
 
-  await connectToDatabase();
-
   const humanAuth = await requireHumanDeveloperApi(request);
   if (humanAuth.user && !humanAuth.error) {
     const accountId = humanAuth.account?.accountId ?? humanAuth.user.primaryAccountId;
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (!actor) return jsonError("Workspace account required.", 403);
     if (actor.authorityLevel <= 10) return viewerMutationForbidden();
 
-    const permission = await Permission.findOne({
+    const permission = await findOnePermission({
       permissionId,
       ...accountScopeFilter(actor.accountId)
     });
@@ -50,9 +50,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     if (permission.status !== "revoked") {
-      permission.status = "revoked";
-      permission.updatedBy = humanAuth.user.userId;
-      await permission.save();
+      await revokePermission(
+        permissionId,
+        accountScopeFilter(actor.accountId),
+        humanAuth.user.userId
+      );
     }
 
     await emitWebhookEvent(

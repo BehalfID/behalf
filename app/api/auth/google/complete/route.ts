@@ -1,7 +1,6 @@
 import crypto from "crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { createDeveloperAccount } from "@/lib/account";
-import { connectToDatabase } from "@/lib/db";
 import {
   createDeveloperSession,
   normalizeEmail,
@@ -19,8 +18,9 @@ import { checkAuthRateLimit, checkRateLimit, rateLimitError } from "@/lib/rateLi
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
-import DeveloperUser from "@/models/DeveloperUser";
-import OAuthPendingSignup from "@/models/OAuthPendingSignup";
+import { DuplicateKeyError } from "@/lib/repositories/errors";
+import * as oauthPending from "@/lib/repositories/oauthPending";
+import * as users from "@/lib/repositories/users";
 
 function clearPendingCookie(response: NextResponse) {
   response.cookies.set(GOOGLE_PENDING_SIGNUP_COOKIE, "", { ...oauthCookieOptions(0), maxAge: 0 });
@@ -57,13 +57,10 @@ export async function POST(request: NextRequest) {
     return jsonError("Google sign-up session expired. Please start again.", 401);
   }
 
-  await connectToDatabase();
-  const pending = await OAuthPendingSignup.findOne({ pendingId })
-    .select("+tokenHash pendingId googleSub email emailVerified firstName lastName expiresAt")
-    .lean();
+  const pending = await oauthPending.findByPendingId(pendingId, { includeTokenHash: true });
 
   if (!pending || new Date(pending.expiresAt).getTime() < Date.now()) {
-    if (pending) await OAuthPendingSignup.deleteOne({ pendingId });
+    if (pending) await oauthPending.deleteByPendingId(pendingId);
     const response = jsonError("Google sign-up session expired. Please start again.", 401);
     clearPendingCookie(response);
     return response;
@@ -81,9 +78,16 @@ export async function POST(request: NextRequest) {
   const authLimit = await checkAuthRateLimit(email);
   if (authLimit.limited) return rateLimitError();
 
-  const existing = await DeveloperUser.exists({ $or: [{ email }, { googleSub: pending.googleSub }] });
+  if (!pending.googleSub) {
+    await oauthPending.deleteByPendingId(pendingId);
+    const response = jsonError("Google sign-up session expired. Please start again.", 401);
+    clearPendingCookie(response);
+    return response;
+  }
+
+  const existing = await users.existsByEmailOrGoogleSub(email, pending.googleSub);
   if (existing) {
-    await OAuthPendingSignup.deleteOne({ pendingId });
+    await oauthPending.deleteByPendingId(pendingId);
     const response = jsonError(
       "Unable to complete registration. If an account with this email exists, please sign in instead.",
       409
@@ -94,7 +98,7 @@ export async function POST(request: NextRequest) {
 
   let user;
   try {
-    user = await DeveloperUser.create({
+    user = await users.createUser({
       userId: createPublicId("user"),
       email,
       googleSub: pending.googleSub,
@@ -105,13 +109,8 @@ export async function POST(request: NextRequest) {
       emailVerified: true
     });
   } catch (createError) {
-    if (
-      typeof createError === "object" &&
-      createError !== null &&
-      "code" in createError &&
-      createError.code === 11000
-    ) {
-      await OAuthPendingSignup.deleteOne({ pendingId });
+    if (createError instanceof DuplicateKeyError) {
+      await oauthPending.deleteByPendingId(pendingId);
       const response = jsonError(
         "Unable to complete registration. If an account with this email exists, please sign in instead.",
         409
@@ -128,7 +127,7 @@ export async function POST(request: NextRequest) {
     console.error("[behalfid] Failed to create developer account during Google signup for userId:", user.userId);
   }
 
-  await OAuthPendingSignup.deleteOne({ pendingId });
+  await oauthPending.deleteByPendingId(pendingId);
 
   const { token } = await createDeveloperSession(user.userId);
   const next = safeOAuthNextPath(readString(body.next));

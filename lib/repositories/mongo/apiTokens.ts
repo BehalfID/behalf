@@ -1,6 +1,6 @@
 import DeveloperApiToken from "@/models/DeveloperApiToken";
 import { translateDuplicateKey } from "@/lib/repositories/errors";
-import { lazyModelMethod } from "@/lib/repositories/mongoModelAdapter";
+import { applyQueryOptions, asLean, lazyModelMethod, selectLean } from "@/lib/repositories/mongoModelAdapter";
 export type DeveloperApiTokenLean = {
   _id?: unknown;
   tokenId: string;
@@ -20,13 +20,19 @@ export type CreateApiTokenInput = Pick<
 >;
 
 export async function findByTokenHash(tokenHash: string): Promise<DeveloperApiTokenLean | null> {
-  return (await DeveloperApiToken.findOne({ tokenHash }).select("+tokenHash").lean()) as DeveloperApiTokenLean | null;
+  return selectLean<DeveloperApiTokenLean | null>(
+    DeveloperApiToken.findOne({ tokenHash }),
+    "+tokenHash"
+  );
 }
 
 export async function createApiToken(input: CreateApiTokenInput): Promise<DeveloperApiTokenLean> {
   try {
     const token = await DeveloperApiToken.create(input);
-    return token.toObject() as DeveloperApiTokenLean;
+    if (token && typeof (token as { toObject?: () => DeveloperApiTokenLean }).toObject === "function") {
+      return (token as { toObject: () => DeveloperApiTokenLean }).toObject();
+    }
+    return token as DeveloperApiTokenLean;
   } catch (error) {
     translateDuplicateKey(error, "A developer token with this ID already exists.");
   }
@@ -38,9 +44,10 @@ export async function listByUserId(
 ): Promise<DeveloperApiTokenLean[]> {
   const filter: Record<string, unknown> = { userId };
   if (options?.accountId) filter.accountId = options.accountId;
-  return (await DeveloperApiToken.find(filter)
-    .select(options?.select ?? "-_id tokenId name accountId tokenPreview lastUsedAt createdAt")
-    .lean()) as DeveloperApiTokenLean[];
+  return selectLean<DeveloperApiTokenLean[]>(
+    DeveloperApiToken.find(filter),
+    options?.select ?? "-_id tokenId name accountId tokenPreview lastUsedAt createdAt"
+  );
 }
 
 export function countByUserId(userId: string, accountId?: string) {

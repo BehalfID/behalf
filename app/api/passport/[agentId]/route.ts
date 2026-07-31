@@ -1,13 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { hashApiKey, timingSafeEqualString } from "@/lib/auth";
-import { connectToDatabase } from "@/lib/db";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
+import { findOneAgent } from "@/lib/repositories/agents";
+import { findPermissions } from "@/lib/repositories/permissions";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { parseOptionalAmount, readString, rejectUnknownFields } from "@/lib/validation";
 import { previewVerification } from "@/lib/verify";
-import Agent from "@/models/Agent";
-import Permission from "@/models/Permission";
 
 const PASSPORT_VERSION = "2026-05-03";
 
@@ -24,10 +23,7 @@ function readPassportToken(request: NextRequest) {
 
 async function authenticatePassport(agentId: string, token: string) {
   if (!token || !token.startsWith("bhf_pass_")) return null;
-  await connectToDatabase();
-  const agent = await Agent.findOne({ agentId, publicPassportEnabled: true })
-    .select("+publicPassportTokenHash agentId name agentType provider connectionStatus description guidelines status publicPassportEnabled")
-    .lean();
+  const agent = await findOneAgent({ agentId, publicPassportEnabled: true });
   if (!agent?.publicPassportTokenHash) return null;
   const tokenHash = hashApiKey(token);
   return timingSafeEqualString(tokenHash, agent.publicPassportTokenHash) ? agent : null;
@@ -93,9 +89,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const agent = await authenticatePassport(agentId, token);
   if (!agent) return jsonError("Invalid passport link.", 401);
 
-  const rawPermissions = (await Permission.find({ agentId, status: "active" })
-    .select("action resource scope description allowedActions blockedActions requiresApproval notes template constraints status -_id")
-    .lean()) as LeanPermission[];
+  const rawPermissions = (await findPermissions(
+    { agentId, status: "active" },
+    {
+      select:
+        "action resource scope description allowedActions blockedActions requiresApproval notes template constraints status -_id"
+    }
+  )) as LeanPermission[];
 
   const now = new Date();
   const activePermissions = rawPermissions

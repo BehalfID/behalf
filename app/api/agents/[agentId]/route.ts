@@ -2,10 +2,9 @@ import type { NextRequest } from "next/server";
 import { agentAuthJsonError } from "@/lib/appErrors";
 import { authenticateAgent } from "@/lib/auth";
 import { serializeAgent } from "@/lib/dashboardData";
-import { connectToDatabase } from "@/lib/db";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
+import { findPermissions } from "@/lib/repositories/permissions";
 import { jsonError, noCacheJson } from "@/lib/responses";
-import Permission from "@/models/Permission";
 
 type RouteContext = {
   params: Promise<{ agentId: string }>;
@@ -28,8 +27,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return rateLimitError();
   }
 
-  await connectToDatabase();
-
   const auth = await authenticateAgent(request, agentId);
   if (auth.error || !auth.agent) {
     return agentAuthJsonError(auth.error);
@@ -40,13 +37,15 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return rateLimitError();
   }
 
-  const permissions = await Permission.find({ accountId: auth.agent.accountId, agentId })
-    .sort({ createdAt: -1 })
-    .limit(50)
-    .select(
-      "-_id permissionId action description resource scope allowedActions blockedActions requiresApproval notes template constraints status lastUsedAt createdAt updatedAt"
-    )
-    .lean();
+  const permissions = await findPermissions(
+    { accountId: auth.agent.accountId, agentId },
+    {
+      sort: { createdAt: -1 },
+      limit: 50,
+      select:
+        "-_id permissionId action description resource scope allowedActions blockedActions requiresApproval notes template constraints status lastUsedAt createdAt updatedAt"
+    }
+  );
 
   return noCacheJson({ agent: serializeAgent(auth.agent), permissions });
 }

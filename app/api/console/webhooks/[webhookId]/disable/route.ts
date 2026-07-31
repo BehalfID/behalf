@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireConsoleApi } from "@/lib/adminAuth";
 import { getConsoleAccountId } from "@/lib/consoleData";
 import { jsonError } from "@/lib/responses";
-import WebhookEndpoint from "@/models/WebhookEndpoint";
+import { updateEndpoint } from "@/lib/repositories/webhooks";
 
 type RouteContext = {
   params: Promise<{ webhookId: string }>;
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const { webhookId } = await context.params;
   const accountId = await getConsoleAccountId();
-  const result = await WebhookEndpoint.updateOne(
+  const result = await updateEndpoint(
     { accountId, webhookId },
     { $set: { status: "disabled" } }
   );

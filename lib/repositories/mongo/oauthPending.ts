@@ -1,10 +1,15 @@
 import OAuthPendingSignup from "@/models/OAuthPendingSignup";
+import type { ExternalIdentityProvider } from "@/models/ExternalIdentity";
 import { translateDuplicateKey } from "@/lib/repositories/errors";
+import { selectLean } from "@/lib/repositories/mongoModelAdapter";
 
 export type OAuthPendingSignupLean = {
   _id?: unknown;
   pendingId: string;
-  googleSub: string;
+  /** Legacy Google key; null for provider-neutral pending rows (e.g. GitHub). */
+  googleSub?: string | null;
+  provider?: ExternalIdentityProvider;
+  providerAccountId?: string | null;
   email: string;
   emailVerified: boolean;
   firstName?: string | null;
@@ -35,11 +40,12 @@ export async function findByPendingId(
   pendingId: string,
   options?: { includeTokenHash?: boolean }
 ): Promise<OAuthPendingSignupLean | null> {
-  const query = OAuthPendingSignup.findOne({ pendingId });
-  if (options?.includeTokenHash) {
-    query.select("+tokenHash pendingId googleSub email emailVerified firstName lastName expiresAt");
-  }
-  return (await query.lean()) as OAuthPendingSignupLean | null;
+  return selectLean<OAuthPendingSignupLean | null>(
+    OAuthPendingSignup.findOne({ pendingId }),
+    options?.includeTokenHash
+      ? "+tokenHash pendingId googleSub email emailVerified firstName lastName expiresAt"
+      : undefined
+  );
 }
 
 export async function findByTokenHash(tokenHash: string): Promise<OAuthPendingSignupLean | null> {

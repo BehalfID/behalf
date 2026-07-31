@@ -1,5 +1,5 @@
-import ApprovalRequest from "@/models/ApprovalRequest";
-import VerificationLog from "@/models/VerificationLog";
+import { listApprovals } from "@/lib/repositories/approvals";
+import { findLogs } from "@/lib/repositories/verificationLogs";
 import {
   branchBucket,
   environmentBucket,
@@ -127,26 +127,34 @@ async function loadHistoryRows(options: {
   const agentFilter = options.agentId ? { agentId: options.agentId } : {};
 
   const [approvals, logs] = await Promise.all([
-    ApprovalRequest.find({
-      ...accountFilter,
-      ...agentFilter,
-      $or: [{ kind: "agent_action" }, { kind: { $exists: false } }, { kind: null }],
-      createdAt: { $gte: since }
-    })
-      .select(
-        "approvalId requestId accountId agentId action vendor status permissionId createdAt resolvedAt usedAt"
-      )
-      .lean<ApprovalLean[]>(),
-    VerificationLog.find({
-      ...accountFilter,
-      ...agentFilter,
-      createdAt: { $gte: since }
-    })
-      .select("requestId agentId action vendor approvalRequired allowed reason metadata createdAt")
-      .lean<LogLean[]>()
+    listApprovals(
+      {
+        ...accountFilter,
+        ...agentFilter,
+        $or: [{ kind: "agent_action" }, { kind: null }],
+        createdAt: { $gte: since }
+      },
+      {
+        select:
+          "approvalId requestId accountId agentId action vendor status permissionId createdAt resolvedAt usedAt"
+      }
+    ) as Promise<ApprovalLean[]> | ApprovalLean[],
+    findLogs(
+      {
+        ...accountFilter,
+        ...agentFilter,
+        createdAt: { $gte: since }
+      },
+      {
+        select: "requestId agentId action vendor approvalRequired allowed reason metadata createdAt"
+      }
+    ) as Promise<LogLean[]> | LogLean[]
   ]);
 
-  return { approvals, logs };
+  return {
+    approvals: await Promise.resolve(approvals),
+    logs: await Promise.resolve(logs)
+  };
 }
 
 /**

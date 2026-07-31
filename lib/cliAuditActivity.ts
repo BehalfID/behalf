@@ -1,6 +1,6 @@
 import { hashCliRepo } from "@/lib/cliRepoHash";
 import type { ManagedProfileActivityEvent } from "@/lib/cliAuditActivityTypes";
-import type { CliAuditLogDocument } from "@/models/CliAuditLog";
+import type { CliAuditLogLean } from "@/lib/repositories/cli";
 
 export type { ManagedProfileActivityEvent } from "@/lib/cliAuditActivityTypes";
 
@@ -194,7 +194,7 @@ export function buildCliAuditActivityQuery(params: ReturnType<typeof parseActivi
 
 export function serializeCliAuditActivityEvent(
   doc: Pick<
-    CliAuditLogDocument,
+    CliAuditLogLean,
     | "auditId"
     | "eventType"
     | "tool"

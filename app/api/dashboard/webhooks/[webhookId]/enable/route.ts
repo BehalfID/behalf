@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import { checkWebhooksEnabled, quotaErrorDetails } from "@/lib/quota";
 import { jsonError } from "@/lib/responses";
-import WebhookEndpoint from "@/models/WebhookEndpoint";
+import { updateEndpoint } from "@/lib/repositories/webhooks";
 
 type RouteContext = {
   params: Promise<{ webhookId: string }>;
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return jsonError(webhookQuota.reason ?? "Webhooks are not available on this plan.", 403, quotaErrorDetails(webhookQuota));
   }
   const { webhookId } = await context.params;
-  const result = await WebhookEndpoint.updateOne(
+  const result = await updateEndpoint(
     { developerUserId: auth.user.userId, webhookId },
     { $set: { status: "active" } }
   );

@@ -1,8 +1,11 @@
 import crypto from "crypto";
 import type { NextRequest } from "next/server";
-import { connectToDatabase } from "@/lib/db";
 import { logger } from "@/lib/logger";
-import SiteGuardKey, { type SiteGuardKeyDocument } from "@/models/SiteGuardKey";
+import {
+  findKeyByHash,
+  touchLastUsed,
+  type SiteGuardKeyLean
+} from "@/lib/repositories/sites";
 
 export function getSiteGuardKeyFromHeader(request: NextRequest) {
   const header = request.headers.get("authorization") ?? "";
@@ -23,7 +26,7 @@ export function previewSiteGuardKey(token: string) {
 }
 
 type KeyAuthResult =
-  | { keyDoc: SiteGuardKeyDocument; error: null }
+  | { keyDoc: SiteGuardKeyLean; error: null }
   | { keyDoc: null; error: null }
   | { keyDoc: null; error: string };
 
@@ -31,9 +34,8 @@ export async function authenticateSiteGuardKey(request: NextRequest): Promise<Ke
   const token = getSiteGuardKeyFromHeader(request);
   if (!token) return { keyDoc: null, error: null };
 
-  await connectToDatabase();
   const hash = hashSiteGuardKey(token);
-  const keyDoc = await SiteGuardKey.findOne({ keyHash: hash }).select("+keyHash");
+  const keyDoc = await findKeyByHash(hash);
   if (!keyDoc) return { keyDoc: null, error: "Invalid Site Guard key." };
   if (keyDoc.status !== "active") return { keyDoc: null, error: "Site Guard key has been revoked." };
 
@@ -41,9 +43,7 @@ export async function authenticateSiteGuardKey(request: NextRequest): Promise<Ke
 }
 
 export function updateSiteGuardKeyLastUsed(keyId: string) {
-  Promise.resolve(
-    SiteGuardKey.updateOne({ keyId }, { $set: { lastUsedAt: new Date() } })
-  ).catch((error: unknown) => {
+  Promise.resolve(touchLastUsed(keyId)).catch((error: unknown) => {
     logger.warn("Failed to update site guard key lastUsedAt.", {
       keyId,
       error: error instanceof Error ? error.message : String(error)

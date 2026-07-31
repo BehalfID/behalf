@@ -4,7 +4,7 @@ import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { parseSiteGuardPaths } from "@/lib/siteGuard";
 import { readString, rejectUnknownFields } from "@/lib/validation";
-import SiteAccessRule from "@/models/SiteAccessRule";
+import { findOneAndUpdateRule, findOneRule } from "@/lib/repositories/sites";
 
 type RouteContext = {
   params: Promise<{ siteId: string; ruleId: string }>;
@@ -52,7 +52,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   if (!Object.keys(update).length) return jsonError("At least one editable rule field is required.");
 
   const { siteId, ruleId } = await context.params;
-  const current = await SiteAccessRule.findOne({ developerUserId: auth.user.userId, siteId, ruleId });
+  const current = await findOneRule({ developerUserId: auth.user.userId, siteId, ruleId });
   if (!current) return jsonError("Site Guard rule not found.", 404);
 
   const nextAgentIdentifier =
@@ -63,7 +63,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return jsonError("agentIdentifier or userAgentPattern is required.");
   }
 
-  const rule = await SiteAccessRule.findOneAndUpdate(
+  const rule = await findOneAndUpdateRule(
     { developerUserId: auth.user.userId, siteId, ruleId },
     { $set: update },
     { returnDocument: "after" }

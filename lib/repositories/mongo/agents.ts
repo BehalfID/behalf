@@ -1,5 +1,6 @@
 import Agent, { type AgentDocument } from "@/models/Agent";
 import { lazyModelMethod } from "@/lib/repositories/mongoModelAdapter";
+import { applyQueryOptions, asLean, selectLean } from "@/lib/repositories/mongoModelAdapter";
 
 export type AgentLean = AgentDocument;
 export type AgentRepository = typeof agentRepository;
@@ -25,9 +26,7 @@ export function findAgentByAgentId(
   scope: Record<string, unknown> = {},
   select?: string
 ) {
-  const query = Agent.findOne({ ...scope, agentId });
-  if (select) query.select(select);
-  return query;
+  return applyQueryOptions(Agent.findOne({ ...scope, agentId }), { select });
 }
 
 export function findAgentByApiKeyHash(apiKeyHash: string, select = "+apiKeyHash") {
@@ -37,11 +36,8 @@ export function findAgentByApiKeyHash(apiKeyHash: string, select = "+apiKeyHash"
 export function listAgents(
   filter: Record<string, unknown>,
   options: { select?: string; sort?: Record<string, 1 | -1> } = {}
-) {
-  const query = Agent.find(filter);
-  if (options.select) query.select(options.select);
-  if (options.sort) query.sort(options.sort);
-  return query;
+): Promise<AgentLean[]> {
+  return asLean<AgentLean[]>(applyQueryOptions(Agent.find(filter), options));
 }
 
 export async function updateAgent(
@@ -79,8 +75,8 @@ export function findAgents(filter: Record<string, unknown> = {}) {
   return Agent.find(filter);
 }
 
-export function findOneAgent(filter: Record<string, unknown>) {
-  return Agent.findOne(filter);
+export function findOneAgent(filter: Record<string, unknown>, options: { select?: string } = {}): Promise<AgentLean | null> {
+  return selectLean<AgentLean | null>(Agent.findOne(filter), options.select);
 }
 
 export function findOneAndUpdateAgent(

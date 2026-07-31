@@ -8,10 +8,11 @@ const routeMocks = vi.hoisted(() => ({
   getWorkspaceActor: vi.fn(),
   canApproveRequest: vi.fn(),
   canDenyRequest: vi.fn(),
-  approvalFind: vi.fn(),
-  approvalFindOne: vi.fn(),
-  approvalUpdateOne: vi.fn(),
-  agentFind: vi.fn()
+  findApprovals: vi.fn(),
+  findOneApproval: vi.fn(),
+  updateApproval: vi.fn(),
+  listAgents: vi.fn(),
+  findUsers: vi.fn()
 }));
 
 vi.mock("@/lib/developerAuth", () => ({
@@ -29,18 +30,31 @@ vi.mock("@/lib/delegatedAuth", () => ({
   viewerMutationForbidden: vi.fn(() => new Response(null, { status: 403 }))
 }));
 
-vi.mock("@/models/ApprovalRequest", () => ({
-  default: {
-    find: routeMocks.approvalFind,
-    findOne: routeMocks.approvalFindOne,
-    updateOne: routeMocks.approvalUpdateOne
-  },
-  APPROVAL_GRANT_TTL_MS: 30 * 60 * 1_000
-}));
+vi.mock("@/lib/repositories/approvals", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/repositories/approvals")>();
+  return {
+    ...actual,
+    findApprovals: routeMocks.findApprovals,
+    findOneApproval: routeMocks.findOneApproval,
+    updateApproval: routeMocks.updateApproval
+  };
+});
 
-vi.mock("@/models/Agent", () => ({
-  default: { find: routeMocks.agentFind }
-}));
+vi.mock("@/lib/repositories/agents", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/repositories/agents")>();
+  return {
+    ...actual,
+    listAgents: routeMocks.listAgents
+  };
+});
+
+vi.mock("@/lib/repositories/users", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/repositories/users")>();
+  return {
+    ...actual,
+    findUsers: routeMocks.findUsers
+  };
+});
 
 vi.mock("@/lib/approvals/emitLifecycle", () => ({
   emitApprovalRequested: vi.fn().mockResolvedValue(undefined),
@@ -48,24 +62,6 @@ vi.mock("@/lib/approvals/emitLifecycle", () => ({
   emitApprovalDenied: vi.fn().mockResolvedValue(undefined),
   emitApprovalUsed: vi.fn().mockResolvedValue(undefined)
 }));
-
-function approvalChain(rows: unknown[]) {
-  const chain = {
-    sort: vi.fn(() => chain),
-    limit: vi.fn(() => chain),
-    select: vi.fn(() => chain),
-    lean: vi.fn(async () => rows)
-  };
-  return chain;
-}
-
-function agentChain(rows: unknown[]) {
-  const chain = {
-    select: vi.fn(() => chain),
-    lean: vi.fn(async () => rows)
-  };
-  return chain;
-}
 
 function request(path: string, init?: RequestInit) {
   const url = new URL(`http://localhost${path}`);
@@ -100,28 +96,29 @@ describe("GET /api/dashboard/approvals", () => {
       error: null
     });
     routeMocks.getWorkspaceActor.mockResolvedValue(actor);
-    routeMocks.agentFind.mockReturnValue(agentChain([{ agentId: "agent_test", name: "Deploy Bot" }]));
+    routeMocks.listAgents.mockResolvedValue([{ agentId: "agent_test", name: "Deploy Bot" }]);
+    routeMocks.findUsers.mockResolvedValue([]);
   });
 
   it("returns only pending approvals by default", async () => {
-    routeMocks.approvalFind.mockReturnValue(approvalChain([pendingApproval]));
+    routeMocks.findApprovals.mockResolvedValue([pendingApproval]);
     const { GET } = await import("@/app/api/dashboard/approvals/route");
     const res = await GET(request("/api/dashboard/approvals"));
     const body = await res.json() as { approvals: unknown[] };
 
     expect(body.approvals).toHaveLength(1);
-    expect(routeMocks.approvalFind.mock.calls[0][0]).toMatchObject({
+    expect(routeMocks.findApprovals.mock.calls[0][0]).toMatchObject({
       accountId: "acct_test",
       status: "pending"
     });
   });
 
   it("scopes approvals to active account and not another workspace", async () => {
-    routeMocks.approvalFind.mockReturnValue(approvalChain([]));
+    routeMocks.findApprovals.mockResolvedValue([]);
     const { GET } = await import("@/app/api/dashboard/approvals/route");
     await GET(request("/api/dashboard/approvals"));
 
-    const [filter] = routeMocks.approvalFind.mock.calls[0];
+    const [filter] = routeMocks.findApprovals.mock.calls[0];
     expect(filter.accountId).toBe("acct_test");
     expect(filter.accountId).not.toBe("acct_other");
   });
@@ -133,7 +130,7 @@ describe("GET /api/dashboard/approvals", () => {
     const body = await res.json() as { approvals: unknown[] };
 
     expect(body.approvals).toEqual([]);
-    expect(routeMocks.approvalFind).not.toHaveBeenCalled();
+    expect(routeMocks.findApprovals).not.toHaveBeenCalled();
   });
 });
 
@@ -147,10 +144,8 @@ describe("POST /api/dashboard/approvals/[approvalId]/approve", () => {
     });
     routeMocks.getWorkspaceActor.mockResolvedValue(actor);
     routeMocks.canApproveRequest.mockReturnValue(true);
-    routeMocks.approvalFindOne.mockReturnValue({
-      lean: vi.fn(async () => pendingApproval)
-    });
-    routeMocks.approvalUpdateOne.mockResolvedValue({ matchedCount: 1 });
+    routeMocks.findOneApproval.mockResolvedValue(pendingApproval);
+    routeMocks.updateApproval.mockResolvedValue({ matchedCount: 1 });
   });
 
   it("approves a pending request scoped to the active account", async () => {
@@ -162,7 +157,7 @@ describe("POST /api/dashboard/approvals/[approvalId]/approve", () => {
     const body = await res.json() as { approved: boolean };
 
     expect(body.approved).toBe(true);
-    expect(routeMocks.approvalFindOne.mock.calls[0][0]).toMatchObject({
+    expect(routeMocks.findOneApproval.mock.calls[0][0]).toMatchObject({
       approvalId: "apr_pending",
       accountId: "acct_test",
       status: "pending"
@@ -181,9 +176,7 @@ describe("POST /api/dashboard/approvals/[approvalId]/approve", () => {
         developerUserId: "dev_test",
         kind: "agent_action"
       };
-      routeMocks.approvalFindOne.mockReturnValue({
-        lean: vi.fn(async () => selfRequestedApproval)
-      });
+      routeMocks.findOneApproval.mockResolvedValue(selfRequestedApproval);
 
       const { POST } = await import("@/app/api/dashboard/approvals/[approvalId]/approve/route");
       const res = await POST(
@@ -192,7 +185,7 @@ describe("POST /api/dashboard/approvals/[approvalId]/approve", () => {
       );
 
       expect(res.status).toBe(403);
-      expect(routeMocks.approvalUpdateOne).not.toHaveBeenCalled();
+      expect(routeMocks.updateApproval).not.toHaveBeenCalled();
     });
 
     it("allows a different eligible approver to approve the request", async () => {
@@ -208,13 +201,11 @@ describe("POST /api/dashboard/approvals/[approvalId]/approve", () => {
         error: null
       });
       routeMocks.getWorkspaceActor.mockResolvedValue(leadActor);
-      routeMocks.approvalFindOne.mockReturnValue({
-        lean: vi.fn(async () => ({
-          ...pendingApproval,
-          developerUserId: "dev_test",
-          kind: "agent_action",
-          requiredAuthorityLevel: 80
-        }))
+      routeMocks.findOneApproval.mockResolvedValue({
+        ...pendingApproval,
+        developerUserId: "dev_test",
+        kind: "agent_action",
+        requiredAuthorityLevel: 80
       });
 
       const { POST } = await import("@/app/api/dashboard/approvals/[approvalId]/approve/route");
@@ -226,7 +217,7 @@ describe("POST /api/dashboard/approvals/[approvalId]/approve", () => {
 
       expect(res.status).toBe(200);
       expect(body.approved).toBe(true);
-      expect(routeMocks.approvalUpdateOne).toHaveBeenCalled();
+      expect(routeMocks.updateApproval).toHaveBeenCalled();
     });
 
     it("rejects approvers with insufficient authority", async () => {
@@ -242,13 +233,11 @@ describe("POST /api/dashboard/approvals/[approvalId]/approve", () => {
         error: null
       });
       routeMocks.getWorkspaceActor.mockResolvedValue(engineerActor);
-      routeMocks.approvalFindOne.mockReturnValue({
-        lean: vi.fn(async () => ({
-          ...pendingApproval,
-          developerUserId: "dev_test",
-          kind: "agent_action",
-          requiredAuthorityLevel: 80
-        }))
+      routeMocks.findOneApproval.mockResolvedValue({
+        ...pendingApproval,
+        developerUserId: "dev_test",
+        kind: "agent_action",
+        requiredAuthorityLevel: 80
       });
 
       const { POST } = await import("@/app/api/dashboard/approvals/[approvalId]/approve/route");
@@ -258,19 +247,18 @@ describe("POST /api/dashboard/approvals/[approvalId]/approve", () => {
       );
 
       expect(res.status).toBe(403);
-      expect(routeMocks.approvalUpdateOne).not.toHaveBeenCalled();
+      expect(routeMocks.updateApproval).not.toHaveBeenCalled();
     });
+
     it("rejects legacy unbound command/file approvals with conflict", async () => {
-      routeMocks.approvalFindOne.mockReturnValue({
-        lean: vi.fn(async () => ({
-          ...pendingApproval,
-          action: "execute_command",
-          kind: "agent_action",
-          developerUserId: "other_dev",
-          argumentKind: null,
-          argumentFingerprint: null,
-          argumentPreview: null
-        }))
+      routeMocks.findOneApproval.mockResolvedValue({
+        ...pendingApproval,
+        action: "execute_command",
+        kind: "agent_action",
+        developerUserId: "other_dev",
+        argumentKind: null,
+        argumentFingerprint: null,
+        argumentPreview: null
       });
 
       const { POST } = await import("@/app/api/dashboard/approvals/[approvalId]/approve/route");
@@ -282,21 +270,19 @@ describe("POST /api/dashboard/approvals/[approvalId]/approve", () => {
 
       expect(res.status).toBe(409);
       expect(body.error).toMatch(/intent binding/i);
-      expect(routeMocks.approvalUpdateOne).not.toHaveBeenCalled();
+      expect(routeMocks.updateApproval).not.toHaveBeenCalled();
     });
 
     it("approves a bound command approval with fingerprint and preview", async () => {
-      routeMocks.approvalFindOne.mockReturnValue({
-        lean: vi.fn(async () => ({
-          ...pendingApproval,
-          action: "execute_command",
-          kind: "agent_action",
-          developerUserId: "other_dev",
-          argumentKind: "command",
-          argumentFingerprint: "a".repeat(64),
-          argumentPreview: "npm test",
-          argumentPreviewTruncated: false
-        }))
+      routeMocks.findOneApproval.mockResolvedValue({
+        ...pendingApproval,
+        action: "execute_command",
+        kind: "agent_action",
+        developerUserId: "other_dev",
+        argumentKind: "command",
+        argumentFingerprint: "a".repeat(64),
+        argumentPreview: "npm test",
+        argumentPreviewTruncated: false
       });
 
       const { POST } = await import("@/app/api/dashboard/approvals/[approvalId]/approve/route");
@@ -306,7 +292,7 @@ describe("POST /api/dashboard/approvals/[approvalId]/approve", () => {
       );
 
       expect(res.status).toBe(200);
-      expect(routeMocks.approvalUpdateOne).toHaveBeenCalled();
+      expect(routeMocks.updateApproval).toHaveBeenCalled();
     });
   });
 });
@@ -321,10 +307,8 @@ describe("POST /api/dashboard/approvals/[approvalId]/deny", () => {
     });
     routeMocks.getWorkspaceActor.mockResolvedValue(actor);
     routeMocks.canDenyRequest.mockReturnValue(true);
-    routeMocks.approvalFindOne.mockReturnValue({
-      lean: vi.fn(async () => pendingApproval)
-    });
-    routeMocks.approvalUpdateOne.mockResolvedValue({ matchedCount: 1 });
+    routeMocks.findOneApproval.mockResolvedValue(pendingApproval);
+    routeMocks.updateApproval.mockResolvedValue({ matchedCount: 1 });
   });
 
   it("denies a pending request scoped to the active account", async () => {
@@ -336,7 +320,7 @@ describe("POST /api/dashboard/approvals/[approvalId]/deny", () => {
     const body = await res.json() as { denied: boolean };
 
     expect(body.denied).toBe(true);
-    expect(routeMocks.approvalUpdateOne.mock.calls[0][0]).toMatchObject({
+    expect(routeMocks.updateApproval.mock.calls[0][0]).toMatchObject({
       approvalId: "apr_pending",
       accountId: "acct_test",
       status: "pending"
@@ -344,9 +328,7 @@ describe("POST /api/dashboard/approvals/[approvalId]/deny", () => {
   });
 
   it("does not resolve approvals from another account", async () => {
-    routeMocks.approvalFindOne.mockReturnValue({
-      lean: vi.fn(async () => null)
-    });
+    routeMocks.findOneApproval.mockResolvedValue(null);
     const { POST } = await import("@/app/api/dashboard/approvals/[approvalId]/deny/route");
     const res = await POST(
       request("/api/dashboard/approvals/apr_other/deny", { method: "POST" }),

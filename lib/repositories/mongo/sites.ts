@@ -2,7 +2,7 @@ import Site, { type SiteDocument } from "@/models/Site";
 import SiteAccessLog, { type SiteAccessLogDocument } from "@/models/SiteAccessLog";
 import SiteAccessRule, { type SiteAccessRuleDocument } from "@/models/SiteAccessRule";
 import SiteGuardKey, { type SiteGuardKeyDocument } from "@/models/SiteGuardKey";
-import { lazyModelAdapter } from "@/lib/repositories/mongoModelAdapter";
+import { applyQueryOptions, asLean, lazyModelAdapter, selectLean } from "@/lib/repositories/mongoModelAdapter";
 import { translateDuplicateKey } from "@/lib/repositories/errors";
 
 export type SiteLean = SiteDocument;
@@ -113,8 +113,12 @@ export async function listAccessLogs(
     .lean();
 }
 
+export async function deleteAccessLogs(filter: Record<string, unknown>) {
+  return SiteAccessLog.deleteMany(filter);
+}
+
 export async function findKeyByHash(keyHash: string): Promise<SiteGuardKeyLean | null> {
-  return SiteGuardKey.findOne({ keyHash }).select("+keyHash").lean();
+  return selectLean<SiteGuardKeyLean | null>(SiteGuardKey.findOne({ keyHash }), "+keyHash");
 }
 
 export async function createKey(input: Omit<SiteGuardKeyDocument, "_id" | "createdAt" | "updatedAt">) {
@@ -146,17 +150,29 @@ export async function touchLastUsed(keyId: string, usedAt = new Date()) {
   return SiteGuardKey.updateOne({ keyId }, { $set: { lastUsedAt: usedAt } });
 }
 
+type SiteQueryOptions = {
+  sort?: Record<string, 1 | -1>;
+  limit?: number;
+  skip?: number;
+  select?: string;
+};
+
 /** Mongo query primitives for routes that need an exact model query shape. */
-export function findSites(filter: Record<string, unknown> = {}) {
-  return Site.find(filter);
+export function findSites(filter: Record<string, unknown> = {}, options: SiteQueryOptions = {}) {
+  const query = Site.find(filter);
+  if (options.sort) query.sort(options.sort);
+  if (options.select) query.select(options.select);
+  if (options.skip) query.skip(options.skip);
+  if (options.limit) query.limit(options.limit);
+  return query.lean();
 }
 
 export function createSiteDocument(input: Record<string, unknown>) {
   return Site.create(input);
 }
 
-export function findOneSite(filter: Record<string, unknown>) {
-  return Site.findOne(filter);
+export function findOneSite(filter: Record<string, unknown>, options: SiteQueryOptions = {}) {
+  return selectLean(Site.findOne(filter), options.select as string | undefined);
 }
 
 export function findOneAndUpdateSite(
@@ -167,16 +183,21 @@ export function findOneAndUpdateSite(
   return Site.findOneAndUpdate(filter, update, options);
 }
 
-export function findRules(filter: Record<string, unknown> = {}) {
-  return SiteAccessRule.find(filter);
+export function findRules(filter: Record<string, unknown> = {}, options: SiteQueryOptions = {}) {
+  const query = SiteAccessRule.find(filter);
+  if (options.sort) query.sort(options.sort);
+  if (options.select) query.select(options.select);
+  if (options.skip) query.skip(options.skip);
+  if (options.limit) query.limit(options.limit);
+  return query.lean();
 }
 
 export function createRuleDocument(input: Record<string, unknown>) {
   return SiteAccessRule.create(input);
 }
 
-export function findOneRule(filter: Record<string, unknown>) {
-  return SiteAccessRule.findOne(filter);
+export function findOneRule(filter: Record<string, unknown>, options: SiteQueryOptions = {}) {
+  return selectLean(SiteAccessRule.findOne(filter), options.select as string | undefined);
 }
 
 export function findOneAndUpdateRule(
@@ -187,12 +208,22 @@ export function findOneAndUpdateRule(
   return SiteAccessRule.findOneAndUpdate(filter, update, options);
 }
 
-export function findAccessLogs(filter: Record<string, unknown> = {}) {
-  return SiteAccessLog.find(filter);
+export function findAccessLogs(filter: Record<string, unknown> = {}, options: SiteQueryOptions = {}) {
+  const query = SiteAccessLog.find(filter);
+  if (options.sort) query.sort(options.sort);
+  if (options.select) query.select(options.select);
+  if (options.skip) query.skip(options.skip);
+  if (options.limit) query.limit(options.limit);
+  return query.lean();
 }
 
-export function findKeys(filter: Record<string, unknown> = {}) {
-  return SiteGuardKey.find(filter);
+export function findKeys(filter: Record<string, unknown> = {}, options: SiteQueryOptions = {}) {
+  const query = SiteGuardKey.find(filter);
+  if (options.sort) query.sort(options.sort);
+  if (options.select) query.select(options.select);
+  if (options.skip) query.skip(options.skip);
+  if (options.limit) query.limit(options.limit);
+  return query.lean();
 }
 
 export function createKeyDocument(input: Record<string, unknown>) {

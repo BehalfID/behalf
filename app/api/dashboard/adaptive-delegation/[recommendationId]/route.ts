@@ -2,8 +2,8 @@ import type { NextRequest } from "next/server";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import { getWorkspaceActor, serializeWorkspaceAuthority } from "@/lib/delegatedAuth";
 import { markRecommendationViewed } from "@/lib/adaptiveDelegation/service";
-import Agent from "@/models/Agent";
 import { jsonError, noCacheJson } from "@/lib/responses";
+import { findOneAgent } from "@/lib/repositories/agents";
 
 export async function GET(
   request: NextRequest,
@@ -23,12 +23,10 @@ export async function GET(
   });
   if ("error" in viewed && viewed.error) return viewed.error;
 
-  const agent = await Agent.findOne({
+  const agent = await findOneAgent({
     accountId: actor.accountId,
     agentId: viewed.recommendation?.agentId
-  })
-    .select("name")
-    .lean<{ name?: string } | null>();
+  }, { select: "name" });
 
   return noCacheJson({
     recommendation: {

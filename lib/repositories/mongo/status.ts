@@ -1,5 +1,6 @@
 import StatusComponent, { type StatusComponentDocument } from "@/models/StatusComponent";
 import StatusIncident, { type StatusIncidentDocument } from "@/models/StatusIncident";
+import { applyQueryOptions, asLean } from "@/lib/repositories/mongoModelAdapter";
 
 export type StatusComponentLean = StatusComponentDocument;
 export type StatusIncidentLean = StatusIncidentDocument;
@@ -73,29 +74,48 @@ export async function deleteIncident(incidentId: string) {
   return StatusIncident.findOneAndDelete({ incidentId }).lean();
 }
 
+type StatusQueryOptions = {
+  sort?: Record<string, 1 | -1>;
+  limit?: number;
+  skip?: number;
+  select?: string;
+};
+
 /** Mongo query primitives for routes that need an exact model query shape. */
-export function findStatusComponents(filter: Record<string, unknown> = {}) {
-  return StatusComponent.find(filter);
+export function findStatusComponents(
+  filter: Record<string, unknown> = {},
+  options: StatusQueryOptions = {}
+) {
+  return asLean(applyQueryOptions(StatusComponent.find(filter), {
+    ...options,
+    sort: options.sort ?? { sortOrder: 1, name: 1 }
+  }));
 }
 
 export function findOneStatusComponent(filter: Record<string, unknown>) {
-  return StatusComponent.findOne(filter);
+  return StatusComponent.findOne(filter).lean();
 }
 
 export function findOneAndDeleteStatusComponent(filter: Record<string, unknown>) {
-  return StatusComponent.findOneAndDelete(filter);
+  return StatusComponent.findOneAndDelete(filter).lean();
 }
 
-export function findStatusIncidents(filter: Record<string, unknown> = {}) {
-  return StatusIncident.find(filter);
+export function findStatusIncidents(
+  filter: Record<string, unknown> = {},
+  options: StatusQueryOptions = {}
+) {
+  return asLean(applyQueryOptions(StatusIncident.find(filter), {
+    ...options,
+    sort: options.sort ?? { createdAt: -1 }
+  }));
 }
 
 export function findOneStatusIncident(filter: Record<string, unknown>) {
-  return StatusIncident.findOne(filter);
+  return StatusIncident.findOne(filter).lean();
 }
 
 export function findOneAndDeleteStatusIncident(filter: Record<string, unknown>) {
-  return StatusIncident.findOneAndDelete(filter);
+  return StatusIncident.findOneAndDelete(filter).lean();
 }
 
 export const statusComponentRepository = { create: createComponent, find: findStatusComponents, findOne: findOneStatusComponent, findOneAndDelete: findOneAndDeleteStatusComponent };

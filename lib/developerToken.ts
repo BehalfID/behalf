@@ -1,8 +1,11 @@
 import crypto from "crypto";
 import type { NextRequest } from "next/server";
-import { connectToDatabase } from "@/lib/db";
 import { logger } from "@/lib/logger";
-import DeveloperApiToken, { type DeveloperApiTokenDocument } from "@/models/DeveloperApiToken";
+import {
+  findByTokenHash,
+  touchLastUsed,
+  type DeveloperApiTokenLean
+} from "@/lib/repositories/apiTokens";
 
 export function getDeveloperTokenFromHeader(request: NextRequest) {
   const value = request.headers.get("x-developer-token")?.trim() ?? "";
@@ -18,7 +21,7 @@ export function previewDeveloperToken(token: string) {
 }
 
 type AuthResult =
-  | { tokenDoc: DeveloperApiTokenDocument; error: null }
+  | { tokenDoc: DeveloperApiTokenLean; error: null }
   | { tokenDoc: null; error: null }
   | { tokenDoc: null; error: string };
 
@@ -26,14 +29,11 @@ export async function authenticateDeveloperToken(request: NextRequest): Promise<
   const token = getDeveloperTokenFromHeader(request);
   if (!token) return { tokenDoc: null, error: null };
 
-  await connectToDatabase();
   const hash = hashDeveloperToken(token);
-  const tokenDoc = await DeveloperApiToken.findOne({ tokenHash: hash }).select("+tokenHash");
+  const tokenDoc = await findByTokenHash(hash);
   if (!tokenDoc) return { tokenDoc: null, error: "Invalid developer token." };
 
-  Promise.resolve(
-    DeveloperApiToken.updateOne({ tokenId: tokenDoc.tokenId }, { $set: { lastUsedAt: new Date() } })
-  ).catch((error: unknown) => {
+  Promise.resolve(touchLastUsed(tokenDoc.tokenId)).catch((error: unknown) => {
     logger.warn("Failed to update developer token lastUsedAt.", {
       tokenId: tokenDoc.tokenId,
       error: error instanceof Error ? error.message : String(error)

@@ -1,7 +1,7 @@
 import WebhookDelivery, { type WebhookDeliveryDocument } from "@/models/WebhookDelivery";
 import WebhookEndpoint, { type WebhookEndpointDocument } from "@/models/WebhookEndpoint";
 import WebhookEvent, { type WebhookEventDocument } from "@/models/WebhookEvent";
-import { lazyModelAdapter } from "@/lib/repositories/mongoModelAdapter";
+import { applyQueryOptions, asLean, lazyModelAdapter, selectLean } from "@/lib/repositories/mongoModelAdapter";
 
 export type WebhookEndpointLean = WebhookEndpointDocument;
 export type WebhookEventLean = WebhookEventDocument;
@@ -17,15 +17,21 @@ export async function createEvent(input: Partial<WebhookEventDocument>) {
 }
 
 export function findEndpoint(filter: Record<string, unknown>, select?: string) {
-  const query = WebhookEndpoint.findOne(filter);
-  if (select) query.select(select);
-  return query;
+  return selectLean(WebhookEndpoint.findOne(filter), select);
 }
 
-export function listEndpoints(filter: Record<string, unknown>, select?: string) {
+export function listEndpoints(
+  filter: Record<string, unknown>,
+  selectOrOptions: string | { sort?: Record<string, 1 | -1>; limit?: number; skip?: number; select?: string } = {}
+) {
+  const options =
+    typeof selectOrOptions === "string" ? { select: selectOrOptions } : selectOrOptions;
   const query = WebhookEndpoint.find(filter);
-  if (select) query.select(select);
-  return query;
+  if (options.sort) query.sort(options.sort);
+  if (options.select) query.select(options.select);
+  if (options.skip) query.skip(options.skip);
+  if (options.limit) query.limit(options.limit);
+  return query.lean();
 }
 
 export function findActiveEndpointsForEvent(
@@ -59,8 +65,8 @@ export function listEvents(
   return query;
 }
 
-export function findEvent(filter: Record<string, unknown>) {
-  return WebhookEvent.findOne(filter);
+export function findEvent(filter: Record<string, unknown>, select?: string) {
+  return selectLean(WebhookEvent.findOne(filter), select);
 }
 
 export async function recoverStuckEvents(stuckBefore: Date, maxAttempts: number) {
@@ -133,8 +139,15 @@ export async function retryEvent(eventId: string, nextAttemptAt: Date, lastError
   );
 }
 
-export function listDeliveries(filter: Record<string, unknown>) {
-  return WebhookDelivery.find(filter).sort({ createdAt: -1, deliveryId: -1 });
+export function listDeliveries(
+  filter: Record<string, unknown>,
+  options: { sort?: Record<string, 1 | -1>; limit?: number; skip?: number; select?: string } = {}
+) {
+  const query = WebhookDelivery.find(filter).sort(options.sort ?? { createdAt: -1, deliveryId: -1 });
+  if (options.select) query.select(options.select);
+  if (options.skip) query.skip(options.skip);
+  if (options.limit) query.limit(options.limit);
+  return query.lean();
 }
 
 export async function deleteDeliveries(filter: Record<string, unknown>) {

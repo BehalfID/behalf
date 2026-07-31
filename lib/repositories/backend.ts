@@ -1,9 +1,10 @@
 /**
  * Explicit repository backend selection for the Mongo → Postgres migration.
  *
- * Default production backend is Mongo. DATABASE_URL alone must never switch
- * runtime traffic. Postgres requires both an explicit backend flag and the
- * BEHALFID_ALLOW_POSTGRES_RUNTIME=true safety latch (globally or per aggregate).
+ * When BEHALFID_ALLOW_POSTGRES_RUNTIME is enabled, the default backend is
+ * Postgres (Mongo is not resumed for production cutover). Without the latch,
+ * the default remains Mongo for legacy tests. DATABASE_URL alone must never
+ * switch runtime traffic. Selecting postgres still requires the latch.
  */
 
 export type RepositoryBackend = "mongo" | "postgres";
@@ -57,6 +58,11 @@ function isPostgresRuntimeAllowed(env: NodeJS.ProcessEnv): boolean {
   return latch === "true" || latch === "1" || latch === "yes";
 }
 
+/** True when the Postgres runtime safety latch is enabled. */
+export function isPostgresRuntimeEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return isPostgresRuntimeAllowed(env);
+}
+
 function assertPostgresAllowed(env: NodeJS.ProcessEnv, source: string): void {
   if (isPostgresRuntimeAllowed(env)) return;
   throw new Error(
@@ -74,7 +80,8 @@ export function repositoryBackendOverrideEnvKey(aggregate: RepositoryAggregate):
 
 /**
  * Resolves the global runtime repository backend.
- * - Default / production: `"mongo"`
+ * - Latch on + unset/`postgres`: `"postgres"`
+ * - Latch off (or explicit `mongo`): `"mongo"`
  * - `BEHALFID_REPOSITORY_BACKEND=postgres` requires `BEHALFID_ALLOW_POSTGRES_RUNTIME=true`
  * - Presence of DATABASE_URL / POSTGRES_URL alone does **not** select Postgres
  */
@@ -85,11 +92,19 @@ export function resolveRepositoryBackend(
     env.BEHALFID_REPOSITORY_BACKEND,
     "BEHALFID_REPOSITORY_BACKEND"
   );
-  if (!backend || backend === "mongo") {
+  if (backend === "mongo") {
     return "mongo";
   }
-  assertPostgresAllowed(env, "BEHALFID_REPOSITORY_BACKEND");
-  return "postgres";
+  if (backend === "postgres") {
+    assertPostgresAllowed(env, "BEHALFID_REPOSITORY_BACKEND");
+    return "postgres";
+  }
+  // Unset: prefer Postgres whenever the cutover latch is enabled so auth
+  // satellites (always Postgres) and repository facades cannot diverge.
+  if (isPostgresRuntimeAllowed(env)) {
+    return "postgres";
+  }
+  return "mongo";
 }
 
 /**

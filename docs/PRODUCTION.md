@@ -1,20 +1,21 @@
 # Production Deployment Checklist
 
-This checklist is for deploying the current BehalfID product safely. It includes the Site Guard MVP policy check. Developer workspaces, memberships, and roles exist; treat multi-tenant hardening and provider-native integrations as ongoing. Postgres is optional/gated — Mongo remains the production default (`docs/CAPABILITY_MATRIX.md`).
+This checklist is for deploying the current BehalfID product safely. It includes the Site Guard MVP policy check. Developer workspaces, memberships, and roles exist; treat multi-tenant hardening and provider-native integrations as ongoing. **Supabase/Postgres is the authoritative production datastore** for cutover deployments (`BEHALFID_ALLOW_POSTGRES_RUNTIME=true` + `BEHALFID_REPOSITORY_BACKEND=postgres`). Mongo remains available only as a legacy/test path when the Postgres latch is off (`docs/CAPABILITY_MATRIX.md`).
 
 ## Required Environment Variables
 
 Set these in Vercel Production before deploying:
 
 ```env
-MONGODB_URI=
-# Optional Postgres / Supabase (migration tooling + future cutover — does NOT switch runtime alone)
-# DATABASE_URL=
-# POSTGRES_URL=
-# BEHALFID_REPOSITORY_BACKEND=mongo
-# BEHALFID_ALLOW_POSTGRES_RUNTIME=false
+# Authoritative datastore (Supabase / Postgres) — required when BEHALFID_ALLOW_POSTGRES_RUNTIME=true
+DATABASE_URL=
+# POSTGRES_URL=   # accepted as an alias for DATABASE_URL
+BEHALFID_ALLOW_POSTGRES_RUNTIME=true
+BEHALFID_REPOSITORY_BACKEND=postgres
 # BEHALFID_REPO_BACKEND_<AGGREGATE>=mongo|postgres
 # BEHALFID_REPO_DUAL_READ=false
+# Legacy Mongo (only when Postgres runtime latch is off)
+# MONGODB_URI=
 BEHALFID_ADMIN_PASSWORD=
 BEHALFID_SETUP_TOKEN=
 NEXT_PUBLIC_APP_URL=https://behalfid.com
@@ -25,9 +26,9 @@ STRIPE_PRO_PRICE_ID=
 
 Requirements:
 
-- `MONGODB_URI` must point to the production MongoDB database (still required until cutover).
-- `DATABASE_URL` / `POSTGRES_URL` are for Drizzle migrate, smoke/contract tests, and export/import scripts. They do **not** switch app traffic by themselves.
-- Postgres runtime requires `BEHALFID_ALLOW_POSTGRES_RUNTIME=true` plus `BEHALFID_REPOSITORY_BACKEND=postgres` and/or per-aggregate `BEHALFID_REPO_BACKEND_*` flags. Keep these unset/false in production until a cutover wave is approved.
+- With `BEHALFID_ALLOW_POSTGRES_RUNTIME=true`, production requires `DATABASE_URL` or `POSTGRES_URL` (Supabase Postgres). `MONGODB_URI` is not required.
+- Without the Postgres latch, `MONGODB_URI` remains required for the legacy Mongo path.
+- App repositories dispatch via `BEHALFID_REPOSITORY_BACKEND` / `BEHALFID_REPO_BACKEND_*`. Prefer `postgres` for production cutover.
 - `BEHALFID_ADMIN_PASSWORD` must be strong and must not be a placeholder such as `change-me` or `replace-this-password`.
 - `BEHALFID_SETUP_TOKEN` is used for protected setup, health, and webhook-worker calls. Keep it server-side only.
 - `NEXT_PUBLIC_APP_URL` must be the canonical HTTPS origin.

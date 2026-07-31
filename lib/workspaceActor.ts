@@ -1,9 +1,9 @@
 import { jsonAppError } from "@/lib/appErrors";
 import { canManageAgents, getWorkspaceActor, viewerMutationForbidden } from "@/lib/delegatedAuth";
-import type { DeveloperUserDocument } from "@/models/DeveloperUser";
+import type { DeveloperUserLean } from "@/lib/repositories/users";
 
 export async function requireWorkspaceMutationActor(
-  user: Pick<DeveloperUserDocument, "userId" | "primaryAccountId">,
+  user: Pick<DeveloperUserLean, "userId" | "primaryAccountId">,
   activeAccountId?: string | null
 ) {
   const accountId = activeAccountId ?? user.primaryAccountId;

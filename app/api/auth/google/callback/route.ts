@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { switchActiveAccount } from "@/lib/accountContext";
-import { connectToDatabase } from "@/lib/db";
 import {
   createDeveloperSession,
   generateSecureToken,
@@ -23,8 +22,9 @@ import { createPublicId } from "@/lib/ids";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { resolveOwnedHref } from "@/lib/subdomainRouting";
 import { resolvePreferredSsoAccountId } from "@/lib/workspaceSso";
-import DeveloperUser from "@/models/DeveloperUser";
-import OAuthPendingSignup from "@/models/OAuthPendingSignup";
+import * as externalIdentities from "@/lib/repositories/externalIdentities";
+import * as oauthPending from "@/lib/repositories/oauthPending";
+import * as users from "@/lib/repositories/users";
 
 function ownedRedirect(request: NextRequest, pathWithSearch: string) {
   const resolved = resolveOwnedHref(pathWithSearch, {
@@ -63,16 +63,11 @@ async function ensureGoogleLinkedProviders(
 ) {
   const providers = new Set(existingProviders?.length ? existingProviders : ["password"]);
   providers.add("google");
-  await DeveloperUser.updateOne(
-    { userId },
-    {
-      $set: {
-        googleSub,
-        authProviders: Array.from(providers),
-        emailVerified: true
-      }
-    }
-  );
+  await users.updateUser(userId, {
+    googleSub,
+    authProviders: Array.from(providers),
+    emailVerified: true
+  });
 }
 
 export async function GET(request: NextRequest) {
@@ -109,17 +104,12 @@ export async function GET(request: NextRequest) {
     return authErrorRedirect(request, "Google identity could not be verified.");
   }
 
-  await connectToDatabase();
   const email = normalizeEmail(claims.email);
 
-  let user = await DeveloperUser.findOne({ googleSub: claims.sub })
-    .select("+googleSub authProviders email emailVerified onboardingCompletedAt userId")
-    .lean();
+  let user = await users.findByGoogleSub(claims.sub);
 
   if (!user) {
-    const byEmail = await DeveloperUser.findOne({ email })
-      .select("+googleSub authProviders email emailVerified onboardingCompletedAt userId")
-      .lean();
+    const byEmail = await users.findByEmail(email);
     if (byEmail && isEmailVerified(byEmail.emailVerified)) {
       await ensureGoogleLinkedProviders(byEmail.userId, claims.sub, byEmail.authProviders as string[] | undefined);
       user = { ...byEmail, googleSub: claims.sub, emailVerified: true };
@@ -132,6 +122,33 @@ export async function GET(request: NextRequest) {
   }
 
   if (user) {
+    const { updateAccountLastSignIn } = await import("@/lib/authProviders/authUsage");
+    await updateAccountLastSignIn({
+      userId: user.userId,
+      method: "google",
+      request
+    });
+    const { recordIdentityAudit } = await import("@/lib/authProviders/identityAudit");
+    await recordIdentityAudit({
+      userId: user.userId,
+      action: "identity_login",
+      provider: "google",
+      providerAccountId: claims.sub,
+      providerUsername: email,
+      request,
+      context: "oauth_callback"
+    });
+    // Best-effort: refresh external_identities lastLoginAt when the row exists.
+    try {
+      await externalIdentities.touchLoginMetadata("google", claims.sub, {
+        lastLoginAt: new Date(),
+        providerEmail: email,
+        providerEmailVerified: true
+      });
+    } catch {
+      /* ignore */
+    }
+
     const { token, session } = await createDeveloperSession(user.userId);
     const preferredAccountId = await resolvePreferredSsoAccountId(user.userId, email);
     if (preferredAccountId) {
@@ -151,9 +168,11 @@ export async function GET(request: NextRequest) {
 
   const pendingToken = generateSecureToken();
   const pendingId = createPublicId("pend");
-  await OAuthPendingSignup.create({
+  await oauthPending.createPendingSignup({
     pendingId,
     googleSub: claims.sub,
+    provider: "google",
+    providerAccountId: claims.sub,
     email,
     emailVerified: true,
     firstName: claims.given_name ?? null,

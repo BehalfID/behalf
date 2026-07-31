@@ -1,7 +1,5 @@
 import { type NextRequest } from "next/server";
-import { accountScopeFilter } from "@/lib/accountAccess";
 import {
-  buildCliAuditActivityQuery,
   encodeActivityCursor,
   isManagedProfileActivityEventType,
   parseActivityListParams,
@@ -9,9 +7,8 @@ import {
 } from "@/lib/cliAuditActivity";
 import { getRequestAccountId, requireDeveloperApi } from "@/lib/developerAuth";
 import { getWorkspaceActor } from "@/lib/delegatedAuth";
-import { connectToDatabase } from "@/lib/db";
+import { findAuditLogs } from "@/lib/repositories/cli";
 import { jsonError, noCacheJson } from "@/lib/responses";
-import CliAuditLog from "@/models/CliAuditLog";
 
 export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
@@ -30,20 +27,40 @@ export async function GET(request: NextRequest) {
     return jsonError(error instanceof Error ? error.message : "Invalid query parameters.", 400);
   }
 
-  let query: Record<string, unknown>;
-  try {
-    query = buildCliAuditActivityQuery(params);
-  } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "Invalid query parameters.", 400);
+  if (params.tool && !["claude", "codex", "cursor"].includes(params.tool)) {
+    return jsonError("Invalid tool filter.", 400);
+  }
+  if (params.mode && !["unmanaged", "managed", "required"].includes(params.mode)) {
+    return jsonError("Invalid mode filter.", 400);
+  }
+  if (
+    params.eventType &&
+    !isManagedProfileActivityEventType(params.eventType)
+  ) {
+    return jsonError("Invalid eventType filter.", 400);
   }
 
-  await connectToDatabase();
-
-  const docs = await CliAuditLog.find({ ...accountScopeFilter(actor.accountId), ...query })
-    .sort({ createdAt: -1, auditId: -1 })
-    .limit(params.limit + 1)
-    .select("auditId eventType tool mode granted reason repo branch metadata createdAt -_id")
-    .lean();
+  const docs = await findAuditLogs({
+    accountId: actor.accountId,
+    tool: params.tool ?? undefined,
+    mode: params.mode ?? undefined,
+    eventType: params.eventType
+      ? params.eventType
+      : {
+          $in: [
+            "cli_session_policy",
+            "cli_pause_grant",
+            "cli_pause_deny",
+            "cli_pause_approval_requested",
+          ],
+        },
+    repo: params.repo ?? undefined,
+    branch: params.branch ?? undefined,
+    from: params.from,
+    to: params.to,
+    cursor: params.cursor,
+    limit: params.limit + 1,
+  });
 
   const page = docs
     .slice(0, params.limit)

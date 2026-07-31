@@ -55,7 +55,8 @@ export {
   activateStagedReplacementPermission,
   abandonStagedReplacementPermission,
   revokePermission,
-  updatePermission
+  updatePermission,
+  updatePermissions
 } from "@/lib/repositories/permissions";
 export {
   aggregateStats,

@@ -17,8 +17,8 @@ import { jsonError } from "@/lib/responses";
 import { rejectUnknownFields } from "@/lib/validation";
 import { requireWorkspaceMutationActor } from "@/lib/workspaceActor";
 import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
-import Agent from "@/models/Agent";
-import Permission from "@/models/Permission";
+import { deleteAgent } from "@/lib/repositories/agents";
+import { deletePermissions } from "@/lib/repositories/permissions";
 
 async function rollbackIncompleteFirstAgentSetup(input: {
   accountId: string;
@@ -26,14 +26,14 @@ async function rollbackIncompleteFirstAgentSetup(input: {
   permissionIds: string[];
 }) {
   if (input.permissionIds.length) {
-    await Permission.deleteMany({
+    await deletePermissions({
       ...accountScopeFilter(input.accountId),
       agentId: input.agentId,
       permissionId: { $in: input.permissionIds }
     });
   }
 
-  await Agent.deleteOne({
+  await deleteAgent({
     ...accountScopeFilter(input.accountId),
     agentId: input.agentId
   });

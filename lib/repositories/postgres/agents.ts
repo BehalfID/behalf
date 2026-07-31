@@ -269,7 +269,8 @@ export async function findAgents(
 
 export async function findOneAgent(
   db: BehalfPostgresDb,
-  filter: Record<string, unknown>
+  filter: Record<string, unknown>,
+  _options: { select?: string } = {}
 ): Promise<AgentRow | null> {
   const [row] = await db.select().from(agents).where(buildWhere(filter)).limit(1);
   return row ?? null;

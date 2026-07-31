@@ -339,3 +339,35 @@ export {
   findDeveloperUserForDeletion,
   findMembershipsForDeletion
 } from "@/lib/repositories/postgres/accountDeletion";
+export {
+  createExternalIdentity,
+  deleteByUserAndProvider,
+  existsByProviderAccount,
+  findByProviderAccount,
+  findByUserAndProvider,
+  listByUserId as listExternalIdentitiesByUserId,
+  touchLoginMetadata
+} from "@/lib/repositories/postgres/externalIdentities";
+export {
+  consumeOAuthAuthorizationState,
+  createOAuthAuthorizationState,
+  deleteExpiredOAuthAuthorizationStates
+} from "@/lib/repositories/postgres/oauthAuthorizationStates";
+export {
+  createIdentityAuditLog,
+  listIdentityAuditLogs
+} from "@/lib/repositories/postgres/identityAudit";
+export {
+  consumeWebAuthnChallenge,
+  countPasskeysByUserId,
+  createPasskeyCredential,
+  createWebAuthnChallenge,
+  deleteExpiredWebAuthnChallenges,
+  deletePasskeyCredential,
+  findPasskeyByCredentialId,
+  findPasskeyByRecordId,
+  listPasskeysByUserId,
+  passkeyExists,
+  updatePasskeyByRecordId,
+  updatePasskeyCredential
+} from "@/lib/repositories/postgres/passkeys";

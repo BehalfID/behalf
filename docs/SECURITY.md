@@ -74,4 +74,4 @@ BehalfID is currently a prototype. It is suitable for local demos and constraine
 - Use a stronger key storage design with a secret pepper.
 - Consider disabling public `POST /api/agents` in production and requiring console or provisioning auth.
 - Harden Site Guard beyond the MVP (Redis-backed limits, stronger identity than User-Agent, packaged middleware/worker examples) before treating it as production gateway coverage.
-- Treat MongoDB as the production database until an explicit Postgres cutover; keep Postgres runtime flags off in production (`docs/CAPABILITY_MATRIX.md`).
+- Treat Supabase/Postgres as the production database after cutover (`BEHALFID_ALLOW_POSTGRES_RUNTIME=true`, `BEHALFID_REPOSITORY_BACKEND=postgres`). Do not resume Mongo for production traffic (`docs/CAPABILITY_MATRIX.md`, `docs/PRODUCTION.md`).

@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { connectToDatabase } from "@/lib/db";
-import { requireDeveloperApi } from "@/lib/developerAuth";
+import { requireDeveloperApi, verifyPassword } from "@/lib/developerAuth";
 import {
   encryptMfaSecret,
   generateBackupCodes,
@@ -9,11 +8,10 @@ import {
   decryptMfaSecret
 } from "@/lib/mfa";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
+import { findByUserId, updateUser, updateUserAtomic } from "@/lib/repositories/users";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
-import { verifyPassword } from "@/lib/developerAuth";
-import DeveloperUser from "@/models/DeveloperUser";
 
 export async function GET(request: NextRequest) {
   const limit = await checkRateLimit(request);
@@ -22,10 +20,7 @@ export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
 
-  await connectToDatabase();
-  const user = await DeveloperUser.findOne({ userId: auth.user.userId }).select(
-    "mfaEnabledAt email"
-  );
+  const user = await findByUserId(auth.user.userId);
   return NextResponse.json({
     mfaEnabled: Boolean(user?.mfaEnabledAt),
     email: user?.email ?? auth.user.email
@@ -47,12 +42,9 @@ export async function POST(request: NextRequest) {
   if (unknownError) return jsonError(unknownError);
 
   const action = readString(body.action);
-  await connectToDatabase();
 
   if (action === "enroll_start") {
-    const user = await DeveloperUser.findOne({ userId: auth.user.userId }).select(
-      "+passwordHash mfaEnabledAt email"
-    );
+    const user = await findByUserId(auth.user.userId);
     if (!user) return jsonError("Account not found.", 404);
     if (user.mfaEnabledAt) return jsonError("MFA is already enabled.");
     if (!user.passwordHash) {
@@ -64,10 +56,9 @@ export async function POST(request: NextRequest) {
       "BehalfID:BehalfID",
       `BehalfID:${encodeURIComponent(user.email)}`
     );
-    await DeveloperUser.updateOne(
-      { userId: user.userId },
-      { $set: { mfaTotpPendingSecretEnc: encryptMfaSecret(secretBase32) } }
-    );
+    await updateUser(user.userId, {
+      mfaTotpPendingSecretEnc: encryptMfaSecret(secretBase32)
+    });
 
     return NextResponse.json({
       secret: secretBase32,
@@ -77,9 +68,7 @@ export async function POST(request: NextRequest) {
 
   if (action === "enroll_confirm") {
     const code = readString(body.code);
-    const user = await DeveloperUser.findOne({ userId: auth.user.userId }).select(
-      "+mfaTotpPendingSecretEnc mfaEnabledAt"
-    );
+    const user = await findByUserId(auth.user.userId);
     if (!user?.mfaTotpPendingSecretEnc) {
       return jsonError("No MFA enrollment in progress. Start enrollment first.", 400);
     }
@@ -88,17 +77,14 @@ export async function POST(request: NextRequest) {
       return jsonError("Invalid authenticator code.", 401);
     }
     const { codes, hashes } = generateBackupCodes();
-    await DeveloperUser.updateOne(
-      { userId: user.userId },
-      {
-        $set: {
-          mfaTotpSecretEnc: encryptMfaSecret(secret),
-          mfaEnabledAt: new Date(),
-          mfaBackupCodeHashes: hashes
-        },
-        $unset: { mfaTotpPendingSecretEnc: 1 }
-      }
-    );
+    await updateUserAtomic(user.userId, {
+      $set: {
+        mfaTotpSecretEnc: encryptMfaSecret(secret),
+        mfaEnabledAt: new Date(),
+        mfaBackupCodeHashes: hashes
+      },
+      $unset: { mfaTotpPendingSecretEnc: 1 }
+    });
     return NextResponse.json({
       enabled: true,
       backupCodes: codes
@@ -108,9 +94,7 @@ export async function POST(request: NextRequest) {
   if (action === "disable") {
     const code = readString(body.code);
     const password = typeof body.password === "string" ? body.password : "";
-    const user = await DeveloperUser.findOne({ userId: auth.user.userId }).select(
-      "+passwordHash +mfaTotpSecretEnc +mfaBackupCodeHashes mfaEnabledAt"
-    );
+    const user = await findByUserId(auth.user.userId);
     if (!user?.mfaEnabledAt || !user.mfaTotpSecretEnc) {
       return jsonError("MFA is not enabled.", 400);
     }
@@ -121,17 +105,14 @@ export async function POST(request: NextRequest) {
     if (!verifyTotpCode(secret, code)) {
       return jsonError("Invalid authenticator code.", 401);
     }
-    await DeveloperUser.updateOne(
-      { userId: user.userId },
-      {
-        $unset: {
-          mfaTotpSecretEnc: 1,
-          mfaTotpPendingSecretEnc: 1,
-          mfaBackupCodeHashes: 1,
-          mfaEnabledAt: 1
-        }
+    await updateUserAtomic(user.userId, {
+      $unset: {
+        mfaTotpSecretEnc: 1,
+        mfaTotpPendingSecretEnc: 1,
+        mfaBackupCodeHashes: 1,
+        mfaEnabledAt: 1
       }
-    );
+    });
     return NextResponse.json({ enabled: false });
   }
 

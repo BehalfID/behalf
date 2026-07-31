@@ -1,5 +1,4 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { connectToDatabase } from "@/lib/db";
 import {
   generateSecureToken,
   hashEmailToken,
@@ -13,7 +12,7 @@ import { checkAuthRateLimit, checkRateLimit, rateLimitError } from "@/lib/rateLi
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
-import DeveloperUser from "@/models/DeveloperUser";
+import * as users from "@/lib/repositories/users";
 
 const RESET_TOKEN_TTL_MS = 1000 * 60 * 60; // 60 minutes
 
@@ -41,8 +40,7 @@ export async function POST(request: NextRequest) {
   const authLimit = await checkAuthRateLimit(email);
   if (authLimit.limited) return rateLimitError();
 
-  await connectToDatabase();
-  const user = await DeveloperUser.findOne({ email }).select("userId email").lean();
+  const user = await users.findByEmail(email);
 
   // Always return success — do not reveal whether the email exists.
   if (!user) return NextResponse.json(SUCCESS_RESPONSE);
@@ -50,15 +48,10 @@ export async function POST(request: NextRequest) {
   const resetToken = generateSecureToken();
   const resetTokenHash = hashEmailToken(resetToken);
 
-  await DeveloperUser.updateOne(
-    { userId: user.userId },
-    {
-      $set: {
-        passwordResetTokenHash: resetTokenHash,
-        passwordResetTokenExpiresAt: new Date(Date.now() + RESET_TOKEN_TTL_MS)
-      }
-    }
-  );
+  await users.updateUser(user.userId, {
+    passwordResetTokenHash: resetTokenHash,
+    passwordResetTokenExpiresAt: new Date(Date.now() + RESET_TOKEN_TTL_MS)
+  });
 
   try {
     const baseUrl = (process.env.APP_BASE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");

@@ -1,6 +1,6 @@
 import { getRequiredRoleLabel } from "@/lib/authority";
 import { classifyPermissionRisk, type PermissionClassificationInput } from "@/lib/permissionRisk";
-import type { PermissionDocument } from "@/models/Permission";
+import type { PermissionLean } from "@/lib/repositories/permissions";
 
 export type PermissionImpactSnapshot = {
   action: string;

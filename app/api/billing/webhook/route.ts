@@ -1,34 +1,16 @@
 import { type NextRequest } from "next/server";
-import { connectToDatabase } from "@/lib/db";
 import { jsonError } from "@/lib/responses";
+import { findOneAccount, updateAccountByFilter } from "@/lib/repositories/accounts";
+import { createStripeEventIfAbsent } from "@/lib/repositories/stripeEvents";
+import { updateEndpoints } from "@/lib/repositories/webhooks";
 import { getStripe } from "@/lib/stripe";
-import Account from "@/models/Account";
-import StripeWebhookEvent from "@/models/StripeWebhookEvent";
-import WebhookEndpoint from "@/models/WebhookEndpoint";
 
 async function setAccountWebhookStatus(accountId: string, status: "active" | "disabled") {
   const currentStatus = status === "active" ? "disabled" : "active";
-  await WebhookEndpoint.updateMany(
+  await updateEndpoints(
     { accountId, status: currentStatus },
     { $set: { status } }
   );
-}
-
-async function claimStripeEvent(eventId: string, type: string) {
-  try {
-    await StripeWebhookEvent.create({ eventId, type, processedAt: new Date() });
-    return true;
-  } catch (error) {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      (error as { code?: number }).code === 11000
-    ) {
-      return false;
-    }
-    throw error;
-  }
 }
 
 function asString(value: unknown) {
@@ -60,9 +42,7 @@ export async function POST(request: NextRequest) {
     return jsonError("Webhook signature verification failed.", 400);
   }
 
-  await connectToDatabase();
-
-  const shouldProcess = await claimStripeEvent(event.id, event.type);
+  const shouldProcess = await createStripeEventIfAbsent(event.id, event.type);
   if (!shouldProcess) {
     return new Response(null, { status: 204 });
   }
@@ -74,7 +54,7 @@ export async function POST(request: NextRequest) {
       if (!accountId) break;
       const customerId = asString(session.customer);
       const subscriptionId = asString(session.subscription);
-      await Account.updateOne(
+      await updateAccountByFilter(
         { accountId },
         {
           $set: {
@@ -93,11 +73,11 @@ export async function POST(request: NextRequest) {
       const sub = event.data.object;
       const customerId = asString(sub.customer);
       if (!customerId) break;
-      const account = await Account.findOne({ stripeCustomerId: customerId });
+      const account = await findOneAccount({ stripeCustomerId: customerId });
       if (!account) break;
       const isActive = sub.status === "active" || sub.status === "trialing";
       const periodEnd = sub.items?.data?.[0]?.current_period_end;
-      await Account.updateOne(
+      await updateAccountByFilter(
         { stripeCustomerId: customerId },
         {
           $set: {
@@ -117,8 +97,8 @@ export async function POST(request: NextRequest) {
       const sub = event.data.object;
       const customerId = asString(sub.customer);
       if (!customerId) break;
-      const account = await Account.findOne({ stripeCustomerId: customerId });
-      await Account.updateOne(
+      const account = await findOneAccount({ stripeCustomerId: customerId });
+      await updateAccountByFilter(
         { stripeCustomerId: customerId },
         {
           $set: {
@@ -138,8 +118,8 @@ export async function POST(request: NextRequest) {
       const invoice = event.data.object;
       const customerId = asString(invoice.customer);
       if (!customerId) break;
-      const account = await Account.findOne({ stripeCustomerId: customerId });
-      await Account.updateOne(
+      const account = await findOneAccount({ stripeCustomerId: customerId });
+      await updateAccountByFilter(
         { stripeCustomerId: customerId },
         { $set: { plan: "free", stripeSubscriptionStatus: "past_due", stripeTrialEnd: null, stripeCurrentPeriodEnd: null } }
       );

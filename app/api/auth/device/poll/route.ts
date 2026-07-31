@@ -1,10 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { connectToDatabase } from "@/lib/db";
 import { createDeveloperSession } from "@/lib/developerAuth";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
-import DeviceCode from "@/models/DeviceCode";
+import * as deviceCodes from "@/lib/repositories/deviceCodes";
 
 export async function POST(request: NextRequest) {
   const limit = await checkRateLimit(request);
@@ -17,10 +16,8 @@ export async function POST(request: NextRequest) {
   const deviceCode = typeof body.deviceCode === "string" ? body.deviceCode : null;
   if (!deviceCode) return jsonError("deviceCode is required.");
 
-  await connectToDatabase();
-
   // Fast-path for non-authorized states: read without deleting.
-  const record = await DeviceCode.findOne({ deviceCode }).lean();
+  const record = await deviceCodes.findByDeviceCode(deviceCode);
 
   if (!record || new Date() > new Date(record.expiresAt)) {
     return NextResponse.json({ status: "expired" });
@@ -36,7 +33,7 @@ export async function POST(request: NextRequest) {
   // The session token is created here (not at authorize-time) so that no plaintext
   // secret is ever written to the DeviceCode collection; only a hash is stored in
   // DeveloperSession, matching the invariant used everywhere else in this codebase.
-  const claimed = await DeviceCode.findOneAndDelete({ deviceCode, status: "authorized" });
+  const claimed = await deviceCodes.findOneAndDeleteAuthorized(deviceCode);
   if (!claimed?.userId) {
     return NextResponse.json({ status: "expired" });
   }

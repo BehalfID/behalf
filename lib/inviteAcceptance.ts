@@ -2,10 +2,17 @@ import { isWorkspaceRole, type WorkspaceRole } from "@/lib/authority";
 import { createPublicId } from "@/lib/ids";
 import { generateSecureToken, hashEmailToken, normalizeEmail } from "@/lib/developerAuth";
 import { checkSeatLimit, type QuotaResult } from "@/lib/quota";
-import Account from "@/models/Account";
-import AccountInvite from "@/models/AccountInvite";
-import AccountMembership from "@/models/AccountMembership";
 import { switchActiveAccount } from "@/lib/accountContext";
+import { findAccountByIdLean } from "@/lib/repositories/accounts";
+import { DuplicateKeyError } from "@/lib/repositories/errors";
+import {
+  acceptInvite as acceptInviteRecord,
+  createMembershipOrFindExisting,
+  findInviteByTokenHash,
+  findMembershipByAccountAndUser,
+  markInviteAccepted,
+  revokeInvite as revokeInviteRecord
+} from "@/lib/repositories/memberships";
 
 export const INVITE_TOKEN_TTL_MS = 1000 * 60 * 60 * 24 * 14;
 
@@ -47,9 +54,7 @@ export function buildInviteAcceptUrl(token: string, baseUrl: string) {
 
 export async function findInviteByToken(token: string) {
   const tokenHash = hashEmailToken(token);
-  return AccountInvite.findOne({ inviteTokenHash: tokenHash })
-    .select("+inviteTokenHash +inviteTokenExpiresAt")
-    .lean();
+  return findInviteByTokenHash(tokenHash);
 }
 
 function resolveInviteStatus(
@@ -69,7 +74,7 @@ export async function getInvitePreview(token: string): Promise<InvitePreview | n
   const invite = await findInviteByToken(token);
   if (!invite) return null;
 
-  const account = await Account.findOne({ accountId: invite.accountId }).select("accountId name").lean();
+  const account = await findAccountByIdLean(invite.accountId, "accountId name");
   const status = resolveInviteStatus(invite);
 
   return {
@@ -111,10 +116,7 @@ export async function acceptInvite(
   const role = isWorkspaceRole(invite.role) ? invite.role : "VIEWER";
 
   if (status === "accepted") {
-    const existingMembership = await AccountMembership.findOne({
-      accountId: invite.accountId,
-      userId
-    }).lean();
+    const existingMembership = await findMembershipByAccountAndUser(invite.accountId, userId);
     if (existingMembership) {
       if (options?.sessionId) {
         await switchActiveAccount(userId, options.sessionId, invite.accountId);
@@ -130,23 +132,11 @@ export async function acceptInvite(
     }
   }
 
-  const existingMembership = await AccountMembership.findOne({
-    accountId: invite.accountId,
-    userId
-  }).lean();
+  const existingMembership = await findMembershipByAccountAndUser(invite.accountId, userId);
 
   if (existingMembership) {
     if (invite.status === "pending") {
-      await AccountInvite.updateOne(
-        { inviteId: invite.inviteId },
-        {
-          $set: {
-            status: "accepted",
-            acceptedAt: new Date(),
-            acceptedByUserId: userId
-          }
-        }
-      );
+      await markInviteAccepted(invite.inviteId, userId);
     }
     if (options?.sessionId) {
       await switchActiveAccount(userId, options.sessionId, invite.accountId);
@@ -169,20 +159,15 @@ export async function acceptInvite(
 
   const membershipId = createPublicId("mbr");
   try {
-    await AccountMembership.create({
+    await createMembershipOrFindExisting({
       membershipId,
       accountId: invite.accountId,
       userId,
       role
     });
   } catch (error) {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      error.code === 11000
-    ) {
-      const racedMembership = await AccountMembership.findOne({ accountId: invite.accountId, userId }).lean();
+    if (error instanceof DuplicateKeyError || isMongoDuplicate(error)) {
+      const racedMembership = await findMembershipByAccountAndUser(invite.accountId, userId);
       if (!racedMembership) throw error;
       if (options?.sessionId) {
         await switchActiveAccount(userId, options.sessionId, invite.accountId);
@@ -198,16 +183,7 @@ export async function acceptInvite(
     throw error;
   }
 
-  await AccountInvite.updateOne(
-    { inviteId: invite.inviteId, status: "pending" },
-    {
-      $set: {
-        status: "accepted",
-        acceptedAt: new Date(),
-        acceptedByUserId: userId
-      }
-    }
-  );
+  await acceptInviteRecord(invite.inviteId, userId);
 
   if (options?.sessionId) {
     await switchActiveAccount(userId, options.sessionId, invite.accountId);
@@ -221,10 +197,16 @@ export async function acceptInvite(
   };
 }
 
-export async function revokeInvite(accountId: string, inviteId: string) {
-  const result = await AccountInvite.updateOne(
-    { inviteId, accountId, status: "pending" },
-    { $set: { status: "revoked" } }
+function isMongoDuplicate(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === 11000
   );
-  return result.modifiedCount > 0;
+}
+
+export async function revokeInvite(accountId: string, inviteId: string) {
+  const result = await revokeInviteRecord(accountId, inviteId);
+  return (result.modifiedCount ?? 0) > 0;
 }

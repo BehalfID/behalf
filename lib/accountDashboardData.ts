@@ -1,10 +1,14 @@
 import { accountScopeFilter } from "@/lib/accountAccess";
 import { backfillLegacyAgentsForActor } from "@/lib/accountAgents";
 import type { WorkspaceActor } from "@/lib/delegatedAuth";
-import Agent from "@/models/Agent";
-import Permission from "@/models/Permission";
-import VerificationLog from "@/models/VerificationLog";
 import { serializeAgent } from "@/lib/dashboardData";
+import { findOneAgent } from "@/lib/repositories/agents";
+import {
+  countPermissions,
+  findPermissions,
+  updatePermissions
+} from "@/lib/repositories/permissions";
+import { countLogs, updateLogs } from "@/lib/repositories/verificationLogs";
 
 const missingAccountIdClause = {
   $or: [{ accountId: { $exists: false } }, { accountId: null }]
@@ -12,11 +16,11 @@ const missingAccountIdClause = {
 
 async function backfillLegacyAgentResources(actor: WorkspaceActor, agentId: string) {
   await Promise.all([
-    Permission.updateMany(
+    updatePermissions(
       { agentId, ...missingAccountIdClause },
       { $set: { accountId: actor.accountId } }
     ),
-    VerificationLog.updateMany(
+    updateLogs(
       { agentId, ...missingAccountIdClause },
       { $set: { accountId: actor.accountId } }
     )
@@ -25,7 +29,7 @@ async function backfillLegacyAgentResources(actor: WorkspaceActor, agentId: stri
 
 export async function getAccountAgentDetail(actor: WorkspaceActor, agentId: string) {
   await backfillLegacyAgentsForActor(actor);
-  const agent = await Agent.findOne({ ...accountScopeFilter(actor.accountId), agentId });
+  const agent = await findOneAgent({ ...accountScopeFilter(actor.accountId), agentId });
   if (!agent) return null;
 
   await backfillLegacyAgentResources(actor, agentId);
@@ -39,15 +43,16 @@ export async function getAccountAgentDetail(actor: WorkspaceActor, agentId: stri
     revokedPermissions,
     recentDeniedActions
   ] = await Promise.all([
-    Permission.find(permissionScope)
-      .sort({ createdAt: -1 })
-      .limit(50)
-      .select("-_id permissionId action description resource scope allowedActions blockedActions requiresApproval notes template constraints requiredAuthorityLevel status lastUsedAt createdAt updatedAt replacesPermissionId replacedByPermissionId replacementIdempotencyKey")
-      .lean(),
-    Permission.countDocuments({ ...permissionScope, status: "active" }),
-    Permission.countDocuments({ ...permissionScope, status: "active", requiresApproval: true }),
-    Permission.countDocuments({ ...permissionScope, status: "revoked" }),
-    VerificationLog.countDocuments({
+    findPermissions(permissionScope, {
+      sort: { createdAt: -1 },
+      limit: 50,
+      select:
+        "-_id permissionId action description resource scope allowedActions blockedActions requiresApproval notes template constraints requiredAuthorityLevel status lastUsedAt createdAt updatedAt replacesPermissionId replacedByPermissionId replacementIdempotencyKey"
+    }),
+    countPermissions({ ...permissionScope, status: "active" }),
+    countPermissions({ ...permissionScope, status: "active", requiresApproval: true }),
+    countPermissions({ ...permissionScope, status: "revoked" }),
+    countLogs({
       ...accountScopeFilter(actor.accountId),
       agentId,
       allowed: false,

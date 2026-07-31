@@ -134,7 +134,9 @@ function bindAccounts(db: BehalfPostgresDb): typeof mongoAccounts {
     findOneAccount: bindDb(db, pgAccounts.findOneAccount),
     findOneAndUpdateAccount: bindDb(db, pgAccounts.findOneAndUpdateAccount),
     updateAccountByFilter: bindDb(db, pgAccounts.updateAccountByFilter),
-    countAccountDocuments: bindDb(db, pgAccounts.countAccountDocuments)
+    countAccountDocuments: bindDb(db, pgAccounts.countAccountDocuments),
+    findAccountsEnforcingSsoForDomain: bindDb(db, pgAccounts.findAccountsEnforcingSsoForDomain),
+    findAccountsWithSsoForDomain: bindDb(db, pgAccounts.findAccountsWithSsoForDomain)
   });
 }
 
@@ -225,6 +227,7 @@ function bindPermissions(db: BehalfPostgresDb): typeof mongoPermissions {
     findPermissionsByAgentId: bindDb(db, pgPermissions.findPermissionsByAgentId),
     findActivePermissionsByAgentId: bindDb(db, pgPermissions.findActivePermissionsByAgentId),
     updatePermission: bindDb(db, pgPermissions.updatePermission),
+    updatePermissions: bindDb(db, pgPermissions.updatePermissions),
     deletePermissions: bindDb(db, pgPermissions.deletePermissions),
     countPermissions: bindDb(db, pgPermissions.countPermissions),
     findPermissions: bindDb(db, pgPermissions.findPermissions),
@@ -405,6 +408,7 @@ function bindSites(db: BehalfPostgresDb): typeof mongoSites {
     findRulesBySite: bindDb(db, pgSites.findRulesBySite),
     createAccessLog: bindDb(db, pgSites.createAccessLog),
     listAccessLogs: bindDb(db, pgSites.listAccessLogs),
+    deleteAccessLogs: bindDb(db, pgSites.deleteAccessLogs),
     findKeyByHash: bindDb(db, pgSites.findKeyByHash),
     createKey: bindDb(db, pgSites.createKey),
     revokeKey: bindDb(db, pgSites.revokeKey),

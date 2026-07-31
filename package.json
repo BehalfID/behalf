@@ -50,6 +50,8 @@
   },
   "dependencies": {
     "@sentry/nextjs": "^10.68.0",
+    "@simplewebauthn/browser": "^13.3.0",
+    "@simplewebauthn/server": "^13.3.2",
     "@vercel/analytics": "^2.0.1",
     "drizzle-orm": "^0.45.2",
     "jose": "^6.2.3",
