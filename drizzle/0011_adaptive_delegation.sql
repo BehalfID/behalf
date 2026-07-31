@@ -43,10 +43,11 @@ CREATE TABLE IF NOT EXISTS "adaptive_delegation_recommendations" (
 
 CREATE UNIQUE INDEX IF NOT EXISTS "adaptive_delegation_recommendations_account_fingerprint_uq"
   ON "adaptive_delegation_recommendations" ("account_id", "fingerprint");
-CREATE INDEX IF NOT EXISTS "adaptive_delegation_recommendations_account_status_confidence_idx"
+CREATE INDEX IF NOT EXISTS "adaptive_delegation_rec_account_status_conf_idx"
   ON "adaptive_delegation_recommendations" ("account_id", "status", "confidence" DESC);
 CREATE INDEX IF NOT EXISTS "adaptive_delegation_recommendations_agent_idx"
   ON "adaptive_delegation_recommendations" ("agent_id");
+ALTER TABLE "adaptive_delegation_recommendations" ENABLE ROW LEVEL SECURITY;
 
 CREATE TABLE IF NOT EXISTS "adaptive_delegation_events" (
   "event_id" text PRIMARY KEY,
@@ -71,3 +72,4 @@ CREATE INDEX IF NOT EXISTS "adaptive_delegation_events_account_created_idx"
   ON "adaptive_delegation_events" ("account_id", "created_at" DESC);
 CREATE INDEX IF NOT EXISTS "adaptive_delegation_events_recommendation_created_idx"
   ON "adaptive_delegation_events" ("recommendation_id", "created_at" DESC);
+ALTER TABLE "adaptive_delegation_events" ENABLE ROW LEVEL SECURITY;

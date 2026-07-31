@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS "auth_events" (
 CREATE INDEX IF NOT EXISTS "auth_events_created_at_idx" ON "auth_events" ("created_at");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "auth_events_expires_at_idx" ON "auth_events" ("expires_at");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "auth_events_surface_idx" ON "auth_events" ("surface");--> statement-breakpoint
+ALTER TABLE "auth_events" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS "console_admins" (
   "admin_id" text PRIMARY KEY NOT NULL,
@@ -27,6 +28,7 @@ CREATE TABLE IF NOT EXISTS "console_admins" (
 );--> statement-breakpoint
 CREATE UNIQUE INDEX IF NOT EXISTS "console_admins_email_uq" ON "console_admins" ("email");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "console_admins_disabled_at_idx" ON "console_admins" ("disabled_at");--> statement-breakpoint
+ALTER TABLE "console_admins" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS "admin_audit_logs" (
   "entry_id" text PRIMARY KEY NOT NULL,
@@ -40,6 +42,7 @@ CREATE TABLE IF NOT EXISTS "admin_audit_logs" (
 CREATE INDEX IF NOT EXISTS "admin_audit_logs_created_at_idx" ON "admin_audit_logs" ("created_at");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "admin_audit_logs_admin_id_idx" ON "admin_audit_logs" ("admin_id");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "admin_audit_logs_action_idx" ON "admin_audit_logs" ("action");--> statement-breakpoint
+ALTER TABLE "admin_audit_logs" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS "permission_replacement_audits" (
   "event_id" text PRIMARY KEY NOT NULL,
@@ -57,4 +60,5 @@ CREATE TABLE IF NOT EXISTS "permission_replacement_audits" (
 CREATE INDEX IF NOT EXISTS "permission_replacement_audits_account_created_idx"
   ON "permission_replacement_audits" ("account_id", "created_at");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "permission_replacement_audits_old_permission_idx"
-  ON "permission_replacement_audits" ("old_permission_id");
+  ON "permission_replacement_audits" ("old_permission_id");--> statement-breakpoint
+ALTER TABLE "permission_replacement_audits" ENABLE ROW LEVEL SECURITY;
