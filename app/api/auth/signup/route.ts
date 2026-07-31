@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createDeveloperAccount } from "@/lib/account";
-import { connectToDatabase } from "@/lib/db";
 import {
   createDeveloperSession,
   generateSecureToken,
@@ -19,7 +18,8 @@ import { checkAuthRateLimit, checkRateLimit, rateLimitError } from "@/lib/rateLi
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
-import DeveloperUser from "@/models/DeveloperUser";
+import { DuplicateKeyError } from "@/lib/repositories/errors";
+import * as users from "@/lib/repositories/users";
 
 const VERIFICATION_TOKEN_TTL_MS = 1000 * 60 * 60 * 24; // 24 hours
 
@@ -56,8 +56,7 @@ export async function POST(request: NextRequest) {
   const authLimit = await checkAuthRateLimit(email);
   if (authLimit.limited) return rateLimitError();
 
-  await connectToDatabase();
-  const existing = await DeveloperUser.exists({ email });
+  const existing = await users.existsByEmail(email);
   if (existing) {
     // Do not confirm whether the email is registered; direct the user to login instead.
     return jsonError("Unable to complete registration. If an account with this email exists, please sign in instead.", 409);
@@ -70,7 +69,7 @@ export async function POST(request: NextRequest) {
 
   let user;
   try {
-    user = await DeveloperUser.create({
+    user = await users.createUser({
       userId: createPublicId("user"),
       email,
       passwordHash: await hashPassword(password),
@@ -82,12 +81,7 @@ export async function POST(request: NextRequest) {
       emailVerificationCodeHash: verificationCodeHash
     });
   } catch (error) {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      error.code === 11000
-    ) {
+    if (error instanceof DuplicateKeyError) {
       return jsonError("Unable to complete registration. If an account with this email exists, please sign in instead.", 409);
     }
     throw error;

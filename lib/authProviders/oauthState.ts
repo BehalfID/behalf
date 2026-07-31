@@ -1,10 +1,12 @@
 import crypto from "crypto";
 import { timingSafeEqualString } from "@/lib/crypto";
+import { getPostgresDb } from "@/lib/db/postgres";
 import { createPublicId } from "@/lib/ids";
-import OAuthAuthorizationState, {
-  type OAuthFlowMode
-} from "@/models/OAuthAuthorizationState";
-import type { ExternalIdentityProvider } from "@/models/ExternalIdentity";
+import type { ExternalIdentityProvider } from "@/lib/repositories/postgres/externalIdentities";
+import * as oauthStates from "@/lib/repositories/postgres/oauthAuthorizationStates";
+import type { OAuthFlowMode } from "@/lib/repositories/postgres/oauthAuthorizationStates";
+
+export type { OAuthFlowMode };
 
 /** Authorization requests are short-lived; a user completes a redirect in seconds. */
 export const OAUTH_STATE_TTL_MS = 1000 * 60 * 10;
@@ -104,7 +106,7 @@ export async function createOAuthState(options: {
   const { verifier, challenge } = createPkcePair();
   const stateId = createPublicId("oas");
 
-  await OAuthAuthorizationState.create({
+  await oauthStates.createOAuthAuthorizationState(getPostgresDb(), {
     stateId,
     provider: options.provider,
     mode: options.mode,
@@ -112,7 +114,6 @@ export async function createOAuthState(options: {
     codeVerifier: verifier,
     next: safeOAuthNextPath(options.next) ?? null,
     userId: options.userId ?? null,
-    consumedAt: null,
     expiresAt: new Date(Date.now() + OAUTH_STATE_TTL_MS)
   });
 
@@ -141,26 +142,17 @@ export async function consumeOAuthState(options: {
   if (!fromProvider || !fromCookie) return null;
   if (!timingSafeEqualString(fromProvider, fromCookie)) return null;
 
-  const now = new Date();
-  const record = await OAuthAuthorizationState.findOneAndUpdate(
-    {
-      stateHash: hashOAuthState(fromProvider),
-      provider: options.provider,
-      consumedAt: null,
-      expiresAt: { $gt: now }
-    },
-    { $set: { consumedAt: now } },
-    { new: true }
-  )
-    .select("+codeVerifier +stateHash")
-    .lean();
+  const record = await oauthStates.consumeOAuthAuthorizationState(getPostgresDb(), {
+    stateHash: hashOAuthState(fromProvider),
+    provider: options.provider
+  });
 
   if (!record) return null;
 
   return {
     stateId: record.stateId,
-    provider: record.provider as ExternalIdentityProvider,
-    mode: record.mode as OAuthFlowMode,
+    provider: record.provider,
+    mode: record.mode,
     codeVerifier: record.codeVerifier,
     next: record.next ?? null,
     userId: record.userId ?? null
@@ -169,5 +161,5 @@ export async function consumeOAuthState(options: {
 
 /** Best-effort cleanup for environments without TTL index support. */
 export async function purgeExpiredOAuthStates(now = new Date()) {
-  return OAuthAuthorizationState.deleteMany({ expiresAt: { $lte: now } });
+  return oauthStates.deleteExpiredOAuthAuthorizationStates(getPostgresDb(), now);
 }

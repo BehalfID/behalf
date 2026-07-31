@@ -16,10 +16,11 @@ import {
   canRemoveLoginMethod
 } from "@/lib/authProviders/loginMethodSafety";
 import { getWebAuthnConfig } from "@/lib/authProviders/webauthnConfig";
+import { getPostgresDb } from "@/lib/db/postgres";
 import { createPublicId } from "@/lib/ids";
-import PasskeyCredential from "@/models/PasskeyCredential";
-import WebAuthnChallenge from "@/models/WebAuthnChallenge";
-import DeveloperUser from "@/models/DeveloperUser";
+import { DuplicateKeyError } from "@/lib/repositories/errors";
+import * as passkeys from "@/lib/repositories/postgres/passkeys";
+import * as users from "@/lib/repositories/postgres/users";
 
 /** Registration/authentication challenges expire quickly. */
 export const WEBAUTHN_CHALLENGE_TTL_MS = 1000 * 60 * 5;
@@ -46,7 +47,7 @@ async function storeChallenge(options: {
   userId?: string | null;
 }): Promise<string> {
   const challengeId = createPublicId("wach");
-  await WebAuthnChallenge.create({
+  await passkeys.createWebAuthnChallenge(getPostgresDb(), {
     challengeId,
     challengeHash: hashChallenge(options.challenge),
     kind: options.kind,
@@ -65,23 +66,11 @@ async function consumeChallenge(options: {
   kind: "registration" | "authentication";
   userId?: string | null;
 }): Promise<{ challengeId: string; userId: string | null } | null> {
-  const challengeHash = hashChallenge(options.challenge);
-  const now = new Date();
-  const filter: Record<string, unknown> = {
-    challengeHash,
+  const updated = await passkeys.consumeWebAuthnChallenge(getPostgresDb(), {
+    challengeHash: hashChallenge(options.challenge),
     kind: options.kind,
-    consumedAt: null,
-    expiresAt: { $gt: now }
-  };
-  if (options.userId) {
-    filter.userId = options.userId;
-  }
-
-  const updated = await WebAuthnChallenge.findOneAndUpdate(
-    filter,
-    { $set: { consumedAt: now } },
-    { new: true }
-  ).lean();
+    userId: options.userId
+  });
 
   if (!updated) return null;
   return { challengeId: updated.challengeId, userId: updated.userId ?? null };
@@ -97,19 +86,14 @@ export type PasskeySummary = {
 };
 
 export async function listPasskeysForUser(userId: string): Promise<PasskeySummary[]> {
-  const rows = await PasskeyCredential.find({ userId })
-    .sort({ createdAt: -1 })
-    .select(
-      "-_id credentialRecordId nickname createdAt lastUsedAt transports backedUp"
-    )
-    .lean();
+  const rows = await passkeys.listPasskeysByUserId(getPostgresDb(), userId);
 
   return rows.map((row) => ({
     credentialRecordId: row.credentialRecordId,
     nickname: row.nickname,
     createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
     lastUsedAt: row.lastUsedAt ? new Date(row.lastUsedAt).toISOString() : null,
-    transports: (row.transports as string[] | undefined) ?? [],
+    transports: row.transports ?? [],
     backedUp: Boolean(row.backedUp)
   }));
 }
@@ -129,9 +113,7 @@ export async function beginPasskeyRegistration(options: {
     return { ok: false, code: "passkey_requires_recovery" };
   }
 
-  const existing = await PasskeyCredential.find({ userId: options.userId })
-    .select("credentialId transports")
-    .lean();
+  const existing = await passkeys.listPasskeysByUserId(getPostgresDb(), options.userId);
 
   const registrationOptions = await generateRegistrationOptions({
     rpName: config.rpName,
@@ -147,7 +129,7 @@ export async function beginPasskeyRegistration(options: {
     },
     excludeCredentials: existing.map((cred) => ({
       id: cred.credentialId,
-      transports: (cred.transports as AuthenticatorTransportFuture[] | undefined) ?? undefined
+      transports: (cred.transports as AuthenticatorTransportFuture[] | null) ?? undefined
     })),
     supportedAlgorithmIDs: [-7, -257]
   });
@@ -241,9 +223,10 @@ export async function finishPasskeyRegistration(options: {
   const credentialId = credential.id;
   const publicKey = toBase64Url(credential.publicKey);
   const credentialRecordId = createPublicId("pkcred");
+  const db = getPostgresDb();
 
   try {
-    await PasskeyCredential.create({
+    await passkeys.createPasskeyCredential(db, {
       credentialRecordId,
       userId: options.userId,
       credentialId,
@@ -257,21 +240,16 @@ export async function finishPasskeyRegistration(options: {
       aaguid: aaguid ?? null
     });
   } catch (error) {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      (error as { code?: unknown }).code === 11000
-    ) {
+    if (error instanceof DuplicateKeyError) {
       return { ok: false, code: "duplicate_credential" };
     }
     throw error;
   }
 
-  await DeveloperUser.updateOne(
-    { userId: options.userId },
-    { $addToSet: { authProviders: "passkey" } }
-  );
+  const user = await users.findByUserId(db, options.userId);
+  const providers = new Set(user?.authProviders ?? []);
+  providers.add("passkey");
+  await users.updateUser(db, options.userId, { authProviders: Array.from(providers) });
 
   await recordIdentityAudit({
     userId: options.userId,
@@ -297,12 +275,10 @@ export async function beginPasskeyAuthentication(options?: {
 
   let allowCredentials: { id: string; transports?: AuthenticatorTransportFuture[] }[] | undefined;
   if (options?.userId) {
-    const existing = await PasskeyCredential.find({ userId: options.userId })
-      .select("credentialId transports")
-      .lean();
+    const existing = await passkeys.listPasskeysByUserId(getPostgresDb(), options.userId);
     allowCredentials = existing.map((cred) => ({
       id: cred.credentialId,
-      transports: (cred.transports as AuthenticatorTransportFuture[] | undefined) ?? undefined
+      transports: (cred.transports as AuthenticatorTransportFuture[] | null) ?? undefined
     }));
   }
 
@@ -328,7 +304,12 @@ export async function finishPasskeyAuthentication(options: {
   | { ok: true; userId: string; credentialRecordId: string }
   | {
       ok: false;
-      code: "webauthn_unconfigured" | "invalid_challenge" | "unknown_credential" | "verification_failed" | "counter_anomaly";
+      code:
+        | "webauthn_unconfigured"
+        | "invalid_challenge"
+        | "unknown_credential"
+        | "verification_failed"
+        | "counter_anomaly";
     }
 > {
   const config = getWebAuthnConfig();
@@ -354,7 +335,8 @@ export async function finishPasskeyAuthentication(options: {
   if (!consumed) return { ok: false, code: "invalid_challenge" };
 
   const credentialId = options.response.id;
-  const stored = await PasskeyCredential.findOne({ credentialId }).lean();
+  const db = getPostgresDb();
+  const stored = await passkeys.findPasskeyByCredentialId(db, credentialId);
   if (!stored) return { ok: false, code: "unknown_credential" };
 
   let verification;
@@ -369,7 +351,7 @@ export async function finishPasskeyAuthentication(options: {
         id: stored.credentialId,
         publicKey: fromBase64Url(stored.publicKey),
         counter: stored.signCount,
-        transports: (stored.transports as AuthenticatorTransportFuture[] | undefined) ?? undefined
+        transports: (stored.transports as AuthenticatorTransportFuture[] | null) ?? undefined
       }
     });
   } catch {
@@ -395,10 +377,10 @@ export async function finishPasskeyAuthentication(options: {
     return { ok: false, code: "counter_anomaly" };
   }
 
-  await PasskeyCredential.updateOne(
-    { credentialRecordId: stored.credentialRecordId },
-    { $set: { signCount: newCounter, lastUsedAt: new Date() } }
-  );
+  await passkeys.updatePasskeyByRecordId(db, stored.credentialRecordId, {
+    signCount: newCounter,
+    lastUsedAt: new Date()
+  });
 
   await recordSuccessfulLogin({
     userId: stored.userId,
@@ -425,11 +407,12 @@ export async function renamePasskey(options: {
   const nickname = options.nickname.trim().slice(0, 80);
   if (!nickname) return { ok: false, code: "invalid_nickname" };
 
-  const updated = await PasskeyCredential.findOneAndUpdate(
-    { userId: options.userId, credentialRecordId: options.credentialRecordId },
-    { $set: { nickname } },
-    { new: true }
-  ).lean();
+  const updated = await passkeys.updatePasskeyCredential(
+    getPostgresDb(),
+    options.userId,
+    options.credentialRecordId,
+    { nickname }
+  );
 
   if (!updated) return { ok: false, code: "not_found" };
 
@@ -473,19 +456,20 @@ export async function removePasskey(options: {
     };
   }
 
-  const deleted = await PasskeyCredential.findOneAndDelete({
-    userId: options.userId,
-    credentialRecordId: options.credentialRecordId
-  }).lean();
+  const db = getPostgresDb();
+  const deleted = await passkeys.deletePasskeyCredential(
+    db,
+    options.userId,
+    options.credentialRecordId
+  );
 
   if (!deleted) return { ok: false, code: "not_found" };
 
-  const remaining = await PasskeyCredential.countDocuments({ userId: options.userId });
+  const remaining = await passkeys.countPasskeysByUserId(db, options.userId);
   if (remaining === 0) {
-    await DeveloperUser.updateOne(
-      { userId: options.userId },
-      { $pull: { authProviders: "passkey" } }
-    );
+    const user = await users.findByUserId(db, options.userId);
+    const providers = (user?.authProviders ?? []).filter((p) => p !== "passkey");
+    await users.updateUser(db, options.userId, { authProviders: providers });
   }
 
   await recordIdentityAudit({

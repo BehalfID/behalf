@@ -4,16 +4,16 @@ import { NextResponse, type NextRequest } from "next/server";
 import { cache } from "react";
 import { promisify } from "util";
 import { jsonAppError } from "@/lib/appErrors";
-import { connectToDatabase } from "@/lib/db";
 import { requireWorkspaceMembershipBySlug, resolveActiveAccountId } from "@/lib/accountContext";
 import { createPublicId } from "@/lib/ids";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { sessionCookieOptions } from "@/lib/sessionCookies";
 import { WORKSPACE_SLUG_HEADER } from "@/lib/workspaceSlug";
 import { isUnverifiedAuthApiPath } from "@/lib/emailVerificationGuard";
-import Account, { type AccountDocument } from "@/models/Account";
-import DeveloperSession from "@/models/DeveloperSession";
-import DeveloperUser, { type DeveloperUserDocument } from "@/models/DeveloperUser";
+import * as accounts from "@/lib/repositories/accounts";
+import * as sessions from "@/lib/repositories/sessions";
+import * as users from "@/lib/repositories/users";
+import type { DeveloperUserLean } from "@/lib/repositories/users";
 
 const scryptAsync = promisify(crypto.scrypt);
 const COOKIE_NAME = "behalfid_developer";
@@ -84,7 +84,7 @@ function sessionExpiryFromNow() {
 export async function createDeveloperSession(userId: string) {
   const now = new Date();
   const token = crypto.randomBytes(32).toString("base64url");
-  const session = await DeveloperSession.create({
+  const session = await sessions.createSession({
     sessionId: createPublicId("sess"),
     userId,
     tokenHash: hashSessionToken(token),
@@ -129,26 +129,19 @@ async function touchDeveloperSession(session: {
   }
 
   try {
-    await DeveloperSession.updateOne(
-      { sessionId: session.sessionId },
-      { $set: { lastActivityAt: new Date(), expiresAt: sessionExpiryFromNow() } }
-    );
+    await sessions.updateActivity(session.sessionId, new Date(), sessionExpiryFromNow());
   } catch {
     // Best-effort sliding refresh; auth still succeeds on this request.
   }
 }
 
 export async function refreshDeveloperSessionActivity(token: string) {
-  await connectToDatabase();
   const tokenHash = hashSessionToken(token);
-  const session = await DeveloperSession.findOne({
-    tokenHash,
-    expiresAt: { $gt: new Date() }
-  }).lean();
+  const session = await sessions.findByTokenHash(tokenHash, { requireUnexpired: true });
 
   if (!session || isSessionInactive(session.lastActivityAt, session.createdAt)) {
     if (session) {
-      await DeveloperSession.deleteOne({ sessionId: session.sessionId });
+      await sessions.deleteBySessionId(session.sessionId);
     }
     return null;
   }
@@ -197,24 +190,18 @@ export function requireDashboardMutationOrigin(request: NextRequest) {
 
 export async function getDeveloperFromToken(token?: string | null) {
   if (!token) return null;
-  await connectToDatabase();
   const tokenHash = hashSessionToken(token);
-  const session = await DeveloperSession.findOne({
-    tokenHash,
-    expiresAt: { $gt: new Date() }
-  }).lean();
+  const session = await sessions.findByTokenHash(tokenHash, { requireUnexpired: true });
 
   if (!session) return null;
 
   if (isSessionInactive(session.lastActivityAt, session.createdAt)) {
-    await DeveloperSession.deleteOne({ sessionId: session.sessionId });
+    await sessions.deleteBySessionId(session.sessionId);
     return null;
   }
 
   await touchDeveloperSession(session);
-  const user = await DeveloperUser.findOne({ userId: session.userId })
-    .select("-_id userId email emailVerified onboardingUseCase primaryAccountId firstName lastName jobTitle onboardingCompletedAt createdAt updatedAt")
-    .lean();
+  const user = await users.findByUserId(session.userId);
 
   if (!user) return null;
 
@@ -350,7 +337,7 @@ export async function requireDeveloperApi(request: NextRequest) {
       };
     }
 
-    const account = await Account.findOne({ accountId: resolved.workspace.accountId }).lean();
+    const account = await accounts.findAccount({ accountId: resolved.workspace.accountId });
     return {
       user,
       account,
@@ -363,7 +350,7 @@ export async function requireDeveloperApi(request: NextRequest) {
 
   const { activeAccountId } = context;
   const account = activeAccountId
-    ? await Account.findOne({ accountId: activeAccountId }).lean()
+    ? await accounts.findAccount({ accountId: activeAccountId })
     : null;
 
   return { user, account, activeAccountId, session, workspaceSlug: null, error: null };
@@ -398,8 +385,8 @@ export async function requireVerifiedDeveloperApi(request: NextRequest) {
   return auth;
 }
 
-export type DeveloperPublic = Pick<DeveloperUserDocument, "userId" | "email" | "createdAt" | "updatedAt">;
-export type DeveloperAccount = AccountDocument | null;
+export type DeveloperPublic = Pick<DeveloperUserLean, "userId" | "email" | "createdAt" | "updatedAt">;
+export type DeveloperAccount = Awaited<ReturnType<typeof accounts.findAccount>>;
 
 export function getRequestAccountId(auth: {
   activeAccountId?: string | null;

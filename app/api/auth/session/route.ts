@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
-import { connectToDatabase } from "@/lib/db";
 import { checkSessionOnServer } from "@/lib/developerAuth";
 import { noCacheJson } from "@/lib/responses";
 
 export async function GET() {
   try {
-    await connectToDatabase();
     const session = await checkSessionOnServer();
 
     if (!session) {

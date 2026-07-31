@@ -7,7 +7,6 @@ import {
   safeOAuthNextPath
 } from "@/lib/authProviders/oauthState";
 import { timingSafeEqualString } from "@/lib/crypto";
-import { connectToDatabase } from "@/lib/db";
 import {
   createDeveloperSession,
   hashEmailToken,
@@ -21,9 +20,10 @@ import { checkAuthRateLimit, checkRateLimit, rateLimitError } from "@/lib/rateLi
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
-import DeveloperUser from "@/models/DeveloperUser";
-import ExternalIdentity from "@/models/ExternalIdentity";
-import OAuthPendingSignup from "@/models/OAuthPendingSignup";
+import { DuplicateKeyError } from "@/lib/repositories/errors";
+import * as externalIdentities from "@/lib/repositories/externalIdentities";
+import * as oauthPending from "@/lib/repositories/oauthPending";
+import * as users from "@/lib/repositories/users";
 
 const MIN_AGE_YEARS = 13;
 
@@ -75,15 +75,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  await connectToDatabase();
-  const pending = await OAuthPendingSignup.findOne({ pendingId, provider: "github" })
-    .select(
-      "+tokenHash pendingId provider providerAccountId email emailVerified firstName lastName expiresAt"
-    )
-    .lean();
+  const pending = await oauthPending.findByPendingId(pendingId, { includeTokenHash: true });
 
-  if (!pending || new Date(pending.expiresAt).getTime() < Date.now()) {
-    if (pending) await OAuthPendingSignup.deleteOne({ pendingId });
+  if (
+    !pending ||
+    pending.provider !== "github" ||
+    new Date(pending.expiresAt).getTime() < Date.now()
+  ) {
+    if (pending) await oauthPending.deleteByPendingId(pendingId);
     return clearPendingCookie(
       jsonError("GitHub sign-up session expired. Start again.", 401)
     );
@@ -97,7 +96,7 @@ export async function POST(request: NextRequest) {
 
   const providerAccountId = String(pending.providerAccountId ?? "");
   if (!providerAccountId) {
-    await OAuthPendingSignup.deleteOne({ pendingId });
+    await oauthPending.deleteByPendingId(pendingId);
     return clearPendingCookie(
       jsonError("GitHub sign-up session expired. Start again.", 401)
     );
@@ -110,17 +109,17 @@ export async function POST(request: NextRequest) {
   // The pending record was written before the user filled in their age, so both
   // the email and the GitHub identity may have been claimed in the meantime.
   const [emailTaken, identityTaken] = await Promise.all([
-    DeveloperUser.exists({ email }),
-    ExternalIdentity.exists({ provider: "github", providerAccountId })
+    users.existsByEmail(email),
+    externalIdentities.existsByProviderAccount("github", providerAccountId)
   ]);
   if (emailTaken || identityTaken) {
-    await OAuthPendingSignup.deleteOne({ pendingId });
+    await oauthPending.deleteByPendingId(pendingId);
     return clearPendingCookie(jsonError(REGISTRATION_CONFLICT, 409));
   }
 
   const userId = createPublicId("user");
   try {
-    await DeveloperUser.create({
+    await users.createUser({
       userId,
       email,
       // No passwordHash: this account's only credential is the GitHub identity
@@ -132,20 +131,15 @@ export async function POST(request: NextRequest) {
       emailVerified: true
     });
   } catch (createError) {
-    if (
-      typeof createError === "object" &&
-      createError !== null &&
-      "code" in createError &&
-      (createError as { code?: unknown }).code === 11000
-    ) {
-      await OAuthPendingSignup.deleteOne({ pendingId });
+    if (createError instanceof DuplicateKeyError) {
+      await oauthPending.deleteByPendingId(pendingId);
       return clearPendingCookie(jsonError(REGISTRATION_CONFLICT, 409));
     }
     throw createError;
   }
 
   try {
-    await ExternalIdentity.create({
+    await externalIdentities.createExternalIdentity({
       identityId: createPublicId("extid"),
       userId,
       provider: "github",
@@ -158,8 +152,8 @@ export async function POST(request: NextRequest) {
   } catch (linkError) {
     // Losing the identity race leaves an account with no way in, so roll the
     // half-created account back rather than stranding it.
-    await DeveloperUser.deleteOne({ userId });
-    await OAuthPendingSignup.deleteOne({ pendingId });
+    await users.deleteUser(userId);
+    await oauthPending.deleteByPendingId(pendingId);
     logger.warn("github_signup_identity_conflict", {
       error: linkError instanceof Error ? linkError.message : String(linkError)
     });
@@ -176,7 +170,7 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  await OAuthPendingSignup.deleteOne({ pendingId });
+  await oauthPending.deleteByPendingId(pendingId);
   await recordIdentityAudit({
     userId,
     action: "identity_registered",

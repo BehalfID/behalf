@@ -1,7 +1,6 @@
 import type { NextRequest } from "next/server";
 import type { RegistrationResponseJSON } from "@simplewebauthn/server";
 import { finishPasskeyRegistration } from "@/lib/authProviders/passkeyService";
-import { connectToDatabase } from "@/lib/db";
 import {
   requireDashboardMutationOrigin,
   requireVerifiedDeveloperApi
@@ -36,7 +35,6 @@ export async function POST(request: NextRequest) {
 
   const nickname = readString(body.nickname) || undefined;
 
-  await connectToDatabase();
   const result = await finishPasskeyRegistration({
     userId: auth.user.userId,
     response,

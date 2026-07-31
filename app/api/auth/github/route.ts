@@ -7,11 +7,10 @@ import {
   safeOAuthNextPath
 } from "@/lib/authProviders/oauthState";
 import { getLoginProvider } from "@/lib/authProviders/providers/registry";
-import { connectToDatabase } from "@/lib/db";
 import { getCurrentDeveloper } from "@/lib/developerAuth";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { jsonError } from "@/lib/responses";
-import type { OAuthFlowMode } from "@/models/OAuthAuthorizationState";
+import type { OAuthFlowMode } from "@/lib/repositories/postgres/oauthAuthorizationStates";
 
 function readMode(raw: string | null): OAuthFlowMode {
   if (raw === "signup") return "signup";
@@ -44,8 +43,6 @@ export async function GET(request: NextRequest) {
 
   const mode = readMode(request.nextUrl.searchParams.get("mode"));
   const next = safeOAuthNextPath(request.nextUrl.searchParams.get("next"));
-
-  await connectToDatabase();
 
   // Linking must start from an authenticated session: the callback attaches the
   // resulting identity to whoever started the flow, so an anonymous "link" would

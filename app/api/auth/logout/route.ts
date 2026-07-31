@@ -1,8 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { connectToDatabase } from "@/lib/db";
 import { clearDeveloperSessionCookie, hashSessionToken, requireDashboardMutationOrigin } from "@/lib/developerAuth";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
-import DeveloperSession from "@/models/DeveloperSession";
+import * as sessions from "@/lib/repositories/sessions";
 
 export async function POST(request: NextRequest) {
   const limit = await checkRateLimit(request);
@@ -13,8 +12,7 @@ export async function POST(request: NextRequest) {
 
   const token = request.cookies.get("behalfid_developer")?.value;
   if (token) {
-    await connectToDatabase();
-    await DeveloperSession.deleteOne({ tokenHash: hashSessionToken(token) });
+    await sessions.deleteByTokenHash(hashSessionToken(token));
   }
 
   const response = NextResponse.json({ loggedOut: true });

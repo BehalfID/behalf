@@ -1,5 +1,4 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { connectToDatabase } from "@/lib/db";
 import {
   createDeveloperSession,
   normalizeEmail,
@@ -14,7 +13,7 @@ import { jsonError } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
 import { isPasswordLoginBlockedBySso } from "@/lib/workspaceSso";
 import { oauthOnlyLoginMessage } from "@/lib/authProviders/loginHints";
-import DeveloperUser from "@/models/DeveloperUser";
+import * as users from "@/lib/repositories/users";
 
 export async function POST(request: NextRequest) {
   const limit = await checkRateLimit(request);
@@ -47,10 +46,7 @@ export async function POST(request: NextRequest) {
     return jsonError("Password sign-in is disabled for this email domain. Use Continue with Google.", 403);
   }
 
-  await connectToDatabase();
-  // "+passwordHash" alone keeps the default field set; listing other fields
-  // would become an inclusion projection and omit userId/email.
-  const user = await DeveloperUser.findOne({ email }).select("+passwordHash +mfaEnabledAt authProviders");
+  const user = await users.findByEmailWithPassword(email);
   if (!user?.passwordHash) {
     if (user) {
       await recordAuthFailure({
@@ -86,16 +82,18 @@ export async function POST(request: NextRequest) {
     request
   });
   const { recordIdentityAudit } = await import("@/lib/authProviders/identityAudit");
+  // MFA columns are not yet on the Postgres developer_users schema; treat as disabled.
+  const mfaEnabled = Boolean((user as { mfaEnabledAt?: Date | null }).mfaEnabledAt);
   await recordIdentityAudit({
     userId: user.userId,
     action: "password_login",
     provider: "password",
     providerAccountId: "password",
     request,
-    context: user.mfaEnabledAt ? "password_mfa_pending" : "password_login"
+    context: mfaEnabled ? "password_mfa_pending" : "password_login"
   });
 
-  if (user.mfaEnabledAt) {
+  if (mfaEnabled) {
     const { createMfaChallengeToken } = await import("@/lib/mfa");
     const challengeToken = await createMfaChallengeToken(user.userId);
     return NextResponse.json({

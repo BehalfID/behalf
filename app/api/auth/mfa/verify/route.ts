@@ -1,5 +1,4 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { connectToDatabase } from "@/lib/db";
 import { recordAuthFailure } from "@/lib/authEvents";
 import { clearedOAuthCookie, OAUTH_MFA_COOKIE } from "@/lib/authProviders/oauthState";
 import {
@@ -17,8 +16,21 @@ import { checkAuthRateLimit, checkRateLimit, rateLimitError } from "@/lib/rateLi
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
-import DeveloperUser from "@/models/DeveloperUser";
+import * as users from "@/lib/repositories/users";
 
+type MfaUserFields = {
+  mfaEnabledAt?: Date | null;
+  mfaTotpSecretEnc?: string | null;
+  mfaBackupCodeHashes?: string[] | null;
+};
+
+/**
+ * Completes an MFA challenge after password/OAuth first factor.
+ *
+ * Gap: MFA secret columns are not yet on the Postgres developer_users schema.
+ * Until they are migrated, this path cannot verify TOTP against Postgres-backed
+ * users (findByUserId will not return MFA secrets).
+ */
 export async function POST(request: NextRequest) {
   const limit = await checkRateLimit(request);
   if (limit.limited) return rateLimitError();
@@ -55,10 +67,9 @@ export async function POST(request: NextRequest) {
   const authLimit = await checkAuthRateLimit(`mfa:${challenge.userId}`);
   if (authLimit.limited) return rateLimitError();
 
-  await connectToDatabase();
-  const user = await DeveloperUser.findOne({ userId: challenge.userId }).select(
-    "+mfaTotpSecretEnc +mfaBackupCodeHashes mfaEnabledAt email emailVerified"
-  );
+  const user = (await users.findByUserId(challenge.userId)) as
+    | (NonNullable<Awaited<ReturnType<typeof users.findByUserId>>> & MfaUserFields)
+    | null;
   if (!user?.mfaEnabledAt || !user.mfaTotpSecretEnc) {
     return jsonError("MFA is not enabled for this account.", 400);
   }
@@ -68,10 +79,9 @@ export async function POST(request: NextRequest) {
     const result = consumeBackupCode(user.mfaBackupCodeHashes ?? [], backupCode);
     if (result.ok) {
       ok = true;
-      await DeveloperUser.updateOne(
-        { userId: user.userId },
-        { $set: { mfaBackupCodeHashes: result.remainingHashes } }
-      );
+      await users.updateUser(user.userId, {
+        mfaBackupCodeHashes: result.remainingHashes
+      });
     }
   } else if (code) {
     const secret = decryptMfaSecret(user.mfaTotpSecretEnc);

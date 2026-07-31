@@ -5,11 +5,10 @@ import { loginMethodDisplayName } from "@/lib/authProviders/loginMethods";
 import { listPasskeysForUser } from "@/lib/authProviders/passkeyService";
 import { listLoginProviders } from "@/lib/authProviders/providers/registry";
 import { isWebAuthnConfigured } from "@/lib/authProviders/webauthnConfig";
-import { connectToDatabase } from "@/lib/db";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import { noCacheJson } from "@/lib/responses";
-import DeveloperUser from "@/models/DeveloperUser";
 import type { LoginMethod } from "@/lib/authProviders/loginMethods";
+import * as users from "@/lib/repositories/users";
 
 /**
  * Authentication methods for the signed-in account: password, OAuth providers,
@@ -19,15 +18,9 @@ export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
 
-  await connectToDatabase();
-
   const [identities, user, passkeys, snapshot] = await Promise.all([
     listIdentitiesForUser(auth.user.userId),
-    DeveloperUser.findOne({ userId: auth.user.userId })
-      .select(
-        "+passwordHash userId passwordLastUsedAt lastSignInAt lastSignInMethod lastSignInUserAgent"
-      )
-      .lean(),
+    users.findByUserId(auth.user.userId),
     listPasskeysForUser(auth.user.userId),
     getUsableLoginMethods(auth.user.userId)
   ]);

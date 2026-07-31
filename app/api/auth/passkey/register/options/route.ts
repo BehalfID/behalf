@@ -1,6 +1,5 @@
 import type { NextRequest } from "next/server";
 import { beginPasskeyRegistration } from "@/lib/authProviders/passkeyService";
-import { connectToDatabase } from "@/lib/db";
 import {
   requireDashboardMutationOrigin,
   requireVerifiedDeveloperApi
@@ -18,8 +17,6 @@ export async function POST(request: NextRequest) {
 
   const auth = await requireVerifiedDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
-
-  await connectToDatabase();
 
   const displayName = [auth.user.firstName, auth.user.lastName]
     .filter(Boolean)

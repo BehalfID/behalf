@@ -23,6 +23,10 @@ export type DeveloperUserLean = {
   emailVerificationCodeHash?: string;
   passwordResetTokenHash?: string;
   passwordResetTokenExpiresAt?: Date;
+  passwordLastUsedAt?: Date;
+  lastSignInAt?: Date;
+  lastSignInMethod?: "password" | "github" | "google" | "passkey";
+  lastSignInUserAgent?: string;
   createdAt?: Date;
   updatedAt?: Date;
 };

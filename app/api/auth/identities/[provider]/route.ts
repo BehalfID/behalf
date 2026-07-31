@@ -2,7 +2,6 @@ import { NextResponse, type NextRequest } from "next/server";
 import { unlinkIdentity } from "@/lib/authProviders/externalIdentityService";
 import { oauthErrorMessage } from "@/lib/authProviders/oauthErrors";
 import { getLoginProvider } from "@/lib/authProviders/providers/registry";
-import { connectToDatabase } from "@/lib/db";
 import {
   requireDashboardMutationOrigin,
   requireVerifiedDeveloperApi,
@@ -12,8 +11,8 @@ import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { rejectUnknownFields } from "@/lib/validation";
-import DeveloperUser from "@/models/DeveloperUser";
-import type { ExternalIdentityProvider } from "@/models/ExternalIdentity";
+import type { ExternalIdentityProvider } from "@/lib/repositories/postgres/externalIdentities";
+import * as users from "@/lib/repositories/users";
 
 /**
  * Disconnects a login provider from the signed-in account.
@@ -49,10 +48,7 @@ export async function DELETE(
     if (unknownError) return jsonError(unknownError);
   }
 
-  await connectToDatabase();
-  const user = await DeveloperUser.findOne({ userId: auth.user.userId })
-    .select("+passwordHash userId")
-    .lean();
+  const user = await users.findByUserId(auth.user.userId);
   if (!user) {
     return jsonError("Account not found.", 404);
   }

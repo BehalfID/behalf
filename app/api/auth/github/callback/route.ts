@@ -19,7 +19,6 @@ import {
 } from "@/lib/authProviders/externalIdentityService";
 import { getLoginProvider } from "@/lib/authProviders/providers/registry";
 import type { NormalizedLoginIdentity } from "@/lib/authProviders/providers/types";
-import { connectToDatabase } from "@/lib/db";
 import {
   createDeveloperSession,
   DEVELOPER_SESSION_COOKIE_NAME,
@@ -32,8 +31,8 @@ import {
 import { createPublicId } from "@/lib/ids";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { resolvePreferredSsoAccountId } from "@/lib/workspaceSso";
-import DeveloperUser from "@/models/DeveloperUser";
-import OAuthPendingSignup from "@/models/OAuthPendingSignup";
+import * as oauthPending from "@/lib/repositories/oauthPending";
+import * as users from "@/lib/repositories/users";
 
 const SETTINGS_PATH = "/dashboard/settings";
 
@@ -83,8 +82,6 @@ export async function GET(request: NextRequest) {
   if (!code || !stateParam) {
     return errorRedirect(request, "invalid_state", "login");
   }
-
-  await connectToDatabase();
 
   // Consuming the state before the code exchange means a replayed callback is
   // rejected without ever reaching GitHub.
@@ -161,9 +158,7 @@ async function signInExistingUser(
   identity: NormalizedLoginIdentity,
   next: string | null
 ) {
-  const user = await DeveloperUser.findOne({ userId })
-    .select("+mfaEnabledAt userId email emailVerified onboardingCompletedAt")
-    .lean();
+  const user = await users.findByUserId(userId);
   if (!user) {
     // The identity row outlived its account. Treat as an unusable identity
     // rather than minting a session for a userId that no longer resolves.
@@ -193,7 +188,9 @@ async function signInExistingUser(
 
   // A second factor is a property of the account, not of the sign-in method.
   // Skipping it for OAuth would turn "connect GitHub" into an MFA bypass.
-  if (user.mfaEnabledAt) {
+  // MFA columns are not yet on the Postgres developer_users schema.
+  const mfaEnabled = Boolean((user as { mfaEnabledAt?: Date | null }).mfaEnabledAt);
+  if (mfaEnabled) {
     const { createMfaChallengeToken } = await import("@/lib/mfa");
     const challengeToken = await createMfaChallengeToken(userId);
     const url = new URL("/login", request.nextUrl.origin);
@@ -232,7 +229,7 @@ async function startPendingSignup(
   const pendingToken = generateSecureToken();
   const pendingId = createPublicId("pend");
 
-  await OAuthPendingSignup.create({
+  await oauthPending.createPendingSignup({
     pendingId,
     provider: "github",
     providerAccountId: identity.providerAccountId,

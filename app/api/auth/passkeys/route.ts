@@ -6,7 +6,6 @@ import {
 } from "@/lib/authProviders/passkeyService";
 import { getUsableLoginMethods } from "@/lib/authProviders/loginMethodSafety";
 import { isWebAuthnConfigured } from "@/lib/authProviders/webauthnConfig";
-import { connectToDatabase } from "@/lib/db";
 import {
   requireDashboardMutationOrigin,
   requireDeveloperApi,
@@ -17,14 +16,13 @@ import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { readJsonObject } from "@/lib/request";
 import { jsonError, noCacheJson } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
-import DeveloperUser from "@/models/DeveloperUser";
+import * as users from "@/lib/repositories/users";
 
 /** List passkeys for the signed-in account. */
 export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
 
-  await connectToDatabase();
   const [passkeys, snapshot] = await Promise.all([
     listPasskeysForUser(auth.user.userId),
     getUsableLoginMethods(auth.user.userId)
@@ -59,7 +57,6 @@ export async function PATCH(request: NextRequest) {
   const nickname = readString(body.nickname);
   if (!credentialRecordId) return jsonError("Passkey id is required.");
 
-  await connectToDatabase();
   const result = await renamePasskey({
     userId: auth.user.userId,
     credentialRecordId,
@@ -96,10 +93,7 @@ export async function DELETE(request: NextRequest) {
   const credentialRecordId = readString(body.credentialRecordId);
   if (!credentialRecordId) return jsonError("Passkey id is required.");
 
-  await connectToDatabase();
-  const user = await DeveloperUser.findOne({ userId: auth.user.userId })
-    .select("+passwordHash userId")
-    .lean();
+  const user = await users.findByUserId(auth.user.userId);
   if (!user) return jsonError("Account not found.", 404);
 
   if (user.passwordHash) {

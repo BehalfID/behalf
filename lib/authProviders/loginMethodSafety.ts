@@ -1,7 +1,8 @@
-import ExternalIdentity from "@/models/ExternalIdentity";
-import PasskeyCredential from "@/models/PasskeyCredential";
-import DeveloperUser from "@/models/DeveloperUser";
+import { getPostgresDb } from "@/lib/db/postgres";
 import type { LoginMethod } from "@/lib/authProviders/loginMethods";
+import * as externalIdentities from "@/lib/repositories/postgres/externalIdentities";
+import * as passkeys from "@/lib/repositories/postgres/passkeys";
+import * as users from "@/lib/repositories/postgres/users";
 
 export type UsableLoginMethod =
   | { method: "password" }
@@ -32,10 +33,11 @@ export type UsableLoginMethodsSnapshot = {
  * is not a personal linkable method and is not counted here.
  */
 export async function getUsableLoginMethods(userId: string): Promise<UsableLoginMethodsSnapshot> {
+  const db = getPostgresDb();
   const [user, identities, passkeyCount] = await Promise.all([
-    DeveloperUser.findOne({ userId }).select("+passwordHash userId").lean(),
-    ExternalIdentity.find({ userId }).select("provider providerAccountId").lean(),
-    PasskeyCredential.countDocuments({ userId })
+    users.findByUserId(db, userId),
+    externalIdentities.listByUserId(db, userId),
+    passkeys.countPasskeysByUserId(db, userId)
   ]);
 
   const methods: UsableLoginMethod[] = [];
@@ -122,10 +124,11 @@ export async function canRemoveLoginMethod(
   // passkey
   if (snapshot.passkeyCount < 1) return { allowed: false, reason: "not_found" };
   if (removal.passkeyCredentialRecordId) {
-    const exists = await PasskeyCredential.exists({
+    const exists = await passkeys.passkeyExists(
+      getPostgresDb(),
       userId,
-      credentialRecordId: removal.passkeyCredentialRecordId
-    });
+      removal.passkeyCredentialRecordId
+    );
     if (!exists) return { allowed: false, reason: "not_found" };
   }
   const remainingPasskeys = snapshot.passkeyCount - 1;

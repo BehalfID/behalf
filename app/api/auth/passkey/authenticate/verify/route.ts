@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { AuthenticationResponseJSON } from "@simplewebauthn/server";
 import { finishPasskeyAuthentication } from "@/lib/authProviders/passkeyService";
-import { connectToDatabase } from "@/lib/db";
 import {
   createDeveloperSession,
   requireDashboardMutationOrigin,
@@ -13,7 +12,7 @@ import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { rejectUnknownFields } from "@/lib/validation";
 import { createMfaChallengeToken } from "@/lib/mfa";
-import DeveloperUser from "@/models/DeveloperUser";
+import * as users from "@/lib/repositories/users";
 
 /**
  * Complete passkey authentication and mint a developer session.
@@ -38,7 +37,6 @@ export async function POST(request: NextRequest) {
     return jsonError("Invalid passkey assertion.");
   }
 
-  await connectToDatabase();
   const result = await finishPasskeyAuthentication({ response, request });
 
   if (!result.ok) {
@@ -51,14 +49,14 @@ export async function POST(request: NextRequest) {
     return jsonError("Passkey sign-in failed. Try again or use another method.", 401);
   }
 
-  const user = await DeveloperUser.findOne({ userId: result.userId })
-    .select("userId email emailVerified mfaEnabledAt")
-    .lean();
+  const user = await users.findByUserId(result.userId);
   if (!user) {
     return jsonError("Passkey sign-in failed. Try again or use another method.", 401);
   }
 
-  if (user.mfaEnabledAt) {
+  // MFA columns are not yet on the Postgres developer_users schema.
+  const mfaEnabled = Boolean((user as { mfaEnabledAt?: Date | null }).mfaEnabledAt);
+  if (mfaEnabled) {
     const challengeToken = await createMfaChallengeToken(user.userId);
     return NextResponse.json({
       mfaRequired: true,

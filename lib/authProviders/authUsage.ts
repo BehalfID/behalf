@@ -1,8 +1,9 @@
 import type { NextRequest } from "next/server";
 import { recordIdentityAudit } from "@/lib/authProviders/identityAudit";
 import type { LoginMethod } from "@/lib/authProviders/loginMethods";
-import type { IdentityAuditProvider } from "@/models/IdentityAuditLog";
-import DeveloperUser from "@/models/DeveloperUser";
+import { getPostgresDb } from "@/lib/db/postgres";
+import type { IdentityAuditProvider } from "@/lib/repositories/postgres/identityAudit";
+import * as users from "@/lib/repositories/postgres/users";
 
 /**
  * Updates account-level last-sign-in metadata after a successful first factor.
@@ -17,24 +18,25 @@ export async function updateAccountLastSignIn(options: {
 }): Promise<void> {
   const now = new Date();
   const userAgent = options.request?.headers.get("user-agent")?.slice(0, 300) ?? null;
+  const db = getPostgresDb();
 
-  const $set: Record<string, unknown> = {
+  const set: Record<string, unknown> = {
     lastSignInAt: now,
     lastSignInMethod: options.method,
     lastSignInUserAgent: userAgent
   };
 
   if (options.method === "password") {
-    $set.passwordLastUsedAt = now;
+    set.passwordLastUsedAt = now;
   }
 
-  await DeveloperUser.updateOne({ userId: options.userId }, { $set });
+  await users.updateUser(db, options.userId, set);
 
   if (options.method === "passkey") {
-    await DeveloperUser.updateOne(
-      { userId: options.userId },
-      { $addToSet: { authProviders: "passkey" } }
-    );
+    const user = await users.findByUserId(db, options.userId);
+    const providers = new Set(user?.authProviders ?? []);
+    providers.add("passkey");
+    await users.updateUser(db, options.userId, { authProviders: Array.from(providers) });
   }
 }
 

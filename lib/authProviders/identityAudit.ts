@@ -1,11 +1,15 @@
 import crypto from "crypto";
 import type { NextRequest } from "next/server";
 import { clientIpFromRequest, hashIp } from "@/lib/authEvents";
+import { getPostgresDb } from "@/lib/db/postgres";
 import { logger } from "@/lib/logger";
-import IdentityAuditLog, {
-  type IdentityAuditAction,
-  type IdentityAuditProvider
-} from "@/models/IdentityAuditLog";
+import * as identityAudit from "@/lib/repositories/postgres/identityAudit";
+import type {
+  IdentityAuditAction,
+  IdentityAuditProvider
+} from "@/lib/repositories/postgres/identityAudit";
+
+export type { IdentityAuditAction, IdentityAuditProvider };
 
 export type IdentityAuditInput = {
   userId: string;
@@ -27,7 +31,7 @@ export type IdentityAuditInput = {
  */
 export async function recordIdentityAudit(input: IdentityAuditInput): Promise<void> {
   try {
-    await IdentityAuditLog.create({
+    await identityAudit.createIdentityAuditLog(getPostgresDb(), {
       entryId: `idaud_${crypto.randomBytes(12).toString("hex")}`,
       userId: input.userId,
       action: input.action,
@@ -47,9 +51,5 @@ export async function recordIdentityAudit(input: IdentityAuditInput): Promise<vo
 }
 
 export async function listIdentityAudit(userId: string, limit = 25) {
-  return IdentityAuditLog.find({ userId })
-    .sort({ createdAt: -1 })
-    .limit(Math.min(Math.max(limit, 1), 100))
-    .select("-_id entryId action provider providerUsername context createdAt")
-    .lean();
+  return identityAudit.listIdentityAuditLogs(getPostgresDb(), userId, limit);
 }

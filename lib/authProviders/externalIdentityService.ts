@@ -2,12 +2,15 @@ import type { NextRequest } from "next/server";
 import { recordIdentityAudit } from "@/lib/authProviders/identityAudit";
 import { canRemoveLoginMethod } from "@/lib/authProviders/loginMethodSafety";
 import type { NormalizedLoginIdentity } from "@/lib/authProviders/providers/types";
+import { getPostgresDb } from "@/lib/db/postgres";
 import { normalizeEmail } from "@/lib/developerAuth";
 import { createPublicId } from "@/lib/ids";
-import DeveloperUser from "@/models/DeveloperUser";
-import ExternalIdentity, {
-  type ExternalIdentityProvider
-} from "@/models/ExternalIdentity";
+import { DuplicateKeyError } from "@/lib/repositories/errors";
+import * as externalIdentities from "@/lib/repositories/postgres/externalIdentities";
+import type { ExternalIdentityProvider } from "@/lib/repositories/postgres/externalIdentities";
+import * as users from "@/lib/repositories/postgres/users";
+
+export type { ExternalIdentityProvider };
 
 export type LinkedIdentitySummary = {
   provider: ExternalIdentityProvider;
@@ -18,30 +21,23 @@ export type LinkedIdentitySummary = {
 };
 
 function isDuplicateKeyError(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: unknown }).code === 11000
-  );
+  return error instanceof DuplicateKeyError;
 }
 
 export async function findIdentity(
   provider: ExternalIdentityProvider,
   providerAccountId: string
 ) {
-  return ExternalIdentity.findOne({ provider, providerAccountId }).lean();
+  return externalIdentities.findByProviderAccount(getPostgresDb(), provider, providerAccountId);
 }
 
 export async function listIdentitiesForUser(
   userId: string
 ): Promise<LinkedIdentitySummary[]> {
-  const identities = await ExternalIdentity.find({ userId })
-    .select("-_id provider providerUsername providerEmail linkedAt lastLoginAt")
-    .lean();
+  const identities = await externalIdentities.listByUserId(getPostgresDb(), userId);
 
   return identities.map((identity) => ({
-    provider: identity.provider as ExternalIdentityProvider,
+    provider: identity.provider,
     providerUsername: identity.providerUsername ?? null,
     providerEmail: identity.providerEmail ?? null,
     linkedAt: identity.linkedAt ? new Date(identity.linkedAt).toISOString() : null,
@@ -69,13 +65,13 @@ export async function linkIdentity(options: {
   context?: string;
 }): Promise<LinkIdentityResult> {
   const { userId, identity } = options;
+  const db = getPostgresDb();
 
-  const existing = await ExternalIdentity.findOne({
-    provider: identity.provider,
-    providerAccountId: identity.providerAccountId
-  })
-    .select("userId")
-    .lean();
+  const existing = await externalIdentities.findByProviderAccount(
+    db,
+    identity.provider,
+    identity.providerAccountId
+  );
 
   if (existing) {
     if (existing.userId === userId) {
@@ -95,7 +91,7 @@ export async function linkIdentity(options: {
 
   const identityId = createPublicId("extid");
   try {
-    await ExternalIdentity.create({
+    await externalIdentities.createExternalIdentity(db, {
       identityId,
       userId,
       provider: identity.provider,
@@ -109,12 +105,11 @@ export async function linkIdentity(options: {
     // The unique indexes are the real arbiter under concurrency: two callbacks
     // racing to claim the same provider account both pass the read above.
     if (isDuplicateKeyError(error)) {
-      const winner = await ExternalIdentity.findOne({
-        provider: identity.provider,
-        providerAccountId: identity.providerAccountId
-      })
-        .select("userId")
-        .lean();
+      const winner = await externalIdentities.findByProviderAccount(
+        db,
+        identity.provider,
+        identity.providerAccountId
+      );
       return {
         ok: false,
         code: winner?.userId === userId ? "already_linked" : "identity_linked_elsewhere"
@@ -153,10 +148,9 @@ export async function unlinkIdentity(options: {
   context?: string;
 }): Promise<UnlinkIdentityResult> {
   const { userId, provider } = options;
+  const db = getPostgresDb();
 
-  const identity = await ExternalIdentity.findOne({ userId, provider })
-    .select("identityId providerAccountId providerUsername")
-    .lean();
+  const identity = await externalIdentities.findByUserAndProvider(db, userId, provider);
   if (!identity) {
     return { ok: false, code: "not_linked" };
   }
@@ -183,7 +177,7 @@ export async function unlinkIdentity(options: {
     };
   }
 
-  await ExternalIdentity.deleteOne({ userId, provider });
+  await externalIdentities.deleteByUserAndProvider(db, userId, provider);
   await removeAuthProvider(userId, provider);
   await recordIdentityAudit({
     userId,
@@ -203,17 +197,17 @@ export async function touchIdentityLogin(options: {
   providerAccountId: string;
   identity: NormalizedLoginIdentity;
 }) {
-  await ExternalIdentity.updateOne(
-    { provider: options.provider, providerAccountId: options.providerAccountId },
+  await externalIdentities.touchLoginMetadata(
+    getPostgresDb(),
+    options.provider,
+    options.providerAccountId,
     {
-      $set: {
-        lastLoginAt: new Date(),
-        // Display metadata is refreshed on every sign-in so a renamed GitHub
-        // account does not show a stale handle in account settings.
-        providerUsername: options.identity.username,
-        providerEmail: options.identity.email ? normalizeEmail(options.identity.email) : null,
-        providerEmailVerified: options.identity.emailVerified
-      }
+      lastLoginAt: new Date(),
+      // Display metadata is refreshed on every sign-in so a renamed GitHub
+      // account does not show a stale handle in account settings.
+      providerUsername: options.identity.username,
+      providerEmail: options.identity.email ? normalizeEmail(options.identity.email) : null,
+      providerEmailVerified: options.identity.emailVerified
     }
   );
 }
@@ -226,25 +220,20 @@ export async function touchIdentityLogin(options: {
  * authoritative record of which provider account is attached.
  */
 async function addAuthProvider(userId: string, provider: ExternalIdentityProvider) {
-  const user = await DeveloperUser.findOne({ userId })
-    .select("+passwordHash authProviders userId")
-    .lean();
+  const db = getPostgresDb();
+  const user = await users.findByUserId(db, userId);
   if (!user) return;
 
   const providers = new Set<string>(
     user.authProviders?.length ? user.authProviders : user.passwordHash ? ["password"] : []
   );
   providers.add(provider);
-  await DeveloperUser.updateOne(
-    { userId },
-    { $set: { authProviders: Array.from(providers) } }
-  );
+  await users.updateUser(db, userId, { authProviders: Array.from(providers) });
 }
 
 async function removeAuthProvider(userId: string, provider: ExternalIdentityProvider) {
-  const user = await DeveloperUser.findOne({ userId })
-    .select("+passwordHash authProviders userId")
-    .lean();
+  const db = getPostgresDb();
+  const user = await users.findByUserId(db, userId);
   if (!user) return;
 
   const providers = new Set<string>(
@@ -252,10 +241,7 @@ async function removeAuthProvider(userId: string, provider: ExternalIdentityProv
   );
   providers.delete(provider);
   if (user.passwordHash) providers.add("password");
-  await DeveloperUser.updateOne(
-    { userId },
-    { $set: { authProviders: Array.from(providers) } }
-  );
+  await users.updateUser(db, userId, { authProviders: Array.from(providers) });
 }
 
 export type LoginResolution =
@@ -282,12 +268,12 @@ export type LoginResolution =
 export async function resolveProviderLogin(
   identity: NormalizedLoginIdentity
 ): Promise<LoginResolution> {
-  const linked = await ExternalIdentity.findOne({
-    provider: identity.provider,
-    providerAccountId: identity.providerAccountId
-  })
-    .select("userId")
-    .lean();
+  const db = getPostgresDb();
+  const linked = await externalIdentities.findByProviderAccount(
+    db,
+    identity.provider,
+    identity.providerAccountId
+  );
 
   if (linked) {
     return { kind: "existing_identity", userId: linked.userId };
@@ -298,7 +284,7 @@ export async function resolveProviderLogin(
   }
 
   const email = normalizeEmail(identity.email);
-  const existingAccount = await DeveloperUser.exists({ email });
+  const existingAccount = await users.existsByEmail(db, email);
   if (existingAccount) {
     return { kind: "requires_explicit_link" };
   }

@@ -1,6 +1,6 @@
 import type { AuthPrincipalKind } from "@/lib/authProviders/principals";
-import type { ExternalIdentityProvider } from "@/models/ExternalIdentity";
-import type { OAuthFlowMode } from "@/models/OAuthAuthorizationState";
+import type { ExternalIdentityProvider } from "@/lib/repositories/postgres/externalIdentities";
+import type { OAuthFlowMode } from "@/lib/repositories/postgres/oauthAuthorizationStates";
 
 export type { ExternalIdentityProvider, OAuthFlowMode };
 
