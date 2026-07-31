@@ -116,7 +116,7 @@ export function findAccounts(filter: Record<string, unknown> = {}) {
 }
 
 export function findOneAccount(filter: Record<string, unknown>) {
-  return Account.findOne(filter);
+  return Account.findOne(filter).lean();
 }
 
 export function findOneAndUpdateAccount(

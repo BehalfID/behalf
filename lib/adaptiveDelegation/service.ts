@@ -1,7 +1,6 @@
 import { findPermissions } from "@/lib/repositories/permissions";
 import { listAgents } from "@/lib/repositories/agents";
-import AdaptiveDelegationEvent from "@/models/AdaptiveDelegationEvent";
-import AdaptiveDelegationRecommendation from "@/models/AdaptiveDelegationRecommendation";
+import * as adaptiveDelegation from "@/lib/repositories/adaptiveDelegation";
 import { applyPermissionProfile, createPermissionForAgent } from "@/lib/permissionMutations";
 import { createPermissionProfile } from "@/lib/permissionProfiles";
 import { createPublicId } from "@/lib/ids";
@@ -72,7 +71,7 @@ async function recordEvent(options: {
   actorUserId?: string | null;
   metadata?: Record<string, unknown>;
 }) {
-  await AdaptiveDelegationEvent.create({
+  await adaptiveDelegation.createEvent({
     eventId: createPublicId("adev"),
     accountId: options.accountId,
     recommendationId: options.recommendationId,
@@ -104,19 +103,10 @@ async function loadSuppressionSets(accountId: string): Promise<{
   postponed: Set<string>;
 }> {
   const now = new Date();
-  const rows = await AdaptiveDelegationRecommendation.find({
+  const rows = await adaptiveDelegation.findRecommendations({
     accountId,
     status: { $in: ["dismissed", "postponed", "accepted"] }
-  })
-    .select("fingerprint status dismissReason remindAt")
-    .lean<
-      Array<{
-        fingerprint: string;
-        status: string;
-        dismissReason?: string | null;
-        remindAt?: Date | null;
-      }>
-    >();
+  }, { select: "fingerprint status dismissReason remindAt" });
 
   const suppressed = new Set<string>();
   const postponed = new Set<string>();
@@ -139,20 +129,12 @@ async function loadSuppressionSets(accountId: string): Promise<{
 }
 
 async function loadExistingTrustProfileKeys(accountId: string): Promise<Set<string>> {
-  const rows = await AdaptiveDelegationRecommendation.find({
+  const rows = await adaptiveDelegation.findRecommendations({
     accountId,
     kind: "trust_profile",
     status: "accepted",
     acceptedProfileId: { $ne: null }
-  })
-    .select("agentId proposedTrustProfile.templateId action")
-    .lean<
-      Array<{
-        agentId: string;
-        action?: string;
-        proposedTrustProfile?: { templateId?: string } | null;
-      }>
-    >();
+  }, { select: "agentId proposedTrustProfile.templateId action" });
 
   const keys = new Set<string>();
   for (const row of rows) {
@@ -167,19 +149,12 @@ async function loadExistingTrustProfileKeys(accountId: string): Promise<Set<stri
 }
 
 async function loadExistingOrgTemplateIds(accountId: string): Promise<Set<string>> {
-  const rows = await AdaptiveDelegationRecommendation.find({
+  const rows = await adaptiveDelegation.findRecommendations({
     accountId,
     kind: "organization_delegation",
     status: "accepted",
     acceptedProfileId: { $ne: null }
-  })
-    .select("proposedOrgDelegation.templateId action")
-    .lean<
-      Array<{
-        action?: string;
-        proposedOrgDelegation?: { templateId?: string } | null;
-      }>
-    >();
+  }, { select: "proposedOrgDelegation.templateId action" });
 
   const ids = new Set<string>();
   for (const row of rows) {
@@ -239,7 +214,7 @@ export async function refreshAdaptiveDelegationRecommendations(options: {
   const views: AdaptiveDelegationRecommendationView[] = [];
 
   for (const candidate of generated) {
-    const existing = await AdaptiveDelegationRecommendation.findOne({
+    const existing = await adaptiveDelegation.findOneRecommendation({
       accountId: options.accountId,
       fingerprint: candidate.fingerprint
     });
@@ -255,7 +230,7 @@ export async function refreshAdaptiveDelegationRecommendations(options: {
         continue;
       }
 
-      const updatedDoc = await AdaptiveDelegationRecommendation.findOneAndUpdate(
+      const updatedDoc = await adaptiveDelegation.findOneAndUpdateRecommendation(
         { recommendationId: existing.recommendationId },
         {
           $set: {
@@ -281,12 +256,12 @@ export async function refreshAdaptiveDelegationRecommendations(options: {
       );
       if (!updatedDoc) continue;
       updated += 1;
-      views.push(toView(updatedDoc.toObject(), agentNames.get(updatedDoc.agentId)));
+      views.push(toView(updatedDoc as Record<string, unknown>, agentNames.get(String((updatedDoc as Record<string, unknown>).agentId))));
       continue;
     }
 
     const recommendationId = createPublicId("adrec");
-    const doc = await AdaptiveDelegationRecommendation.create({
+    const doc = await adaptiveDelegation.createRecommendation({
       recommendationId,
       accountId: candidate.accountId,
       agentId: candidate.agentId,
@@ -319,12 +294,12 @@ export async function refreshAdaptiveDelegationRecommendations(options: {
         kind: candidate.kind
       }
     });
-    views.push(toView(doc.toObject(), agentNames.get(doc.agentId)));
+    views.push(toView(doc as Record<string, unknown>, agentNames.get(String((doc as Record<string, unknown>).agentId))));
   }
 
   // Mark stale active recommendations that no longer qualify as superseded.
   const activeFingerprints = new Set(generated.map((item) => item.fingerprint));
-  await AdaptiveDelegationRecommendation.updateMany(
+  await adaptiveDelegation.updateRecommendations(
     {
       accountId: options.accountId,
       status: "active",
@@ -354,9 +329,10 @@ export async function listAdaptiveDelegationDashboard(options: {
   }
 
   const [rows, agents, patterns] = await Promise.all([
-    AdaptiveDelegationRecommendation.find({ accountId: options.accountId })
-      .sort({ confidence: -1, updatedAt: -1 })
-      .lean(),
+    adaptiveDelegation.findRecommendations(
+      { accountId: options.accountId },
+      { sort: { confidence: -1, updatedAt: -1 } }
+    ),
     listAgents({ accountId: options.accountId }, { select: "agentId name" }) as Promise<
       Array<{ agentId: string; name?: string }>
     >,
@@ -390,15 +366,20 @@ export async function markRecommendationViewed(options: {
   recommendationId: string;
   actorUserId: string;
 }) {
-  const doc = await AdaptiveDelegationRecommendation.findOne({
+  const doc = await adaptiveDelegation.findOneRecommendation({
     accountId: options.accountId,
     recommendationId: options.recommendationId
   });
   if (!doc) return { error: jsonError("Recommendation not found.", 404) };
 
+  let viewed = doc as Record<string, unknown>;
   if (!doc.viewedAt) {
-    doc.viewedAt = new Date();
-    await doc.save();
+    viewed =
+      (await adaptiveDelegation.findOneAndUpdateRecommendation(
+        { recommendationId: options.recommendationId, accountId: options.accountId },
+        { $set: { viewedAt: new Date() } },
+        { new: true }
+      )) ?? viewed;
     await recordEvent({
       accountId: options.accountId,
       recommendationId: options.recommendationId,
@@ -407,7 +388,7 @@ export async function markRecommendationViewed(options: {
     });
   }
 
-  return { recommendation: toView(doc.toObject()) };
+  return { recommendation: toView(viewed) };
 }
 
 export async function acceptRecommendation(options: {
@@ -416,7 +397,7 @@ export async function acceptRecommendation(options: {
   recommendationId: string;
   agentIds?: string[];
 }) {
-  const doc = await AdaptiveDelegationRecommendation.findOne({
+  const doc = await adaptiveDelegation.findOneRecommendation({
     accountId: options.actor.accountId,
     recommendationId: options.recommendationId
   });
@@ -499,13 +480,21 @@ export async function acceptRecommendation(options: {
       if (Array.isArray(applied.permissionIds)) permissionIds.push(...applied.permissionIds);
     }
 
-    doc.status = "accepted";
-    doc.acceptedProfileId = profileId;
-    doc.acceptedPermissionId = permissionIds[0] ?? null;
-    doc.acceptedAgentIds = requested;
-    doc.acceptedBy = options.userId;
-    doc.resolvedAt = new Date();
-    await doc.save();
+    const updated =
+      (await adaptiveDelegation.findOneAndUpdateRecommendation(
+        { recommendationId: options.recommendationId, accountId: options.actor.accountId },
+        {
+          $set: {
+            status: "accepted",
+            acceptedProfileId: profileId,
+            acceptedPermissionId: permissionIds[0] ?? null,
+            acceptedAgentIds: requested,
+            acceptedBy: options.userId,
+            resolvedAt: new Date()
+          }
+        },
+        { new: true }
+      )) ?? doc;
 
     await recordEvent({
       accountId: options.actor.accountId,
@@ -521,8 +510,8 @@ export async function acceptRecommendation(options: {
     });
 
     return {
-      recommendation: toView(doc.toObject()),
-      permissionId: doc.acceptedPermissionId,
+      recommendation: toView(updated as Record<string, unknown>),
+      permissionId: (updated as Record<string, unknown>).acceptedPermissionId as string | null,
       profileId,
       agentIds: requested
     };
@@ -566,14 +555,23 @@ export async function acceptRecommendation(options: {
     });
     if ("error" in applied && applied.error) return { error: applied.error };
 
-    doc.status = "accepted";
-    doc.acceptedProfileId = profileId;
-    doc.acceptedPermissionId = Array.isArray(applied.permissionIds)
+    const acceptedPermissionId = Array.isArray(applied.permissionIds)
       ? applied.permissionIds[0] ?? null
       : null;
-    doc.acceptedBy = options.userId;
-    doc.resolvedAt = new Date();
-    await doc.save();
+    const updated =
+      (await adaptiveDelegation.findOneAndUpdateRecommendation(
+        { recommendationId: options.recommendationId, accountId: options.actor.accountId },
+        {
+          $set: {
+            status: "accepted",
+            acceptedProfileId: profileId,
+            acceptedPermissionId,
+            acceptedBy: options.userId,
+            resolvedAt: new Date()
+          }
+        },
+        { new: true }
+      )) ?? doc;
 
     await recordEvent({
       accountId: options.actor.accountId,
@@ -588,8 +586,8 @@ export async function acceptRecommendation(options: {
     });
 
     return {
-      recommendation: toView(doc.toObject()),
-      permissionId: doc.acceptedPermissionId,
+      recommendation: toView(updated as Record<string, unknown>),
+      permissionId: acceptedPermissionId,
       profileId
     };
   }
@@ -615,11 +613,20 @@ export async function acceptRecommendation(options: {
   });
   if ("error" in result && result.error) return { error: result.error };
 
-  doc.status = "accepted";
-  doc.acceptedPermissionId = "permissionId" in result ? result.permissionId ?? null : null;
-  doc.acceptedBy = options.userId;
-  doc.resolvedAt = new Date();
-  await doc.save();
+  const acceptedPermissionId = "permissionId" in result ? result.permissionId ?? null : null;
+  const updated =
+    (await adaptiveDelegation.findOneAndUpdateRecommendation(
+      { recommendationId: options.recommendationId, accountId: options.actor.accountId },
+      {
+        $set: {
+          status: "accepted",
+          acceptedPermissionId,
+          acceptedBy: options.userId,
+          resolvedAt: new Date()
+        }
+      },
+      { new: true }
+    )) ?? doc;
 
   await recordEvent({
     accountId: options.actor.accountId,
@@ -628,14 +635,14 @@ export async function acceptRecommendation(options: {
     actorUserId: options.userId,
     metadata: {
       kind: doc.kind,
-      permissionId: doc.acceptedPermissionId,
+      permissionId: acceptedPermissionId,
       constraints: proposed.constraints ?? null
     }
   });
 
   return {
-    recommendation: toView(doc.toObject()),
-    permissionId: doc.acceptedPermissionId
+    recommendation: toView(updated as Record<string, unknown>),
+    permissionId: acceptedPermissionId
   };
 }
 
@@ -645,7 +652,7 @@ export async function dismissRecommendation(options: {
   recommendationId: string;
   reason: AdaptiveDelegationDismissReason;
 }) {
-  const doc = await AdaptiveDelegationRecommendation.findOne({
+  const doc = await adaptiveDelegation.findOneRecommendation({
     accountId: options.accountId,
     recommendationId: options.recommendationId
   });
@@ -659,12 +666,20 @@ export async function dismissRecommendation(options: {
     const remindAt = new Date(
       Date.now() + DEFAULT_ADAPTIVE_DELEGATION_THRESHOLDS.postponeDays * 24 * 60 * 60 * 1000
     );
-    doc.status = "postponed";
-    doc.dismissReason = options.reason;
-    doc.dismissedBy = options.userId;
-    doc.remindAt = remindAt;
-    doc.resolvedAt = null;
-    await doc.save();
+    const updated =
+      (await adaptiveDelegation.findOneAndUpdateRecommendation(
+        { recommendationId: options.recommendationId, accountId: options.accountId },
+        {
+          $set: {
+            status: "postponed",
+            dismissReason: options.reason,
+            dismissedBy: options.userId,
+            remindAt,
+            resolvedAt: null
+          }
+        },
+        { new: true }
+      )) ?? doc;
 
     await recordEvent({
       accountId: options.accountId,
@@ -674,15 +689,23 @@ export async function dismissRecommendation(options: {
       metadata: { reason: options.reason, remindAt: remindAt.toISOString() }
     });
 
-    return { recommendation: toView(doc.toObject()) };
+    return { recommendation: toView(updated as Record<string, unknown>) };
   }
 
-  doc.status = "dismissed";
-  doc.dismissReason = options.reason;
-  doc.dismissedBy = options.userId;
-  doc.resolvedAt = new Date();
-  doc.remindAt = null;
-  await doc.save();
+  const updated =
+    (await adaptiveDelegation.findOneAndUpdateRecommendation(
+      { recommendationId: options.recommendationId, accountId: options.accountId },
+      {
+        $set: {
+          status: "dismissed",
+          dismissReason: options.reason,
+          dismissedBy: options.userId,
+          resolvedAt: new Date(),
+          remindAt: null
+        }
+      },
+      { new: true }
+    )) ?? doc;
 
   await recordEvent({
     accountId: options.accountId,
@@ -692,7 +715,7 @@ export async function dismissRecommendation(options: {
     metadata: { reason: options.reason }
   });
 
-  return { recommendation: toView(doc.toObject()) };
+  return { recommendation: toView(updated as Record<string, unknown>) };
 }
 
 export async function postponeRecommendation(options: {
@@ -701,7 +724,7 @@ export async function postponeRecommendation(options: {
   recommendationId: string;
   days?: number;
 }) {
-  const doc = await AdaptiveDelegationRecommendation.findOne({
+  const doc = await adaptiveDelegation.findOneRecommendation({
     accountId: options.accountId,
     recommendationId: options.recommendationId
   });
@@ -713,9 +736,12 @@ export async function postponeRecommendation(options: {
   const days = options.days ?? DEFAULT_ADAPTIVE_DELEGATION_THRESHOLDS.postponeDays;
   const remindAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 
-  doc.status = "postponed";
-  doc.remindAt = remindAt;
-  await doc.save();
+  const updated =
+    (await adaptiveDelegation.findOneAndUpdateRecommendation(
+      { recommendationId: options.recommendationId, accountId: options.accountId },
+      { $set: { status: "postponed", remindAt } },
+      { new: true }
+    )) ?? doc;
 
   await recordEvent({
     accountId: options.accountId,
@@ -725,5 +751,5 @@ export async function postponeRecommendation(options: {
     metadata: { remindAt: remindAt.toISOString(), days }
   });
 
-  return { recommendation: toView(doc.toObject()) };
+  return { recommendation: toView(updated as Record<string, unknown>) };
 }

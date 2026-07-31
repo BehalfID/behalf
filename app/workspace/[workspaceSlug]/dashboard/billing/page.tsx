@@ -1,14 +1,13 @@
 import { notFound, redirect } from "next/navigation";
-import { connectToDatabase } from "@/lib/db";
 import { getCurrentDeveloperContext } from "@/lib/developerAuth";
 import { requireWorkspaceMembershipBySlug } from "@/lib/accountContext";
 import { shouldForceAccountSetup } from "@/lib/onboardingRedirect";
 import { normalizePlan } from "@/lib/plans";
 import { countBillableSeats } from "@/lib/quota";
+import { findOneAccount } from "@/lib/repositories/accounts";
+import { countAgents } from "@/lib/repositories/agents";
+import { findManagedProfilePolicyByAccountId } from "@/lib/repositories/managedProfiles";
 import { validateWorkspaceSlug } from "@/lib/workspaceSlug";
-import Account from "@/models/Account";
-import Agent from "@/models/Agent";
-import ManagedProfilePolicy from "@/models/ManagedProfilePolicy";
 import { BillingClient } from "@/app/dashboard/billing/client";
 
 export const metadata = { title: "Billing — BehalfID" };
@@ -31,15 +30,13 @@ export default async function WorkspaceBillingPage({
   const resolved = await requireWorkspaceMembershipBySlug(user.userId, workspaceSlug);
   if ("error" in resolved) notFound();
 
-  await connectToDatabase();
-
   const accountId = resolved.workspace.accountId;
-  const account = await Account.findOne({ accountId }).lean();
+  const account = await findOneAccount({ accountId });
 
   const [agentCount, seatCount, policy] = await Promise.all([
-    Agent.countDocuments({ accountId }),
+    countAgents({ accountId }),
     countBillableSeats(accountId),
-    ManagedProfilePolicy.findOne({ accountId }).select("protectedRepos").lean()
+    findManagedProfilePolicyByAccountId(accountId)
   ]);
 
   return (

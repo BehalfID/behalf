@@ -1499,6 +1499,78 @@ export const permissionReplacementAudits = pgTable(
   ]
 );
 
+export const adaptiveDelegationRecommendations = pgTable(
+  "adaptive_delegation_recommendations",
+  {
+    recommendationId: text("recommendation_id").primaryKey(),
+    accountId: text("account_id")
+      .notNull()
+      .references(() => accounts.accountId),
+    agentId: text("agent_id").notNull(),
+    kind: text("kind").notNull().default("reusable_permission"),
+    status: text("status").notNull().default("active"),
+    action: text("action").notNull(),
+    resource: text("resource"),
+    confidence: integer("confidence").notNull(),
+    explanation: text("explanation").notNull(),
+    factors: jsonb("factors").$type<unknown[]>().notNull().default([]),
+    evidence: jsonb("evidence").$type<Record<string, unknown>>().notNull(),
+    proposedPermission: jsonb("proposed_permission").$type<Record<string, unknown> | null>(),
+    proposedTrustProfile: jsonb("proposed_trust_profile").$type<Record<string, unknown> | null>(),
+    proposedOrgDelegation: jsonb("proposed_org_delegation").$type<Record<string, unknown> | null>(),
+    affectedTools: text("affected_tools").array().notNull().default([]),
+    affectedResources: text("affected_resources").array().notNull().default([]),
+    estimatedApprovalReduction: integer("estimated_approval_reduction").notNull().default(0),
+    securityImpact: jsonb("security_impact").$type<Record<string, unknown>>().notNull(),
+    rollbackInstructions: text("rollback_instructions").notNull(),
+    fingerprint: text("fingerprint").notNull(),
+    dismissReason: text("dismiss_reason"),
+    remindAt: timestamp("remind_at", { withTimezone: true, mode: "date" }),
+    acceptedPermissionId: text("accepted_permission_id"),
+    acceptedProfileId: text("accepted_profile_id"),
+    acceptedAgentIds: text("accepted_agent_ids").array(),
+    acceptedBy: text("accepted_by"),
+    dismissedBy: text("dismissed_by"),
+    viewedAt: timestamp("viewed_at", { withTimezone: true, mode: "date" }),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true, mode: "date" }),
+    ...createdUpdatedAt()
+  },
+  (table) => [
+    uniqueIndex("adaptive_delegation_recommendations_account_fingerprint_uq").on(
+      table.accountId,
+      table.fingerprint
+    ),
+    index("adaptive_delegation_recommendations_account_status_confidence_idx").on(
+      table.accountId,
+      table.status,
+      table.confidence
+    ),
+    index("adaptive_delegation_recommendations_agent_idx").on(table.agentId)
+  ]
+);
+
+export const adaptiveDelegationEvents = pgTable(
+  "adaptive_delegation_events",
+  {
+    eventId: text("event_id").primaryKey(),
+    accountId: text("account_id")
+      .notNull()
+      .references(() => accounts.accountId),
+    recommendationId: text("recommendation_id").notNull(),
+    actorUserId: text("actor_user_id"),
+    type: text("type").notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown> | null>(),
+    ...createdUpdatedAt()
+  },
+  (table) => [
+    index("adaptive_delegation_events_account_created_idx").on(table.accountId, table.createdAt),
+    index("adaptive_delegation_events_recommendation_created_idx").on(
+      table.recommendationId,
+      table.createdAt
+    )
+  ]
+);
+
 /** All schema tables exported for static validation and future repository adapters. */
 export const coreTables = {
   accounts,
@@ -1540,7 +1612,9 @@ export const coreTables = {
   authEvents,
   consoleAdmins,
   adminAuditLogs,
-  permissionReplacementAudits
+  permissionReplacementAudits,
+  adaptiveDelegationRecommendations,
+  adaptiveDelegationEvents
 } as const;
 
 export type CoreTableName = keyof typeof coreTables;
