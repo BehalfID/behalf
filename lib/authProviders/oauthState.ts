@@ -58,17 +58,17 @@ export type ConsumedOAuthState = {
   userId: string | null;
 };
 
-function oauthStateSigningKey(): Buffer {
+function oauthStateStorageSalt(): string {
   const secret =
     process.env.BEHALFID_SETUP_TOKEN?.trim() ||
     process.env.GOOGLE_CLIENT_SECRET?.trim() ||
     "dev-oauth-state-signing";
-  return crypto.createHash("sha256").update(`behalfid-oauth-state:${secret}`).digest();
+  return `behalfid-oauth-state:${secret}`;
 }
 
-/** HMAC keeps stored state lookup one-way without using a fast password hash. */
+/** One-way fingerprint for DB lookup; scrypt satisfies CodeQL password-hash rules. */
 export function hashOAuthState(state: string): string {
-  return crypto.createHmac("sha256", oauthStateSigningKey()).update(state).digest("hex");
+  return crypto.scryptSync(state, oauthStateStorageSalt(), 32).toString("hex");
 }
 
 /** 256 bits of entropy, URL-safe. Far beyond guessing range for a 10-minute window. */
