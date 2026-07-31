@@ -2,18 +2,24 @@
  * Applies optional query options by reassignment so both real Mongoose queries
  * (mutable, builders return this) and nested unit-test mocks
  * (`findOne().select().lean()`) work.
+ *
+ * Parameter/return shapes use `any` intentionally: Mongoose Query generics are
+ * incompatible with a narrow structural type, and callers rely on inferred
+ * document types from `.lean()` / repository wrappers.
  */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 export type ChainableQuery = {
-  select?: (projection: string | Record<string, unknown>) => unknown;
-  sort?: (spec: unknown) => unknown;
-  skip?: (n: number) => unknown;
-  limit?: (n: number) => unknown;
-  maxTimeMS?: (n: number) => unknown;
-  lean: (...args: never[]) => unknown;
+  select?: (...args: any[]) => any;
+  sort?: (...args: any[]) => any;
+  skip?: (...args: any[]) => any;
+  limit?: (...args: any[]) => any;
+  maxTimeMS?: (...args: any[]) => any;
+  lean?: (...args: any[]) => any;
 };
 
-export function applyQueryOptions(
-  query: ChainableQuery,
+export function applyQueryOptions<T extends ChainableQuery>(
+  query: T,
   options: {
     select?: string | Record<string, unknown>;
     sort?: unknown;
@@ -21,8 +27,8 @@ export function applyQueryOptions(
     limit?: number;
     maxTimeMS?: number;
   } = {}
-): ChainableQuery {
-  let q = query;
+): T {
+  let q: ChainableQuery = query;
   if (options.select != null && typeof q.select === "function") {
     q = q.select(options.select) as ChainableQuery;
   }
@@ -38,51 +44,69 @@ export function applyQueryOptions(
   if (options.maxTimeMS != null && typeof q.maxTimeMS === "function") {
     q = q.maxTimeMS(options.maxTimeMS) as ChainableQuery;
   }
-  return q;
+  return q as T;
 }
 
 /** Resolve lean() even when unit mocks only expose lean under select(). */
-export function asLean<T = unknown>(query: ChainableQuery): Promise<T> {
+export async function asLean<T = any>(query: ChainableQuery): Promise<T> {
   if (typeof query.lean === "function") {
-    return Promise.resolve(query.lean() as T);
+    return (await query.lean()) as T;
   }
   // Legacy mocks that resolve findOne/find directly to a document (Promise-like).
   if (query && typeof (query as { then?: unknown }).then === "function") {
-    return Promise.resolve(query as T);
+    return query as T;
   }
   if (typeof query.select === "function") {
     const nested = query.select("_id") as ChainableQuery;
     if (nested && typeof nested.lean === "function") {
-      return Promise.resolve(nested.lean() as T);
+      return (await nested.lean()) as T;
     }
     if (nested && typeof (nested as { then?: unknown }).then === "function") {
-      return Promise.resolve(nested as T);
+      return nested as T;
     }
   }
   throw new TypeError("query.lean is not a function");
 }
 
 /**
- * Query-like object that supports both `.lean()` chaining and `await query`
- * (Mongoose Query thenable semantics) for cutover compatibility.
+ * Query-like object that supports both `.lean()` / `.lean<T>()` chaining and
+ * `await query` (Mongoose Query thenable semantics) for cutover compatibility.
  */
-export type ThenableQuery = ChainableQuery & PromiseLike<unknown>;
+export type ThenableQuery<T = any> = {
+  select?: (...args: any[]) => any;
+  sort?: (...args: any[]) => any;
+  skip?: (...args: any[]) => any;
+  limit?: (...args: any[]) => any;
+  maxTimeMS?: (...args: any[]) => any;
+  lean: {
+    (): Promise<T>;
+    <R>(): Promise<R>;
+  };
+  then: Promise<T>["then"];
+  catch: Promise<T>["catch"];
+  finally: Promise<T>["finally"];
+  [Symbol.toStringTag]: string;
+};
 
-export function thenableQuery(query: ChainableQuery): ThenableQuery {
-  const target = query as ThenableQuery;
-  if (typeof target.then === "function") return target;
-  return Object.assign(query, {
-    then(onFulfilled: (value: unknown) => unknown, onRejected?: (reason: unknown) => unknown) {
-      return asLean(query).then(onFulfilled, onRejected);
-    }
-  }) as ThenableQuery;
+export function thenableQuery<T = any>(query: ChainableQuery): ThenableQuery<T> {
+  const resolve = () => asLean<T>(query);
+  const promise = resolve();
+  const lean = (<R = T>() => asLean<R>(query)) as ThenableQuery<T>["lean"];
+  return Object.assign(promise, {
+    select: query.select?.bind(query),
+    sort: query.sort?.bind(query),
+    skip: query.skip?.bind(query),
+    limit: query.limit?.bind(query),
+    maxTimeMS: query.maxTimeMS?.bind(query),
+    lean
+  }) as ThenableQuery<T>;
 }
 
 /**
  * Applies an optional projection then lean().
  * Also accepts legacy unit mocks where `.select()` resolves directly to a document.
  */
-export function selectLean<T = unknown>(query: ChainableQuery, select?: string): Promise<T> {
+export function selectLean<T = any>(query: ChainableQuery, select?: string): Promise<T> {
   const projected =
     select != null && typeof query.select === "function" ? query.select(select) : query;
 

@@ -36,8 +36,8 @@ export function findAgentByApiKeyHash(apiKeyHash: string, select = "+apiKeyHash"
 export function listAgents(
   filter: Record<string, unknown>,
   options: { select?: string; sort?: Record<string, 1 | -1> } = {}
-) {
-  return asLean(applyQueryOptions(Agent.find(filter), options));
+): Promise<AgentLean[]> {
+  return asLean<AgentLean[]>(applyQueryOptions(Agent.find(filter), options));
 }
 
 export async function updateAgent(
@@ -75,8 +75,8 @@ export function findAgents(filter: Record<string, unknown> = {}) {
   return Agent.find(filter);
 }
 
-export function findOneAgent(filter: Record<string, unknown>, options: { select?: string } = {}) {
-  return selectLean(Agent.findOne(filter), options.select);
+export function findOneAgent(filter: Record<string, unknown>, options: { select?: string } = {}): Promise<AgentLean | null> {
+  return selectLean<AgentLean | null>(Agent.findOne(filter), options.select);
 }
 
 export function findOneAndUpdateAgent(

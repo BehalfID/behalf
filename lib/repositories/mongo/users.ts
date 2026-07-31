@@ -135,8 +135,8 @@ export function createUserDocument(input: Record<string, unknown>) {
 export function findUsers(
   filter: Record<string, unknown> = {},
   options: { sort?: Record<string, 1 | -1>; limit?: number; skip?: number; select?: string } = {}
-) {
-  return asLean(applyQueryOptions(DeveloperUser.find(filter), options));
+): Promise<DeveloperUserLean[]> {
+  return asLean<DeveloperUserLean[]>(applyQueryOptions(DeveloperUser.find(filter), options));
 }
 
 export function findOneUser(filter: Record<string, unknown>) {

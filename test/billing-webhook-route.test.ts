@@ -41,7 +41,9 @@ describe("POST /api/billing/webhook", () => {
     billingMocks.connectToDatabase.mockResolvedValue(undefined);
     billingMocks.stripeEventCreate.mockResolvedValue({});
     billingMocks.accountUpdateOne.mockResolvedValue({});
-    billingMocks.accountFindOne.mockResolvedValue({ accountId: "acct_test" });
+    billingMocks.accountFindOne.mockReturnValue({
+      lean: vi.fn().mockResolvedValue({ accountId: "acct_test" })
+    });
     billingMocks.webhookUpdateMany.mockResolvedValue({});
     billingMocks.constructEvent.mockReturnValue({
       id: "evt_test",

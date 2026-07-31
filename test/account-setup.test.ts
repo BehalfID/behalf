@@ -253,8 +253,8 @@ describe("account setup API", () => {
         onboarding: null
       })
     });
-    mocks.DeveloperUser.updateOne.mockResolvedValue({});
-    mocks.Account.updateOne.mockResolvedValue({});
+    mocks.DeveloperUser.updateOne.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
+    mocks.Account.updateOne.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
   });
 
   it("rejects completion without required names", async () => {

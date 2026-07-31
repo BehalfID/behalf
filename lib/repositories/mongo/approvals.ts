@@ -130,8 +130,8 @@ export function findOneApproval(filter: Record<string, unknown>) {
 export function findApprovals(
   filter: Record<string, unknown> = {},
   options: { sort?: Record<string, 1 | -1>; limit?: number; skip?: number; select?: string } = {}
-) {
-  return asLean(applyQueryOptions(ApprovalRequest.find(filter), options));
+): Promise<ApprovalLean[]> {
+  return asLean<ApprovalLean[]>(applyQueryOptions(ApprovalRequest.find(filter), options));
 }
 
 export function updateApproval(filter: Record<string, unknown>, update: Record<string, unknown>) {

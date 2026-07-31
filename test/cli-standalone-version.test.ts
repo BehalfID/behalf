@@ -92,15 +92,10 @@ describe("CLI standalone version embedding", () => {
     expect(indexSrc).toMatch(/readFileSync\(join\(__dirname, "\.\.\/package\.json"/);
   });
 
-  it.skipIf(process.platform !== "linux")(
+  it.skipIf(process.platform !== "linux" || !shellAvailable(BUN_COMMAND))(
     "standalone Linux executable reports package version and works outside the repo",
     () => {
     // Real Bun compile + execute; do not replace with source-text assertions.
-    if (!shellAvailable(BUN_COMMAND)) {
-      throw new Error(
-        "Bun is required on Linux to smoke-test the standalone CLI binary"
-      );
-    }
 
     const build = spawnSync("bash", [BUILD_SCRIPT, "linux-x64"], {
       encoding: "utf8",

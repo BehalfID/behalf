@@ -6,10 +6,10 @@ const routeMocks = vi.hoisted(() => ({
 }));
 
 const dbMocks = vi.hoisted(() => ({
-  siteFindOne: vi.fn(),
-  keyFind: vi.fn(),
-  keyCreate: vi.fn(),
-  keyFindOneAndUpdate: vi.fn()
+  findOneSite: vi.fn(),
+  findKeys: vi.fn(),
+  createKeyDocument: vi.fn(),
+  findOneAndUpdateKey: vi.fn()
 }));
 
 vi.mock("@/lib/developerAuth", () => ({
@@ -19,16 +19,16 @@ vi.mock("@/lib/rateLimit", () => ({
   checkRateLimit: routeMocks.checkRateLimit,
   rateLimitError: () => Response.json({ error: "Rate limited." }, { status: 429 })
 }));
-vi.mock("@/models/Site", () => ({
-  default: { findOne: dbMocks.siteFindOne }
-}));
-vi.mock("@/models/SiteGuardKey", () => ({
-  default: {
-    find: dbMocks.keyFind,
-    create: dbMocks.keyCreate,
-    findOneAndUpdate: dbMocks.keyFindOneAndUpdate
-  }
-}));
+vi.mock("@/lib/repositories/sites", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/repositories/sites")>();
+  return {
+    ...actual,
+    findOneSite: dbMocks.findOneSite,
+    findKeys: dbMocks.findKeys,
+    createKeyDocument: dbMocks.createKeyDocument,
+    findOneAndUpdateKey: dbMocks.findOneAndUpdateKey
+  };
+});
 
 const authUser = { userId: "dev_test", primaryAccountId: "acct_test" };
 const authContext = { user: authUser, activeAccountId: "acct_test", error: null };
@@ -62,12 +62,8 @@ function siteKeyRevokeRequest(keyId: string) {
 describe("GET /api/dashboard/sites/[siteId]/keys", () => {
   beforeEach(() => {
     routeMocks.requireDeveloperApi.mockResolvedValue(authContext);
-    dbMocks.siteFindOne.mockReturnValue({ lean: vi.fn().mockResolvedValue(site) });
-    dbMocks.keyFind.mockReturnValue({
-      sort: vi.fn().mockReturnThis(),
-      select: vi.fn().mockReturnThis(),
-      lean: vi.fn().mockResolvedValue([keyDoc])
-    });
+    dbMocks.findOneSite.mockResolvedValue(site);
+    dbMocks.findKeys.mockResolvedValue([keyDoc]);
   });
 
   it("returns the key list without raw key or hash", async () => {
@@ -86,16 +82,17 @@ describe("GET /api/dashboard/sites/[siteId]/keys", () => {
     const { GET } = await import("@/app/api/dashboard/sites/[siteId]/keys/route");
     await GET(siteKeysRequest("GET"), { params: Promise.resolve({ siteId: "site_test" }) });
 
-    expect(dbMocks.siteFindOne).toHaveBeenCalledWith(
+    expect(dbMocks.findOneSite).toHaveBeenCalledWith(
       expect.objectContaining({ developerUserId: "dev_test", accountId: "acct_test" })
     );
-    expect(dbMocks.keyFind).toHaveBeenCalledWith(
-      expect.objectContaining({ developerUserId: "dev_test", accountId: "acct_test" })
+    expect(dbMocks.findKeys).toHaveBeenCalledWith(
+      expect.objectContaining({ developerUserId: "dev_test", accountId: "acct_test" }),
+      expect.any(Object)
     );
   });
 
   it("returns 404 when site is not owned by the developer", async () => {
-    dbMocks.siteFindOne.mockReturnValue({ lean: vi.fn().mockResolvedValue(null) });
+    dbMocks.findOneSite.mockResolvedValue(null);
     const { GET } = await import("@/app/api/dashboard/sites/[siteId]/keys/route");
     const response = await GET(siteKeysRequest("GET"), { params: Promise.resolve({ siteId: "site_other" }) });
 
@@ -108,7 +105,7 @@ describe("GET /api/dashboard/sites/[siteId]/keys", () => {
       activeAccountId: "acct_other",
       error: null
     });
-    dbMocks.siteFindOne.mockReturnValueOnce({ lean: vi.fn().mockResolvedValue(null) });
+    dbMocks.findOneSite.mockResolvedValueOnce(null);
     const { GET } = await import("@/app/api/dashboard/sites/[siteId]/keys/route");
     const response = await GET(siteKeysRequest("GET"), { params: Promise.resolve({ siteId: "site_test" }) });
 
@@ -131,8 +128,8 @@ describe("GET /api/dashboard/sites/[siteId]/keys", () => {
 describe("POST /api/dashboard/sites/[siteId]/keys", () => {
   beforeEach(() => {
     routeMocks.requireDeveloperApi.mockResolvedValue(authContext);
-    dbMocks.siteFindOne.mockReturnValue({ lean: vi.fn().mockResolvedValue(site) });
-    dbMocks.keyCreate.mockResolvedValue(keyDoc);
+    dbMocks.findOneSite.mockResolvedValue(site);
+    dbMocks.createKeyDocument.mockResolvedValue(keyDoc);
   });
 
   it("creates a key and returns rawKey once", async () => {
@@ -151,7 +148,7 @@ describe("POST /api/dashboard/sites/[siteId]/keys", () => {
     const { POST } = await import("@/app/api/dashboard/sites/[siteId]/keys/route");
     await POST(siteKeysRequest("POST", { name: "Test key" }), { params: Promise.resolve({ siteId: "site_test" }) });
 
-    expect(dbMocks.siteFindOne).toHaveBeenCalledWith(
+    expect(dbMocks.findOneSite).toHaveBeenCalledWith(
       expect.objectContaining({ developerUserId: "dev_test", accountId: "acct_test" })
     );
   });
@@ -162,7 +159,7 @@ describe("POST /api/dashboard/sites/[siteId]/keys", () => {
       activeAccountId: "acct_other",
       error: null
     });
-    dbMocks.siteFindOne.mockReturnValueOnce({ lean: vi.fn().mockResolvedValue(null) });
+    dbMocks.findOneSite.mockResolvedValueOnce(null);
     const { POST } = await import("@/app/api/dashboard/sites/[siteId]/keys/route");
     const response = await POST(siteKeysRequest("POST", { name: "Key" }), { params: Promise.resolve({ siteId: "site_test" }) });
 
@@ -188,10 +185,8 @@ describe("POST /api/dashboard/sites/[siteId]/keys", () => {
 describe("DELETE /api/dashboard/sites/[siteId]/keys/[keyId]", () => {
   beforeEach(() => {
     routeMocks.requireDeveloperApi.mockResolvedValue(authContext);
-    dbMocks.siteFindOne.mockReturnValue({ lean: vi.fn().mockResolvedValue(site) });
-    dbMocks.keyFindOneAndUpdate.mockReturnValue({
-      select: vi.fn().mockResolvedValue({ ...keyDoc, status: "revoked" })
-    });
+    dbMocks.findOneSite.mockResolvedValue(site);
+    dbMocks.findOneAndUpdateKey.mockResolvedValue({ ...keyDoc, status: "revoked" });
   });
 
   it("revokes an active key", async () => {
@@ -208,10 +203,10 @@ describe("DELETE /api/dashboard/sites/[siteId]/keys/[keyId]", () => {
     const { DELETE } = await import("@/app/api/dashboard/sites/[siteId]/keys/[keyId]/route");
     await DELETE(siteKeyRevokeRequest("sgk_test"), { params: Promise.resolve({ siteId: "site_test", keyId: "sgk_test" }) });
 
-    expect(dbMocks.siteFindOne).toHaveBeenCalledWith(
+    expect(dbMocks.findOneSite).toHaveBeenCalledWith(
       expect.objectContaining({ developerUserId: "dev_test", accountId: "acct_test" })
     );
-    expect(dbMocks.keyFindOneAndUpdate).toHaveBeenCalledWith(
+    expect(dbMocks.findOneAndUpdateKey).toHaveBeenCalledWith(
       expect.objectContaining({ developerUserId: "dev_test", accountId: "acct_test" }),
       expect.any(Object),
       expect.any(Object)
@@ -224,7 +219,7 @@ describe("DELETE /api/dashboard/sites/[siteId]/keys/[keyId]", () => {
       activeAccountId: "acct_other",
       error: null
     });
-    dbMocks.siteFindOne.mockReturnValueOnce({ lean: vi.fn().mockResolvedValue(null) });
+    dbMocks.findOneSite.mockResolvedValueOnce(null);
     const { DELETE } = await import("@/app/api/dashboard/sites/[siteId]/keys/[keyId]/route");
     const response = await DELETE(siteKeyRevokeRequest("sgk_test"), { params: Promise.resolve({ siteId: "site_test", keyId: "sgk_test" }) });
 
@@ -244,9 +239,7 @@ describe("DELETE /api/dashboard/sites/[siteId]/keys/[keyId]", () => {
   });
 
   it("returns 404 for an already-revoked or unknown key", async () => {
-    dbMocks.keyFindOneAndUpdate.mockReturnValue({
-      select: vi.fn().mockResolvedValue(null)
-    });
+    dbMocks.findOneAndUpdateKey.mockResolvedValue(null);
     const { DELETE } = await import("@/app/api/dashboard/sites/[siteId]/keys/[keyId]/route");
     const response = await DELETE(siteKeyRevokeRequest("sgk_missing"), { params: Promise.resolve({ siteId: "site_test", keyId: "sgk_missing" }) });
 

@@ -1,22 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const siteGuardMocks = vi.hoisted(() => ({
-  siteFindOne: vi.fn(),
-  ruleFind: vi.fn(),
-  logCreate: vi.fn()
+  findSite: vi.fn(),
+  findRulesBySite: vi.fn(),
+  createAccessLog: vi.fn()
 }));
 
-vi.mock("@/models/Site", () => ({
-  default: { findOne: siteGuardMocks.siteFindOne }
-}));
-
-vi.mock("@/models/SiteAccessRule", () => ({
-  default: { find: siteGuardMocks.ruleFind }
-}));
-
-vi.mock("@/models/SiteAccessLog", () => ({
-  default: { create: siteGuardMocks.logCreate }
-}));
+vi.mock("@/lib/repositories/sites", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/repositories/sites")>();
+  return {
+    ...actual,
+    findSite: siteGuardMocks.findSite,
+    findRulesBySite: siteGuardMocks.findRulesBySite,
+    createAccessLog: siteGuardMocks.createAccessLog
+  };
+});
 
 const input = {
   accountId: "acct_site",
@@ -48,17 +46,11 @@ function rule(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function mockRules(rules: unknown[]) {
-  siteGuardMocks.ruleFind.mockReturnValue({
-    sort: vi.fn().mockResolvedValue(rules)
-  });
-}
-
 describe("Site Guard decisions", () => {
   beforeEach(() => {
-    siteGuardMocks.siteFindOne.mockResolvedValue(site);
-    siteGuardMocks.logCreate.mockResolvedValue({});
-    mockRules([rule()]);
+    siteGuardMocks.findSite.mockResolvedValue(site);
+    siteGuardMocks.createAccessLog.mockResolvedValue({});
+    siteGuardMocks.findRulesBySite.mockResolvedValue([rule()]);
   });
 
   it("matches exact and wildcard paths", async () => {
@@ -124,15 +116,14 @@ describe("Site Guard decisions", () => {
 
     await checkSiteAccess(input);
 
-    expect(siteGuardMocks.siteFindOne).toHaveBeenCalledWith({
+    expect(siteGuardMocks.findSite).toHaveBeenCalledWith({
       accountId: "acct_site",
       developerUserId: "dev_site",
       siteId: "site_test"
     });
-    expect(siteGuardMocks.ruleFind).toHaveBeenCalledWith({
+    expect(siteGuardMocks.findRulesBySite).toHaveBeenCalledWith("site_test", {
       accountId: "acct_site",
-      developerUserId: "dev_site",
-      siteId: "site_test"
+      developerUserId: "dev_site"
     });
   });
 
@@ -140,18 +131,18 @@ describe("Site Guard decisions", () => {
     const { checkSiteAccess } = await import("@/lib/siteGuard");
 
     const allowed = await checkSiteAccess(input);
-    mockRules([]);
+    siteGuardMocks.findRulesBySite.mockResolvedValueOnce([]);
     const denied = await checkSiteAccess(input);
 
     expect(allowed.allowed).toBe(true);
     expect(denied.allowed).toBe(false);
-    expect(siteGuardMocks.logCreate).toHaveBeenCalledWith(expect.objectContaining({
+    expect(siteGuardMocks.createAccessLog).toHaveBeenCalledWith(expect.objectContaining({
       requestId: allowed.requestId,
       siteId: "site_test",
       ruleId: "sgr_test",
       allowed: true
     }));
-    expect(siteGuardMocks.logCreate).toHaveBeenCalledWith(expect.objectContaining({
+    expect(siteGuardMocks.createAccessLog).toHaveBeenCalledWith(expect.objectContaining({
       requestId: denied.requestId,
       siteId: "site_test",
       allowed: false
@@ -173,13 +164,13 @@ describe("Site Guard decisions", () => {
       nested: "[omitted]"
     });
 
-    siteGuardMocks.siteFindOne.mockRejectedValueOnce(new Error("db down"));
+    siteGuardMocks.findSite.mockRejectedValueOnce(new Error("db down"));
     await expect(checkSiteAccess(input)).resolves.toEqual(expect.objectContaining({
       allowed: false,
       reason: "Site Guard failed closed."
     }));
 
-    siteGuardMocks.logCreate.mockRejectedValueOnce(new Error("log down"));
+    siteGuardMocks.createAccessLog.mockRejectedValueOnce(new Error("log down"));
     await expect(checkSiteAccess(input)).resolves.toEqual(expect.objectContaining({
       allowed: false,
       reason: "Site Guard failed closed."

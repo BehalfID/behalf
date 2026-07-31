@@ -26,8 +26,7 @@ export async function GET(
   const agent = await findOneAgent({
     accountId: actor.accountId,
     agentId: viewed.recommendation?.agentId
-  }, { select: "name" })
-    .lean<{ name?: string } | null>();
+  }, { select: "name" });
 
   return noCacheJson({
     recommendation: {
