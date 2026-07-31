@@ -1540,7 +1540,7 @@ export const adaptiveDelegationRecommendations = pgTable(
       table.accountId,
       table.fingerprint
     ),
-    index("adaptive_delegation_recommendations_account_status_confidence_idx").on(
+    index("adaptive_delegation_rec_account_status_conf_idx").on(
       table.accountId,
       table.status,
       table.confidence
