@@ -23,6 +23,9 @@ export const CORE_TABLES = [
   "accounts",
   "developer_users",
   "oauth_pending_signups",
+  "external_identities",
+  "oauth_authorization_states",
+  "identity_audit_logs",
   "developer_sessions",
   "developer_api_tokens",
   "account_memberships",
@@ -81,7 +84,10 @@ export const CRITICAL_INDEX_NAMES = [
   "device_codes_user_code_unique",
   "policy_documents_account_id_unique",
   "integration_bindings_account_provider_team_channel_uq",
-  "collaboration_message_refs_account_approval_provider_uq"
+  "collaboration_message_refs_account_approval_provider_uq",
+  "external_identities_provider_account_uq",
+  "external_identities_user_provider_uq",
+  "oauth_pending_signups_provider_account_idx"
 ] as const;
 
 export const VERIFICATION_LOG_MAINTENANCE_FUNCTIONS = [
@@ -122,7 +128,8 @@ function migrationSqlPaths(): string[] {
     join(process.cwd(), "drizzle/0003_schema_parity.sql"),
     join(process.cwd(), "drizzle/0004_managed_profile_pause_index_parity.sql"),
     join(process.cwd(), "drizzle/0005_policy_and_integrations.sql"),
-    join(process.cwd(), "drizzle/0006_permission_replacement_parity.sql")
+    join(process.cwd(), "drizzle/0006_permission_replacement_parity.sql"),
+    join(process.cwd(), "drizzle/0007_external_identities.sql")
   ];
 }
 
