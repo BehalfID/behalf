@@ -55,7 +55,13 @@ export const CORE_TABLES = [
   "status_incidents",
   "policy_documents",
   "integration_bindings",
-  "collaboration_message_refs"
+  "collaboration_message_refs",
+  "auth_events",
+  "console_admins",
+  "admin_audit_logs",
+  "permission_replacement_audits",
+  "adaptive_delegation_recommendations",
+  "adaptive_delegation_events"
 ] as const;
 
 /** Indexes that must exist after the full migration chain (by stable SQL name). */
@@ -135,7 +141,10 @@ function migrationSqlPaths(): string[] {
     join(process.cwd(), "drizzle/0005_policy_and_integrations.sql"),
     join(process.cwd(), "drizzle/0006_permission_replacement_parity.sql"),
     join(process.cwd(), "drizzle/0007_external_identities.sql"),
-    join(process.cwd(), "drizzle/0008_passkeys_auth_usage.sql")
+    join(process.cwd(), "drizzle/0008_passkeys_auth_usage.sql"),
+    join(process.cwd(), "drizzle/0009_console_auth_audit_tables.sql"),
+    join(process.cwd(), "drizzle/0010_developer_user_mfa.sql"),
+    join(process.cwd(), "drizzle/0011_adaptive_delegation.sql")
   ];
 }
 

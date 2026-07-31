@@ -19,9 +19,9 @@ Do **not** invent live-client, pilot-completion, performance, uptime, or complia
 
 | Capability | Implemented in source | Released and installable | Live-validated | Production-supported | Notes / evidence |
 |---|---|---|---|---|---|
-| MongoDB / Mongoose runtime | Yes | N/A (hosted app) | Yes — `npm run test:integration`, Mongo contract suites | **Yes — default production backend** | `lib/db.ts`, `models/*`, `docs/PRODUCTION.md` |
-| Postgres / Drizzle schema + migrations | Yes | N/A | Yes — CI `postgres-schema` job (`test:postgres-smoke`, `test:postgres-repositories`) | **No — gated / in progress** | Runtime requires `BEHALFID_ALLOW_POSTGRES_RUNTIME=true` plus backend flags. Default remains Mongo. See `docs/DATABASE_MIGRATION.md`, `docs/POSTGRES_SCHEMA.md` |
-| Repository boundary (Mongo + optional Postgres adapters) | Yes | N/A | Partial — Mongo contracts always; Postgres contracts opt-in/CI | Mongo path yes; Postgres path no | `lib/repositories/*` |
+| MongoDB / Mongoose runtime | Yes (legacy/test) | N/A (hosted app) | Yes — `npm run test:integration`, Mongo contract suites | **No — retired for production cutover** | Available only when `BEHALFID_ALLOW_POSTGRES_RUNTIME` is unset. Not used for production traffic after cutover. |
+| Postgres / Drizzle schema + migrations | Yes | N/A | Yes — CI `postgres-schema` job (`test:postgres-smoke`, `test:postgres-repositories`) | **Yes — authoritative production backend** | Requires `BEHALFID_ALLOW_POSTGRES_RUNTIME=true` (defaults repository backend to postgres). Prefer also setting `BEHALFID_REPOSITORY_BACKEND=postgres`. See `docs/PRODUCTION.md`, `docs/DATABASE_MIGRATION.md` |
+| Repository boundary (Mongo + Postgres adapters) | Yes | N/A | Partial — Mongo contracts always; Postgres contracts opt-in/CI | Postgres path yes for production | `lib/repositories/*` |
 
 ---
 

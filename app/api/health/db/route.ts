@@ -2,7 +2,9 @@ import mongoose from "mongoose";
 import { type NextRequest } from "next/server";
 import { requireSetupTokenOrConsoleApi } from "@/lib/adminAuth";
 import { connectToDatabase } from "@/lib/db";
+import { isPostgresConfigured } from "@/lib/db/postgres";
 import {
+  isPostgresRuntimeEnabled,
   listRepositoryBackendOverrides,
   resolveRepositoryBackend
 } from "@/lib/repositories/backend";
@@ -29,14 +31,36 @@ export async function GET(request: NextRequest) {
       repositoryBackend = "mongo";
     }
 
-    return noCacheJson({
-      status: "ok",
+    const postgresRuntime = isPostgresRuntimeEnabled();
+    let database: "connected" | "connecting" | "unavailable" = "unavailable";
+    if (postgresRuntime) {
+      if (!isPostgresConfigured()) {
+        database = "unavailable";
+      } else {
+        try {
+          const { getPostgresDb } = await import("@/lib/db/postgres");
+          const { sql } = await import("drizzle-orm");
+          await getPostgresDb().execute(sql`select 1`);
+          database = "connected";
+        } catch {
+          database = "unavailable";
+        }
+      }
+    } else {
+      database = mongoose.connection.readyState === 1 ? "connected" : "connecting";
+    }
+
+    const payload = {
+      status: database === "unavailable" ? "error" : "ok",
       service: "behalfid",
-      database: mongoose.connection.readyState === 1 ? "connected" : "connecting",
-      postgresConfigured: Boolean(process.env.DATABASE_URL?.trim()),
+      database,
+      postgresConfigured: isPostgresConfigured(),
+      postgresRuntime,
       repositoryBackend,
       repositoryBackendOverrides: listRepositoryBackendOverrides()
-    });
+    };
+
+    return noCacheJson(payload, database === "unavailable" ? { status: 503 } : undefined);
   } catch {
     return noCacheJson(
       { status: "error", service: "behalfid", database: "unavailable" },
