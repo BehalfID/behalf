@@ -17,6 +17,7 @@ export const OAUTH_ERROR_CODES = [
   "requires_explicit_link",
   "already_linked",
   "unlink_last_method",
+  "passkey_only_forbidden",
   "session_required",
   "provider_error"
 ] as const;
@@ -39,7 +40,9 @@ const MESSAGES: Record<OAuthErrorCode, string> = {
     "To use this provider, sign in to BehalfID first and connect it from Settings → Account security.",
   already_linked: "This provider is already connected to your account.",
   unlink_last_method:
-    "Set a password before disconnecting this provider, so you keep a way to sign in.",
+    "Set a password or keep another sign-in method before disconnecting this provider.",
+  passkey_only_forbidden:
+    "Keep a password or connected provider so you can recover if your passkeys are lost.",
   session_required: "Sign in first, then connect this provider from your account settings.",
   provider_error: "Sign-in could not be completed. Try again."
 };

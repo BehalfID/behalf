@@ -79,6 +79,22 @@ export async function POST(request: NextRequest) {
     return jsonError("Invalid email or password.", 401);
   }
 
+  const { updateAccountLastSignIn } = await import("@/lib/authProviders/authUsage");
+  await updateAccountLastSignIn({
+    userId: user.userId,
+    method: "password",
+    request
+  });
+  const { recordIdentityAudit } = await import("@/lib/authProviders/identityAudit");
+  await recordIdentityAudit({
+    userId: user.userId,
+    action: "password_login",
+    provider: "password",
+    providerAccountId: "password",
+    request,
+    context: user.mfaEnabledAt ? "password_mfa_pending" : "password_login"
+  });
+
   if (user.mfaEnabledAt) {
     const { createMfaChallengeToken } = await import("@/lib/mfa");
     const challengeToken = await createMfaChallengeToken(user.userId);

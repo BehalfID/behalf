@@ -2,13 +2,15 @@ import crypto from "crypto";
 import type { NextRequest } from "next/server";
 import { clientIpFromRequest, hashIp } from "@/lib/authEvents";
 import { logger } from "@/lib/logger";
-import type { ExternalIdentityProvider } from "@/models/ExternalIdentity";
-import IdentityAuditLog, { type IdentityAuditAction } from "@/models/IdentityAuditLog";
+import IdentityAuditLog, {
+  type IdentityAuditAction,
+  type IdentityAuditProvider
+} from "@/models/IdentityAuditLog";
 
 export type IdentityAuditInput = {
   userId: string;
   action: IdentityAuditAction;
-  provider: ExternalIdentityProvider;
+  provider: IdentityAuditProvider;
   providerAccountId: string;
   providerUsername?: string | null;
   request?: NextRequest;

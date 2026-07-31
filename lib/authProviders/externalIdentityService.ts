@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { recordIdentityAudit } from "@/lib/authProviders/identityAudit";
+import { canRemoveLoginMethod } from "@/lib/authProviders/loginMethodSafety";
 import type { NormalizedLoginIdentity } from "@/lib/authProviders/providers/types";
 import { normalizeEmail } from "@/lib/developerAuth";
 import { createPublicId } from "@/lib/ids";
@@ -138,14 +139,12 @@ export async function linkIdentity(options: {
 
 export type UnlinkIdentityResult =
   | { ok: true }
-  | { ok: false; code: "not_linked" | "unlink_last_method" };
+  | { ok: false; code: "not_linked" | "unlink_last_method" | "passkey_only_forbidden" };
 
 /**
- * Detaches a provider identity, refusing when it is the account's only way in.
- *
- * The check counts a password and every *other* linked identity. Removing the
- * last one would lock the user out with no self-service recovery, since a
- * passwordless account cannot use the password-reset flow either.
+ * Detaches a provider identity, refusing when it is the account's only safe
+ * recovery path. Uses the shared login-method safety service so passkeys,
+ * passwords, and OAuth identities share one policy.
  */
 export async function unlinkIdentity(options: {
   userId: string;
@@ -162,14 +161,26 @@ export async function unlinkIdentity(options: {
     return { ok: false, code: "not_linked" };
   }
 
-  const user = await DeveloperUser.findOne({ userId }).select("+passwordHash userId").lean();
-  const otherIdentityCount = await ExternalIdentity.countDocuments({
-    userId,
-    provider: { $ne: provider }
-  });
-
-  if (!user?.passwordHash && otherIdentityCount === 0) {
-    return { ok: false, code: "unlink_last_method" };
+  const allowed = await canRemoveLoginMethod(userId, { kind: provider });
+  if (!allowed.allowed) {
+    await recordIdentityAudit({
+      userId,
+      action: "method_removal_rejected",
+      provider,
+      providerAccountId: identity.providerAccountId,
+      providerUsername: identity.providerUsername ?? null,
+      request: options.request,
+      context: allowed.reason ?? "settings"
+    });
+    return {
+      ok: false,
+      code:
+        allowed.reason === "passkey_only_forbidden"
+          ? "passkey_only_forbidden"
+          : allowed.reason === "not_found"
+            ? "not_linked"
+            : "unlink_last_method"
+    };
   }
 
   await ExternalIdentity.deleteOne({ userId, provider });

@@ -132,6 +132,33 @@ export async function GET(request: NextRequest) {
   }
 
   if (user) {
+    const { updateAccountLastSignIn } = await import("@/lib/authProviders/authUsage");
+    await updateAccountLastSignIn({
+      userId: user.userId,
+      method: "google",
+      request
+    });
+    const { recordIdentityAudit } = await import("@/lib/authProviders/identityAudit");
+    await recordIdentityAudit({
+      userId: user.userId,
+      action: "identity_login",
+      provider: "google",
+      providerAccountId: claims.sub,
+      providerUsername: email,
+      request,
+      context: "oauth_callback"
+    });
+    // Best-effort: refresh external_identities lastLoginAt when the row exists.
+    try {
+      const ExternalIdentity = (await import("@/models/ExternalIdentity")).default;
+      await ExternalIdentity.updateOne(
+        { provider: "google", providerAccountId: claims.sub },
+        { $set: { lastLoginAt: new Date() } }
+      );
+    } catch {
+      /* ignore */
+    }
+
     const { token, session } = await createDeveloperSession(user.userId);
     const preferredAccountId = await resolvePreferredSsoAccountId(user.userId, email);
     if (preferredAccountId) {

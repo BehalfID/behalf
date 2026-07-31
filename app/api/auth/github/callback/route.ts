@@ -184,6 +184,12 @@ async function signInExistingUser(
     request,
     context: "oauth_callback"
   });
+  const { updateAccountLastSignIn } = await import("@/lib/authProviders/authUsage");
+  await updateAccountLastSignIn({
+    userId,
+    method: "github",
+    request
+  });
 
   // A second factor is a property of the account, not of the sign-in method.
   // Skipping it for OAuth would turn "connect GitHub" into an MFA bypass.

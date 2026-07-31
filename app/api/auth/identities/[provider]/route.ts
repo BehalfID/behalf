@@ -78,6 +78,9 @@ export async function DELETE(
     if (result.code === "not_linked") {
       return jsonError("That provider is not connected to your account.", 404);
     }
+    if (result.code === "passkey_only_forbidden") {
+      return jsonError(oauthErrorMessage("passkey_only_forbidden"), 409);
+    }
     return jsonError(oauthErrorMessage("unlink_last_method"), 409);
   }
 
