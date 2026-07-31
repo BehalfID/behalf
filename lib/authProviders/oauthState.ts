@@ -58,8 +58,17 @@ export type ConsumedOAuthState = {
   userId: string | null;
 };
 
+function oauthStateSigningKey(): Buffer {
+  const secret =
+    process.env.BEHALFID_SETUP_TOKEN?.trim() ||
+    process.env.GOOGLE_CLIENT_SECRET?.trim() ||
+    "dev-oauth-state-signing";
+  return crypto.createHash("sha256").update(`behalfid-oauth-state:${secret}`).digest();
+}
+
+/** HMAC keeps stored state lookup one-way without using a fast password hash. */
 export function hashOAuthState(state: string): string {
-  return crypto.createHash("sha256").update(state).digest("hex");
+  return crypto.createHmac("sha256", oauthStateSigningKey()).update(state).digest("hex");
 }
 
 /** 256 bits of entropy, URL-safe. Far beyond guessing range for a 10-minute window. */
