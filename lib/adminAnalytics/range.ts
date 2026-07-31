@@ -52,6 +52,12 @@ export function truncateUtc(date: Date, granularity: BucketGranularity): Date {
   return new Date(Math.floor(date.getTime() / step) * step);
 }
 
+/** The current UTC calendar day as a half-open window `[start, end)`. */
+export function utcDayWindow(now = new Date()): { start: Date; end: Date } {
+  const start = truncateUtc(now, "day");
+  return { start, end: new Date(start.getTime() + DAY_MS) };
+}
+
 export function bucketStepMs(granularity: BucketGranularity): number {
   return granularity === "hour" ? HOUR_MS : DAY_MS;
 }

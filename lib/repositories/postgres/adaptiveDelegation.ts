@@ -23,9 +23,9 @@ function toLean(row: RecRow): AdaptiveDelegationRecommendationLean {
     explanation: row.explanation,
     factors: row.factors,
     evidence: row.evidence,
-    proposedPermission: row.proposedPermission,
-    proposedTrustProfile: row.proposedTrustProfile,
-    proposedOrgDelegation: row.proposedOrgDelegation,
+    proposedPermission: row.proposedPermission as AdaptiveDelegationRecommendationLean["proposedPermission"],
+    proposedTrustProfile: row.proposedTrustProfile as AdaptiveDelegationRecommendationLean["proposedTrustProfile"],
+    proposedOrgDelegation: row.proposedOrgDelegation as AdaptiveDelegationRecommendationLean["proposedOrgDelegation"],
     affectedTools: row.affectedTools,
     affectedResources: row.affectedResources,
     estimatedApprovalReduction: row.estimatedApprovalReduction,
@@ -49,7 +49,7 @@ function toLean(row: RecRow): AdaptiveDelegationRecommendationLean {
 function buildWhere(filter: Record<string, unknown>): SQL | undefined {
   const conditions: SQL[] = [];
   for (const [key, value] of Object.entries(filter)) {
-    const column = (adaptiveDelegationRecommendations as Record<string, unknown>)[key];
+    const column = (adaptiveDelegationRecommendations as unknown as Record<string, unknown>)[key];
     if (!column || typeof column !== "object") {
       throw new Error(`Unsupported adaptive delegation filter field: ${key}`);
     }

@@ -16,7 +16,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   const { eventId } = await context.params;
   const accountId = await getConsoleAccountId();
-  const event = await findEvent({ accountId, eventId }, { select: "-_id eventId type payload status attempts nextAttemptAt deadLetter lastError completedAt createdAt updatedAt" });
+  const event = await findEvent(
+    { accountId, eventId },
+    "-_id eventId type payload status attempts nextAttemptAt deadLetter lastError completedAt createdAt updatedAt"
+  );
 
   if (!event) {
     return jsonError("Webhook event not found.", 404);

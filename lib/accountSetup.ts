@@ -7,6 +7,7 @@ import {
   type AccountOnboarding,
   type AccountSetupAccount,
   type AccountSetupProfile,
+  type AccountType,
   validateAccountSetupCompletion,
   validateAccountType,
   validateCompanyName,
@@ -191,8 +192,9 @@ export async function patchAccountSetup(
       : null;
     const accountType =
       ("accountType" in body ? validateAccountType(body.accountType, false).value : undefined) ??
-      (account as { accountType?: string } | null)?.accountType;
-    const result = validateCompanyName(body.companyName, accountType ?? undefined, false);
+      (account as { accountType?: AccountType | null } | null)?.accountType ??
+      undefined;
+    const result = validateCompanyName(body.companyName, accountType, false);
     if (result.error) return { error: result.error };
     accountUpdate.companyName = result.value ?? null;
   }

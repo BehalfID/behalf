@@ -1,5 +1,10 @@
 import AdaptiveDelegationEvent from "@/models/AdaptiveDelegationEvent";
 import AdaptiveDelegationRecommendation from "@/models/AdaptiveDelegationRecommendation";
+import type {
+  ProposedOrgDelegation,
+  ProposedPermission,
+  ProposedTrustProfile
+} from "@/lib/adaptiveDelegation/types";
 
 export type AdaptiveDelegationRecommendationLean = Record<string, unknown> & {
   recommendationId: string;
@@ -12,8 +17,9 @@ export type AdaptiveDelegationRecommendationLean = Record<string, unknown> & {
   dismissReason?: string | null;
   remindAt?: Date | null;
   acceptedProfileId?: string | null;
-  proposedTrustProfile?: { templateId?: string } | null;
-  proposedOrgDelegation?: { templateId?: string } | null;
+  proposedPermission?: ProposedPermission | null;
+  proposedTrustProfile?: ProposedTrustProfile | { templateId?: string } | null;
+  proposedOrgDelegation?: ProposedOrgDelegation | { templateId?: string } | null;
 };
 
 export async function createEvent(input: Record<string, unknown>) {

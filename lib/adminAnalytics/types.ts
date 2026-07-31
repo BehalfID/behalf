@@ -25,6 +25,18 @@ export type AnalyticsRate = {
 
 export type VerificationOutcome = "allowed" | "denied" | "approval_required" | "indeterminate";
 
+/** Outcome rollup used by the console health summary and analytics cards. */
+export type VerificationOutcomeTotals = {
+  attempts: number;
+  enforced: number;
+  allowed: number;
+  denied: number;
+  approvalRequired: number;
+  indeterminate: number;
+  shadow: number;
+  highRisk: number;
+};
+
 export type AdminAnalyticsRange = {
   interval: AdminAnalyticsInterval;
   /** Inclusive lower bound, UTC. */

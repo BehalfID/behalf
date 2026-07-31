@@ -67,8 +67,10 @@ export function listEvents(
   return query;
 }
 
-export function findEvent(filter: Record<string, unknown>) {
-  return WebhookEvent.findOne(filter);
+export function findEvent(filter: Record<string, unknown>, select?: string) {
+  const query = WebhookEvent.findOne(filter);
+  if (select) query.select(select);
+  return query.lean();
 }
 
 export async function recoverStuckEvents(stuckBefore: Date, maxAttempts: number) {

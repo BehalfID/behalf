@@ -23,7 +23,10 @@ import type {
   AdaptiveDelegationEventType,
   AdaptiveDelegationRecommendationView,
   AdaptiveDelegationStats,
-  AdaptiveDelegationThresholds
+  AdaptiveDelegationThresholds,
+  ProposedOrgDelegation,
+  ProposedPermission,
+  ProposedTrustProfile
 } from "@/lib/adaptiveDelegation/types";
 import { DEFAULT_ADAPTIVE_DELEGATION_THRESHOLDS } from "@/lib/adaptiveDelegation/types";
 
@@ -407,13 +410,14 @@ export async function acceptRecommendation(options: {
   }
 
   if (doc.kind === "organization_delegation") {
-    const proposed = doc.proposedOrgDelegation;
-    if (!proposed?.templateId || !proposed.name || !Array.isArray(proposed.permissions)) {
+    const proposed = doc.proposedOrgDelegation as ProposedOrgDelegation | { templateId?: string } | null | undefined;
+    if (!proposed?.templateId || !("name" in proposed) || !proposed.name || !Array.isArray(proposed.permissions)) {
       return { error: jsonError("Organization delegation recommendation is incomplete.", 409) };
     }
 
+    const orgProposed = proposed as ProposedOrgDelegation;
     const minAuthority = Math.max(
-      Number(proposed.minAcceptAuthorityLevel ?? AUTHORITY_LEVELS.ENGINEERING_LEAD),
+      Number(orgProposed.minAcceptAuthorityLevel ?? AUTHORITY_LEVELS.ENGINEERING_LEAD),
       AUTHORITY_LEVELS.ENGINEERING_LEAD
     );
     if (options.actor.authorityLevel < minAuthority) {
@@ -425,8 +429,8 @@ export async function acceptRecommendation(options: {
       };
     }
 
-    const proposedAgentIds = Array.isArray(proposed.agentIds)
-      ? proposed.agentIds.map(String)
+    const proposedAgentIds = Array.isArray(orgProposed.agentIds)
+      ? orgProposed.agentIds.map(String)
       : [];
     const requested =
       options.agentIds && options.agentIds.length > 0
@@ -435,7 +439,7 @@ export async function acceptRecommendation(options: {
     if (requested.length === 0) {
       return { error: jsonError("Select at least one agent to apply the organization template.") };
     }
-    const invalid = requested.filter((agentId) => !proposedAgentIds.includes(agentId));
+    const invalid = requested.filter((agentId: string) => !proposedAgentIds.includes(agentId));
     if (invalid.length > 0) {
       return {
         error: jsonError(
@@ -444,10 +448,10 @@ export async function acceptRecommendation(options: {
       };
     }
 
-    const template = getOrgDelegationTemplate(proposed.templateId);
+    const template = getOrgDelegationTemplate(orgProposed.templateId);
     const permissions = template
       ? toOrgProfilePermissionInputs(template)
-      : proposed.permissions.map((permission) => ({
+      : orgProposed.permissions.map((permission) => ({
           action: permission.action,
           resource: permission.resource ?? undefined,
           requiresApproval: permission.requiresApproval,
@@ -456,10 +460,10 @@ export async function acceptRecommendation(options: {
         }));
 
     const created = await createPermissionProfile(options.actor, {
-      name: `Org: ${proposed.name}`,
+      name: `Org: ${orgProposed.name}`,
       description:
-        proposed.description ||
-        `Created from Adaptive Delegation organization template (${proposed.templateId}).`,
+        orgProposed.description ||
+        `Created from Adaptive Delegation organization template (${orgProposed.templateId}).`,
       permissions
     });
     if ("error" in created && created.error) return { error: created.error };
@@ -518,15 +522,16 @@ export async function acceptRecommendation(options: {
   }
 
   if (doc.kind === "trust_profile") {
-    const proposed = doc.proposedTrustProfile;
-    if (!proposed?.templateId || !proposed.name || !Array.isArray(proposed.permissions)) {
+    const proposed = doc.proposedTrustProfile as ProposedTrustProfile | { templateId?: string } | null | undefined;
+    if (!proposed?.templateId || !("name" in proposed) || !proposed.name || !Array.isArray(proposed.permissions)) {
       return { error: jsonError("Trust profile recommendation is incomplete.", 409) };
     }
 
-    const template = getTrustProfileTemplate(proposed.templateId);
+    const trustProposed = proposed as ProposedTrustProfile;
+    const template = getTrustProfileTemplate(trustProposed.templateId);
     const permissions = template
       ? toProfilePermissionInputs(template)
-      : proposed.permissions.map((permission) => ({
+      : trustProposed.permissions.map((permission) => ({
           action: permission.action,
           resource: permission.resource ?? undefined,
           requiresApproval: permission.requiresApproval,
@@ -535,10 +540,10 @@ export async function acceptRecommendation(options: {
         }));
 
     const created = await createPermissionProfile(options.actor, {
-      name: `${proposed.name} (${doc.agentId})`,
+      name: `${trustProposed.name} (${doc.agentId})`,
       description:
-        proposed.description ||
-        `Created from Adaptive Delegation trust profile recommendation (${proposed.templateId}).`,
+        trustProposed.description ||
+        `Created from Adaptive Delegation trust profile recommendation (${trustProposed.templateId}).`,
       permissions
     });
     if ("error" in created && created.error) return { error: created.error };
@@ -592,7 +597,7 @@ export async function acceptRecommendation(options: {
     };
   }
 
-  const proposed = doc.proposedPermission;
+  const proposed = doc.proposedPermission as ProposedPermission | null | undefined;
   if (!proposed?.action) {
     return { error: jsonError("Permission recommendation is incomplete.", 409) };
   }

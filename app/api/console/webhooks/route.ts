@@ -2,11 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireConsoleApi } from "@/lib/adminAuth";
 import { getConsoleAccountId } from "@/lib/consoleData";
 import { createPublicId } from "@/lib/ids";
+import { createEndpoint, listEndpoints } from "@/lib/repositories/webhooks";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { rejectUnknownFields } from "@/lib/validation";
 import {
-import { createEndpoint, listEndpoints } from "@/lib/repositories/webhooks";
   createSigningSecret,
   validateWebhookEvents,
   validateWebhookUrl,
@@ -20,7 +20,13 @@ export async function GET(request: NextRequest) {
   }
 
   const accountId = await getConsoleAccountId();
-  const webhooks = await listEndpoints({ accountId }, { sort: { createdAt: -1 }, select: "-_id webhookId url secretPreview events status lastTriggeredAt createdAt updatedAt" });
+  const webhooks = await listEndpoints(
+    { accountId },
+    {
+      sort: { createdAt: -1 },
+      select: "webhookId url secretPreview events status lastTriggeredAt createdAt updatedAt"
+    }
+  );
 
   return NextResponse.json({ webhooks, eventTypes: WEBHOOK_EVENT_TYPES });
 }

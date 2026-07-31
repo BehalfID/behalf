@@ -23,6 +23,7 @@ import type {
   CountSeriesPoint,
   ProviderAdoption,
   VerificationOutcome,
+  VerificationOutcomeTotals,
   VerificationSeriesPoint,
   WorkspaceVolumeRow
 } from "@/lib/adminAnalytics/types";
@@ -782,5 +783,78 @@ function buildCountSeries(rows: CountGroupRow[], range: AdminAnalyticsRange): Co
       bucketStart: bucketStart.toISOString(),
       count: row?.count ?? 0
     })
+  });
+}
+
+/**
+ * Outcome totals for one window. Shared by the console health summary so it
+ * cannot disagree with the analytics dashboard taxonomy.
+ */
+export async function getVerificationOutcomeTotals(options: {
+  start: Date;
+  end: Date;
+  accountId?: string | null;
+}): Promise<VerificationOutcomeTotals | null> {
+  try {
+    const db = getPostgresDb();
+    const accountId = options.accountId?.trim() || null;
+    const [row] = await db
+      .select(outcomeSelect())
+      .from(verificationLogs)
+      .where(logWindow(accountId, options.start, options.end));
+    return normalizeOutcomes(row);
+  } catch (error) {
+    logger.error("admin_analytics_aggregation_failed", {
+      source: "outcome_totals",
+      error: error instanceof Error ? error.message : String(error)
+    });
+    return null;
+  }
+}
+
+/** Dense, UTC-aligned verification series; missing buckets are zeros. */
+export async function getVerificationSeries(options: {
+  start: Date;
+  end: Date;
+  granularity: BucketGranularity;
+  accountId?: string | null;
+}): Promise<VerificationSeriesPoint[]> {
+  const accountId = options.accountId?.trim() || null;
+  let rows: SeriesGroupRow[] = [];
+  try {
+    const db = getPostgresDb();
+    const bucket = bucketSql(options.granularity);
+    const raw = await db
+      .select({ _id: bucket, ...outcomeSelect() })
+      .from(verificationLogs)
+      .where(logWindow(accountId, options.start, options.end))
+      .groupBy(bucket)
+      .orderBy(bucket);
+    rows = raw.map((row) => ({ ...normalizeOutcomes(row), _id: row._id }));
+  } catch (error) {
+    logger.error("admin_analytics_aggregation_failed", {
+      source: "outcome_series",
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+
+  return fillBuckets(rows, {
+    seriesStart: options.start,
+    seriesEnd: options.end,
+    granularity: options.granularity,
+    keyOf: (row) => row._id,
+    build: (bucketStart, row) => {
+      const outcomes = normalizeOutcomes(row);
+      return {
+        bucketStart: bucketStart.toISOString(),
+        attempts: outcomes.attempts,
+        enforced: outcomes.enforced,
+        allowed: outcomes.allowed,
+        denied: outcomes.denied,
+        approvalRequired: outcomes.approvalRequired,
+        indeterminate: outcomes.indeterminate,
+        shadow: outcomes.shadow
+      };
+    }
   });
 }

@@ -23,7 +23,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   if (permission.status !== "revoked") {
-    await revokePermission({ accountId }, permissionId);
+    await revokePermission(permissionId, { accountId });
   }
 
   await emitWebhookEvent(

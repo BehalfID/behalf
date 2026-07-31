@@ -51,8 +51,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     if (permission.status !== "revoked") {
       await revokePermission(
-        accountScopeFilter(actor.accountId),
         permissionId,
+        accountScopeFilter(actor.accountId),
         humanAuth.user.userId
       );
     }

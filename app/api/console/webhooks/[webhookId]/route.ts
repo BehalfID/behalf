@@ -16,7 +16,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   const { webhookId } = await context.params;
   const accountId = await getConsoleAccountId();
-  const webhook = await findEndpoint({ accountId, webhookId }, { select: "-_id webhookId url secretPreview events status lastTriggeredAt createdAt updatedAt" });
+  const webhook = await findEndpoint(
+    { accountId, webhookId },
+    "-_id webhookId url secretPreview events status lastTriggeredAt createdAt updatedAt"
+  );
 
   if (!webhook) {
     return jsonError("Webhook not found.", 404);

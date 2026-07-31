@@ -31,8 +31,14 @@ export function findLogs(
   return query;
 }
 
-export function findOneLog(filter: Record<string, unknown>) {
-  return VerificationLog.findOne(filter);
+export function findOneLog(
+  filter: Record<string, unknown>,
+  options: { select?: string; sort?: Record<string, 1 | -1> } = {}
+) {
+  const query = VerificationLog.findOne(filter);
+  if (options.select) query.select(options.select);
+  if (options.sort) query.sort(options.sort);
+  return query;
 }
 
 export async function countLogs(filter: Record<string, unknown>) {

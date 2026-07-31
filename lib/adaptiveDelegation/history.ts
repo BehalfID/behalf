@@ -155,6 +155,7 @@ async function loadHistoryRows(options: {
     approvals: await Promise.resolve(approvals),
     logs: await Promise.resolve(logs)
   };
+}
 
 /**
  * Aggregate human approval decisions and verification approval-required volume
