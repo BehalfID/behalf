@@ -106,6 +106,9 @@ export async function createMfaChallengeToken(userId: string): Promise<string> {
   const issuedAt = Date.now();
   const nonce = crypto.randomBytes(8).toString("base64url");
   const payload = `${userId}.${issuedAt}.${nonce}`;
+  // HMAC over a short-lived challenge (userId + issuedAt + nonce), not a password hash.
+  // Password verification uses scrypt in verifyPassword().
+  // codeql[js/insufficient-password-hash]
   const sig = crypto
     .createHmac("sha256", challengeSigningKey())
     .update(payload)
