@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
 import { ContinueWithGitHub } from "@/components/auth/ContinueWithGitHub";
 import { ContinueWithGoogle } from "@/components/auth/ContinueWithGoogle";
+import { ContinueWithPasskey } from "@/components/auth/ContinueWithPasskey";
 import { AuthPrinciple, AuthShell, AuthTaskHeader, FormAlert } from "@/components/auth/AuthShell";
 import { Button, Field, FieldLabel, Input } from "@/components/ui";
 import { oauthErrorMessage } from "@/lib/authProviders/oauthErrors";
@@ -20,11 +21,13 @@ function maxDateOfBirth(minAge: number): string {
 export function AuthPage({
   mode,
   googleEnabled = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID),
-  githubEnabled = false
+  githubEnabled = false,
+  passkeyEnabled = false
 }: {
   mode: "login" | "signup";
   googleEnabled?: boolean;
   githubEnabled?: boolean;
+  passkeyEnabled?: boolean;
 }) {
   const t = useTranslations("auth");
   const searchParams = useSearchParams();
@@ -39,6 +42,7 @@ export function AuthPage({
   const [error, setError] = useState(oauthError);
   const [submitting, setSubmitting] = useState(false);
   const showOauth = googleEnabled || githubEnabled;
+  const showPasskey = mode === "login" && passkeyEnabled;
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -105,8 +109,9 @@ export function AuthPage({
           description={mode === "signup" ? t("signupBody") : t("loginBody")}
         />
 
-        {showOauth ? (
+        {showOauth || showPasskey ? (
           <div className="auth-task__oauth">
+            {showPasskey ? <ContinueWithPasskey enabled /> : null}
             {githubEnabled ? (
               <ContinueWithGitHub label={t("continueWithGitHub")} mode={mode} />
             ) : null}

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
 import { ContinueWithGitHub } from "@/components/auth/ContinueWithGitHub";
 import { ContinueWithGoogle } from "@/components/auth/ContinueWithGoogle";
+import { ContinueWithPasskey } from "@/components/auth/ContinueWithPasskey";
 import { AuthPrinciple, AuthShell, AuthTaskHeader, FormAlert } from "@/components/auth/AuthShell";
 import { Button, Field, FieldLabel, Input } from "@/components/ui";
 import { oauthErrorMessage } from "@/lib/authProviders/oauthErrors";
@@ -27,13 +28,15 @@ export function AuthPage({
   nextPath,
   initialEmail = "",
   googleEnabled = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID),
-  githubEnabled = false
+  githubEnabled = false,
+  passkeyEnabled = false
 }: {
   mode: "login" | "signup";
   nextPath?: string;
   initialEmail?: string;
   googleEnabled?: boolean;
   githubEnabled?: boolean;
+  passkeyEnabled?: boolean;
 }) {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState(initialEmail);
@@ -51,10 +54,22 @@ export function AuthPage({
   const [submitting, setSubmitting] = useState(false);
   // A GitHub sign-in that needs a second factor arrives here by redirect with
   // the challenge held in an httpOnly cookie, so there is no token to keep.
-  const [mfaToken, setMfaToken] = useState<string | null>(oauthMfaPending ? "" : null);
+  // Passkey MFA may stash a token in sessionStorage instead.
+  const [mfaToken, setMfaToken] = useState<string | null>(() => {
+    if (!oauthMfaPending) return null;
+    if (typeof window !== "undefined") {
+      const stored = sessionStorage.getItem("behalfid_mfa_token");
+      if (stored) {
+        sessionStorage.removeItem("behalfid_mfa_token");
+        return stored;
+      }
+    }
+    return "";
+  });
   const [mfaCode, setMfaCode] = useState("");
   const redirectPath = safeNextPath(nextPath) ?? (mode === "signup" ? "/verify-email" : "/dashboard");
   const showOauth = googleEnabled || githubEnabled;
+  const showPasskey = mode === "login" && passkeyEnabled;
 
   const submitMfa = async (event: FormEvent) => {
     event.preventDefault();
@@ -220,8 +235,9 @@ export function AuthPage({
             : "Enter the account credentials for your BehalfID control plane."}
         />
 
-        {showOauth ? (
+        {showOauth || showPasskey ? (
           <div className="auth-task__oauth">
+            {showPasskey ? <ContinueWithPasskey nextPath={nextPath} enabled /> : null}
             {githubEnabled ? <ContinueWithGitHub mode={mode} next={nextPath} /> : null}
             {googleEnabled ? <ContinueWithGoogle mode={mode} next={nextPath} /> : null}
             <p className="auth-divider" role="separator">
