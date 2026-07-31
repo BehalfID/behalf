@@ -108,6 +108,6 @@ When GitHub OAuth is unset, **password auth is unaffected** — GitHub buttons a
 | OAuth state + PKCE storage | `lib/authProviders/oauthState.ts` |
 | User-facing error codes | `lib/authProviders/oauthErrors.ts` |
 | Mongo models | `models/ExternalIdentity.ts`, `PasskeyCredential.ts`, `WebAuthnChallenge.ts`, `IdentityAuditLog.ts` |
-| Postgres migrations | `drizzle/0007_external_identities.sql`, `drizzle/0008_passkeys_auth_usage.sql` |
+| Postgres migrations | Applied on production Supabase via `supabase_migrations.schema_migrations` through `passkeys_auth_usage` (+ MFA / console / adaptive follow-ups). Repo SQL: `drizzle/0007_external_identities.sql`, `drizzle/0008_passkeys_auth_usage.sql`, `drizzle/0010_developer_user_mfa.sql` |
 | Routes | `app/api/auth/github/*`, `app/api/auth/passkey/*`, `app/api/auth/passkeys`, `app/api/auth/identities/*` |
 | UI | `components/auth/ContinueWithGitHub.tsx`, `ContinueWithPasskey.tsx`, `components/dashboard/LinkedAccountsSection.tsx` |

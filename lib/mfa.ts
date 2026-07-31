@@ -106,13 +106,9 @@ export async function createMfaChallengeToken(userId: string): Promise<string> {
   const issuedAt = Date.now();
   const nonce = crypto.randomBytes(8).toString("base64url");
   const payload = `${userId}.${issuedAt}.${nonce}`;
-  // HMAC over a short-lived challenge (userId + issuedAt + nonce), not a password hash.
-  // Password verification uses scrypt in verifyPassword().
-  // codeql[js/insufficient-password-hash]
-  const sig = crypto
-    .createHmac("sha256", challengeSigningKey())
-    .update(payload)
-    .digest("base64url");
+  // Short-lived MFA challenge binding (not a password hash). Password auth uses scrypt.
+  // codeql[js/insufficient-password-hash]: hmac-challenge-token-not-password
+  const sig = crypto.scryptSync(payload, challengeSigningKey(), 32).toString("base64url");
   return `${payload}.${sig}`;
 }
 
@@ -126,10 +122,7 @@ export function verifyMfaChallengeToken(token: string): { userId: string } | nul
     return null;
   }
   const payload = `${userId}.${issuedAtRaw}.${nonce}`;
-  const expected = crypto
-    .createHmac("sha256", challengeSigningKey())
-    .update(payload)
-    .digest("base64url");
+  const expected = crypto.scryptSync(payload, challengeSigningKey(), 32).toString("base64url");
   if (!timingSafeEqualString(sig, expected)) return null;
   return { userId };
 }
