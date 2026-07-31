@@ -3,7 +3,12 @@ import type { NextRequest } from "next/server";
 import { timingSafeEqualString } from "@/lib/crypto";
 import { recordAuthFailure } from "@/lib/authEvents";
 import { logger } from "@/lib/logger";
-import Agent, { type AgentDocument } from "@/models/Agent";
+import {
+  findAgentByAgentId,
+  findAgentByApiKeyHash,
+  touchAgentLastUsedAt,
+  type AgentLean
+} from "@/lib/repositories/agents";
 
 export { timingSafeEqualString };
 
@@ -31,7 +36,7 @@ export function recordAgentKeyUse(agentId: string, apiKeyHash?: string | null) {
   const filter: Record<string, string> = { agentId };
   if (apiKeyHash) filter.apiKeyHash = apiKeyHash;
 
-  Promise.resolve(Agent.updateOne(filter, { $set: { lastUsedAt: new Date() } })).catch((error: unknown) => {
+  Promise.resolve(touchAgentLastUsedAt(filter)).catch((error: unknown) => {
     logger.warn("Failed to update agent key lastUsedAt.", {
       agentId,
       error: error instanceof Error ? error.message : String(error)
@@ -57,7 +62,7 @@ export async function authenticateAgent(request: NextRequest, agentId: string) {
     return { agent: null, error: "Missing or invalid API key." };
   }
 
-  const agent = await Agent.findOne({ agentId }).select("+apiKeyHash");
+  const agent = await findAgentByAgentId(agentId, {}, "+apiKeyHash");
 
   if (!agent) {
     await recordAuthFailure({
@@ -84,7 +89,7 @@ export async function authenticateAgent(request: NextRequest, agentId: string) {
 
   recordAgentKeyUse(agent.agentId, candidateHash);
 
-  return { agent: agent as AgentDocument, error: null };
+  return { agent: agent as AgentLean, error: null };
 }
 
 export async function authenticateApiKey(request: NextRequest) {
@@ -101,7 +106,7 @@ export async function authenticateApiKey(request: NextRequest) {
   }
 
   const apiKeyHash = hashApiKey(apiKey);
-  const agent = await Agent.findOne({ apiKeyHash }).select("+apiKeyHash");
+  const agent = await findAgentByApiKeyHash(apiKeyHash);
 
   if (!agent) {
     await recordAuthFailure({
@@ -121,10 +126,10 @@ export async function authenticateApiKey(request: NextRequest) {
       reason: "invalid_api_key",
       identityHint: apiKeyHint(apiKey)
     });
-    return { agent: null, error: "Missing or invalid API key." };
+    return { agent: null, error: "API key does not match this agent." };
   }
 
   recordAgentKeyUse(agent.agentId, apiKeyHash);
 
-  return { agent: agent as AgentDocument, error: null };
+  return { agent: agent as AgentLean, error: null };
 }

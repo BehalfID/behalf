@@ -135,6 +135,29 @@ export function countAccountDocuments(filter: Record<string, unknown> = {}) {
   return Account.countDocuments(filter);
 }
 
+/** Accounts with SSO enabled+enforced that list this email domain. */
+export async function findAccountsEnforcingSsoForDomain(domain: string) {
+  return Account.find({
+    "sso.enabled": true,
+    "sso.enforce": true,
+    "sso.allowedEmailDomains": domain
+  })
+    .select("accountId plan sso")
+    .lean();
+}
+
+/** SSO-enabled accounts among the given IDs that list this email domain. */
+export async function findAccountsWithSsoForDomain(accountIds: string[], domain: string) {
+  if (accountIds.length === 0) return [];
+  return Account.find({
+    accountId: { $in: accountIds },
+    "sso.enabled": true,
+    "sso.allowedEmailDomains": domain
+  })
+    .select("accountId plan sso")
+    .lean();
+}
+
 export const accountRepository = {
   create: createAccountDocument,
   find: findAccounts,

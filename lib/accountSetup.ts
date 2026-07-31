@@ -1,4 +1,3 @@
-import { connectToDatabase } from "@/lib/db";
 import { canManageMembers, getWorkspaceActor } from "@/lib/delegatedAuth";
 import {
   defaultWorkspaceName,
@@ -23,9 +22,9 @@ import {
   AGENT_TOOLS,
   CONTROL_AREAS
 } from "@/lib/onboarding";
+import { findAccount, findAccountByIdLean, updateAccount } from "@/lib/repositories/accounts";
+import { findByUserId, updateUser } from "@/lib/repositories/users";
 import { readString } from "@/lib/validation";
-import Account from "@/models/Account";
-import DeveloperUser from "@/models/DeveloperUser";
 
 const PROFILE_FIELDS = ["firstName", "lastName", "jobTitle", "phone"] as const;
 const ACCOUNT_FIELDS = [
@@ -77,17 +76,13 @@ export async function loadAccountSetupState(
   userId: string,
   primaryAccountId: string | null | undefined
 ): Promise<AccountSetupState | null> {
-  await connectToDatabase();
-  const user = await DeveloperUser.findOne({ userId })
-    .select(
+  const user = await findByUserId(userId, {
+    select:
       "userId email emailVerified firstName lastName jobTitle phone onboardingCompletedAt onboardingUseCase primaryAccountId"
-    )
-    .lean();
+  });
   if (!user) return null;
 
-  const account = primaryAccountId
-    ? await Account.findOne({ accountId: primaryAccountId }).lean()
-    : null;
+  const account = primaryAccountId ? await findAccount({ accountId: primaryAccountId }) : null;
 
   const actor = primaryAccountId ? await getWorkspaceActor(userId, primaryAccountId) : null;
 
@@ -139,8 +134,6 @@ export async function patchAccountSetup(
   primaryAccountId: string | null | undefined,
   body: Record<string, unknown>
 ): Promise<{ error: string | null; status?: number }> {
-  await connectToDatabase();
-
   const actor = primaryAccountId ? await getWorkspaceActor(userId, primaryAccountId) : null;
   const touchesAccount = hasAccountField(body);
   const touchesProfile = hasProfileField(body);
@@ -194,11 +187,11 @@ export async function patchAccountSetup(
 
   if ("companyName" in body) {
     const account = primaryAccountId
-      ? await Account.findOne({ accountId: primaryAccountId }).select("accountType").lean()
+      ? await findAccountByIdLean(primaryAccountId, "accountType")
       : null;
     const accountType =
       ("accountType" in body ? validateAccountType(body.accountType, false).value : undefined) ??
-      account?.accountType;
+      (account as { accountType?: string } | null)?.accountType;
     const result = validateCompanyName(body.companyName, accountType ?? undefined, false);
     if (result.error) return { error: result.error };
     accountUpdate.companyName = result.value ?? null;
@@ -273,15 +266,20 @@ export async function patchAccountSetup(
   }
 
   if (Object.keys(userUpdate).length) {
-    await DeveloperUser.updateOne({ userId }, { $set: userUpdate });
+    await updateUser(userId, userUpdate);
   }
 
   if (primaryAccountId && (Object.keys(accountUpdate).length || Object.keys(onboardingUpdate).length)) {
     const setPayload: Record<string, unknown> = { ...accountUpdate };
-    for (const [key, value] of Object.entries(onboardingUpdate)) {
-      setPayload[`onboarding.${key}`] = value;
+    if (Object.keys(onboardingUpdate).length) {
+      const existing = await findAccount({ accountId: primaryAccountId });
+      const existingOnboarding =
+        existing?.onboarding && typeof existing.onboarding === "object"
+          ? (existing.onboarding as Record<string, unknown>)
+          : {};
+      setPayload.onboarding = { ...existingOnboarding, ...onboardingUpdate };
     }
-    await Account.updateOne({ accountId: primaryAccountId }, { $set: setPayload });
+    await updateAccount(primaryAccountId, setPayload);
   }
 
   return { error: null };
@@ -340,11 +338,7 @@ export async function completeAccountSetup(
     return { error: validated.error };
   }
 
-  await connectToDatabase();
-
-  const existingAccount = await Account.findOne({ accountId: primaryAccountId })
-    .select("slug")
-    .lean();
+  const existingAccount = await findAccountByIdLean(primaryAccountId, "slug");
   const existingSlug =
     typeof existingAccount?.slug === "string" ? existingAccount.slug.trim().toLowerCase() : "";
 
@@ -375,19 +369,19 @@ export async function completeAccountSetup(
       });
       slug = await assignSlugWithDuplicateRetry(seed, primaryAccountId, async (candidate) => {
         accountSet.slug = candidate;
-        const result = await Account.updateOne({ accountId: primaryAccountId }, { $set: accountSet });
-        if (result.matchedCount === 0) {
+        const result = await updateAccount(primaryAccountId, accountSet);
+        if ((result?.matchedCount ?? 0) === 0) {
           throw new Error("Account update failed during slug assignment.");
         }
       });
     } else {
-      const result = await Account.updateOne({ accountId: primaryAccountId }, { $set: accountSet });
-      if (result.matchedCount === 0) {
+      const result = await updateAccount(primaryAccountId, accountSet);
+      if ((result?.matchedCount ?? 0) === 0) {
         return { error: "Account update failed.", status: 500 };
       }
     }
 
-    const refreshed = await Account.findOne({ accountId: primaryAccountId }).select("slug").lean();
+    const refreshed = await findAccountByIdLean(primaryAccountId, "slug");
     const persistedSlug =
       typeof refreshed?.slug === "string" ? refreshed.slug.trim().toLowerCase() : "";
     if (!persistedSlug || validateWorkspaceSlug(persistedSlug) !== null) {
@@ -401,19 +395,14 @@ export async function completeAccountSetup(
     };
   }
 
-  const userResult = await DeveloperUser.updateOne(
-    { userId },
-    {
-      $set: {
-        firstName: validated.profile.firstName,
-        lastName: validated.profile.lastName,
-        jobTitle: validated.profile.jobTitle ?? null,
-        phone: validated.profile.phone ?? null,
-        onboardingCompletedAt: new Date()
-      }
-    }
-  );
-  if (userResult.matchedCount === 0) {
+  const userResult = await updateUser(userId, {
+    firstName: validated.profile.firstName,
+    lastName: validated.profile.lastName,
+    jobTitle: validated.profile.jobTitle ?? null,
+    phone: validated.profile.phone ?? null,
+    onboardingCompletedAt: new Date()
+  });
+  if ((userResult?.matchedCount ?? 0) === 0) {
     return { error: "Profile update failed.", status: 500 };
   }
 

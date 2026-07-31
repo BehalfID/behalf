@@ -51,6 +51,7 @@ export const revokePermission = delegate("permissions", "revokePermission", mong
 export const findPermissionsByAgentId = delegate("permissions", "findPermissionsByAgentId", mongo.findPermissionsByAgentId);
 export const findActivePermissionsByAgentId = delegate("permissions", "findActivePermissionsByAgentId", mongo.findActivePermissionsByAgentId);
 export const updatePermission = delegate("permissions", "updatePermission", mongo.updatePermission);
+export const updatePermissions = delegate("permissions", "updatePermissions", mongo.updatePermissions);
 export const deletePermissions = delegate("permissions", "deletePermissions", mongo.deletePermissions);
 export const countPermissions = delegate("permissions", "countPermissions", mongo.countPermissions);
 export const findPermissions = delegate("permissions", "findPermissions", mongo.findPermissions);

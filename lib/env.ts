@@ -1,5 +1,6 @@
-const REQUIRED_PRODUCTION_ENV = [
-  "MONGODB_URI",
+import { isPostgresRuntimeEnabled } from "@/lib/repositories/backend";
+
+const REQUIRED_PRODUCTION_ENV_BASE = [
   "BEHALFID_ADMIN_PASSWORD",
   "BEHALFID_SETUP_TOKEN",
   "NEXT_PUBLIC_APP_URL",
@@ -81,10 +82,18 @@ export function validateProductionEnv(): EnvValidationResult {
     return result;
   }
 
-  for (const name of REQUIRED_PRODUCTION_ENV) {
+  for (const name of REQUIRED_PRODUCTION_ENV_BASE) {
     if (!hasValue(name)) {
       result.missingRequired.push(name);
     }
+  }
+
+  if (isPostgresRuntimeEnabled()) {
+    if (!hasValue("DATABASE_URL") && !hasValue("POSTGRES_URL")) {
+      result.missingRequired.push("DATABASE_URL or POSTGRES_URL");
+    }
+  } else if (!hasValue("MONGODB_URI")) {
+    result.missingRequired.push("MONGODB_URI");
   }
 
   if (!hasRedisConfig()) {

@@ -9,12 +9,14 @@ import {
   type DeveloperAccount
 } from "@/lib/developerAuth";
 import { authenticateDeveloperToken } from "@/lib/developerToken";
-import { connectToDatabase } from "@/lib/db";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
-import Account from "@/models/Account";
-import DeveloperUser from "@/models/DeveloperUser";
+import { findAccount } from "@/lib/repositories/accounts";
+import { findByUserId } from "@/lib/repositories/users";
 
 const COOKIE_NAME = "behalfid_developer";
+
+const TOKEN_USER_SELECT =
+  "-_id userId email emailVerified onboardingUseCase primaryAccountId firstName lastName jobTitle onboardingCompletedAt createdAt updatedAt";
 
 export type HumanAuthResult = {
   user: Awaited<ReturnType<typeof getCurrentDeveloper>>;
@@ -62,10 +64,7 @@ export async function requireHumanDeveloperApi(request: NextRequest): Promise<Hu
     };
   }
 
-  await connectToDatabase();
-  const user = await DeveloperUser.findOne({ userId: tokenDoc.userId })
-    .select("-_id userId email emailVerified onboardingUseCase primaryAccountId firstName lastName jobTitle onboardingCompletedAt createdAt updatedAt")
-    .lean();
+  const user = await findByUserId(tokenDoc.userId, { select: TOKEN_USER_SELECT });
   if (!user) {
     return {
       user: null,
@@ -88,7 +87,7 @@ export async function requireHumanDeveloperApi(request: NextRequest): Promise<Hu
     };
   }
 
-  const account = await Account.findOne({ accountId: tokenDoc.accountId }).lean();
+  const account = await findAccount({ accountId: tokenDoc.accountId });
   return { user, account, error: null, authMethod: "developer_token" };
 }
 
@@ -96,7 +95,7 @@ export async function getHumanAuthFromRequest(request: NextRequest): Promise<Hum
   const context = await getDeveloperFromToken(request.cookies.get(COOKIE_NAME)?.value);
   if (context) {
     const account = context.activeAccountId
-      ? await Account.findOne({ accountId: context.activeAccountId }).lean()
+      ? await findAccount({ accountId: context.activeAccountId })
       : null;
     return { user: context.user, account, error: null, authMethod: "session" };
   }
@@ -111,10 +110,7 @@ export async function getHumanAuthFromRequest(request: NextRequest): Promise<Hum
     };
   }
 
-  await connectToDatabase();
-  const tokenUser = await DeveloperUser.findOne({ userId: tokenDoc.userId })
-    .select("-_id userId email emailVerified onboardingUseCase primaryAccountId firstName lastName jobTitle onboardingCompletedAt createdAt updatedAt")
-    .lean();
+  const tokenUser = await findByUserId(tokenDoc.userId, { select: TOKEN_USER_SELECT });
   if (!tokenUser) {
     return {
       user: null,
@@ -123,6 +119,6 @@ export async function getHumanAuthFromRequest(request: NextRequest): Promise<Hum
       authMethod: null
     };
   }
-  const account = await Account.findOne({ accountId: tokenDoc.accountId }).lean();
+  const account = await findAccount({ accountId: tokenDoc.accountId });
   return { user: tokenUser, account, error: null, authMethod: "developer_token" };
 }

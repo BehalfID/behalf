@@ -12,15 +12,16 @@
  *  - No HTTP is issued, so the status page can never call itself.
  */
 
-import mongoose from "mongoose";
 import { connectToDatabase } from "@/lib/db";
+import { isPostgresConfigured } from "@/lib/db/postgres";
 import { logger } from "@/lib/logger";
-import { resolveRepositoryBackendFor } from "@/lib/repositories/backend";
-import ApprovalRequest from "@/models/ApprovalRequest";
-import DeveloperSession from "@/models/DeveloperSession";
-import Permission from "@/models/Permission";
-import StatusComponent from "@/models/StatusComponent";
-import StatusIncident from "@/models/StatusIncident";
+import {
+  isPostgresRuntimeEnabled
+} from "@/lib/repositories/backend";
+import { findOneApproval } from "@/lib/repositories/approvals";
+import { findOnePermission } from "@/lib/repositories/permissions";
+import { findBySessionId } from "@/lib/repositories/sessions";
+import { listComponents, listIncidents } from "@/lib/repositories/status";
 
 export type HealthState =
   | "operational"
@@ -154,15 +155,6 @@ function errorKind(error: unknown): string {
 
 function isConfigured(value: string | undefined | null): boolean {
   return Boolean(value && value.trim());
-}
-
-/** Reads a dependency's configured backend without throwing on bad config. */
-function backendFor(aggregate: "approvals" | "permissions" | "sessions"): string | null {
-  try {
-    return resolveRepositoryBackendFor(aggregate);
-  } catch {
-    return null;
-  }
 }
 
 const DETAIL = {
@@ -358,12 +350,24 @@ async function withAggregateBudget(checkedAt: string): Promise<SystemStatus> {
 }
 
 async function aggregate(checkedAt: string): Promise<SystemStatus> {
-  const databaseConfigured = isConfigured(process.env.MONGODB_URI);
+  const postgresRuntime = isPostgresRuntimeEnabled();
+  const databaseConfigured = postgresRuntime
+    ? isPostgresConfigured()
+    : isConfigured(process.env.MONGODB_URI);
   const webConfigured =
     isConfigured(process.env.APP_BASE_URL) || isConfigured(process.env.NEXT_PUBLIC_APP_URL);
 
   const connection = databaseConfigured
-    ? await probe("database.connect", () => connectToDatabase())
+    ? await probe("database.connect", async () => {
+        if (postgresRuntime) {
+          const { getPostgresDb } = await import("@/lib/db/postgres");
+          const { sql } = await import("drizzle-orm");
+          const db = getPostgresDb();
+          await db.execute(sql`select 1`);
+          return null;
+        }
+        return connectToDatabase();
+      })
     : null;
 
   let databaseProbe: ProbeOutcome;
@@ -371,9 +375,13 @@ async function aggregate(checkedAt: string): Promise<SystemStatus> {
     databaseProbe = { result: "unmeasurable", latencyMs: null };
   } else if (connection && connection.result === "down") {
     databaseProbe = connection;
+  } else if (postgresRuntime) {
+    // Postgres connect probe already executed `select 1`.
+    databaseProbe = connection ?? { result: "reachable", latencyMs: null };
   } else {
     databaseProbe = await probe("database.ping", async () => {
-      const db = mongoose.connection.db;
+      const mongoose = await import("mongoose");
+      const db = mongoose.default.connection.db;
       if (!db) throw new Error("no active connection");
       return db.admin().ping();
     });
@@ -389,15 +397,9 @@ async function aggregate(checkedAt: string): Promise<SystemStatus> {
 
   const [sessions, permissions, approvals] = canProbeStores
     ? await Promise.all([
-        probeStore("auth.sessions", "sessions", () =>
-          DeveloperSession.findOne({}).select("_id").maxTimeMS(PROBE_TIMEOUT_MS).lean()
-        ),
-        probeStore("verification.permissions", "permissions", () =>
-          Permission.findOne({}).select("_id").maxTimeMS(PROBE_TIMEOUT_MS).lean()
-        ),
-        probeStore("approvals.requests", "approvals", () =>
-          ApprovalRequest.findOne({}).select("_id").maxTimeMS(PROBE_TIMEOUT_MS).lean()
-        )
+        probeStore("auth.sessions", "sessions", () => findBySessionId("__status_probe__")),
+        probeStore("verification.permissions", "permissions", () => findOnePermission({})),
+        probeStore("approvals.requests", "approvals", () => findOneApproval({}))
       ])
     : [null, null, null];
 
@@ -504,13 +506,9 @@ function incidentSeverityFloor(active: PublicIncident[]): HealthState {
 
 async function probeStore(
   id: string,
-  aggregateName: "approvals" | "permissions" | "sessions",
+  _aggregateName: "approvals" | "permissions" | "sessions",
   operation: () => Promise<unknown>
 ): Promise<ProbeOutcome> {
-  // A Postgres-backed aggregate is not observable through the Mongo models.
-  if (backendFor(aggregateName) !== "mongo") {
-    return { result: "unmeasurable", latencyMs: null };
-  }
   return probe(id, operation);
 }
 
@@ -537,26 +535,8 @@ async function readOperatorData(): Promise<{
   unavailable: boolean;
 }> {
   const [components, incidents] = await Promise.all([
-    withTimeout(
-      () =>
-        StatusComponent.find({ enabled: true })
-          .sort({ sortOrder: 1, name: 1 })
-          .select("-_id componentId name status")
-          .limit(50)
-          .maxTimeMS(PROBE_TIMEOUT_MS)
-          .lean(),
-      PROBE_TIMEOUT_MS
-    ),
-    withTimeout(
-      () =>
-        StatusIncident.find({})
-          .sort({ createdAt: -1 })
-          .select("-_id incidentId title message status severity updates resolvedAt createdAt")
-          .limit(20)
-          .maxTimeMS(PROBE_TIMEOUT_MS)
-          .lean(),
-      PROBE_TIMEOUT_MS
-    )
+    withTimeout(() => listComponents({ enabled: true }), PROBE_TIMEOUT_MS),
+    withTimeout(() => listIncidents({ includeFixed: true }), PROBE_TIMEOUT_MS)
   ]);
 
   if (!components.ok) {

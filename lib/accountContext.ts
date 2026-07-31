@@ -1,12 +1,14 @@
-import Account from "@/models/Account";
-import AccountMembership from "@/models/AccountMembership";
-import DeveloperSession from "@/models/DeveloperSession";
-import { cache } from "react";
 import { jsonAppError } from "@/lib/appErrors";
 import { isWorkspaceRole, type WorkspaceRole } from "@/lib/authority";
-import { findAccountBySlugLean } from "@/lib/repositories/accounts";
+import { findAccountByIdLean, findAccountBySlugLean, listAccounts } from "@/lib/repositories/accounts";
+import {
+  findMembershipByUserAndAccount,
+  findMembershipsByUserId
+} from "@/lib/repositories/memberships";
+import { updateActiveAccountId } from "@/lib/repositories/sessions";
 import { normalizeWorkspaceSlug, validateWorkspaceSlug } from "@/lib/workspaceSlug";
 import type { NextResponse } from "next/server";
+import { cache } from "react";
 
 export type UserAccountSummary = {
   accountId: string;
@@ -32,13 +34,14 @@ export async function listUserAccounts(
   userId: string,
   primaryAccountId: string | null | undefined
 ): Promise<UserAccountSummary[]> {
-  const memberships = await AccountMembership.find({ userId }).sort({ createdAt: 1 }).lean();
+  const memberships = await findMembershipsByUserId(userId);
   if (memberships.length === 0) return [];
 
   const accountIds = memberships.map((membership) => membership.accountId);
-  const accounts = await Account.find({ accountId: { $in: accountIds } })
-    .select("accountId name slug")
-    .lean();
+  const accounts = await listAccounts(
+    { accountId: { $in: accountIds } },
+    "accountId name slug"
+  );
   const byAccountId = new Map(
     accounts.map((account) => [
       account.accountId,
@@ -66,7 +69,7 @@ export async function resolveActiveAccountId(
     primaryAccountId?: string | null;
   }
 ): Promise<string | null> {
-  const memberships = await AccountMembership.find({ userId }).select("accountId").lean();
+  const memberships = await findMembershipsByUserId(userId);
   const memberAccountIds = new Set(memberships.map((membership) => membership.accountId));
 
   if (
@@ -74,10 +77,7 @@ export async function resolveActiveAccountId(
     !memberAccountIds.has(options.sessionActiveAccountId) &&
     options.sessionId
   ) {
-    await DeveloperSession.updateOne(
-      { sessionId: options.sessionId, userId },
-      { $unset: { activeAccountId: "" } }
-    );
+    await updateActiveAccountId(userId, options.sessionId, null);
   }
 
   if (options.sessionActiveAccountId && memberAccountIds.has(options.sessionActiveAccountId)) {
@@ -100,17 +100,17 @@ export async function switchActiveAccount(
   sessionId: string,
   accountId: string
 ): Promise<{ ok: true; accountId: string; slug: string | null; name: string } | { error: string }> {
-  const membership = await AccountMembership.findOne({ userId, accountId }).lean();
+  const membership = await findMembershipByUserAndAccount(userId, accountId);
   if (!membership) {
     return { error: "You do not have access to that workspace." };
   }
 
-  const account = await Account.findOne({ accountId }).select("accountId name slug").lean();
+  const account = await findAccountByIdLean(accountId, "accountId name slug");
   if (!account) {
     return { error: "Workspace account not found." };
   }
 
-  await DeveloperSession.updateOne({ sessionId, userId }, { $set: { activeAccountId: accountId } });
+  await updateActiveAccountId(userId, sessionId, accountId);
   return {
     ok: true,
     accountId,
@@ -139,10 +139,7 @@ export async function resolveWorkspaceForUserBySlug(
     return { error: jsonAppError("Workspace not found.", 404, "WORKSPACE_NOT_FOUND"), status: 404 };
   }
 
-  const membership = await AccountMembership.findOne({
-    userId,
-    accountId: account.accountId
-  }).lean();
+  const membership = await findMembershipByUserAndAccount(userId, account.accountId);
 
   if (!membership) {
     return {

@@ -1,11 +1,13 @@
 import { classifyPermissionRisk } from "@/lib/permissionRisk";
 import {
-  canCreatePermission,
   permissionGrantForbidden,
   type WorkspaceActor
 } from "@/lib/delegatedAuth";
 import { createPublicId } from "@/lib/ids";
-import PermissionProfile from "@/models/PermissionProfile";
+import {
+  createPermissionProfile as createPermissionProfileRecord,
+  listPermissionProfiles as listPermissionProfilesRecord
+} from "@/lib/repositories/permissionProfiles";
 
 export type ProfilePermissionInput = {
   action: string;
@@ -34,10 +36,7 @@ export function canManageProfile(actor: WorkspaceActor, requiredAuthorityLevel: 
 }
 
 export async function listPermissionProfiles(accountId: string) {
-  return PermissionProfile.find({ accountId, status: "active" })
-    .sort({ createdAt: -1 })
-    .select("-_id profileId name description permissions requiredAuthorityLevel createdBy createdAt updatedAt")
-    .lean();
+  return listPermissionProfilesRecord(accountId);
 }
 
 export async function createPermissionProfile(
@@ -60,7 +59,7 @@ export async function createPermissionProfile(
     return { error: permissionGrantForbidden() };
   }
 
-  const profile = await PermissionProfile.create({
+  const profile = await createPermissionProfileRecord({
     profileId: createPublicId("pprf"),
     accountId: actor.accountId,
     name: input.name,

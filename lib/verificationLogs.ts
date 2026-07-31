@@ -1,5 +1,9 @@
-import Agent from "@/models/Agent";
-import VerificationLog from "@/models/VerificationLog";
+import { findApprovals } from "@/lib/repositories/approvals";
+import { listAgents } from "@/lib/repositories/agents";
+import {
+  aggregateStats,
+  findLogs
+} from "@/lib/repositories/verificationLogs";
 import { parseSmartLogQuery } from "@/lib/smartSearch/parseLogQuery";
 
 export type LogRisk = "low" | "medium" | "high";
@@ -235,108 +239,24 @@ function topKey(values: Map<string, number>) {
   return top;
 }
 
-type AggFacet = {
-  stats: Array<{ total: number; allowed: number; denied: number; highRisk: number; approvalRequired: number }>;
-  deniedActions: Array<{ _id: string; count: number }>;
-  topVendors: Array<{ _id: string; count: number }>;
-};
-
 /**
- * Compute dashboard log summary using a single MongoDB aggregation pipeline.
- * Avoids fetching up to 1000 documents to JavaScript before calculating stats.
- * Falls back to the in-process `calculateVerificationLogSummary` when aggregation
- * is not available (e.g. in tests using the in-memory driver).
+ * Compute dashboard log summary via repository aggregateStats (Mongo pipeline or
+ * Postgres equivalent). Falls back to in-process calculation when needed.
  */
 export async function getVerificationLogSummaryAgg(
   query: Record<string, unknown>,
   limit = 1000
 ): Promise<VerificationLogSummary> {
-  // Fast path: single aggregation pipeline (production MongoDB).
-  // Falls back to the in-process helper when .aggregate is unavailable
-  // (e.g. in tests using the in-memory / mocked driver).
-  if (typeof VerificationLog.aggregate === "function") {
-    try {
-      const result = await VerificationLog.aggregate<{
-        stats: AggFacet["stats"];
-        deniedActions: AggFacet["deniedActions"];
-        topVendors: AggFacet["topVendors"];
-      }>([
-        { $match: query },
-        { $sort: { createdAt: -1 } },
-        { $limit: limit },
-        {
-          $facet: {
-            stats: [
-              {
-                $group: {
-                  _id: null,
-                  total: { $sum: 1 },
-                  allowed: { $sum: { $cond: ["$allowed", 1, 0] } },
-                  denied: { $sum: { $cond: ["$allowed", 0, 1] } },
-                  highRisk: { $sum: { $cond: [{ $eq: ["$risk", "high"] }, 1, 0] } },
-                  approvalRequired: {
-                    $sum: {
-                      $cond: [
-                        {
-                          $or: [
-                            { $eq: ["$approvalRequired", true] },
-                            {
-                              $regexMatch: {
-                                input: { $ifNull: ["$reason", ""] },
-                                regex: "requires approval|approval required|approval before execution",
-                                options: "i"
-                              }
-                            }
-                          ]
-                        },
-                        1,
-                        0
-                      ]
-                    }
-                  }
-                }
-              }
-            ],
-            deniedActions: [
-              { $match: { allowed: false } },
-              { $group: { _id: "$action", count: { $sum: 1 } } },
-              { $sort: { count: -1 } },
-              { $limit: 1 }
-            ],
-            topVendors: [
-              { $match: { vendor: { $ne: null, $exists: true } } },
-              { $group: { _id: "$vendor", count: { $sum: 1 } } },
-              { $sort: { count: -1 } },
-              { $limit: 1 }
-            ]
-          }
-        }
-      ]);
-
-      const facet = result[0];
-      if (!facet) {
-        return { total: 0, allowed: 0, denied: 0, highRisk: 0, approvalRequired: 0, topDeniedAction: null, topVendor: null };
-      }
-      const stats = facet.stats[0] ?? { total: 0, allowed: 0, denied: 0, highRisk: 0, approvalRequired: 0 };
-      return {
-        total: stats.total,
-        allowed: stats.allowed,
-        denied: stats.denied,
-        highRisk: stats.highRisk,
-        approvalRequired: stats.approvalRequired,
-        topDeniedAction: facet.deniedActions[0]?._id ?? null,
-        topVendor: facet.topVendors[0]?._id ?? null
-      };
-    } catch {
-      // fall through to in-process fallback
-    }
+  const aggregated = await aggregateStats(query, limit);
+  if (aggregated) {
+    return aggregated;
   }
 
   // Fallback: fetch documents and compute summary in-process.
-  const logs = await VerificationLog.find(query)
-    .sort({ createdAt: -1 })
-    .limit(limit)
-    .lean<VerificationLogListItem[]>();
+  const logs = (await findLogs(query, {
+    sort: { createdAt: -1 },
+    limit
+  })) as unknown as VerificationLogListItem[];
   return calculateVerificationLogSummary(logs);
 }
 
@@ -350,7 +270,7 @@ export async function withAgentNames(
   const query: Record<string, unknown> = { agentId: { $in: agentIds } };
   if (scope.developerUserId) query.developerUserId = scope.developerUserId;
   if (scope.accountId) query.accountId = scope.accountId;
-  const agents = await Agent.find(query).select("-_id agentId name").lean();
+  const agents = await listAgents(query, { select: "-_id agentId name" });
   const names = new Map(agents.map((agent) => [agent.agentId, agent.name]));
   return logs.map((log) => sanitizeVerificationLog({
     ...log,
@@ -455,15 +375,17 @@ export async function withApprovalLinks(
     .filter(Boolean);
   if (!requestIds.length) return logs;
 
-  const ApprovalRequest = (await import("@/models/ApprovalRequest")).default;
-  const approvals = await ApprovalRequest.find({
+  const approvals = await findApprovals({
     accountId: scope.accountId,
     requestId: { $in: requestIds }
-  })
-    .select("-_id approvalId requestId status")
-    .lean<Array<{ approvalId: string; requestId: string; status: string }>>();
+  });
 
-  const byRequest = new Map(approvals.map((item) => [item.requestId, item.approvalId]));
+  const byRequest = new Map(
+    (approvals as Array<{ approvalId: string; requestId: string }>).map((item) => [
+      item.requestId,
+      item.approvalId
+    ])
+  );
   return logs.map((log) => ({
     ...log,
     approvalId: byRequest.get(log.requestId) ?? log.approvalId ?? null

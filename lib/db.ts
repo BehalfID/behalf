@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { isPostgresRuntimeEnabled } from "@/lib/repositories/backend";
 
 type MongooseCache = {
   conn: typeof mongoose | null;
@@ -17,6 +18,13 @@ const cached = globalForMongoose.mongooseCache ?? {
 globalForMongoose.mongooseCache = cached;
 
 export async function connectToDatabase() {
+  if (isPostgresRuntimeEnabled()) {
+    // Postgres is authoritative when the runtime latch is on — do not open Mongoose.
+    const { getPostgresDb } = await import("@/lib/db/postgres");
+    getPostgresDb();
+    return null;
+  }
+
   const mongodbUri = process.env.MONGODB_URI;
   if (!mongodbUri) {
     throw new Error("Missing MONGODB_URI environment variable.");

@@ -160,6 +160,13 @@ export async function updatePermission(
   return Permission.updateOne(filter, update);
 }
 
+export async function updatePermissions(
+  filter: Record<string, unknown>,
+  update: Record<string, unknown>
+) {
+  return Permission.updateMany(filter, update);
+}
+
 export async function deletePermissions(filter: Record<string, unknown>) {
   return Permission.deleteMany(filter);
 }
@@ -169,8 +176,16 @@ export async function countPermissions(filter: Record<string, unknown>) {
 }
 
 /** Mongo query primitives for routes that need an exact model query shape. */
-export function findPermissions(filter: Record<string, unknown> = {}) {
-  return Permission.find(filter);
+export function findPermissions(
+  filter: Record<string, unknown> = {},
+  options: { sort?: Record<string, 1 | -1>; limit?: number; skip?: number; select?: string } = {}
+) {
+  const query = Permission.find(filter);
+  if (options.sort) query.sort(options.sort);
+  if (options.select) query.select(options.select);
+  if (options.skip) query.skip(options.skip);
+  if (options.limit) query.limit(options.limit);
+  return query.lean();
 }
 
 export function findOnePermission(filter: Record<string, unknown>) {

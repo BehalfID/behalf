@@ -1,13 +1,12 @@
-import { connectToDatabase } from "@/lib/db";
 import { cache } from "react";
 import {
   ACCOUNT_SETUP_LAUNCH,
   needsOnboardingBanner,
   shouldRedirectToAccountSetup
 } from "@/lib/onboarding";
-import Account from "@/models/Account";
-import Agent from "@/models/Agent";
-import DeveloperUser from "@/models/DeveloperUser";
+import { findAccountByIdLean } from "@/lib/repositories/accounts";
+import { countAgentsByAccountId } from "@/lib/repositories/agents";
+import { findByUserId } from "@/lib/repositories/users";
 
 export { ACCOUNT_SETUP_LAUNCH };
 
@@ -21,28 +20,23 @@ export type OnboardingRedirectContext = {
 async function loadOnboardingRedirectContext(
   userId: string
 ): Promise<OnboardingRedirectContext | null> {
-  await connectToDatabase();
-  const user = await DeveloperUser.findOne({ userId })
-    .select("onboardingCompletedAt createdAt primaryAccountId")
-    .lean();
+  const user = await findByUserId(userId, {
+    select: "onboardingCompletedAt createdAt primaryAccountId"
+  });
   if (!user) return null;
 
   const [account, agentCount] = await Promise.all([
     user.primaryAccountId
-      ? Account.findOne({ accountId: user.primaryAccountId })
-          .select("verificationCount")
-          .lean()
+      ? findAccountByIdLean(user.primaryAccountId, "verificationCount")
       : Promise.resolve(null),
-    user.primaryAccountId
-      ? Agent.countDocuments({ accountId: user.primaryAccountId })
-      : Promise.resolve(0)
+    user.primaryAccountId ? countAgentsByAccountId(user.primaryAccountId) : Promise.resolve(0)
   ]);
 
   return {
     onboardingCompletedAt: user.onboardingCompletedAt,
     createdAt: user.createdAt,
     agentCount,
-    verificationCount: account?.verificationCount ?? 0
+    verificationCount: (account as { verificationCount?: number } | null)?.verificationCount ?? 0
   };
 }
 

@@ -23,10 +23,10 @@ import {
   findPendingInvitesByAccountId,
   updateMembershipRole,
   upsertPendingInvite
-} from "@/lib/repositories";
+} from "@/lib/repositories/memberships";
+import { clearActiveAccountIdForUserAccount } from "@/lib/repositories/sessions";
+import { findByEmail, findByUserIds } from "@/lib/repositories/users";
 import { jsonError } from "@/lib/responses";
-import DeveloperSession from "@/models/DeveloperSession";
-import DeveloperUser from "@/models/DeveloperUser";
 
 export type MemberRecord = {
   membershipId: string;
@@ -86,11 +86,7 @@ export function canUpdateMemberRole(
 export async function listAccountMembers(accountId: string) {
   const memberships = await findMembershipsByAccountId(accountId);
   const userIds = memberships.map((member) => member.userId);
-  const users = userIds.length
-    ? await DeveloperUser.find({ userId: { $in: userIds } })
-        .select("userId email")
-        .lean()
-    : [];
+  const users = userIds.length ? await findByUserIds(userIds, "userId email") : [];
   const emailByUserId = new Map(users.map((user) => [user.userId, user.email]));
 
   const members: MemberRecord[] = memberships.map((member) => ({
@@ -129,7 +125,7 @@ export async function addOrInviteMember(
   }
 
   const email = normalizeEmail(input.email);
-  const existingUser = await DeveloperUser.findOne({ email }).select("userId email primaryAccountId").lean();
+  const existingUser = await findByEmail(email, { select: "userId email primaryAccountId" });
 
   if (existingUser) {
     const existingMembership = await findMembershipByAccountAndUser(
@@ -251,10 +247,7 @@ export async function removeMember(actor: WorkspaceActor, membershipId: string) 
   }
 
   await deleteMembership(membershipId, actor.accountId);
-  await DeveloperSession.updateMany(
-    { userId: target.userId, activeAccountId: actor.accountId },
-    { $unset: { activeAccountId: "" } }
-  );
+  await clearActiveAccountIdForUserAccount(target.userId, actor.accountId);
   return { ok: true };
 }
 

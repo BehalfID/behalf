@@ -57,6 +57,11 @@ function isPostgresRuntimeAllowed(env: NodeJS.ProcessEnv): boolean {
   return latch === "true" || latch === "1" || latch === "yes";
 }
 
+/** True when the Postgres runtime safety latch is enabled. */
+export function isPostgresRuntimeEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return isPostgresRuntimeAllowed(env);
+}
+
 function assertPostgresAllowed(env: NodeJS.ProcessEnv, source: string): void {
   if (isPostgresRuntimeAllowed(env)) return;
   throw new Error(

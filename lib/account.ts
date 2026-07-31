@@ -1,11 +1,11 @@
 import { ensureAccountMembership } from "@/lib/delegatedAuth";
 import { createPublicId } from "@/lib/ids";
+import { createAccount, findAccount } from "@/lib/repositories/accounts";
+import { listAgents, updateAgents } from "@/lib/repositories/agents";
+import { updatePermissions } from "@/lib/repositories/permissions";
+import { updateUser } from "@/lib/repositories/users";
+import { updateLogs } from "@/lib/repositories/verificationLogs";
 import { assignSlugWithDuplicateRetry } from "@/lib/workspaceSlugServer";
-import Account from "@/models/Account";
-import Agent from "@/models/Agent";
-import DeveloperUser from "@/models/DeveloperUser";
-import Permission from "@/models/Permission";
-import VerificationLog from "@/models/VerificationLog";
 
 export const DEFAULT_ACCOUNT_NAME = "Prototype Admin";
 
@@ -14,30 +14,30 @@ export async function createDeveloperAccount(userId: string, email: string) {
   const accountId = createPublicId("acct");
   // Omit slug entirely so the sparse unique index does not see slug:null.
   // Permanent slug is assigned at onboarding completion — never from the email local part.
-  await Account.create({ accountId, name });
-  const account = await Account.findOne({ accountId });
+  await createAccount({ accountId, name } as never);
+  const account = await findAccount({ accountId });
   if (!account) {
     throw new Error("Failed to create developer account.");
   }
-  await DeveloperUser.updateOne({ userId }, { $set: { primaryAccountId: account.accountId } });
+  await updateUser(userId, { primaryAccountId: account.accountId });
   await ensureAccountMembership(userId, account.accountId);
   return account;
 }
 
 export async function getDefaultAccount() {
-  let account = await Account.findOne({ name: DEFAULT_ACCOUNT_NAME });
+  let account = await findAccount({ name: DEFAULT_ACCOUNT_NAME });
   if (!account) {
     const accountId = createPublicId("acct");
     await assignSlugWithDuplicateRetry(DEFAULT_ACCOUNT_NAME, accountId, async (candidate) => {
-      await Account.create({
+      await createAccount({
         accountId,
         name: DEFAULT_ACCOUNT_NAME,
         slug: candidate
-      });
+      } as never);
     });
-    account = await Account.findOne({ accountId });
+    account = await findAccount({ accountId });
     if (!account) {
-      account = await Account.findOne({ name: DEFAULT_ACCOUNT_NAME });
+      account = await findAccount({ name: DEFAULT_ACCOUNT_NAME });
     }
     if (!account) {
       throw new Error("Failed to create default account.");
@@ -54,23 +54,23 @@ export async function getDefaultAccountId() {
 
 export async function backfillDefaultAccountId() {
   const accountId = await getDefaultAccountId();
-  await Agent.updateMany(
+  await updateAgents(
     { $or: [{ accountId: { $exists: false } }, { accountId: null }] },
     { $set: { accountId } }
   );
 
-  const agents = await Agent.find({ accountId }).select("agentId accountId").lean();
+  const agents = await listAgents({ accountId }, { select: "agentId accountId" });
   await Promise.all(
     agents.map((agent) =>
       Promise.all([
-        Permission.updateMany(
+        updatePermissions(
           {
             agentId: agent.agentId,
             $or: [{ accountId: { $exists: false } }, { accountId: null }]
           },
           { $set: { accountId: agent.accountId } }
         ),
-        VerificationLog.updateMany(
+        updateLogs(
           {
             agentId: agent.agentId,
             $or: [{ accountId: { $exists: false } }, { accountId: null }]
