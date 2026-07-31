@@ -30,6 +30,7 @@ export const deleteRule = delegate("sites", "deleteRule", mongo.deleteRule);
 export const findRulesBySite = delegate("sites", "findRulesBySite", mongo.findRulesBySite);
 export const createAccessLog = delegate("sites", "createAccessLog", mongo.createAccessLog);
 export const listAccessLogs = delegate("sites", "listAccessLogs", mongo.listAccessLogs);
+export const deleteAccessLogs = delegate("sites", "deleteAccessLogs", mongo.deleteAccessLogs);
 export const findKeyByHash = delegate("sites", "findKeyByHash", mongo.findKeyByHash);
 export const createKey = delegate("sites", "createKey", mongo.createKey);
 export const revokeKey = delegate("sites", "revokeKey", mongo.revokeKey);

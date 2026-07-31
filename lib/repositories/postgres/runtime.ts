@@ -408,6 +408,7 @@ function bindSites(db: BehalfPostgresDb): typeof mongoSites {
     findRulesBySite: bindDb(db, pgSites.findRulesBySite),
     createAccessLog: bindDb(db, pgSites.createAccessLog),
     listAccessLogs: bindDb(db, pgSites.listAccessLogs),
+    deleteAccessLogs: bindDb(db, pgSites.deleteAccessLogs),
     findKeyByHash: bindDb(db, pgSites.findKeyByHash),
     createKey: bindDb(db, pgSites.createKey),
     revokeKey: bindDb(db, pgSites.revokeKey),

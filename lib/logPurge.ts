@@ -1,9 +1,7 @@
-import Account from "@/models/Account";
-import SiteAccessLog from "@/models/SiteAccessLog";
-import VerificationLog from "@/models/VerificationLog";
 import { PLANS, getLogRetentionDays, type Plan } from "@/lib/plans";
-import { connectToDatabase } from "@/lib/db";
-import type { Types } from "mongoose";
+import { listAccounts } from "@/lib/repositories/accounts";
+import { deleteAccessLogs } from "@/lib/repositories/sites";
+import { deleteLogs } from "@/lib/repositories/verificationLogs";
 
 /** Extra days after plan retention before physical delete. */
 export const LOG_PURGE_GRACE_DAYS = 7;
@@ -35,40 +33,18 @@ function cutoffForRetentionDays(retentionDays: number, now: Date): Date {
 
 async function deleteVerificationOlderThan(
   filter: Record<string, unknown>,
-  cutoff: Date,
-  limit: number
+  cutoff: Date
 ): Promise<number> {
-  const ids = await VerificationLog.find({ ...filter, createdAt: { $lt: cutoff } })
-    .select({ _id: 1 })
-    .sort({ createdAt: 1 })
-    .limit(limit)
-    .lean<{ _id: Types.ObjectId }[]>();
-
-  if (ids.length === 0) return 0;
-
-  const result = await VerificationLog.deleteMany({
-    _id: { $in: ids.map((row) => row._id) }
-  });
-  return result.deletedCount ?? 0;
+  const result = await deleteLogs({ ...filter, createdAt: { $lt: cutoff } });
+  return result?.deletedCount ?? 0;
 }
 
 async function deleteSiteAccessOlderThan(
   filter: Record<string, unknown>,
-  cutoff: Date,
-  limit: number
+  cutoff: Date
 ): Promise<number> {
-  const ids = await SiteAccessLog.find({ ...filter, createdAt: { $lt: cutoff } })
-    .select({ _id: 1 })
-    .sort({ createdAt: 1 })
-    .limit(limit)
-    .lean<{ _id: Types.ObjectId }[]>();
-
-  if (ids.length === 0) return 0;
-
-  const result = await SiteAccessLog.deleteMany({
-    _id: { $in: ids.map((row) => row._id) }
-  });
-  return result.deletedCount ?? 0;
+  const result = await deleteAccessLogs({ ...filter, createdAt: { $lt: cutoff } });
+  return result?.deletedCount ?? 0;
 }
 
 /**
@@ -78,8 +54,6 @@ async function deleteSiteAccessOlderThan(
  * paid tier would allow.
  */
 export async function purgeExpiredLogs(now = new Date()): Promise<LogPurgeSummary> {
-  await connectToDatabase();
-
   const summary: LogPurgeSummary = {
     graceDays: LOG_PURGE_GRACE_DAYS,
     verificationLogsDeleted: 0,
@@ -92,9 +66,7 @@ export async function purgeExpiredLogs(now = new Date()): Promise<LogPurgeSummar
   for (const plan of PLANS) {
     const retentionDays = getLogRetentionDays(plan);
     const cutoff = cutoffForRetentionDays(retentionDays, now);
-    const accountIds = (
-      await Account.find({ plan }).select({ accountId: 1 }).lean<{ accountId: string }[]>()
-    ).map((a) => a.accountId);
+    const accountIds = (await listAccounts({ plan }, "accountId")).map((a) => a.accountId);
 
     let verificationDeleted = 0;
     let siteAccessDeleted = 0;
@@ -102,13 +74,11 @@ export async function purgeExpiredLogs(now = new Date()): Promise<LogPurgeSummar
     if (accountIds.length > 0) {
       verificationDeleted = await deleteVerificationOlderThan(
         { accountId: { $in: accountIds } },
-        cutoff,
-        LOG_PURGE_BATCH_LIMIT
+        cutoff
       );
       siteAccessDeleted = await deleteSiteAccessOlderThan(
         { accountId: { $in: accountIds } },
-        cutoff,
-        LOG_PURGE_BATCH_LIMIT
+        cutoff
       );
     }
 
@@ -124,30 +94,22 @@ export async function purgeExpiredLogs(now = new Date()): Promise<LogPurgeSummar
 
   const longestRetention = Math.max(...PLANS.map((p: Plan) => getLogRetentionDays(p)));
   const orphanCutoff = cutoffForRetentionDays(longestRetention, now);
-  const knownAccountIds = (
-    await Account.find({}).select({ accountId: 1 }).lean<{ accountId: string }[]>()
-  ).map((a) => a.accountId);
+  const knownAccountIds = (await listAccounts({}, "accountId")).map((a) => a.accountId);
 
   const orphanFilter =
     knownAccountIds.length > 0
       ? {
-          $or: [
-            { accountId: { $exists: false } },
-            { accountId: null },
-            { accountId: { $nin: knownAccountIds } }
-          ]
+          $or: [{ accountId: null }, { accountId: { $nin: knownAccountIds } }]
         }
-      : { $or: [{ accountId: { $exists: false } }, { accountId: null }] };
+      : { accountId: null };
 
   summary.orphanVerificationLogsDeleted = await deleteVerificationOlderThan(
     orphanFilter,
-    orphanCutoff,
-    LOG_PURGE_BATCH_LIMIT
+    orphanCutoff
   );
   summary.orphanSiteAccessLogsDeleted = await deleteSiteAccessOlderThan(
     orphanFilter,
-    orphanCutoff,
-    LOG_PURGE_BATCH_LIMIT
+    orphanCutoff
   );
 
   summary.verificationLogsDeleted += summary.orphanVerificationLogsDeleted;

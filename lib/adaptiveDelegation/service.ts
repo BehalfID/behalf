@@ -1,5 +1,5 @@
-import Agent from "@/models/Agent";
-import Permission from "@/models/Permission";
+import { findPermissions } from "@/lib/repositories/permissions";
+import { listAgents } from "@/lib/repositories/agents";
 import AdaptiveDelegationEvent from "@/models/AdaptiveDelegationEvent";
 import AdaptiveDelegationRecommendation from "@/models/AdaptiveDelegationRecommendation";
 import { applyPermissionProfile, createPermissionForAgent } from "@/lib/permissionMutations";
@@ -83,14 +83,14 @@ async function recordEvent(options: {
 }
 
 async function loadExistingAutoAllowKeys(accountId: string): Promise<Set<string>> {
-  const permissions = await Permission.find({
-    accountId,
-    status: "active",
-    requiresApproval: { $ne: true },
-    $or: [{ "constraints.expiresAt": null }, { "constraints.expiresAt": { $exists: false } }, { "constraints.expiresAt": { $gt: new Date() } }]
-  })
-    .select("agentId action resource")
-    .lean<Array<{ agentId: string; action: string; resource?: string | null }>>();
+  const permissions = (await findPermissions(
+    {
+      accountId,
+      status: "active",
+      requiresApproval: { $ne: true }
+    },
+    { select: "agentId action resource" }
+  )) as Array<{ agentId: string; action: string; resource?: string | null }>;
 
   const keys = new Set<string>();
   for (const permission of permissions) {
@@ -217,9 +217,7 @@ export async function refreshAdaptiveDelegationRecommendations(options: {
     loadExistingTrustProfileKeys(options.accountId),
     loadExistingOrgTemplateIds(options.accountId),
     loadSuppressionSets(options.accountId),
-    Agent.find({ accountId: options.accountId })
-      .select("agentId name")
-      .lean<Array<{ agentId: string; name?: string }>>()
+    listAgents({ accountId: options.accountId }, { select: "agentId name" })
   ]);
 
   const agentNames = new Map(agents.map((agent) => [agent.agentId, agent.name ?? agent.agentId]));
@@ -359,7 +357,9 @@ export async function listAdaptiveDelegationDashboard(options: {
     AdaptiveDelegationRecommendation.find({ accountId: options.accountId })
       .sort({ confidence: -1, updatedAt: -1 })
       .lean(),
-    Agent.find({ accountId: options.accountId }).select("agentId name").lean<Array<{ agentId: string; name?: string }>>(),
+    listAgents({ accountId: options.accountId }, { select: "agentId name" }) as Promise<
+      Array<{ agentId: string; name?: string }>
+    >,
     loadApprovalPatterns({
       accountId: options.accountId,
       lookbackDays: DEFAULT_ADAPTIVE_DELEGATION_THRESHOLDS.lookbackDays

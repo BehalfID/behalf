@@ -496,6 +496,14 @@ export async function findAccessLogs(db: BehalfPostgresDb, filter: Record<string
   });
 }
 
+export async function deleteAccessLogs(db: BehalfPostgresDb, filter: Record<string, unknown>) {
+  const rows = await db
+    .delete(siteAccessLogs)
+    .where(buildWhere(logColumns, filter))
+    .returning({ requestId: siteAccessLogs.requestId });
+  return { acknowledged: true, deletedCount: rows.length };
+}
+
 export async function findKeys(db: BehalfPostgresDb, filter: Record<string, unknown> = {}) {
   return db.query.siteGuardKeys.findMany({
     where: buildWhere(keyColumns, filter),

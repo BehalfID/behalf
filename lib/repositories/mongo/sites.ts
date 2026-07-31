@@ -113,6 +113,10 @@ export async function listAccessLogs(
     .lean();
 }
 
+export async function deleteAccessLogs(filter: Record<string, unknown>) {
+  return SiteAccessLog.deleteMany(filter);
+}
+
 export async function findKeyByHash(keyHash: string): Promise<SiteGuardKeyLean | null> {
   return SiteGuardKey.findOne({ keyHash }).select("+keyHash").lean();
 }
