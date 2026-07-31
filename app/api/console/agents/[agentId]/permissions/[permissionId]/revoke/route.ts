@@ -1,9 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireConsoleApi } from "@/lib/adminAuth";
 import { getConsoleAccountId } from "@/lib/consoleData";
+import { findOnePermission, revokePermission } from "@/lib/repositories/permissions";
 import { jsonError } from "@/lib/responses";
 import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
-import Permission from "@/models/Permission";
 
 type RouteContext = {
   params: Promise<{ agentId: string; permissionId: string }>;
@@ -17,14 +17,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const { agentId, permissionId } = await context.params;
   const accountId = await getConsoleAccountId();
-  const permission = await Permission.findOne({ accountId, agentId, permissionId });
+  const permission = await findOnePermission({ accountId, agentId, permissionId });
   if (!permission) {
     return jsonError("Permission not found.", 404);
   }
 
   if (permission.status !== "revoked") {
-    permission.status = "revoked";
-    await permission.save();
+    await revokePermission({ accountId }, permissionId);
   }
 
   await emitWebhookEvent(

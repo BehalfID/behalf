@@ -1,9 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireConsoleApi } from "@/lib/adminAuth";
-import { connectToDatabase } from "@/lib/db";
+import { updateEnterpriseInquiry } from "@/lib/repositories/enterpriseInquiries";
 import { isRecord, readString } from "@/lib/validation";
 import { jsonError } from "@/lib/responses";
-import EnterpriseInquiry from "@/models/EnterpriseInquiry";
 
 export async function PATCH(
   request: NextRequest,
@@ -26,13 +25,9 @@ export async function PATCH(
     return jsonError("status must be 'new' or 'reviewed'.", 400);
   }
 
-  await connectToDatabase();
-
-  const inquiry = await EnterpriseInquiry.findOneAndUpdate(
-    { inquiryId: params.inquiryId },
-    { $set: { status } },
-    { new: true }
-  ).select("-_id inquiryId name email company message status createdAt").lean();
+  const inquiry = await updateEnterpriseInquiry(params.inquiryId, {
+    status: status as "new" | "reviewed"
+  });
 
   if (!inquiry) return jsonError("Inquiry not found.", 404);
 

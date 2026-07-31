@@ -1,9 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireConsoleApi } from "@/lib/adminAuth";
 import { getConsoleAccountId } from "@/lib/consoleData";
+import { updateEndpoint } from "@/lib/repositories/webhooks";
 import { jsonError } from "@/lib/responses";
 import { createSigningSecret } from "@/lib/webhooks";
-import WebhookEndpoint from "@/models/WebhookEndpoint";
 
 type RouteContext = {
   params: Promise<{ webhookId: string }>;
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const { webhookId } = await context.params;
   const accountId = await getConsoleAccountId();
   const signing = createSigningSecret();
-  const result = await WebhookEndpoint.updateOne(
+  const result = await updateEndpoint(
     { accountId, webhookId },
     { $set: { secretHash: signing.secretHash, secretPreview: signing.secretPreview } }
   );

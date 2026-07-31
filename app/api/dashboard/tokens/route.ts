@@ -2,19 +2,20 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireDeveloperApi, requireVerifiedDeveloperApi } from "@/lib/developerAuth";
 import { hashDeveloperToken, previewDeveloperToken } from "@/lib/developerToken";
 import { createDeveloperToken, createPublicId } from "@/lib/ids";
+import {
+  countByUserId,
+  createApiToken,
+  listByUserId
+} from "@/lib/repositories/apiTokens";
 import { readJsonObject } from "@/lib/request";
 import { jsonError, noCacheJson } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
-import DeveloperApiToken from "@/models/DeveloperApiToken";
 
 export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
 
-  // requireDeveloperApi already calls connectToDatabase — no extra call needed.
-  const tokens = await DeveloperApiToken.find({ userId: auth.user.userId })
-    .select("-_id tokenId name accountId tokenPreview lastUsedAt createdAt")
-    .lean();
+  const tokens = await listByUserId(auth.user.userId);
 
   return noCacheJson({ tokens });
 }
@@ -36,8 +37,7 @@ export async function POST(request: NextRequest) {
   if (!name) return jsonError("name is required.");
   if (name.length > 120) return jsonError("name must be 120 characters or fewer.");
 
-  // requireDeveloperApi already calls connectToDatabase — no extra call needed.
-  const existing = await DeveloperApiToken.countDocuments({ userId: auth.user.userId });
+  const existing = await countByUserId(auth.user.userId);
   if (existing >= 10) {
     return jsonError("Maximum of 10 developer API tokens allowed. Revoke one to create another.", 402);
   }
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
   const tokenHash = hashDeveloperToken(plaintext);
   const tokenId = createPublicId("tok");
 
-  await DeveloperApiToken.create({
+  await createApiToken({
     tokenId,
     userId: auth.user.userId,
     accountId: auth.account.accountId,

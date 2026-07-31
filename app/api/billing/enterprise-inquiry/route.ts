@@ -1,9 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { connectToDatabase } from "@/lib/db";
 import { createPublicId } from "@/lib/ids";
+import { createEnterpriseInquiry } from "@/lib/repositories/enterpriseInquiries";
 import { isRecord, readString, rejectUnknownFields } from "@/lib/validation";
 import { jsonError } from "@/lib/responses";
-import EnterpriseInquiry from "@/models/EnterpriseInquiry";
 
 export async function POST(request: NextRequest) {
   let body: unknown;
@@ -32,10 +31,8 @@ export async function POST(request: NextRequest) {
   if (company.length > 200) return jsonError("company must be 200 characters or fewer.", 400);
   if (message.length > 2000) return jsonError("message must be 2000 characters or fewer.", 400);
 
-  await connectToDatabase();
-
   const inquiryId = createPublicId("enq");
-  await EnterpriseInquiry.create({ inquiryId, name, email, company, message });
+  await createEnterpriseInquiry({ inquiryId, name, email, company, message });
 
   return NextResponse.json({ ok: true }, { status: 201 });
 }

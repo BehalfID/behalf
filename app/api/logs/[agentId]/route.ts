@@ -2,8 +2,8 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { agentAuthJsonError } from "@/lib/appErrors";
 import { authenticateAgent } from "@/lib/auth";
-import { connectToDatabase } from "@/lib/db";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
+import { countLogs, findLogs } from "@/lib/repositories/verificationLogs";
 import { jsonError } from "@/lib/responses";
 import {
   buildVerificationLogQuery,
@@ -12,11 +12,13 @@ import {
   sanitizeVerificationLog,
   type VerificationLogListItem
 } from "@/lib/verificationLogs";
-import VerificationLog from "@/models/VerificationLog";
 
 type RouteContext = {
   params: Promise<{ agentId: string }>;
 };
+
+const LOG_SELECT =
+  "-_id requestId agentId permissionId action amount vendor allowed approvalRequired reason risk shadow createdAt";
 
 export async function GET(request: NextRequest, context: RouteContext) {
   const { agentId } = await context.params;
@@ -28,8 +30,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
   if (ipLimit.limited) {
     return rateLimitError();
   }
-
-  await connectToDatabase();
 
   const auth = await authenticateAgent(request, agentId);
   if (auth.error || !auth.agent) {
@@ -44,22 +44,18 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const { limit: pageLimit, page, skip } = parseLogListParams(request.nextUrl.searchParams);
   const query = buildVerificationLogQuery(request.nextUrl.searchParams, { agentId });
   const [rawLogs, total, summaryLogs] = await Promise.all([
-    VerificationLog.find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(pageLimit)
-      .select(
-        "-_id requestId agentId permissionId action amount vendor allowed approvalRequired reason risk shadow createdAt"
-      )
-      .lean<VerificationLogListItem[]>(),
-    VerificationLog.countDocuments(query),
-    VerificationLog.find(query)
-      .sort({ createdAt: -1 })
-      .limit(1000)
-      .select(
-        "-_id requestId agentId permissionId action amount vendor allowed approvalRequired reason risk shadow createdAt"
-      )
-      .lean<VerificationLogListItem[]>()
+    findLogs(query, {
+      sort: { createdAt: -1 },
+      skip,
+      limit: pageLimit,
+      select: LOG_SELECT
+    }) as Promise<VerificationLogListItem[]>,
+    countLogs(query),
+    findLogs(query, {
+      sort: { createdAt: -1 },
+      limit: 1000,
+      select: LOG_SELECT
+    }) as Promise<VerificationLogListItem[]>
   ]);
   const logs = rawLogs.map(sanitizeVerificationLog);
   const legacy = request.nextUrl.searchParams.size === 0;

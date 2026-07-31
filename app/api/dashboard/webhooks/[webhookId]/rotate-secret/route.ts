@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import { jsonError } from "@/lib/responses";
 import { createSigningSecret } from "@/lib/webhooks";
-import WebhookEndpoint from "@/models/WebhookEndpoint";
+import { findOneAndUpdateEndpoint } from "@/lib/repositories/webhooks";
 
 type RouteContext = {
   params: Promise<{ webhookId: string }>;
@@ -13,7 +13,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (auth.error || !auth.user) return auth.error;
   const { webhookId } = await context.params;
   const signing = createSigningSecret();
-  const webhook = await WebhookEndpoint.findOneAndUpdate(
+  const webhook = await findOneAndUpdateEndpoint(
     { developerUserId: auth.user.userId, webhookId },
     { $set: { secretHash: signing.secretHash, secretPreview: signing.secretPreview } },
     { returnDocument: "after" }

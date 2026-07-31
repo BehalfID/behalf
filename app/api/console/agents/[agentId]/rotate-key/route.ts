@@ -5,7 +5,7 @@ import { getConsoleAccountId } from "@/lib/consoleData";
 import { createApiKey } from "@/lib/ids";
 import { jsonError } from "@/lib/responses";
 import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
-import Agent from "@/models/Agent";
+import { updateAgent } from "@/lib/repositories/agents";
 
 type RouteContext = {
   params: Promise<{ agentId: string }>;
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const { agentId } = await context.params;
   const accountId = await getConsoleAccountId();
   const apiKey = createApiKey();
-  const result = await Agent.updateOne(
+  const result = await updateAgent(
     { accountId, agentId },
     {
       $set: {

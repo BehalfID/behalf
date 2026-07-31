@@ -4,7 +4,7 @@ import { requireDeveloperApi } from "@/lib/developerAuth";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { jsonError } from "@/lib/responses";
 import { getStripe } from "@/lib/stripe";
-import Account from "@/models/Account";
+import { updateAccount } from "@/lib/repositories/accounts";
 
 export async function POST(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
@@ -45,10 +45,7 @@ export async function POST(request: NextRequest) {
         metadata: { accountId: auth.account.accountId }
       });
       customerId = customer.id;
-      await Account.updateOne(
-        { accountId: auth.account.accountId },
-        { $set: { stripeCustomerId: customerId } }
-      );
+      await updateAccount(auth.account.accountId, { stripeCustomerId: customerId });
     }
 
     const session = await stripe.checkout.sessions.create({

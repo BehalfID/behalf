@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
-import { connectToDatabase } from "@/lib/db";
-import StatusComponent from "@/models/StatusComponent";
-import StatusIncident from "@/models/StatusIncident";
 import { PUBLIC_STATUS_CACHE } from "@/lib/cachePolicy";
+import { listComponents, listIncidents } from "@/lib/repositories/status";
 import { noCacheJson } from "@/lib/responses";
 
 export async function GET() {
+  let components;
+  let incidents;
   try {
-    await connectToDatabase();
+    [components, incidents] = await Promise.all([
+      listComponents({ enabled: true }),
+      listIncidents()
+    ]);
   } catch {
     return noCacheJson(
       { overall: "operational", groupedComponents: [], incidents: [] },
@@ -15,17 +18,7 @@ export async function GET() {
     );
   }
 
-  const [components, incidents] = await Promise.all([
-    StatusComponent.find({ enabled: true })
-      .sort({ sortOrder: 1, name: 1 })
-      .select("-_id componentId name description group sortOrder status updatedAt")
-      .lean(),
-    StatusIncident.find({})
-      .sort({ createdAt: -1 })
-      .limit(50)
-      .select("-_id incidentId title message status severity componentIds updates resolvedAt createdAt updatedAt")
-      .lean()
-  ]);
+  incidents = incidents.slice(0, 50);
 
   // Derive overall system status from component statuses
   const allStatuses = components.map((c) => c.status);
