@@ -1,5 +1,5 @@
 import Permission, { type PermissionDocument } from "@/models/Permission";
-import { lazyModelMethod } from "@/lib/repositories/mongoModelAdapter";
+import { applyQueryOptions, asLean, lazyModelMethod } from "@/lib/repositories/mongoModelAdapter";
 
 export type PermissionLean = PermissionDocument;
 export type PermissionRepository = typeof permissionRepository;
@@ -180,12 +180,7 @@ export function findPermissions(
   filter: Record<string, unknown> = {},
   options: { sort?: Record<string, 1 | -1>; limit?: number; skip?: number; select?: string } = {}
 ) {
-  const query = Permission.find(filter);
-  if (options.sort) query.sort(options.sort);
-  if (options.select) query.select(options.select);
-  if (options.skip) query.skip(options.skip);
-  if (options.limit) query.limit(options.limit);
-  return query.lean();
+  return asLean(applyQueryOptions(Permission.find(filter), options));
 }
 
 export function findOnePermission(filter: Record<string, unknown>) {

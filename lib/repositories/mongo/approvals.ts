@@ -3,6 +3,7 @@ import ApprovalRequest, {
   type ApprovalRequestDocument
 } from "@/models/ApprovalRequest";
 import { isMongoDuplicateKeyError } from "@/lib/repositories/errors";
+import { applyQueryOptions, asLean, selectLean } from "@/lib/repositories/mongoModelAdapter";
 
 export type ApprovalLean = ApprovalRequestDocument;
 export type ApprovalRepository = typeof approvalRepository;
@@ -59,26 +60,23 @@ export async function upsertPendingManagedProfilePause(
 }
 
 export function findApproval(filter: Record<string, unknown>, select?: string) {
-  const query = ApprovalRequest.findOne(filter);
-  if (select) query.select(select);
-  return query;
+  return applyQueryOptions(ApprovalRequest.findOne(filter), { select });
 }
 
 export async function findApprovalLean(filter: Record<string, unknown>, select?: string) {
-  const query = ApprovalRequest.findOne(filter);
-  if (select) query.select(select);
-  return query.lean();
+  return selectLean(ApprovalRequest.findOne(filter), select);
 }
 
 export function listApprovals(
   filter: Record<string, unknown>,
   options: { sort?: Record<string, 1 | -1>; limit?: number; skip?: number; select?: string } = {}
 ) {
-  const query = ApprovalRequest.find(filter).sort(options.sort ?? { createdAt: -1 });
-  if (options.select) query.select(options.select);
-  if (options.skip) query.skip(options.skip);
-  if (options.limit) query.limit(options.limit);
-  return query;
+  return asLean(
+    applyQueryOptions(ApprovalRequest.find(filter), {
+      ...options,
+      sort: options.sort ?? { createdAt: -1 }
+    })
+  );
 }
 
 export async function approveApproval(
@@ -133,12 +131,7 @@ export function findApprovals(
   filter: Record<string, unknown> = {},
   options: { sort?: Record<string, 1 | -1>; limit?: number; skip?: number; select?: string } = {}
 ) {
-  const query = ApprovalRequest.find(filter);
-  if (options.sort) query.sort(options.sort);
-  if (options.select) query.select(options.select);
-  if (options.skip) query.skip(options.skip);
-  if (options.limit) query.limit(options.limit);
-  return query.lean();
+  return asLean(applyQueryOptions(ApprovalRequest.find(filter), options));
 }
 
 export function updateApproval(filter: Record<string, unknown>, update: Record<string, unknown>) {

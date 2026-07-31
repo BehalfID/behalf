@@ -1,7 +1,7 @@
 import Account from "@/models/Account";
 import type { AccountDocument } from "@/models/Account";
 import { translateDuplicateKey } from "@/lib/repositories/errors";
-import { lazyModelMethod } from "@/lib/repositories/mongoModelAdapter";
+import { lazyModelMethod, selectLean } from "@/lib/repositories/mongoModelAdapter";
 
 export type AccountLean = AccountDocument;
 
@@ -13,13 +13,7 @@ export async function findAccountByIdLean(
   accountId: string,
   select?: string
 ): Promise<Pick<AccountDocument, "accountId" | "name" | "slug" | "companyName"> | null> {
-  const query = Account.findOne({ accountId });
-  if (select) {
-    query.select(select);
-  } else {
-    query.select("accountId name slug companyName");
-  }
-  return query.lean();
+  return selectLean(Account.findOne({ accountId }), select ?? "accountId name slug companyName");
 }
 
 export async function findAccountBySlug(slug: string) {
@@ -32,13 +26,7 @@ export async function findAccountBySlugLean(
 ): Promise<Pick<AccountDocument, "accountId" | "name" | "slug" | "companyName"> | null> {
   const normalized = slug.trim().toLowerCase();
   if (!normalized) return null;
-  const query = Account.findOne({ slug: normalized });
-  if (select) {
-    query.select(select);
-  } else {
-    query.select("accountId name slug companyName");
-  }
-  return query.lean();
+  return selectLean(Account.findOne({ slug: normalized }), select ?? "accountId name slug companyName");
 }
 
 /** Read one account with an optional Mongo filter and projection. */
@@ -47,18 +35,14 @@ export async function findAccount(
     Record<string, unknown>,
   select?: string
 ): Promise<AccountLean | null> {
-  const query = Account.findOne(filter);
-  if (select) query.select(select);
-  return query.lean();
+  return selectLean(Account.findOne(filter), select);
 }
 
 export async function listAccounts(
   filter: Record<string, unknown>,
   select?: string
 ): Promise<AccountLean[]> {
-  const query = Account.find(filter);
-  if (select) query.select(select);
-  return query.lean();
+  return selectLean(Account.find(filter), select);
 }
 
 export async function createAccount(input: Omit<AccountDocument, "_id" | "createdAt" | "updatedAt">) {

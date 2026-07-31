@@ -1,5 +1,6 @@
 import StatusComponent, { type StatusComponentDocument } from "@/models/StatusComponent";
 import StatusIncident, { type StatusIncidentDocument } from "@/models/StatusIncident";
+import { applyQueryOptions, asLean } from "@/lib/repositories/mongoModelAdapter";
 
 export type StatusComponentLean = StatusComponentDocument;
 export type StatusIncidentLean = StatusIncidentDocument;
@@ -85,13 +86,10 @@ export function findStatusComponents(
   filter: Record<string, unknown> = {},
   options: StatusQueryOptions = {}
 ) {
-  const query = StatusComponent.find(filter);
-  if (options.sort) query.sort(options.sort);
-  else query.sort({ sortOrder: 1, name: 1 });
-  if (options.select) query.select(options.select);
-  if (options.skip) query.skip(options.skip);
-  if (options.limit) query.limit(options.limit);
-  return query.lean();
+  return asLean(applyQueryOptions(StatusComponent.find(filter), {
+    ...options,
+    sort: options.sort ?? { sortOrder: 1, name: 1 }
+  }));
 }
 
 export function findOneStatusComponent(filter: Record<string, unknown>) {
@@ -106,13 +104,10 @@ export function findStatusIncidents(
   filter: Record<string, unknown> = {},
   options: StatusQueryOptions = {}
 ) {
-  const query = StatusIncident.find(filter);
-  if (options.sort) query.sort(options.sort);
-  else query.sort({ createdAt: -1 });
-  if (options.select) query.select(options.select);
-  if (options.skip) query.skip(options.skip);
-  if (options.limit) query.limit(options.limit);
-  return query.lean();
+  return asLean(applyQueryOptions(StatusIncident.find(filter), {
+    ...options,
+    sort: options.sort ?? { createdAt: -1 }
+  }));
 }
 
 export function findOneStatusIncident(filter: Record<string, unknown>) {

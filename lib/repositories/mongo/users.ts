@@ -1,6 +1,6 @@
 import DeveloperUser, { type AuthProvider } from "@/models/DeveloperUser";
 import { translateDuplicateKey } from "@/lib/repositories/errors";
-import { lazyModelMethod } from "@/lib/repositories/mongoModelAdapter";
+import { applyQueryOptions, asLean, lazyModelMethod, selectLean } from "@/lib/repositories/mongoModelAdapter";
 
 export type DeveloperUserLean = {
   _id?: unknown;
@@ -44,9 +44,7 @@ function normalizedEmail(email: string) {
 }
 
 async function queryOneLean(filter: Record<string, unknown>, options?: UserLookupOptions) {
-  const query = DeveloperUser.findOne(filter);
-  if (options?.select) query.select(options.select);
-  return (await query.lean()) as DeveloperUserLean | null;
+  return selectLean<DeveloperUserLean | null>(DeveloperUser.findOne(filter), options?.select);
 }
 
 export function findByEmail(email: string, options?: UserLookupOptions) {
@@ -135,12 +133,7 @@ export function findUsers(
   filter: Record<string, unknown> = {},
   options: { sort?: Record<string, 1 | -1>; limit?: number; skip?: number; select?: string } = {}
 ) {
-  const query = DeveloperUser.find(filter);
-  if (options.sort) query.sort(options.sort);
-  if (options.select) query.select(options.select);
-  if (options.skip) query.skip(options.skip);
-  if (options.limit) query.limit(options.limit);
-  return query.lean();
+  return asLean(applyQueryOptions(DeveloperUser.find(filter), options));
 }
 
 export function findOneUser(filter: Record<string, unknown>) {

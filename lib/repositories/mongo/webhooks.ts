@@ -1,7 +1,7 @@
 import WebhookDelivery, { type WebhookDeliveryDocument } from "@/models/WebhookDelivery";
 import WebhookEndpoint, { type WebhookEndpointDocument } from "@/models/WebhookEndpoint";
 import WebhookEvent, { type WebhookEventDocument } from "@/models/WebhookEvent";
-import { lazyModelAdapter } from "@/lib/repositories/mongoModelAdapter";
+import { applyQueryOptions, asLean, lazyModelAdapter, selectLean } from "@/lib/repositories/mongoModelAdapter";
 
 export type WebhookEndpointLean = WebhookEndpointDocument;
 export type WebhookEventLean = WebhookEventDocument;
@@ -17,9 +17,7 @@ export async function createEvent(input: Partial<WebhookEventDocument>) {
 }
 
 export function findEndpoint(filter: Record<string, unknown>, select?: string) {
-  const query = WebhookEndpoint.findOne(filter);
-  if (select) query.select(select);
-  return query.lean();
+  return selectLean(WebhookEndpoint.findOne(filter), select);
 }
 
 export function listEndpoints(
@@ -68,9 +66,7 @@ export function listEvents(
 }
 
 export function findEvent(filter: Record<string, unknown>, select?: string) {
-  const query = WebhookEvent.findOne(filter);
-  if (select) query.select(select);
-  return query.lean();
+  return selectLean(WebhookEvent.findOne(filter), select);
 }
 
 export async function recoverStuckEvents(stuckBefore: Date, maxAttempts: number) {

@@ -1,5 +1,5 @@
 import DeveloperSession from "@/models/DeveloperSession";
-import { lazyModelMethod } from "@/lib/repositories/mongoModelAdapter";
+import { lazyModelMethod, selectLean } from "@/lib/repositories/mongoModelAdapter";
 
 export type DeveloperSessionLean = {
   _id?: unknown;
@@ -28,9 +28,7 @@ export async function findByTokenHash(
 ): Promise<DeveloperSessionLean | null> {
   const filter: Record<string, unknown> = { tokenHash };
   if (options?.requireUnexpired) filter.expiresAt = { $gt: new Date() };
-  const query = DeveloperSession.findOne(filter);
-  if (options?.select) query.select(options.select);
-  return (await query.lean()) as DeveloperSessionLean | null;
+  return selectLean<DeveloperSessionLean | null>(DeveloperSession.findOne(filter), options?.select);
 }
 
 export async function findBySessionId(
@@ -39,9 +37,7 @@ export async function findBySessionId(
 ): Promise<DeveloperSessionLean | null> {
   const filter: Record<string, unknown> = { sessionId };
   if (options?.userId) filter.userId = options.userId;
-  const query = DeveloperSession.findOne(filter);
-  if (options?.select) query.select(options.select);
-  return (await query.lean()) as DeveloperSessionLean | null;
+  return selectLean<DeveloperSessionLean | null>(DeveloperSession.findOne(filter), options?.select);
 }
 
 export function updateActivity(sessionId: string, lastActivityAt: Date, expiresAt: Date) {

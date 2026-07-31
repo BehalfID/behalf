@@ -1,4 +1,68 @@
 /**
+ * Applies optional query options by reassignment so both real Mongoose queries
+ * (mutable, builders return this) and nested unit-test mocks
+ * (`findOne().select().lean()`) work.
+ */
+export type ChainableQuery = {
+  select?: (projection: string | Record<string, unknown>) => unknown;
+  sort?: (spec: unknown) => unknown;
+  skip?: (n: number) => unknown;
+  limit?: (n: number) => unknown;
+  maxTimeMS?: (n: number) => unknown;
+  lean: (...args: never[]) => unknown;
+};
+
+export function applyQueryOptions(
+  query: ChainableQuery,
+  options: {
+    select?: string | Record<string, unknown>;
+    sort?: unknown;
+    skip?: number;
+    limit?: number;
+    maxTimeMS?: number;
+  } = {}
+): ChainableQuery {
+  let q = query;
+  if (options.select != null && typeof q.select === "function") {
+    q = q.select(options.select) as ChainableQuery;
+  }
+  if (options.sort != null && typeof q.sort === "function") {
+    q = q.sort(options.sort) as ChainableQuery;
+  }
+  if (options.skip != null && typeof q.skip === "function") {
+    q = q.skip(options.skip) as ChainableQuery;
+  }
+  if (options.limit != null && typeof q.limit === "function") {
+    q = q.limit(options.limit) as ChainableQuery;
+  }
+  if (options.maxTimeMS != null && typeof q.maxTimeMS === "function") {
+    q = q.maxTimeMS(options.maxTimeMS) as ChainableQuery;
+  }
+  return q;
+}
+
+/** Resolve lean() even when unit mocks only expose lean under select(). */
+export function asLean<T = unknown>(query: ChainableQuery): Promise<T> {
+  if (typeof query.lean === "function") {
+    return Promise.resolve(query.lean() as T);
+  }
+  if (typeof query.select === "function") {
+    const nested = query.select("_id") as ChainableQuery;
+    if (nested && typeof nested.lean === "function") {
+      return Promise.resolve(nested.lean() as T);
+    }
+  }
+  throw new TypeError("query.lean is not a function");
+}
+
+/**
+ * Applies an optional projection then lean().
+ */
+export function selectLean<T = unknown>(query: ChainableQuery, select?: string): Promise<T> {
+  return asLean<T>(applyQueryOptions(query, { select }));
+}
+
+/**
  * Defers Mongoose model method binding until call time so unit tests can mock
  * `@/models/*` with partial shapes without breaking module initialization.
  */

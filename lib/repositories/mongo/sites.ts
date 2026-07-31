@@ -2,7 +2,7 @@ import Site, { type SiteDocument } from "@/models/Site";
 import SiteAccessLog, { type SiteAccessLogDocument } from "@/models/SiteAccessLog";
 import SiteAccessRule, { type SiteAccessRuleDocument } from "@/models/SiteAccessRule";
 import SiteGuardKey, { type SiteGuardKeyDocument } from "@/models/SiteGuardKey";
-import { lazyModelAdapter } from "@/lib/repositories/mongoModelAdapter";
+import { applyQueryOptions, asLean, lazyModelAdapter, selectLean } from "@/lib/repositories/mongoModelAdapter";
 import { translateDuplicateKey } from "@/lib/repositories/errors";
 
 export type SiteLean = SiteDocument;
@@ -118,7 +118,7 @@ export async function deleteAccessLogs(filter: Record<string, unknown>) {
 }
 
 export async function findKeyByHash(keyHash: string): Promise<SiteGuardKeyLean | null> {
-  return SiteGuardKey.findOne({ keyHash }).select("+keyHash").lean();
+  return selectLean<SiteGuardKeyLean | null>(SiteGuardKey.findOne({ keyHash }), "+keyHash");
 }
 
 export async function createKey(input: Omit<SiteGuardKeyDocument, "_id" | "createdAt" | "updatedAt">) {
@@ -172,9 +172,7 @@ export function createSiteDocument(input: Record<string, unknown>) {
 }
 
 export function findOneSite(filter: Record<string, unknown>, options: SiteQueryOptions = {}) {
-  const query = Site.findOne(filter);
-  if (options.select) query.select(options.select);
-  return query.lean();
+  return selectLean(Site.findOne(filter), options.select as string | undefined);
 }
 
 export function findOneAndUpdateSite(
@@ -199,9 +197,7 @@ export function createRuleDocument(input: Record<string, unknown>) {
 }
 
 export function findOneRule(filter: Record<string, unknown>, options: SiteQueryOptions = {}) {
-  const query = SiteAccessRule.findOne(filter);
-  if (options.select) query.select(options.select);
-  return query.lean();
+  return selectLean(SiteAccessRule.findOne(filter), options.select as string | undefined);
 }
 
 export function findOneAndUpdateRule(

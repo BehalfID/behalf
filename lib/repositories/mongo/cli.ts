@@ -1,6 +1,6 @@
 import CliAuditLog, { type CliAuditLogDocument } from "@/models/CliAuditLog";
 import CliPauseLease, { type CliPauseLeaseDocument } from "@/models/CliPauseLease";
-import { lazyModelAdapter } from "@/lib/repositories/mongoModelAdapter";
+import { applyQueryOptions, asLean, lazyModelAdapter } from "@/lib/repositories/mongoModelAdapter";
 
 export type CliPauseLeaseLean = CliPauseLeaseDocument;
 export type CliAuditLogLean = CliAuditLogDocument;
@@ -12,14 +12,16 @@ export async function findActiveLeases(filter: {
   now?: Date;
 }): Promise<CliPauseLeaseLean[]> {
   const { now = new Date(), ...identity } = filter;
-  return CliPauseLease.find({
-    ...identity,
-    granted: true,
-    expiresAt: { $gt: now }
-  })
-    .sort({ expiresAt: -1 })
-    .limit(20)
-    .lean();
+  return asLean<CliPauseLeaseLean[]>(
+    applyQueryOptions(
+      CliPauseLease.find({
+        ...identity,
+        granted: true,
+        expiresAt: { $gt: now }
+      }),
+      { sort: { expiresAt: -1 }, limit: 20 }
+    )
+  );
 }
 
 export async function createLease(input: Omit<CliPauseLeaseDocument, "_id" | "createdAt" | "updatedAt">) {
@@ -68,7 +70,12 @@ export async function findAuditLogs(input: FindAuditLogsInput): Promise<CliAudit
     ];
   }
 
-  return CliAuditLog.find(query).sort({ createdAt: -1, auditId: -1 }).limit(input.limit).lean();
+  return asLean<CliAuditLogLean[]>(
+    applyQueryOptions(CliAuditLog.find(query), {
+      sort: { createdAt: -1, auditId: -1 },
+      limit: input.limit
+    })
+  );
 }
 
 export const auditLogModel = lazyModelAdapter(() => CliAuditLog);
