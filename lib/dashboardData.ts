@@ -3,17 +3,16 @@ import { normalizeAgentMetadata, type AgentProvider, type AgentType, type Connec
 import { createApiKey, createPublicId } from "@/lib/ids";
 import { getPlanEntitlements, normalizePlan, verificationPeriodStart } from "@/lib/plans";
 import { countBillableSeats } from "@/lib/quota";
+import type { AccountLean } from "@/lib/repositories/accounts";
+import { countAgentsByScope, createAgent, findOneAgent } from "@/lib/repositories/agents";
+import { countProtectedReposByAccountId } from "@/lib/repositories/managedProfiles";
+import { countPermissions, findPermissions } from "@/lib/repositories/permissions";
+import { countLogs, findLogs } from "@/lib/repositories/verificationLogs";
 import {
-  countAgentsByScope,
-  countProtectedReposByAccountId
-} from "@/lib/repositories";
-import type { AccountDocument } from "@/models/Account";
-import Agent from "@/models/Agent";
-import Permission from "@/models/Permission";
-import VerificationLog from "@/models/VerificationLog";
-import WebhookDelivery from "@/models/WebhookDelivery";
-import WebhookEndpoint from "@/models/WebhookEndpoint";
-import WebhookEvent from "@/models/WebhookEvent";
+  countWebhookEvents,
+  findEndpoint,
+  listDeliveries
+} from "@/lib/repositories/webhooks";
 
 export function serializeAgent(agent: {
   agentId: string;
@@ -62,7 +61,7 @@ export async function createDeveloperAgent(
   }
 ) {
   const apiKey = createApiKey();
-  const agent = await Agent.create({
+  const agent = await createAgent({
     agentId: createPublicId("agent"),
     ...(accountId ? { accountId } : {}),
     developerUserId: userId,
@@ -87,26 +86,33 @@ function nextVerificationReset(periodStart?: Date | null) {
 }
 
 export async function getDeveloperAgentDetail(userId: string, agentId: string) {
-  const agent = await Agent.findOne({ developerUserId: userId, agentId });
+  const agent = await findOneAgent({ developerUserId: userId, agentId });
   if (!agent) return null;
 
   const [permissions, logs] = await Promise.all([
-    Permission.find({ developerUserId: userId, agentId })
-      .sort({ createdAt: -1 })
-      .limit(50)
-      .select("-_id permissionId action description resource scope allowedActions blockedActions requiresApproval notes template constraints requiredAuthorityLevel status lastUsedAt createdAt updatedAt")
-      .lean(),
-    VerificationLog.find({ developerUserId: userId, agentId })
-      .sort({ createdAt: -1 })
-      .limit(25)
-      .select("-_id requestId agentId permissionId action amount vendor allowed reason risk createdAt")
-      .lean()
+    findPermissions(
+      { developerUserId: userId, agentId },
+      {
+        sort: { createdAt: -1 },
+        limit: 50,
+        select:
+          "-_id permissionId action description resource scope allowedActions blockedActions requiresApproval notes template constraints requiredAuthorityLevel status lastUsedAt createdAt updatedAt"
+      }
+    ),
+    findLogs(
+      { developerUserId: userId, agentId },
+      {
+        sort: { createdAt: -1 },
+        limit: 25,
+        select: "-_id requestId agentId permissionId action amount vendor allowed reason risk createdAt"
+      }
+    )
   ]);
 
   return { agent: serializeAgent(agent), permissions, logs };
 }
 
-export async function getDashboardSummary(userId: string, account?: AccountDocument | null) {
+export async function getDashboardSummary(userId: string, account?: AccountLean | null) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const scope = account?.accountId ? { accountId: account.accountId } : { developerUserId: userId };
@@ -120,10 +126,10 @@ export async function getDashboardSummary(userId: string, account?: AccountDocum
     protectedRepoCount
   ] = await Promise.all([
     countAgentsByScope(scope as { accountId: string } | { developerUserId: string }),
-    Permission.countDocuments({ ...scope, status: "active" }),
-    VerificationLog.countDocuments({ ...scope, createdAt: { $gte: today } }),
-    WebhookEvent.countDocuments({ ...scope, status: "pending" }),
-    WebhookEvent.countDocuments({ ...scope, deadLetter: true }),
+    countPermissions({ ...scope, status: "active" }),
+    countLogs({ ...scope, createdAt: { $gte: today } }),
+    countWebhookEvents({ ...scope, status: "pending" }),
+    countWebhookEvents({ ...scope, deadLetter: true }),
     account?.accountId ? countBillableSeats(account.accountId) : Promise.resolve(0),
     account?.accountId
       ? countProtectedReposByAccountId(account.accountId)
@@ -159,16 +165,13 @@ export async function getDashboardSummary(userId: string, account?: AccountDocum
 }
 
 export async function getDeveloperWebhookDetail(userId: string, webhookId: string) {
-  const webhook = await WebhookEndpoint.findOne({ developerUserId: userId, webhookId })
-    .select("-_id webhookId url secretPreview events status lastTriggeredAt createdAt updatedAt")
-    .lean();
+  const webhook = await findEndpoint({ developerUserId: userId, webhookId });
   if (!webhook) return null;
 
-  const deliveries = await WebhookDelivery.find({ developerUserId: userId, webhookId })
-    .sort({ createdAt: -1 })
-    .limit(50)
-    .select("-_id deliveryId eventId eventType status httpStatus error attempt nextRetryAt maxAttempts createdAt")
-    .lean();
+  const deliveries = await listDeliveries(
+    { developerUserId: userId, webhookId },
+    { sort: { createdAt: -1 }, limit: 50 }
+  );
 
   return { webhook, deliveries };
 }

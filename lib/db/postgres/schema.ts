@@ -1416,6 +1416,85 @@ export const collaborationMessageRefs = pgTable(
   ]
 );
 
+// ---------------------------------------------------------------------------
+// Console / auth telemetry (cutover domains previously Mongo-only)
+// ---------------------------------------------------------------------------
+
+export const authEvents = pgTable(
+  "auth_events",
+  {
+    eventId: text("event_id").primaryKey(),
+    surface: text("surface").notNull(),
+    outcome: text("outcome").notNull().default("failure"),
+    reason: text("reason").notNull(),
+    ipHash: text("ip_hash").notNull(),
+    identityHint: text("identity_hint"),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+    createdAt: timestamptz().notNull().defaultNow()
+  },
+  (table) => [
+    index("auth_events_created_at_idx").on(table.createdAt),
+    index("auth_events_expires_at_idx").on(table.expiresAt),
+    index("auth_events_surface_idx").on(table.surface)
+  ]
+);
+
+export const consoleAdmins = pgTable(
+  "console_admins",
+  {
+    adminId: text("admin_id").primaryKey(),
+    email: text("email").notNull(),
+    passwordHash: text("password_hash").notNull(),
+    role: text("role").notNull().default("owner"),
+    lastLoginAt: timestamp("last_login_at", { withTimezone: true, mode: "date" }),
+    disabledAt: timestamp("disabled_at", { withTimezone: true, mode: "date" }),
+    ...createdUpdatedAt()
+  },
+  (table) => [
+    uniqueIndex("console_admins_email_uq").on(table.email),
+    index("console_admins_disabled_at_idx").on(table.disabledAt)
+  ]
+);
+
+export const adminAuditLogs = pgTable(
+  "admin_audit_logs",
+  {
+    entryId: text("entry_id").primaryKey(),
+    adminId: text("admin_id").notNull(),
+    action: text("action").notNull(),
+    target: text("target"),
+    requestId: text("request_id"),
+    metadata: jsonb("metadata"),
+    createdAt: timestamptz().notNull().defaultNow()
+  },
+  (table) => [
+    index("admin_audit_logs_created_at_idx").on(table.createdAt),
+    index("admin_audit_logs_admin_id_idx").on(table.adminId),
+    index("admin_audit_logs_action_idx").on(table.action)
+  ]
+);
+
+export const permissionReplacementAudits = pgTable(
+  "permission_replacement_audits",
+  {
+    eventId: text("event_id").primaryKey(),
+    accountId: text("account_id").notNull(),
+    agentId: text("agent_id").notNull(),
+    actorUserId: text("actor_user_id").notNull(),
+    type: text("type").notNull(),
+    oldPermissionId: text("old_permission_id").notNull(),
+    replacementPermissionId: text("replacement_permission_id"),
+    idempotencyKey: text("idempotency_key"),
+    reason: text("reason"),
+    metadata: jsonb("metadata"),
+    createdAt: timestamptz().notNull().defaultNow()
+  },
+  (table) => [
+    index("permission_replacement_audits_account_created_idx").on(table.accountId, table.createdAt),
+    index("permission_replacement_audits_old_permission_idx").on(table.oldPermissionId)
+  ]
+);
+
 /** All schema tables exported for static validation and future repository adapters. */
 export const coreTables = {
   accounts,
@@ -1453,7 +1532,11 @@ export const coreTables = {
   statusIncidents,
   policyDocuments,
   integrationBindings,
-  collaborationMessageRefs
+  collaborationMessageRefs,
+  authEvents,
+  consoleAdmins,
+  adminAuditLogs,
+  permissionReplacementAudits
 } as const;
 
 export type CoreTableName = keyof typeof coreTables;

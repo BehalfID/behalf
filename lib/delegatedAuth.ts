@@ -17,11 +17,14 @@ import {
   getRequiredAuthorityForAction,
   type PermissionClassificationInput
 } from "@/lib/permissionRisk";
-import Account from "@/models/Account";
-import AccountMembership from "@/models/AccountMembership";
-import DeveloperUser from "@/models/DeveloperUser";
-import type { PermissionDocument } from "@/models/Permission";
-import type { ApprovalRequestDocument } from "@/models/ApprovalRequest";
+import { findAccount } from "@/lib/repositories/accounts";
+import type { ApprovalLean } from "@/lib/repositories/approvals";
+import {
+  ensureOwnerMembership,
+  findMembershipByUserAndAccount
+} from "@/lib/repositories/memberships";
+import type { PermissionLean } from "@/lib/repositories/permissions";
+import { findByUserId } from "@/lib/repositories/users";
 
 export type WorkspaceActor = {
   userId: string;
@@ -45,7 +48,7 @@ export class MembershipBootstrapError extends Error {
 }
 
 async function findMembership(userId: string, accountId: string) {
-  return AccountMembership.findOne({ userId, accountId }).lean();
+  return findMembershipByUserAndAccount(userId, accountId);
 }
 
 /**
@@ -53,12 +56,12 @@ async function findMembership(userId: string, accountId: string) {
  * Uses upsert to avoid duplicate memberships under concurrent requests.
  */
 export async function ensureAccountMembership(userId: string, accountId: string) {
-  const account = await Account.findOne({ accountId }).lean();
+  const account = await findAccount({ accountId });
   if (!account) {
     throw new MembershipBootstrapError("Workspace account not found.");
   }
 
-  const user = await DeveloperUser.findOne({ userId }).select("primaryAccountId").lean();
+  const user = await findByUserId(userId, { select: "primaryAccountId" });
   if (!user?.primaryAccountId) {
     throw new MembershipBootstrapError("No workspace account is associated with this user.");
   }
@@ -68,18 +71,7 @@ export async function ensureAccountMembership(userId: string, accountId: string)
 
   const membershipId = createPublicId("mbr");
   try {
-    return await AccountMembership.findOneAndUpdate(
-      { userId, accountId },
-      {
-        $setOnInsert: {
-          membershipId,
-          userId,
-          accountId,
-          role: "OWNER"
-        }
-      },
-      { upsert: true, returnDocument: "after" }
-    ).lean();
+    return await ensureOwnerMembership(userId, accountId, membershipId);
   } catch (error) {
     if (
       typeof error === "object" &&
@@ -100,7 +92,7 @@ export async function getWorkspaceActor(
 ): Promise<WorkspaceActor | null> {
   if (!accountId) return null;
 
-  const user = await DeveloperUser.findOne({ userId }).select("primaryAccountId").lean();
+  const user = await findByUserId(userId, { select: "primaryAccountId" });
   if (!user) return null;
 
   let membership =
@@ -121,7 +113,7 @@ export async function getWorkspaceActor(
 
 export function getEffectiveRequiredAuthority(
   permission: Pick<
-    PermissionDocument,
+    PermissionLean,
     | "action"
     | "resource"
     | "scope"
@@ -177,7 +169,7 @@ export function canCreatePermission(actor: WorkspaceActor, permissionInput: Perm
 export function canUpdatePermission(
   actor: WorkspaceActor,
   existingPermission: Pick<
-    PermissionDocument,
+    PermissionLean,
     | "action"
     | "resource"
     | "scope"
@@ -199,7 +191,7 @@ export function canUpdatePermission(
 export function canRevokePermission(
   actor: WorkspaceActor,
   permission: Pick<
-    PermissionDocument,
+    PermissionLean,
     | "action"
     | "resource"
     | "scope"
@@ -216,7 +208,7 @@ export function canRevokePermission(
 }
 
 function resolveApprovalRequiredLevel(
-  approvalRequest: Pick<ApprovalRequestDocument, "requiredAuthorityLevel" | "action" | "vendor">
+  approvalRequest: Pick<ApprovalLean, "requiredAuthorityLevel" | "action" | "vendor">
 ): number {
   return typeof approvalRequest.requiredAuthorityLevel === "number"
     ? approvalRequest.requiredAuthorityLevel
@@ -226,9 +218,9 @@ function resolveApprovalRequiredLevel(
 export function canApproveRequest(
   actor: WorkspaceActor,
   approvalRequest: Pick<
-    ApprovalRequestDocument,
+    ApprovalLean,
     "requiredAuthorityLevel" | "action" | "vendor" | "developerUserId"
-  > & { kind?: ApprovalRequestDocument["kind"] | null }
+  > & { kind?: ApprovalLean["kind"] | null }
 ): boolean {
   if (actor.authorityLevel <= AUTHORITY_LEVELS.VIEWER) return false;
   if (
@@ -243,7 +235,7 @@ export function canApproveRequest(
 export function canDenyRequest(
   actor: WorkspaceActor,
   approvalRequest: Pick<
-    ApprovalRequestDocument,
+    ApprovalLean,
     "requiredAuthorityLevel" | "action" | "vendor" | "developerUserId"
   >,
   options?: { isRequesterCancel?: boolean }

@@ -133,8 +133,15 @@ export async function retryEvent(eventId: string, nextAttemptAt: Date, lastError
   );
 }
 
-export function listDeliveries(filter: Record<string, unknown>) {
-  return WebhookDelivery.find(filter).sort({ createdAt: -1, deliveryId: -1 });
+export function listDeliveries(
+  filter: Record<string, unknown>,
+  options: { sort?: Record<string, 1 | -1>; limit?: number; skip?: number; select?: string } = {}
+) {
+  const query = WebhookDelivery.find(filter).sort(options.sort ?? { createdAt: -1, deliveryId: -1 });
+  if (options.select) query.select(options.select);
+  if (options.skip) query.skip(options.skip);
+  if (options.limit) query.limit(options.limit);
+  return query.lean();
 }
 
 export async function deleteDeliveries(filter: Record<string, unknown>) {

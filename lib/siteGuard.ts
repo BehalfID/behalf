@@ -1,7 +1,11 @@
 import { createPublicId } from "@/lib/ids";
-import Site, { type SiteDocument } from "@/models/Site";
-import SiteAccessLog from "@/models/SiteAccessLog";
-import SiteAccessRule, { type SiteAccessRuleDocument } from "@/models/SiteAccessRule";
+import {
+  createAccessLog,
+  findRulesBySite,
+  findSite,
+  type SiteAccessRuleLean,
+  type SiteLean
+} from "@/lib/repositories/sites";
 
 export type SiteGuardMetadata = Record<string, unknown>;
 
@@ -111,7 +115,7 @@ function signalPatternMatches(pattern: string | null | undefined, value: string 
   return globMatches(pattern.trim(), value.trim(), true);
 }
 
-function ruleMatchesSignal(rule: SiteAccessRuleDocument, input: SiteGuardInput) {
+function ruleMatchesSignal(rule: SiteAccessRuleLean, input: SiteGuardInput) {
   const identifierMatch =
     Boolean(rule.agentIdentifier) &&
     rule.agentIdentifier?.trim().toLowerCase() === input.agentIdentifier?.trim().toLowerCase();
@@ -125,8 +129,8 @@ function pathListMatches(patterns: string[] | undefined, path: string) {
 }
 
 export function evaluateSiteAccess(
-  site: Pick<SiteDocument, "status"> | null,
-  rules: SiteAccessRuleDocument[],
+  site: Pick<SiteLean, "status"> | null,
+  rules: SiteAccessRuleLean[],
   input: SiteGuardInput
 ): DecisionWithoutRequest {
   if (!site) {
@@ -225,8 +229,8 @@ export function parseSiteGuardPaths(value: unknown, field: "allowedPaths" | "blo
   return { paths, error: null };
 }
 
-function createLog(site: SiteDocument, input: SiteGuardInput, decision: SiteGuardDecision) {
-  return SiteAccessLog.create({
+function createLog(site: SiteLean, input: SiteGuardInput, decision: SiteGuardDecision) {
+  return createAccessLog({
     requestId: decision.requestId,
     siteId: site.siteId,
     accountId: site.accountId,
@@ -245,20 +249,19 @@ function createLog(site: SiteDocument, input: SiteGuardInput, decision: SiteGuar
 export async function checkSiteAccess(input: SiteGuardInput): Promise<SiteGuardDecision> {
   const requestId = createPublicId("req");
   const domain = input.domain ? normalizeSiteDomain(input.domain) : null;
-  let site: SiteDocument | null = null;
+  let site: SiteLean | null = null;
 
   try {
-    site = await Site.findOne({
+    site = await findSite({
       accountId: input.accountId,
       developerUserId: input.developerUserId,
-      ...(input.siteId ? { siteId: input.siteId } : { domain })
+      ...(input.siteId ? { siteId: input.siteId } : { domain: domain ?? undefined })
     });
     const rules = site
-      ? await SiteAccessRule.find({
+      ? await findRulesBySite(site.siteId, {
           accountId: input.accountId,
-          developerUserId: input.developerUserId,
-          siteId: site.siteId
-        }).sort({ createdAt: -1 })
+          developerUserId: input.developerUserId
+        })
       : [];
     const decision = {
       requestId,

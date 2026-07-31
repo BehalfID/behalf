@@ -64,6 +64,13 @@
       "when": 1785513600000,
       "tag": "0008_passkeys_auth_usage",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1785600000000,
+      "tag": "0009_console_auth_audit_tables",
+      "breakpoints": true
     }
   ]
 }
