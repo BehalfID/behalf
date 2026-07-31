@@ -30,6 +30,9 @@ import {
   ENTERPRISE_INQUIRY_STATUSES,
   EXTERNAL_IDENTITY_PROVIDERS,
   IDENTITY_AUDIT_ACTIONS,
+  IDENTITY_AUDIT_PROVIDERS,
+  LOGIN_METHODS,
+  WEBAUTHN_CHALLENGE_KINDS,
   INTEGRATION_BINDING_STATUSES,
   INTEGRATION_PROVIDERS,
   INVITE_ROLES,
@@ -135,7 +138,7 @@ export const developerUsers = pgTable(
     /** Nullable for Google-only accounts. */
     passwordHash: text("password_hash"),
     googleSub: text("google_sub"),
-    authProviders: jsonb("auth_providers").$type<Array<"password" | "google" | "github">>(),
+    authProviders: jsonb("auth_providers").$type<Array<"password" | "google" | "github" | "passkey">>(),
     onboardingUseCase: text("onboarding_use_case").notNull().default("sdk"),
     primaryAccountId: text("primary_account_id").references(() => accounts.accountId, {
       onDelete: "set null"
@@ -161,12 +164,20 @@ export const developerUsers = pgTable(
       withTimezone: true,
       mode: "date"
     }),
+    passwordLastUsedAt: timestamp("password_last_used_at", { withTimezone: true, mode: "date" }),
+    lastSignInAt: timestamp("last_sign_in_at", { withTimezone: true, mode: "date" }),
+    lastSignInMethod: text("last_sign_in_method"),
+    lastSignInUserAgent: text("last_sign_in_user_agent"),
     ...createdUpdatedAt()
   },
   (table) => [
     check(
       "developer_users_onboarding_use_case_check",
       sql`${table.onboardingUseCase} IN (${sql.raw(sqlInList(ONBOARDING_USE_CASES))})`
+    ),
+    check(
+      "developer_users_last_sign_in_method_check",
+      sql`${table.lastSignInMethod} IS NULL OR ${table.lastSignInMethod} IN (${sql.raw(sqlInList(LOGIN_METHODS))})`
     ),
     uniqueIndex("developer_users_email_lower_uq").on(sql`lower(${table.email})`),
     uniqueIndex("developer_users_google_sub_uq")
@@ -292,9 +303,57 @@ export const identityAuditLogs = pgTable(
     ),
     check(
       "identity_audit_logs_provider_check",
-      sql`${table.provider} IN (${sql.raw(sqlInList(EXTERNAL_IDENTITY_PROVIDERS))})`
+      sql`${table.provider} IN (${sql.raw(sqlInList(IDENTITY_AUDIT_PROVIDERS))})`
     ),
     index("identity_audit_logs_user_created_idx").on(table.userId, table.createdAt)
+  ]
+);
+
+/** WebAuthn/passkey public-key credentials. See models/PasskeyCredential.ts. */
+export const passkeyCredentials = pgTable(
+  "passkey_credentials",
+  {
+    credentialRecordId: text("credential_record_id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => developerUsers.userId, { onDelete: "cascade" }),
+    credentialId: text("credential_id").notNull(),
+    publicKey: text("public_key").notNull(),
+    signCount: integer("sign_count").notNull().default(0),
+    transports: jsonb("transports").$type<string[]>(),
+    nickname: text("nickname").notNull(),
+    userHandle: text("user_handle").notNull(),
+    deviceType: text("device_type"),
+    backedUp: boolean("backed_up").notNull().default(false),
+    aaguid: text("aaguid"),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true, mode: "date" }),
+    ...createdUpdatedAt()
+  },
+  (table) => [
+    uniqueIndex("passkey_credentials_credential_id_uq").on(table.credentialId),
+    index("passkey_credentials_user_created_idx").on(table.userId, table.createdAt)
+  ]
+);
+
+/** Short-lived WebAuthn ceremony challenges. See models/WebAuthnChallenge.ts. */
+export const webauthnChallenges = pgTable(
+  "webauthn_challenges",
+  {
+    challengeId: text("challenge_id").primaryKey(),
+    challengeHash: text("challenge_hash").notNull().unique(),
+    kind: text("kind").notNull(),
+    userId: text("user_id").references(() => developerUsers.userId, { onDelete: "cascade" }),
+    consumedAt: timestamp("consumed_at", { withTimezone: true, mode: "date" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+    createdAt: timestamptz().notNull().defaultNow()
+  },
+  (table) => [
+    check(
+      "webauthn_challenges_kind_check",
+      sql`${table.kind} IN (${sql.raw(sqlInList(WEBAUTHN_CHALLENGE_KINDS))})`
+    ),
+    index("webauthn_challenges_expires_at_idx").on(table.expiresAt),
+    index("webauthn_challenges_user_id_idx").on(table.userId)
   ]
 );
 
@@ -1365,6 +1424,8 @@ export const coreTables = {
   externalIdentities,
   oauthAuthorizationStates,
   identityAuditLogs,
+  passkeyCredentials,
+  webauthnChallenges,
   developerSessions,
   developerApiTokens,
   accountMemberships,

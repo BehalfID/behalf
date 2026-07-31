@@ -57,6 +57,13 @@
       "when": 1784851200000,
       "tag": "0007_external_identities",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1785513600000,
+      "tag": "0008_passkeys_auth_usage",
+      "breakpoints": true
     }
   ]
 }

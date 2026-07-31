@@ -1,5 +1,11 @@
 import mongoose, { Schema, type InferSchemaType, type Model } from "mongoose";
-import { EXTERNAL_IDENTITY_PROVIDERS } from "@/models/ExternalIdentity";
+
+/**
+ * Providers that can appear on identity audit rows.
+ * Includes password and passkey so durable history covers every human login path.
+ */
+export const IDENTITY_AUDIT_PROVIDERS = ["github", "google", "password", "passkey"] as const;
+export type IdentityAuditProvider = (typeof IDENTITY_AUDIT_PROVIDERS)[number];
 
 export const IDENTITY_AUDIT_ACTIONS = [
   /** A provider identity was attached to an existing account from settings. */
@@ -11,7 +17,17 @@ export const IDENTITY_AUDIT_ACTIONS = [
   /** An existing account signed in through a linked provider identity. */
   "identity_login",
   /** A link attempt was refused because the identity belongs to another account. */
-  "identity_link_rejected"
+  "identity_link_rejected",
+  /** Successful password authentication. */
+  "password_login",
+  /** Passkey registered on an authenticated account. */
+  "passkey_registered",
+  /** Passkey nickname changed. */
+  "passkey_renamed",
+  /** Passkey removed. */
+  "passkey_removed",
+  /** Removal refused because it was the last usable / recovery method. */
+  "method_removal_rejected"
 ] as const;
 export type IdentityAuditAction = (typeof IDENTITY_AUDIT_ACTIONS)[number];
 
@@ -30,10 +46,10 @@ const IdentityAuditLogSchema = new Schema(
     /** Subject account the identity belongs to. */
     userId: { type: String, required: true, index: true },
     action: { type: String, required: true, enum: IDENTITY_AUDIT_ACTIONS, index: true },
-    provider: { type: String, required: true, enum: EXTERNAL_IDENTITY_PROVIDERS },
+    provider: { type: String, required: true, enum: IDENTITY_AUDIT_PROVIDERS },
     /**
-     * Provider account key. Safe to store: it is an opaque public identifier,
-     * not a credential. Kept so a revoked link can be traced after deletion.
+     * Provider account key or passkey credentialRecordId. Safe to store: it is
+     * an opaque public identifier, not a credential.
      */
     providerAccountId: { type: String, required: true, maxlength: 120 },
     providerUsername: { type: String, trim: true, maxlength: 120, default: null },

@@ -19,8 +19,17 @@ export const IDENTITY_AUDIT_ACTIONS = [
   "identity_unlinked",
   "identity_registered",
   "identity_login",
-  "identity_link_rejected"
+  "identity_link_rejected",
+  "password_login",
+  "passkey_registered",
+  "passkey_renamed",
+  "passkey_removed",
+  "method_removal_rejected"
 ] as const;
+/** Providers that may appear on identity audit rows. */
+export const IDENTITY_AUDIT_PROVIDERS = ["github", "google", "password", "passkey"] as const;
+export const LOGIN_METHODS = ["password", "github", "google", "passkey"] as const;
+export const WEBAUTHN_CHALLENGE_KINDS = ["registration", "authentication"] as const;
 
 export const WORKSPACE_ROLES = [
   "OWNER",

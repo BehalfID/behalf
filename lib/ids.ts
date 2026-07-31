@@ -27,6 +27,8 @@ export function createPublicId(
     | "pend"
     | "extid"
     | "oas"
+    | "pkcred"
+    | "wach"
     | "pol"
     | "ibind"
     | "omsg"

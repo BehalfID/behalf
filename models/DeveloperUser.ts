@@ -1,6 +1,6 @@
 import mongoose, { Schema, type InferSchemaType, type Model } from "mongoose";
 
-export const AUTH_PROVIDERS = ["password", "google", "github"] as const;
+export const AUTH_PROVIDERS = ["password", "google", "github", "passkey"] as const;
 export type AuthProvider = (typeof AUTH_PROVIDERS)[number];
 
 const DeveloperUserSchema = new Schema(
@@ -16,6 +16,18 @@ const DeveloperUserSchema = new Schema(
       type: [{ type: String, enum: AUTH_PROVIDERS }],
       default: undefined
     },
+    /** Last successful password authentication. Null = unknown (never fabricate). */
+    passwordLastUsedAt: { type: Date, default: null },
+    /** Account-level last successful sign-in (any method). */
+    lastSignInAt: { type: Date, default: null },
+    /** Canonical method that produced lastSignInAt. */
+    lastSignInMethod: {
+      type: String,
+      enum: ["password", "google", "github", "passkey"],
+      default: null
+    },
+    /** Truncated user-agent from the last successful sign-in. */
+    lastSignInUserAgent: { type: String, trim: true, maxlength: 300, default: null },
     onboardingUseCase: {
       type: String,
       enum: ["personal", "website", "sdk"],
