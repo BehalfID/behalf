@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import createMiddleware from "next-intl/middleware";
 import { routing } from "./i18n/routing";
 import { PRIVATE_NO_STORE } from "./lib/cachePolicy";
+import { resolveLegacyCompleteProfileRedirect } from "./lib/authPageUrls";
 import {
   REQUEST_PATH_HEADER,
   isSubdomainRoutingEnabled,
@@ -107,7 +108,7 @@ export function shouldBypassProxy(pathname: string) {
 }
 
 const privatePagePattern =
-  /^\/(?:auth|authenticate|console|dashboard|forgot-password|invite|login|logout|onboarding|passport|reset-password|signup|verify-email|workspace)(?:\/|$)/;
+  /^\/(?:auth|authenticate|complete-profile|console|dashboard|forgot-password|invite|login|logout|onboarding|passport|reset-password|signup|verify-email|workspace)(?:\/|$)/;
 
 /** Explicit defense-in-depth for request-specific HTML and every non-public API. */
 export function shouldUsePrivateNoStore(pathname: string): boolean {
@@ -181,6 +182,24 @@ export function proxy(request: NextRequest) {
 
   if (shouldBypassProxy(pathname)) {
     return NextResponse.next();
+  }
+
+  // Legacy OAuth/bookmarks used /auth/complete-profile; canonical page is /complete-profile
+  // (same shape as /login). Redirect before intl so the old path cannot 404 under [locale].
+  const legacyCompleteProfile = resolveLegacyCompleteProfileRedirect({
+    pathname,
+    search: request.nextUrl.search,
+    hostname: request.nextUrl.hostname,
+    protocol: request.nextUrl.protocol
+  });
+  if (legacyCompleteProfile) {
+    const target = legacyCompleteProfile.startsWith("http")
+      ? legacyCompleteProfile
+      : new URL(legacyCompleteProfile, request.nextUrl.origin).toString();
+    // Never bounce back to /auth/complete-profile (loop guard).
+    if (new URL(target).pathname.replace(/\/$/, "") !== pathname.replace(/\/$/, "")) {
+      return NextResponse.redirect(target, 308);
+    }
   }
 
   // Opt-in multi-subdomain redirects (off by default — keeps apex single-app deploy).

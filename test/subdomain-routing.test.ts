@@ -15,6 +15,8 @@ describe("subdomain routing ownership", () => {
   it("maps auth and app paths", () => {
     expect(resolveOwnerForPath("/login")).toBe("auth");
     expect(resolveOwnerForPath("/signup")).toBe("auth");
+    expect(resolveOwnerForPath("/complete-profile")).toBe("auth");
+    expect(resolveOwnerForPath("/auth/complete-profile")).toBe("auth");
     expect(resolveOwnerForPath("/api/auth/me")).toBe("auth");
     expect(resolveOwnerForPath("/dashboard")).toBe("app");
     expect(resolveOwnerForPath("/workspace/acme/dashboard")).toBe("app");
@@ -124,6 +126,30 @@ describe("subdomain routing ownership", () => {
         pathname: "/login"
       })
     ).toBeNull();
+    expect(
+      resolveSubdomainRedirect({
+        hostname: "auth.behalfid.com",
+        pathname: "/complete-profile"
+      })
+    ).toBeNull();
+  });
+
+  it("keeps complete-profile on the auth host from www/apex", () => {
+    expect(
+      resolveSubdomainRedirect({
+        hostname: "www.behalfid.com",
+        pathname: "/complete-profile",
+        search: "?next=%2Fdashboard",
+        protocol: "https:"
+      })
+    ).toBe("https://auth.behalfid.com/complete-profile?next=%2Fdashboard");
+
+    expect(
+      resolveOwnedHref("/complete-profile?provider=github", {
+        hostname: "app.behalfid.com",
+        protocol: "https:"
+      })
+    ).toBe("https://auth.behalfid.com/complete-profile?provider=github");
   });
 
   it("ignores unknown hosts (apex single-app deploy)", () => {

@@ -68,6 +68,7 @@ describe("private no-store classification", () => {
       "/api/webhooks/process",
       "/dashboard",
       "/console",
+      "/complete-profile",
       "/workspace/acme/dashboard",
       "/invite/token"
     ]) {

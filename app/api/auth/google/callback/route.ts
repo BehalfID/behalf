@@ -20,6 +20,7 @@ import {
 } from "@/lib/googleOAuth";
 import { createPublicId } from "@/lib/ids";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
+import { completeProfilePath } from "@/lib/authPageUrls";
 import { resolveOwnedHref } from "@/lib/subdomainRouting";
 import { resolvePreferredSsoAccountId } from "@/lib/workspaceSso";
 import * as externalIdentities from "@/lib/repositories/externalIdentities";
@@ -32,7 +33,9 @@ function ownedRedirect(request: NextRequest, pathWithSearch: string) {
     protocol: request.nextUrl.protocol
   });
   return NextResponse.redirect(
-    resolved.startsWith("http") ? resolved : new URL(pathWithSearch, request.nextUrl.origin)
+    resolved.startsWith("http")
+      ? resolved
+      : new URL(pathWithSearch, request.nextUrl.origin)
   );
 }
 
@@ -181,9 +184,9 @@ export async function GET(request: NextRequest) {
     expiresAt: new Date(Date.now() + PENDING_SIGNUP_TTL_MS)
   });
 
-  const completePath = state.next
-    ? `/auth/complete-profile?next=${encodeURIComponent(state.next)}`
-    : "/auth/complete-profile";
+  const completePath = completeProfilePath({
+    next: safeOAuthNextPath(state.next)
+  });
   const response = ownedRedirect(request, completePath);
   response.cookies.set(GOOGLE_OAUTH_STATE_COOKIE, "", { ...oauthCookieOptions(0), maxAge: 0 });
   response.cookies.set(
