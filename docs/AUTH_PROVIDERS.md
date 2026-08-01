@@ -91,7 +91,8 @@ Google OIDC today uses a **legacy parallel route** (`/api/auth/google/*`) with `
 | `GITHUB_OAUTH_CLIENT_ID` | GitHub OAuth App client ID (preferred) |
 | `GITHUB_OAUTH_CLIENT_SECRET` | GitHub OAuth App secret (server-only) |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | Accepted aliases; `GITHUB_OAUTH_*` preferred because `.env.example` already uses `GITHUB_*` for release automation tokens |
-| `APP_BASE_URL` / `NEXT_PUBLIC_APP_URL` | OAuth redirect base + WebAuthn RP origin (callback: `{base}/api/auth/github/callback`) |
+| `APP_BASE_URL` / `NEXT_PUBLIC_APP_URL` | WebAuthn RP base (apex). GitHub/Google `redirect_uri` use auth host when `BEHALFID_SUBDOMAIN_ROUTING=1` |
+| `GITHUB_OAUTH_BASE_URL` | Optional override for GitHub OAuth origin (no path) |
 | `WEBAUTHN_RP_NAME` | Optional RP display name (default `BehalfID`) |
 
 When GitHub OAuth is unset, **password auth is unaffected** — GitHub buttons are hidden and `/api/auth/github` returns 503. When `APP_BASE_URL` is unset, passkey registration/authentication returns 503 without affecting other methods.

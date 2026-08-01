@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isAppHostAuthApiPath,
   isSubdomainRoutingEnabled,
   resolveAppForHost,
   resolveOwnedHref,
@@ -132,6 +133,31 @@ describe("subdomain routing ownership", () => {
         pathname: "/complete-profile"
       })
     ).toBeNull();
+  });
+
+  it("keeps dashboard auth APIs same-origin on app host (no CORS 308)", () => {
+    expect(isAppHostAuthApiPath("/api/auth/identities")).toBe(true);
+    expect(isAppHostAuthApiPath("/api/auth/passkeys")).toBe(true);
+    expect(isAppHostAuthApiPath("/api/auth/passkey/register/options")).toBe(true);
+    expect(isAppHostAuthApiPath("/api/auth/github")).toBe(false);
+    expect(isAppHostAuthApiPath("/api/auth/github/callback")).toBe(false);
+
+    expect(
+      resolveSubdomainRedirect({
+        hostname: "app.behalfid.com",
+        pathname: "/api/auth/identities",
+        protocol: "https:"
+      })
+    ).toBeNull();
+
+    expect(
+      resolveSubdomainRedirect({
+        hostname: "app.behalfid.com",
+        pathname: "/api/auth/github",
+        search: "?mode=link",
+        protocol: "https:"
+      })
+    ).toBe("https://auth.behalfid.com/api/auth/github?mode=link");
   });
 
   it("keeps complete-profile on the auth host from www/apex", () => {

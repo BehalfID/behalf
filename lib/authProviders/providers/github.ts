@@ -6,6 +6,10 @@ import type {
   NormalizedLoginIdentity,
   ProviderConfigStatus
 } from "@/lib/authProviders/providers/types";
+import {
+  isSubdomainRoutingEnabled,
+  resolveSubdomainHosts
+} from "@/lib/subdomainRouting";
 
 const GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize";
 const GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token";
@@ -62,7 +66,37 @@ export function isGitHubOAuthConfigured(): boolean {
   return Boolean(githubClientId() && githubClientSecret());
 }
 
-function appBaseUrl(requestOrigin?: string): string {
+/**
+ * Canonical origin used for GitHub OAuth redirect_uri.
+ *
+ * With subdomain routing, auth callbacks live on the auth host — never the
+ * marketing apex/www URL from NEXT_PUBLIC_APP_URL / APP_BASE_URL. Mirrors
+ * googleOAuthBaseUrl so the state cookie set on auth.behalfid.com is present
+ * on the callback host. Optional GITHUB_OAUTH_BASE_URL overrides for staging.
+ */
+export function githubOAuthBaseUrl(requestOrigin?: string): string {
+  const explicit = process.env.GITHUB_OAUTH_BASE_URL?.trim();
+  if (explicit) return explicit.replace(/\/$/, "");
+
+  if (isSubdomainRoutingEnabled()) {
+    const authHost = resolveSubdomainHosts().auth.trim().toLowerCase();
+    if (requestOrigin) {
+      try {
+        const url = new URL(requestOrigin);
+        const host = url.hostname.toLowerCase();
+        if (host === "localhost" || host === "127.0.0.1" || host.endsWith(".vercel.app")) {
+          return url.origin;
+        }
+        if (host === authHost) {
+          return url.origin;
+        }
+      } catch {
+        // fall through to configured auth host
+      }
+    }
+    return `https://${authHost}`;
+  }
+
   const configured =
     process.env.APP_BASE_URL?.trim() ||
     process.env.NEXT_PUBLIC_APP_URL?.trim() ||
@@ -72,7 +106,7 @@ function appBaseUrl(requestOrigin?: string): string {
 }
 
 export function githubRedirectUri(requestOrigin: string): string {
-  return `${appBaseUrl(requestOrigin)}${GITHUB_CALLBACK_PATH}`;
+  return `${githubOAuthBaseUrl(requestOrigin)}${GITHUB_CALLBACK_PATH}`;
 }
 
 function isConfigured(): ProviderConfigStatus {

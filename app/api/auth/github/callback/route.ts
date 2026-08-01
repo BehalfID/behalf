@@ -4,7 +4,8 @@ import { recordIdentityAudit } from "@/lib/authProviders/identityAudit";
 import type { OAuthErrorCode } from "@/lib/authProviders/oauthErrors";
 import {
   clearedOAuthCookie,
-  consumeOAuthState,
+  consumeOAuthStateDetailed,
+  logOAuthStateFailure,
   OAUTH_MFA_COOKIE,
   OAUTH_PENDING_SIGNUP_COOKIE,
   OAUTH_PENDING_SIGNUP_TTL_MS,
@@ -107,19 +108,40 @@ export async function GET(request: NextRequest) {
   const code = params.get("code");
   const stateParam = params.get("state");
   if (!code || !stateParam) {
+    logOAuthStateFailure({
+      provider: "github",
+      callbackHost: request.nextUrl.hostname,
+      result: {
+        ok: false,
+        reason: "missing_callback_state",
+        diagnostics: {
+          statePresent: Boolean(stateParam),
+          cookiePresent: Boolean(request.cookies.get(OAUTH_STATE_COOKIE)?.value),
+          databaseRowFound: false,
+          expired: false,
+          consumed: false
+        }
+      }
+    });
     return errorRedirect(request, "invalid_state", "login");
   }
 
   // Consuming the state before the code exchange means a replayed callback is
   // rejected without ever reaching GitHub.
-  const state = await consumeOAuthState({
+  const consumeResult = await consumeOAuthStateDetailed({
     provider: "github",
     stateFromProvider: stateParam,
     stateFromCookie: request.cookies.get(OAUTH_STATE_COOKIE)?.value
   });
-  if (!state) {
+  if (!consumeResult.ok) {
+    logOAuthStateFailure({
+      provider: "github",
+      callbackHost: request.nextUrl.hostname,
+      result: consumeResult
+    });
     return errorRedirect(request, "invalid_state", "login");
   }
+  const state = consumeResult.state;
 
   const linkFlow = state.mode === "link";
   const errorTarget = linkFlow ? "settings" : "login";

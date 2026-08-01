@@ -3359,7 +3359,7 @@ function SettingsView() {
         <SettingsNavigation items={[
           { href: "#managed-security", label: "Security", detail: "Managed local sessions" },
           { href: "#mfa", label: "Two-factor auth", detail: "TOTP authenticator" },
-          { href: "#account-security", label: "Connected accounts", detail: "GitHub and other sign-in" },
+          { href: "#account-security", label: "Authentication methods", detail: "Password, GitHub, passkeys" },
           { href: "#account", label: "Account", detail: "Your personal profile" },
           { href: "#workspace", label: "Workspace", detail: "Shared identity and context" },
           { href: "#google-sso", label: "Google SSO", detail: "Domain allowlist and enforce" },

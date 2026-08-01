@@ -169,6 +169,23 @@ export function LinkedAccountsSection() {
     setError("");
     setNotice("");
     try {
+      if (typeof window !== "undefined" && !window.PublicKeyCredential) {
+        setError("Passkeys are not supported in this browser or device.");
+        return;
+      }
+      const suggestedNickname =
+        passkeyNickname.trim() ||
+        (typeof navigator !== "undefined"
+          ? /Mac/i.test(navigator.userAgent)
+            ? "Mac"
+            : /Windows/i.test(navigator.userAgent)
+              ? "Windows PC"
+              : /Android/i.test(navigator.userAgent)
+                ? "Android device"
+                : /iPhone|iPad/i.test(navigator.userAgent)
+                  ? "iPhone or iPad"
+                  : ""
+          : "");
       const optionsResponse = await apiFetch("/api/auth/passkey/register/options", {
         method: "POST",
         body: "{}"
@@ -186,7 +203,7 @@ export function LinkedAccountsSection() {
         method: "POST",
         body: JSON.stringify({
           response: attestation,
-          nickname: passkeyNickname.trim() || undefined
+          nickname: (passkeyNickname.trim() || suggestedNickname || undefined)
         })
       });
       if (!verifyResponse.ok) {
@@ -200,6 +217,8 @@ export function LinkedAccountsSection() {
     } catch (err) {
       if (err instanceof Error && err.name === "NotAllowedError") {
         setError("Passkey registration was cancelled.");
+      } else if (err instanceof Error && /secure context|https/i.test(err.message)) {
+        setError("Passkeys require a secure (HTTPS) origin.");
       } else {
         setError("Passkey registration failed. Try again.");
       }
@@ -322,15 +341,9 @@ export function LinkedAccountsSection() {
           </dt>
           <dd>
             {data?.hasPassword ? (
-              <>
-                {formatLastUsed(data.password?.lastUsedAt ?? null)}
-                <br />
-                <a className="text-link" href="/dashboard/settings#password">
-                  Change password
-                </a>
-              </>
+              formatLastUsed(data.password?.lastUsedAt ?? null)
             ) : (
-              "Not set — use a connected provider or add a password from account settings."
+              "Not set — use a connected provider or passkey, or keep a password as recovery."
             )}
           </dd>
         </div>

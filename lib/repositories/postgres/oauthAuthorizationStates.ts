@@ -73,9 +73,25 @@ export async function createOAuthAuthorizationState(
   }
 }
 
+/** Lookup by hash for failure classification after a failed atomic consume. */
+export async function findOAuthAuthorizationStateByHash(
+  db: BehalfPostgresDb,
+  options: { stateHash: string }
+): Promise<OAuthAuthorizationStateLean | null> {
+  const [row] = await db
+    .select()
+    .from(oauthAuthorizationStates)
+    .where(eq(oauthAuthorizationStates.stateHash, options.stateHash))
+    .limit(1);
+  return row ? toLean(row) : null;
+}
+
 /**
  * Atomically consume a single-use OAuth state.
  * Only one concurrent caller can win when consumed_at IS NULL and unexpired.
+ *
+ * Drizzle + postgres.js returns the RETURNING row array; destructure `[row]` —
+ * do not treat the driver result as Mongo-style `{ value }`.
  */
 export async function consumeOAuthAuthorizationState(
   db: BehalfPostgresDb,
@@ -86,7 +102,7 @@ export async function consumeOAuthAuthorizationState(
   }
 ): Promise<OAuthAuthorizationStateLean | null> {
   const now = options.now ?? new Date();
-  const [row] = await db
+  const returned = await db
     .update(oauthAuthorizationStates)
     .set({ consumedAt: now })
     .where(
@@ -98,6 +114,7 @@ export async function consumeOAuthAuthorizationState(
       )
     )
     .returning();
+  const row = Array.isArray(returned) ? returned[0] : undefined;
   return row ? toLean(row) : null;
 }
 

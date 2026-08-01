@@ -47,6 +47,7 @@ describe("GitHub login provider adapter", () => {
     process.env.GITHUB_OAUTH_CLIENT_ID = "cid";
     process.env.GITHUB_OAUTH_CLIENT_SECRET = "secret";
     process.env.APP_BASE_URL = "https://app.example";
+    delete process.env.BEHALFID_SUBDOMAIN_ROUTING;
 
     const url = githubLoginProvider.buildAuthorizeUrl({
       requestOrigin: "https://ignored.example",
@@ -64,6 +65,24 @@ describe("GitHub login provider adapter", () => {
       "https://app.example/api/auth/github/callback"
     );
     expect(parsed.searchParams.get("code_challenge")).toBeNull();
+  });
+
+  it("builds authorize redirect_uri on auth host when subdomain routing is on", () => {
+    process.env.GITHUB_OAUTH_CLIENT_ID = "cid";
+    process.env.GITHUB_OAUTH_CLIENT_SECRET = "secret";
+    process.env.BEHALFID_SUBDOMAIN_ROUTING = "1";
+    process.env.BEHALFID_HOST_AUTH = "auth.behalfid.com";
+    process.env.APP_BASE_URL = "https://behalfid.com";
+
+    const url = githubLoginProvider.buildAuthorizeUrl({
+      requestOrigin: "https://auth.behalfid.com",
+      mode: "login",
+      codeChallenge: "challenge",
+      state: "state-secret"
+    });
+    expect(new URL(url).searchParams.get("redirect_uri")).toBe(
+      "https://auth.behalfid.com/api/auth/github/callback"
+    );
   });
 });
 
