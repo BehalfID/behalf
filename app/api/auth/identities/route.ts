@@ -28,6 +28,43 @@ export async function GET(request: NextRequest) {
   const hasPassword = Boolean(user?.passwordHash);
   const lastSignInMethod = (user?.lastSignInMethod as LoginMethod | null | undefined) ?? null;
 
+  const registryProviders = listLoginProviders().map((provider) => {
+    const linked = identities.find((identity) => identity.provider === provider.id) ?? null;
+    const remainingNonPasskeyAfterUnlink =
+      (snapshot.hasPassword ? 1 : 0) + Math.max(0, snapshot.oauthProviderCount - (linked ? 1 : 0));
+    const canUnlink = Boolean(linked) && remainingNonPasskeyAfterUnlink >= 1;
+    return {
+      provider: provider.id,
+      displayName: provider.displayName,
+      available: provider.isConfigured().configured,
+      linked: Boolean(linked),
+      username: linked?.providerUsername ?? null,
+      linkedAt: linked?.linkedAt ?? null,
+      lastLoginAt: linked?.lastLoginAt ?? null,
+      canUnlink,
+      mostRecentlyUsed: lastSignInMethod === provider.id
+    };
+  });
+
+  // Legacy Google personal login (google_sub) until Google joins the provider registry.
+  const hasLegacyGoogle = Boolean(user?.googleSub);
+  if (hasLegacyGoogle && !registryProviders.some((p) => p.provider === "google")) {
+    registryProviders.push({
+      provider: "google",
+      displayName: "Google",
+      available: true,
+      linked: true,
+      username: null,
+      linkedAt: null,
+      lastLoginAt:
+        lastSignInMethod === "google" && user?.lastSignInAt
+          ? new Date(user.lastSignInAt).toISOString()
+          : null,
+      canUnlink: false,
+      mostRecentlyUsed: lastSignInMethod === "google"
+    });
+  }
+
   return noCacheJson({
     hasPassword,
     passwordLastUsedAt: user?.passwordLastUsedAt
@@ -39,23 +76,7 @@ export async function GET(request: NextRequest) {
       methodDisplayName: lastSignInMethod ? loginMethodDisplayName(lastSignInMethod) : null,
       userAgent: user?.lastSignInUserAgent ?? null
     },
-    providers: listLoginProviders().map((provider) => {
-      const linked = identities.find((identity) => identity.provider === provider.id) ?? null;
-      const remainingNonPasskeyAfterUnlink =
-        (snapshot.hasPassword ? 1 : 0) + Math.max(0, snapshot.oauthProviderCount - (linked ? 1 : 0));
-      const canUnlink = Boolean(linked) && remainingNonPasskeyAfterUnlink >= 1;
-      return {
-        provider: provider.id,
-        displayName: provider.displayName,
-        available: provider.isConfigured().configured,
-        linked: Boolean(linked),
-        username: linked?.providerUsername ?? null,
-        linkedAt: linked?.linkedAt ?? null,
-        lastLoginAt: linked?.lastLoginAt ?? null,
-        canUnlink,
-        mostRecentlyUsed: lastSignInMethod === provider.id
-      };
-    }),
+    providers: registryProviders,
     passkeys: {
       available: isWebAuthnConfigured(),
       canAdd: snapshot.nonPasskeyFactorCount >= 1 && isWebAuthnConfigured(),

@@ -4,7 +4,7 @@ import { NextRequest } from "next/server";
 const mocks = vi.hoisted(() => ({
   checkRateLimit: vi.fn(),
   getLoginProvider: vi.fn(),
-  consumeOAuthState: vi.fn(),
+  consumeOAuthStateDetailed: vi.fn(),
   resolveProviderLogin: vi.fn(),
   createPendingSignup: vi.fn(),
   findByUserId: vi.fn(),
@@ -33,7 +33,8 @@ vi.mock("@/lib/authProviders/oauthState", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/authProviders/oauthState")>();
   return {
     ...actual,
-    consumeOAuthState: mocks.consumeOAuthState
+    consumeOAuthStateDetailed: mocks.consumeOAuthStateDetailed,
+    logOAuthStateFailure: vi.fn()
   };
 });
 
@@ -104,11 +105,16 @@ describe("GitHub callback complete-profile routing", () => {
         }
       })
     });
-    mocks.consumeOAuthState.mockResolvedValue({
-      mode: "login",
-      codeVerifier: "v",
-      next: "/dashboard",
-      userId: null
+    mocks.consumeOAuthStateDetailed.mockResolvedValue({
+      ok: true,
+      state: {
+        mode: "login",
+        codeVerifier: "v",
+        next: "/dashboard",
+        userId: null,
+        stateId: "oas_1",
+        provider: "github"
+      }
     });
     mocks.createPendingSignup.mockResolvedValue({ pendingId: "pend_gh" });
     mocks.resolvePreferredSsoAccountId.mockResolvedValue(null);

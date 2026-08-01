@@ -212,6 +212,29 @@ export function resolveAppForHost(
   return null;
 }
 
+/**
+ * Session-bound auth APIs that the dashboard (app host) calls with
+ * credentials. Serving them same-origin on app avoids cross-host 308 + CORS
+ * failures. OAuth authorize/callback remain auth-owned.
+ */
+export function isAppHostAuthApiPath(pathname: string): boolean {
+  const { pathname: path } = stripLocalePrefix(pathname);
+  if (path === "/api/auth/identities" || path.startsWith("/api/auth/identities/")) {
+    return true;
+  }
+  if (path === "/api/auth/passkeys" || path.startsWith("/api/auth/passkey/")) {
+    return true;
+  }
+  return (
+    path === "/api/auth/me" ||
+    path === "/api/auth/session" ||
+    path === "/api/auth/session/ping" ||
+    path === "/api/auth/logout" ||
+    path === "/api/auth/account" ||
+    path === "/api/auth/mfa/verify"
+  );
+}
+
 export function resolveOwnerForPath(pathname: string): SubdomainApp {
   // Locale prefixes are orthogonal to subdomain ownership:
   // /de/docs and /docs both belong on the docs host.
@@ -256,6 +279,11 @@ export function resolveSubdomainRedirect(input: {
 
   const owner = resolveOwnerForPath(input.pathname);
   if (owner === currentApp) return null;
+
+  // Keep dashboard auth-method APIs on app.* so credentialed fetch stays same-origin.
+  if (currentApp === "app" && owner === "auth" && isAppHostAuthApiPath(input.pathname)) {
+    return null;
+  }
 
   // docs can live on www until docs.* is cut over; still redirect when hosts differ.
   if (owner === "docs" && currentApp === "www") {

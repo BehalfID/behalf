@@ -7,9 +7,13 @@ import { jsonAppError } from "@/lib/appErrors";
 import { requireWorkspaceMembershipBySlug, resolveActiveAccountId } from "@/lib/accountContext";
 import { createPublicId } from "@/lib/ids";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
-import { sessionCookieOptions } from "@/lib/sessionCookies";
-import { WORKSPACE_SLUG_HEADER } from "@/lib/workspaceSlug";
 import { isUnverifiedAuthApiPath } from "@/lib/emailVerificationGuard";
+import { sessionCookieOptions } from "@/lib/sessionCookies";
+import {
+  isSubdomainRoutingEnabled,
+  resolveSubdomainHosts
+} from "@/lib/subdomainRouting";
+import { WORKSPACE_SLUG_HEADER } from "@/lib/workspaceSlug";
 import * as accounts from "@/lib/repositories/accounts";
 import * as sessions from "@/lib/repositories/sessions";
 import * as users from "@/lib/repositories/users";
@@ -169,9 +173,21 @@ function normalizeOrigin(value?: string | null) {
 function allowedOrigins(request: NextRequest) {
   const origins = new Set<string>([request.nextUrl.origin]);
   const appUrl = normalizeOrigin(process.env.NEXT_PUBLIC_APP_URL);
+  const baseUrl = normalizeOrigin(process.env.APP_BASE_URL);
   const vercelUrl = process.env.VERCEL_URL ? normalizeOrigin(`https://${process.env.VERCEL_URL}`) : null;
   if (appUrl) origins.add(appUrl);
+  if (baseUrl) origins.add(baseUrl);
   if (vercelUrl) origins.add(vercelUrl);
+
+  // Multi-subdomain: dashboard mutations may originate on app.* while auth APIs
+  // also run on auth.*. Accept only configured hosts — never wildcards.
+  if (isSubdomainRoutingEnabled()) {
+    const hosts = resolveSubdomainHosts();
+    for (const key of ["www", "auth", "app"] as const) {
+      const host = hosts[key]?.trim();
+      if (host) origins.add(`https://${host.replace(/\.$/, "").toLowerCase()}`);
+    }
+  }
   return origins;
 }
 

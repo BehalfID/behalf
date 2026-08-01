@@ -6,14 +6,23 @@
  * exercise localhost-style flows only when the configured base is localhost;
  * arbitrary preview origins are rejected rather than accepted by weakening RP
  * validation.
+ *
+ * With subdomain routing, login ceremonies run on auth.* and registration from
+ * dashboard settings runs on app.* — both must be listed as expectedOrigins
+ * while RP ID stays the apex domain.
  */
+
+import {
+  isSubdomainRoutingEnabled,
+  resolveSubdomainHosts
+} from "@/lib/subdomainRouting";
 
 function stripTrailingSlash(value: string): string {
   return value.replace(/\/$/, "");
 }
 
 /**
- * Canonical public origin for WebAuthn and OAuth redirects.
+ * Canonical public origin for WebAuthn RP derivation.
  * Prefers APP_BASE_URL (server-controlled) over NEXT_PUBLIC_APP_URL.
  */
 export function webAuthnConfiguredOrigin(): string | null {
@@ -58,8 +67,9 @@ export function isLocalWebAuthnHost(rpId: string): boolean {
 /**
  * Origins allowed to complete WebAuthn ceremonies.
  *
- * Production: only the configured APP_BASE_URL origin (and https://www.<rpId>
- * when the RP ID is an apex domain). Preview hostnames are never accepted
+ * Production: configured APP_BASE_URL origin, https://www.<rpId>, and — when
+ * subdomain routing is enabled — the configured auth and app hosts that actually
+ * host login/registration ceremonies. Preview hostnames are never accepted
  * unless they are the configured base itself.
  */
 export function webAuthnAllowedOrigins(origin = webAuthnConfiguredOrigin()): string[] {
@@ -75,6 +85,16 @@ export function webAuthnAllowedOrigins(origin = webAuthnConfiguredOrigin()): str
   } catch {
     /* ignore */
   }
+
+  if (isSubdomainRoutingEnabled()) {
+    const hosts = resolveSubdomainHosts();
+    for (const key of ["auth", "app", "www"] as const) {
+      const host = hosts[key]?.trim().toLowerCase();
+      if (!host || isLocalWebAuthnHost(host)) continue;
+      origins.add(`https://${host}`);
+    }
+  }
+
   return Array.from(origins);
 }
 

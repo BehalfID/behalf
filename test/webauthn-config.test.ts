@@ -27,6 +27,24 @@ describe("webauthnConfig", () => {
     expect(getWebAuthnConfig()?.rpName).toBe("BehalfID");
   });
 
+  it("includes auth and app hosts when subdomain routing is enabled", () => {
+    process.env.APP_BASE_URL = "https://behalfid.com";
+    process.env.BEHALFID_SUBDOMAIN_ROUTING = "1";
+    process.env.BEHALFID_HOST_AUTH = "auth.behalfid.com";
+    process.env.BEHALFID_HOST_APP = "app.behalfid.com";
+    process.env.BEHALFID_HOST_WWW = "www.behalfid.com";
+    const origins = webAuthnAllowedOrigins();
+    expect(origins).toEqual(
+      expect.arrayContaining([
+        "https://behalfid.com",
+        "https://www.behalfid.com",
+        "https://auth.behalfid.com",
+        "https://app.behalfid.com"
+      ])
+    );
+    expect(webAuthnRpId()).toBe("behalfid.com");
+  });
+
   it("strips www from RP ID", () => {
     process.env.APP_BASE_URL = "https://www.behalfid.com";
     expect(webAuthnRpId()).toBe("behalfid.com");
