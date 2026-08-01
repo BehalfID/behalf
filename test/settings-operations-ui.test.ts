@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { repoPath } from "./helpers/repoPath";
 
 let dashboardSource = "";
+let accountDeletionSource = "";
 let billingSource = "";
 let consoleSource = "";
 let primitivesSource = "";
@@ -10,8 +11,17 @@ let cssSource = "";
 let layoutSource = "";
 
 beforeAll(async () => {
-  [dashboardSource, billingSource, consoleSource, primitivesSource, cssSource, layoutSource] = await Promise.all([
+  [
+    dashboardSource,
+    accountDeletionSource,
+    billingSource,
+    consoleSource,
+    primitivesSource,
+    cssSource,
+    layoutSource
+  ] = await Promise.all([
     readFile(repoPath("app", "dashboard", "client.tsx"), "utf8"),
+    readFile(repoPath("components", "dashboard", "AccountDeletionSection.tsx"), "utf8"),
     readFile(repoPath("app", "dashboard", "billing", "client.tsx"), "utf8"),
     readFile(repoPath("app", "console", "client.tsx"), "utf8"),
     readFile(repoPath("components", "dashboard", "OperationsPrimitives.tsx"), "utf8"),
@@ -31,12 +41,14 @@ describe("workspace operations administration", () => {
   });
 
   it("keeps account, workspace, members, developer access, and destructive actions distinct", () => {
-    for (const id of ["account", "workspace", "members", "developer-access", "danger-zone"]) {
+    for (const id of ["account", "workspace", "members", "developer-access"]) {
       expect(dashboardSource).toContain(`id="${id}"`);
     }
+    expect(dashboardSource).toContain("AccountDeletionSection");
+    expect(accountDeletionSource).toContain('id="danger-zone"');
+    expect(accountDeletionSource).toContain('tone="danger"');
     expect(dashboardSource).toContain('eyebrow="Account-level"');
     expect(dashboardSource).toContain('eyebrow="Workspace-level"');
-    expect(dashboardSource).toContain('tone="danger"');
   });
 
   it("preserves one-time secret and masked-preview communication", () => {

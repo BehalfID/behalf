@@ -1,7 +1,7 @@
 "use client";
 
 import { startAuthentication } from "@simplewebauthn/browser";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useMemo, useState } from "react";
 import {
   DestructiveSettingsSection,
   SettingsSection
@@ -34,8 +34,57 @@ type ReauthSuccess = {
 };
 
 const DELETE_CONFIRMATION = "DELETE";
+const DEFAULT_TTL_SECONDS = 8 * 60;
 
 type PasskeyRequestOptions = Parameters<typeof startAuthentication>[0]["optionsJSON"];
+
+type OAuthReturnState = {
+  open: boolean;
+  notice: string;
+  proof: ReauthSuccess | null;
+  error: string;
+};
+
+function readOAuthReturnState(): OAuthReturnState {
+  if (typeof window === "undefined") {
+    return { open: false, notice: "", proof: null, error: "" };
+  }
+  const params = new URLSearchParams(window.location.search);
+  const reauth = params.get("reauth");
+  const failure = params.get("oauth_error");
+  if (!reauth && !failure) {
+    return { open: false, notice: "", proof: null, error: "" };
+  }
+
+  params.delete("reauth");
+  params.delete("oauth_error");
+  const query = params.toString();
+  window.history.replaceState(
+    null,
+    "",
+    `${window.location.pathname}${query ? `?${query}` : ""}#danger-zone`
+  );
+
+  if (reauth === "ok") {
+    return {
+      open: true,
+      notice: "oauth_ok",
+      proof: {
+        reauthToken: "",
+        expiresAt: new Date(Date.now() + DEFAULT_TTL_SECONDS * 1000).toISOString(),
+        method: "github"
+      },
+      error: ""
+    };
+  }
+
+  return {
+    open: Boolean(failure),
+    notice: "",
+    proof: null,
+    error: failure ? oauthErrorMessage(failure) : ""
+  };
+}
 
 function minutesRemaining(expiresAt: string | null): number | null {
   if (!expiresAt) return null;
@@ -50,18 +99,19 @@ function minutesRemaining(expiresAt: string | null): number | null {
  */
 export function AccountDeletionSection() {
   const { apiJson, fetch: apiFetch } = useDashboardApi();
-  const [open, setOpen] = useState(false);
+  const initialReturn = useMemo(() => readOAuthReturnState(), []);
+  const [open, setOpen] = useState(initialReturn.open);
   const [loadingMethods, setLoadingMethods] = useState(false);
   const [methods, setMethods] = useState<UsableMethod[]>([]);
   const [blockedReason, setBlockedReason] = useState<string | null>(null);
-  const [ttlSeconds, setTtlSeconds] = useState(8 * 60);
-  const [proof, setProof] = useState<ReauthSuccess | null>(null);
+  const [proof, setProof] = useState<ReauthSuccess | null>(initialReturn.proof);
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  const [error, setError] = useState(initialReturn.error);
+  const [notice, setNotice] = useState(initialReturn.notice);
   const [working, setWorking] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [methodsLoaded, setMethodsLoaded] = useState(false);
 
   const usable = useMemo(() => methods.filter((m) => m.available), [methods]);
   const hasPassword = usable.some((m) => m.method === "password");
@@ -73,12 +123,12 @@ export function AccountDeletionSection() {
 
   const loadMethods = useCallback(async () => {
     setLoadingMethods(true);
-    setError("");
+    setError((current) => (notice === "oauth_ok" ? current : ""));
     try {
       const data = await apiJson<MethodsResponse>("/api/auth/reauth/methods");
       setMethods(data.methods ?? []);
       setBlockedReason(data.blockedReason);
-      setTtlSeconds(data.ttlSeconds ?? 8 * 60);
+      setMethodsLoaded(true);
     } catch (requestError) {
       setError(
         requestError instanceof Error
@@ -88,42 +138,14 @@ export function AccountDeletionSection() {
     } finally {
       setLoadingMethods(false);
     }
-  }, [apiJson]);
+  }, [apiJson, notice]);
 
-  useEffect(() => {
-    if (open) void loadMethods();
-  }, [open, loadMethods]);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const reauth = params.get("reauth");
-    const failure = params.get("oauth_error");
-    if (!reauth && !failure) return;
-
-    if (reauth === "ok") {
-      setOpen(true);
-      setNotice("oauth_ok");
-      // Cookie holds the opaque proof; keep a local marker so the final step shows.
-      setProof({
-        reauthToken: "",
-        expiresAt: new Date(Date.now() + ttlSeconds * 1000).toISOString(),
-        method: "github"
-      });
+  const openDeletion = async () => {
+    setOpen(true);
+    if (!methodsLoaded) {
+      await loadMethods();
     }
-    if (failure) {
-      setOpen(true);
-      setError(oauthErrorMessage(failure));
-    }
-
-    params.delete("reauth");
-    params.delete("oauth_error");
-    const query = params.toString();
-    window.history.replaceState(
-      null,
-      "",
-      `${window.location.pathname}${query ? `?${query}` : ""}#danger-zone`
-    );
-  }, [ttlSeconds]);
+  };
 
   const reset = () => {
     setOpen(false);
@@ -258,6 +280,9 @@ export function AccountDeletionSection() {
     return "Choose how to confirm your identity:";
   })();
 
+  const showMethodChooser =
+    open && !identityConfirmed && (methodsLoaded || loadingMethods || Boolean(error));
+
   return (
     <SettingsSection
       description="Permanently delete your account and sole-owned workspace data. Shared workspaces keep their data; your membership is removed."
@@ -269,7 +294,7 @@ export function AccountDeletionSection() {
       <DestructiveSettingsSection
         action={
           !open ? (
-            <Button onClick={() => setOpen(true)} type="button" variant="danger">
+            <Button onClick={() => void openDeletion()} type="button" variant="danger">
               Delete account
             </Button>
           ) : (
@@ -291,7 +316,7 @@ export function AccountDeletionSection() {
                 </>
               ) : null}
 
-              {!blockedReason && !identityConfirmed ? (
+              {showMethodChooser && !blockedReason ? (
                 <>
                   <p className="field-help">
                     Deletion is permanent. Agents, permissions, API tokens, integrations, and sessions
@@ -357,7 +382,7 @@ export function AccountDeletionSection() {
                 </>
               ) : null}
 
-              {identityConfirmed && !blockedReason ? (
+              {identityConfirmed ? (
                 <form className="setup-form" onSubmit={deleteAccount}>
                   <p className="field-help" role="status">
                     Identity confirmed
@@ -391,6 +416,17 @@ export function AccountDeletionSection() {
                     </Button>
                   </div>
                 </form>
+              ) : null}
+
+              {open && initialReturn.error && !methodsLoaded && !identityConfirmed ? (
+                <div className="setup-actions">
+                  <Button onClick={() => void openDeletion()} type="button" variant="secondary">
+                    Try again
+                  </Button>
+                  <Button onClick={reset} type="button">
+                    Cancel
+                  </Button>
+                </div>
               ) : null}
 
               {error ? (
