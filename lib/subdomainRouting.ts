@@ -103,6 +103,7 @@ const OWNERSHIP: Array<{ app: SubdomainApp; prefixes: string[] }> = [
     prefixes: [
       "/login",
       "/signup",
+      "/complete-profile",
       "/auth",
       "/authenticate",
       "/forgot-password",

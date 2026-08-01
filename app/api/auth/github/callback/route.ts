@@ -28,8 +28,10 @@ import {
   isEmailVerified,
   setDeveloperSessionCookie
 } from "@/lib/developerAuth";
+import { completeProfilePath } from "@/lib/authPageUrls";
 import { createPublicId } from "@/lib/ids";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
+import { resolveOwnedHref } from "@/lib/subdomainRouting";
 import { resolvePreferredSsoAccountId } from "@/lib/workspaceSso";
 import * as oauthPending from "@/lib/repositories/oauthPending";
 import * as users from "@/lib/repositories/users";
@@ -41,15 +43,40 @@ function withCleanState(response: NextResponse) {
   return response;
 }
 
+function ownedRedirect(request: NextRequest, pathWithSearch: string) {
+  const resolved = resolveOwnedHref(pathWithSearch, {
+    hostname: request.nextUrl.hostname,
+    protocol: request.nextUrl.protocol
+  });
+  return NextResponse.redirect(
+    resolved.startsWith("http")
+      ? resolved
+      : new URL(pathWithSearch, request.nextUrl.origin)
+  );
+}
+
 function errorRedirect(
   request: NextRequest,
   code: OAuthErrorCode,
   target: "login" | "settings"
 ) {
-  const url = new URL(target === "settings" ? SETTINGS_PATH : "/login", request.nextUrl.origin);
-  url.searchParams.set("oauth_error", code);
-  if (target === "settings") url.hash = "account-security";
-  return withCleanState(NextResponse.redirect(url));
+  if (target === "settings") {
+    const resolved = resolveOwnedHref(
+      `${SETTINGS_PATH}?oauth_error=${encodeURIComponent(code)}`,
+      {
+        hostname: request.nextUrl.hostname,
+        protocol: request.nextUrl.protocol
+      }
+    );
+    const url = new URL(
+      resolved.startsWith("http") ? resolved : new URL(resolved, request.nextUrl.origin)
+    );
+    url.hash = "account-security";
+    return withCleanState(NextResponse.redirect(url));
+  }
+  return withCleanState(
+    ownedRedirect(request, `/login?oauth_error=${encodeURIComponent(code)}`)
+  );
 }
 
 function postLoginPath(options: {
@@ -193,9 +220,7 @@ async function signInExistingUser(
   if (mfaEnabled) {
     const { createMfaChallengeToken } = await import("@/lib/mfa");
     const challengeToken = await createMfaChallengeToken(userId);
-    const url = new URL("/login", request.nextUrl.origin);
-    url.searchParams.set("oauth_mfa", "1");
-    const response = withCleanState(NextResponse.redirect(url));
+    const response = withCleanState(ownedRedirect(request, "/login?oauth_mfa=1"));
     // The challenge travels in an httpOnly cookie rather than the query string
     // so it is not written to browser history, referrers, or proxy logs.
     response.cookies.set(OAUTH_MFA_COOKIE, challengeToken, oauthCookieOptions(5 * 60));
@@ -213,9 +238,7 @@ async function signInExistingUser(
     emailVerified: isEmailVerified(user.emailVerified),
     onboardingCompleted: Boolean(user.onboardingCompletedAt)
   });
-  const response = withCleanState(
-    NextResponse.redirect(new URL(destination, request.nextUrl.origin))
-  );
+  const response = withCleanState(ownedRedirect(request, destination));
   setDeveloperSessionCookie(response, token);
   return response;
 }
@@ -241,12 +264,11 @@ async function startPendingSignup(
     expiresAt: new Date(Date.now() + OAUTH_PENDING_SIGNUP_TTL_MS)
   });
 
-  const completeUrl = new URL("/auth/complete-profile", request.nextUrl.origin);
-  completeUrl.searchParams.set("provider", "github");
-  const safeNext = safeOAuthNextPath(next);
-  if (safeNext) completeUrl.searchParams.set("next", safeNext);
-
-  const response = withCleanState(NextResponse.redirect(completeUrl));
+  const completePath = completeProfilePath({
+    provider: "github",
+    next: safeOAuthNextPath(next)
+  });
+  const response = withCleanState(ownedRedirect(request, completePath));
   response.cookies.set(
     OAUTH_PENDING_SIGNUP_COOKIE,
     `${pendingId}.${pendingToken}`,

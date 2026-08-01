@@ -22,7 +22,7 @@ this monorepo. Separate remotes are phase 3 only.
 
 | Host | Paths |
 |------|--------|
-| `auth.behalfid.com` | `/login` `/signup` `/auth` `/authenticate` `/forgot-password` `/reset-password` `/verify-email` `/invite` `/passport` `/onboarding` `/logout` + `api/auth/*` `api/passport/*` `api/onboarding/*` `api/invites` `api/consent-ping` |
+| `auth.behalfid.com` | `/login` `/signup` `/complete-profile` `/auth` `/authenticate` `/forgot-password` `/reset-password` `/verify-email` `/invite` `/passport` `/onboarding` `/logout` + `api/auth/*` `api/passport/*` `api/onboarding/*` `api/invites` `api/consent-ping` |
 | `app.behalfid.com` | `/dashboard` `/workspace/*` public `/<slug>/dashboard` + dashboard/billing/verify/webhook APIs |
 | `console.behalfid.com` | `/console` + `api/console/*` |
 | `www.behalfid.com` | marketing, legal, status, sandbox, design-system |
