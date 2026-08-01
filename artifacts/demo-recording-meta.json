@@ -1,0 +1,10 @@
+{
+  "ownerEmail": "demo+record1785196346921@example.com",
+  "base": "http://localhost:3000",
+  "verificationCode": "YPN8-CHD3",
+  "nextRoute": "/northwind-labs-78ec2702/dashboard/agents/new",
+  "agentId": "agent_ZNp239fIYL0kCtY2",
+  "apiKeyPreview": "bhf_sk_FiGoC…",
+  "leadEmail": "lead+demo1785196465831@example.com",
+  "approvedApprovalId": "apr_oSM5XU9JYd7YoibN"
+}

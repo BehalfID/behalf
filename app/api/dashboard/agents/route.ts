@@ -54,7 +54,35 @@ export async function POST(request: NextRequest) {
   const { metadata, error: metadataError } = parseAgentMetadata(body);
   if (metadataError || !metadata) return jsonError(metadataError ?? "Invalid agent metadata.");
 
-  const result = await createDeveloperAgent(auth.user.userId, auth.activeAccountId ?? undefined, { name, ...metadata });
+  let result: Awaited<ReturnType<typeof createDeveloperAgent>>;
+  try {
+    result = await createDeveloperAgent(auth.user.userId, auth.activeAccountId ?? undefined, {
+      name,
+      ...metadata
+    });
+  } catch (createError) {
+    if (
+      typeof createError === "object" &&
+      createError !== null &&
+      "code" in createError &&
+      createError.code === 11000
+    ) {
+      return jsonError("An agent with conflicting identity already exists.", 409);
+    }
+    if (
+      typeof createError === "object" &&
+      createError !== null &&
+      "name" in createError &&
+      createError.name === "ValidationError"
+    ) {
+      return jsonError(
+        createError instanceof Error ? createError.message : "Invalid agent payload.",
+        400
+      );
+    }
+    throw createError;
+  }
+
   await emitWebhookEvent(
     createWebhookEvent(null, "agent.created", {
       agentId: result.agent.agentId,

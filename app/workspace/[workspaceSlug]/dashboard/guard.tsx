@@ -24,7 +24,8 @@ export async function WorkspaceProtectedDashboard({
     | "settings"
     | "managed-profiles"
     | "managed-profiles-activity"
-    | "adaptive-delegation";
+    | "adaptive-delegation"
+    | "cli";
   id?: string;
   agentSection?: AgentDetailSection;
 }) {

@@ -32,7 +32,8 @@ type NavIconName =
   | "profiles"
   | "billing"
   | "docs"
-  | "delegation";
+  | "delegation"
+  | "cli";
 
 const dashboardNavItems = [
   {
@@ -42,7 +43,8 @@ const dashboardNavItems = [
       { subpath: "/inbox", label: "Needs attention", icon: "attention" },
       { subpath: "/approvals", label: "Approvals", icon: "approvals" },
       { subpath: "/adaptive-delegation", label: "Adaptive Delegation", icon: "delegation" },
-      { subpath: "/logs", label: "Audit logs", icon: "logs" }
+      { subpath: "/logs", label: "Audit logs", icon: "logs" },
+      { subpath: "/cli", label: "CLI terminal", icon: "cli" }
     ]
   },
   {
@@ -224,7 +226,8 @@ function NavIcon({ name }: { name: NavIconName }) {
     settings: <><circle cx="10" cy="10" r="2.5" /><path d="M10 2.5v2M10 15.5v2M2.5 10h2M15.5 10h2M4.7 4.7l1.4 1.4M13.9 13.9l1.4 1.4M15.3 4.7l-1.4 1.4M6.1 13.9l-1.4 1.4" /></>,
     profiles: <><path d="M4 4h12v12H4z" /><path d="M7 7h6M7 10h6M7 13h3" /></>,
     billing: <><path d="M3 5h14v10H3z" /><path d="M3 8h14M6 12h3" /></>,
-    docs: <><path d="M5 3h8l2 2v12H5z" /><path d="M13 3v3h3M8 10h4M8 13h4" /></>
+    docs: <><path d="M5 3h8l2 2v12H5z" /><path d="M13 3v3h3M8 10h4M8 13h4" /></>,
+    cli: <><path d="M4 5h12v10H4z" /><path d="m7 9 2 2-2 2M11 13h3" /></>
   };
   return (
     <svg className="dashboard-nav__icon" viewBox="0 0 20 20" aria-hidden="true">

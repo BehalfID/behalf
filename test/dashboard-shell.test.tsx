@@ -30,6 +30,7 @@ describe("authenticated dashboard shell", () => {
   it("assigns explicit content widths without changing route destinations", () => {
     expect(getDashboardContentVariant("/alpha/dashboard")).toBe("standard");
     expect(getDashboardContentVariant("/alpha/dashboard/logs")).toBe("wide");
+    expect(getDashboardContentVariant("/alpha/dashboard/cli")).toBe("wide");
     expect(getDashboardContentVariant("/alpha/dashboard/managed-profiles/activity")).toBe("activity");
     expect(getDashboardContentVariant("/alpha/dashboard/agents/new")).toBe("focused");
     expect(getDashboardContentVariant("/alpha/dashboard/agents/agent_1")).toBe("detail");

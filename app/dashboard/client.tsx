@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Fragment, FormEvent, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdaptiveDelegationConsole } from "@/components/dashboard/AdaptiveDelegationConsole";
+import { BrowserCliTerminal } from "@/components/dashboard/BrowserCliTerminal";
 import { OpsLogConsole } from "@/components/dashboard/OpsLogConsole";
 import { PendingActionsQueue } from "@/components/dashboard/PendingActionsQueue";
 import { DecisionIndicator } from "@/components/dashboard/OpsEventPrimitives";
@@ -465,7 +466,7 @@ export function DashboardViews({
   emailVerified = true,
   showSetupBanner = false
 }: {
-  view: "home" | "onboarding" | "first-agent" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "inbox" | "docs" | "settings" | "managed-profiles" | "managed-profiles-activity" | "adaptive-delegation";
+  view: "home" | "onboarding" | "first-agent" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "inbox" | "docs" | "settings" | "managed-profiles" | "managed-profiles-activity" | "adaptive-delegation" | "cli";
   id?: string;
   agentSection?: AgentDetailSection;
   emailVerified?: boolean;
@@ -503,6 +504,7 @@ export function DashboardViews({
         {view === "managed-profiles" ? <ManagedProfilesView /> : null}
         {view === "managed-profiles-activity" ? <ManagedProfileActivityView /> : null}
         {view === "adaptive-delegation" ? <AdaptiveDelegationConsole /> : null}
+        {view === "cli" ? <BrowserCliTerminal /> : null}
     </Fragment>
   );
 }
@@ -514,7 +516,7 @@ export function DashboardShell({
   emailVerified = true,
   showSetupBanner = false
 }: {
-  view: "home" | "onboarding" | "first-agent" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "inbox" | "docs" | "settings" | "managed-profiles" | "managed-profiles-activity" | "adaptive-delegation";
+  view: "home" | "onboarding" | "first-agent" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "inbox" | "docs" | "settings" | "managed-profiles" | "managed-profiles-activity" | "adaptive-delegation" | "cli";
   id?: string;
   agentSection?: AgentDetailSection;
   emailVerified?: boolean;
@@ -545,9 +547,9 @@ const HOME_CONTROL_ROUTES: Record<string, string> = {
 };
 
 function feedTime(value?: string) {
-  if (!value) return "â€”";
+  if (!value) return "—";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "â€”";
+  if (Number.isNaN(date.getTime())) return "—";
   return new Intl.DateTimeFormat("en", { hour: "2-digit", minute: "2-digit", hour12: false }).format(date);
 }
 
@@ -662,22 +664,22 @@ function HomeView() {
         </div>
         <dl className="ops-strip__seg">
           <dt>Agents</dt>
-          <dd>{summary.data?.totalAgents ?? "â€”"}</dd>
+          <dd>{summary.data?.totalAgents ?? "—"}</dd>
         </dl>
         <dl className="ops-strip__seg">
           <dt>Permissions</dt>
-          <dd>{summary.data?.activePermissions ?? "â€”"}</dd>
+          <dd>{summary.data?.activePermissions ?? "—"}</dd>
         </dl>
         <dl className={`ops-strip__seg${pendingApprovals.length > 0 ? " ops-strip__seg--alert" : ""}`}>
           <dt>Pending approvals</dt>
-          <dd>{inbox.data ? pendingApprovals.length : "â€”"}</dd>
+          <dd>{inbox.data ? pendingApprovals.length : "—"}</dd>
         </dl>
         <dl className="ops-strip__seg">
           <dt>Decisions today</dt>
-          <dd>{summary.data?.logsToday ?? "â€”"}</dd>
+          <dd>{summary.data?.logsToday ?? "—"}</dd>
         </dl>
         <div className="ops-strip__spacer" aria-hidden="true" />
-        <Link className="ops-strip__link" href={dHref("/dashboard/logs")}>Audit log â†’</Link>
+        <Link className="ops-strip__link" href={dHref("/dashboard/logs")}>Audit log →</Link>
       </section>
 
       <div className="ops-grid">
@@ -712,7 +714,7 @@ function HomeView() {
                       <span className="ops-feed__title">
                         {pauseApproval
                           ? formatPauseApprovalTitle(item)
-                          : `${item.agentName ?? item.agentId} Â· ${item.action}`}
+                          : `${item.agentName ?? item.agentId} · ${item.action}`}
                       </span>
                       <span className="ops-feed__meta">
                         {pauseApproval
@@ -749,7 +751,7 @@ function HomeView() {
                   <div className="ops-feed__row" key={log.requestId}>
                     <span className="ops-feed__time">{feedTime(log.createdAt)}</span>
                     <span className="ops-feed__body">
-                      <span className="ops-feed__title">{log.agentName ?? log.agentId} Â· <code>{log.action}</code></span>
+                      <span className="ops-feed__title">{log.agentName ?? log.agentId} · <code>{log.action}</code></span>
                       <span className="ops-feed__meta">{log.reason}</span>
                     </span>
                     {log.allowed ? (
@@ -826,7 +828,7 @@ function HomeView() {
                       <strong>{item.title}</strong>
                       <small>{item.body}</small>
                     </span>
-                    <span className="ops-next__arrow" aria-hidden="true">â†’</span>
+                    <span className="ops-next__arrow" aria-hidden="true">→</span>
                   </Link>
                 ))}
               </div>
@@ -1173,7 +1175,7 @@ function SiteDetailView({ siteId, onChanged }: { siteId: string; onChanged: () =
         <div>
           <SiteGuardStatus status={site.status} />
           <h2>{site.name}</h2>
-          <code>{site.domain} Â· {site.siteId}</code>
+          <code>{site.domain} · {site.siteId}</code>
         </div>
         {site.status === "disabled" ? (
           <Button
@@ -1378,7 +1380,7 @@ function SiteGuardIntegrationPanel({ site, hasKeys, rawKey }: {
       action={<ButtonLink href="/docs/site-guard">Docs</ButtonLink>}
       className="site-guard-integration"
       description="Call the check endpoint from server middleware before returning a route that Site Guard governs."
-      eyebrow={`${site.name} Â· ${site.domain}`}
+      eyebrow={`${site.name} · ${site.domain}`}
       id={`site-integration-${site.siteId}`}
       title="Integrate this site"
     >
@@ -1392,7 +1394,7 @@ function SiteGuardIntegrationPanel({ site, hasKeys, rawKey }: {
         <div className="operations-notice">
           <strong>Create a site key to use these snippets.</strong>
           <p className="field-help">
-            Create a key using the form above. Copy it immediately after creation â€” it will not
+            Create a key using the form above. Copy it immediately after creation — it will not
             be shown again. Store it as <code>SITE_GUARD_KEY</code> in your server environment or
             secret manager.
           </p>
@@ -1427,7 +1429,7 @@ function SiteGuardIntegrationPanel({ site, hasKeys, rawKey }: {
 
       <p className="field-help" style={{ marginTop: 16 }}>
         <Link href="/docs/site-guard">Site Guard docs</Link>
-        {" Â· "}
+        {" · "}
         Full examples: <code>examples/site-guard-nextjs</code>, <code>examples/site-guard-express</code>
       </p>
     </SettingsSection>
@@ -1846,7 +1848,7 @@ ${regularPassportUrl || "[passport link]"}`;
   if (userPath === null) {
     return (
       <>
-        <Header title="Add agent" description="Choose how you want to integrate BehalfID â€” as a developer or as an existing AI assistant user." />
+        <Header title="Add agent" description="Choose how you want to integrate BehalfID — as a developer or as an existing AI assistant user." />
         <section className="agent-create-grid ob-step--enter">
           <button
             className="dashboard-panel onboarding-choice"
@@ -1861,7 +1863,7 @@ ${regularPassportUrl || "[passport link]"}`;
             <span className="console-status">Developer mode</span>
             <h2>I&apos;m a developer building with agents</h2>
             <p>Use the API, SDK, webhooks, and verification endpoint to enforce permissions before your agent acts.</p>
-            <small>Create an agent â†’ define scopes â†’ call verify() â†’ fail closed.</small>
+            <small>Create an agent → define scopes → call verify() → fail closed.</small>
           </button>
           <button
             className="dashboard-panel onboarding-choice"
@@ -1882,7 +1884,7 @@ ${regularPassportUrl || "[passport link]"}`;
             <span className="console-status console-status--active">Passport mode</span>
             <h2>I&apos;m using an existing AI assistant</h2>
             <p>Create a manual permission passport for ChatGPT, Claude, Gemini, Ollie, Zapier, Make, or another assistant.</p>
-            <small>Describe what you want â†’ AI drafts permissions â†’ you review and confirm.</small>
+            <small>Describe what you want → AI drafts permissions → you review and confirm.</small>
           </button>
         </section>
       </>
@@ -1913,7 +1915,7 @@ ${regularPassportUrl || "[passport link]"}`;
             <h2>Start from a preset or choose a provider</h2>
 
             <p className="section-kicker">Preset passports</p>
-            <p>Pick a common use case â€” your passport permissions will be ready to review instantly, no description needed.</p>
+            <p>Pick a common use case — your passport permissions will be ready to review instantly, no description needed.</p>
             <div className="agent-create-grid">
               {PASSPORT_PRESETS.map((preset) => (
                 <button
@@ -1964,7 +1966,7 @@ ${regularPassportUrl || "[passport link]"}`;
         {regularStep === 2 && pendingPreset ? (
           <section className="onboarding-form dashboard-panel">
             <h2>Which assistant are you using?</h2>
-            <p>You chose the <strong>{pendingPreset.label}</strong> preset. Pick the assistant you want to create this passport for â€” the agent will be named accordingly.</p>
+            <p>You chose the <strong>{pendingPreset.label}</strong> preset. Pick the assistant you want to create this passport for — the agent will be named accordingly.</p>
             <div className="agent-create-grid">
               {regularProviderOptions.map((opt) => (
                 <button
@@ -2000,7 +2002,7 @@ ${regularPassportUrl || "[passport link]"}`;
               />
             </label>
             <p className="field-help" style={{ textAlign: "right", marginTop: 2 }}>{regularDescription.length} / 2000</p>
-            <p className="section-kicker">Examples â€” click to use</p>
+            <p className="section-kicker">Examples — click to use</p>
             <div className="permission-template-grid permission-template-grid--nested">
               {DESCRIPTION_EXAMPLES.map((example) => (
                 <button
@@ -2037,7 +2039,7 @@ ${regularPassportUrl || "[passport link]"}`;
             <div className="form-actions">
               <Button type="button" onClick={() => { setDraftError(""); setDraftDetails(""); setDraftErrorCode(""); setRegularStep(1); }}>Back</Button>
               <Button variant="primary" type="button" onClick={generateDraft} disabled={draftLoading}>
-                {draftLoading ? "Generating draftâ€¦" : "Generate draft passport"}
+                {draftLoading ? "Generating draft…" : "Generate draft passport"}
               </Button>
             </div>
           </section>
@@ -2046,7 +2048,7 @@ ${regularPassportUrl || "[passport link]"}`;
         {regularStep === 3 && draftResponse ? (
           <section className="dashboard-panel onboarding-form">
             <div className="agent-passport__header">
-              <span className="console-status">Draft â€” not active yet</span>
+              <span className="console-status">Draft — not active yet</span>
             </div>
             <h2>Review your draft passport</h2>
             <p>BehalfID drafted these permissions based on your description. Review them carefully. <strong>Nothing has been created yet.</strong></p>
@@ -2128,7 +2130,7 @@ ${regularPassportUrl || "[passport link]"}`;
                 </Button>
               ) : (
                 <Button variant="primary" type="button" onClick={confirmDraft} disabled={draftLoading}>
-                  {draftLoading ? "Creating passportâ€¦" : "Confirm and create passport"}
+                  {draftLoading ? "Creating passport…" : "Confirm and create passport"}
                 </Button>
               )}
             </div>
@@ -2204,7 +2206,7 @@ ${regularPassportUrl || "[passport link]"}`;
                 >
                   <strong>{pt.label}</strong>
                   <span>{pt.tagline}</span>
-                  <small>{POLICY_CATEGORY_LABELS[pt.category]} Â· {pt.permissions.length === 1 ? "1 permission" : `${pt.permissions.length} permissions`}</small>
+                  <small>{POLICY_CATEGORY_LABELS[pt.category]} · {pt.permissions.length === 1 ? "1 permission" : `${pt.permissions.length} permissions`}</small>
                 </button>
               ))}
             </div>
@@ -2217,14 +2219,14 @@ ${regularPassportUrl || "[passport link]"}`;
                   <ul style={{ margin: "8px 0", paddingLeft: 18 }}>
                     {pt.permissions.map((p, i) => (
                       <li key={i}>
-                        <strong>{p.action}</strong> on <code>{p.resource}</code>{p.requiresApproval ? " â€” requires approval" : " â€” auto-allowed"}
+                        <strong>{p.action}</strong> on <code>{p.resource}</code>{p.requiresApproval ? " — requires approval" : " — auto-allowed"}
                       </li>
                     ))}
                   </ul>
                   <p className="field-help">Blocks: {pt.blocks.join(", ")}.</p>
                   <div className="form-actions">
                     <Button type="button" variant="primary" onClick={() => applyOnboardingPolicyTemplateAll(pt)} disabled={onboardingPolicyApplying}>
-                      {onboardingPolicyApplying ? "Applyingâ€¦" : `Apply ${pt.permissions.length} permissions`}
+                      {onboardingPolicyApplying ? "Applying…" : `Apply ${pt.permissions.length} permissions`}
                     </Button>
                     <Button type="button" onClick={() => setOnboardingPolicyTemplateId("")}>Cancel</Button>
                   </div>
@@ -2491,7 +2493,7 @@ function WebhooksView() {
                         <span><code>{webhook.webhookId}</code></span>
                       </div>
                     </div>
-                    <div className="webhook-directory__events">{webhook.events.length} events Â· {webhook.events.join(", ")}</div>
+                    <div className="webhook-directory__events">{webhook.events.length} events · {webhook.events.join(", ")}</div>
                     <div className="webhook-directory__status">
                       <WebhookStatusBadge status={webhook.status} />
                       <small>Last delivery {date(webhook.lastTriggeredAt)}</small>
@@ -2701,7 +2703,7 @@ function LogsViewInner() {
 
 function LogsView() {
   return (
-    <Suspense fallback={<OpsLogConsole compact title="Audit logs" description="Loading logsâ€¦" />}>
+    <Suspense fallback={<OpsLogConsole compact title="Audit logs" description="Loading logs…" />}>
       <LogsViewInner />
     </Suspense>
   );
@@ -2845,7 +2847,7 @@ function MembersPanel({ members }: { members: DashboardResource<MembersResponse>
       {members.error && members.data ? <Alert tone="destructive">Members could not be refreshed: {members.error}</Alert> : null}
       {members.data?.workspaceAuthority ? (
         <div className="settings-callout">
-          <strong>Your authority: {members.data.workspaceAuthority.roleLabel} Â· level {members.data.workspaceAuthority.authorityLevel}</strong>
+          <strong>Your authority: {members.data.workspaceAuthority.roleLabel} · level {members.data.workspaceAuthority.authorityLevel}</strong>
           {members.data.canManageMembers
             ? "You can assign roles below your own authority. The server applies self-removal and last-owner protections."
             : "Your role cannot change workspace membership. Member data is limited by the workspace visibility rules."}
@@ -3021,7 +3023,7 @@ function SsoSettingsCard({ canEditWorkspace }: { canEditWorkspace: boolean }) {
         id="google-sso"
         title="Google SSO"
       >
-        <p className="field-help">Loading SSO settingsâ€¦</p>
+        <p className="field-help">Loading SSO settings…</p>
       </SettingsSection>
     );
   }
@@ -3099,7 +3101,7 @@ function SsoSettingsCard({ canEditWorkspace }: { canEditWorkspace: boolean }) {
           {message ? <p className="field-help">{message}</p> : null}
           <div className="setup-actions">
             <Button disabled={saving} loading={saving} type="submit" variant="primary">
-              {saving ? "Savingâ€¦" : "Save SSO settings"}
+              {saving ? "Saving…" : "Save SSO settings"}
             </Button>
           </div>
         </form>
@@ -3538,7 +3540,7 @@ function SettingsView() {
                 onChange={(event) => setAccountForm((prev) => ({ ...prev, primaryGoal: event.target.value }))}
                 value={accountForm.primaryGoal}
               >
-                <option value="">Selectâ€¦</option>
+                <option value="">Select…</option>
                 {PRIMARY_GOALS.map((goal) => (
                   <option key={goal} value={goal}>{PRIMARY_GOAL_LABELS[goal]}</option>
                 ))}
@@ -3670,7 +3672,7 @@ function SettingsView() {
                 {deleteError ? <p className="form-error" role="alert">{deleteError}</p> : null}
                 <div className="setup-actions">
                   <Button disabled={deleting} loading={deleting} type="submit" variant="danger">
-                    {deleting ? "Deletingâ€¦" : "Permanently delete account"}
+                    {deleting ? "Deleting…" : "Permanently delete account"}
                   </Button>
                   <Button
                     disabled={deleting}
@@ -3702,7 +3704,7 @@ const DOC_CARDS = [
   { title: "Quickstart", description: "Create an agent, add a permission, call verify(), and prove allowed and denied actions.", href: "/docs/quickstart" },
   { title: "CLI & MCP", description: "Install the CLI, wire up the MCP server, and launch Claude Code or Codex with enforcement active.", href: "/docs/cli" },
   { title: "Managed profiles", description: "Configure when local Claude, Codex, and Cursor sessions run unmanaged, managed, or required.", href: "/dashboard/managed-profiles" },
-  { title: "Deploy approvals", description: "Full demo: agent hits approval gate â†’ you approve in this dashboard â†’ agent retries and deploys.", href: "/docs/deploy-approvals" },
+  { title: "Deploy approvals", description: "Full demo: agent hits approval gate → you approve in this dashboard → agent retries and deploys.", href: "/docs/deploy-approvals" },
   { title: "SDK", description: "Node.js SDK for calling verify() before tool execution from any agent framework.", href: "/docs/sdk" },
   { title: "Webhooks", description: "Receive real-time signed events for allowed, denied, and approval-required decisions.", href: "/docs/webhooks" },
   { title: "Site Guard", description: "Block or allow AI agents and crawlers from accessing your website paths.", href: "/docs/site-guard" },
@@ -3854,7 +3856,7 @@ function LogList({ logs, approvalFilter }: { logs: Log[]; approvalFilter?: boole
               <code>{log.action}</code>
               <span>
                 {log.vendor || "No target recorded"}
-                {typeof log.amount === "number" ? ` Â· $${log.amount}` : ""}
+                {typeof log.amount === "number" ? ` · $${log.amount}` : ""}
               </span>
             </div>
             <div className="agent-decision-row__reason">

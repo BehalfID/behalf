@@ -72,13 +72,39 @@ export async function POST(request: NextRequest) {
 
   const input = validated.input;
   const provider = mapAgentSurfaceToProvider(input.surface);
-  const result = await createDeveloperAgent(auth.user.userId, auth.activeAccountId ?? undefined, {
-    name: input.name,
-    agentType: "native",
-    provider,
-    description: input.description ?? `${AGENT_SURFACE_DESCRIPTION[input.surface]} agent created via first-agent setup.`,
-    connectionStatus: "manual"
-  });
+  let result: Awaited<ReturnType<typeof createDeveloperAgent>>;
+  try {
+    result = await createDeveloperAgent(auth.user.userId, auth.activeAccountId ?? undefined, {
+      name: input.name,
+      agentType: "native",
+      provider,
+      description:
+        input.description ??
+        `${AGENT_SURFACE_DESCRIPTION[input.surface]} agent created via first-agent setup.`,
+      connectionStatus: "manual"
+    });
+  } catch (createError) {
+    if (
+      typeof createError === "object" &&
+      createError !== null &&
+      "code" in createError &&
+      createError.code === 11000
+    ) {
+      return jsonError("An agent with conflicting identity already exists.", 409);
+    }
+    if (
+      typeof createError === "object" &&
+      createError !== null &&
+      "name" in createError &&
+      createError.name === "ValidationError"
+    ) {
+      return jsonError(
+        createError instanceof Error ? createError.message : "Invalid agent payload.",
+        400
+      );
+    }
+    throw createError;
+  }
 
   const permissions = buildPermissionsFromSetup(input);
   const permissionIds: string[] = [];
@@ -97,9 +123,18 @@ export async function POST(request: NextRequest) {
         agentId: result.agent.agentId,
         permissionIds
       });
-      return jsonError("First agent setup failed while applying permissions.", 500, {
-        code: "SETUP_FAILED"
-      });
+      // Preserve the underlying client/auth status (400/403/404/409). Only unexpected
+      // failures surface as 500 — expected permission mutation errors must not.
+      const status = created.error.status;
+      const safeStatus =
+        status >= 400 && status < 500 ? status : 500;
+      return jsonError(
+        safeStatus === 500
+          ? "First agent setup failed while applying permissions."
+          : "First agent setup could not apply permissions.",
+        safeStatus,
+        { code: "SETUP_FAILED" }
+      );
     }
 
     if ("permissionId" in created && created.permissionId) {

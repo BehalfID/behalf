@@ -54,3 +54,6 @@ stripeapikeys.txt
 
 .aider*
 .env*
+
+# Local/dev outbound email capture (no SMTP)
+.behalf/dev-email.log
