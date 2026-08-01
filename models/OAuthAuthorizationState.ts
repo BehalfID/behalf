@@ -1,7 +1,7 @@
 import mongoose, { Schema, type InferSchemaType, type Model } from "mongoose";
 import { EXTERNAL_IDENTITY_PROVIDERS } from "@/models/ExternalIdentity";
 
-export const OAUTH_FLOW_MODES = ["login", "signup", "link"] as const;
+export const OAUTH_FLOW_MODES = ["login", "signup", "link", "reauth"] as const;
 export type OAuthFlowMode = (typeof OAUTH_FLOW_MODES)[number];
 
 /**

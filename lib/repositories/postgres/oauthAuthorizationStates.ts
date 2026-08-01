@@ -4,7 +4,7 @@ import { oauthAuthorizationStates } from "@/lib/db/postgres/schema";
 import { translatePostgresError } from "@/lib/repositories/errors";
 import type { ExternalIdentityProvider } from "@/lib/repositories/postgres/externalIdentities";
 
-export type OAuthFlowMode = "login" | "signup" | "link";
+export type OAuthFlowMode = "login" | "signup" | "link" | "reauth";
 
 export type OAuthAuthorizationStateLean = {
   stateId: string;

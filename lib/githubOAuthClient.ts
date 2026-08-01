@@ -3,7 +3,7 @@
  * Server code should use `@/lib/authProviders/providers/github`.
  */
 
-export type GitHubOAuthMode = "login" | "signup" | "link";
+export type GitHubOAuthMode = "login" | "signup" | "link" | "reauth";
 
 export function safeOAuthNextPath(next?: string | null): string | undefined {
   if (!next || !next.startsWith("/") || next.startsWith("//")) return undefined;

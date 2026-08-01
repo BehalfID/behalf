@@ -40,6 +40,8 @@ import {
   MANAGED_PROFILE_MODES,
   OAUTH_FLOW_MODES,
   ONBOARDING_USE_CASES,
+  REAUTH_METHODS,
+  REAUTH_PURPOSES,
   PAUSE_SCOPES,
   PERMISSION_PROFILE_STATUSES,
   PERMISSION_STATUSES,
@@ -283,6 +285,38 @@ export const oauthAuthorizationStates = pgTable(
       sql`${table.mode} IN (${sql.raw(sqlInList(OAUTH_FLOW_MODES))})`
     ),
     index("oauth_authorization_states_expires_at_idx").on(table.expiresAt)
+  ]
+);
+
+/**
+ * Short-lived, single-use proofs that a user freshly reauthenticated for a
+ * sensitive action (e.g. account deletion). Opaque token is hashed at rest.
+ */
+export const reauthProofs = pgTable(
+  "reauth_proofs",
+  {
+    proofId: text("proof_id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => developerUsers.userId, { onDelete: "cascade" }),
+    purpose: text("purpose").notNull(),
+    method: text("method").notNull(),
+    proofHash: text("proof_hash").notNull().unique(),
+    sessionId: text("session_id"),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true, mode: "date" }),
+    createdAt: timestamptz().notNull().defaultNow()
+  },
+  (table) => [
+    check(
+      "reauth_proofs_purpose_check",
+      sql`${table.purpose} IN (${sql.raw(sqlInList(REAUTH_PURPOSES))})`
+    ),
+    check(
+      "reauth_proofs_method_check",
+      sql`${table.method} IN (${sql.raw(sqlInList(REAUTH_METHODS))})`
+    ),
+    index("reauth_proofs_user_expires_idx").on(table.userId, table.expiresAt)
   ]
 );
 
@@ -1578,6 +1612,7 @@ export const coreTables = {
   oauthPendingSignups,
   externalIdentities,
   oauthAuthorizationStates,
+  reauthProofs,
   identityAuditLogs,
   passkeyCredentials,
   webauthnChallenges,

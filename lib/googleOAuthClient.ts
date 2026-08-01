@@ -3,7 +3,7 @@
  * Server routes should prefer `@/lib/googleOAuth`, which re-exports these.
  */
 
-export type GoogleOAuthMode = "login" | "signup";
+export type GoogleOAuthMode = "login" | "signup" | "reauth";
 
 export function safeOAuthNextPath(next?: string | null): string | undefined {
   if (!next || !next.startsWith("/") || next.startsWith("//")) return undefined;

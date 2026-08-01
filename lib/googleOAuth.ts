@@ -35,6 +35,8 @@ type OAuthStatePayload = {
   m: GoogleOAuthMode;
   next?: string;
   exp: number;
+  /** Bound user for reauth mode — must match the signed-in session on callback. */
+  uid?: string;
 };
 
 /**
@@ -114,7 +116,8 @@ function verifyState(raw: string): OAuthStatePayload | null {
   try {
     const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as OAuthStatePayload;
     if (!payload?.n || !payload?.v || !payload?.exp || payload.exp < Date.now()) return null;
-    if (payload.m !== "login" && payload.m !== "signup") return null;
+    if (payload.m !== "login" && payload.m !== "signup" && payload.m !== "reauth") return null;
+    if (payload.m === "reauth" && !payload.uid) return null;
     return payload;
   } catch {
     return null;
@@ -131,11 +134,16 @@ export function buildGoogleAuthorizeRedirect(options: {
   requestOrigin: string;
   mode: GoogleOAuthMode;
   next?: string | null;
+  userId?: string | null;
 }): { url: string; stateCookieValue: string } | { error: string } {
   const clientId = getGoogleClientId();
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
   if (!clientId || !clientSecret) {
     return { error: "Google sign-in is not configured." };
+  }
+
+  if (options.mode === "reauth" && !options.userId) {
+    return { error: "Sign in before confirming your identity." };
   }
 
   const { verifier, challenge } = createPkcePair();
@@ -146,7 +154,8 @@ export function buildGoogleAuthorizeRedirect(options: {
     v: verifier,
     m: options.mode,
     next,
-    exp: Date.now() + 1000 * 60 * 10
+    exp: Date.now() + 1000 * 60 * 10,
+    ...(options.mode === "reauth" && options.userId ? { uid: options.userId } : {})
   });
 
   const redirectUri = `${appBaseUrl(options.requestOrigin)}/api/auth/google/callback`;
@@ -158,6 +167,7 @@ export function buildGoogleAuthorizeRedirect(options: {
     state,
     code_challenge: challenge,
     code_challenge_method: "S256",
+    // Force account chooser on reauth so a silent SSO cookie alone is not enough.
     prompt: "select_account",
     access_type: "online"
   });

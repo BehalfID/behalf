@@ -13,7 +13,12 @@ export type IdentityAuditAction =
   | "passkey_registered"
   | "passkey_renamed"
   | "passkey_removed"
-  | "method_removal_rejected";
+  | "method_removal_rejected"
+  | "account_deletion_reauth_started"
+  | "account_deletion_reauth_succeeded"
+  | "account_deletion_reauth_failed"
+  | "account_deletion_completed"
+  | "account_deletion_blocked";
 
 export type IdentityAuditProvider = "github" | "google" | "password" | "passkey";
 

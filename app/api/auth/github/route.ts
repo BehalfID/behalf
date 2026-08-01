@@ -6,6 +6,7 @@ import {
   oauthCookieOptions,
   safeOAuthNextPath
 } from "@/lib/authProviders/oauthState";
+import { recordIdentityAudit } from "@/lib/authProviders/identityAudit";
 import { getLoginProvider } from "@/lib/authProviders/providers/registry";
 import { getCurrentDeveloper } from "@/lib/developerAuth";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
@@ -15,6 +16,7 @@ import type { OAuthFlowMode } from "@/lib/repositories/postgres/oauthAuthorizati
 function readMode(raw: string | null): OAuthFlowMode {
   if (raw === "signup") return "signup";
   if (raw === "link") return "link";
+  if (raw === "reauth") return "reauth";
   return "login";
 }
 
@@ -44,22 +46,35 @@ export async function GET(request: NextRequest) {
   const mode = readMode(request.nextUrl.searchParams.get("mode"));
   const next = safeOAuthNextPath(request.nextUrl.searchParams.get("next"));
 
-  // Linking must start from an authenticated session: the callback attaches the
-  // resulting identity to whoever started the flow, so an anonymous "link" would
-  // have no account to attach to.
+  // Linking and reauth must start from an authenticated session.
   let userId: string | null = null;
-  if (mode === "link") {
+  if (mode === "link" || mode === "reauth") {
     const user = await getCurrentDeveloper();
     if (!user) {
-      return jsonError("Sign in before connecting GitHub.", 401);
+      return jsonError(
+        mode === "reauth"
+          ? "Sign in before confirming your identity."
+          : "Sign in before connecting GitHub.",
+        401
+      );
     }
     userId = user.userId;
+    if (mode === "reauth") {
+      await recordIdentityAudit({
+        userId,
+        action: "account_deletion_reauth_started",
+        provider: "github",
+        providerAccountId: "github",
+        request,
+        context: "account_delete"
+      });
+    }
   }
 
   const { state, codeChallenge } = await createOAuthState({
     provider: "github",
     mode,
-    next,
+    next: mode === "reauth" ? next ?? "/dashboard/settings" : next,
     userId
   });
 

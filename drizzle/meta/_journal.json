@@ -85,6 +85,13 @@
       "when": 1785772800000,
       "tag": "0011_adaptive_delegation",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1785860000000,
+      "tag": "0012_reauth_proofs",
+      "breakpoints": true
     }
   ]
 }
