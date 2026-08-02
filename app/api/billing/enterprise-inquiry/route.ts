@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createPublicId } from "@/lib/ids";
+import { isValidEmail } from "@/lib/developerAuth";
 import { createEnterpriseInquiry } from "@/lib/repositories/enterpriseInquiries";
 import { isRecord, readString, rejectUnknownFields } from "@/lib/validation";
 import { jsonError } from "@/lib/responses";
@@ -25,8 +26,8 @@ export async function POST(request: NextRequest) {
   if (!name) return jsonError("name is required.", 400);
   if (name.length > 200) return jsonError("name must be 200 characters or fewer.", 400);
   if (!email) return jsonError("email is required.", 400);
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return jsonError("email must be a valid email address.", 400);
   if (email.length > 320) return jsonError("email must be 320 characters or fewer.", 400);
+  if (!isValidEmail(email)) return jsonError("email must be a valid email address.", 400);
   if (!company) return jsonError("company is required.", 400);
   if (company.length > 200) return jsonError("company must be 200 characters or fewer.", 400);
   if (message.length > 2000) return jsonError("message must be 2000 characters or fewer.", 400);
