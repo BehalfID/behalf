@@ -1,0 +1,822 @@
+/*
+ * Lovable marketing utilities — scoped under `.ds` only.
+ * Loaded after lovable-design-system.css. Does not redefine :root tokens.
+ */
+
+
+.ds .group:hover .group-hover\:text-foreground {
+  color: var(--color-foreground);
+}
+
+.ds .space-y-1 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0.25rem;
+}
+
+.ds .space-y-2 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0.5rem;
+}
+
+.ds .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 1rem;
+}
+
+.ds .-top-2 {
+  top: -0.5rem;
+}
+.ds .-top-4 {
+  top: -1rem;
+}
+.ds .absolute {
+  position: absolute;
+}
+.ds .bg-\[radial-gradient\(70%_100%_at_50%_0%,var\(--color-primary-soft\),transparent_75%\)\] {
+  background-image: radial-gradient(70% 100% at 50% 0%, var(--color-primary-soft), transparent 75%);
+}
+.ds .bg-background {
+  background-color: var(--color-background);
+}
+.ds .bg-border {
+  background-color: var(--color-border);
+}
+.ds .bg-border-strong {
+  background-color: var(--color-border-strong);
+}
+.ds .bg-destructive {
+  background-color: var(--color-destructive);
+}
+.ds .bg-destructive\/70 {
+  background-color: color-mix(in oklab, var(--color-destructive) 70%, transparent);
+}
+.ds .bg-info {
+  background-color: var(--color-info);
+}
+.ds .bg-primary {
+  background-color: var(--color-primary);
+}
+.ds .bg-primary-soft {
+  background-color: var(--color-primary-soft);
+}
+.ds .bg-primary\/25 {
+  background-color: color-mix(in oklab, var(--color-primary) 25%, transparent);
+}
+.ds .bg-success {
+  background-color: var(--color-success);
+}
+.ds .bg-success-soft {
+  background-color: var(--color-success-soft);
+}
+.ds .bg-surface {
+  background-color: var(--color-surface);
+}
+.ds .bg-surface-2 {
+  background-color: var(--color-surface-2);
+}
+.ds .bg-warning {
+  background-color: var(--color-warning);
+}
+.ds .bg-warning-soft {
+  background-color: var(--color-warning-soft);
+}
+.ds .block {
+  display: block;
+}
+.ds .border {
+  border-width: 1px; border-style: solid; border-color: var(--color-border);
+}
+.ds .border-b {
+  border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: var(--color-border);
+}
+.ds .border-primary\/50 {
+  border-color: color-mix(in oklab, var(--color-primary) 50%, transparent);
+}
+.ds .border-t {
+  border-top-width: 1px; border-top-style: solid; border-top-color: var(--color-border);
+}
+.ds .bottom-4 {
+  bottom: 1rem;
+}
+.ds .bottom-6 {
+  bottom: 1.5rem;
+}
+.ds .duration-500 {
+  transition-duration: 500ms;
+}
+.ds .duration-700 {
+  transition-duration: 700ms;
+}
+.ds .ease-out {
+  transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
+}
+.ds .flex {
+  display: flex;
+}
+.ds .flex-1 {
+  flex: 1 1 0%;
+}
+.ds .flex-col {
+  flex-direction: column;
+}
+.ds .flex-wrap {
+  flex-wrap: wrap;
+}
+.ds .font-medium {
+  font-weight: 500;
+}
+.ds .font-mono {
+  font-family: var(--font-ds-mono);
+}
+.ds .font-semibold {
+  font-weight: 600;
+}
+.ds .gap-1 {
+  gap: 0.25rem;
+}
+.ds .gap-1.5 {
+  gap: 0.375rem;
+}
+.ds .gap-2 {
+  gap: 0.5rem;
+}
+.ds .gap-2.5 {
+  gap: 0.625rem;
+}
+.ds .gap-3 {
+  gap: 0.75rem;
+}
+.ds .gap-3.5 {
+  gap: 0.875rem;
+}
+.ds .gap-4 {
+  gap: 1rem;
+}
+.ds .gap-5 {
+  gap: 1.25rem;
+}
+.ds .gap-8 {
+  gap: 2rem;
+}
+.ds .gap-x-3 {
+  column-gap: 0.75rem;
+}
+.ds .gap-x-7 {
+  column-gap: 1.75rem;
+}
+.ds .gap-x-8 {
+  column-gap: 2rem;
+}
+.ds .gap-y-1.5 {
+  row-gap: 0.375rem;
+}
+.ds .gap-y-2 {
+  row-gap: 0.5rem;
+}
+.ds .gap-y-3 {
+  row-gap: 0.75rem;
+}
+.ds .grid {
+  display: grid;
+}
+.ds .grid-cols-\[minmax\(0,1fr\)_auto\] {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.ds .group {
+  /* group marker */
+}
+.ds .grow {
+  flex-grow: 1;
+}
+.ds .h-16 {
+  height: 4rem;
+}
+.ds .h-2.5 {
+  height: 0.625rem;
+}
+.ds .h-24 {
+  height: 6rem;
+}
+.ds .h-40 {
+  height: 10rem;
+}
+.ds .h-\[3px\] {
+  height: 3px;
+}
+.ds .h-full {
+  height: 100%;
+}
+.ds .h-px {
+  height: 1px;
+}
+.ds .hidden {
+  display: none;
+}
+.ds .inline-flex {
+  display: inline-flex;
+}
+.ds .inset-x-0 {
+  left: 0; right: 0;
+}
+.ds .inset-x-3 {
+  left: 0.75rem; right: 0.75rem;
+}
+.ds .inset-x-6 {
+  left: 1.5rem; right: 1.5rem;
+}
+.ds .inset-x-8 {
+  left: 2rem; right: 2rem;
+}
+.ds .inset-y-2 {
+  top: 0.5rem; bottom: 0.5rem;
+}
+.ds .items-baseline {
+  align-items: baseline;
+}
+.ds .items-center {
+  align-items: center;
+}
+.ds .items-end {
+  align-items: flex-end;
+}
+.ds .items-start {
+  align-items: flex-start;
+}
+.ds .justify-between {
+  justify-content: space-between;
+}
+.ds .justify-center {
+  justify-content: center;
+}
+.ds .justify-end {
+  justify-content: flex-end;
+}
+.ds .leading-none {
+  line-height: 1;
+}
+.ds .leading-relaxed {
+  line-height: 1.625;
+}
+.ds .leading-snug {
+  line-height: 1.375;
+}
+.ds .leading-tight {
+  line-height: 1.25;
+}
+.ds .left-0 {
+  left: 0;
+}
+.ds .left-\[13px\] {
+  left: 13px;
+}
+.ds .left-\[15px\] {
+  left: 15px;
+}
+.ds .left-\[9px\] {
+  left: 9px;
+}
+.ds .m-6 {
+  margin: 1.5rem;
+}
+.ds .max-w-2xl {
+  max-width: 42rem;
+}
+.ds .max-w-3xl {
+  max-width: 48rem;
+}
+.ds .max-w-7xl {
+  max-width: 80rem;
+}
+.ds .max-w-\[22ch\] {
+  max-width: 22ch;
+}
+.ds .max-w-xs {
+  max-width: 20rem;
+}
+.ds .mb-6 {
+  margin-bottom: 1.5rem;
+}
+.ds .min-w-0 {
+  min-width: 0;
+}
+.ds .ml-auto {
+  margin-left: auto;
+}
+.ds .mr-auto {
+  margin-right: auto;
+}
+.ds .mt-0.5 {
+  margin-top: 0.125rem;
+}
+.ds .mt-1 {
+  margin-top: 0.25rem;
+}
+.ds .mt-1.5 {
+  margin-top: 0.375rem;
+}
+.ds .mt-14 {
+  margin-top: 3.5rem;
+}
+.ds .mt-2 {
+  margin-top: 0.5rem;
+}
+.ds .mt-3 {
+  margin-top: 0.75rem;
+}
+.ds .mt-4 {
+  margin-top: 1rem;
+}
+.ds .mt-5 {
+  margin-top: 1.25rem;
+}
+.ds .mt-6 {
+  margin-top: 1.5rem;
+}
+.ds .mt-7 {
+  margin-top: 1.75rem;
+}
+.ds .mt-8 {
+  margin-top: 2rem;
+}
+.ds .mt-9 {
+  margin-top: 2.25rem;
+}
+.ds .mx-auto {
+  margin-left: auto; margin-right: auto;
+}
+.ds .opacity-100 {
+  opacity: 1.0;
+}
+.ds .opacity-40 {
+  opacity: 0.4;
+}
+.ds .opacity-60 {
+  opacity: 0.6;
+}
+.ds .opacity-70 {
+  opacity: 0.7;
+}
+.ds .opacity-80 {
+  opacity: 0.8;
+}
+.ds .origin-bottom {
+  transform-origin: bottom;
+}
+.ds .origin-top {
+  transform-origin: top;
+}
+.ds .overflow-hidden {
+  overflow: hidden;
+}
+.ds .overflow-x-auto {
+  overflow-x: auto;
+}
+.ds .p-10 {
+  padding: 2.5rem;
+}
+.ds .p-4 {
+  padding: 1rem;
+}
+.ds .p-5 {
+  padding: 1.25rem;
+}
+.ds .p-6 {
+  padding: 1.5rem;
+}
+.ds .p-7 {
+  padding: 1.75rem;
+}
+.ds .place-items-center {
+  place-items: center;
+}
+.ds .pointer-events-none {
+  pointer-events: none;
+}
+.ds .pr-3 {
+  padding-right: 0.75rem;
+}
+.ds .pt-1 {
+  padding-top: 0.25rem;
+}
+.ds .px-1 {
+  padding-left: 0.25rem; padding-right: 0.25rem;
+}
+.ds .px-1.5 {
+  padding-left: 0.375rem; padding-right: 0.375rem;
+}
+.ds .px-2 {
+  padding-left: 0.5rem; padding-right: 0.5rem;
+}
+.ds .px-2.5 {
+  padding-left: 0.625rem; padding-right: 0.625rem;
+}
+.ds .px-3 {
+  padding-left: 0.75rem; padding-right: 0.75rem;
+}
+.ds .px-3.5 {
+  padding-left: 0.875rem; padding-right: 0.875rem;
+}
+.ds .px-4 {
+  padding-left: 1rem; padding-right: 1rem;
+}
+.ds .px-5 {
+  padding-left: 1.25rem; padding-right: 1.25rem;
+}
+.ds .py-0.5 {
+  padding-top: 0.125rem; padding-bottom: 0.125rem;
+}
+.ds .py-1 {
+  padding-top: 0.25rem; padding-bottom: 0.25rem;
+}
+.ds .py-1.5 {
+  padding-top: 0.375rem; padding-bottom: 0.375rem;
+}
+.ds .py-2 {
+  padding-top: 0.5rem; padding-bottom: 0.5rem;
+}
+.ds .py-2.5 {
+  padding-top: 0.625rem; padding-bottom: 0.625rem;
+}
+.ds .py-3 {
+  padding-top: 0.75rem; padding-bottom: 0.75rem;
+}
+.ds .py-3.5 {
+  padding-top: 0.875rem; padding-bottom: 0.875rem;
+}
+.ds .py-5 {
+  padding-top: 1.25rem; padding-bottom: 1.25rem;
+}
+.ds .relative {
+  position: relative;
+}
+.ds .rounded-\[calc\(var\(--radius\)+10px\)\] {
+  border-radius: calc(var(--radius) + 10px);
+}
+.ds .rounded-\[calc\(var\(--radius\)+14px\)\] {
+  border-radius: calc(var(--radius) + 14px);
+}
+.ds .rounded-full {
+  border-radius: 9999px;
+}
+.ds .rounded-lg {
+  border-radius: var(--radius);
+}
+.ds .rounded-md {
+  border-radius: calc(var(--radius) - 1px);
+}
+.ds .rounded-sm {
+  border-radius: calc(var(--radius) - 3px);
+}
+.ds .rounded-xl {
+  border-radius: calc(var(--radius) + 4px);
+}
+.ds .select-none {
+  user-select: none;
+}
+.ds .self-start {
+  align-self: flex-start;
+}
+.ds .shadow-raised {
+  box-shadow: var(--ds-shadow-raised);
+}
+.ds .shadow-subtle {
+  box-shadow: var(--ds-shadow-subtle);
+}
+.ds .shrink-0 {
+  flex-shrink: 0;
+}
+.ds .size-1.5 {
+  width: 0.375rem; height: 0.375rem;
+}
+.ds .size-14 {
+  width: 3.5rem; height: 3.5rem;
+}
+.ds .size-2.5 {
+  width: 0.625rem; height: 0.625rem;
+}
+.ds .size-3 {
+  width: 0.75rem; height: 0.75rem;
+}
+.ds .size-3.5 {
+  width: 0.875rem; height: 0.875rem;
+}
+.ds .size-4 {
+  width: 1rem; height: 1rem;
+}
+.ds .size-5 {
+  width: 1.25rem; height: 1.25rem;
+}
+.ds .size-7 {
+  width: 1.75rem; height: 1.75rem;
+}
+.ds .size-8 {
+  width: 2rem; height: 2rem;
+}
+.ds .size-9 {
+  width: 2.25rem; height: 2.25rem;
+}
+.ds .size-\[19px\] {
+  width: 19px; height: 19px;
+}
+.ds .sr-only {
+  position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+.ds .sticky {
+  position: sticky;
+}
+.ds .text-2xl {
+  font-size: 1.5rem;
+}
+.ds .text-3xl {
+  font-size: 1.875rem;
+}
+.ds .text-\[11px\] {
+  font-size: 11px;
+}
+.ds .text-\[12.5px\] {
+  font-size: 12.5px;
+}
+.ds .text-\[12px\] {
+  font-size: 12px;
+}
+.ds .text-\[13px\] {
+  font-size: 13px;
+}
+.ds .text-\[14px\] {
+  font-size: 14px;
+}
+.ds .text-\[15px\] {
+  font-size: 15px;
+}
+.ds .text-\[16px\] {
+  font-size: 16px;
+}
+.ds .text-\[17px\] {
+  font-size: 17px;
+}
+.ds .text-\[19px\] {
+  font-size: 19px;
+}
+.ds .text-\[22px\] {
+  font-size: 22px;
+}
+.ds .text-\[24px\] {
+  font-size: 24px;
+}
+.ds .text-\[26px\] {
+  font-size: 26px;
+}
+.ds .text-\[28px\] {
+  font-size: 28px;
+}
+.ds .text-\[38px\] {
+  font-size: 38px;
+}
+.ds .text-base {
+  font-size: 1rem;
+}
+.ds .text-destructive {
+  color: var(--color-destructive);
+}
+.ds .text-foreground {
+  color: var(--color-foreground);
+}
+.ds .text-info {
+  color: var(--color-info);
+}
+.ds .text-left {
+  text-align: left;
+}
+.ds .text-muted-foreground {
+  color: var(--color-muted-foreground);
+}
+.ds .text-primary {
+  color: var(--color-primary);
+}
+.ds .text-primary-foreground {
+  color: var(--color-primary-foreground);
+}
+.ds .text-right {
+  text-align: right;
+}
+.ds .text-sm {
+  font-size: 0.875rem;
+}
+.ds .text-success {
+  color: var(--color-success);
+}
+.ds .text-warning {
+  color: var(--color-warning);
+}
+.ds .text-warning-foreground {
+  color: var(--color-warning-foreground);
+}
+.ds .text-xs {
+  font-size: 0.75rem;
+}
+.ds .top-0 {
+  top: 0;
+}
+.ds .top-2 {
+  top: 0.5rem;
+}
+.ds .top-4 {
+  top: 1rem;
+}
+.ds .top-\[26px\] {
+  top: 26px;
+}
+.ds .tracking-\[0.14em\] {
+  letter-spacing: 0.14em;
+}
+.ds .tracking-\[0.16em\] {
+  letter-spacing: 0.16em;
+}
+.ds .tracking-\[0.18em\] {
+  letter-spacing: 0.18em;
+}
+.ds .tracking-tight {
+  letter-spacing: -0.025em;
+}
+.ds .tracking-wide {
+  letter-spacing: 0.025em;
+}
+.ds .transition-\[height\] {
+  transition-property: height; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+.ds .transition-\[width\] {
+  transition-property: width; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+.ds .transition-colors {
+  transition-property: color, background-color, border-color; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms;
+}
+.ds .transition-opacity {
+  transition-property: opacity; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms;
+}
+.ds .truncate {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ds .uppercase {
+  text-transform: uppercase;
+}
+.ds .w-\[5%\] {
+  width: 5%;
+}
+.ds .w-\[86%\] {
+  width: 86%;
+}
+.ds .w-\[9%\] {
+  width: 9%;
+}
+.ds .w-full {
+  width: 100%;
+}
+.ds .w-px {
+  width: 1px;
+}
+.ds .whitespace-nowrap {
+  white-space: nowrap;
+}
+.ds .whitespace-pre {
+  white-space: pre;
+}
+.ds .z-10 {
+  z-index: 10;
+}
+@media (min-width: 640px) {
+  .ds .flex {
+  display: flex;
+  }
+  .ds .flex-wrap {
+  flex-wrap: wrap;
+  }
+  .ds .gap-3 {
+  gap: 0.75rem;
+  }
+  .ds .grid-cols-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .ds .grid-cols-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .ds .grid-cols-5 {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  .ds .justify-between {
+  justify-content: space-between;
+  }
+  .ds .m-8 {
+  margin: 2rem;
+  }
+  .ds .ml-0 {
+  margin-left: 0;
+  }
+  .ds .p-7 {
+  padding: 1.75rem;
+  }
+  .ds .p-8 {
+  padding: 2rem;
+  }
+  .ds .p-9 {
+  padding: 2.25rem;
+  }
+  .ds .px-8 {
+  padding-left: 2rem; padding-right: 2rem;
+  }
+  .ds .text-3xl {
+  font-size: 1.875rem;
+  }
+  .ds .text-\[19px\] {
+  font-size: 19px;
+  }
+  .ds .text-\[28px\] {
+  font-size: 28px;
+  }
+}
+
+@media (min-width: 768px) {
+  .ds .block {
+  display: block;
+  }
+  .ds .grid-cols-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .ds .grid-cols-5 {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  .ds .hidden {
+  display: none;
+  }
+  .ds .mt-6 {
+  margin-top: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .ds .-mt-6 {
+  margin-top: -1.5rem;
+  }
+  .ds .gap-10 {
+  gap: 2.5rem;
+  }
+  .ds .gap-12 {
+  gap: 3rem;
+  }
+  .ds .gap-14 {
+  gap: 3.5rem;
+  }
+  .ds .grid-cols-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .ds .grid-cols-\[minmax\(0,0.72fr\)_minmax\(0,1fr\)\] {
+  grid-template-columns: minmax(0, 0.72fr) minmax(0, 1fr);
+  }
+  .ds .grid-cols-\[minmax\(0,0.9fr\)_minmax\(0,1.1fr\)\] {
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  }
+  .ds .grid-cols-\[minmax\(0,1.3fr\)_minmax\(0,0.9fr\)\] {
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.9fr);
+  }
+  .ds .grid-cols-\[minmax\(0,1.55fr\)_minmax\(0,1fr\)\] {
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  }
+  .ds .lg:shadow-\[0_40px_80px_-48px_oklch\(0.2_0.02_60_\/_0.5\)\] {
+  box-shadow: 0 40px 80px -48px oklch(0.2 0.02 60 / 0.5);
+  }
+  .ds .mb-6 {
+  margin-bottom: 1.5rem;
+  }
+  .ds .p-10 {
+  padding: 2.5rem;
+  }
+  .ds .p-12 {
+  padding: 3rem;
+  }
+  .ds .pt-2 {
+  padding-top: 0.5rem;
+  }
+  .ds .sticky {
+  position: sticky;
+  }
+  .ds .top-24 {
+  top: 6rem;
+  }
+}
+
+@media (hover: hover) {
+  .ds .hover\:bg-surface:hover {
+  background-color: var(--color-surface);
+  }
+  .ds .hover\:bg-surface-2:hover {
+  background-color: var(--color-surface-2);
+  }
+  .ds .hover\:text-foreground:hover {
+  color: var(--color-foreground);
+  }
+}
+

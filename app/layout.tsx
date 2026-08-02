@@ -8,6 +8,7 @@ import { CookieBanner } from "@/components/ui";
 import "./globals.css";
 import "./design-system-foundation.css";
 import "./lovable-design-system.css";
+import "./lovable-utilities.css";
 import "./auth-onboarding.css";
 import "./dashboard-shell.css";
 import "./agents-permissions.css";
