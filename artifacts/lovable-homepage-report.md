@@ -153,7 +153,7 @@ Hero → social proof → authority map → adaptive → evidence → editorial 
 
 ## 10. Final head SHA
 
-`ff587ecea11bb7d2b1b3fbcb484eedf904bd9d52`
+`52cd3852cc40e76e1d2863a4f6a5170c27b690db`
 
 ---
 
