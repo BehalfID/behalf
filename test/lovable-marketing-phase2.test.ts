@@ -21,7 +21,14 @@ describe("lovable marketing phase 2", () => {
   });
 
   it("adds pricing, adaptive-engine, and contact routes with metadata", () => {
-    for (const path of ["app/pricing/page.tsx", "app/adaptive-engine/page.tsx", "app/contact/page.tsx"]) {
+    for (const path of [
+      "app/pricing/page.tsx",
+      "app/adaptive-engine/page.tsx",
+      "app/contact/page.tsx",
+      "app/[locale]/pricing/page.tsx",
+      "app/[locale]/adaptive-engine/page.tsx",
+      "app/[locale]/contact/page.tsx"
+    ]) {
       const page = source(path);
       expect(page).toContain("export const metadata");
       expect(page).toContain("canonical");
