@@ -53,7 +53,7 @@ export function ContactPage({
   return (
     <MarketingLayout authAction={authAction} googleEnabled={googleEnabled} showEnding={false}>
       <Section>
-        <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,480px)]">
+        <div className="grid gap-10 lg:ds-grid-asymmetric-i">
           <div>
             <SectionHeading
               eyebrow="Contact"

@@ -46,16 +46,16 @@ export function MarketingFooter({ className }: { className?: string }) {
   return (
     <footer className={cn("ds ds-footer env-ink dark", className)}>
       <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8">
-        <div className="grid gap-10 md:grid-cols-[1.6fr_repeat(4,1fr)]">
+        <div className="grid gap-10 md:ds-grid-footer">
           <div>
-            <Wordmark className="text-[17px]" />
-            <p className="mt-4 max-w-[24ch] text-sm leading-relaxed text-muted-foreground">
+            <Wordmark className="ds-text-17" />
+            <p className="mt-4 ds-max-w-24ch text-sm leading-relaxed text-muted-foreground">
               Identity and authority for AI agents.
             </p>
           </div>
           {columns.map((column) => (
             <div key={column.title}>
-              <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <h2 className="ds-text-11 font-semibold uppercase tracking-wider text-muted-foreground">
                 {column.title}
               </h2>
               <ul className="mt-3 space-y-2">

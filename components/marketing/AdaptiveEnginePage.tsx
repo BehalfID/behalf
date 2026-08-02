@@ -55,18 +55,18 @@ export function AdaptiveEnginePage({
         <div className="mx-auto max-w-7xl px-5 pb-24 pt-20 sm:px-8 sm:pb-32 sm:pt-28">
           <Reveal className="max-w-3xl">
             <div className="flex flex-wrap items-center gap-3">
-              <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary">
+              <span className="ds-text-11 font-medium uppercase ds-tracking-0_18 text-primary">
                 Adaptive engine
               </span>
               <BetaTag label="In development" />
             </div>
             <h1 className="display-xl mt-6">The engine learns where judgment is needed.</h1>
-            <p className="mt-7 max-w-xl text-[18px] leading-relaxed text-muted-foreground">
+            <p className="mt-7 max-w-xl ds-text-18 leading-relaxed text-muted-foreground">
               BehalfID starts with the policies, permissions and authority requirements you define. Adaptive mode
               observes the decisions your team makes on top of them and turns repeated judgment into bounded
               recommendations.
             </p>
-            <p className="mt-5 max-w-xl text-[16px] leading-relaxed">Policy first. Learning second.</p>
+            <p className="mt-5 max-w-xl ds-text-16 leading-relaxed">Policy first. Learning second.</p>
           </Reveal>
           <Reveal delay={80}>
             <LearningTimeline className="mt-14" />
@@ -77,9 +77,9 @@ export function AdaptiveEnginePage({
       <section className="dark env-charcoal text-foreground">
         <div className="mx-auto max-w-7xl px-5 py-24 sm:px-8 sm:py-32">
           <Reveal className="max-w-2xl">
-            <h2 className="display-lg max-w-[20ch]">Three states, in order, with a person at the gate.</h2>
+            <h2 className="display-lg ds-max-w-20ch">Three states, in order, with a person at the gate.</h2>
           </Reveal>
-          <SlashSeam className="my-12 max-w-[220px]" />
+          <SlashSeam className="my-12 ds-max-w-220" />
           <Reveal delay={60}>
             <AdaptiveModes />
           </Reveal>
@@ -100,7 +100,7 @@ export function AdaptiveEnginePage({
         <Reveal delay={60}>
           <ul className="mt-12 grid gap-x-12 gap-y-0 sm:grid-cols-2">
             {learns.map((item) => (
-              <li key={item} className="hairline-t py-5 text-[16px] leading-relaxed">
+              <li key={item} className="hairline-t py-5 ds-text-16 leading-relaxed">
                 {item}
               </li>
             ))}
@@ -130,21 +130,21 @@ export function AdaptiveEnginePage({
             {governance.map(({ k, v }) => (
               <div
                 key={k}
-                className="hairline-t grid gap-2 py-7 sm:grid-cols-[minmax(0,16rem)_minmax(0,1fr)] sm:gap-10"
+                className="hairline-t grid gap-2 py-7 sm:ds-grid-asymmetric-j sm:gap-10"
               >
-                <dt className="text-[16px] font-medium">{k}</dt>
-                <dd className="text-[15px] leading-relaxed text-muted-foreground">{v}</dd>
+                <dt className="ds-text-16 font-medium">{k}</dt>
+                <dd className="ds-text-15 leading-relaxed text-muted-foreground">{v}</dd>
               </div>
             ))}
           </dl>
-          <p className="mt-10 max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
+          <p className="mt-10 max-w-2xl ds-text-15 leading-relaxed text-muted-foreground">
             Adaptive mode is in active development. Production includes adaptive-delegation surfaces for
             recommendations; the visuals on this page describe product direction and must not be read as measured
             accuracy or fully autonomous enforcement.
           </p>
           <Link
             href="/security"
-            className="group mt-8 inline-flex items-center gap-2 text-[15px] text-primary hover:underline"
+            className="group mt-8 inline-flex items-center gap-2 ds-text-15 text-primary hover:underline"
           >
             How we treat authority and audit
             <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden />

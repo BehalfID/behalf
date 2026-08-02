@@ -68,7 +68,7 @@ export function CodeTabs({
           <CopyButton value={current.code} />
         </div>
       </div>
-      <pre className="overflow-x-auto px-3 py-3 text-[12.5px] leading-relaxed">
+      <pre className="overflow-x-auto px-3 py-3 ds-text-12_5 leading-relaxed">
         <code>{current.code}</code>
       </pre>
     </div>

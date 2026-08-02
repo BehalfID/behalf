@@ -155,7 +155,7 @@ export function PricingPage({
               <div className="flex items-center justify-between gap-2">
                 <h3 className="text-sm font-semibold">{plan.name}</h3>
                 {plan.featured ? (
-                  <span className="rounded-full bg-primary-soft px-2 py-0.5 text-[11px] font-medium text-primary">
+                  <span className="rounded-full bg-primary-soft px-2 py-0.5 ds-text-11 font-medium text-primary">
                     Self-serve
                   </span>
                 ) : null}
@@ -195,14 +195,14 @@ export function PricingPage({
         <div className="mt-8 grid gap-3 sm:hidden">
           {matrix.map((row) => (
             <div key={row.label} className="rounded-lg bg-surface p-4">
-              <div className="text-[13px] font-medium">{row.label}</div>
+              <div className="ds-text-13 font-medium">{row.label}</div>
               <dl className="mt-3 grid grid-cols-3 gap-3">
                 {row.values.map((value, index) => (
                   <div key={plans[index]?.name} className="min-w-0">
-                    <dt className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                    <dt className="ds-text-11 uppercase ds-tracking-0_12 text-muted-foreground">
                       {plans[index]?.name}
                     </dt>
-                    <dd className="mt-1 text-[13px]">
+                    <dd className="mt-1 ds-text-13">
                       <MatrixValue value={value} />
                     </dd>
                   </div>
@@ -212,7 +212,7 @@ export function PricingPage({
           ))}
         </div>
         <div className="mt-8 hidden overflow-x-auto rounded-lg border bg-surface sm:block">
-          <table className="w-full min-w-[640px] text-sm">
+          <table className="w-full ds-min-w-640 text-sm">
             <caption className="sr-only">Feature comparison across Free, Pro and Enterprise plans</caption>
             <thead>
               <tr className="border-b text-left">

@@ -3,7 +3,6 @@
  * Loaded after lovable-design-system.css. Does not redefine :root tokens.
  */
 
-
 .ds .group:hover .group-hover\:text-foreground {
   color: var(--color-foreground);
 }
@@ -27,9 +26,6 @@
   top: -1rem;
 }
 .ds .absolute {
-  position: absolute;
-}
-.ds .bg-\[radial-gradient\(70%_100%_at_50%_0%,var\(--color-primary-soft\),transparent_75%\)\] {
   background-image: radial-gradient(70% 100% at 50% 0%, var(--color-primary-soft), transparent 75%);
 }
 .ds .bg-background {
@@ -131,19 +127,19 @@
 .ds .gap-1 {
   gap: 0.25rem;
 }
-.ds .gap-1.5 {
+.ds .gap-1\.5 {
   gap: 0.375rem;
 }
 .ds .gap-2 {
   gap: 0.5rem;
 }
-.ds .gap-2.5 {
+.ds .gap-2\.5 {
   gap: 0.625rem;
 }
 .ds .gap-3 {
   gap: 0.75rem;
 }
-.ds .gap-3.5 {
+.ds .gap-3\.5 {
   gap: 0.875rem;
 }
 .ds .gap-4 {
@@ -164,7 +160,7 @@
 .ds .gap-x-8 {
   column-gap: 2rem;
 }
-.ds .gap-y-1.5 {
+.ds .gap-y-1\.5 {
   row-gap: 0.375rem;
 }
 .ds .gap-y-2 {
@@ -174,9 +170,6 @@
   row-gap: 0.75rem;
 }
 .ds .grid {
-  display: grid;
-}
-.ds .grid-cols-\[minmax\(0,1fr\)_auto\] {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 .ds .group {
@@ -188,16 +181,13 @@
 .ds .h-16 {
   height: 4rem;
 }
-.ds .h-2.5 {
+.ds .h-2\.5 {
   height: 0.625rem;
 }
 .ds .h-24 {
   height: 6rem;
 }
 .ds .h-40 {
-  height: 10rem;
-}
-.ds .h-\[3px\] {
   height: 3px;
 }
 .ds .h-full {
@@ -261,15 +251,6 @@
   line-height: 1.25;
 }
 .ds .left-0 {
-  left: 0;
-}
-.ds .left-\[13px\] {
-  left: 13px;
-}
-.ds .left-\[15px\] {
-  left: 15px;
-}
-.ds .left-\[9px\] {
   left: 9px;
 }
 .ds .m-6 {
@@ -282,9 +263,6 @@
   max-width: 48rem;
 }
 .ds .max-w-7xl {
-  max-width: 80rem;
-}
-.ds .max-w-\[22ch\] {
   max-width: 22ch;
 }
 .ds .max-w-xs {
@@ -302,13 +280,13 @@
 .ds .mr-auto {
   margin-right: auto;
 }
-.ds .mt-0.5 {
+.ds .mt-0\.5 {
   margin-top: 0.125rem;
 }
 .ds .mt-1 {
   margin-top: 0.25rem;
 }
-.ds .mt-1.5 {
+.ds .mt-1\.5 {
   margin-top: 0.375rem;
 }
 .ds .mt-14 {
@@ -398,19 +376,19 @@
 .ds .px-1 {
   padding-left: 0.25rem; padding-right: 0.25rem;
 }
-.ds .px-1.5 {
+.ds .px-1\.5 {
   padding-left: 0.375rem; padding-right: 0.375rem;
 }
 .ds .px-2 {
   padding-left: 0.5rem; padding-right: 0.5rem;
 }
-.ds .px-2.5 {
+.ds .px-2\.5 {
   padding-left: 0.625rem; padding-right: 0.625rem;
 }
 .ds .px-3 {
   padding-left: 0.75rem; padding-right: 0.75rem;
 }
-.ds .px-3.5 {
+.ds .px-3\.5 {
   padding-left: 0.875rem; padding-right: 0.875rem;
 }
 .ds .px-4 {
@@ -419,37 +397,31 @@
 .ds .px-5 {
   padding-left: 1.25rem; padding-right: 1.25rem;
 }
-.ds .py-0.5 {
+.ds .py-0\.5 {
   padding-top: 0.125rem; padding-bottom: 0.125rem;
 }
 .ds .py-1 {
   padding-top: 0.25rem; padding-bottom: 0.25rem;
 }
-.ds .py-1.5 {
+.ds .py-1\.5 {
   padding-top: 0.375rem; padding-bottom: 0.375rem;
 }
 .ds .py-2 {
   padding-top: 0.5rem; padding-bottom: 0.5rem;
 }
-.ds .py-2.5 {
+.ds .py-2\.5 {
   padding-top: 0.625rem; padding-bottom: 0.625rem;
 }
 .ds .py-3 {
   padding-top: 0.75rem; padding-bottom: 0.75rem;
 }
-.ds .py-3.5 {
+.ds .py-3\.5 {
   padding-top: 0.875rem; padding-bottom: 0.875rem;
 }
 .ds .py-5 {
   padding-top: 1.25rem; padding-bottom: 1.25rem;
 }
 .ds .relative {
-  position: relative;
-}
-.ds .rounded-\[calc\(var\(--radius\)+10px\)\] {
-  border-radius: calc(var(--radius) + 10px);
-}
-.ds .rounded-\[calc\(var\(--radius\)+14px\)\] {
   border-radius: calc(var(--radius) + 14px);
 }
 .ds .rounded-full {
@@ -482,19 +454,19 @@
 .ds .shrink-0 {
   flex-shrink: 0;
 }
-.ds .size-1.5 {
+.ds .size-1\.5 {
   width: 0.375rem; height: 0.375rem;
 }
 .ds .size-14 {
   width: 3.5rem; height: 3.5rem;
 }
-.ds .size-2.5 {
+.ds .size-2\.5 {
   width: 0.625rem; height: 0.625rem;
 }
 .ds .size-3 {
   width: 0.75rem; height: 0.75rem;
 }
-.ds .size-3.5 {
+.ds .size-3\.5 {
   width: 0.875rem; height: 0.875rem;
 }
 .ds .size-4 {
@@ -510,9 +482,6 @@
   width: 2rem; height: 2rem;
 }
 .ds .size-9 {
-  width: 2.25rem; height: 2.25rem;
-}
-.ds .size-\[19px\] {
   width: 19px; height: 19px;
 }
 .ds .sr-only {
@@ -533,48 +502,6 @@
   font-size: 1.5rem;
 }
 .ds .text-3xl {
-  font-size: 1.875rem;
-}
-.ds .text-\[11px\] {
-  font-size: 11px;
-}
-.ds .text-\[12.5px\] {
-  font-size: 12.5px;
-}
-.ds .text-\[12px\] {
-  font-size: 12px;
-}
-.ds .text-\[13px\] {
-  font-size: 13px;
-}
-.ds .text-\[14px\] {
-  font-size: 14px;
-}
-.ds .text-\[15px\] {
-  font-size: 15px;
-}
-.ds .text-\[16px\] {
-  font-size: 16px;
-}
-.ds .text-\[17px\] {
-  font-size: 17px;
-}
-.ds .text-\[19px\] {
-  font-size: 19px;
-}
-.ds .text-\[22px\] {
-  font-size: 22px;
-}
-.ds .text-\[24px\] {
-  font-size: 24px;
-}
-.ds .text-\[26px\] {
-  font-size: 26px;
-}
-.ds .text-\[28px\] {
-  font-size: 28px;
-}
-.ds .text-\[38px\] {
   font-size: 38px;
 }
 .ds .text-base {
@@ -626,30 +553,12 @@
   top: 0.5rem;
 }
 .ds .top-4 {
-  top: 1rem;
-}
-.ds .top-\[26px\] {
-  top: 26px;
-}
-.ds .tracking-\[0.14em\] {
-  letter-spacing: 0.14em;
-}
-.ds .tracking-\[0.16em\] {
-  letter-spacing: 0.16em;
-}
-.ds .tracking-\[0.18em\] {
   letter-spacing: 0.18em;
 }
 .ds .tracking-tight {
   letter-spacing: -0.025em;
 }
 .ds .tracking-wide {
-  letter-spacing: 0.025em;
-}
-.ds .transition-\[height\] {
-  transition-property: height; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-}
-.ds .transition-\[width\] {
   transition-property: width; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 .ds .transition-colors {
@@ -662,15 +571,6 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .ds .uppercase {
-  text-transform: uppercase;
-}
-.ds .w-\[5%\] {
-  width: 5%;
-}
-.ds .w-\[86%\] {
-  width: 86%;
-}
-.ds .w-\[9%\] {
   width: 9%;
 }
 .ds .w-full {
@@ -729,12 +629,6 @@
   padding-left: 2rem; padding-right: 2rem;
   }
   .ds .text-3xl {
-  font-size: 1.875rem;
-  }
-  .ds .text-\[19px\] {
-  font-size: 19px;
-  }
-  .ds .text-\[28px\] {
   font-size: 28px;
   }
 }
@@ -771,21 +665,6 @@
   gap: 3.5rem;
   }
   .ds .grid-cols-3 {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-  .ds .grid-cols-\[minmax\(0,0.72fr\)_minmax\(0,1fr\)\] {
-  grid-template-columns: minmax(0, 0.72fr) minmax(0, 1fr);
-  }
-  .ds .grid-cols-\[minmax\(0,0.9fr\)_minmax\(0,1.1fr\)\] {
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  }
-  .ds .grid-cols-\[minmax\(0,1.3fr\)_minmax\(0,0.9fr\)\] {
-  grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.9fr);
-  }
-  .ds .grid-cols-\[minmax\(0,1.55fr\)_minmax\(0,1fr\)\] {
-  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
-  }
-  .ds .lg:shadow-\[0_40px_80px_-48px_oklch\(0.2_0.02_60_\/_0.5\)\] {
   box-shadow: 0 40px 80px -48px oklch(0.2 0.02 60 / 0.5);
   }
   .ds .mb-6 {
@@ -869,3 +748,98 @@
   transform: translateX(0.25rem);
 }
 
+/* Named utilities — Lightning CSS cannot parse Tailwind-style arbitrary selectors. */
+.ds .ds-bg-soft-radial {
+  background-image: radial-gradient(70% 100% at 50% 0%, var(--color-primary-soft), transparent 75%);
+}
+.ds .ds-grid-fr-auto {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.ds .ds-h-3px { height: 3px; }
+.ds .ds-max-w-22ch { max-width: 22ch; }
+.ds .ds-rounded-plus-10 { border-radius: calc(var(--radius) + 10px); }
+.ds .ds-rounded-plus-14 { border-radius: calc(var(--radius) + 14px); }
+.ds .ds-size-19 { width: 19px; height: 19px; }
+.ds .ds-text-11 { font-size: 11px; }
+.ds .ds-text-12 { font-size: 12px; }
+.ds .ds-text-12_5 { font-size: 12.5px; }
+.ds .ds-text-13 { font-size: 13px; }
+.ds .ds-text-14 { font-size: 14px; }
+.ds .ds-text-15 { font-size: 15px; }
+.ds .ds-text-16 { font-size: 16px; }
+.ds .ds-text-17 { font-size: 17px; }
+.ds .ds-text-18 { font-size: 18px; }
+.ds .ds-top-26 { top: 26px; }
+.ds .ds-tracking-0_12 { letter-spacing: 0.12em; }
+.ds .ds-tracking-0_14 { letter-spacing: 0.14em; }
+.ds .ds-tracking-0_16 { letter-spacing: 0.16em; }
+.ds .ds-tracking-0_18 { letter-spacing: 0.18em; }
+.ds .ds-tracking-0_2 { letter-spacing: 0.2em; }
+.ds .ds-w-5pct { width: 5%; }
+.ds .ds-w-9pct { width: 9%; }
+.ds .ds-w-86pct { width: 86%; }
+.ds .ds-shadow-gate {
+  box-shadow: 0 40px 80px -48px oklch(0.2 0.02 60 / 0.5);
+}
+.ds .ds-grid-asymmetric-a { grid-template-columns: minmax(0, 0.72fr) minmax(0, 1fr); }
+.ds .ds-grid-asymmetric-b { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); }
+.ds .ds-grid-asymmetric-c { grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.9fr); }
+.ds .ds-grid-asymmetric-d { grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); }
+.ds .ds-grid-asymmetric-e { grid-template-columns: minmax(0, 0.62fr) minmax(0, 1.38fr); }
+.ds .ds-grid-asymmetric-f { grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr); }
+.ds .ds-grid-asymmetric-g { grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); }
+.ds .ds-grid-asymmetric-h { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); }
+.ds .ds-grid-asymmetric-i { grid-template-columns: minmax(0, 1fr) minmax(0, 480px); }
+.ds .ds-grid-asymmetric-j { grid-template-columns: minmax(0, 16rem) minmax(0, 1fr); }
+.ds .ds-grid-footer { grid-template-columns: 1.6fr repeat(4, 1fr); }
+
+@media (min-width: 640px) {
+  .ds .sm\:ds-grid-asymmetric-j { grid-template-columns: minmax(0, 16rem) minmax(0, 1fr); }
+}
+@media (min-width: 768px) {
+  .ds .md\:ds-grid-footer { grid-template-columns: 1.6fr repeat(4, 1fr); }
+}
+@media (min-width: 1024px) {
+  .ds .lg\:ds-grid-asymmetric-a { grid-template-columns: minmax(0, 0.72fr) minmax(0, 1fr); }
+  .ds .lg\:ds-grid-asymmetric-b { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); }
+  .ds .lg\:ds-grid-asymmetric-c { grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.9fr); }
+  .ds .lg\:ds-grid-asymmetric-d { grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); }
+  .ds .lg\:ds-grid-asymmetric-e { grid-template-columns: minmax(0, 0.62fr) minmax(0, 1.38fr); }
+  .ds .lg\:ds-grid-asymmetric-f { grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr); }
+  .ds .lg\:ds-grid-asymmetric-h { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); }
+  .ds .lg\:ds-grid-asymmetric-i { grid-template-columns: minmax(0, 1fr) minmax(0, 480px); }
+  .ds .lg\:ds-shadow-gate {
+    box-shadow: 0 40px 80px -48px oklch(0.2 0.02 60 / 0.5);
+  }
+}
+@media (min-width: 1280px) {
+  .ds .xl\:ds-grid-asymmetric-g { grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); }
+}
+
+.ds .ds-max-w-14ch { max-width: 14ch; }
+.ds .ds-max-w-16ch { max-width: 16ch; }
+.ds .ds-max-w-18ch { max-width: 18ch; }
+.ds .ds-max-w-20ch { max-width: 20ch; }
+.ds .ds-max-w-24ch { max-width: 24ch; }
+.ds .ds-max-w-28ch { max-width: 28ch; }
+.ds .ds-max-w-220 { max-width: 220px; }
+.ds .ds-min-w-640 { min-width: 640px; }
+.ds .ds-text-19 { font-size: 19px; }
+.ds .ds-text-22 { font-size: 22px; }
+.ds .ds-text-24 { font-size: 24px; }
+.ds .ds-text-26 { font-size: 26px; }
+.ds .ds-text-28 { font-size: 28px; }
+.ds .ds-text-38 { font-size: 38px; }
+.ds .ds-text-1_75rem { font-size: 1.75rem; }
+.ds .ds-text-2rem { font-size: 2rem; }
+.ds .ds-left-9 { left: 9px; }
+.ds .ds-left-13 { left: 13px; }
+.ds .ds-left-15 { left: 15px; }
+.ds .ds-top-52 { top: 52px; }
+.ds .ds-transition-height { transition-property: height; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+.ds .ds-transition-width { transition-property: width; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+@media (min-width: 640px) {
+  .ds .sm\:ds-text-19 { font-size: 19px; }
+  .ds .sm\:ds-text-28 { font-size: 28px; }
+  .ds .sm\:ds-text-2rem { font-size: 2rem; }
+}
