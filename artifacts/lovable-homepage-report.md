@@ -153,7 +153,7 @@ Hero → social proof → authority map → adaptive → evidence → editorial 
 
 ## 10. Final head SHA
 
-See `git rev-parse HEAD` on `cursor/lovable-homepage-port-7b82` after push.
+`ff587ecea11bb7d2b1b3fbcb484eedf904bd9d52`
 
 ---
 
