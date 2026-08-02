@@ -45,7 +45,7 @@ const columns = [
 
 export function MarketingFooter({ className }: { className?: string }) {
   return (
-    <footer className={cn("ds-footer env-ink dark", className)}>
+    <footer className={cn("ds ds-footer env-ink dark", className)}>
       <div className="ds-footer__inner">
         <div>
           <Wordmark />

@@ -40,7 +40,7 @@ export function MarketingHeader({
   const [open, setOpen] = useState(false);
 
   return (
-    <header className={cn("ds-header theme-transition", className)}>
+    <header className={cn("ds ds-header theme-transition", className)}>
       <div className="ds-header__inner">
         <Wordmark />
         <nav aria-label="Primary" className="ds-header__nav">

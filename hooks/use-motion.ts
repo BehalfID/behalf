@@ -25,10 +25,12 @@ export function useInView<T extends HTMLElement = HTMLDivElement>(threshold = 0.
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+
     if (typeof IntersectionObserver === "undefined") {
-      setInView(true);
-      return;
+      const id = window.requestAnimationFrame(() => setInView(true));
+      return () => window.cancelAnimationFrame(id);
     }
+
     const io = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
@@ -71,13 +73,12 @@ export function useSequence(
   const [paused, setPaused] = useState(false);
   const [manual, setManual] = useState(false);
 
-  useEffect(() => {
-    if (reduced) setActive(count - 1);
-  }, [reduced, count]);
+  // Prefer derived final step under reduced motion — avoid sync setState in effects.
+  const current = reduced ? Math.max(count - 1, 0) : active;
 
   useEffect(() => {
     if (reduced || !inView || paused || manual) return;
-    const last = active >= count - 1;
+    const last = current >= count - 1;
     if (last && !loop) return;
     const delay = last ? restAtEnd : interval;
     const id = window.setTimeout(
@@ -85,7 +86,7 @@ export function useSequence(
       delay
     );
     return () => window.clearTimeout(id);
-  }, [reduced, inView, paused, manual, active, count, interval, restAtEnd, loop]);
+  }, [reduced, inView, paused, manual, current, count, interval, restAtEnd, loop]);
 
   const select = useCallback((i: number) => {
     setManual(true);
@@ -100,7 +101,7 @@ export function useSequence(
 
   return {
     ref,
-    active,
+    active: current,
     select,
     replay,
     paused,

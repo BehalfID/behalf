@@ -24,7 +24,11 @@ export function Reveal({
     shown && !reduced ? { transitionDelay: `${delay}ms` } : undefined;
 
   return (
-    <div ref={ref} className={cn(shown ? "reveal-shown" : "reveal-hidden", className)} style={style}>
+    <div
+      ref={ref}
+      className={cn(shown ? "ds-reveal-shown" : "ds-reveal-hidden", className)}
+      style={style}
+    >
       {children}
     </div>
   );

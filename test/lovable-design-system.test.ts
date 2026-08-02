@@ -24,26 +24,80 @@ describe("lovable design-system port", () => {
 
   it("registers Instrument Sans and syncs the .dark class in the theme boot script", () => {
     const layoutSource = source("app/layout.tsx");
+    const globalsCss = source("app/globals.css");
     expect(layoutSource).toContain("Instrument_Sans");
     expect(layoutSource).toContain("--font-instrument-sans");
     expect(layoutSource).toContain("classList.toggle('dark'");
+    expect(globalsCss).toContain("--font-sans: var(--font-instrument-sans), var(--font-inter)");
   });
 
-  it("ships copper tokens, section environments, and motion utilities", () => {
+  it("scopes Lovable tokens under .ds and does not redefine production :root tokens", () => {
+    const css = source("app/lovable-design-system.css");
+
+    // Opt-in root must exist.
+    expect(css).toMatch(/\.ds\s*\{/);
+
+    // Production collision tokens must not be assigned on bare :root.
+    expect(css).not.toMatch(/:root\s*\{[^}]*--muted\s*:/s);
+    expect(css).not.toMatch(/:root\s*\{[^}]*--border\s*:/s);
+    expect(css).not.toMatch(/:root\s*\{[^}]*--surface-2\s*:/s);
+    expect(css).not.toMatch(/:root\s*\{[^}]*--background\s*:/s);
+    expect(css).not.toMatch(/:root\s*\{[^}]*--radius-sm\s*:/s);
+    expect(css).not.toMatch(/:root\s*\{[^}]*--shadow-subtle\s*:/s);
+
+    // Dark token overrides must stay under .ds, not rewrite html.dark globally.
+    expect(css).not.toMatch(/(^|\n)\.dark\s*,\s*\nhtml\[data-theme="dark"\]\s*\{/);
+    expect(css).toContain("html.dark .ds");
+    expect(css).toContain("html[data-theme=\"dark\"] .ds");
+  });
+
+  it("ships copper tokens, section environments, and motion utilities under opt-in selectors", () => {
     const css = source("app/lovable-design-system.css");
     for (const token of [
-      "--primary:",
-      ".env-ivory",
-      ".env-copper-field",
-      ".slash-seam",
-      ".display-2xl",
-      ".reveal-hidden",
-      ".reveal-shown",
-      ".path-pulse",
+      "--ds-primary:",
+      ".ds .env-ivory",
+      ".ds .env-copper-field",
+      ".ds .slash-seam",
+      ".ds .display-2xl",
+      ".ds-reveal-hidden",
+      ".ds-reveal-shown",
+      ".ds .path-pulse",
       "prefers-reduced-motion"
     ]) {
       expect(css).toContain(token);
     }
+  });
+
+  it("keeps header/footer shells exported but not wired into live public chrome", () => {
+    const publicNav = source("components/layout/PublicNav.tsx");
+    const publicNavClient = source("components/layout/PublicNavClient.tsx");
+    const publicFooter = source("components/layout/PublicFooter.tsx");
+    const marketingHome = source("components/marketing-v2/MarketingHomePage.tsx");
+    const header = source("components/design-system/MarketingHeader.tsx");
+    const footer = source("components/design-system/MarketingFooter.tsx");
+
+    expect(publicNav).not.toContain("design-system/MarketingHeader");
+    expect(publicNavClient).not.toContain("design-system/MarketingHeader");
+    expect(publicFooter).not.toContain("design-system/MarketingFooter");
+    expect(marketingHome).not.toContain("design-system/MarketingFooter");
+    expect(marketingHome).toContain('from "./MarketingFooter"');
+
+    expect(header).toContain('className={cn("ds ds-header');
+    expect(footer).toContain('className={cn("ds ds-footer');
+    expect(header).toContain("/adaptive-engine");
+    expect(header).toContain("/pricing");
+  });
+
+  it("does not introduce forbidden Phase 1 dependencies or mock backends", () => {
+    const pkg = source("package.json");
+    expect(pkg).not.toMatch(/"tailwindcss"/);
+    expect(pkg).not.toMatch(/"@tanstack\/react-start"/);
+    expect(pkg).not.toMatch(/"nitropack"/);
+    expect(pkg).not.toMatch(/"@supabase\/supabase-js"/);
+
+    const designSystemIndex = source("components/design-system/index.ts");
+    expect(designSystemIndex).not.toMatch(/mock/i);
+    expect(designSystemIndex).not.toMatch(/supabase/i);
   });
 
   it("joins class names and drops falsy parts", () => {

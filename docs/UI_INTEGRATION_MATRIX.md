@@ -9,9 +9,9 @@ Production target: `BehalfID/behalf` (Next.js 16 App Router, custom CSS, custom 
 
 ## Status
 
-**READY WITH DOCUMENTED LIMITATIONS**
+**READY WITH DOCUMENTED LIMITATIONS** (Phase 1 validation)
 
-Hard blockers: none. Soft limitations below.
+Hard blockers: none. Soft limitations below. See §11 for validation findings.
 
 ---
 
@@ -194,4 +194,61 @@ Adapters/view-models allowed when Lovable components expect different shapes. **
 
 ## 10. Blockers
 
-**None hard.** Limitations: Tailwind→CSS translation; missing public routes for full nav cutover; dual theme attribute systems bridged in Phase 1.
+**None hard.** Limitations: Tailwind→CSS translation; missing public routes for full nav cutover; dual theme attribute systems bridged in Phase 1; deliberate Instrument Sans font normalization is global.
+
+---
+
+## 11. Phase 1 validation findings
+
+### Critical fixes applied
+
+1. **Token collision:** Initial CSS port redefined production `:root` tokens (`--muted`, `--border`, `--surface-2`, `--background`, `--radius-*`, `--shadow-subtle`) and applied Lovable dark overrides on bare `.dark` / `html[data-theme="dark"]`. That would have restyled dashboard/auth/console surfaces.  
+   **Mitigation:** all Lovable color/radius/shadow tokens and generic utilities are scoped under `.ds` (with `--ds-*` internals).
+
+2. **Font cascade:** Setting `--font-sans` only in `lovable-design-system.css` lost to `globals.css` after Next.js CSS chunk ordering.  
+   **Mitigation:** Instrument Sans is set on `:root --font-sans` in `app/globals.css` (Inter remains fallback). Layout still registers `Instrument_Sans` via `next/font`.
+
+### Opt-in
+
+Wrap a route or subtree in `className="ds"` (or use a design-system shell that already includes `ds`). Nested utilities (`env-*`, `display-*`, `slash-seam`, `path-pulse`, `lift`) only apply inside `.ds`. Prefixed chrome (`ds-header`, `ds-reveal-*`, `ds-wordmark`) uses unique names.
+
+### Theme sync
+
+- Storage key remains production `theme` (not Lovable `behalfid-theme`).
+- Boot script + `applyResolvedTheme()` set `data-theme` and toggle `html.dark`.
+- Lovable dark register activates only as `html.dark .ds` / `html[data-theme="dark"] .ds` / `.ds.dark` / `.ds .dark`.
+
+### Reduced motion
+
+- CSS: `.ds *` and `ds-reveal-*` durations collapse under `prefers-reduced-motion`.
+- JS: `usePrefersReducedMotion` forces `useSequence` / `<Reveal>` to final state.
+
+### Safe Phase 2 primitives
+
+`Wordmark`, `BrandMark`, `AgentAvatar`, `Reveal`, `IllustrativeTag`, `BetaTag`, `Section`, `SectionHeading`, `use-motion` hooks, `.ds` environments/motion utilities.  
+`MarketingHeader` / `MarketingFooter` stay **exported only** until `/pricing`, `/adaptive-engine`, `/contact` exist.
+
+### Live chrome
+
+`PublicNav` / `PublicFooter` / `marketing-v2/MarketingFooter` remain active. Design-system header/footer are not imported by live pages.
+
+### Known CSS collision risks (mitigated)
+
+| Risk | Rule |
+| ---- | ---- |
+| Shared token names (`--muted` is text in prod, surface in Lovable) | Never assign Lovable meanings on `:root` |
+| Generic utilities (`display-2xl`, `lift`) | Nest under `.ds` only |
+| `html.dark` class | Must not redefine production tokens globally |
+| Dual Button/Dialog systems | Restyle `components/ui/*`; do not install Lovable shadcn |
+
+### Duplicate component systems
+
+Do not add a second Button/Input/Dialog/Table/Toast stack. Phase 2+ applies Lovable presentation to existing production primitives.
+
+### Visual regression (opt-in surfaces)
+
+Non-`.ds` pages keep existing layout density, sticky nav, forms, and motion. Expected deliberate difference: Instrument Sans family via `--font-sans`. No new animations on pages that have not opted in.
+
+Playwright harness: `node scripts/phase1-visual-check.mjs` (against a local production server). Validated homepage, login, signup, complete-profile, security, status, 404 across light/dark/system, 1440/1024/390, reduced motion — theme sync, no live `.ds`, no Lovable motion classes, no horizontal overflow, sticky public nav.
+
+Dashboard/console authenticated screens were not exercised in the headless harness (session-gated); static boundary tests + production CSS scoping cover their non-opt-in stability.
