@@ -346,6 +346,12 @@
 .ds .overflow-x-auto {
   overflow-x: auto;
 }
+.ds .overflow-x-clip {
+  overflow-x: clip;
+}
+.ds .max-w-full {
+  max-width: 100%;
+}
 .ds .p-10 {
   padding: 2.5rem;
 }

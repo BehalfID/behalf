@@ -22,9 +22,9 @@ export function MarketingLayout({
   showEnding?: boolean;
 }) {
   return (
-    <div className="ds min-h-dvh">
+    <div className="ds min-h-dvh overflow-x-clip">
       <MarketingHeader authAction={authAction} googleEnabled={googleEnabled} />
-      <main id="main-content" tabIndex={-1}>
+      <main id="main-content" className="min-w-0 overflow-x-clip" tabIndex={-1}>
         {children}
       </main>
       {showEnding ? <MarketingEnding /> : null}

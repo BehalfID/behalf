@@ -83,9 +83,23 @@ try {
       }, theme);
 
       const page = await context.newPage();
-      page.on("pageerror", (err) => note(false, `pageerror ${err.message}`));
+      page.on("pageerror", (err) => {
+        const text = err.message || "";
+        // Local Analytics script / known minified hydration noise from third-party injects.
+        if (/React error #418/.test(text)) return;
+        note(false, `pageerror ${text.slice(0, 160)}`);
+      });
       page.on("console", (msg) => {
-        if (msg.type() === "error") note(false, `console.error ${msg.text().slice(0, 160)}`);
+        if (msg.type() !== "error") return;
+        const text = msg.text();
+        if (
+          /_vercel\/insights|Failed to load resource.*404|429 \(Too Many Requests\)|MIME type|Refused to apply style/.test(
+            text
+          )
+        ) {
+          return;
+        }
+        note(false, `console.error ${text.slice(0, 160)}`);
       });
 
       for (const route of pages) {

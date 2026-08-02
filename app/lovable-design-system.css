@@ -581,13 +581,9 @@ html:not(.dark):not([data-theme="dark"]) .ds .canvas-light {
   align-items: center;
   gap: 1rem;
 }
-@media (min-width: 768px) {
-  .ds-header__nav {
-    display: flex;
-  }
-}
 @media (min-width: 1024px) {
   .ds-header__nav {
+    display: flex;
     gap: 1.75rem;
   }
 }
@@ -662,7 +658,7 @@ html:not(.dark):not([data-theme="dark"]) .ds .canvas-light {
   color: var(--color-muted-foreground, var(--muted-foreground));
   cursor: pointer;
 }
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
   .ds-header__menu-btn {
     display: none;
   }
@@ -675,7 +671,7 @@ html:not(.dark):not([data-theme="dark"]) .ds .canvas-light {
   padding: 1rem 1.25rem 1.25rem;
   background: var(--color-surface, var(--surface));
 }
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
   .ds-header__drawer {
     display: none;
   }

@@ -240,11 +240,11 @@ export function LovableHomeContent() {
                   { id: "mcp", label: "MCP", language: "bash", code: mcpSnippet }
                 ]}
               />
-              <div className="min-w-0 rounded-xl bg-surface p-5">
+              <div className="min-w-0 overflow-hidden rounded-xl bg-surface p-5">
                 <div className="ds-text-11 font-medium uppercase ds-tracking-0_18 text-muted-foreground">
                   Decision
                 </div>
-                <pre className="mt-4 overflow-x-auto font-mono ds-text-12_5 leading-relaxed text-muted-foreground">
+                <pre className="mt-4 max-w-full overflow-x-auto font-mono ds-text-12_5 leading-relaxed text-muted-foreground">
                   {decisionSnippet}
                 </pre>
               </div>
