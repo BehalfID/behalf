@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lovable hero source fixture</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap"
+    />
+    <style>
+      /*
+       * Static measurement fixture derived from agent-gatekeeper-suite
+       * (styles.css tokens + index.tsx hero + marketing-layout header).
+       * Not a redesign — mirrors source class intent for Playwright parity.
+       */
+      :root {
+        --radius: 0.5rem;
+        --background: oklch(0.983 0.006 76);
+        --foreground: oklch(0.22 0.012 60);
+        --surface: oklch(1 0 0);
+        --surface-2: oklch(0.963 0.009 78);
+        --primary: oklch(0.615 0.108 48);
+        --primary-foreground: oklch(0.99 0.004 70);
+        --muted: oklch(0.955 0.006 70);
+        --muted-foreground: oklch(0.505 0.012 60);
+        --accent: oklch(0.945 0.012 65);
+        --accent-foreground: oklch(0.25 0.012 60);
+        --border: oklch(0.9 0.008 70);
+        --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; min-height: 100%; }
+      body {
+        background: var(--background);
+        color: var(--foreground);
+        font-family: var(--font-sans);
+        -webkit-font-smoothing: antialiased;
+      }
+      h1, h2, h3, h4, p { margin: 0; }
+      h1, h2, h3, h4 { letter-spacing: -0.018em; text-wrap: balance; }
+      a { color: inherit; text-decoration: none; }
+      .env-ivory { background: var(--background); }
+      header {
+        position: sticky; top: 0; z-index: 40;
+        background: color-mix(in oklab, var(--background) 80%, transparent);
+        backdrop-filter: blur(12px);
+      }
+      .header-inner {
+        margin: 0 auto; display: flex; align-items: center; gap: 1rem;
+        height: 72px; max-width: 80rem; padding: 0 1.25rem;
+      }
+      @media (min-width: 640px) { .header-inner { padding-inline: 2rem; } }
+      @media (min-width: 1024px) { .header-inner { gap: 2rem; } }
+      nav.primary { display: none; align-items: center; gap: 1rem; }
+      @media (min-width: 768px) { nav.primary { display: flex; } }
+      @media (min-width: 1024px) { nav.primary { gap: 1.75rem; } }
+      nav.primary a { font-size: 14px; color: var(--muted-foreground); white-space: nowrap; }
+      nav.primary a.secondary { display: none; }
+      @media (min-width: 1024px) { nav.primary a.secondary { display: inline; } }
+      .actions { margin-left: auto; display: flex; align-items: center; gap: 0.5rem; }
+      .ghost {
+        display: none; align-items: center; border-radius: 0.25rem;
+        padding: 0.35rem 0.65rem; font-size: 14px; color: var(--muted-foreground);
+        white-space: nowrap;
+      }
+      @media (min-width: 640px) { .ghost { display: inline-flex; } }
+      .cta {
+        display: inline-flex; align-items: center; gap: 0.35rem;
+        border-radius: 999px; padding: 0.35rem 1rem; font-size: 14px; font-weight: 560;
+        line-height: 1.2; white-space: nowrap; color: var(--primary-foreground);
+        background: var(--primary);
+      }
+      .appearance {
+        display: none; align-items: center; gap: 0.125rem; border-radius: 0.375rem;
+        border: 1px solid var(--border); background: var(--surface-2); padding: 0.125rem;
+      }
+      @media (min-width: 640px) { .appearance { display: inline-flex; } }
+      .appearance button {
+        display: grid; place-items: center; width: 1.75rem; height: 1.75rem;
+        border: 0; border-radius: 0.125rem; background: transparent; color: var(--muted-foreground);
+      }
+      .appearance button[aria-checked="true"] {
+        background: var(--surface); color: var(--foreground);
+        box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+      }
+      .shell { margin: 0 auto; max-width: 80rem; padding: 5rem 1.25rem 0; }
+      @media (min-width: 640px) { .shell { padding: 7rem 2rem 0; } }
+      @media (min-width: 1024px) { .shell { padding-top: 8rem; } }
+      .copy { max-width: 48rem; }
+      .eyebrow {
+        display: inline-flex; align-items: center; gap: 0.625rem;
+        font-size: 11px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase;
+        color: var(--primary);
+      }
+      .display-2xl {
+        margin-top: 1.75rem;
+        font-size: clamp(2.6rem, 8.2vw, 5.25rem);
+        line-height: 0.98; letter-spacing: -0.038em; font-weight: 500;
+      }
+      .display-2xl .muted { display: block; margin-top: 0.25rem; color: var(--muted-foreground); }
+      .lede {
+        margin-top: 2rem; max-width: 32rem; font-size: 18px; line-height: 1.625;
+        color: var(--muted-foreground);
+      }
+      .cta-row {
+        margin-top: 2.5rem; display: flex; flex-direction: column; gap: 0.75rem;
+      }
+      @media (min-width: 640px) {
+        .cta-row { flex-direction: row; align-items: center; }
+      }
+      .btn {
+        display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+        height: 2.5rem; padding: 0 1.5rem; border-radius: 9999px; font-size: 0.875rem;
+        font-weight: 500; white-space: nowrap; transition: background-color 0.15s ease;
+      }
+      .btn-primary {
+        background: var(--primary); color: var(--primary-foreground);
+        box-shadow: 0 1px 3px rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+      }
+      .btn-ghost { color: var(--muted-foreground); }
+      .canvas-wrap { margin: 4rem auto 0; max-width: 80rem; padding: 0 1.25rem; }
+      @media (min-width: 640px) { .canvas-wrap { margin-top: 5rem; padding-inline: 2rem; } }
+      .canvas-frame {
+        height: 220px; border-radius: calc(var(--radius) + 14px); background: var(--surface);
+        box-shadow: 0 0 0 1px color-mix(in oklab, var(--border) 60%, transparent),
+          0 44px 90px -48px oklch(0.2 0.02 60 / 0.42);
+        margin-bottom: -6rem;
+      }
+      @media (min-width: 640px) { .canvas-frame { margin-bottom: -8rem; } }
+      .hero-spacer { height: 6rem; }
+      @media (min-width: 640px) { .hero-spacer { height: 8rem; } }
+      .wordmark { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; }
+    </style>
+  </head>
+  <body>
+    <header data-testid="source-header">
+      <div class="header-inner">
+        <div class="wordmark">Behalf / ID</div>
+        <nav class="primary" aria-label="Primary">
+          <a href="#product">Product</a>
+          <a href="/adaptive-engine">Adaptive engine</a>
+          <a href="/docs">Developers</a>
+          <a href="/pricing">Pricing</a>
+          <a class="secondary" href="/security">Security</a>
+          <a class="secondary" href="/status">Status</a>
+        </nav>
+        <div class="actions">
+          <div class="appearance" role="radiogroup" aria-label="Appearance">
+            <button type="button" role="radio" aria-checked="true" aria-label="Light" title="Light">☀</button>
+            <button type="button" role="radio" aria-checked="false" aria-label="Dark" title="Dark">☾</button>
+            <button type="button" role="radio" aria-checked="false" aria-label="System" title="System">▣</button>
+          </div>
+          <a class="ghost" href="/login">Sign in</a>
+          <a class="cta" href="/signup">Start building →</a>
+        </div>
+      </div>
+    </header>
+    <main>
+      <section class="env-ivory" data-testid="source-hero">
+        <div class="shell">
+          <div class="copy">
+            <div class="eyebrow" data-testid="source-eyebrow"><span aria-hidden>/</span> Authority for AI agents</div>
+            <h1 class="display-2xl" data-testid="source-headline">
+              Give AI agents freedom.
+              <span class="muted">Keep their authority controlled.</span>
+            </h1>
+            <p class="lede" data-testid="source-paragraph">
+              Every agent gets an identity, a clear scope and a decision before it acts. BehalfID learns from human
+              decisions to make that control more precise over time.
+            </p>
+            <div class="cta-row" data-testid="source-cta-group">
+              <a class="btn btn-primary" href="/signup">Start building →</a>
+              <a class="btn btn-ghost" href="#authority">See how it works</a>
+            </div>
+          </div>
+        </div>
+        <div class="canvas-wrap">
+          <div class="canvas-frame" data-testid="source-canvas"></div>
+        </div>
+        <div class="hero-spacer"></div>
+      </section>
+    </main>
+  </body>
+</html>

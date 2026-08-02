@@ -46,14 +46,14 @@ function MarketingEnding() {
           <div className="flex flex-col gap-3 sm:flex-row lg:justify-end">
             <Link
               href="/signup"
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-surface px-6 py-3 ds-text-15 font-medium text-foreground"
+              className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-surface px-6 text-sm font-medium text-foreground"
               onClick={crossAppClickHandler("/signup")}
             >
               Start building <ArrowRight className="size-4" aria-hidden />
             </Link>
             <Link
               href="/contact"
-              className="inline-flex items-center justify-center rounded-full px-6 py-3 ds-text-15 font-medium text-foreground hover:bg-surface"
+              className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-full px-6 text-sm font-medium text-foreground hover:bg-surface"
               onClick={crossAppClickHandler("/contact")}
             >
               Talk to us

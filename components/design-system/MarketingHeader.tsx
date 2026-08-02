@@ -5,21 +5,22 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Wordmark } from "@/components/design-system/brand";
 import { ArrowRight, Menu, X } from "@/components/design-system/icons";
-import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { LanguageSwitcher } from "@/components/ui";
 import { ContinueWithGoogle } from "@/components/auth/ContinueWithGoogle";
+import { DsAppearanceToggle } from "@/components/design-system/DsAppearanceToggle";
 import { cn } from "@/lib/cn";
 import { crossAppClickHandler } from "@/lib/subdomainRouting";
 import type { PublicAuthAction } from "@/lib/publicAuthAction";
 
+/** Desktop nav mirrors Lovable; Blog stays mobile/footer-only to preserve density. */
 const nav = [
-  { label: "Product", href: "/#product", primary: true },
-  { label: "Adaptive engine", href: "/adaptive-engine", primary: true },
-  { label: "Developers", href: "/docs", primary: true },
-  { label: "Pricing", href: "/pricing", primary: true },
-  { label: "Security", href: "/security", primary: false },
-  { label: "Status", href: "/status", primary: false },
-  { label: "Blog", href: "/blog", primary: false }
+  { label: "Product", href: "/#product", primary: true, desktop: true },
+  { label: "Adaptive engine", href: "/adaptive-engine", primary: true, desktop: true },
+  { label: "Developers", href: "/docs", primary: true, desktop: true },
+  { label: "Pricing", href: "/pricing", primary: true, desktop: true },
+  { label: "Security", href: "/security", primary: false, desktop: true },
+  { label: "Status", href: "/status", primary: false, desktop: true },
+  { label: "Blog", href: "/blog", primary: false, desktop: false }
 ] as const;
 
 function normalizePublicPath(pathname: string) {
@@ -98,37 +99,31 @@ export function MarketingHeader({
       <div className="ds-header__inner">
         <Wordmark />
         <nav aria-label="Primary" className="ds-header__nav">
-          {nav.map((item) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              className={cn("ds-header__link", !item.primary && "ds-header__link--secondary")}
-              aria-current={isCurrentPath(pathname, item.href) ? "page" : undefined}
-              onClick={crossAppClickHandler(item.href)}
-            >
-              {item.label}
-            </Link>
-          ))}
+          {nav
+            .filter((item) => item.desktop)
+            .map((item) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                className={cn("ds-header__link", !item.primary && "ds-header__link--secondary")}
+                aria-current={isCurrentPath(pathname, item.href) ? "page" : undefined}
+                onClick={crossAppClickHandler(item.href)}
+              >
+                {item.label}
+              </Link>
+            ))}
         </nav>
         <div className="ds-header__actions">
           <span className="ds-header__theme ds-header__theme--locale">
             <LanguageSwitcher />
           </span>
           <span className="ds-header__theme">
-            <ThemeToggle allowSystem />
+            <DsAppearanceToggle />
           </span>
           <Link href={authHref} className="ds-header__ghost" onClick={crossAppClickHandler(authHref)}>
             {authLabel}
           </Link>
-          {showGoogle ? (
-            <ContinueWithGoogle
-              className="ds-header__google"
-              label="Google"
-              mode="login"
-              size="small"
-              variant="outline"
-            />
-          ) : null}
+          {/* Google OAuth stays on login/signup; keep out of desktop chrome for Lovable density. */}
           <Link href="/signup" className="ds-header__cta" onClick={crossAppClickHandler("/signup")}>
             Start building
             <ArrowRight className="size-3.5" aria-hidden />
@@ -170,7 +165,7 @@ export function MarketingHeader({
             >
               {authLabel}
             </Link>
-            <ThemeToggle allowSystem />
+            <DsAppearanceToggle />
           </div>
           {showGoogle ? (
             <ContinueWithGoogle

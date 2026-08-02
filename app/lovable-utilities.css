@@ -445,6 +445,12 @@
 .ds .px-5 {
   padding-left: 1.25rem; padding-right: 1.25rem;
 }
+.ds .px-6 {
+  padding-left: 1.5rem; padding-right: 1.5rem;
+}
+.ds .px-8 {
+  padding-left: 2rem; padding-right: 2rem;
+}
 .ds .py-0\.5 {
   padding-top: 0.125rem; padding-bottom: 0.125rem;
 }
@@ -493,11 +499,17 @@
 .ds .self-start {
   align-self: flex-start;
 }
+.ds .shadow {
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+}
 .ds .shadow-raised {
   box-shadow: var(--ds-shadow-raised);
 }
 .ds .shadow-subtle {
   box-shadow: var(--ds-shadow-subtle);
+}
+.ds .h-10 {
+  height: 2.5rem;
 }
 .ds .shrink-0 {
   flex-shrink: 0;
@@ -701,6 +713,15 @@
   }
   .ds .hover\:bg-surface-2:hover {
   background-color: var(--color-surface-2);
+  }
+  .ds .hover\:bg-primary\/90:hover {
+  background-color: color-mix(in oklab, var(--color-primary) 90%, transparent);
+  }
+  .ds .hover\:bg-accent:hover {
+  background-color: var(--color-accent);
+  }
+  .ds .hover\:text-accent-foreground:hover {
+  color: var(--color-accent-foreground);
   }
   .ds .hover\:text-foreground:hover {
   color: var(--color-foreground);

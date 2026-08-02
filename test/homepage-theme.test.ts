@@ -46,7 +46,8 @@ describe("system-aware homepage theme", () => {
   });
 
   it("restores the shared public theme control on desktop and mobile", () => {
-    expect(headerSource.match(/<ThemeToggle allowSystem \/>/g)?.length).toBeGreaterThanOrEqual(2);
+    // Lovable-parity icon segmented control (desktop chrome + mobile drawer).
+    expect(headerSource.match(/<DsAppearanceToggle\s*\/>/g)?.length).toBeGreaterThanOrEqual(2);
   });
 
   it("keeps the cookie banner on the accessible brand foreground token", () => {

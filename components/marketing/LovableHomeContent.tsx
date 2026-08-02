@@ -63,12 +63,15 @@ export function LovableHomeContent() {
             <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
               <Link
                 href="/signup"
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 ds-text-15 font-medium text-primary-foreground shadow-raised"
+                className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-primary px-6 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
                 onClick={crossAppClickHandler("/signup")}
               >
                 Start building <ArrowRight className="size-4" aria-hidden />
               </Link>
-              <a href="#authority" className="inline-flex items-center justify-center rounded-full px-6 py-3 ds-text-15 font-medium text-muted-foreground hover:text-foreground">
+              <a
+                href="#authority"
+                className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-full px-6 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              >
                 See how it works
               </a>
             </div>

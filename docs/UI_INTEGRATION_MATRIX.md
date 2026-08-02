@@ -274,8 +274,14 @@ Dashboard/console authenticated screens were not exercised in the headless harne
 - New marketing routes have `[locale]` wrappers; copy remains English-first like Lovable.
 - Status probes and StatusBoard UI unchanged (not a Lovable visual restyle of status content).
 - Auth/dashboard/console not cut over (Phase 3+).
-- Playwright visual harnesses: `scripts/phase2-visual-check.mjs`, `scripts/phase2-hero-fidelity-check.mjs`.
+- Playwright visual harnesses: `scripts/phase2-visual-check.mjs`, `scripts/phase2-hero-fidelity-check.mjs`, `scripts/phase2-source-parity.mjs` (Chromium + WebKit vs Lovable fixture).
 
 ### Critical fidelity fix (post-preview)
 
 `.ds .max-w-7xl` was incorrectly set to `22ch` (intended for a display measure utility) instead of Tailwind’s `80rem`. That collapsed the hero shell so `display-2xl` wrapped one word per line. Restored `max-w-7xl` → `80rem`, added missing `max-w-{sm,md,lg,xl,4xl,5xl,6xl}`, fixed `left-0`, and restored Lovable’s `md` header breakpoint with nowrap Sign in / CTA.
+
+### Hero CTA clipping / header density (parity pass)
+
+- Missing `.ds` preflight (`h1`/`p` margin: 0) let UA margins (~56px below `h1`, ~18px below `p`) push CTAs to the fold — especially visible in Safari/WebKit at 1280×800.
+- Missing `.ds .px-6` zeroed hero button horizontal padding; CTAs now match Lovable `Button size="lg"` (`h-10`, `text-sm`, `px-6`).
+- Header: Blog mobile/footer-only; `DsAppearanceToggle` icon group replaces labeled theme switcher; locale globe without `EN` label; Google remains on login/signup (+ mobile drawer).

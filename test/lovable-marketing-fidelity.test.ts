@@ -37,6 +37,15 @@ describe("lovable marketing visual fidelity", () => {
     expect(display).toContain("max-width: none");
   });
 
+  it("keeps hero CTA padding utilities and preflight margin resets", () => {
+    expect(cssRuleBody(utilities, ".ds .px-6")).toContain("1.5rem");
+    expect(cssRuleBody(utilities, ".ds .px-8")).toContain("2rem");
+    expect(cssRuleBody(utilities, ".ds .h-10")).toContain("2.5rem");
+    expect(tokens).toMatch(/\.ds h1,[\s\S]*\.ds p \{[\s\S]*margin:\s*0;/);
+    expect(home).toContain("inline-flex h-10 items-center justify-center gap-2");
+    expect(home).toContain("rounded-full bg-primary px-6 text-sm font-medium");
+  });
+
   it("uses Lovable hero structure: max-w-7xl shell with max-w-3xl copy column", () => {
     expect(home).toContain('className="mx-auto max-w-7xl px-5 pt-20 sm:px-8 sm:pt-28 lg:pt-32"');
     expect(home).toContain('className="max-w-3xl"');
@@ -55,6 +64,16 @@ describe("lovable marketing visual fidelity", () => {
     );
     expect(cssRuleBody(tokens, ".ds-header__ghost")).toContain("white-space: nowrap");
     expect(cssRuleBody(tokens, ".ds-header__cta")).toContain("white-space: nowrap");
+  });
+
+  it("keeps desktop header density close to Lovable (Blog mobile-only, icon appearance)", () => {
+    const header = source("components/design-system/MarketingHeader.tsx");
+    expect(header).toContain('label: "Blog"');
+    expect(header).toContain("desktop: false");
+    expect(header).toContain("DsAppearanceToggle");
+    expect(header).not.toContain("ThemeToggle allowSystem");
+    expect(tokens).toContain(".ds-appearance");
+    expect(tokens).toContain(".ds-header .lang-switcher__label");
   });
 
   it("keeps prefixed responsive utilities (sm:flex-row) instead of stripped media overrides", () => {
