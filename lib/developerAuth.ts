@@ -46,10 +46,14 @@ export function isValidEmail(email: string) {
   const local = email.slice(0, at);
   const domain = email.slice(at + 1);
   if (!local || !domain || local.length > 64) return false;
+  // Per-character whitespace check (no nested quantifiers → not ReDoS-prone).
   for (let i = 0; i < email.length; i += 1) {
     const code = email.charCodeAt(i);
-    // Reject ASCII whitespace and other C0 controls / DEL.
     if (code <= 32 || code === 127) return false;
+    // Reject additional Unicode whitespace that `\s` would catch.
+    if (code === 0xa0 || (code >= 0x2000 && code <= 0x200a) || code === 0x2028 || code === 0x2029 || code === 0x202f || code === 0x205f || code === 0x3000 || code === 0xfeff) {
+      return false;
+    }
   }
   const dot = domain.lastIndexOf(".");
   if (dot <= 0 || dot >= domain.length - 1) return false;
