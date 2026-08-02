@@ -40,7 +40,9 @@ describe("system-aware homepage theme", () => {
   it("allows the homepage to inherit the resolved root theme via .ds", () => {
     expect(homeSource).toContain("MarketingLayout");
     expect(homeSource).not.toContain("ui-theme-light");
-    expect(source("components/design-system/MarketingLayout.tsx")).toContain('className="ds min-h-dvh"');
+    expect(source("components/design-system/MarketingLayout.tsx")).toMatch(
+      /className="ds min-h-dvh(?: overflow-x-clip)?"/
+    );
   });
 
   it("restores the shared public theme control on desktop and mobile", () => {
