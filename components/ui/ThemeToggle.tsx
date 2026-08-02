@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { haptic } from "@/lib/haptic";
 import {
+  applyResolvedTheme,
   parseThemePreference,
   resolveTheme,
   THEME_CHANGE_EVENT,
@@ -71,7 +72,7 @@ function applyPreference(preference: ThemePreference, systemPrefersDark: boolean
   }
 
   const resolved = resolveTheme(preference, systemPrefersDark);
-  document.documentElement.setAttribute("data-theme", resolved);
+  applyResolvedTheme(resolved);
   window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
   return resolved;
 }
@@ -96,7 +97,7 @@ export function ThemeToggle({ allowSystem = false }: ThemeToggleProps) {
     function sync() {
       const nextPreference = readPreference();
       const resolved = resolveTheme(nextPreference, media.matches);
-      document.documentElement.setAttribute("data-theme", resolved);
+      applyResolvedTheme(resolved);
       queueMicrotask(() => {
         if (!active) return;
         setPreference(nextPreference);
