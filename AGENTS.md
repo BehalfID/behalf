@@ -99,6 +99,3 @@ Expect Postgres-connected JSON when the latch and `DATABASE_URL` are set (`postg
 - **Console mutation routes enforce an Origin check.** When scripting console login/mutations with curl, send `-H "Origin: http://localhost:3000"`.
 - **`npm run lint` reports pre-existing errors** in committed code/tests; this is not caused by env setup and CI does not run it.
 - Auth-satellite tables (external identities, passkeys, OAuth state, etc.) always use Postgres via `getPostgresDb()` once `DATABASE_URL` is present — keep the latch and backend flags aligned so repository facades cannot diverge.
-
-
-@.behalf/context.md
