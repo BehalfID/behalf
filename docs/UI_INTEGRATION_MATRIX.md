@@ -271,7 +271,11 @@ Dashboard/console authenticated screens were not exercised in the headless harne
 ### Limitations
 
 - Blog/security/status/legal keep legacy page bodies; only chrome is Lovable-derived (header/footer carry `.ds`).
-- No locale-prefixed duplicates of the new marketing routes (`/[locale]/pricing` etc.); English-first like Lovable; existing locale middleware behavior unchanged for other pages.
+- New marketing routes have `[locale]` wrappers; copy remains English-first like Lovable.
 - Status probes and StatusBoard UI unchanged (not a Lovable visual restyle of status content).
 - Auth/dashboard/console not cut over (Phase 3+).
-- Playwright visual harness: `scripts/phase2-visual-check.mjs` against a local production server.
+- Playwright visual harnesses: `scripts/phase2-visual-check.mjs`, `scripts/phase2-hero-fidelity-check.mjs`.
+
+### Critical fidelity fix (post-preview)
+
+`.ds .max-w-7xl` was incorrectly set to `22ch` (intended for a display measure utility) instead of Tailwind’s `80rem`. That collapsed the hero shell so `display-2xl` wrapped one word per line. Restored `max-w-7xl` → `80rem`, added missing `max-w-{sm,md,lg,xl,4xl,5xl,6xl}`, fixed `left-0`, and restored Lovable’s `md` header breakpoint with nowrap Sign in / CTA.

@@ -26,7 +26,7 @@
   top: -1rem;
 }
 .ds .absolute {
-  background-image: radial-gradient(70% 100% at 50% 0%, var(--color-primary-soft), transparent 75%);
+  position: absolute;
 }
 .ds .bg-background {
   background-color: var(--color-background);
@@ -251,7 +251,7 @@
   line-height: 1.25;
 }
 .ds .left-0 {
-  left: 9px;
+  left: 0;
 }
 .ds .m-6 {
   margin: 1.5rem;
@@ -263,11 +263,53 @@
   max-width: 48rem;
 }
 .ds .max-w-7xl {
-  max-width: 22ch;
+  max-width: 80rem;
 }
 .ds .max-w-xs {
   max-width: 20rem;
 }
+.ds .max-w-sm {
+  max-width: 24rem;
+}
+.ds .max-w-md {
+  max-width: 28rem;
+}
+.ds .max-w-lg {
+  max-width: 32rem;
+}
+.ds .max-w-xl {
+  max-width: 36rem;
+}
+.ds .max-w-4xl {
+  max-width: 56rem;
+}
+.ds .max-w-5xl {
+  max-width: 64rem;
+}
+.ds .max-w-6xl {
+  max-width: 72rem;
+}
+.ds .inset-0 {
+  inset: 0;
+}
+.ds .inset-x-0 {
+  left: 0;
+  right: 0;
+}
+.ds .inset-y-0 {
+  top: 0;
+  bottom: 0;
+}
+.ds .right-0 {
+  right: 0;
+}
+.ds .bottom-0 {
+  bottom: 0;
+}
+.ds .whitespace-nowrap {
+  white-space: nowrap;
+}
+
 .ds .mb-6 {
   margin-bottom: 1.5rem;
 }
@@ -428,7 +470,7 @@
   padding-top: 1.25rem; padding-bottom: 1.25rem;
 }
 .ds .relative {
-  border-radius: calc(var(--radius) + 14px);
+  position: relative;
 }
 .ds .rounded-full {
   border-radius: 9999px;
@@ -488,7 +530,7 @@
   width: 2rem; height: 2rem;
 }
 .ds .size-9 {
-  width: 19px; height: 19px;
+  width: 2.25rem; height: 2.25rem;
 }
 .ds .sr-only {
   position: absolute;
@@ -508,7 +550,7 @@
   font-size: 1.5rem;
 }
 .ds .text-3xl {
-  font-size: 38px;
+  font-size: 1.875rem;
 }
 .ds .text-base {
   font-size: 1rem;
@@ -559,13 +601,13 @@
   top: 0.5rem;
 }
 .ds .top-4 {
-  letter-spacing: 0.18em;
+  top: 1rem;
 }
 .ds .tracking-tight {
   letter-spacing: -0.025em;
 }
 .ds .tracking-wide {
-  transition-property: width; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  letter-spacing: 0.025em;
 }
 .ds .transition-colors {
   transition-property: color, background-color, border-color; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms;
@@ -577,7 +619,7 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .ds .uppercase {
-  width: 9%;
+  text-transform: uppercase;
 }
 .ds .w-full {
   width: 100%;
@@ -594,103 +636,63 @@
 .ds .z-10 {
   z-index: 10;
 }
+/* Responsive utilities — prefixes required (sm:/md:/lg:). Do not strip. */
 @media (min-width: 640px) {
-  .ds .flex {
-  display: flex;
-  }
-  .ds .flex-wrap {
-  flex-wrap: wrap;
-  }
-  .ds .gap-3 {
-  gap: 0.75rem;
-  }
-  .ds .grid-cols-2 {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .ds .grid-cols-3 {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-  .ds .grid-cols-5 {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-  .ds .justify-between {
-  justify-content: space-between;
-  }
-  .ds .m-8 {
-  margin: 2rem;
-  }
-  .ds .ml-0 {
-  margin-left: 0;
-  }
-  .ds .p-7 {
-  padding: 1.75rem;
-  }
-  .ds .p-8 {
-  padding: 2rem;
-  }
-  .ds .p-9 {
-  padding: 2.25rem;
-  }
-  .ds .px-8 {
-  padding-left: 2rem; padding-right: 2rem;
-  }
-  .ds .text-3xl {
-  font-size: 28px;
-  }
+  .ds .sm\:flex { display: flex; }
+  .ds .sm\:flex-row { flex-direction: row; }
+  .ds .sm\:flex-wrap { flex-wrap: wrap; }
+  .ds .sm\:items-center { align-items: center; }
+  .ds .sm\:justify-between { justify-content: space-between; }
+  .ds .sm\:gap-3 { gap: 0.75rem; }
+  .ds .sm\:gap-10 { gap: 2.5rem; }
+  .ds .sm\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ds .sm\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ds .sm\:grid-cols-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .ds .sm\:m-8 { margin: 2rem; }
+  .ds .sm\:ml-0 { margin-left: 0; }
+  .ds .sm\:mt-20 { margin-top: 5rem; }
+  .ds .sm\:-mb-32 { margin-bottom: -8rem; }
+  .ds .sm\:h-32 { height: 8rem; }
+  .ds .sm\:p-7 { padding: 1.75rem; }
+  .ds .sm\:p-8 { padding: 2rem; }
+  .ds .sm\:p-9 { padding: 2.25rem; }
+  .ds .sm\:px-8 { padding-left: 2rem; padding-right: 2rem; }
+  .ds .sm\:py-32 { padding-top: 8rem; padding-bottom: 8rem; }
+  .ds .sm\:py-36 { padding-top: 9rem; padding-bottom: 9rem; }
+  .ds .sm\:pt-28 { padding-top: 7rem; }
+  .ds .sm\:pb-32 { padding-bottom: 8rem; }
+  .ds .sm\:block { display: block; }
+  .ds .sm\:hidden { display: none; }
+  .ds .sm\:text-3xl { font-size: 1.875rem; }
 }
 
 @media (min-width: 768px) {
-  .ds .block {
-  display: block;
-  }
-  .ds .grid-cols-3 {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-  .ds .grid-cols-5 {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-  .ds .hidden {
-  display: none;
-  }
-  .ds .mt-6 {
-  margin-top: 1.5rem;
-  }
+  .ds .md\:block { display: block; }
+  .ds .md\:hidden { display: none; }
+  .ds .md\:flex { display: flex; }
+  .ds .md\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ds .md\:grid-cols-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .ds .md\:gap-6 { gap: 1.5rem; }
+  .ds .md\:mt-6 { margin-top: 1.5rem; }
 }
 
 @media (min-width: 1024px) {
-  .ds .-mt-6 {
-  margin-top: -1.5rem;
-  }
-  .ds .gap-10 {
-  gap: 2.5rem;
-  }
-  .ds .gap-12 {
-  gap: 3rem;
-  }
-  .ds .gap-14 {
-  gap: 3.5rem;
-  }
-  .ds .grid-cols-3 {
-  box-shadow: 0 40px 80px -48px oklch(0.2 0.02 60 / 0.5);
-  }
-  .ds .mb-6 {
-  margin-bottom: 1.5rem;
-  }
-  .ds .p-10 {
-  padding: 2.5rem;
-  }
-  .ds .p-12 {
-  padding: 3rem;
-  }
-  .ds .pt-2 {
-  padding-top: 0.5rem;
-  }
-  .ds .sticky {
-  position: sticky;
-  }
-  .ds .top-24 {
-  top: 6rem;
-  }
+  .ds .lg\:-mt-6 { margin-top: -1.5rem; }
+  .ds .lg\:mb-6 { margin-bottom: 1.5rem; }
+  .ds .lg\:gap-10 { gap: 2.5rem; }
+  .ds .lg\:gap-12 { gap: 3rem; }
+  .ds .lg\:gap-14 { gap: 3.5rem; }
+  .ds .lg\:gap-16 { gap: 4rem; }
+  .ds .lg\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ds .lg\:items-center { align-items: center; }
+  .ds .lg\:items-end { align-items: flex-end; }
+  .ds .lg\:justify-end { justify-content: flex-end; }
+  .ds .lg\:p-10 { padding: 2.5rem; }
+  .ds .lg\:p-12 { padding: 3rem; }
+  .ds .lg\:pt-2 { padding-top: 0.5rem; }
+  .ds .lg\:pt-32 { padding-top: 8rem; }
+  .ds .lg\:sticky { position: sticky; }
+  .ds .lg\:top-24 { top: 6rem; }
 }
 
 @media (hover: hover) {

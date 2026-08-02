@@ -111,7 +111,7 @@ export function MarketingHeader({
           ))}
         </nav>
         <div className="ds-header__actions">
-          <span className="ds-header__theme">
+          <span className="ds-header__theme ds-header__theme--locale">
             <LanguageSwitcher />
           </span>
           <span className="ds-header__theme">
@@ -122,7 +122,7 @@ export function MarketingHeader({
           </Link>
           {showGoogle ? (
             <ContinueWithGoogle
-              className="ds-header__ghost"
+              className="ds-header__google"
               label="Google"
               mode="login"
               size="small"
