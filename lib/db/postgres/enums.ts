@@ -12,7 +12,7 @@ export const ONBOARDING_USE_CASES = ["personal", "website", "sdk"] as const;
 /** Human login identity providers that can be linked to a developer account. */
 export const EXTERNAL_IDENTITY_PROVIDERS = ["github", "google"] as const;
 /** Modes an OAuth authorization request can be started in. */
-export const OAUTH_FLOW_MODES = ["login", "signup", "link"] as const;
+export const OAUTH_FLOW_MODES = ["login", "signup", "link", "reauth"] as const;
 /** Identity lifecycle actions recorded in the durable identity audit log. */
 export const IDENTITY_AUDIT_ACTIONS = [
   "identity_linked",
@@ -24,8 +24,16 @@ export const IDENTITY_AUDIT_ACTIONS = [
   "passkey_registered",
   "passkey_renamed",
   "passkey_removed",
-  "method_removal_rejected"
+  "method_removal_rejected",
+  "account_deletion_reauth_started",
+  "account_deletion_reauth_succeeded",
+  "account_deletion_reauth_failed",
+  "account_deletion_completed",
+  "account_deletion_blocked"
 ] as const;
+/** Purpose-bound recent-authentication proofs for sensitive actions. */
+export const REAUTH_PURPOSES = ["account_delete"] as const;
+export const REAUTH_METHODS = ["password", "github", "google", "passkey"] as const;
 /** Providers that may appear on identity audit rows. */
 export const IDENTITY_AUDIT_PROVIDERS = ["github", "google", "password", "passkey"] as const;
 export const LOGIN_METHODS = ["password", "github", "google", "passkey"] as const;

@@ -10,6 +10,7 @@ import { DecisionIndicator } from "@/components/dashboard/OpsEventPrimitives";
 import { FirstAgentSetup } from "@/components/dashboard/first-agent/FirstAgentSetup";
 import { ManagedProfilesView } from "@/components/dashboard/ManagedProfilesView";
 import { ManagedProfileActivityView } from "@/components/dashboard/ManagedProfileActivityView";
+import { AccountDeletionSection } from "@/components/dashboard/AccountDeletionSection";
 import { LinkedAccountsSection } from "@/components/dashboard/LinkedAccountsSection";
 import { MfaSettingsSection } from "@/components/dashboard/MfaSettingsSection";
 import { OpsInboxConsole } from "@/components/dashboard/OpsInboxConsole";
@@ -3180,11 +3181,6 @@ function SettingsView() {
   const [saveMessage, setSaveMessage] = useState("");
   const [saveError, setSaveError] = useState("");
   const [saveWorking, setSaveWorking] = useState<"profile" | "account" | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deletePassword, setDeletePassword] = useState("");
-  const [deleteConfirmation, setDeleteConfirmation] = useState("");
-  const [deleteError, setDeleteError] = useState("");
-  const [deleting, setDeleting] = useState(false);
   const [tokenError, setTokenError] = useState("");
   const [tokenWorking, setTokenWorking] = useState<string | null>(null);
 
@@ -3308,25 +3304,6 @@ function SettingsView() {
       setTokenError(requestError instanceof Error ? requestError.message : "Could not revoke developer token.");
     } finally {
       setTokenWorking(null);
-    }
-  };
-
-  const deleteAccount = async (event: FormEvent) => {
-    event.preventDefault();
-    setDeleteError("");
-    setDeleting(true);
-    try {
-      await api("/api/auth/account", {
-        method: "DELETE",
-        body: JSON.stringify({
-          password: deletePassword,
-          confirmation: deleteConfirmation
-        })
-      });
-      window.location.assign("/login?deleted=1");
-    } catch (requestError) {
-      setDeleteError(requestError instanceof Error ? requestError.message : "Failed to delete account.");
-      setDeleting(false);
     }
   };
 
@@ -3629,69 +3606,7 @@ function SettingsView() {
           {tokens.data && tokens.data.tokens.length === 0 ? <DashboardState className="dashboard-empty" kind="empty" title="No developer tokens" description="Create a token when a developer workflow needs account-authenticated API access." /> : null}
         </div>
       </SettingsSection>
-      <SettingsSection
-        description="Permanently delete your account and sole-owned workspace data. Shared workspaces keep their data; your membership is removed."
-        eyebrow="Destructive actions"
-        id="danger-zone"
-        title="Account deletion"
-        tone="danger"
-      >
-        <DestructiveSettingsSection
-          action={
-            !showDeleteConfirm ? (
-              <Button onClick={() => setShowDeleteConfirm(true)} type="button" variant="danger">
-                Delete account
-              </Button>
-            ) : (
-              <form className="setup-form" onSubmit={deleteAccount}>
-                <p className="field-help">
-                  This action cannot be undone. Type <strong>DELETE</strong> and enter your password to confirm.
-                </p>
-                <label>
-                  <span>Confirmation</span>
-                  <input
-                    autoComplete="off"
-                    onChange={(event) => setDeleteConfirmation(event.target.value)}
-                    placeholder="DELETE"
-                    required
-                    value={deleteConfirmation}
-                  />
-                </label>
-                <label>
-                  <span>Password</span>
-                  <input
-                    autoComplete="current-password"
-                    onChange={(event) => setDeletePassword(event.target.value)}
-                    required
-                    type="password"
-                    value={deletePassword}
-                  />
-                </label>
-                {deleteError ? <p className="form-error" role="alert">{deleteError}</p> : null}
-                <div className="setup-actions">
-                  <Button disabled={deleting} loading={deleting} type="submit" variant="danger">
-                    {deleting ? "Deletingâ€¦" : "Permanently delete account"}
-                  </Button>
-                  <Button
-                    disabled={deleting}
-                    onClick={() => {
-                      setShowDeleteConfirm(false);
-                      setDeletePassword("");
-                      setDeleteConfirmation("");
-                      setDeleteError("");
-                    }}
-                    type="button"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </form>
-            )
-          }
-          consequence="Deletion removes your user account, sessions, developer tokens, and any workspace you solely own."
-          title="Delete account and workspace data"
-        />
-      </SettingsSection>
+      <AccountDeletionSection />
         </div>
       </div>
     </>

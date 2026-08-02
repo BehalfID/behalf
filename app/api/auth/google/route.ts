@@ -1,4 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { recordIdentityAudit } from "@/lib/authProviders/identityAudit";
+import { getCurrentDeveloper } from "@/lib/developerAuth";
 import {
   buildGoogleAuthorizeRedirect,
   GOOGLE_OAUTH_STATE_COOKIE,
@@ -19,13 +21,32 @@ export async function GET(request: NextRequest) {
   }
 
   const modeParam = request.nextUrl.searchParams.get("mode");
-  const mode: GoogleOAuthMode = modeParam === "signup" ? "signup" : "login";
+  const mode: GoogleOAuthMode =
+    modeParam === "signup" ? "signup" : modeParam === "reauth" ? "reauth" : "login";
   const next = safeOAuthNextPath(request.nextUrl.searchParams.get("next"));
+
+  let userId: string | null = null;
+  if (mode === "reauth") {
+    const user = await getCurrentDeveloper();
+    if (!user) {
+      return jsonError("Sign in before confirming your identity.", 401);
+    }
+    userId = user.userId;
+    await recordIdentityAudit({
+      userId,
+      action: "account_deletion_reauth_started",
+      provider: "google",
+      providerAccountId: "google",
+      request,
+      context: "account_delete"
+    });
+  }
 
   const started = buildGoogleAuthorizeRedirect({
     requestOrigin: request.nextUrl.origin,
     mode,
-    next
+    next: mode === "reauth" ? next ?? "/dashboard/settings" : next,
+    userId
   });
   if ("error" in started) {
     return jsonError(started.error, 503);

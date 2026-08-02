@@ -225,6 +225,9 @@ export function isAppHostAuthApiPath(pathname: string): boolean {
   if (path === "/api/auth/passkeys" || path.startsWith("/api/auth/passkey/")) {
     return true;
   }
+  if (path === "/api/auth/reauth" || path.startsWith("/api/auth/reauth/")) {
+    return true;
+  }
   return (
     path === "/api/auth/me" ||
     path === "/api/auth/session" ||

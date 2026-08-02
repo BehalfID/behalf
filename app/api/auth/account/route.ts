@@ -1,18 +1,23 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { deleteDeveloperUser } from "@/lib/accountDeletion";
+import { recordIdentityAudit } from "@/lib/authProviders/identityAudit";
 import {
   clearDeveloperSessionCookie,
   hashSessionToken,
   requireDashboardMutationOrigin,
-  requireVerifiedDeveloperApi,
-  verifyPassword
+  requireVerifiedDeveloperApi
 } from "@/lib/developerAuth";
+import { logger } from "@/lib/logger";
+import {
+  clearReauthProofCookie,
+  consumeAccountDeleteReauthProof,
+  readReauthTokenFromRequest
+} from "@/lib/reauth";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
 import * as sessions from "@/lib/repositories/sessions";
-import * as users from "@/lib/repositories/users";
 
 const DELETE_CONFIRMATION = "DELETE";
 
@@ -30,34 +35,62 @@ export async function DELETE(request: NextRequest) {
   if (error) return error;
   if (!body) return jsonError("Request body must be a JSON object.");
 
-  const unknownError = rejectUnknownFields(body, ["password", "confirmation"]);
+  const unknownError = rejectUnknownFields(body, ["confirmation", "reauthToken", "password"]);
   if (unknownError) return jsonError(unknownError);
 
-  const password = typeof body.password === "string" ? body.password : "";
   const confirmation = readString(body.confirmation);
-
   if (confirmation !== DELETE_CONFIRMATION) {
     return jsonError(`Type ${DELETE_CONFIRMATION} to confirm account deletion.`, 400);
   }
 
-  const user = await users.findByUserId(auth.user.userId);
-  if (!user) {
-    return jsonError("Invalid password.", 401);
-  }
+  // Password alone is no longer accepted — require a purpose-bound recent-auth proof.
+  const reauthToken = readReauthTokenFromRequest(request, body.reauthToken);
+  const consumed = await consumeAccountDeleteReauthProof({
+    token: reauthToken,
+    userId: auth.user.userId
+  });
 
-  if (user.passwordHash) {
-    if (!password || !(await verifyPassword(password, user.passwordHash))) {
-      return jsonError("Invalid password.", 401);
-    }
-  } else if (!user.authProviders?.includes("google")) {
-    return jsonError("Password is required to delete your account.", 400);
+  if (!consumed.ok) {
+    logger.warn("account_deletion_blocked", {
+      userId: auth.user.userId,
+      reason: consumed.reason
+    });
+    await recordIdentityAudit({
+      userId: auth.user.userId,
+      action: "account_deletion_blocked",
+      provider: "password",
+      providerAccountId: "reauth",
+      request,
+      context: consumed.reason
+    });
+    return jsonError(
+      "Confirm your identity again before deleting this account. Your confirmation may have expired.",
+      401
+    );
   }
-  // Google-only accounts: authenticated session + DELETE confirmation is sufficient.
 
   const result = await deleteDeveloperUser(auth.user.userId);
   if (!result.ok) {
     return jsonError(result.error, result.status);
   }
+
+  await recordIdentityAudit({
+    userId: auth.user.userId,
+    action: "account_deletion_completed",
+    provider:
+      consumed.method === "password" || consumed.method === "passkey"
+        ? consumed.method
+        : consumed.method,
+    providerAccountId: consumed.proofId,
+    request,
+    context: `method:${consumed.method}`
+  });
+
+  logger.info("account_deletion_completed", {
+    userId: auth.user.userId,
+    method: consumed.method,
+    deletedAccountIds: result.deletedAccountIds
+  });
 
   const token = request.cookies.get("behalfid_developer")?.value;
   if (token) {
@@ -66,5 +99,6 @@ export async function DELETE(request: NextRequest) {
 
   const response = NextResponse.json({ deleted: true });
   clearDeveloperSessionCookie(response);
+  clearReauthProofCookie(response);
   return response;
 }

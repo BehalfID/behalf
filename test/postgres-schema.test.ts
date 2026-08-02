@@ -10,6 +10,7 @@ const EXPECTED_CORE_TABLES: CoreTableName[] = [
   "oauthPendingSignups",
   "externalIdentities",
   "oauthAuthorizationStates",
+  "reauthProofs",
   "identityAuditLogs",
   "passkeyCredentials",
   "webauthnChallenges",
@@ -55,6 +56,7 @@ const EXPECTED_SQL_TABLE_NAMES = [
   "oauth_pending_signups",
   "external_identities",
   "oauth_authorization_states",
+  "reauth_proofs",
   "identity_audit_logs",
   "passkey_credentials",
   "webauthn_challenges",
@@ -121,6 +123,17 @@ const CRITICAL_COLUMNS: Record<string, string[]> = {
     "linkedAt"
   ],
   oauthAuthorizationStates: ["stateId", "provider", "mode", "stateHash", "codeVerifier", "expiresAt"],
+  reauthProofs: [
+    "proofId",
+    "userId",
+    "purpose",
+    "method",
+    "proofHash",
+    "sessionId",
+    "expiresAt",
+    "consumedAt",
+    "createdAt"
+  ],
   identityAuditLogs: ["entryId", "userId", "action", "provider", "providerAccountId", "createdAt"],
   passkeyCredentials: [
     "credentialRecordId",

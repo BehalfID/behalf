@@ -2,7 +2,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import { switchActiveAccount } from "@/lib/accountContext";
 import {
   createDeveloperSession,
+  DEVELOPER_SESSION_COOKIE_NAME,
   generateSecureToken,
+  getDeveloperFromToken,
   isEmailVerified,
   normalizeEmail,
   setDeveloperSessionCookie
@@ -19,6 +21,12 @@ import {
   verifyGoogleIdToken
 } from "@/lib/googleOAuth";
 import { createPublicId } from "@/lib/ids";
+import {
+  ACCOUNT_DELETE_PURPOSE,
+  issueReauthProof,
+  logAccountDeletionReauthFailed,
+  setReauthProofCookie
+} from "@/lib/reauth";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { completeProfilePath } from "@/lib/authPageUrls";
 import { resolveOwnedHref } from "@/lib/subdomainRouting";
@@ -39,10 +47,10 @@ function ownedRedirect(request: NextRequest, pathWithSearch: string) {
   );
 }
 
-function authErrorRedirect(request: NextRequest, message: string) {
+function authErrorRedirect(request: NextRequest, message: string, path = "/login") {
   const response = ownedRedirect(
     request,
-    `/login?error=${encodeURIComponent(message)}`
+    `${path}?error=${encodeURIComponent(message)}`
   );
   response.cookies.set(GOOGLE_OAUTH_STATE_COOKIE, "", { ...oauthCookieOptions(0), maxAge: 0 });
   return response;
@@ -105,6 +113,68 @@ export async function GET(request: NextRequest) {
   const claims = await verifyGoogleIdToken(exchanged.idToken);
   if (!claims) {
     return authErrorRedirect(request, "Google identity could not be verified.");
+  }
+
+  if (state.m === "reauth") {
+    const context = await getDeveloperFromToken(
+      request.cookies.get(DEVELOPER_SESSION_COOKIE_NAME)?.value
+    );
+    if (!context || !state.uid || context.user.userId !== state.uid) {
+      await logAccountDeletionReauthFailed({
+        userId: state.uid ?? "unknown",
+        method: "google",
+        reason: "session_required",
+        request
+      });
+      return authErrorRedirect(
+        request,
+        "Sign in again, then confirm your identity.",
+        "/dashboard/settings"
+      );
+    }
+
+    const linkedSub = context.user.googleSub;
+    const externalGoogle = await externalIdentities.findByUserAndProvider(
+      context.user.userId,
+      "google"
+    );
+    const expectedSub = linkedSub || externalGoogle?.providerAccountId;
+    if (!expectedSub || expectedSub !== claims.sub) {
+      await logAccountDeletionReauthFailed({
+        userId: context.user.userId,
+        method: "google",
+        reason: "provider_account_mismatch",
+        request
+      });
+      return authErrorRedirect(
+        request,
+        "That Google account does not match this BehalfID account.",
+        "/dashboard/settings"
+      );
+    }
+
+    const proof = await issueReauthProof({
+      userId: context.user.userId,
+      purpose: ACCOUNT_DELETE_PURPOSE,
+      method: "google",
+      sessionId: context.session?.sessionId ?? null,
+      request
+    });
+
+    const nextPath = safeOAuthNextPath(state.next) ?? "/dashboard/settings";
+    const withFlag = `${nextPath}${nextPath.includes("?") ? "&" : "?"}reauth=ok`;
+    const resolved = resolveOwnedHref(withFlag, {
+      hostname: request.nextUrl.hostname,
+      protocol: request.nextUrl.protocol
+    });
+    const url = new URL(
+      resolved.startsWith("http") ? resolved : new URL(resolved, request.nextUrl.origin)
+    );
+    url.hash = "danger-zone";
+    const response = NextResponse.redirect(url);
+    response.cookies.set(GOOGLE_OAUTH_STATE_COOKIE, "", { ...oauthCookieOptions(0), maxAge: 0 });
+    setReauthProofCookie(response, proof.token);
+    return response;
   }
 
   const email = normalizeEmail(claims.email);

@@ -31,9 +31,16 @@ import {
 } from "@/lib/developerAuth";
 import { completeProfilePath } from "@/lib/authPageUrls";
 import { createPublicId } from "@/lib/ids";
+import {
+  ACCOUNT_DELETE_PURPOSE,
+  issueReauthProof,
+  logAccountDeletionReauthFailed,
+  setReauthProofCookie
+} from "@/lib/reauth";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { resolveOwnedHref } from "@/lib/subdomainRouting";
 import { resolvePreferredSsoAccountId } from "@/lib/workspaceSso";
+import * as externalIdentitiesRepo from "@/lib/repositories/externalIdentities";
 import * as oauthPending from "@/lib/repositories/oauthPending";
 import * as users from "@/lib/repositories/users";
 
@@ -144,7 +151,8 @@ export async function GET(request: NextRequest) {
   const state = consumeResult.state;
 
   const linkFlow = state.mode === "link";
-  const errorTarget = linkFlow ? "settings" : "login";
+  const reauthFlow = state.mode === "reauth";
+  const errorTarget = linkFlow || reauthFlow ? "settings" : "login";
 
   const exchanged = await provider.exchangeCodeForIdentity({
     requestOrigin: request.nextUrl.origin,
@@ -156,6 +164,59 @@ export async function GET(request: NextRequest) {
   }
 
   const identity = exchanged.identity;
+
+  if (reauthFlow) {
+    const context = await getDeveloperFromToken(
+      request.cookies.get(DEVELOPER_SESSION_COOKIE_NAME)?.value
+    );
+    if (!context || !state.userId || context.user.userId !== state.userId) {
+      await logAccountDeletionReauthFailed({
+        userId: state.userId ?? "unknown",
+        method: "github",
+        reason: "session_required",
+        request
+      });
+      return errorRedirect(request, "session_required", "settings");
+    }
+
+    const linked = await externalIdentitiesRepo.findByUserAndProvider(
+      context.user.userId,
+      "github"
+    );
+    if (!linked || linked.providerAccountId !== identity.providerAccountId) {
+      await logAccountDeletionReauthFailed({
+        userId: context.user.userId,
+        method: "github",
+        reason: "provider_account_mismatch",
+        request
+      });
+      return errorRedirect(request, "provider_error", "settings");
+    }
+
+    const proof = await issueReauthProof({
+      userId: context.user.userId,
+      purpose: ACCOUNT_DELETE_PURPOSE,
+      method: "github",
+      sessionId: context.session?.sessionId ?? null,
+      request
+    });
+
+    const destination = safeOAuthNextPath(state.next) ?? `${SETTINGS_PATH}?reauth=ok`;
+    const resolved = resolveOwnedHref(
+      destination.includes("reauth=") ? destination : `${destination}${destination.includes("?") ? "&" : "?"}reauth=ok`,
+      {
+        hostname: request.nextUrl.hostname,
+        protocol: request.nextUrl.protocol
+      }
+    );
+    const url = resolved.startsWith("http")
+      ? new URL(resolved)
+      : new URL(resolved, request.nextUrl.origin);
+    url.hash = "danger-zone";
+    const response = withCleanState(NextResponse.redirect(url));
+    setReauthProofCookie(response, proof.token);
+    return response;
+  }
 
   if (linkFlow) {
     // Re-read the session rather than trusting state.userId alone: the browser
