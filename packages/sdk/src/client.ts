@@ -60,7 +60,10 @@ export class BehalfID {
       throw new Error("BehalfID: baseUrl must start with http:// or https://");
     }
 
-    const normalizedBaseUrl = baseUrl.replace(/\/+$/, "");
+    // Strip trailing slashes without a regex (avoids polynomial ReDoS on long "/"+ inputs).
+    let end = baseUrl.length;
+    while (end > 0 && baseUrl.charCodeAt(end - 1) === 47 /* / */) end -= 1;
+    const normalizedBaseUrl = end === baseUrl.length ? baseUrl : baseUrl.slice(0, end);
     let parsedBaseUrl: URL;
     try {
       parsedBaseUrl = new URL(normalizedBaseUrl);

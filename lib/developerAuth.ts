@@ -33,8 +33,27 @@ export function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
+/**
+ * Basic email shape check without a polynomial regex (avoids ReDoS on long inputs).
+ * Not a full RFC 5322 validator — sufficient for signup / inquiry form gating.
+ */
 export function isValidEmail(email: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 254;
+  if (typeof email !== "string" || email.length === 0 || email.length > 254) {
+    return false;
+  }
+  const at = email.indexOf("@");
+  if (at <= 0 || at !== email.lastIndexOf("@")) return false;
+  const local = email.slice(0, at);
+  const domain = email.slice(at + 1);
+  if (!local || !domain || local.length > 64) return false;
+  for (let i = 0; i < email.length; i += 1) {
+    const code = email.charCodeAt(i);
+    // Reject ASCII whitespace and other C0 controls / DEL.
+    if (code <= 32 || code === 127) return false;
+  }
+  const dot = domain.lastIndexOf(".");
+  if (dot <= 0 || dot >= domain.length - 1) return false;
+  return true;
 }
 
 export function isValidPassword(password: string) {
