@@ -1,72 +1,8 @@
-import type { Metadata } from "next";
-import { MarketingLayout } from "@/components/design-system/MarketingLayout";
-import { LovableHomeContent } from "@/components/marketing/LovableHomeContent";
-import { getPublicAuthAction } from "@/lib/publicAuthAction";
-import { isGoogleOAuthConfigured } from "@/lib/googleOAuth";
-
-const description =
-  "BehalfID gives every AI agent an identity, clear permissions and approval rules — and learns from human approval decisions so control gets more precise over time.";
-
-export const homepageMetadata: Metadata = {
-  title: "BehalfID — Give AI agents freedom, keep their authority controlled",
-  description,
-  alternates: { canonical: "/" },
-  robots: { index: true, follow: true },
-  openGraph: {
-    title: "BehalfID — Give AI agents freedom, keep their authority controlled",
-    description,
-    url: "https://behalfid.com",
-    siteName: "BehalfID",
-    type: "website"
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "BehalfID — Give AI agents freedom, keep their authority controlled",
-    description
-  }
-};
-
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@graph": [
-    {
-      "@type": "Organization",
-      "@id": "https://behalfid.com/#organization",
-      name: "BehalfID",
-      url: "https://behalfid.com",
-      description
-    },
-    {
-      "@type": "WebSite",
-      "@id": "https://behalfid.com/#website",
-      name: "BehalfID",
-      url: "https://behalfid.com",
-      description,
-      publisher: { "@id": "https://behalfid.com/#organization" },
-      datePublished: "2026-05-03",
-      dateModified: "2026-08-02"
-    }
-  ]
-};
-
-export async function MarketingHomePage() {
-  const authAction = await getPublicAuthAction();
-  let googleEnabled = false;
-  try {
-    googleEnabled = isGoogleOAuthConfigured();
-  } catch {
-    googleEnabled = false;
-  }
-
-  return (
-    <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
-      <MarketingLayout authAction={authAction} googleEnabled={googleEnabled}>
-        <LovableHomeContent />
-      </MarketingLayout>
-    </>
-  );
-}
+/**
+ * Compatibility re-export.
+ *
+ * The live homepage lives in `components/marketing/MarketingHomePage.tsx`.
+ * This file remains so historical import paths cannot revive the legacy
+ * split-hero marketing composition.
+ */
+export { MarketingHomePage, homepageMetadata } from "@/components/marketing/MarketingHomePage";

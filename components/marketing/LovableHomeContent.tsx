@@ -208,7 +208,7 @@ export function LovableHomeContent() {
               className="inline-flex items-center gap-2 ds-text-15 text-primary hover:underline"
               onClick={crossAppClickHandler("/login")}
             >
-              Open the dashboard <ArrowRight className="size-4" aria-hidden />
+              Open the console <ArrowRight className="size-4" aria-hidden />
             </Link>
           </div>
           <DashboardShowcase className="canvas-light mt-16" />
@@ -260,8 +260,7 @@ export function LovableHomeContent() {
             {[
               ["Evaluated before execution", "Every sensitive action is decided before it can take effect."],
               ["Scoped, single-use approvals", "An approval covers one request and expires on its own."],
-              ["Decision logs", "Allowed, denied or approved — with who decided, the policy path, and why."],
-              ["Managed profiles", "Reusable controls for coding agents at the tool boundary, including pause and required modes."],
+              ["Every decision recorded", "Allowed, denied or approved — with who decided and why."],
               ["No inherited authority", "Agents never receive more reach than they were granted."]
             ].map(([k, v]) => (
               <div

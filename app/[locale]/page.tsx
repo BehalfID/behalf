@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { setRequestLocale } from "next-intl/server";
-import { MarketingHomePage, homepageMetadata } from "@/components/marketing-v2/MarketingHomePage";
+import { MarketingHomePage, homepageMetadata } from "@/components/marketing/MarketingHomePage";
 import { routing } from "@/i18n/routing";
 
 export function generateStaticParams() {

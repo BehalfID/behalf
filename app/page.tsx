@@ -1,4 +1,4 @@
-import { MarketingHomePage, homepageMetadata } from "@/components/marketing-v2/MarketingHomePage";
+import { MarketingHomePage, homepageMetadata } from "@/components/marketing/MarketingHomePage";
 
 export const metadata = homepageMetadata;
 

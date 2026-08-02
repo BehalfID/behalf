@@ -7,11 +7,18 @@ import { Wordmark } from "@/components/design-system/brand";
 import { ArrowRight, Menu, X } from "@/components/design-system/icons";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { LanguageSwitcher } from "@/components/ui";
-import { ContinueWithGoogle } from "@/components/auth/ContinueWithGoogle";
 import { cn } from "@/lib/cn";
 import { crossAppClickHandler } from "@/lib/subdomainRouting";
 import type { PublicAuthAction } from "@/lib/publicAuthAction";
 
+/**
+ * Lovable marketing header port.
+ * Source: agent-gatekeeper-suite `src/components/layouts/marketing-layout.tsx`
+ *
+ * Adapted only for Next.js Link, production routes, locale switcher, and
+ * authenticated Dashboard label. Google OAuth stays on /login and /signup —
+ * not in marketing chrome — so the header matches Lovable presentation.
+ */
 const nav = [
   { label: "Product", href: "/#product", primary: true },
   { label: "Adaptive engine", href: "/adaptive-engine", primary: true },
@@ -34,18 +41,19 @@ function isCurrentPath(pathname: string, href: string) {
 
 export function MarketingHeader({
   authAction,
-  googleEnabled = false,
+  googleEnabled: _googleEnabled = false,
   className
 }: {
   authAction: PublicAuthAction;
+  /** @deprecated Kept for call-site compatibility; marketing chrome does not show Google. */
   googleEnabled?: boolean;
   className?: string;
 }) {
+  void _googleEnabled;
   const pathname = normalizePublicPath(usePathname());
   const [open, setOpen] = useState(false);
   const hamburgerRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
-  const showGoogle = googleEnabled && !authAction.isAuthenticated;
 
   function closeDrawer() {
     setOpen(false);
@@ -120,15 +128,6 @@ export function MarketingHeader({
           <Link href={authHref} className="ds-header__ghost" onClick={crossAppClickHandler(authHref)}>
             {authLabel}
           </Link>
-          {showGoogle ? (
-            <ContinueWithGoogle
-              className="ds-header__google"
-              label="Google"
-              mode="login"
-              size="small"
-              variant="outline"
-            />
-          ) : null}
           <Link href="/signup" className="ds-header__cta" onClick={crossAppClickHandler("/signup")}>
             Start building
             <ArrowRight className="size-3.5" aria-hidden />
@@ -172,15 +171,6 @@ export function MarketingHeader({
             </Link>
             <ThemeToggle allowSystem />
           </div>
-          {showGoogle ? (
-            <ContinueWithGoogle
-              label="Continue with Google"
-              mode="login"
-              onClick={closeDrawer}
-              size="large"
-              variant="outline"
-            />
-          ) : null}
           <Link
             href="/signup"
             className="ds-header__cta mt-2 justify-center"

@@ -9,7 +9,7 @@ function source(path: string) {
 describe("canonical homepage product showcase", () => {
   const rootHomeSource = source("app/page.tsx");
   const localeHomeSource = source("app/[locale]/page.tsx");
-  const marketingHomeSource = source("components/marketing-v2/MarketingHomePage.tsx");
+  const marketingHomeSource = source("components/marketing/MarketingHomePage.tsx");
   const lovableHomeSource = source("components/marketing/LovableHomeContent.tsx");
 
   it("uses one shared homepage implementation for root and locale routes", () => {
@@ -19,8 +19,8 @@ describe("canonical homepage product showcase", () => {
     expect(marketingHomeSource).toContain("MarketingLayout");
   });
 
-  it("keeps the approved consolidated product capabilities", () => {
-    for (const capability of ["Permissions", "Approvals", "Decision logs", "Managed profiles"]) {
+  it("keeps Lovable product capability sections on the homepage", () => {
+    for (const capability of ["Permissions", "Approvals", "Every decision recorded", "Identity"]) {
       expect(lovableHomeSource).toContain(capability);
     }
   });

@@ -13,11 +13,12 @@ describe("lovable marketing phase 2", () => {
   });
 
   it("replaces the homepage with Lovable marketing content under .ds", () => {
-    const home = source("components/marketing-v2/MarketingHomePage.tsx");
+    const home = source("components/marketing/MarketingHomePage.tsx");
     expect(home).toContain("MarketingLayout");
     expect(home).toContain("LovableHomeContent");
     expect(home).toContain("application/ld+json");
     expect(home).not.toContain("HeroAuthorizationDemo");
+    expect(source("app/page.tsx")).toContain('from "@/components/marketing/MarketingHomePage"');
   });
 
   it("adds pricing, adaptive-engine, and contact routes with metadata", () => {

@@ -9,7 +9,7 @@ function source(path: string) {
 
 describe("system-aware homepage theme", () => {
   const layoutSource = source("app/layout.tsx");
-  const homeSource = source("components/marketing-v2/MarketingHomePage.tsx");
+  const homeSource = source("components/marketing/MarketingHomePage.tsx");
   const headerSource = source("components/design-system/MarketingHeader.tsx");
   const globalCss = source("app/globals.css");
 

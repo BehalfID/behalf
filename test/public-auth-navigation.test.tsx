@@ -101,7 +101,9 @@ describe("public navigation integration", () => {
     expect(publicNavWrapper).toContain("getPublicAuthAction");
     expect(publicNavClient).toContain("MarketingHeader");
     expect(marketingHeader).toContain("authAction");
-    expect(marketingHeader).toContain("ContinueWithGoogle");
+    expect(marketingHeader).toContain("Sign in");
+    expect(marketingHeader).toContain("Start building");
+    expect(marketingHeader).not.toContain("ContinueWithGoogle");
     expect(occurrenceCount(marketingHeader, "authHref")).toBeGreaterThanOrEqual(1);
   });
 
@@ -114,7 +116,7 @@ describe("public navigation integration", () => {
   });
 
   it("keeps homepage and docs shells wired to navigation", () => {
-    expect(source("components/marketing-v2/MarketingHomePage.tsx")).toContain("MarketingLayout");
+    expect(source("components/marketing/MarketingHomePage.tsx")).toContain("MarketingLayout");
     expect(source("app/docs/content.tsx")).toContain("<DocsLayout>");
     expect(source("app/[locale]/docs/content.tsx")).toContain("<DocsLayout>");
   });
@@ -125,9 +127,10 @@ describe("public navigation integration", () => {
     expect(home).toContain("Start building");
   });
 
-  it("surfaces Google OAuth from server-configured homepage and public nav", () => {
-    expect(source("components/marketing-v2/MarketingHomePage.tsx")).toContain("isGoogleOAuthConfigured");
+  it("keeps Google OAuth on auth entry points, not marketing chrome", () => {
     expect(source("components/layout/PublicNav.tsx")).toContain("isGoogleOAuthConfigured");
-    expect(source("components/design-system/MarketingHeader.tsx")).toContain("ContinueWithGoogle");
+    expect(source("components/design-system/MarketingHeader.tsx")).not.toContain("ContinueWithGoogle");
+    expect(source("components/marketing/LovableHomeContent.tsx")).not.toContain("ContinueWithGoogle");
+    expect(source("components/marketing/MarketingHomePage.tsx")).not.toContain("isGoogleOAuthConfigured");
   });
 });

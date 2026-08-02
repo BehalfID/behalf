@@ -1,0 +1,539 @@
+{
+  "base": "http://127.0.0.1:3000",
+  "passed": 133,
+  "failed": 0,
+  "findings": [
+    {
+      "ok": true,
+      "message": "1536x960 status=200"
+    },
+    {
+      "ok": true,
+      "message": "1536x960 contains “Give AI agents freedom.”"
+    },
+    {
+      "ok": true,
+      "message": "1536x960 contains “Keep their authority controlled.”"
+    },
+    {
+      "ok": true,
+      "message": "1536x960 contains “Start building”"
+    },
+    {
+      "ok": true,
+      "message": "1536x960 contains “See how it works”"
+    },
+    {
+      "ok": true,
+      "message": "1536x960 contains “Authority for AI agents”"
+    },
+    {
+      "ok": true,
+      "message": "1536x960 excludes “Control what your AI agents are allowed to do.”"
+    },
+    {
+      "ok": true,
+      "message": "1536x960 excludes “Control what your AI Agents are allowed to do.”"
+    },
+    {
+      "ok": true,
+      "message": "1536x960 excludes “Start securing agents”"
+    },
+    {
+      "ok": true,
+      "message": "1536x960 excludes “Continue with Google”"
+    },
+    {
+      "ok": true,
+      "message": "1536x960 excludes “Read the technical overview”"
+    },
+    {
+      "ok": true,
+      "message": "1536x960 excludes “Verify-before-execute”"
+    },
+    {
+      "ok": true,
+      "message": "1536x960 excludes “Human approval gates”"
+    },
+    {
+      "ok": true,
+      "message": "1536x960 excludes “Google SSO for teams”"
+    },
+    {
+      "ok": true,
+      "message": "1536x960 excludes “Auditable decision records”"
+    },
+    {
+      "ok": true,
+      "message": "1536x960 authority-flow canvas present"
+    },
+    {
+      "ok": true,
+      "message": "1536x960 h1=\"Give AI agents freedom. Keep their authority controlled.\""
+    },
+    {
+      "ok": true,
+      "message": "1536x960 header has no Enterprise"
+    },
+    {
+      "ok": true,
+      "message": "1536x960 header has Start building"
+    },
+    {
+      "ok": true,
+      "message": "1440x900 status=200"
+    },
+    {
+      "ok": true,
+      "message": "1440x900 contains “Give AI agents freedom.”"
+    },
+    {
+      "ok": true,
+      "message": "1440x900 contains “Keep their authority controlled.”"
+    },
+    {
+      "ok": true,
+      "message": "1440x900 contains “Start building”"
+    },
+    {
+      "ok": true,
+      "message": "1440x900 contains “See how it works”"
+    },
+    {
+      "ok": true,
+      "message": "1440x900 contains “Authority for AI agents”"
+    },
+    {
+      "ok": true,
+      "message": "1440x900 excludes “Control what your AI agents are allowed to do.”"
+    },
+    {
+      "ok": true,
+      "message": "1440x900 excludes “Control what your AI Agents are allowed to do.”"
+    },
+    {
+      "ok": true,
+      "message": "1440x900 excludes “Start securing agents”"
+    },
+    {
+      "ok": true,
+      "message": "1440x900 excludes “Continue with Google”"
+    },
+    {
+      "ok": true,
+      "message": "1440x900 excludes “Read the technical overview”"
+    },
+    {
+      "ok": true,
+      "message": "1440x900 excludes “Verify-before-execute”"
+    },
+    {
+      "ok": true,
+      "message": "1440x900 excludes “Human approval gates”"
+    },
+    {
+      "ok": true,
+      "message": "1440x900 excludes “Google SSO for teams”"
+    },
+    {
+      "ok": true,
+      "message": "1440x900 excludes “Auditable decision records”"
+    },
+    {
+      "ok": true,
+      "message": "1440x900 authority-flow canvas present"
+    },
+    {
+      "ok": true,
+      "message": "1440x900 h1=\"Give AI agents freedom. Keep their authority controlled.\""
+    },
+    {
+      "ok": true,
+      "message": "1440x900 header has no Enterprise"
+    },
+    {
+      "ok": true,
+      "message": "1440x900 header has Start building"
+    },
+    {
+      "ok": true,
+      "message": "1280x800 status=200"
+    },
+    {
+      "ok": true,
+      "message": "1280x800 contains “Give AI agents freedom.”"
+    },
+    {
+      "ok": true,
+      "message": "1280x800 contains “Keep their authority controlled.”"
+    },
+    {
+      "ok": true,
+      "message": "1280x800 contains “Start building”"
+    },
+    {
+      "ok": true,
+      "message": "1280x800 contains “See how it works”"
+    },
+    {
+      "ok": true,
+      "message": "1280x800 contains “Authority for AI agents”"
+    },
+    {
+      "ok": true,
+      "message": "1280x800 excludes “Control what your AI agents are allowed to do.”"
+    },
+    {
+      "ok": true,
+      "message": "1280x800 excludes “Control what your AI Agents are allowed to do.”"
+    },
+    {
+      "ok": true,
+      "message": "1280x800 excludes “Start securing agents”"
+    },
+    {
+      "ok": true,
+      "message": "1280x800 excludes “Continue with Google”"
+    },
+    {
+      "ok": true,
+      "message": "1280x800 excludes “Read the technical overview”"
+    },
+    {
+      "ok": true,
+      "message": "1280x800 excludes “Verify-before-execute”"
+    },
+    {
+      "ok": true,
+      "message": "1280x800 excludes “Human approval gates”"
+    },
+    {
+      "ok": true,
+      "message": "1280x800 excludes “Google SSO for teams”"
+    },
+    {
+      "ok": true,
+      "message": "1280x800 excludes “Auditable decision records”"
+    },
+    {
+      "ok": true,
+      "message": "1280x800 authority-flow canvas present"
+    },
+    {
+      "ok": true,
+      "message": "1280x800 h1=\"Give AI agents freedom. Keep their authority controlled.\""
+    },
+    {
+      "ok": true,
+      "message": "1280x800 header has no Enterprise"
+    },
+    {
+      "ok": true,
+      "message": "1280x800 header has Start building"
+    },
+    {
+      "ok": true,
+      "message": "1024x768 status=200"
+    },
+    {
+      "ok": true,
+      "message": "1024x768 contains “Give AI agents freedom.”"
+    },
+    {
+      "ok": true,
+      "message": "1024x768 contains “Keep their authority controlled.”"
+    },
+    {
+      "ok": true,
+      "message": "1024x768 contains “Start building”"
+    },
+    {
+      "ok": true,
+      "message": "1024x768 contains “See how it works”"
+    },
+    {
+      "ok": true,
+      "message": "1024x768 contains “Authority for AI agents”"
+    },
+    {
+      "ok": true,
+      "message": "1024x768 excludes “Control what your AI agents are allowed to do.”"
+    },
+    {
+      "ok": true,
+      "message": "1024x768 excludes “Control what your AI Agents are allowed to do.”"
+    },
+    {
+      "ok": true,
+      "message": "1024x768 excludes “Start securing agents”"
+    },
+    {
+      "ok": true,
+      "message": "1024x768 excludes “Continue with Google”"
+    },
+    {
+      "ok": true,
+      "message": "1024x768 excludes “Read the technical overview”"
+    },
+    {
+      "ok": true,
+      "message": "1024x768 excludes “Verify-before-execute”"
+    },
+    {
+      "ok": true,
+      "message": "1024x768 excludes “Human approval gates”"
+    },
+    {
+      "ok": true,
+      "message": "1024x768 excludes “Google SSO for teams”"
+    },
+    {
+      "ok": true,
+      "message": "1024x768 excludes “Auditable decision records”"
+    },
+    {
+      "ok": true,
+      "message": "1024x768 authority-flow canvas present"
+    },
+    {
+      "ok": true,
+      "message": "1024x768 h1=\"Give AI agents freedom. Keep their authority controlled.\""
+    },
+    {
+      "ok": true,
+      "message": "1024x768 header has no Enterprise"
+    },
+    {
+      "ok": true,
+      "message": "1024x768 header has Start building"
+    },
+    {
+      "ok": true,
+      "message": "768x1024 status=200"
+    },
+    {
+      "ok": true,
+      "message": "768x1024 contains “Give AI agents freedom.”"
+    },
+    {
+      "ok": true,
+      "message": "768x1024 contains “Keep their authority controlled.”"
+    },
+    {
+      "ok": true,
+      "message": "768x1024 contains “Start building”"
+    },
+    {
+      "ok": true,
+      "message": "768x1024 contains “See how it works”"
+    },
+    {
+      "ok": true,
+      "message": "768x1024 contains “Authority for AI agents”"
+    },
+    {
+      "ok": true,
+      "message": "768x1024 excludes “Control what your AI agents are allowed to do.”"
+    },
+    {
+      "ok": true,
+      "message": "768x1024 excludes “Control what your AI Agents are allowed to do.”"
+    },
+    {
+      "ok": true,
+      "message": "768x1024 excludes “Start securing agents”"
+    },
+    {
+      "ok": true,
+      "message": "768x1024 excludes “Continue with Google”"
+    },
+    {
+      "ok": true,
+      "message": "768x1024 excludes “Read the technical overview”"
+    },
+    {
+      "ok": true,
+      "message": "768x1024 excludes “Verify-before-execute”"
+    },
+    {
+      "ok": true,
+      "message": "768x1024 excludes “Human approval gates”"
+    },
+    {
+      "ok": true,
+      "message": "768x1024 excludes “Google SSO for teams”"
+    },
+    {
+      "ok": true,
+      "message": "768x1024 excludes “Auditable decision records”"
+    },
+    {
+      "ok": true,
+      "message": "768x1024 authority-flow canvas present"
+    },
+    {
+      "ok": true,
+      "message": "768x1024 h1=\"Give AI agents freedom. Keep their authority controlled.\""
+    },
+    {
+      "ok": true,
+      "message": "768x1024 header has no Enterprise"
+    },
+    {
+      "ok": true,
+      "message": "768x1024 header has Start building"
+    },
+    {
+      "ok": true,
+      "message": "430x932 status=200"
+    },
+    {
+      "ok": true,
+      "message": "430x932 contains “Give AI agents freedom.”"
+    },
+    {
+      "ok": true,
+      "message": "430x932 contains “Keep their authority controlled.”"
+    },
+    {
+      "ok": true,
+      "message": "430x932 contains “Start building”"
+    },
+    {
+      "ok": true,
+      "message": "430x932 contains “See how it works”"
+    },
+    {
+      "ok": true,
+      "message": "430x932 contains “Authority for AI agents”"
+    },
+    {
+      "ok": true,
+      "message": "430x932 excludes “Control what your AI agents are allowed to do.”"
+    },
+    {
+      "ok": true,
+      "message": "430x932 excludes “Control what your AI Agents are allowed to do.”"
+    },
+    {
+      "ok": true,
+      "message": "430x932 excludes “Start securing agents”"
+    },
+    {
+      "ok": true,
+      "message": "430x932 excludes “Continue with Google”"
+    },
+    {
+      "ok": true,
+      "message": "430x932 excludes “Read the technical overview”"
+    },
+    {
+      "ok": true,
+      "message": "430x932 excludes “Verify-before-execute”"
+    },
+    {
+      "ok": true,
+      "message": "430x932 excludes “Human approval gates”"
+    },
+    {
+      "ok": true,
+      "message": "430x932 excludes “Google SSO for teams”"
+    },
+    {
+      "ok": true,
+      "message": "430x932 excludes “Auditable decision records”"
+    },
+    {
+      "ok": true,
+      "message": "430x932 authority-flow canvas present"
+    },
+    {
+      "ok": true,
+      "message": "430x932 h1=\"Give AI agents freedom. Keep their authority controlled.\""
+    },
+    {
+      "ok": true,
+      "message": "430x932 header has no Enterprise"
+    },
+    {
+      "ok": true,
+      "message": "430x932 header has Start building"
+    },
+    {
+      "ok": true,
+      "message": "390x844 status=200"
+    },
+    {
+      "ok": true,
+      "message": "390x844 contains “Give AI agents freedom.”"
+    },
+    {
+      "ok": true,
+      "message": "390x844 contains “Keep their authority controlled.”"
+    },
+    {
+      "ok": true,
+      "message": "390x844 contains “Start building”"
+    },
+    {
+      "ok": true,
+      "message": "390x844 contains “See how it works”"
+    },
+    {
+      "ok": true,
+      "message": "390x844 contains “Authority for AI agents”"
+    },
+    {
+      "ok": true,
+      "message": "390x844 excludes “Control what your AI agents are allowed to do.”"
+    },
+    {
+      "ok": true,
+      "message": "390x844 excludes “Control what your AI Agents are allowed to do.”"
+    },
+    {
+      "ok": true,
+      "message": "390x844 excludes “Start securing agents”"
+    },
+    {
+      "ok": true,
+      "message": "390x844 excludes “Continue with Google”"
+    },
+    {
+      "ok": true,
+      "message": "390x844 excludes “Read the technical overview”"
+    },
+    {
+      "ok": true,
+      "message": "390x844 excludes “Verify-before-execute”"
+    },
+    {
+      "ok": true,
+      "message": "390x844 excludes “Human approval gates”"
+    },
+    {
+      "ok": true,
+      "message": "390x844 excludes “Google SSO for teams”"
+    },
+    {
+      "ok": true,
+      "message": "390x844 excludes “Auditable decision records”"
+    },
+    {
+      "ok": true,
+      "message": "390x844 authority-flow canvas present"
+    },
+    {
+      "ok": true,
+      "message": "390x844 h1=\"Give AI agents freedom. Keep their authority controlled.\""
+    },
+    {
+      "ok": true,
+      "message": "390x844 header has no Enterprise"
+    },
+    {
+      "ok": true,
+      "message": "390x844 header has Start building"
+    }
+  ]
+}

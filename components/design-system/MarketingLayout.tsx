@@ -18,6 +18,7 @@ export function MarketingLayout({
 }: {
   children: ReactNode;
   authAction: PublicAuthAction;
+  /** @deprecated Marketing chrome no longer surfaces Google; kept for call-site compatibility. */
   googleEnabled?: boolean;
   showEnding?: boolean;
 }) {
