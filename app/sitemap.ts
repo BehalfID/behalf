@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 
 const baseUrl = "https://behalfid.com";
-const lastModified = new Date("2026-07-16T00:00:00.000Z");
+const lastModified = new Date("2026-08-02T00:00:00.000Z");
 
 const routes: Array<{
   path: string;
@@ -9,6 +9,9 @@ const routes: Array<{
   priority: number;
 }> = [
   { path: "/", changeFrequency: "weekly", priority: 1 },
+  { path: "/pricing", changeFrequency: "weekly", priority: 0.9 },
+  { path: "/adaptive-engine", changeFrequency: "weekly", priority: 0.9 },
+  { path: "/contact", changeFrequency: "monthly", priority: 0.7 },
   { path: "/blog", changeFrequency: "weekly", priority: 0.88 },
   { path: "/blog/the-decision-packet", changeFrequency: "monthly", priority: 0.75 },
   { path: "/blog/fail-closed-agent-enforcement", changeFrequency: "monthly", priority: 0.75 },

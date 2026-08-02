@@ -312,7 +312,23 @@ describe("postgres schema (static)", () => {
   });
 
   it("isPostgresConfigured is false without env vars in test", () => {
-    expect(isPostgresConfigured()).toBe(false);
+    const previous = {
+      DATABASE_URL: process.env.DATABASE_URL,
+      POSTGRES_URL: process.env.POSTGRES_URL,
+      POSTGRES_PRISMA_URL: process.env.POSTGRES_PRISMA_URL
+    };
+    try {
+      delete process.env.DATABASE_URL;
+      delete process.env.POSTGRES_URL;
+      delete process.env.POSTGRES_PRISMA_URL;
+      expect(isPostgresConfigured()).toBe(false);
+    } finally {
+      if (previous.DATABASE_URL !== undefined) process.env.DATABASE_URL = previous.DATABASE_URL;
+      if (previous.POSTGRES_URL !== undefined) process.env.POSTGRES_URL = previous.POSTGRES_URL;
+      if (previous.POSTGRES_PRISMA_URL !== undefined) {
+        process.env.POSTGRES_PRISMA_URL = previous.POSTGRES_PRISMA_URL;
+      }
+    }
   });
 });
 

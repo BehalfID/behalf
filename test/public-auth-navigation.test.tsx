@@ -4,7 +4,6 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { PublicAuthAction } from "@/components/layout/PublicAuthAction";
-import { MarketingNavbarClient } from "@/components/marketing-v2/MarketingNavbarClient";
 import {
   createPublicAuthAction,
   getPublicAuthAction,
@@ -68,18 +67,6 @@ describe("public authentication actions", () => {
     expect(sessionMocks.getCurrentDeveloper).toHaveBeenCalledOnce();
   });
 
-  it("renders the authenticated homepage navbar without a Sign in action", () => {
-    const html = renderToStaticMarkup(
-      createElement(MarketingNavbarClient, {
-        authAction: createPublicAuthAction(true)
-      })
-    );
-
-    expect(html).toContain("To Dashboard");
-    expect(html).not.toContain("Sign in");
-    expect(html).toContain("Start securing agents");
-  });
-
   it("applies the same authenticated destination to public-page login CTAs", () => {
     expect(createPublicAuthAction(false, "Log In")).toMatchObject({
       href: "/login",
@@ -106,18 +93,16 @@ describe("public authentication actions", () => {
 describe("public navigation integration", () => {
   const publicNavWrapper = source("components/layout/PublicNav.tsx");
   const publicNavClient = source("components/layout/PublicNavClient.tsx");
-  const marketingWrapper = source("components/marketing-v2/MarketingNavbar.tsx");
-  const marketingClient = source("components/marketing-v2/MarketingNavbarClient.tsx");
+  const marketingHeader = source("components/design-system/MarketingHeader.tsx");
   const docsWrapper = source("components/layout/DocsLayout.tsx");
   const docsClient = source("components/layout/DocsLayoutClient.tsx");
 
-  it("uses one server-resolved action for desktop and mobile public navigation", () => {
+  it("uses one server-resolved action for the Lovable public header", () => {
     expect(publicNavWrapper).toContain("getPublicAuthAction");
-    expect(marketingWrapper).toContain("getPublicAuthAction");
-    expect(occurrenceCount(publicNavClient, "<PublicAuthAction")).toBe(2);
-    expect(occurrenceCount(marketingClient, "<PublicAuthAction")).toBe(2);
-    expect(publicNavClient).toContain("onClick={close}");
-    expect(marketingClient).toContain("onClick={() => setOpen(false)}");
+    expect(publicNavClient).toContain("MarketingHeader");
+    expect(marketingHeader).toContain("authAction");
+    expect(marketingHeader).toContain("ContinueWithGoogle");
+    expect(occurrenceCount(marketingHeader, "authHref")).toBeGreaterThanOrEqual(1);
   });
 
   it("keeps docs on the shared server-resolved action", () => {
@@ -128,26 +113,21 @@ describe("public navigation integration", () => {
     expect(docsClient).toContain("useTranslations(\"docs\")");
   });
 
-  it("keeps homepage and docs shells wired to their existing navigation", () => {
-    expect(source("components/marketing-v2/MarketingHomePage.tsx")).toContain("<MarketingNavbar");
+  it("keeps homepage and docs shells wired to navigation", () => {
+    expect(source("components/marketing-v2/MarketingHomePage.tsx")).toContain("MarketingLayout");
     expect(source("app/docs/content.tsx")).toContain("<DocsLayout>");
     expect(source("app/[locale]/docs/content.tsx")).toContain("<DocsLayout>");
   });
 
-  it("does not turn the final homepage CTA into a login action", () => {
-    const finalCta = source("components/marketing-v2/FinalCTA.tsx");
-
-    expect(finalCta).toContain('href="/signup"');
-    expect(finalCta).not.toContain('href="/login"');
-    expect(finalCta).not.toContain("To Dashboard");
+  it("keeps primary homepage CTA on signup, not login", () => {
+    const home = source("components/marketing/LovableHomeContent.tsx");
+    expect(home).toContain('href="/signup"');
+    expect(home).toContain("Start building");
   });
 
   it("surfaces Google OAuth from server-configured homepage and public nav", () => {
     expect(source("components/marketing-v2/MarketingHomePage.tsx")).toContain("isGoogleOAuthConfigured");
-    expect(source("components/marketing-v2/HeroAuthorizationDemo.tsx")).toContain("ContinueWithGoogle");
-    expect(source("components/marketing-v2/FinalCTA.tsx")).toContain("ContinueWithGoogle");
-    expect(source("components/marketing-v2/MarketingNavbarClient.tsx")).toContain("ContinueWithGoogle");
     expect(source("components/layout/PublicNav.tsx")).toContain("isGoogleOAuthConfigured");
-    expect(source("components/layout/PublicNavClient.tsx")).toContain("ContinueWithGoogle");
+    expect(source("components/design-system/MarketingHeader.tsx")).toContain("ContinueWithGoogle");
   });
 });

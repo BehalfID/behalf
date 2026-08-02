@@ -691,6 +691,11 @@ html:not(.dark):not([data-theme="dark"]) .ds .canvas-light {
   color: var(--color-foreground, var(--foreground));
 }
 
+html.ds-nav-lock,
+html.ds-nav-lock body {
+  overflow: hidden;
+}
+
 .ds-footer {
   background: var(--color-background, var(--background));
   color: var(--color-foreground, var(--foreground));

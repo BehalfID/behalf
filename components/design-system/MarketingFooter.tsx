@@ -1,12 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import { Wordmark } from "@/components/design-system/brand";
 import { cn } from "@/lib/cn";
+import { crossAppClickHandler } from "@/lib/subdomainRouting";
 
-/**
- * Lovable marketing footer shell (IA + presentation).
- * Contact/pricing/adaptive-engine destinations land in Phase 2.
- * Legal links preserve production routes.
- */
 const columns = [
   {
     title: "Product",
@@ -20,8 +18,9 @@ const columns = [
     title: "Developers",
     links: [
       { label: "Quickstart", href: "/docs/quickstart" },
-      { label: "Status", href: "/status" },
-      { label: "API", href: "/docs/api" }
+      { label: "API", href: "/docs/api" },
+      { label: "SDK", href: "/docs/sdk" },
+      { label: "Status", href: "/status" }
     ]
   },
   {
@@ -46,26 +45,39 @@ const columns = [
 export function MarketingFooter({ className }: { className?: string }) {
   return (
     <footer className={cn("ds ds-footer env-ink dark", className)}>
-      <div className="ds-footer__inner">
-        <div>
-          <Wordmark />
-          <p className="ds-footer__tagline">Identity and authority for AI agents.</p>
-          <p className="ds-footer__meta">© {new Date().getFullYear()} BehalfID</p>
-        </div>
-        <nav className="ds-footer__cols" aria-label="Footer">
+      <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8">
+        <div className="grid gap-10 md:grid-cols-[1.6fr_repeat(4,1fr)]">
+          <div>
+            <Wordmark className="text-[17px]" />
+            <p className="mt-4 max-w-[24ch] text-sm leading-relaxed text-muted-foreground">
+              Identity and authority for AI agents.
+            </p>
+          </div>
           {columns.map((column) => (
             <div key={column.title}>
-              <h5>{column.title}</h5>
-              <ul>
+              <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {column.title}
+              </h2>
+              <ul className="mt-3 space-y-2">
                 {column.links.map((link) => (
                   <li key={link.href + link.label}>
-                    <Link href={link.href}>{link.label}</Link>
+                    <Link
+                      href={link.href}
+                      className="text-sm text-foreground/80 transition-colors hover:text-foreground"
+                      onClick={crossAppClickHandler(link.href)}
+                    >
+                      {link.label}
+                    </Link>
                   </li>
                 ))}
               </ul>
             </div>
           ))}
-        </nav>
+        </div>
+        <div className="mt-14 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+          <span>© {new Date().getFullYear()} BehalfID</span>
+          <a href="mailto:security@behalfid.com">security@behalfid.com</a>
+        </div>
       </div>
     </footer>
   );

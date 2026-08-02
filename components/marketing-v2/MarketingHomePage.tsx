@@ -1,25 +1,19 @@
 import type { Metadata } from "next";
-import styles from "@/app/home-v2/home-v2.module.css";
+import { MarketingLayout } from "@/components/design-system/MarketingLayout";
+import { LovableHomeContent } from "@/components/marketing/LovableHomeContent";
+import { getPublicAuthAction } from "@/lib/publicAuthAction";
 import { isGoogleOAuthConfigured } from "@/lib/googleOAuth";
-import { EnterpriseGovernance } from "./EnterpriseGovernance";
-import { FinalCTA } from "./FinalCTA";
-import { HeroAuthorizationDemo } from "./HeroAuthorizationDemo";
-import { MarketingFooter } from "./MarketingFooter";
-import { MarketingNavbar } from "./MarketingNavbar";
-import { ProblemSection } from "./ProblemSection";
-import { ProductShowcase } from "./ProductShowcase";
-import { TrustStrip } from "./TrustStrip";
 
 const description =
-  "Give every AI agent a distinct identity, scoped permissions, human approval gates, and an auditable record of every attempted action.";
+  "BehalfID gives every AI agent an identity, clear permissions and approval rules — and learns from human approval decisions so control gets more precise over time.";
 
 export const homepageMetadata: Metadata = {
-  title: "BehalfID — Authorization control for AI agents",
+  title: "BehalfID — Give AI agents freedom, keep their authority controlled",
   description,
   alternates: { canonical: "/" },
   robots: { index: true, follow: true },
   openGraph: {
-    title: "BehalfID — Authorization control for AI agents",
+    title: "BehalfID — Give AI agents freedom, keep their authority controlled",
     description,
     url: "https://behalfid.com",
     siteName: "BehalfID",
@@ -27,7 +21,7 @@ export const homepageMetadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "BehalfID — Authorization control for AI agents",
+    title: "BehalfID — Give AI agents freedom, keep their authority controlled",
     description
   }
 };
@@ -50,30 +44,29 @@ const jsonLd = {
       description,
       publisher: { "@id": "https://behalfid.com/#organization" },
       datePublished: "2026-05-03",
-      dateModified: "2026-07-16"
+      dateModified: "2026-08-02"
     }
   ]
 };
 
-export function MarketingHomePage() {
-  const googleEnabled = isGoogleOAuthConfigured();
+export async function MarketingHomePage() {
+  const authAction = await getPublicAuthAction();
+  let googleEnabled = false;
+  try {
+    googleEnabled = isGoogleOAuthConfigured();
+  } catch {
+    googleEnabled = false;
+  }
 
   return (
-    <div className={styles.root}>
+    <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <MarketingNavbar googleEnabled={googleEnabled} />
-      <main id="main-content" tabIndex={-1}>
-        <HeroAuthorizationDemo googleEnabled={googleEnabled} />
-        <TrustStrip />
-        <ProblemSection />
-        <ProductShowcase />
-        <EnterpriseGovernance />
-        <FinalCTA googleEnabled={googleEnabled} />
-      </main>
-      <MarketingFooter />
-    </div>
+      <MarketingLayout authAction={authAction} googleEnabled={googleEnabled}>
+        <LovableHomeContent />
+      </MarketingLayout>
+    </>
   );
 }

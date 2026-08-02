@@ -68,20 +68,14 @@ describe("lovable design-system port", () => {
     }
   });
 
-  it("keeps header/footer shells exported but not wired into live public chrome", () => {
-    const publicNav = source("components/layout/PublicNav.tsx");
+  it("wires header/footer shells into live public chrome with .ds opt-in", () => {
     const publicNavClient = source("components/layout/PublicNavClient.tsx");
     const publicFooter = source("components/layout/PublicFooter.tsx");
-    const marketingHome = source("components/marketing-v2/MarketingHomePage.tsx");
     const header = source("components/design-system/MarketingHeader.tsx");
     const footer = source("components/design-system/MarketingFooter.tsx");
 
-    expect(publicNav).not.toContain("design-system/MarketingHeader");
-    expect(publicNavClient).not.toContain("design-system/MarketingHeader");
-    expect(publicFooter).not.toContain("design-system/MarketingFooter");
-    expect(marketingHome).not.toContain("design-system/MarketingFooter");
-    expect(marketingHome).toContain('from "./MarketingFooter"');
-
+    expect(publicNavClient).toContain("MarketingHeader");
+    expect(publicFooter).toContain("MarketingFooter");
     expect(header).toContain('className={cn("ds ds-header');
     expect(footer).toContain('className={cn("ds ds-footer');
     expect(header).toContain("/adaptive-engine");

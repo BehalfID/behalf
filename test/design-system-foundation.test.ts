@@ -160,7 +160,9 @@ describe("design-system foundation", () => {
     expect(homeSource).toContain("MarketingHomePage");
     expect(localeHomeSource).toContain("MarketingHomePage");
     expect(marketingHomeSource).not.toContain("ui-theme-light");
-    expect(marketingHomeSource).toContain('id="main-content"');
+    expect(marketingHomeSource).toContain("MarketingLayout");
+    expect(marketingHomeSource).toContain("LovableHomeContent");
+    expect(source("components/design-system/MarketingLayout.tsx")).toContain('id="main-content"');
     expect(marketingHomeSource).not.toMatch(/preview|production is unchanged/i);
     expect(redirectSource).toContain('permanentRedirect("/")');
     expect(homeCss).not.toContain("--v2-");
