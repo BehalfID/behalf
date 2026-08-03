@@ -144,7 +144,10 @@ function migrationSqlPaths(): string[] {
     join(process.cwd(), "drizzle/0008_passkeys_auth_usage.sql"),
     join(process.cwd(), "drizzle/0009_console_auth_audit_tables.sql"),
     join(process.cwd(), "drizzle/0010_developer_user_mfa.sql"),
-    join(process.cwd(), "drizzle/0011_adaptive_delegation.sql")
+    join(process.cwd(), "drizzle/0011_adaptive_delegation.sql"),
+    join(process.cwd(), "drizzle/0012_reauth_proofs.sql"),
+    join(process.cwd(), "drizzle/0013_agent_provider_ollama.sql"),
+    join(process.cwd(), "drizzle/0014_agent_ollama_runtime.sql")
   ];
 }
 
