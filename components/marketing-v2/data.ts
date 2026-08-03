@@ -235,12 +235,14 @@ export const DEV_INTEGRATIONS: DevIntegration[] = [
     codeLabel: "terminal",
     href: "/docs/cli",
     code: [
-      [{ type: "comment", text: "# Wire enforcement into the agent's tools" }],
+      [{ type: "comment", text: "# Advisory MCP + local context" }],
       [{ type: "plain", text: "behalf mcp init" }],
       [],
-      [{ type: "comment", text: "# Writes .mcp.json + agent context so tool" }],
-      [{ type: "comment", text: "# calls are verified at the MCP boundary —" }],
-      [{ type: "comment", text: "# not inside the model's memory." }],
+      [{ type: "comment", text: "# Hard-enforce other stdio MCP servers" }],
+      [{ type: "plain", text: "behalf mcp audit" }],
+      [{ type: "plain", text: "npx -y @behalfid/install --wrap" }],
+      [],
+      [{ type: "comment", text: "# Action-time hooks for shell/file tools" }],
       [{ type: "plain", text: "behalf claude" }]
     ]
   },

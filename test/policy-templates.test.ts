@@ -9,8 +9,8 @@ import {
 } from "@/lib/policyTemplates";
 
 describe("POLICY_TEMPLATES", () => {
-  it("exports exactly 8 templates", () => {
-    expect(POLICY_TEMPLATES).toHaveLength(8);
+  it("exports exactly 11 templates", () => {
+    expect(POLICY_TEMPLATES).toHaveLength(11);
   });
 
   it("every template has required fields", () => {
@@ -298,6 +298,8 @@ describe("getPolicyTemplatesByCategory", () => {
     expect(grouped.payment).toBeDefined();
     expect(grouped.communication).toBeDefined();
     expect(grouped.browser).toBeDefined();
+    expect(grouped.mcp).toBeDefined();
+    expect(grouped.mcp.length).toBeGreaterThanOrEqual(3);
   });
 });
 
@@ -321,7 +323,10 @@ describe("no misleading integrations", () => {
       "stripe.com/test",
       "stripe.com/live",
       "email",
-      "web"
+      "web",
+      "mcp:*",
+      "mcp:filesystem:*",
+      "mcp:github:*"
     ]);
     for (const t of POLICY_TEMPLATES) {
       for (const p of t.permissions) {

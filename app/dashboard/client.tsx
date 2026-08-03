@@ -10,6 +10,7 @@ import { DecisionIndicator } from "@/components/dashboard/OpsEventPrimitives";
 import { FirstAgentSetup } from "@/components/dashboard/first-agent/FirstAgentSetup";
 import { ManagedProfilesView } from "@/components/dashboard/ManagedProfilesView";
 import { ManagedProfileActivityView } from "@/components/dashboard/ManagedProfileActivityView";
+import { McpEcosystemView } from "@/components/dashboard/McpEcosystemView";
 import { OpsInboxConsole } from "@/components/dashboard/OpsInboxConsole";
 import {
   DeliveryStatusBadge,
@@ -491,7 +492,7 @@ export function DashboardViews({
   emailVerified = true,
   showSetupBanner = false
 }: {
-  view: "home" | "onboarding" | "first-agent" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "inbox" | "docs" | "settings" | "managed-profiles" | "managed-profiles-activity" | "adaptive-delegation";
+  view: "home" | "onboarding" | "first-agent" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "inbox" | "docs" | "settings" | "managed-profiles" | "managed-profiles-activity" | "adaptive-delegation" | "mcp";
   id?: string;
   emailVerified?: boolean;
   showSetupBanner?: boolean;
@@ -528,6 +529,7 @@ export function DashboardViews({
         {view === "managed-profiles" ? <ManagedProfilesView /> : null}
         {view === "managed-profiles-activity" ? <ManagedProfileActivityView /> : null}
         {view === "adaptive-delegation" ? <AdaptiveDelegationConsole /> : null}
+        {view === "mcp" ? <McpEcosystemView /> : null}
     </Fragment>
   );
 }
@@ -538,7 +540,7 @@ export function DashboardShell({
   emailVerified = true,
   showSetupBanner = false
 }: {
-  view: "home" | "onboarding" | "first-agent" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "inbox" | "docs" | "settings" | "managed-profiles" | "managed-profiles-activity" | "adaptive-delegation";
+  view: "home" | "onboarding" | "first-agent" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "inbox" | "docs" | "settings" | "managed-profiles" | "managed-profiles-activity" | "adaptive-delegation" | "mcp";
   id?: string;
   emailVerified?: boolean;
   showSetupBanner?: boolean;
@@ -2298,20 +2300,29 @@ ${regularPassportUrl || "[passport link]"}`;
             </Card>
             <Card className="dashboard-panel">
               <h2>Connect your AI tool</h2>
-              <p>After authenticating, launch your AI with BehalfID enforcement active.</p>
+              <p>Use all three layers for full coverage: advisory MCP, hard wrap for other MCP servers, and action-time hooks for local shell/file tools.</p>
               <div className="sdk-connect-tools">
                 <div className="sdk-connect-tool">
                   <strong>Claude Code</strong>
                   <CodeBlock label="terminal">behalf claude</CodeBlock>
+                  <p className="field-help">Installs the PreToolUse hook (action-time gate) and advisory MCP context.</p>
                 </div>
                 <div className="sdk-connect-tool">
                   <strong>Codex CLI</strong>
                   <CodeBlock label="terminal">behalf codex</CodeBlock>
                 </div>
                 <div className="sdk-connect-tool">
-                  <strong>Gemini / other tools</strong>
+                  <strong>Advisory MCP (any host)</strong>
                   <CodeBlock label="terminal">behalf mcp init</CodeBlock>
-                  <p className="field-help">Generates a <code>.mcp.json</code> and injects the BehalfID context into your agent config file. Open Gemini or your IDE with that config active.</p>
+                  <p className="field-help">Writes <code>.mcp.json</code> + context. Advisory only — does not intercept other MCP tools.</p>
+                </div>
+                <div className="sdk-connect-tool">
+                  <strong>Hard-enforce other MCP servers</strong>
+                  <CodeBlock label="terminal">{`behalf mcp audit\nbehalf mcp wrap --run`}</CodeBlock>
+                  <p className="field-help">
+                    Wrap stdio MCP servers with <code>@behalfid/mcp-runtime</code>, then review scores in{" "}
+                    <Link href={dHref("/dashboard/mcp")}>MCP ecosystem</Link>.
+                  </p>
                 </div>
               </div>
             </Card>

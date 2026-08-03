@@ -34,6 +34,7 @@
     "test:postgres-repositories": "RUN_POSTGRES_REPOSITORY_CONTRACTS=true vitest run test/postgres-repository-contracts.test.ts"
   },
   "dependencies": {
+    "@behalfid/mcp-audit": "file:packages/mcp-audit",
     "@vercel/analytics": "^2.0.1",
     "drizzle-orm": "^0.45.2",
     "jose": "^6.2.3",

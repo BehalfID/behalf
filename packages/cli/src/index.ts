@@ -81,7 +81,10 @@ Examples:
   behalfid profile install                        install managed shims for claude/codex/cursor  // pragma: allowlist secret
   behalfid profile status                         show shim and policy status  // pragma: allowlist secret
   behalfid pause --duration 30m --reason "..."    request a policy-approved pause lease  // pragma: allowlist secret
-  behalfid mcp init                               set up BehalfID enforcement in this directory
+  behalfid mcp init                               set up advisory MCP + context in this directory
+  behalfid mcp audit                              score local MCP config security posture
+  behalfid mcp audit --push                       sync audit score to the dashboard
+  behalfid mcp wrap                               print/run hard-enforcement wrap via install
   behalfid scan                                   inspect repo and suggest BehalfID policies
   behalfid scan --json                            machine-readable policy suggestions
 `

@@ -287,3 +287,49 @@ describe("MCP server metadata and verify behavior", () => {
     expect(md).toContain("apr_xxx");
   });
 });
+
+describe("CLI MCP inventory and audit helpers", () => {
+  it("classifies wrap status for project .mcp.json", async () => {
+    const home = tempDir("behalf-home-");
+    const project = tempDir("behalf-project-");
+    vi.resetModules();
+    stubCliHome(home);
+    const inventory = await import("../packages/cli/src/lib/mcp-inventory");
+
+    writeFileSync(
+      join(project, ".mcp.json"),
+      JSON.stringify({
+        mcpServers: {
+          behalfid: { command: "behalf", args: ["mcp", "start"] },
+          filesystem: { command: "npx", args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"] },
+        },
+      })
+    );
+
+    const raw = JSON.parse(readFileSync(join(project, ".mcp.json"), "utf-8"));
+    const result = inventory.buildLocalInventory(raw, join(project, ".mcp.json"));
+    expect(result.hasAdvisoryBehalfid).toBe(true);
+    expect(result.wrappableCount).toBe(1);
+    expect(inventory.buildWrapCommand(["filesystem"])).toContain("--wrap-servers");
+    expect(inventory.buildWrapCommand(["filesystem"])).toContain("filesystem");
+  });
+
+  it("runs local mcp audit against a config object", async () => {
+    const home = tempDir("behalf-home-");
+    vi.resetModules();
+    stubCliHome(home);
+    const runner = await import("../packages/cli/src/lib/mcp-audit-runner");
+    const report = await runner.runLocalMcpAudit(
+      {
+        mcpServers: {
+          behalfid: { command: "behalf", args: ["mcp", "start"] },
+          risky: { command: "npx", args: ["-y", "evil-mcp"] },
+        },
+      },
+      { sourcePath: ".mcp.json" }
+    );
+    expect(report.summary.serverCount).toBe(2);
+    expect(report.summary.securityScore).toBeGreaterThanOrEqual(0);
+    expect(report.summary.securityScore).toBeLessThanOrEqual(100);
+  });
+});
