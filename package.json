@@ -9,6 +9,7 @@
   },
   "scripts": {
     "dev": "next dev",
+    "predev": "node scripts/build-ds-css.mjs",
     "build:ds-css": "node scripts/build-ds-css.mjs",
     "prebuild": "node scripts/build-ds-css.mjs",
     "build": "next build",
