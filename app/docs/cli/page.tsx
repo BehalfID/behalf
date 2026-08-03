@@ -130,10 +130,28 @@ behalf mcp init`}</CodeBlock>
         <code> verify_action</code> before risky or permissioned actions, stop on denied decisions,
         fail closed if verification is unavailable, and pause when approval is required.
       </p>
-      <CodeBlock label="terminal">{`behalf mcp status           # show config and cached permissions for this directory
+      <CodeBlock label="terminal">{`behalf mcp status           # show config, wrap status, and cached permissions
+behalf mcp audit            # security score + findings for local MCP config
+behalf mcp audit --push     # sync score/inventory to the dashboard
+behalf mcp wrap             # print hard-enforcement wrap command
 behalf mcp init --refresh   # force-refresh the permissions cache from the server
 behalf mcp init --dry-run   # preview what would be written without writing
 behalf doctor               # diagnose CLI and MCP setup`}</CodeBlock>
+
+      <h2>Hard enforcement for other MCP servers</h2>
+      <p>
+        To verify <em>other</em> MCP tools before they run, wrap their stdio entries with{" "}
+        <code>@behalfid/mcp-runtime</code> via the installer. Wrapped servers map each{" "}
+        <code>tools/call</code> to action <code>mcp_tool</code> and resource{" "}
+        <code>mcp:{"{server}"}:{"{tool}"}</code>.
+      </p>
+      <CodeBlock label="terminal">{`npx -y @behalfid/install --wrap
+# or:
+behalf mcp wrap --run`}</CodeBlock>
+      <p>
+        Review scores, inventory, and remediation in the dashboard{" "}
+        <code>/dashboard/mcp</code> control plane. URL/SSE MCP servers are not wrappable yet.
+      </p>
 
       <h2>Launch AI tools with BehalfID setup</h2>
       <p>

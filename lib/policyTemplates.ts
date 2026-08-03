@@ -15,7 +15,8 @@ export type PolicyTemplateCategory =
   | "database"
   | "payment"
   | "communication"
-  | "browser";
+  | "browser"
+  | "mcp";
 
 export type PolicyTemplate = {
   id: string;
@@ -381,6 +382,83 @@ export const POLICY_TEMPLATES: PolicyTemplate[] = [
       "Account logins",
       "Purchases above threshold"
     ]
+  },
+  {
+    id: "mcp_tools_gated",
+    label: "MCP tools: wrap and approve writes",
+    tagline: "Allow mcp_tool calls. Require approval for high-risk servers.",
+    description:
+      "Creates a permission for wrapped MCP tool invocations (action mcp_tool, resource mcp:*). Pair with `npx @behalfid/install --wrap` so tools/call hits verify before execution.",
+    category: "mcp",
+    permissions: [
+      {
+        action: "mcp_tool",
+        resource: "mcp:*",
+        allowedActions: ["call MCP tools through wrapped servers"],
+        blockedActions: [
+          "bypass MCP interceptor",
+          "edit MCP host config to remove wrap",
+          "execute unwrapped shell MCP tools"
+        ],
+        requiresApproval: true,
+        notes: "Default gate for wrapped MCP servers. Narrow resource to mcp:{server}:* per server when ready."
+      }
+    ],
+    blocks: [
+      "Unreviewed MCP tool execution",
+      "Interceptor bypass via config edits",
+      "Unwrapped shell MCP tools"
+    ]
+  },
+  {
+    id: "mcp_filesystem_read",
+    label: "MCP filesystem: read free, writes gated",
+    tagline: "Filesystem MCP reads allowed. Writes need approval.",
+    description:
+      "Scoped for a wrapped filesystem MCP server. Reads may proceed; write/edit/delete tools require approval via resource mcp:filesystem:*.",
+    category: "mcp",
+    permissions: [
+      {
+        action: "mcp_tool",
+        resource: "mcp:filesystem:*",
+        allowedActions: ["read_file", "list_directory", "search_files", "get_file_info"],
+        blockedActions: ["write_file", "edit_file", "move_file", "create_directory", "delete recursive"],
+        requiresApproval: true,
+        notes: "Tighten allowedActions to exact tool names your filesystem MCP exposes."
+      }
+    ],
+    blocks: ["Unapproved filesystem writes", "Recursive deletes via MCP"]
+  },
+  {
+    id: "mcp_github_safe",
+    label: "MCP GitHub: read issues, gate merges",
+    tagline: "Read GitHub via MCP. Merge and push need approval.",
+    description:
+      "For a wrapped GitHub MCP server. Reading issues/PRs is allowed; merge, push, and settings changes require human approval.",
+    category: "mcp",
+    permissions: [
+      {
+        action: "mcp_tool",
+        resource: "mcp:github:*",
+        allowedActions: [
+          "list_issues",
+          "get_issue",
+          "list_pull_requests",
+          "get_pull_request",
+          "search_code"
+        ],
+        blockedActions: [
+          "merge_pull_request",
+          "push_files",
+          "create_or_update_file",
+          "delete_file",
+          "update_repository"
+        ],
+        requiresApproval: true,
+        notes: "Pair with install --wrap so GitHub MCP tools cannot skip verify."
+      }
+    ],
+    blocks: ["Unapproved merges", "Unapproved pushes", "Repository setting changes"]
   }
 ];
 
@@ -391,7 +469,8 @@ export const POLICY_CATEGORY_LABELS: Record<PolicyTemplateCategory, string> = {
   database: "Database",
   payment: "Payment",
   communication: "Communication",
-  browser: "Browser"
+  browser: "Browser",
+  mcp: "MCP tools"
 };
 
 export function getPolicyTemplate(id: string): PolicyTemplate | undefined {
