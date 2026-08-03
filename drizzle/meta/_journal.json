@@ -92,6 +92,20 @@
       "when": 1785860000000,
       "tag": "0012_reauth_proofs",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1785945600000,
+      "tag": "0013_agent_provider_ollama",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1786032000000,
+      "tag": "0014_agent_ollama_runtime",
+      "breakpoints": true
     }
   ]
 }

@@ -305,6 +305,15 @@ describe("scanProject — .env.example", () => {
     expect(findings.some(f => f.resource === "api.openai.com")).toBe(true);
   });
 
+  it("detects Ollama env var as local llm:call", () => {
+    const dir = tempDir();
+    write(dir, ".env.example", "OLLAMA_BASE_URL=http://localhost:11434\nOLLAMA_MODEL=llama3.1:8b\n");
+    const { findings } = scanProject(dir);
+    const f = findings.find(f => f.resource === "localhost:11434");
+    expect(f).toBeDefined();
+    expect(f?.action).toBe("llm:call");
+  });
+
   it("skips comment lines and blank lines", () => {
     const dir = tempDir();
     write(dir, ".env.example", [

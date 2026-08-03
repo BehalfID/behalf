@@ -69,7 +69,7 @@ export type CreateAgentResult = {
     provider?: AgentProvider;
 };
 export type AgentType = "native" | "connected";
-export type AgentProvider = "custom" | "ollie" | "chatgpt" | "claude" | "gemini" | "zapier" | "make" | "langchain" | "openai" | "other";
+export type AgentProvider = "custom" | "ollie" | "chatgpt" | "claude" | "gemini" | "zapier" | "make" | "langchain" | "openai" | "ollama" | "other";
 export type CreateAgentInput = {
     name: string;
     agentType?: AgentType;

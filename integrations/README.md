@@ -7,6 +7,7 @@ Compatibility adapters for common AI frameworks and infrastructure. These are **
 | Integration | Status | What it provides |
 |---|---|---|
 | OpenAI | Experimental | Tool call gate, web browse gate, purchase gate |
+| Ollama | Experimental | Tool call gate, `parseOllamaToolCalls`, denied tool message helper |
 | Anthropic / Claude | Experimental | Tool-use gate, denied tool_result helper |
 | LangChain | Experimental | `wrapToolWithBehalfID`, `wrapToolsWithBehalfID` |
 | LlamaIndex | Experimental | `wrapLlamaToolWithBehalfID` for FunctionTool |
@@ -49,6 +50,7 @@ const config = {
 
 - [shared/](./shared/README.md) — shared types and utilities used by all adapters
 - [openai/](./openai/README.md) — OpenAI-style tool call wrapper
+- [ollama/](./ollama/README.md) — Ollama chat tool-call wrapper
 - [anthropic/](./anthropic/README.md) — Claude tool-use wrapper
 - [langchain/](./langchain/README.md) — LangChain tool wrapper
 - [llamaindex/](./llamaindex/README.md) — LlamaIndex FunctionTool wrapper

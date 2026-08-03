@@ -464,6 +464,7 @@ const ENV_RESOURCE_HINTS: Array<{ pattern: RegExp; resource: string; action: str
   { pattern: /STRIPE/i, resource: "stripe.com", action: "payment" },
   { pattern: /OPENAI/i, resource: "api.openai.com", action: "llm:call" },
   { pattern: /ANTHROPIC/i, resource: "api.anthropic.com", action: "llm:call" },
+  { pattern: /OLLAMA/i, resource: "localhost:11434", action: "llm:call" },
   { pattern: /VERCEL/i, resource: "vercel.com", action: "deploy" },
   { pattern: /NETLIFY/i, resource: "netlify.com", action: "deploy" },
   { pattern: /GITHUB_TOKEN/i, resource: "github.com", action: "repo:write" },

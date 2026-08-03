@@ -50,6 +50,8 @@ describe("managed profiles and integrations presentation", () => {
     expect(integrations).toContain("Credential status");
     expect(integrations).toContain("Passport and manual integration");
     expect(integrations).toContain("External integration metadata");
+    expect(integrations).toContain("Ollama tool gating");
+    expect(integrations).toContain("@behalfid/sdk/adapters/ollama");
     expect(integrations).not.toContain("Google Antigravity");
   });
 });

@@ -25,6 +25,8 @@ export function serializeAgent(agent: {
   connectionStatus?: string | null;
   description?: string | null;
   guidelines?: string[] | null;
+  ollamaBaseUrl?: string | null;
+  ollamaModel?: string | null;
   publicPassportTokenPreview?: string | null;
   publicPassportEnabled?: boolean | null;
   lastUsedAt?: Date | null;
@@ -38,6 +40,8 @@ export function serializeAgent(agent: {
     name: agent.name,
     status: agent.status ?? "active",
     ...metadata,
+    ollamaBaseUrl: agent.ollamaBaseUrl ?? null,
+    ollamaModel: agent.ollamaModel ?? null,
     publicPassportTokenPreview: agent.publicPassportTokenPreview ?? null,
     publicPassportEnabled: agent.publicPassportEnabled ?? false,
     lastUsedAt: agent.lastUsedAt ?? null,

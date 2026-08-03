@@ -136,3 +136,10 @@ Agent: pauses for human approval and does not execute automatically.
 ```
 
 If the advisory MCP server cannot verify, model instructions say not to run the action. That is not the same as a host-level block. For Claude Code shell/file tools, rely on the PreToolUse hook and its documented outage semantics — do not treat MCP unavailability as enforcement proof.
+
+## Ollama local models
+
+Advisory MCP and the interceptor PEP are LLM-agnostic. An Ollama-driven agent can use the same paths:
+
+- **Tool loops without MCP** — `@behalfid/sdk/adapters/ollama` (`docs/OLLAMA.md`, `examples/ollama-tool-gating`)
+- **MCP tool servers** — wrap downstream MCP with `@behalfid/mcp-runtime` (source-only until published; see `packages/mcp-runtime/README.md` and the Ollama + MCP section in `docs/OLLAMA.md`)

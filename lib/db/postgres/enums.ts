@@ -67,6 +67,7 @@ export const AGENT_PROVIDERS = [
   "make",
   "langchain",
   "openai",
+  "ollama",
   "other"
 ] as const;
 export const CONNECTION_STATUSES = ["manual", "connected", "disconnected"] as const;

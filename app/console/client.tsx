@@ -264,6 +264,7 @@ const consoleProviderOptions = [
   ["make", "Make"],
   ["langchain", "LangChain"],
   ["openai", "OpenAI"],
+  ["ollama", "Ollama"],
   ["other", "Other"]
 ];
 

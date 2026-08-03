@@ -37,6 +37,8 @@ const columns: Record<string, AnyPgColumn> = {
   connectionStatus: agents.connectionStatus,
   description: agents.description,
   guidelines: agents.guidelines,
+  ollamaBaseUrl: agents.ollamaBaseUrl,
+  ollamaModel: agents.ollamaModel,
   publicPassportTokenHash: agents.publicPassportTokenHash,
   publicPassportTokenPreview: agents.publicPassportTokenPreview,
   publicPassportEnabled: agents.publicPassportEnabled,

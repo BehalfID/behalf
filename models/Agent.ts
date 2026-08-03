@@ -14,7 +14,7 @@ const AgentSchema = new Schema(
     },
     provider: {
       type: String,
-      enum: ["custom", "ollie", "chatgpt", "claude", "gemini", "zapier", "make", "langchain", "openai", "other"],
+      enum: ["custom", "ollie", "chatgpt", "claude", "gemini", "zapier", "make", "langchain", "openai", "ollama", "other"],
       default: "custom",
       index: true
     },
@@ -28,6 +28,8 @@ const AgentSchema = new Schema(
     },
     description: { type: String, trim: true, maxlength: 800 },
     guidelines: [{ type: String, trim: true, maxlength: 500 }],
+    ollamaBaseUrl: { type: String, trim: true, maxlength: 500 },
+    ollamaModel: { type: String, trim: true, maxlength: 120 },
     publicPassportTokenHash: { type: String, select: false },
     publicPassportTokenPreview: { type: String },
     publicPassportEnabled: { type: Boolean, default: false, index: true },
