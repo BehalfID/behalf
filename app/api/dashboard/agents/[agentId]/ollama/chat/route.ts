@@ -87,6 +87,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
         { status: err.httpStatus }
       );
     }
-    return jsonAppError("Ollama chat proxy failed.", 503, "OLLAMA_ERROR");
+    return jsonError("Ollama chat proxy failed.", 503);
   }
 }

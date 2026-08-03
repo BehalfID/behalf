@@ -6,7 +6,7 @@ import { requireDeveloperApi } from "@/lib/developerAuth";
 import { getWorkspaceActor } from "@/lib/delegatedAuth";
 import { OllamaClientError, testOllamaConnection } from "@/lib/ollamaClient";
 import { findOneAgent } from "@/lib/repositories/agents";
-import { noCacheJson } from "@/lib/responses";
+import { jsonError, noCacheJson } from "@/lib/responses";
 
 type RouteContext = {
   params: Promise<{ agentId: string }>;
@@ -56,6 +56,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
         { status: err.httpStatus }
       );
     }
-    return jsonAppError("Ollama connection check failed.", 503, "OLLAMA_ERROR");
+    return jsonError("Ollama connection check failed.", 503);
   }
 }
