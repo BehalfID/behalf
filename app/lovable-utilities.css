@@ -170,7 +170,7 @@
   row-gap: 0.75rem;
 }
 .ds .grid {
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: grid;
 }
 .ds .group {
   /* group marker */

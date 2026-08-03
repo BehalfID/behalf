@@ -9,6 +9,8 @@
   },
   "scripts": {
     "dev": "next dev",
+    "build:ds-css": "node scripts/build-ds-css.mjs",
+    "prebuild": "node scripts/build-ds-css.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

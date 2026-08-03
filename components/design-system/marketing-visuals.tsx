@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowUpRight, Check, Clock, Fingerprint, Lock, RotateCcw, ShieldCheck, Sparkles } from "./icons";
-import { AgentAvatar } from "@/components/design-system/brand";
+import { AgentAvatar } from "./brand";
 import { SequenceControls } from "./adaptive-visuals";
 import { IllustrativeTag } from "./motion";
 import { useInView, usePrefersReducedMotion, useSequence } from "@/hooks/use-motion";
@@ -54,14 +54,14 @@ export function AuthorityFlowCanvas({ className }: { className?: string }) {
     >
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-40 ds-bg-soft-radial opacity-80"
+        className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(70%_100%_at_50%_0%,var(--color-primary-soft),transparent_75%)] opacity-80"
       />
 
-      <div className="relative grid gap-8 p-6 sm:p-9 lg:ds-grid-asymmetric-a lg:gap-12 lg:p-12">
+      <div className="relative grid gap-8 p-6 sm:p-9 lg:grid-cols-[minmax(0,0.72fr)_minmax(0,1fr)] lg:gap-12 lg:p-12">
         {/* Request */}
         <div>
-          <div className="grid ds-grid-fr-auto items-center gap-3">
-            <span className="truncate ds-text-11 font-medium uppercase ds-tracking-0_18 text-muted-foreground">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+            <span className="truncate text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
               Request
             </span>
             <SequenceControls
@@ -75,16 +75,16 @@ export function AuthorityFlowCanvas({ className }: { className?: string }) {
           <div className="mt-5 flex items-center gap-3.5">
             <AgentAvatar name="Cursor agent" provider="cursor" size="lg" />
             <div className="min-w-0">
-              <div className="truncate ds-text-17 font-medium tracking-tight">Cursor agent</div>
+              <div className="truncate text-[17px] font-medium tracking-tight">Cursor agent</div>
               <div className="truncate text-sm text-muted-foreground">acting for Maya Okafor</div>
             </div>
           </div>
-          <p className="mt-6 text-2xl font-medium leading-tight tracking-tight sm:ds-text-28">
+          <p className="mt-6 text-2xl font-medium leading-tight tracking-tight sm:text-[28px]">
             Deploy <span className="text-primary">payments&nbsp;API</span> to production
           </p>
           <div
             className={cn(
-              "mt-6 inline-flex items-center gap-2 rounded-full px-3 py-1.5 ds-text-13 transition-colors duration-500",
+              "mt-6 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[13px] transition-colors duration-500",
               stage.tone === "gate" ? "bg-warning-soft text-warning" : "bg-surface-2 text-muted-foreground",
             )}
             aria-live="polite"
@@ -100,10 +100,10 @@ export function AuthorityFlowCanvas({ className }: { className?: string }) {
 
         {/* Decision path */}
         <div className="relative">
-          <div aria-hidden className="absolute ds-left-15 top-4 bottom-6 w-px bg-border" />
+          <div aria-hidden className="absolute left-[15px] top-4 bottom-6 w-px bg-border" />
           <div
             aria-hidden
-            className="path-line absolute ds-left-15 top-4 w-px ds-transition-height duration-700 ease-out"
+            className="path-line absolute left-[15px] top-4 w-px transition-[height] duration-700 ease-out"
             style={{ height: `calc(${progress}% - ${progress === 0 ? 0 : 10}px)` }}
           />
           <ol className="space-y-4">
@@ -137,7 +137,7 @@ export function AuthorityFlowCanvas({ className }: { className?: string }) {
                     <span className="min-w-0 pt-1">
                       <span
                         className={cn(
-                          "block ds-text-15 font-medium transition-colors duration-500",
+                          "block text-[15px] font-medium transition-colors duration-500",
                           reached ? "text-foreground" : "text-muted-foreground",
                         )}
                       >
@@ -145,7 +145,7 @@ export function AuthorityFlowCanvas({ className }: { className?: string }) {
                       </span>
                       <span
                         className={cn(
-                          "mt-0.5 block ds-text-13 leading-relaxed transition-opacity duration-500",
+                          "mt-0.5 block text-[13px] leading-relaxed transition-opacity duration-500",
                           isActive ? "text-muted-foreground opacity-100" : "text-muted-foreground opacity-60",
                         )}
                       >
@@ -170,20 +170,20 @@ export function IdentityCanvas({ className }: { className?: string }) {
       {/* stacked identity layers behind the primary surface */}
       <div
         aria-hidden
-        className="absolute inset-x-6 -top-4 h-16 ds-rounded-plus-14 bg-surface opacity-40"
+        className="absolute inset-x-6 -top-4 h-16 rounded-[calc(var(--radius)+14px)] bg-surface opacity-40"
       />
       <div
         aria-hidden
-        className="absolute inset-x-3 -top-2 h-16 ds-rounded-plus-14 bg-surface opacity-70"
+        className="absolute inset-x-3 -top-2 h-16 rounded-[calc(var(--radius)+14px)] bg-surface opacity-70"
       />
       <div className="canvas-frame relative p-6 sm:p-9">
         <div className="flex flex-wrap items-start gap-5">
           <AgentAvatar name="Cursor agent" provider="cursor" size="lg" className="size-14 text-base" />
           <div className="min-w-0 flex-1">
             <h3 className="text-2xl font-medium tracking-tight sm:text-3xl">Cursor agent</h3>
-            <p className="mt-1.5 ds-text-15 text-muted-foreground">Owned by Maya Okafor · Engineering</p>
+            <p className="mt-1.5 text-[15px] text-muted-foreground">Owned by Maya Okafor · Engineering</p>
           </div>
-          <span className="inline-flex items-center gap-2 rounded-full bg-success-soft px-3 py-1.5 ds-text-13 font-medium text-success">
+          <span className="inline-flex items-center gap-2 rounded-full bg-success-soft px-3 py-1.5 text-[13px] font-medium text-success">
             <span className="size-1.5 rounded-full bg-success" aria-hidden />
             Active
           </span>
@@ -197,15 +197,15 @@ export function IdentityCanvas({ className }: { className?: string }) {
             ["Beyond scope", "Production deploys, refunds over $500"],
           ].map(([k, v]) => (
             <div key={k}>
-              <dt className="ds-text-11 font-medium uppercase ds-tracking-0_16 text-muted-foreground">{k}</dt>
-              <dd className="mt-2 ds-text-16 leading-snug">{v}</dd>
+              <dt className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">{k}</dt>
+              <dd className="mt-2 text-[16px] leading-snug">{v}</dd>
             </div>
           ))}
         </dl>
 
         <div className="mt-9 flex items-center gap-4 rounded-xl bg-surface-2 px-4 py-3.5">
-          <span className="ds-text-13 text-muted-foreground">Every action answers to this identity</span>
-          <span className="ml-auto ds-text-13 text-primary">Every decision kept as evidence</span>
+          <span className="text-[13px] text-muted-foreground">Every action answers to this identity</span>
+          <span className="ml-auto text-[13px] text-primary">Every decision kept as evidence</span>
         </div>
       </div>
     </div>
@@ -231,9 +231,9 @@ export function PermissionBoundaries({ className }: { className?: string }) {
         <div
           key={b.env}
           className={cn(
-            "node-in relative overflow-hidden ds-rounded-plus-10 p-7 sm:p-8",
+            "node-in relative overflow-hidden rounded-[calc(var(--radius)+10px)] p-7 sm:p-8",
             b.tone === "allow" ? "bg-surface" : "bg-primary-soft",
-            b.tone === "gate" && "lg:-mt-6 lg:mb-6 lg:ds-shadow-gate",
+            b.tone === "gate" && "lg:-mt-6 lg:mb-6 lg:shadow-[0_40px_80px_-48px_oklch(0.2_0.02_60_/_0.5)]",
           )}
           style={{ animationDelay: `${i * 130}ms` }}
         >
@@ -242,18 +242,18 @@ export function PermissionBoundaries({ className }: { className?: string }) {
           ) : (
             <div aria-hidden className="absolute inset-x-0 top-0 h-px path-line opacity-40" />
           )}
-          <div className="ds-text-11 font-medium uppercase ds-tracking-0_18 text-muted-foreground">Environment</div>
-          <div className="mt-3 ds-text-26 font-medium tracking-tight">{b.env}</div>
+          <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">Environment</div>
+          <div className="mt-3 text-[26px] font-medium tracking-tight">{b.env}</div>
           <div
             className={cn(
-              "mt-6 inline-flex items-center gap-2 ds-text-15 font-medium",
+              "mt-6 inline-flex items-center gap-2 text-[15px] font-medium",
               b.tone === "allow" ? "text-success" : "text-primary",
             )}
           >
             {b.tone === "allow" ? <Check className="size-4" aria-hidden /> : <Lock className="size-4" aria-hidden />}
             {b.state}
           </div>
-          <p className="mt-3 max-w-xs ds-text-15 leading-relaxed text-muted-foreground">{b.note}</p>
+          <p className="mt-3 max-w-xs text-[15px] leading-relaxed text-muted-foreground">{b.note}</p>
         </div>
       ))}
     </div>
@@ -303,13 +303,13 @@ export function ApprovalSequence({ className }: { className?: string }) {
       ref={ref}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
-      className={cn("grid gap-8 lg:ds-grid-asymmetric-b lg:gap-14", className)}
+      className={cn("grid gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-14", className)}
     >
       <ol className="relative space-y-1">
-        <div aria-hidden className="absolute ds-left-9 top-4 bottom-4 w-px bg-border" />
+        <div aria-hidden className="absolute left-[9px] top-4 bottom-4 w-px bg-border" />
         <div
           aria-hidden
-          className="path-line absolute ds-left-9 top-4 w-px origin-top ds-transition-height duration-700 ease-out"
+          className="path-line absolute left-[9px] top-4 w-px origin-top transition-[height] duration-700 ease-out"
           style={{ height: `calc(${(active / (approvalStages.length - 1)) * 100}% - ${active === 0 ? 0 : 8}px)` }}
         />
         {approvalStages.map((s, i) => (
@@ -322,7 +322,7 @@ export function ApprovalSequence({ className }: { className?: string }) {
             >
               <span
                 className={cn(
-                  "relative z-10 mt-1 grid ds-size-19 shrink-0 place-items-center rounded-full transition-colors",
+                  "relative z-10 mt-1 grid size-[19px] shrink-0 place-items-center rounded-full transition-colors",
                   i <= active ? "bg-primary" : "bg-border-strong",
                 )}
               >
@@ -331,13 +331,13 @@ export function ApprovalSequence({ className }: { className?: string }) {
               <span className="min-w-0">
                 <span
                   className={cn(
-                    "block ds-text-16 font-medium transition-colors",
+                    "block text-[16px] font-medium transition-colors",
                     i === active ? "text-foreground" : "text-muted-foreground",
                   )}
                 >
                   {s.title}
                 </span>
-                <span className="mt-0.5 block ds-text-14 leading-relaxed text-muted-foreground">{s.caption}</span>
+                <span className="mt-0.5 block text-[14px] leading-relaxed text-muted-foreground">{s.caption}</span>
               </span>
             </button>
           </li>
@@ -347,10 +347,10 @@ export function ApprovalSequence({ className }: { className?: string }) {
       <div className="canvas-frame self-start p-7 sm:p-9">
         <div className="flex items-center gap-3">
           <AgentAvatar name="Cursor agent" provider="cursor" size="md" />
-          <div className="ds-text-15 font-medium">Cursor agent</div>
+          <div className="text-[15px] font-medium">Cursor agent</div>
           <span
             className={cn(
-              "ml-auto rounded-full px-3 py-1 ds-text-13 font-medium",
+              "ml-auto rounded-full px-3 py-1 text-[13px] font-medium",
               stage.tone === "allow" ? "bg-success-soft text-success" : "bg-warning-soft text-warning",
             )}
           >
@@ -358,7 +358,7 @@ export function ApprovalSequence({ className }: { className?: string }) {
           </span>
         </div>
 
-        <p className="mt-7 ds-text-24 font-medium leading-snug tracking-tight sm:ds-text-28">
+        <p className="mt-7 text-[24px] font-medium leading-snug tracking-tight sm:text-[28px]">
           {stage.caption}
         </p>
 
@@ -380,7 +380,7 @@ export function ApprovalSequence({ className }: { className?: string }) {
         <button
           type="button"
           onClick={replay}
-          className="mt-8 inline-flex items-center gap-2 ds-text-13 text-muted-foreground transition-colors hover:text-foreground"
+          className="mt-8 inline-flex items-center gap-2 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
         >
           <RotateCcw className="size-3.5" aria-hidden /> Replay the sequence
         </button>
@@ -400,13 +400,13 @@ export function DashboardShowcase({ className }: { className?: string }) {
   return (
     <div ref={ref} className={cn("canvas-frame overflow-hidden", className)}>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-6 py-5 sm:px-8">
-        <span className="ds-text-15 font-medium">Overview</span>
-        <span className="ds-text-13 text-muted-foreground">Sample workspace</span>
+        <span className="text-[15px] font-medium">Overview</span>
+        <span className="text-[13px] text-muted-foreground">Sample workspace</span>
         <IllustrativeTag />
-        <span className="ml-auto ds-text-13 text-muted-foreground">Last 24 hours</span>
+        <span className="ml-auto text-[13px] text-muted-foreground">Last 24 hours</span>
       </div>
 
-      <div className="grid items-start lg:ds-grid-asymmetric-d">
+      <div className="grid items-start lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
         <div className="p-6 sm:p-8 lg:pt-2">
           <div className="grid gap-8 sm:grid-cols-3">
             {[
@@ -415,25 +415,25 @@ export function DashboardShowcase({ className }: { className?: string }) {
               { v: "9", k: "Active agents" },
             ].map((m) => (
               <div key={m.k}>
-                <div className={cn("num ds-text-38 font-medium leading-none tracking-tight", m.accent && "text-primary")}>
+                <div className={cn("num text-[38px] font-medium leading-none tracking-tight", m.accent && "text-primary")}>
                   {m.v}
                 </div>
-                <div className="mt-2 ds-text-13 text-muted-foreground">{m.k}</div>
+                <div className="mt-2 text-[13px] text-muted-foreground">{m.k}</div>
               </div>
             ))}
           </div>
 
           <div className="mt-9">
             <div className="flex items-baseline gap-3">
-              <span className="ds-text-13 font-medium">Verification volume</span>
-              <span className="ds-text-13 text-muted-foreground">Last 14 days</span>
+              <span className="text-[13px] font-medium">Verification volume</span>
+              <span className="text-[13px] text-muted-foreground">Last 14 days</span>
             </div>
             <div className="mt-4 flex h-24 items-end gap-1.5">
               {trend.map((h, i) => (
                 <span
                   key={i}
                   className={cn(
-                    "flex-1 origin-bottom rounded-sm ds-transition-height duration-700 ease-out",
+                    "flex-1 origin-bottom rounded-sm transition-[height] duration-700 ease-out",
                     i > trend.length - 4 ? "bg-primary" : "bg-primary/25",
                   )}
                   style={{ height: shown ? `${h}%` : "4%", transitionDelay: reduced ? undefined : `${i * 35}ms` }}
@@ -444,13 +444,13 @@ export function DashboardShowcase({ className }: { className?: string }) {
           </div>
 
           <div className="mt-9">
-            <div className="ds-text-13 font-medium">Outcomes</div>
+            <div className="text-[13px] font-medium">Outcomes</div>
             <div className="mt-4 flex h-2.5 overflow-hidden rounded-full" aria-hidden>
-              <span className="ds-w-86pct bg-success" />
-              <span className="ds-w-9pct bg-warning" />
-              <span className="ds-w-5pct bg-destructive" />
+              <span className="w-[86%] bg-success" />
+              <span className="w-[9%] bg-warning" />
+              <span className="w-[5%] bg-destructive" />
             </div>
-            <div className="mt-3 flex flex-wrap gap-x-7 gap-y-1.5 ds-text-13 text-muted-foreground">
+            <div className="mt-3 flex flex-wrap gap-x-7 gap-y-1.5 text-[13px] text-muted-foreground">
               <span>Mostly allowed</span>
               <span>Some approved by a person</span>
               <span>A few denied</span>
@@ -458,7 +458,7 @@ export function DashboardShowcase({ className }: { className?: string }) {
           </div>
 
           <div className="mt-9">
-            <div className="ds-text-13 font-medium">Recent actions</div>
+            <div className="text-[13px] font-medium">Recent actions</div>
             <div className="mt-2">
               {[
                 { agent: "Cursor agent", action: "Deploy payments API", outcome: "Awaiting approval", tone: "warning" },
@@ -469,12 +469,12 @@ export function DashboardShowcase({ className }: { className?: string }) {
                 <div key={row.action} className="flex items-center gap-4 py-3">
                   <AgentAvatar name={row.agent} size="sm" />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate ds-text-14 font-medium">{row.action}</div>
-                    <div className="truncate ds-text-12 text-muted-foreground">{row.agent}</div>
+                    <div className="truncate text-[14px] font-medium">{row.action}</div>
+                    <div className="truncate text-[12px] text-muted-foreground">{row.agent}</div>
                   </div>
                   <span
                     className={cn(
-                      "shrink-0 ds-text-13",
+                      "shrink-0 text-[13px]",
                       row.tone === "success" && "text-success",
                       row.tone === "warning" && "text-warning",
                       row.tone === "danger" && "text-destructive",
@@ -489,15 +489,15 @@ export function DashboardShowcase({ className }: { className?: string }) {
         </div>
 
         {/* Selected agent rail */}
-        <aside className="m-6 ds-rounded-plus-10 bg-surface-2 p-6 sm:m-8 sm:ml-0 sm:p-7 lg:sticky lg:top-24">
-          <div className="ds-text-11 font-medium uppercase ds-tracking-0_18 text-muted-foreground">
+        <aside className="m-6 rounded-[calc(var(--radius)+10px)] bg-surface-2 p-6 sm:m-8 sm:ml-0 sm:p-7 lg:sticky lg:top-24">
+          <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
             Selected agent
           </div>
           <div className="mt-5 flex items-center gap-3">
             <AgentAvatar name="Cursor agent" provider="cursor" size="lg" />
             <div className="min-w-0">
-              <div className="ds-text-16 font-medium">Cursor agent</div>
-              <div className="ds-text-13 text-muted-foreground">Maya Okafor</div>
+              <div className="text-[16px] font-medium">Cursor agent</div>
+              <div className="text-[13px] text-muted-foreground">Maya Okafor</div>
             </div>
           </div>
 
@@ -508,18 +508,18 @@ export function DashboardShowcase({ className }: { className?: string }) {
               ["Approvals this week", "2"],
             ].map(([k, v]) => (
               <div key={k} className="flex items-baseline justify-between gap-4">
-                <span className="ds-text-13 text-muted-foreground">{k}</span>
-                <span className="ds-text-14">{v}</span>
+                <span className="text-[13px] text-muted-foreground">{k}</span>
+                <span className="text-[14px]">{v}</span>
               </div>
             ))}
           </div>
 
           <div className="mt-8 rounded-xl bg-surface p-4">
-            <div className="ds-text-13 font-medium text-warning">Approval required</div>
-            <p className="mt-1.5 ds-text-14 leading-relaxed text-muted-foreground">
+            <div className="text-[13px] font-medium text-warning">Approval required</div>
+            <p className="mt-1.5 text-[14px] leading-relaxed text-muted-foreground">
               Deploy payments API to production.
             </p>
-            <span className="mt-4 inline-flex w-full items-center justify-center rounded-lg bg-primary px-4 py-2 ds-text-14 font-medium text-primary-foreground">
+            <span className="mt-4 inline-flex w-full items-center justify-center rounded-lg bg-primary px-4 py-2 text-[14px] font-medium text-primary-foreground">
               Review request
             </span>
           </div>
@@ -550,17 +550,17 @@ export function AuthorityMap({ className }: { className?: string }) {
       className={cn("relative", className)}
     >
       {/* horizontal path */}
-      <div aria-hidden className="absolute inset-x-0 ds-top-26 hidden h-px bg-border md:block" />
+      <div aria-hidden className="absolute inset-x-0 top-[26px] hidden h-px bg-border md:block" />
       <div
         aria-hidden
-        className="path-line absolute left-0 ds-top-26 hidden h-px ds-transition-width duration-700 ease-out md:block"
+        className="path-line absolute left-0 top-[26px] hidden h-px transition-[width] duration-700 ease-out md:block"
         style={{ width: `${progress}%` }}
       />
       {/* vertical path (mobile) */}
-      <div aria-hidden className="absolute ds-left-13 inset-y-2 w-px bg-border md:hidden" />
+      <div aria-hidden className="absolute left-[13px] inset-y-2 w-px bg-border md:hidden" />
       <div
         aria-hidden
-        className="path-line absolute ds-left-13 top-2 w-px ds-transition-height duration-700 ease-out md:hidden"
+        className="path-line absolute left-[13px] top-2 w-px transition-[height] duration-700 ease-out md:hidden"
         style={{ height: `${progress}%` }}
       />
 
@@ -598,20 +598,20 @@ export function AuthorityMap({ className }: { className?: string }) {
               <div className="md:mt-6">
                 <div
                   className={cn(
-                    "ds-text-19 font-medium tracking-tight transition-colors duration-500",
+                    "text-[19px] font-medium tracking-tight transition-colors duration-500",
                     reached ? "text-foreground" : "text-muted-foreground",
                   )}
                 >
                   {n.label}
                 </div>
-                <p className="mt-2 ds-max-w-22ch ds-text-14 leading-relaxed text-muted-foreground">{n.note}</p>
+                <p className="mt-2 max-w-[22ch] text-[14px] leading-relaxed text-muted-foreground">{n.note}</p>
               </div>
             </li>
           );
         })}
       </ol>
 
-      <div className="mt-14 flex flex-wrap items-center gap-x-8 gap-y-3 ds-text-15">
+      <div className="mt-14 flex flex-wrap items-center gap-x-8 gap-y-3 text-[15px]">
         <span className="inline-flex items-center gap-2.5">
           <span className="size-1.5 rounded-full bg-primary" aria-hidden />
           Routine actions pass without stopping
@@ -623,7 +623,7 @@ export function AuthorityMap({ className }: { className?: string }) {
         <button
           type="button"
           onClick={replay}
-          className="ml-auto inline-flex items-center gap-2 rounded-full px-3 py-1.5 ds-text-14 text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
+          className="ml-auto inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[14px] text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
         >
           <RotateCcw className="size-3.5" aria-hidden /> Replay the path
         </button>

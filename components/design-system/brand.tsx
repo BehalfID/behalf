@@ -5,16 +5,16 @@ import { cn } from "@/lib/cn";
 export function Wordmark({
   className,
   href = "/",
-  as = "link"
+  as = "link",
 }: {
   className?: string;
   href?: string;
   as?: "link" | "text";
 }) {
   const content = (
-    <span className={cn("ds-wordmark", className)}>
+    <span className={cn("inline-flex items-baseline text-[15px] font-semibold tracking-tight", className)}>
       <span>Behalf</span>
-      <span className="ds-wordmark__slash" aria-hidden>
+      <span className="px-px text-primary" aria-hidden>
         /
       </span>
       <span>ID</span>
@@ -22,7 +22,7 @@ export function Wordmark({
   );
   if (as === "text") return content;
   return (
-    <Link href={href} aria-label="BehalfID home" style={{ textDecoration: "none", color: "inherit" }}>
+    <Link href={href} className="rounded-sm" aria-label="BehalfID home">
       {content}
     </Link>
   );
@@ -31,7 +31,13 @@ export function Wordmark({
 /** Compact brand mark: a slashed square. Used in sidebars and avatars. */
 export function BrandMark({ className }: { className?: string }) {
   return (
-    <span aria-hidden className={cn("ds-brand-mark", className)}>
+    <span
+      aria-hidden
+      className={cn(
+        "grid size-7 shrink-0 place-items-center rounded-md border border-primary/40 bg-primary-soft text-[13px] font-semibold text-primary",
+        className,
+      )}
+    >
       /
     </span>
   );
@@ -43,7 +49,7 @@ const providerGlyph: Record<string, string> = {
   codex: "CX",
   mcp: "MC",
   custom: "AG",
-  github: "GH"
+  github: "GH",
 };
 
 /** Agent identity mark — initials/provider glyph, never a cartoon robot. */
@@ -51,7 +57,7 @@ export function AgentAvatar({
   name,
   provider,
   size = "md",
-  className
+  className,
 }: {
   name: string;
   provider?: string;
@@ -67,24 +73,27 @@ export function AgentAvatar({
       .join("")
       .toUpperCase();
 
-  const dim = size === "sm" ? "1.5rem" : size === "lg" ? "2.25rem" : "1.875rem";
-  const fontSize = size === "sm" ? "10px" : size === "lg" ? "12px" : "11px";
-
   return (
     <span
       aria-hidden
-      className={cn("ds-brand-mark", className)}
-      style={{
-        width: dim,
-        height: dim,
-        fontSize,
-        fontFamily: "var(--font-ds-mono)",
-        borderColor: "var(--color-border)",
-        background: "var(--color-surface-2)",
-        color: "var(--color-muted-foreground)"
-      }}
+      className={cn(
+        "grid shrink-0 place-items-center rounded-md border bg-surface-2 font-mono font-medium text-muted-foreground",
+        size === "sm" && "size-6 text-[10px]",
+        size === "md" && "size-8 text-[11px]",
+        size === "lg" && "size-11 text-sm",
+        className,
+      )}
     >
       {glyph}
     </span>
+  );
+}
+
+/** Keyboard shortcut hint. */
+export function Kbd({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded border bg-surface-2 px-1 text-[10px] font-medium text-muted-foreground">
+      {children}
+    </kbd>
   );
 }

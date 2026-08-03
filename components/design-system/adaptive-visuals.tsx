@@ -2,7 +2,7 @@
 
 import { Check, Eye, Lightbulb, Pause, Play, ShieldCheck } from "./icons";
 import { useSequence } from "@/hooks/use-motion";
-import { IllustrativeTag } from "@/components/design-system/motion";
+import { IllustrativeTag } from "./motion";
 import { cn } from "@/lib/cn";
 
 /**
@@ -84,9 +84,9 @@ export function LearningTimeline({ className }: { className?: string }) {
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
-      <div className="grid ds-grid-fr-auto items-center gap-4 sm:flex sm:flex-wrap sm:justify-between">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 sm:flex sm:flex-wrap sm:justify-between">
         <div className="flex min-w-0 items-center gap-2.5">
-          <span className="ds-text-11 font-medium uppercase ds-tracking-0_18 text-muted-foreground">
+          <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
             Decision history
           </span>
           <IllustrativeTag />
@@ -114,7 +114,7 @@ export function LearningTimeline({ className }: { className?: string }) {
             );
           })}
         </div>
-        <p className="mt-4 ds-text-13 text-muted-foreground">
+        <p className="mt-4 text-[13px] text-muted-foreground">
           <span className="num text-foreground">{stage.marks}</span> similar decisions observed · approvals and
           declines both count as evidence
         </p>
@@ -132,13 +132,13 @@ export function LearningTimeline({ className }: { className?: string }) {
             >
               <span
                 className={cn(
-                  "block ds-h-3px w-full rounded-full transition-colors duration-500",
+                  "block h-[3px] w-full rounded-full transition-colors duration-500",
                   i <= active ? "bg-primary" : "bg-border",
                 )}
               />
               <span
                 className={cn(
-                  "mt-3 block ds-text-13 font-medium transition-colors",
+                  "mt-3 block text-[13px] font-medium transition-colors",
                   i === active ? "text-foreground" : "text-muted-foreground group-hover:text-foreground",
                 )}
               >
@@ -149,26 +149,26 @@ export function LearningTimeline({ className }: { className?: string }) {
         ))}
       </ol>
 
-      <div className="mt-6 grid gap-8 lg:ds-grid-asymmetric-c lg:gap-10">
+      <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)] lg:gap-10">
         <div className="min-w-0">
-          <p className="ds-text-17 leading-snug tracking-tight sm:ds-text-19">{stage.caption}</p>
+          <p className="text-[17px] leading-snug tracking-tight sm:text-[19px]">{stage.caption}</p>
 
           <dl className="mt-7 grid gap-5 sm:grid-cols-3">
             <div>
-              <dt className="ds-text-11 font-medium uppercase ds-tracking-0_16 text-muted-foreground">
+              <dt className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
                 Pattern confidence
               </dt>
-              <dd className="mt-1.5 ds-text-15 font-medium">{stage.confidence}</dd>
+              <dd className="mt-1.5 text-[15px] font-medium">{stage.confidence}</dd>
             </div>
             <div>
-              <dt className="ds-text-11 font-medium uppercase ds-tracking-0_16 text-muted-foreground">
+              <dt className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
                 Handling today
               </dt>
-              <dd className="mt-1.5 ds-text-15 font-medium">{stage.handling}</dd>
+              <dd className="mt-1.5 text-[15px] font-medium">{stage.handling}</dd>
             </div>
             <div>
-              <dt className="ds-text-11 font-medium uppercase ds-tracking-0_16 text-muted-foreground">Policy</dt>
-              <dd className="mt-1.5 ds-text-15 font-medium text-primary">Authoritative</dd>
+              <dt className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">Policy</dt>
+              <dd className="mt-1.5 text-[15px] font-medium text-primary">Authoritative</dd>
             </div>
           </dl>
         </div>
@@ -180,14 +180,14 @@ export function LearningTimeline({ className }: { className?: string }) {
               className={cn("size-4 transition-colors", showRecommendation ? "text-primary" : "text-muted-foreground")}
               aria-hidden
             />
-            <span className="ds-text-13 font-medium">Suggested handling</span>
+            <span className="text-[13px] font-medium">Suggested handling</span>
             {showRecommendation ? (
               enabled ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-success-soft px-2.5 py-0.5 ds-text-12 font-medium text-success">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-success-soft px-2.5 py-0.5 text-[12px] font-medium text-success">
                   <Check className="size-3" aria-hidden /> Enabled
                 </span>
               ) : (
-                <span className="rounded-full bg-warning-soft px-2.5 py-0.5 ds-text-12 font-medium text-warning">
+                <span className="rounded-full bg-warning-soft px-2.5 py-0.5 text-[12px] font-medium text-warning">
                   Review required
                 </span>
               )
@@ -196,27 +196,27 @@ export function LearningTimeline({ className }: { className?: string }) {
 
           {showRecommendation ? (
             <>
-              <p className="mt-3 ds-text-15 leading-relaxed text-muted-foreground">
+              <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">
                 Allow scheduled production migrations from Release Bot inside the deployment window. Everything
                 outside that window keeps requiring approval.
               </p>
               <div className="mt-5 flex flex-wrap gap-2">
                 <span
                   className={cn(
-                    "inline-flex items-center gap-2 rounded-lg px-3.5 py-2 ds-text-13 font-medium transition-colors",
+                    "inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-[13px] font-medium transition-colors",
                     enabled ? "bg-success-soft text-success" : "bg-primary text-primary-foreground",
                   )}
                 >
                   {enabled ? <Check className="size-3.5" aria-hidden /> : null}
                   {enabled ? "Scoped rule active" : "Review recommendation"}
                 </span>
-                <span className="inline-flex items-center rounded-lg bg-surface px-3.5 py-2 ds-text-13 font-medium text-muted-foreground">
+                <span className="inline-flex items-center rounded-lg bg-surface px-3.5 py-2 text-[13px] font-medium text-muted-foreground">
                   Keep requiring approval
                 </span>
               </div>
             </>
           ) : (
-            <p className="mt-3 ds-text-15 leading-relaxed text-muted-foreground">
+            <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">
               Not enough comparable decisions yet. Requests keep following the policy you defined, and the engine
               keeps watching.
             </p>
@@ -255,7 +255,7 @@ export function SequenceControls({
       <button
         type="button"
         onClick={onReplay}
-        className="rounded-full px-3 py-1.5 ds-text-12 font-medium text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
+        className="rounded-full px-3 py-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
       >
         Replay
       </button>
@@ -288,22 +288,22 @@ const modes = [
 export function AdaptiveModes({ className }: { className?: string }) {
   return (
     <div className={cn("relative grid gap-4 md:grid-cols-3", className)}>
-      <div aria-hidden className="path-line absolute inset-x-8 ds-top-52 hidden h-px md:block" />
+      <div aria-hidden className="path-line absolute inset-x-8 top-[52px] hidden h-px md:block" />
       {modes.map((m, i) => {
         const Icon = m.icon;
         return (
-          <div key={m.name} className="lift relative ds-rounded-plus-10 bg-surface p-6 sm:p-7">
+          <div key={m.name} className="lift relative rounded-[calc(var(--radius)+10px)] bg-surface p-6 sm:p-7">
             <div className="flex items-center gap-3">
               <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary-soft text-primary">
                 <Icon className="size-4" aria-hidden />
               </span>
-              <span className="ds-text-11 font-medium uppercase ds-tracking-0_16 text-muted-foreground">
+              <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
                 Step {i + 1}
               </span>
             </div>
-            <h3 className="mt-5 ds-text-22 font-medium tracking-tight">{m.name}</h3>
-            <p className="mt-3 ds-text-15 leading-relaxed text-muted-foreground">{m.body}</p>
-            <div className="mt-5 ds-text-13 text-primary">{m.state}</div>
+            <h3 className="mt-5 text-[22px] font-medium tracking-tight">{m.name}</h3>
+            <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">{m.body}</p>
+            <div className="mt-5 text-[13px] text-primary">{m.state}</div>
           </div>
         );
       })}
@@ -343,7 +343,7 @@ export function PatternCards({ className }: { className?: string }) {
   return (
     <div className={cn("grid gap-4 sm:grid-cols-2", className)}>
       {patterns.map((p) => (
-        <article key={p.kind} className="lift flex flex-col ds-rounded-plus-10 bg-surface p-6 sm:p-7">
+        <article key={p.kind} className="lift flex flex-col rounded-[calc(var(--radius)+10px)] bg-surface p-6 sm:p-7">
           <div className="flex items-center gap-2.5">
             <span
               className={cn(
@@ -355,16 +355,16 @@ export function PatternCards({ className }: { className?: string }) {
               )}
               aria-hidden
             />
-            <h3 className="ds-text-13 font-medium uppercase ds-tracking-0_14 text-muted-foreground">{p.kind}</h3>
+            <h3 className="text-[13px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{p.kind}</h3>
             <IllustrativeTag className="ml-auto" />
           </div>
-          <p className="mt-4 flex-1 ds-text-16 leading-relaxed">{p.body}</p>
+          <p className="mt-4 flex-1 text-[16px] leading-relaxed">{p.body}</p>
           <div className="mt-6 flex flex-wrap gap-2">
             {p.actions.map((a, i) => (
               <span
                 key={a}
                 className={cn(
-                  "rounded-lg px-3.5 py-2 ds-text-13 font-medium",
+                  "rounded-lg px-3.5 py-2 text-[13px] font-medium",
                   i === 0 ? "bg-primary-soft text-primary" : "bg-surface-2 text-muted-foreground",
                 )}
               >
@@ -381,7 +381,7 @@ export function PatternCards({ className }: { className?: string }) {
 /** Reassurance, stated plainly and once. */
 export function AdaptiveSafetyNote({ className }: { className?: string }) {
   return (
-    <p className={cn("flex max-w-2xl items-start gap-3 ds-text-15 leading-relaxed text-muted-foreground", className)}>
+    <p className={cn("flex max-w-2xl items-start gap-3 text-[15px] leading-relaxed text-muted-foreground", className)}>
       <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
       <span>
         BehalfID does not silently expand an agent&rsquo;s permissions. Learned patterns become bounded
