@@ -274,7 +274,7 @@ Dashboard/console authenticated screens were not exercised in the headless harne
 - New marketing routes have `[locale]` wrappers; copy remains English-first like Lovable.
 - Status probes and StatusBoard UI unchanged (not a Lovable visual restyle of status content).
 - Auth/dashboard/console not cut over (Phase 3+).
-- Playwright visual harnesses: `scripts/phase2-visual-check.mjs`, `scripts/phase2-hero-fidelity-check.mjs`, `scripts/phase2-source-parity.mjs` (Chromium + WebKit vs Lovable fixture).
+- Fidelity is verified against the **real running applications** (the Next.js target and, where available, the Lovable Vite source), not a reconstructed HTML fixture. `scripts/verify-marketing-grids.mjs` measures computed `grid-template-columns` for the marketing sections in Chromium + WebKit at desktop and mobile. The former synthetic `scripts/phase2-source-parity.mjs` and `scripts/fixtures/lovable-hero-source.html` fixture were removed.
 
 ### Critical fidelity fix (post-preview)
 

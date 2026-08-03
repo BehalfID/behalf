@@ -84,7 +84,16 @@ describe("lovable design-system port", () => {
 
   it("does not introduce forbidden Phase 1 dependencies or mock backends", () => {
     const pkg = source("package.json");
-    expect(pkg).not.toMatch(/"tailwindcss"/);
+    // The scoped Tailwind pipeline (app/ds-tailwind.src.css + scripts/build-ds-css.mjs)
+    // is an approved BUILD-TIME tool that emits `.ds`-scoped CSS for the Lovable
+    // marketing components. It must never become a runtime/production dependency,
+    // and no Tailwind runtime/preflight may ship to the browser.
+    const pkgJson = JSON.parse(pkg) as {
+      dependencies?: Record<string, string>;
+    };
+    expect(pkgJson.dependencies ?? {}).not.toHaveProperty("tailwindcss");
+    expect(pkgJson.dependencies ?? {}).not.toHaveProperty("@tailwindcss/cli");
+    expect(pkgJson.dependencies ?? {}).not.toHaveProperty("@tailwindcss/vite");
     expect(pkg).not.toMatch(/"@tanstack\/react-start"/);
     expect(pkg).not.toMatch(/"nitropack"/);
     expect(pkg).not.toMatch(/"@supabase\/supabase-js"/);
