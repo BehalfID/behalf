@@ -35,11 +35,21 @@ const scoped = postcss([
   prefixer({
     prefix: ".ds",
     transform(prefix, selector, prefixedSelector) {
-      // Token host: the design system lives on the .ds wrapper itself.
-      if (selector === ":root" || selector === ":host") return prefix;
+      // Token host + document roots: the design system, and any scoped
+      // preflight reset, live on the `.ds` wrapper itself. Mapping html/body
+      // here (rather than leaving them global) keeps Tailwind's preflight from
+      // resetting the whole production document.
+      if (
+        selector === ":root" ||
+        selector === ":host" ||
+        selector === "html" ||
+        selector === "body" ||
+        selector === ":where(html)" ||
+        selector === ":where(:root)"
+      ) {
+        return prefix;
+      }
       if (selector === "*") return `${prefix} *`;
-      // Leave html/body alone (no preflight is emitted, but be safe).
-      if (selector === "html" || selector === "body") return selector;
       return prefixedSelector;
     },
   }),

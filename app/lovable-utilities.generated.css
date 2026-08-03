@@ -48,6 +48,8 @@
     --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
     --default-transition-duration: 150ms;
     --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    --default-font-family: var(--font-ds-sans);
+    --default-mono-font-family: var(--font-ds-mono);
     --color-background: var(--background);
     --color-foreground: var(--foreground);
     --color-surface: var(--surface);
@@ -68,6 +70,154 @@
     --color-border: var(--border);
     --color-border-strong: var(--border-strong);
     --color-ring: var(--ring);
+  }
+}
+@layer base {
+  .ds *, .ds ::after, .ds ::before, .ds ::backdrop, .ds ::file-selector-button {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border: 0 solid;
+  }
+  .ds, .ds {
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+    tab-size: 4;
+    font-family: var(--default-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', 'Noto Sans', Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji');
+    font-feature-settings: var(--default-font-feature-settings, normal);
+    font-variation-settings: var(--default-font-variation-settings, normal);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .ds hr {
+    height: 0;
+    color: inherit;
+    border-top-width: 1px;
+  }
+  .ds abbr:where([title]) {
+    -webkit-text-decoration: underline dotted;
+    text-decoration: underline dotted;
+  }
+  .ds h1, .ds h2, .ds h3, .ds h4, .ds h5, .ds h6 {
+    font-size: inherit;
+    font-weight: inherit;
+  }
+  .ds a {
+    color: inherit;
+    -webkit-text-decoration: inherit;
+    text-decoration: inherit;
+  }
+  .ds b, .ds strong {
+    font-weight: bolder;
+  }
+  .ds code, .ds kbd, .ds samp, .ds pre {
+    font-family: var(--default-mono-font-family, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace);
+    font-feature-settings: var(--default-mono-font-feature-settings, normal);
+    font-variation-settings: var(--default-mono-font-variation-settings, normal);
+    font-size: 1em;
+  }
+  .ds small {
+    font-size: 80%;
+  }
+  .ds sub, .ds sup {
+    font-size: 75%;
+    line-height: 0;
+    position: relative;
+    vertical-align: baseline;
+  }
+  .ds sub {
+    bottom: -0.25em;
+  }
+  .ds sup {
+    top: -0.5em;
+  }
+  .ds table {
+    text-indent: 0;
+    border-color: inherit;
+    border-collapse: collapse;
+  }
+  .ds :-moz-focusring:where(:not(iframe)) {
+    outline: auto;
+  }
+  .ds progress {
+    vertical-align: baseline;
+  }
+  .ds summary {
+    display: list-item;
+  }
+  .ds ol, .ds ul, .ds menu {
+    list-style: none;
+  }
+  .ds img, .ds svg, .ds video, .ds canvas, .ds audio, .ds iframe, .ds embed, .ds object {
+    display: block;
+    vertical-align: middle;
+  }
+  .ds img, .ds video {
+    max-width: 100%;
+    height: auto;
+  }
+  .ds button, .ds input, .ds select, .ds optgroup, .ds textarea, .ds ::file-selector-button {
+    font: inherit;
+    font-feature-settings: inherit;
+    font-variation-settings: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    border-radius: 0;
+    background-color: transparent;
+    opacity: 1;
+  }
+  .ds :where(select:is([multiple], [size])) optgroup {
+    font-weight: bolder;
+  }
+  .ds :where(select:is([multiple], [size])) optgroup option {
+    padding-inline-start: 20px;
+  }
+  .ds ::file-selector-button {
+    margin-inline-end: 4px;
+  }
+  .ds ::placeholder {
+    opacity: 1;
+  }
+  @supports (not (-webkit-appearance: -apple-pay-button))  or (contain-intrinsic-size: 1px) {
+    .ds ::placeholder {
+      color: currentcolor;
+      @supports (color: color-mix(in lab, red, red)) {
+        color: color-mix(in oklab, currentcolor 50%, transparent);
+      }
+    }
+  }
+  .ds textarea {
+    resize: vertical;
+  }
+  .ds ::-webkit-search-decoration {
+    -webkit-appearance: none;
+  }
+  .ds ::-webkit-date-and-time-value {
+    min-height: 1lh;
+    text-align: inherit;
+  }
+  .ds ::-webkit-datetime-edit {
+    display: inline-flex;
+  }
+  .ds ::-webkit-datetime-edit-fields-wrapper {
+    padding: 0;
+  }
+  .ds ::-webkit-datetime-edit, .ds ::-webkit-datetime-edit-year-field, .ds ::-webkit-datetime-edit-month-field, .ds ::-webkit-datetime-edit-day-field, .ds ::-webkit-datetime-edit-hour-field, .ds ::-webkit-datetime-edit-minute-field, .ds ::-webkit-datetime-edit-second-field, .ds ::-webkit-datetime-edit-millisecond-field, .ds ::-webkit-datetime-edit-meridiem-field {
+    padding-block: 0;
+  }
+  .ds ::-webkit-calendar-picker-indicator {
+    line-height: 1;
+  }
+  .ds :-moz-ui-invalid {
+    box-shadow: none;
+  }
+  .ds button, .ds input:where([type='button'], [type='reset'], [type='submit']), .ds ::file-selector-button {
+    appearance: button;
+  }
+  .ds ::-webkit-inner-spin-button, .ds ::-webkit-outer-spin-button {
+    height: auto;
+  }
+  .ds [hidden]:where(:not([hidden='until-found'])) {
+    display: none !important;
   }
 }
 @layer utilities {

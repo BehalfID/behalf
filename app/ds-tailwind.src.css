@@ -7,6 +7,10 @@
  */
 @layer theme, base, components, utilities;
 @import "tailwindcss/theme.css" layer(theme);
+/* Preflight is scoped under `.ds` by scripts/build-ds-css.mjs so it resets the
+   marketing subtree (native <button>/<input> chrome, universal border reset)
+   exactly like the Lovable source, without touching the production document. */
+@import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css" layer(utilities);
 
 /* Scan the ported marketing components; only classes they use are emitted. */
