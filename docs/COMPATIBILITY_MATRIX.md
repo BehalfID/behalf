@@ -10,6 +10,7 @@ Package publish status: `@behalfid/sdk` and `@behalfid/cli` are on npm; `@behalf
 | Adapter | Status | Unit tests | Allowed-path live | Denied-path live | Runtime verified | npm-publishable | Production-ready? |
 |---|---|---|---|---|---|---|---|
 | OpenAI | Experimental | ✅ | ✅ opt-in (seeded) | ✅ opt-in | BehalfID only | Via `@behalfid/sdk` subpath | No |
+| Ollama | Experimental | ✅ | No | No | No | Via `@behalfid/sdk` subpath | No |
 | Anthropic / Claude | Experimental | ✅ | ✅ opt-in (seeded) | ✅ opt-in | BehalfID only | Via `@behalfid/sdk` subpath | No |
 | LangChain | Experimental | ✅ | ✅ opt-in (seeded) | ✅ opt-in | BehalfID only | Via `@behalfid/sdk` subpath | No |
 | LlamaIndex | Experimental | ✅ | No | No | No | Via `@behalfid/sdk` subpath | No |
@@ -112,6 +113,20 @@ These are **compatibility adapters, not official partnerships**. No adapter in t
 | Fail-closed | Yes — verify errors return DenyResponse |
 | Known limitations | Does not handle streaming tool calls; arguments must be pre-parsed |
 | Before claiming production-ready | Run against real `openai` SDK responses; test with streaming; publish to npm |
+
+### Ollama
+
+| Property | Value |
+|---|---|
+| Adapter file | `integrations/ollama/index.ts` |
+| Official status | Unofficial compatibility adapter |
+| SDK dependency | None (duck-typed tool call shape; optional `parseOllamaToolCalls`) |
+| Tested SDK versions | None — unit tests only; no live Ollama required for adapter tests |
+| Supported environments | Node.js 18+, Edge (no Node-specific APIs used) |
+| Functions | `checkToolCall`, `checkWebBrowse`, `checkPurchase`, `parseOllamaToolCalls`, `normalizeOllamaToolCall`, `buildDeniedToolMessage` |
+| Fail-closed | Yes — verify errors return DenyResponse |
+| Known limitations | Tool-calling quality varies by local model; streaming tool calls not handled; separate from onboarding permission drafting |
+| Before claiming production-ready | Run against real Ollama `/api/chat` tool responses; test multi-turn tool loops with a tool-capable model |
 
 ### Anthropic / Claude
 

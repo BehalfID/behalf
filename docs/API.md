@@ -111,7 +111,7 @@ Optional connected-agent metadata:
 }
 ```
 
-Supported `agentType` values are `native` and `connected`. Supported providers are `custom`, `ollie`, `chatgpt`, `claude`, `zapier`, `make`, `langchain`, `openai`, and `other`. Provider metadata is descriptive only and is not used as authentication.
+Supported `agentType` values are `native` and `connected`. Supported providers are `custom`, `ollie`, `chatgpt`, `claude`, `gemini`, `zapier`, `make`, `langchain`, `openai`, `ollama`, and `other`. Provider metadata is descriptive only and is not used as authentication.
 
 Response:
 

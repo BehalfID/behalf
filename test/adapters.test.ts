@@ -2,7 +2,7 @@
  * Tests for BehalfID integration adapters.
  *
  * All BehalfID API calls are mocked — no network or database calls.
- * Covers: shared utilities, OpenAI, Anthropic, LangChain, LlamaIndex, Stripe.
+ * Covers: shared utilities, OpenAI, Ollama, Anthropic, LangChain, LlamaIndex, Stripe.
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -18,6 +18,13 @@ import {
   checkWebBrowse,
   checkPurchase,
 } from "../integrations/openai/index";
+import {
+  checkToolCall as checkOllamaToolCall,
+  checkWebBrowse as checkOllamaWebBrowse,
+  parseOllamaToolCalls,
+  normalizeOllamaToolCall,
+  buildDeniedToolMessage,
+} from "../integrations/ollama/index";
 import {
   checkToolUse,
   buildDeniedToolResult,
@@ -150,6 +157,71 @@ describe("OpenAI: checkToolCall", () => {
     const result = await checkToolCall(config, { name: "noop", arguments: {} }, async () => null);
     expect(result.blocked).toBe(false);
     if (!result.blocked) expect(result.requestId).toBe("req_xyz");
+  });
+});
+
+// ─── Ollama adapter ───────────────────────────────────────────────────────────
+
+describe("Ollama: parseOllamaToolCalls", () => {
+  it("parses object and JSON-string arguments", () => {
+    const calls = parseOllamaToolCalls([
+      { function: { name: "search_web", arguments: { query: "docs" } } },
+      { function: { name: "buy_item", arguments: '{"item":"laptop","price":999}' } },
+    ]);
+    expect(calls).toEqual([
+      { name: "search_web", arguments: { query: "docs" } },
+      { name: "buy_item", arguments: { item: "laptop", price: 999 } },
+    ]);
+  });
+
+  it("skips malformed entries and non-arrays", () => {
+    expect(parseOllamaToolCalls(null)).toEqual([]);
+    expect(parseOllamaToolCalls([{ function: {} }, { name: "ok", arguments: {} }])).toEqual([
+      { name: "ok", arguments: {} },
+    ]);
+  });
+
+  it("normalizeOllamaToolCall returns null without a name", () => {
+    expect(normalizeOllamaToolCall({ function: { arguments: {} } })).toBeNull();
+  });
+});
+
+describe("Ollama: checkToolCall", () => {
+  it("calls execute and returns AllowedResponse when allowed", async () => {
+    const config = makeConfig(makeAllowedResult());
+    const execute = vi.fn().mockResolvedValue({ data: "ok" });
+
+    const result = await checkOllamaToolCall(config, { name: "search", arguments: {} }, execute);
+
+    expect(result.blocked).toBe(false);
+    if (!result.blocked) expect(result.result).toEqual({ data: "ok" });
+    expect(execute).toHaveBeenCalledOnce();
+  });
+
+  it("returns DenyResponse and does not call execute when denied", async () => {
+    const config = makeConfig(makeDeniedResult());
+    const execute = vi.fn();
+
+    const result = await checkOllamaToolCall(config, { name: "search", arguments: {} }, execute);
+
+    expect(result.blocked).toBe(true);
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("checkWebBrowse sets browse_web and hostname resource", async () => {
+    const client = makeClient(makeAllowedResult());
+    const config: IntegrationConfig = { client, agentId: "agent_1" };
+    await checkOllamaWebBrowse(config, "https://example.com/page", async () => "html");
+    expect(client.verify).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "browse_web", resource: "example.com" })
+    );
+  });
+
+  it("buildDeniedToolMessage returns a tool role message", () => {
+    expect(buildDeniedToolMessage("blocked")).toEqual({
+      role: "tool",
+      content: "Permission denied by BehalfID: blocked",
+    });
   });
 });
 

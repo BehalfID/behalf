@@ -11,6 +11,7 @@ export const AGENT_PROVIDERS = [
   "make",
   "langchain",
   "openai",
+  "ollama",
   "other"
 ] as const;
 export const CONNECTION_STATUSES = ["manual", "connected", "disconnected"] as const;
@@ -29,6 +30,7 @@ export const PROVIDER_LABELS: Record<AgentProvider, string> = {
   make: "Make",
   langchain: "LangChain",
   openai: "OpenAI",
+  ollama: "Ollama",
   other: "Other"
 };
 

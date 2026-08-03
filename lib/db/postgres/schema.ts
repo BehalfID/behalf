@@ -533,6 +533,8 @@ export const agents = pgTable(
     connectionStatus: text("connection_status").notNull().default("manual"),
     description: text("description"),
     guidelines: text("guidelines").array().notNull().default(sql`'{}'`),
+    ollamaBaseUrl: text("ollama_base_url"),
+    ollamaModel: text("ollama_model"),
     publicPassportTokenHash: text("public_passport_token_hash"),
     publicPassportTokenPreview: text("public_passport_token_preview"),
     publicPassportEnabled: boolean("public_passport_enabled").notNull().default(false),

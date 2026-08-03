@@ -52,7 +52,7 @@ export function agentsCommand() {
     .description("create a new agent")
     .requiredOption("-n, --name <name>", "agent name")
     .option("--type <type>", "agent type: native or connected (default: native)")
-    .option("--provider <provider>", "provider (for connected agents): ollie, chatgpt, claude, etc.")
+    .option("--provider <provider>", "provider (for connected agents): ollie, chatgpt, claude, ollama, etc.")
     .option("--description <desc>", "agent description")
     .option("--external-id <id>", "external agent ID (for connected agents)")
     .option("--external-label <label>", "external agent label (for connected agents)")

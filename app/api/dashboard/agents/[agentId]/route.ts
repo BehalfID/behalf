@@ -8,6 +8,7 @@ import { serializeAgent } from "@/lib/dashboardData";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import { getWorkspaceActor, serializeWorkspaceAuthority } from "@/lib/delegatedAuth";
 import { requireWorkspaceMutationActor } from "@/lib/workspaceActor";
+import { parseOllamaRuntimeFields } from "@/lib/ollamaClient";
 import { readJsonObject } from "@/lib/request";
 import { jsonError, noCacheJson } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
@@ -50,12 +51,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     "externalAgentLabel",
     "description",
     "connectionStatus",
-    "guidelines"
+    "guidelines",
+    "ollamaBaseUrl",
+    "ollamaModel"
   ]);
   if (unknownError) return jsonError(unknownError);
 
   const { agentId } = await context.params;
-  const update: Record<string, string | undefined> = {};
+  const update: Record<string, string | string[] | null | undefined> = {};
 
   if (body.name !== undefined) {
     const name = readString(body.name);
@@ -83,7 +86,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       if (trimmed.length > 500) return jsonError("Each guideline must be 500 characters or fewer.");
       if (trimmed) parsed.push(trimmed);
     }
-    (update as Record<string, unknown>).guidelines = parsed;
+    update.guidelines = parsed;
+  }
+
+  if (body.ollamaBaseUrl !== undefined || body.ollamaModel !== undefined) {
+    const runtime = await parseOllamaRuntimeFields(body);
+    if (!runtime.ok) return jsonError(runtime.error);
+    if (runtime.update.ollamaBaseUrl !== undefined) update.ollamaBaseUrl = runtime.update.ollamaBaseUrl;
+    if (runtime.update.ollamaModel !== undefined) update.ollamaModel = runtime.update.ollamaModel;
   }
 
   if (!Object.keys(update).length) {

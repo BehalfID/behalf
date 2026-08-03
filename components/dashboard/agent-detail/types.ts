@@ -21,6 +21,7 @@ export type AgentProvider =
   | "make"
   | "langchain"
   | "openai"
+  | "ollama"
   | "other";
 
 export type AgentDetail = {
@@ -33,6 +34,8 @@ export type AgentDetail = {
   externalAgentId?: string | null;
   externalAgentLabel?: string | null;
   description?: string | null;
+  ollamaBaseUrl?: string | null;
+  ollamaModel?: string | null;
   createdAt?: string;
   updatedAt?: string;
   lastUsedAt?: string | null;

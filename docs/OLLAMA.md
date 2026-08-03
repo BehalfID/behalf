@@ -1,10 +1,14 @@
 # Local Ollama setup for BehalfID
 
-BehalfID's regular-user onboarding uses a locally running Ollama instance to draft permission passports from plain-English descriptions. The AI only drafts; nothing is created until you review and confirm.
+BehalfID uses Ollama in related but separate ways:
+
+1. **Permission drafting (optional)** — onboarding can call a local Ollama model to draft permission passports from plain-English descriptions. The AI only drafts; nothing is created until you review and confirm.
+2. **Agent provider label** — you can register agents with `provider: "ollama"` so local-model agents show up clearly in the dashboard.
+3. **Optional runtime convenience** — store per-agent `ollamaBaseUrl` / `ollamaModel` and use dashboard test/chat proxy endpoints. This does **not** enforce tool policy; your app still calls `verify` before tools run.
 
 ---
 
-## How it works
+## How drafting works
 
 1. You describe what you want an AI assistant to do in plain English.
 2. BehalfID sends that description to a local Ollama model.
@@ -277,6 +281,132 @@ pm2 save
 | `Configured Ollama model is not available.` | Model not pulled | Run `ollama pull <model>` |
 | `Ollama timed out.` | Model too slow | Use a smaller model or increase `OLLAMA_TIMEOUT_MS` |
 | `Ollama returned an invalid draft.` | Model returned garbled output | Try again, or switch to a stronger model |
+
+---
+
+## Creating an Ollama agent (identity)
+
+Ollama drafting (above) is separate from registering an agent that *runs on* local models.
+
+To create a BehalfID agent labeled for Ollama:
+
+1. In the dashboard onboarding or agent create flow, choose **Ollama** as the provider (or `POST /api/agents` with `"provider": "ollama"`).
+2. Optionally set `externalAgentLabel` to the model name (for example `llama3.1:8b`) — this is descriptive metadata only.
+3. Grant permissions in the dashboard/console as usual. Agent API keys cannot grant permissions.
+4. From your local app, call `POST /api/verify` (or the SDK) before tool execution. BehalfID does not host or call your Ollama instance for agent runtime.
+
+`provider: "ollama"` is a label for identity and UX. It is not the same as **Ollie** (`provider: "ollie"`).
+
+Use the experimental Ollama adapter to gate tool calls:
+
+```typescript
+import {
+  parseOllamaToolCalls,
+  checkToolCall,
+  buildDeniedToolMessage,
+} from "@behalfid/sdk/adapters/ollama";
+```
+
+See `integrations/ollama/README.md` and `examples/ollama-tool-gating`.
+
+---
+
+## Optional runtime convenience (Track B)
+
+BehalfID can optionally **store** an agent's Ollama base URL/model and **forward** tags/chat requests to that endpoint for developer convenience. This is **not** an enforcement tier and does **not** replace `verify()`.
+
+### Per-agent fields
+
+| Field | Purpose |
+|---|---|
+| `ollamaBaseUrl` | Absolute `http(s)` URL (e.g. `http://localhost:11434`). Blank → server `OLLAMA_BASE_URL`. |
+| `ollamaModel` | Model name (e.g. `llama3.1:8b`). Blank → server `OLLAMA_MODEL`. |
+
+Set them in the agent Overview when provider is **Ollama**, or via:
+
+```http
+PATCH /api/dashboard/agents/{agentId}
+{ "ollamaBaseUrl": "http://localhost:11434", "ollamaModel": "llama3.1:8b" }
+```
+
+Production still rejects localhost and applies the same SSRF rules as permission drafting. Proxy auth uses server `OLLAMA_PROXY_TOKEN` (never stored per-agent in this MVP).
+
+### Test connection
+
+```http
+POST /api/dashboard/agents/{agentId}/ollama/test
+```
+
+Probes `GET /api/tags` and checks that the configured model is installed.
+
+### Chat proxy
+
+```http
+POST /api/dashboard/agents/{agentId}/ollama/chat
+{
+  "messages": [{ "role": "user", "content": "Hello" }],
+  "stream": false
+}
+```
+
+Forwards to Ollama `/api/chat` (non-streaming only, size-capped). **Tool actions are not gated by this route** — still use the SDK adapter / MCP interceptor / `verify()`.
+
+### Explicit non-goals
+
+- GPU / managed Ollama hosting
+- Token usage billing
+- Per-agent encrypted proxy tokens
+- Streaming chat
+- Making inference part of `/api/verify`
+
+---
+
+## Ollama + MCP (tool interceptor)
+
+If your local agent talks to MCP servers (filesystem, browser, custom tools) and the LLM is Ollama, put BehalfID on the **MCP tool boundary** — not inside Ollama itself.
+
+```
+Ollama (local model) → MCP client → @behalfid/mcp-runtime → verify() → real MCP server
+```
+
+1. Create an agent with `provider: "ollama"` and grant permissions for the MCP tools you will expose.
+2. Point the MCP client at the BehalfID interceptor instead of the downstream server directly.
+3. Keep Ollama on the developer machine; BehalfID still only evaluates `verify`.
+
+`@behalfid/mcp-runtime` exists in this monorepo but is **not published to npm yet**. Build it from source:
+
+```bash
+cd packages/mcp-runtime
+npm install
+npm run build
+node dist/cli.js
+```
+
+Example MCP client entry (local build):
+
+```json
+{
+  "mcpServers": {
+    "behalfid": {
+      "command": "node",
+      "args": ["packages/mcp-runtime/dist/cli.js"],
+      "env": {
+        "BEHALFID_API_KEY": "bhf_sk_...",
+        "BEHALFID_AGENT_ID": "agent_...",
+        "BEHALFID_DOWNSTREAM_COMMAND": "npx",
+        "BEHALFID_DOWNSTREAM_ARGS": "[\"-y\",\"@modelcontextprotocol/server-filesystem\",\"/tmp\"]",
+        "BEHALFID_DOWNSTREAM_SERVER": "filesystem"
+      }
+    }
+  }
+}
+```
+
+Notes:
+
+- Advisory CLI MCP (`behalf mcp` / `verify_action`) is **not** the same as the interceptor — see `docs/MCP_DEMO.md`.
+- Full interceptor docs: `packages/mcp-runtime/README.md`.
+- For non-MCP Ollama tool loops, prefer `@behalfid/sdk/adapters/ollama`.
 
 ---
 

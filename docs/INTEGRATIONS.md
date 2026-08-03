@@ -9,6 +9,7 @@ BehalfID provides compatibility adapters for common AI frameworks and infrastruc
 | Platform | Adapter status | Marketing claim you can make |
 |---|---|---|
 | OpenAI | Experimental adapter | "Compatible with OpenAI-style tool call workflows" |
+| Ollama | Experimental adapter | "Compatible with local Ollama tool-call workflows" |
 | Anthropic / Claude | Experimental adapter | "Claude-ready" |
 | LangChain | Experimental adapter | "Adapter for LangChain" |
 | LlamaIndex | Experimental adapter | "Adapter for LlamaIndex" |
@@ -48,6 +49,30 @@ return result.result;
 ```
 
 Full reference: `integrations/openai/README.md`
+
+### Ollama tool calls
+
+```typescript
+import {
+  parseOllamaToolCalls,
+  checkToolCall,
+  buildDeniedToolMessage,
+} from "@/integrations/ollama";
+
+const toolCalls = parseOllamaToolCalls(message.tool_calls);
+for (const toolCall of toolCalls) {
+  const result = await checkToolCall(config, toolCall, async () => {
+    return await myHandler(toolCall.arguments);
+  });
+  if (result.blocked) {
+    messages.push(buildDeniedToolMessage(result.reason));
+    continue;
+  }
+  messages.push({ role: "tool", content: JSON.stringify(result.result) });
+}
+```
+
+Full reference: `integrations/ollama/README.md`
 
 ### Claude tool-use
 

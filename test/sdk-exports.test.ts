@@ -24,6 +24,12 @@ import {
 } from "../packages/sdk/dist/adapters/openai/index.js";
 
 import {
+  checkToolCall as checkOllamaToolCall,
+  parseOllamaToolCalls,
+  buildDeniedToolMessage,
+} from "../packages/sdk/dist/adapters/ollama/index.js";
+
+import {
   checkToolUse,
   buildDeniedToolResult,
 } from "../packages/sdk/dist/adapters/anthropic/index.js";
@@ -89,6 +95,20 @@ describe("sdk exports: @behalfid/sdk/adapters/openai", () => {
 
   it("checkPurchase is a function", () => {
     expect(typeof checkPurchase).toBe("function");
+  });
+});
+
+describe("sdk exports: @behalfid/sdk/adapters/ollama", () => {
+  it("checkToolCall is a function", () => {
+    expect(typeof checkOllamaToolCall).toBe("function");
+  });
+
+  it("parseOllamaToolCalls is a function", () => {
+    expect(typeof parseOllamaToolCalls).toBe("function");
+  });
+
+  it("buildDeniedToolMessage is a function", () => {
+    expect(typeof buildDeniedToolMessage).toBe("function");
   });
 });
 

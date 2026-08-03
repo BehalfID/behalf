@@ -124,6 +124,13 @@ the saved originals.
 Approval polling (default on): while `approvalRequired`, the interceptor re-calls
 `verify()` until allowed, denied, or timeout. Disable with `BEHALFID_APPROVAL_POLL=0`.
 
+## Ollama
+
+The interceptor does not call Ollama. Use any local model as the agent LLM; point
+the MCP client at this package so tool dispatch still goes through `verify()`.
+See `docs/OLLAMA.md` (Ollama + MCP) and `examples/ollama-tool-gating` for the
+non-MCP adapter path.
+
 ## License
 
 MIT

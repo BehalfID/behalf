@@ -202,4 +202,31 @@ describe("agent activity and credential safety", () => {
     expect(html).not.toContain("stored-api-key-must-not-render");
     expect(html.match(/verify\.ts/g)).toHaveLength(1);
   });
+
+  it("shows Ollama adapter snippet for ollama providers", () => {
+    const html = workspace(
+      <AgentIntegrations
+        agent={{ ...agent, provider: "ollama" }}
+        permissions={[permission]}
+        reload={async () => undefined}
+      />
+    );
+    expect(html).toContain("Ollama tool gating");
+    expect(html).toContain("@behalfid/sdk/adapters/ollama");
+    expect(html).toContain("ollama-gate.ts");
+    expect(html).toContain("does not host GPUs");
+  });
+
+  it("shows Ollama runtime fields when provider is ollama", () => {
+    const html = workspace(
+      <AgentOverview
+        agent={{ ...agent, provider: "ollama", ollamaBaseUrl: "http://localhost:11434", ollamaModel: "llama3.1:8b" }}
+        posture={posture}
+        reload={async () => undefined}
+      />
+    );
+    expect(html).toContain("Ollama base URL");
+    expect(html).toContain("Test Ollama connection");
+    expect(html).toContain("http://localhost:11434");
+  });
 });

@@ -26,6 +26,33 @@ const result = await behalf.verify({
 if (!result.allowed) throw new Error(result.reason);`;
 }
 
+function buildOllamaAdapterSnippet(agentId: string) {
+  return `import { BehalfID } from "@behalfid/sdk";
+import {
+  parseOllamaToolCalls,
+  checkToolCall,
+  buildDeniedToolMessage,
+} from "@behalfid/sdk/adapters/ollama";
+
+const config = {
+  client: new BehalfID({ apiKey: process.env.BEHALFID_API_KEY! }),
+  agentId: "${agentId}",
+};
+
+// After POST http://localhost:11434/api/chat (or your OLLAMA_HOST)
+const toolCalls = parseOllamaToolCalls(message.tool_calls);
+for (const toolCall of toolCalls) {
+  const gated = await checkToolCall(config, toolCall, async () => {
+    return await handlers[toolCall.name](toolCall.arguments);
+  });
+  if (gated.blocked) {
+    messages.push(buildDeniedToolMessage(gated.reason));
+    continue;
+  }
+  messages.push({ role: "tool", content: JSON.stringify(gated.result) });
+}`;
+}
+
 function OneTimeCredential({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
@@ -131,6 +158,26 @@ behalf status`}</CodeBlock>
             </div>
             <Badge>Not reported</Badge>
           </div>
+        </section>
+      ) : null}
+
+      {agent.provider === "ollama" ? (
+        <section className="dashboard-panel" aria-labelledby="ollama-setup-title">
+          <div className="dashboard-section-header">
+            <div>
+              <h2 id="ollama-setup-title">Ollama tool gating</h2>
+              <p>
+                Optional convenience: configure <code>ollamaBaseUrl</code> / <code>ollamaModel</code> on Overview,
+                then gate tool calls with the experimental adapter. BehalfID does not host GPUs — keep Ollama on your machine
+                (or a secured proxy). Tool policy still requires verify.
+              </p>
+            </div>
+            <Badge>Experimental</Badge>
+          </div>
+          <CodeBlock label="ollama-gate.ts">{buildOllamaAdapterSnippet(agent.agentId)}</CodeBlock>
+          <p className="field-help">
+            Full example: <code>examples/ollama-tool-gating</code>. For MCP servers in front of Ollama agents, see <code>docs/OLLAMA.md</code>.
+          </p>
         </section>
       ) : null}
 

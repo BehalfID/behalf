@@ -244,7 +244,7 @@ type DashboardResource<T> = {
   refreshing: boolean;
   reload: () => Promise<void>;
 };
-type AgentProvider = "custom" | "ollie" | "chatgpt" | "claude" | "gemini" | "zapier" | "make" | "langchain" | "openai" | "other";
+type AgentProvider = "custom" | "ollie" | "chatgpt" | "claude" | "gemini" | "zapier" | "make" | "langchain" | "openai" | "ollama" | "other";
 type ProviderSelection = AgentProvider | "";
 type Plan = "free" | "pro" | "team" | "business" | "enterprise";
 type UsageSummary = {
@@ -302,6 +302,7 @@ const regularProviderOptions: Array<{ value: AgentProvider; label: string; descr
   { value: "chatgpt", label: "ChatGPT", description: "OpenAI's ChatGPT" },
   { value: "claude", label: "Claude", description: "Anthropic's Claude" },
   { value: "gemini", label: "Gemini", description: "Google's Gemini" },
+  { value: "ollama", label: "Ollama", description: "Local Ollama models — you confirm permissions before anything is created" },
   { value: "ollie", label: "Ollie", description: "Ollie personal assistant" },
   { value: "zapier", label: "Zapier", description: "Zapier automation" },
   { value: "make", label: "Make", description: "Make (formerly Integromat)" },
@@ -338,7 +339,7 @@ const dashboardUseCaseContent: Record<OnboardingUseCase, {
     actionLabel: "Create passport",
     actionHref: "/dashboard/onboarding",
     steps: [
-      { title: "Choose assistant", body: "Pick ChatGPT, Claude, Gemini, Ollie, Zapier, Make, or another tool.", href: "/dashboard/onboarding" },
+      { title: "Choose assistant", body: "Pick ChatGPT, Claude, Gemini, Ollama, Ollie, Zapier, Make, or another tool.", href: "/dashboard/onboarding" },
       { title: "Describe the job", body: "State what it can do, what it must not do, and any spending or vendor limits.", href: "/dashboard/onboarding" },
       { title: "Review passport", body: "Confirm allowed actions, blocked actions, approval requirements, and limits.", href: "/dashboard/agents" },
       { title: "Paste instructions", body: "Add the passport instructions to the assistant and keep enforcement expectations explicit.", href: "/dashboard/docs" }
@@ -1485,6 +1486,7 @@ function OnboardingView() {
   const [draftErrorCode, setDraftErrorCode] = useState("");
   const [regularAgent, setRegularAgent] = useState<Agent | null>(null);
   const [regularPassportUrl, setRegularPassportUrl] = useState("");
+  const [regularApiKey, setRegularApiKey] = useState("");
   // Preset flow: holds the chosen preset while the user picks a provider for it
   const [pendingPreset, setPendingPreset] = useState<PassportPreset | null>(null);
   const [pendingPresetProvider, setPendingPresetProvider] = useState<AgentProvider | "">("");
@@ -1794,6 +1796,11 @@ function OnboardingView() {
       });
       const newAgent = result.agent;
       setRegularAgent(newAgent);
+      if (regularProvider === "ollama" && result.apiKey) {
+        setRegularApiKey(result.apiKey);
+      } else {
+        setRegularApiKey("");
+      }
       const passport = await api<{ passportUrl: string }>(`/api/dashboard/agents/${newAgent.agentId}/passport`, { method: "POST" });
       setRegularPassportUrl(passport.passportUrl);
       for (const perm of permissions) {
@@ -1877,12 +1884,13 @@ ${regularPassportUrl || "[passport link]"}`;
               setPendingPreset(null);
               setPendingPresetProvider("");
               setArrivedViaPreset(false);
+              setRegularApiKey("");
             }}
             type="button"
           >
             <span className="console-status console-status--active">Passport mode</span>
             <h2>I&apos;m using an existing AI assistant</h2>
-            <p>Create a manual permission passport for ChatGPT, Claude, Gemini, Ollie, Zapier, Make, or another assistant.</p>
+            <p>Create a manual permission passport for ChatGPT, Claude, Gemini, Ollama, Ollie, Zapier, Make, or another assistant.</p>
             <small>Describe what you want â†’ AI drafts permissions â†’ you review and confirm.</small>
           </button>
         </section>
@@ -1933,7 +1941,7 @@ ${regularPassportUrl || "[passport link]"}`;
             </div>
 
             <p className="section-kicker" style={{ marginTop: 24 }}>Or choose a provider</p>
-            <p>Pick your AI assistant and describe what you want it to do. AI will draft the permissions.</p>
+            <p>Pick your AI assistant and describe what you want it to do. AI will draft the permissions. Nothing is created until you confirm.</p>
             <div className="agent-create-grid">
               {regularProviderOptions.map((opt) => (
                 <button
@@ -1947,6 +1955,12 @@ ${regularPassportUrl || "[passport link]"}`;
                 </button>
               ))}
             </div>
+            {regularProvider === "ollama" ? (
+              <p className="field-help">
+                Ollama runs locally on your machine. After you confirm the passport, you will get a snippet to gate tool calls with <code>@behalfid/sdk/adapters/ollama</code>.
+                Not the same as <strong>Ollie</strong>, the personal assistant provider.
+              </p>
+            ) : null}
             {draftError ? <p className="form-error" role="alert">{draftError}</p> : null}
             <Button
               variant="primary"
@@ -2152,6 +2166,43 @@ ${regularPassportUrl || "[passport link]"}`;
               <p className="field-help">Some assistants cannot fetch passport links directly (for example, Gemini memory or ChatGPT system prompts). If the assistant cannot read the link, open the passport page and paste the Agent memory block instead.</p>
               <CodeBlock label="copy into your assistant">{regularInstructions}</CodeBlock>
             </Card>
+            {regularProvider === "ollama" ? (
+              <Card className="dashboard-panel">
+                <h2>Gate Ollama tool calls</h2>
+                <p>
+                  For local apps that call Ollama with tools, verify each tool before it runs.
+                  Store the one-time API key in your environment — it is shown only here.
+                </p>
+                {regularApiKey ? <Secret value={regularApiKey} label="Agent API key" /> : null}
+                <CodeBlock label="ollama-gate.ts">{`import { BehalfID } from "@behalfid/sdk";
+import {
+  parseOllamaToolCalls,
+  checkToolCall,
+  buildDeniedToolMessage,
+} from "@behalfid/sdk/adapters/ollama";
+
+const config = {
+  client: new BehalfID({ apiKey: process.env.BEHALFID_API_KEY! }),
+  agentId: "${regularAgent.agentId}",
+};
+
+// POST to OLLAMA_HOST (default http://localhost:11434)/api/chat, then:
+const toolCalls = parseOllamaToolCalls(message.tool_calls);
+for (const toolCall of toolCalls) {
+  const gated = await checkToolCall(config, toolCall, async () => {
+    return await handlers[toolCall.name](toolCall.arguments);
+  });
+  if (gated.blocked) {
+    messages.push(buildDeniedToolMessage(gated.reason));
+    continue;
+  }
+  messages.push({ role: "tool", content: JSON.stringify(gated.result) });
+}`}</CodeBlock>
+                <p className="field-help">
+                  Example: <code>examples/ollama-tool-gating</code>. MCP wrapping: <code>docs/OLLAMA.md</code>.
+                </p>
+              </Card>
+            ) : null}
           </section>
         ) : null}
         </div>

@@ -14,13 +14,14 @@ const PROVIDERS: Array<{ value: AgentProvider; label: string }> = [
   { value: "make", label: "Make" },
   { value: "langchain", label: "LangChain" },
   { value: "openai", label: "OpenAI" },
+  { value: "ollama", label: "Ollama" },
   { value: "custom", label: "Custom" },
   { value: "other", label: "Other" }
 ];
 
 type ProfileForm = Pick<
   AgentDetail,
-  "name" | "provider" | "externalAgentId" | "externalAgentLabel" | "description"
+  "name" | "provider" | "externalAgentId" | "externalAgentLabel" | "description" | "ollamaBaseUrl" | "ollamaModel"
 >;
 
 export function AgentOverview({
@@ -38,26 +39,69 @@ export function AgentOverview({
     provider: agent.provider,
     externalAgentId: agent.externalAgentId ?? "",
     externalAgentLabel: agent.externalAgentLabel ?? "",
-    description: agent.description ?? ""
+    description: agent.description ?? "",
+    ollamaBaseUrl: agent.ollamaBaseUrl ?? "",
+    ollamaModel: agent.ollamaModel ?? ""
   });
   const [guidelines, setGuidelines] = useState<string[]>(agent.guidelines ?? []);
   const [newGuideline, setNewGuideline] = useState("");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [ollamaTesting, setOllamaTesting] = useState(false);
+  const [ollamaTestResult, setOllamaTestResult] = useState("");
 
   const saveProfile = async (event: FormEvent) => {
     event.preventDefault();
     setError("");
     setNotice("");
     try {
+      const body: Record<string, unknown> = {
+        name: profile.name,
+        provider: profile.provider,
+        externalAgentId: profile.externalAgentId,
+        externalAgentLabel: profile.externalAgentLabel,
+        description: profile.description
+      };
+      if (profile.provider === "ollama") {
+        body.ollamaBaseUrl = profile.ollamaBaseUrl?.trim() || null;
+        body.ollamaModel = profile.ollamaModel?.trim() || null;
+      }
       await apiJson(`/api/dashboard/agents/${agent.agentId}`, {
         method: "PATCH",
-        body: JSON.stringify(profile)
+        body: JSON.stringify(body)
       });
       await reload();
       setNotice("Agent profile saved.");
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Agent profile save failed.");
+    }
+  };
+
+  const testOllama = async () => {
+    setError("");
+    setOllamaTestResult("");
+    setOllamaTesting(true);
+    try {
+      const result = await apiJson<{
+        ok: boolean;
+        model?: string;
+        baseUrl?: string;
+        availableModels?: string[];
+        details?: string;
+        error?: string;
+      }>(`/api/dashboard/agents/${agent.agentId}/ollama/test`, { method: "POST" });
+      if (result.ok) {
+        setOllamaTestResult(
+          `Connected to ${result.baseUrl} — model ${result.model} is available` +
+            (result.availableModels?.length ? ` (${result.availableModels.length} models installed).` : ".")
+        );
+      } else {
+        setError(result.error ?? result.details ?? "Ollama connection failed.");
+      }
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Ollama connection failed.");
+    } finally {
+      setOllamaTesting(false);
     }
   };
 
@@ -147,9 +191,42 @@ export function AgentOverview({
           <span>Description</span>
           <textarea rows={3} value={profile.description ?? ""} onChange={(event) => setProfile({ ...profile, description: event.target.value })} />
         </label>
+        {profile.provider === "ollama" ? (
+          <>
+            <label className="agent-edit-form__full-col">
+              <span>Ollama base URL</span>
+              <input
+                placeholder="http://localhost:11434 (or leave blank to use server OLLAMA_BASE_URL)"
+                value={profile.ollamaBaseUrl ?? ""}
+                onChange={(event) => setProfile({ ...profile, ollamaBaseUrl: event.target.value })}
+              />
+            </label>
+            <label>
+              <span>Ollama model</span>
+              <input
+                placeholder="llama3.1:8b"
+                value={profile.ollamaModel ?? ""}
+                onChange={(event) => setProfile({ ...profile, ollamaModel: event.target.value })}
+              />
+            </label>
+            <div className="agent-edit-form__full-col">
+              <p className="field-help">
+                Optional developer convenience for tagging this agent&apos;s local model and testing connectivity.
+                BehalfID may forward chat/tags to this endpoint — it does <strong>not</strong> enforce tool policy by hosting the model.
+                Leave blank to fall back to server <code>OLLAMA_*</code> env vars.
+              </p>
+            </div>
+          </>
+        ) : null}
         <div className="form-actions agent-edit-form__full-col">
           <Button variant="primary" type="submit">Save profile</Button>
+          {profile.provider === "ollama" ? (
+            <Button disabled={ollamaTesting} onClick={() => void testOllama()} type="button">
+              {ollamaTesting ? "Testing…" : "Test Ollama connection"}
+            </Button>
+          ) : null}
         </div>
+        {ollamaTestResult ? <p className="field-help agent-edit-form__full-col" role="status">{ollamaTestResult}</p> : null}
       </form>
 
       <section className="dashboard-panel" aria-labelledby="agent-guidelines-title">

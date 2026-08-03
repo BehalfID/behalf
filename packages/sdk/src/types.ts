@@ -87,6 +87,7 @@ export type AgentProvider =
   | "make"
   | "langchain"
   | "openai"
+  | "ollama"
   | "other";
 
 export type CreateAgentInput = {

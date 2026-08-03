@@ -86,7 +86,7 @@ Notes:
 - `BEHALFID_WEBHOOK_SIGNING_PEPPER` hardens outbound webhook signing if the database is exposed. Generate it with `openssl rand -hex 32`.
 - Keep `BEHALFID_PUBLIC_AGENT_CREATION=false` in production unless intentionally running an open demo.
 - Leave `TRUST_PROXY_XFF` unset on Vercel; BehalfID uses `x-real-ip` there.
-- Ollama variables are optional and only affect AI-assisted permission drafting.
+- Ollama variables are optional. They power AI-assisted permission drafting and (when set) the optional per-agent Ollama test/chat convenience proxy. They do **not** enforce tool permissions.
 - `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` enable Sign in with Google and workspace Google SSO. Create an OAuth 2.0 Web client in Google Cloud Console.
 - With subdomain routing (`BEHALFID_SUBDOMAIN_ROUTING=1`), Google and GitHub authorize `redirect_uri` values are `{https://BEHALFID_HOST_AUTH}/api/auth/{google|github}/callback` (e.g. `https://auth.behalfid.com/api/auth/github/callback`), **not** `NEXT_PUBLIC_APP_URL` / marketing apex. Without subdomain routing they remain `{NEXT_PUBLIC_APP_URL|/APP_BASE_URL}/api/auth/.../callback`.
 - Optional `GOOGLE_OAUTH_BASE_URL` / `GITHUB_OAUTH_BASE_URL` override the OAuth origin (no trailing path) for staging or custom clients.

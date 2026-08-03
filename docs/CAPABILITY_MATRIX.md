@@ -67,7 +67,8 @@ Do **not** invent live-client, pilot-completion, performance, uptime, or complia
 | Capability | Implemented in source | Released and installable | Live-validated | Production-supported | Notes / evidence |
 |---|---|---|---|---|---|
 | `@behalfid/sdk` core client | Yes | **Yes** — npm `@behalfid/sdk` | Live-verify / SDK export tests | Yes for Node callers that fail closed | |
-| OpenAI / Anthropic / LangChain / LlamaIndex / Stripe adapters | Yes | Via `@behalfid/sdk` subpaths (where exported) | Partial — opt-in live adapter suite | **No** — experimental unofficial adapters | See `docs/COMPATIBILITY_MATRIX.md` |
+| OpenAI / Anthropic / LangChain / LlamaIndex / Stripe / Ollama adapters | Yes | Via `@behalfid/sdk` subpaths (where exported) | Partial — opt-in live adapter suite | **No** — experimental unofficial adapters | See `docs/COMPATIBILITY_MATRIX.md` |
+| Ollama runtime convenience (per-agent URL/model, test + chat proxy) | Yes | Dashboard APIs | Unit tests for client helpers | **No** — developer convenience only, not enforcement | `lib/ollamaClient.ts`, `docs/OLLAMA.md` Track B |
 | Vercel adapter | Yes (example) | **Not** an SDK subpath export | Unit only | **No** | Deployment example |
 
 ---
