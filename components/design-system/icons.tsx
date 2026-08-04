@@ -50,6 +50,14 @@ export function Check(props: IconProps) {
   );
 }
 
+export function ChevronDown(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="m6 9 6 6 6-6" />
+    </IconBase>
+  );
+}
+
 export function Clock(props: IconProps) {
   return (
     <IconBase {...props}>

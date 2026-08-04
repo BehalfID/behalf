@@ -31,6 +31,16 @@
   --font-sans: var(--font-ds-sans);
   --font-mono: var(--font-ds-mono);
 
+  /* Radius scale from the .ds design system (mirrors the Lovable source's
+     `--radius-*` ladder derived from `--radius`). Without this, `rounded-md`
+     fell back to Tailwind's 6px while the source computes 7px. */
+  --radius-sm: var(--ds-radius-sm);
+  --radius-md: var(--ds-radius-md);
+  --radius-lg: var(--ds-radius-lg);
+  --radius-xl: var(--ds-radius-xl);
+  --radius-2xl: var(--ds-radius-2xl);
+  --radius-3xl: var(--ds-radius-3xl);
+
   --color-background: var(--ds-background);
   --color-foreground: var(--ds-foreground);
   --color-surface: var(--ds-surface);
