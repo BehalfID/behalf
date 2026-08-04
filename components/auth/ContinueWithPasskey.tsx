@@ -11,10 +11,19 @@ import { assignOwnedLocation } from "@/lib/subdomainRouting";
  */
 export function ContinueWithPasskey({
   nextPath,
-  enabled = true
+  enabled = true,
+  buttonClassName,
+  stackClassName
 }: {
   nextPath?: string;
   enabled?: boolean;
+  /**
+   * Presentation-only overrides used by the Lovable auth shell. They replace the
+   * legacy button/stack chrome; the WebAuthn ceremony, endpoints and redirect
+   * behaviour are untouched.
+   */
+  buttonClassName?: string;
+  stackClassName?: string;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -98,11 +107,11 @@ export function ContinueWithPasskey({
   };
 
   return (
-    <div className="oauth-provider-stack">
+    <div className={stackClassName ?? "oauth-provider-stack"}>
       <Button
         type="button"
         variant="secondary"
-        className="oauth-provider-button"
+        className={buttonClassName ?? "oauth-provider-button"}
         disabled={busy || !browserSupported}
         onClick={(e) => void signIn(e as unknown as FormEvent)}
       >

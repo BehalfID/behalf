@@ -23,6 +23,15 @@
 /* Scan the ported marketing components; only classes they use are emitted. */
 @source "../components/design-system";
 @source "../components/marketing";
+/* Phase 3: the Lovable auth shell and the auth route clients that consume it. */
+@source "../components/auth";
+@source "../app/auth-client.tsx";
+@source "../app/[locale]/auth-client.tsx";
+@source "../app/forgot-password";
+@source "../app/reset-password";
+@source "../app/verify-email";
+@source "../app/complete-profile";
+@source "../app/authenticate";
 
 @theme inline {
   /* Align to the .ds font cascade defined in lovable-design-system.css so the

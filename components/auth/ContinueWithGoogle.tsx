@@ -37,6 +37,12 @@ export type ContinueWithGoogleProps = Omit<
   label?: string;
   size?: ButtonSize;
   variant?: ButtonVariant;
+  /**
+   * Presentation-only escape hatch: drop the legacy `ui-button` chrome so the
+   * caller supplies the full visual treatment (used by the Lovable auth shell).
+   * Does not affect the OAuth href, state cookie or navigation behaviour.
+   */
+  unstyled?: boolean;
 };
 
 /**
@@ -50,15 +56,20 @@ export function ContinueWithGoogle({
   className,
   size = "default",
   variant = "secondary",
+  unstyled = false,
   ...props
 }: ContinueWithGoogleProps) {
-  const classes = [
-    "ui-button",
-    `ui-button--${variant}`,
-    size !== "default" ? `ui-button--${size}` : undefined,
-    "auth-google-button",
-    className
-  ]
+  const classes = (
+    unstyled
+      ? [className]
+      : [
+          "ui-button",
+          `ui-button--${variant}`,
+          size !== "default" ? `ui-button--${size}` : undefined,
+          "auth-google-button",
+          className
+        ]
+  )
     .filter(Boolean)
     .join(" ");
 

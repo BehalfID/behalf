@@ -3,8 +3,15 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { FormEvent, useState } from "react";
-import { AuthPrinciple, AuthShell, AuthTaskHeader, FormAlert } from "@/components/auth/AuthShell";
-import { Button, Field, FieldLabel, Input } from "@/components/ui";
+import { FormAlert } from "@/components/auth/AuthShell";
+import {
+  AuthField,
+  AuthFooterLinks,
+  AuthProductPanel,
+  AuthShell,
+  authInputClass,
+  authPrimaryButtonClass
+} from "@/components/auth/lovable/AuthShell";
 import { assignOwnedLocation } from "@/lib/subdomainRouting";
 
 function maxDateOfBirth(minAge: number): string {
@@ -77,48 +84,49 @@ export function CompleteProfilePage() {
 
   return (
     <AuthShell
-      compact
-      support={
-        <AuthPrinciple
-          eyebrow={`${providerLabel} sign-up`}
+      title="Confirm your age"
+      description="One more step before we create your workspace. We need your date of birth to meet age requirements."
+      panel={
+        <AuthProductPanel
           title="Almost ready."
           description={`Confirm your age to finish creating your BehalfID workspace after ${providerLabel} authentication.`}
           points={[
-            { label: "Verified email", value: `Taken from your ${providerLabel} account` },
-            { label: "Age check", value: "Required for COPPA compliance" },
-            { label: "Next", value: "Workspace onboarding" }
+            `Verified email taken from your ${providerLabel} account`,
+            "Age check required for COPPA compliance",
+            "Workspace onboarding comes next"
           ]}
         />
       }
+      footer={
+        <AuthFooterLinks className="text-center">
+          <Link className="text-primary hover:underline" href="/login">
+            Back to sign in
+          </Link>
+        </AuthFooterLinks>
+      }
     >
-      <form className="auth-task" onSubmit={submit} aria-busy={submitting}>
-        <AuthTaskHeader
-          eyebrow={`Finish ${providerLabel} sign-up`}
-          title="Confirm your age"
-          description="One more step before we create your workspace. We need your date of birth to meet age requirements."
-        />
-        <div className="auth-task__fields">
-          <Field>
-            <FieldLabel htmlFor="complete-date-of-birth">Date of birth</FieldLabel>
-            <Input
-              aria-describedby={error ? "complete-profile-error" : undefined}
-              autoComplete="bday"
-              id="complete-date-of-birth"
-              max={maxDateOfBirth(13)}
-              onChange={(event) => setDateOfBirth(event.target.value)}
-              required
-              type="date"
-              value={dateOfBirth}
-            />
-          </Field>
-        </div>
-        {error ? <FormAlert id="complete-profile-error">{error}</FormAlert> : null}
-        <Button disabled={submitting} loading={submitting} type="submit" variant="primary">
+      <form onSubmit={submit} aria-busy={submitting}>
+        <AuthField htmlFor="complete-date-of-birth" label="Date of birth">
+          <input
+            aria-describedby={error ? "complete-profile-error" : undefined}
+            autoComplete="bday"
+            className={authInputClass}
+            id="complete-date-of-birth"
+            max={maxDateOfBirth(13)}
+            onChange={(event) => setDateOfBirth(event.target.value)}
+            required
+            type="date"
+            value={dateOfBirth}
+          />
+        </AuthField>
+        {error ? (
+          <div className="mt-4">
+            <FormAlert id="complete-profile-error">{error}</FormAlert>
+          </div>
+        ) : null}
+        <button className={`${authPrimaryButtonClass} mt-5`} disabled={submitting} type="submit">
           {submitting ? "Creating account…" : "Continue"}
-        </Button>
-        <p className="auth-task__row auth-task__row--center">
-          <Link href="/login">Back to sign in</Link>
-        </p>
+        </button>
       </form>
     </AuthShell>
   );

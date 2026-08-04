@@ -2,8 +2,14 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
-import { AuthShell, AuthStateMark, AuthTaskHeader, FormAlert } from "@/components/auth/AuthShell";
-import { Button, ButtonLink, Field, FieldDescription, FieldLabel, Input } from "@/components/ui";
+import { FormAlert } from "@/components/auth/AuthShell";
+import {
+  AuthField,
+  AuthFooterLinks,
+  AuthShell,
+  authInputClass,
+  authPrimaryButtonClass
+} from "@/components/auth/lovable/AuthShell";
 
 type State = "idle" | "submitting" | "success" | "error";
 
@@ -15,32 +21,26 @@ export function ResetPasswordClient({ token }: { token?: string }) {
 
   if (!token) {
     return (
-      <AuthShell compact returnHref="/login" returnLabel="Back to login">
-        <section className="auth-task">
-          <AuthStateMark tone="error" />
-          <AuthTaskHeader
-            eyebrow="Password reset"
-            title="This reset link is invalid"
-            description="The link is missing or malformed. Request a new reset message to continue."
-          />
-          <ButtonLink href="/forgot-password" variant="primary">Request a new link</ButtonLink>
-        </section>
+      <AuthShell
+        title="This reset link is invalid"
+        description="The link is missing or malformed. Request a new reset message to continue."
+      >
+        <Link className={authPrimaryButtonClass} href="/forgot-password">
+          Request a new link
+        </Link>
       </AuthShell>
     );
   }
 
   if (state === "success") {
     return (
-      <AuthShell compact returnHref="/login" returnLabel="Back to login">
-        <section className="auth-task">
-          <AuthStateMark tone="success" />
-          <AuthTaskHeader
-            eyebrow="Password reset complete"
-            title="Your password has been updated"
-            description="All previous sessions have been invalidated. Sign in again with your new password."
-          />
-          <ButtonLink href="/login" variant="primary">Sign in</ButtonLink>
-        </section>
+      <AuthShell
+        title="Your password has been updated"
+        description="All previous sessions have been invalidated. Sign in again with your new password."
+      >
+        <Link className={authPrimaryButtonClass} href="/login">
+          Sign in
+        </Link>
       </AuthShell>
     );
   }
@@ -78,19 +78,24 @@ export function ResetPasswordClient({ token }: { token?: string }) {
   };
 
   return (
-    <AuthShell compact returnHref="/login" returnLabel="Back to login">
-      <form className="auth-task" onSubmit={submit} aria-busy={state === "submitting"}>
-        <AuthTaskHeader
-          eyebrow="Account security"
-          title="Set a new password"
-          description="Choose a new password for your BehalfID account. After this change, you’ll sign in again on every device."
-        />
-        <div className="auth-task__fields">
-          <Field>
-            <FieldLabel htmlFor="new-password">New password</FieldLabel>
-            <Input
+    <AuthShell
+      title="Set a new password"
+      description="Choose a new password for your BehalfID account. After this change, you’ll sign in again on every device."
+      footer={
+        <AuthFooterLinks className="text-center">
+          <Link className="text-primary hover:underline" href="/login">
+            Back to login
+          </Link>
+        </AuthFooterLinks>
+      }
+    >
+      <form onSubmit={submit} aria-busy={state === "submitting"}>
+        <div className="space-y-4">
+          <AuthField htmlFor="new-password" label="New password" hint="Use at least 10 characters.">
+            <input
               aria-describedby="new-password-help"
               autoComplete="new-password"
+              className={authInputClass}
               id="new-password"
               minLength={10}
               onChange={(event) => setPassword(event.target.value)}
@@ -98,13 +103,12 @@ export function ResetPasswordClient({ token }: { token?: string }) {
               type="password"
               value={password}
             />
-            <FieldDescription id="new-password-help">Use at least 10 characters.</FieldDescription>
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="confirm-password">Confirm password</FieldLabel>
-            <Input
+          </AuthField>
+          <AuthField htmlFor="confirm-password" label="Confirm password">
+            <input
               aria-describedby={error ? "password-reset-error" : undefined}
               autoComplete="new-password"
+              className={authInputClass}
               id="confirm-password"
               minLength={10}
               onChange={(event) => setConfirm(event.target.value)}
@@ -112,15 +116,16 @@ export function ResetPasswordClient({ token }: { token?: string }) {
               type="password"
               value={confirm}
             />
-          </Field>
+          </AuthField>
         </div>
-        {error ? <FormAlert id="password-reset-error">{error}</FormAlert> : null}
-        <Button loading={state === "submitting"} variant="primary" type="submit">
+        {error ? (
+          <div className="mt-4">
+            <FormAlert id="password-reset-error">{error}</FormAlert>
+          </div>
+        ) : null}
+        <button className={`${authPrimaryButtonClass} mt-5`} disabled={state === "submitting"} type="submit">
           {state === "submitting" ? "Updating password…" : "Set new password"}
-        </Button>
-        <p className="auth-task__row auth-task__row--center">
-          <Link href="/login">Back to login</Link>
-        </p>
+        </button>
       </form>
     </AuthShell>
   );

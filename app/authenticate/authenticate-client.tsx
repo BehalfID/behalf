@@ -1,8 +1,15 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { AuthPrinciple, AuthShell, AuthStateMark, AuthTaskHeader, FormAlert } from "@/components/auth/AuthShell";
-import { Button, Field, FieldDescription, FieldLabel, Input } from "@/components/ui";
+import { FormAlert } from "@/components/auth/AuthShell";
+import {
+  AuthField,
+  AuthFooterLinks,
+  AuthProductPanel,
+  AuthShell,
+  authInputClass,
+  authPrimaryButtonClass
+} from "@/components/auth/lovable/AuthShell";
 
 type Props = { prefillCode?: string; email: string };
 
@@ -41,44 +48,53 @@ export function AuthenticateClient({ prefillCode, email }: Props) {
 
   return (
     <AuthShell
-      returnHref="/dashboard"
-      returnLabel="Back to control plane"
-      support={
-        <AuthPrinciple
-          eyebrow="CLI device authorization"
+      title={status === "done" ? "Return to your terminal" : "Authorize the BehalfID CLI"}
+      description={
+        status === "done" ? (
+          <>The CLI is now authenticated as <strong>{email}</strong>. You can close this tab.</>
+        ) : (
+          <>Signed in as <strong>{email}</strong>. Enter the 8-character code shown in your terminal.</>
+        )
+      }
+      panel={
+        <AuthProductPanel
           title="Link your terminal without sharing a password."
           description="The short-lived code binds this browser session to the requesting CLI. It expires after 15 minutes."
           points={[
-            { label: "Session", value: "Signed in as the current account" },
-            { label: "Secret", value: "No password is entered in the terminal" },
-            { label: "Control", value: "CLI access can be revoked later" }
+            "Signed in as the current account",
+            "No password is entered in the terminal",
+            "CLI access can be revoked later"
           ]}
         />
       }
+      footer={
+        status === "done" ? undefined : (
+          <AuthFooterLinks className="text-center">
+            Not your account?{" "}
+            {/* Document navigation is intentional: GET /logout clears the session before redirecting.
+                Do not use next/link — production prefetch would log the user out on page load. */}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+            <a className="text-primary hover:underline" href="/logout?next=/authenticate">
+              Switch account
+            </a>
+          </AuthFooterLinks>
+        )
+      }
     >
       {status === "done" ? (
-        <section className="auth-task">
-          <AuthStateMark tone="success" />
-          <AuthTaskHeader
-            eyebrow="CLI authorized"
-            title="Return to your terminal"
-            description={<>The CLI is now authenticated as <strong>{email}</strong>. You can close this tab.</>}
-          />
-          <FormAlert tone="success">Authorization completed.</FormAlert>
-        </section>
+        <FormAlert tone="success">Authorization completed.</FormAlert>
       ) : (
-        <form className="auth-task" onSubmit={submit} aria-busy={status === "loading"}>
-          <AuthTaskHeader
-            eyebrow="Enter device code"
-            title="Authorize the BehalfID CLI"
-            description={<>Signed in as <strong>{email}</strong>. Enter the 8-character code shown in your terminal.</>}
-          />
-          <Field>
-            <FieldLabel htmlFor="device-code">Device code</FieldLabel>
-            <Input
+        <form onSubmit={submit} aria-busy={status === "loading"}>
+          <AuthField
+            htmlFor="device-code"
+            label="Device code"
+            hint="The code is not case-sensitive and expires after 15 minutes."
+          >
+            <input
               aria-describedby={error ? "device-code-error" : "device-code-help"}
               autoComplete="off"
               autoFocus
+              className={authInputClass}
               disabled={status === "loading"}
               id="device-code"
               inputMode="text"
@@ -90,24 +106,19 @@ export function AuthenticateClient({ prefillCode, email }: Props) {
               type="text"
               value={code}
             />
-            <FieldDescription id="device-code-help">The code is not case-sensitive and expires after 15 minutes.</FieldDescription>
-          </Field>
-          {error ? <FormAlert id="device-code-error">{error}</FormAlert> : null}
-          <Button
-            disabled={code.replace("-", "").length < 8}
-            loading={status === "loading"}
+          </AuthField>
+          {error ? (
+            <div className="mt-4">
+              <FormAlert id="device-code-error">{error}</FormAlert>
+            </div>
+          ) : null}
+          <button
+            className={`${authPrimaryButtonClass} mt-5`}
+            disabled={code.replace("-", "").length < 8 || status === "loading"}
             type="submit"
-            variant="primary"
           >
             {status === "loading" ? "Authorizing CLI…" : "Authorize CLI"}
-          </Button>
-          <p className="auth-task__row auth-task__row--center">
-            Not your account?{" "}
-            {/* Document navigation is intentional: GET /logout clears the session before redirecting.
-                Do not use next/link — production prefetch would log the user out on page load. */}
-            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-            <a href="/logout?next=/authenticate">Switch account</a>
-          </p>
+          </button>
         </form>
       )}
     </AuthShell>
