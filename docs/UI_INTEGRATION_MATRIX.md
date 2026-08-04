@@ -285,3 +285,20 @@ Dashboard/console authenticated screens were not exercised in the headless harne
 - Missing `.ds` preflight (`h1`/`p` margin: 0) let UA margins (~56px below `h1`, ~18px below `p`) push CTAs to the fold — especially visible in Safari/WebKit at 1280×800.
 - Missing `.ds .px-6` zeroed hero button horizontal padding; CTAs now match Lovable `Button size="lg"` (`h-10`, `text-sm`, `px-6`).
 - Header: Blog mobile/footer-only; `DsAppearanceToggle` icon group replaces labeled theme switcher; locale globe without `EN` label; Google remains on login/signup (+ mobile drawer).
+
+### Phase 3 (NOT in PR #164): Lovable auth UI inventory
+
+Recorded for the next phase only — **no auth code was changed in PR #164**. Login,
+signup, password reset, OAuth, passkeys, MFA, sessions and auth routes are untouched.
+
+| Lovable source | Purpose | Port notes for Phase 3 |
+| --- | --- | --- |
+| `src/routes/login.tsx` | Login page | Visual/layout only. Uses `supabase.auth` — **must not** be ported; keep production custom auth (SimpleWebAuthn passkeys, `jose` sessions, `otpauth` MFA). |
+| `src/routes/signup.tsx` | Signup page | Same: presentation only, keep production submit path. |
+| `src/routes/[.]lovable.oauth.consent.tsx` | Lovable OAuth consent | Lovable-specific; **not** applicable to production OAuth. |
+| `src/components/layouts/auth-layout.tsx` | Auth shell (wordmark, ThemeToggle, ShieldCheck trust strip) | Portable structure; adapt `@tanstack/react-router` Link → `next/link`, `lucide-react` → local `./icons`. |
+| `src/components/ui/{button,input,label}.tsx` | Form primitives | Port the literal Tailwind classes (same approach as the marketing transplant). `Button` cva already mirrored for the header/ending CTAs. |
+| `sonner` `toast` | Form feedback | Production has no `sonner`; map to the existing notification pattern. |
+| `src/lib/safe-next.ts` | `?next=` redirect guard | Compare against production's existing redirect validation before reusing. |
+
+Dependencies to **exclude**: `@supabase/supabase-js`, `sonner`, `@tanstack/react-router`.
