@@ -199,3 +199,27 @@
 # - No hardcoded secrets detected (grepped for API key/AWS key/private-key/Slack-token patterns;
 #   only committed env file is .env.example / examples/site-guard-demo/.env.example; no key/cert
 #   files tracked)
+
+# Last audit: 2026-08-04
+# Result: PASSED (after remediation)
+# - npm audit (root): found 2 high-severity advisories on install -
+#   brace-expansion 5.0.8 (GHSA-rgw5-rvv9-x895, DoS bypassing prior CVE-2026-14257
+#   mitigation) and fast-uri 3.1.4 (GHSA-7p8r-x3mc-p8w7, host confusion via
+#   backslash authority introducer). Both are transitive build-time deps
+#   (eslint -> minimatch -> brace-expansion; @sentry/nextjs -> webpack ->
+#   schema-utils -> ajv -> fast-uri), not runtime request-path code. Fixed by
+#   bumping the existing brace-expansion override to ^5.0.9 and adding a new
+#   fast-uri override to ^3.1.5 in package.json; re-audit is now clean.
+# - npm audit: 0 vulnerabilities in packages/cli, packages/github-action, packages/install,
+#   packages/mcp-audit, packages/mcp-runtime, packages/sdk, packages/egress-proxy,
+#   examples/enforcement-demo, examples/node-demo, examples/site-guard-express,
+#   examples/site-guard-nextjs, examples/webhook-receiver
+# - Unit tests: 1915 passed, 78 skipped (203/204 files, root); 146 passed (egress-proxy,
+#   install, github-action); 93 passed (mcp-runtime)
+#   - test/mongo-repository-contracts.test.ts (73 tests) could not execute: MongoMemoryServer
+#     binary download blocked by this sandbox's outbound network policy (fastdl.mongodb.org);
+#     unrelated to source changes and runs normally in GitHub Actions CI
+# - No hardcoded secrets detected (grepped for API key/AWS key/private-key/Slack-token patterns;
+#   only committed env file is .env.example / examples/site-guard-demo/.env.example; no key/cert
+#   files tracked; the sk-... strings in test/mcp-audit.test.ts are intentional test fixtures,
+#   not real credentials)
