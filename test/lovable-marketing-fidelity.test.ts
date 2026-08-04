@@ -47,7 +47,12 @@ describe("lovable marketing visual fidelity", () => {
   });
 
   it("uses Lovable hero structure: max-w-7xl shell with max-w-3xl copy column", () => {
-    expect(home).toContain('className="mx-auto max-w-7xl px-5 pt-20 sm:px-8 sm:pt-28 lg:pt-32"');
+    // Hero shell keeps Lovable's max-w-7xl + horizontal rhythm. The top padding is an
+    // INTENTIONAL deviation from Lovable (PR #164): the header->eyebrow gap is tightened
+    // to ~94px at >=1280, ~70px at 1024 and ~46px on mobile, via content-driven padding
+    // only (no viewport-height positioning). Assert the shell and the responsive
+    // padding ladder rather than Lovable's original pt-20/28/32.
+    expect(home).toContain('className="mx-auto max-w-7xl px-5 pt-10 sm:px-8 sm:pt-14 lg:pt-16 xl:pt-[5.5rem]"');
     expect(home).toContain('className="max-w-3xl"');
     expect(home).toContain('className="display-2xl mt-7"');
     expect(home).toContain("AuthorityFlowCanvas");

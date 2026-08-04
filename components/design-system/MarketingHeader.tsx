@@ -124,9 +124,14 @@ export function MarketingHeader({
             {authLabel}
           </Link>
           {/* Google OAuth stays on login/signup; keep out of desktop chrome for Lovable density. */}
-          <Link href="/signup" className="ds-header__cta" onClick={crossAppClickHandler("/signup")}>
+          {/* Literal Lovable <Button size="sm" className="group rounded-full px-4 shadow-raised"> */}
+          <Link
+            href="/signup"
+            className="group inline-flex h-8 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-primary px-4 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:pointer-events-none"
+            onClick={crossAppClickHandler("/signup")}
+          >
             Start building
-            <ArrowRight className="size-3.5" aria-hidden />
+            <ArrowRight className="transition-transform group-hover:translate-x-0.5" aria-hidden />
           </Link>
           <button
             ref={hamburgerRef}

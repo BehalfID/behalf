@@ -48,7 +48,9 @@ export function LovableHomeContent() {
     <>
       {/* ── Hero — warm ivory, one dominant composition ─────────────── */}
       <section className="env-ivory relative overflow-hidden">
-        <div className="mx-auto max-w-7xl px-5 pt-20 sm:px-8 sm:pt-28 lg:pt-32">
+        {/* Intentional deviation from Lovable: tighter header→hero gap (see PR #164).
+            Content-driven padding only — no viewport-height positioning. */}
+        <div className="mx-auto max-w-7xl px-5 pt-10 sm:px-8 sm:pt-14 lg:pt-16 xl:pt-[5.5rem]">
           <div className="max-w-3xl">
             <div className="inline-flex items-center gap-2.5 text-[11px] font-medium uppercase tracking-[0.2em] text-primary">
               <span aria-hidden>/</span> Authority for AI agents

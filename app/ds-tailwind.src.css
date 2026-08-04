@@ -11,7 +11,14 @@
    marketing subtree (native <button>/<input> chrome, universal border reset)
    exactly like the Lovable source, without touching the production document. */
 @import "tailwindcss/preflight.css" layer(base);
-@import "tailwindcss/utilities.css" layer(utilities);
+/* Utilities are emitted UNLAYERED on purpose.
+ * The production document has unlayered global resets (e.g. `a { color: inherit }`
+ * in globals.css), and unlayered rules beat anything inside @layer regardless of
+ * specificity — that outranked every generated `text-*` utility on links. Leaving
+ * utilities unlayered puts them back under normal specificity rules, where
+ * `.ds .text-secondary-foreground` (0,2,0) correctly wins over `a` (0,0,1).
+ * Preflight stays in @layer base so legacy `.ds` component CSS still outranks the reset. */
+@import "tailwindcss/utilities.css";
 
 /* Scan the ported marketing components; only classes they use are emitted. */
 @source "../components/design-system";
@@ -24,39 +31,39 @@
   --font-sans: var(--font-ds-sans);
   --font-mono: var(--font-ds-mono);
 
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-surface: var(--surface);
-  --color-surface-2: var(--surface-2);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary-soft: var(--primary-soft);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-destructive-soft: var(--destructive-soft);
-  --color-success: var(--success);
-  --color-success-foreground: var(--success-foreground);
-  --color-success-soft: var(--success-soft);
-  --color-warning: var(--warning);
-  --color-warning-foreground: var(--warning-foreground);
-  --color-warning-soft: var(--warning-soft);
-  --color-info: var(--info);
-  --color-info-foreground: var(--info-foreground);
-  --color-info-soft: var(--info-soft);
-  --color-neutralish: var(--neutralish);
-  --color-neutralish-soft: var(--neutralish-soft);
-  --color-border: var(--border);
-  --color-border-strong: var(--border-strong);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
+  --color-background: var(--ds-background);
+  --color-foreground: var(--ds-foreground);
+  --color-surface: var(--ds-surface);
+  --color-surface-2: var(--ds-surface-2);
+  --color-card: var(--ds-card);
+  --color-card-foreground: var(--ds-card-foreground);
+  --color-popover: var(--ds-popover);
+  --color-popover-foreground: var(--ds-popover-foreground);
+  --color-primary: var(--ds-primary);
+  --color-primary-foreground: var(--ds-primary-foreground);
+  --color-primary-soft: var(--ds-primary-soft);
+  --color-secondary: var(--ds-secondary);
+  --color-secondary-foreground: var(--ds-secondary-foreground);
+  --color-muted: var(--ds-muted);
+  --color-muted-foreground: var(--ds-muted-foreground);
+  --color-accent: var(--ds-accent);
+  --color-accent-foreground: var(--ds-accent-foreground);
+  --color-destructive: var(--ds-destructive);
+  --color-destructive-foreground: var(--ds-destructive-foreground);
+  --color-destructive-soft: var(--ds-destructive-soft);
+  --color-success: var(--ds-success);
+  --color-success-foreground: var(--ds-success-foreground);
+  --color-success-soft: var(--ds-success-soft);
+  --color-warning: var(--ds-warning);
+  --color-warning-foreground: var(--ds-warning-foreground);
+  --color-warning-soft: var(--ds-warning-soft);
+  --color-info: var(--ds-info);
+  --color-info-foreground: var(--ds-info-foreground);
+  --color-info-soft: var(--ds-info-soft);
+  --color-neutralish: var(--ds-neutralish);
+  --color-neutralish-soft: var(--ds-neutralish-soft);
+  --color-border: var(--ds-border);
+  --color-border-strong: var(--ds-border-strong);
+  --color-input: var(--ds-input);
+  --color-ring: var(--ds-ring);
 }

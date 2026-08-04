@@ -764,9 +764,13 @@
 .ds .min-h-dvh {
   min-height: 100dvh;
 }
-.ds a {
-  color: inherit;
-}
+/* `.ds a { color: inherit }` intentionally removed.
+ * It lived here UNLAYERED, and unlayered rules beat everything in @layer, so it
+ * outranked every generated text-* utility on anchors (equal specificity,
+ * (0,2,0)) — that is why the ending-CTA link ignored `text-secondary-foreground`
+ * and inherited the copper-field foreground instead. The scoped Tailwind
+ * preflight now supplies the same `a { color: inherit }` reset in @layer base,
+ * where utilities can correctly override it. */
 .ds .group:hover .group-hover\:text-foreground {
   color: var(--color-foreground);
 }

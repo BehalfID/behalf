@@ -245,6 +245,18 @@ html[data-theme="dark"] .ds,
   font-family: var(--font-ds-mono);
 }
 
+/* Scope isolation for the production blog/docs code-block rule.
+ * globals.css sets `html[data-theme="light"] pre { background: var(--surface) }`
+ * (specificity 0,1,2, unlayered), which leaked into the marketing subtree and
+ * painted the SDK and decision <pre> panels white inside the dark developers
+ * section — washing out the code text. The Lovable source renders <pre> with a
+ * transparent background (the surrounding figure/panel supplies the fill), so
+ * restore that inside `.ds` only. `html .ds pre` ties on specificity (0,1,2)
+ * and wins on order, since this file loads after globals.css. */
+html .ds pre {
+  background: transparent;
+}
+
 .ds :focus-visible {
   outline: 2px solid var(--color-ring);
   outline-offset: 2px;
@@ -417,6 +429,78 @@ html:not(.dark):not([data-theme="dark"]) .ds .canvas-light {
   --ds-warning-soft: oklch(0.96 0.038 80);
   --ds-destructive: oklch(0.525 0.19 26);
   color: var(--ds-foreground);
+}
+
+/* ---------------------------------------------------------------------------
+ * Scoped theme re-binding. (Mirrors the Lovable source's own fix.)
+ *
+ * The `--color-*` aliases above are declared once on `.ds`, so they resolve
+ * against the LIGHT `--ds-*` values at that level. A nested scope that
+ * redefines the base tokens (a fixed-dark `.dark` band, `.canvas-light`,
+ * `.env-copper-field`) only changes `--ds-*`; children keep inheriting the
+ * already-resolved `--color-*`, so `text-foreground` / `bg-surface` /
+ * `bg-secondary` stayed on light values inside dark sections — that is how
+ * the dashboard heading went dark-on-dark and the code/decision/CTA panels
+ * turned white in global light mode.
+ *
+ * Any selector that redefines `--ds-*` must therefore re-bind the aliases.
+ * ------------------------------------------------------------------------ */
+html.dark .ds,
+html[data-theme="dark"] .ds,
+.ds.dark,
+.ds .dark,
+html:not(.dark):not([data-theme="dark"]) .ds .canvas-light,
+.ds .env-copper-field,
+.ds.env-copper-field {
+  --color-background: var(--ds-background);
+  --color-foreground: var(--ds-foreground);
+  --color-surface: var(--ds-surface);
+  --color-surface-2: var(--ds-surface-2);
+  --color-card: var(--ds-card);
+  --color-card-foreground: var(--ds-card-foreground);
+  --color-popover: var(--ds-popover);
+  --color-popover-foreground: var(--ds-popover-foreground);
+  --color-primary: var(--ds-primary);
+  --color-primary-foreground: var(--ds-primary-foreground);
+  --color-primary-soft: var(--ds-primary-soft);
+  --color-secondary: var(--ds-secondary);
+  --color-secondary-foreground: var(--ds-secondary-foreground);
+  --color-muted: var(--ds-muted);
+  --color-muted-foreground: var(--ds-muted-foreground);
+  --color-accent: var(--ds-accent);
+  --color-accent-foreground: var(--ds-accent-foreground);
+  --color-destructive: var(--ds-destructive);
+  --color-destructive-foreground: var(--ds-destructive-foreground);
+  --color-destructive-soft: var(--ds-destructive-soft);
+  --color-success: var(--ds-success);
+  --color-success-foreground: var(--ds-success-foreground);
+  --color-success-soft: var(--ds-success-soft);
+  --color-warning: var(--ds-warning);
+  --color-warning-foreground: var(--ds-warning-foreground);
+  --color-warning-soft: var(--ds-warning-soft);
+  --color-info: var(--ds-info);
+  --color-info-foreground: var(--ds-info-foreground);
+  --color-info-soft: var(--ds-info-soft);
+  --color-neutralish: var(--ds-neutralish);
+  --color-neutralish-soft: var(--ds-neutralish-soft);
+  --color-border: var(--ds-border);
+  --color-border-strong: var(--ds-border-strong);
+  --color-input: var(--ds-input);
+  --color-ring: var(--ds-ring);
+  --color-chart-1: var(--ds-chart-1);
+  --color-chart-2: var(--ds-chart-2);
+  --color-chart-3: var(--ds-chart-3);
+  --color-chart-4: var(--ds-chart-4);
+  --color-chart-5: var(--ds-chart-5);
+  --color-sidebar: var(--ds-sidebar);
+  --color-sidebar-foreground: var(--ds-sidebar-foreground);
+  --color-sidebar-primary: var(--ds-sidebar-primary);
+  --color-sidebar-primary-foreground: var(--ds-sidebar-primary-foreground);
+  --color-sidebar-accent: var(--ds-sidebar-accent);
+  --color-sidebar-accent-foreground: var(--ds-sidebar-accent-foreground);
+  --color-sidebar-border: var(--ds-sidebar-border);
+  --color-sidebar-ring: var(--ds-sidebar-ring);
+  --color-ring-offset-background: var(--ds-background);
 }
 
 @keyframes bh-rise {
