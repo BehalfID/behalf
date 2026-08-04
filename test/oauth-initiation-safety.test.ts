@@ -32,15 +32,79 @@ describe("OAuth initiation cannot produce a download", () => {
     expect(res.body).toBeNull();
   });
 
-  it("preserves mode and a safe next", () => {
+  // Destinations mirror the callback's failure targets: public flows return to
+  // the entry screen, authenticated flows to account security.
+  const DESTINATIONS = [
+    ["login", "/login", false],
+    ["signup", "/signup", false],
+    ["link", "/dashboard/settings", true],
+    ["reauth", "/dashboard/settings", true]
+  ] as const;
+
+  it.each(DESTINATIONS)("routes a failed %s initiation to %s", (mode, path) => {
     const res = oauthInitFailureRedirect(
-      req("https://x.test/api/auth/github?mode=signup&next=%2Fpricing"),
-      "provider_unconfigured",
-      "signup"
+      req(`https://x.test/api/auth/github?mode=${mode}`),
+      "redirect_failed",
+      mode
     );
-    const location = res.headers.get("location")!;
-    expect(location).toContain("/signup");
-    expect(location).toContain("next=%2Fpricing");
+    expect(res.status).toBe(303);
+    const url = new URL(res.headers.get("location")!);
+    expect(url.pathname).toBe(path);
+    expect(url.searchParams.get("oauth_error")).toBe("redirect_failed");
+  });
+
+  it.each(DESTINATIONS)("preserves a safe next for %s", (mode, path) => {
+    const res = oauthInitFailureRedirect(
+      req(`https://x.test/api/auth/github?mode=${mode}&next=%2Fpricing`),
+      "provider_unconfigured",
+      mode
+    );
+    const url = new URL(res.headers.get("location")!);
+    expect(url.pathname).toBe(path);
+    expect(url.searchParams.get("next")).toBe("/pricing");
+    expect(url.searchParams.get("oauth_error")).toBe("provider_unconfigured");
+  });
+
+  it.each(DESTINATIONS)("drops unsafe next for %s", (mode) => {
+    for (const bad of ["https://evil.example.com", "//evil.example.com", "javascript:alert(1)"]) {
+      const res = oauthInitFailureRedirect(
+        req(`https://x.test/api/auth/github?mode=${mode}&next=${encodeURIComponent(bad)}`),
+        "redirect_failed",
+        mode
+      );
+      const url = new URL(res.headers.get("location")!);
+      expect(url.searchParams.get("next")).toBeNull();
+      expect(url.hostname).toBe("x.test");
+    }
+  });
+
+  it("deep-links authenticated failures into account security", () => {
+    for (const mode of ["link", "reauth"] as const) {
+      const res = oauthInitFailureRedirect(req(`https://x.test/api/auth/github?mode=${mode}`), "redirect_failed", mode);
+      expect(new URL(res.headers.get("location")!).hash).toBe("#account-security");
+    }
+  });
+
+  it("never sends an authenticated flow to the public login page", () => {
+    for (const mode of ["link", "reauth"] as const) {
+      const res = oauthInitFailureRedirect(req(`https://x.test/api/auth/github?mode=${mode}`), "redirect_failed", mode);
+      const url = new URL(res.headers.get("location")!);
+      expect(url.pathname).not.toBe("/login");
+      expect(url.pathname).not.toBe("/signup");
+    }
+  });
+
+  it("keeps link/reauth initiation session-protected", () => {
+    // Unauthenticated link/reauth must still be rejected before any state is
+    // created — unchanged production behaviour.
+    for (const path of ["app/api/auth/github/route.ts", "app/api/auth/google/route.ts"]) {
+      const file = source(path);
+      expect(file).toContain("getCurrentDeveloper()");
+      expect(file).toMatch(/401/);
+    }
+    const github = source("app/api/auth/github/route.ts");
+    expect(github).toContain("Sign in before connecting GitHub.");
+    expect(github).toContain("Sign in before confirming your identity.");
   });
 
   it("drops unsafe external next values", () => {
