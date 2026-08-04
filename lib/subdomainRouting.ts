@@ -280,6 +280,21 @@ export function resolveSubdomainRedirect(input: {
   const currentApp = resolveAppForHost(input.hostname, hosts);
   if (!currentApp) return null;
 
+  const protocol = input.protocol ?? "https:";
+  const search = input.search ?? "";
+
+  // The auth host has no landing page of its own — its root IS the sign-in
+  // entry point. `/` is not an auth-owned prefix, so without this it falls
+  // through to www ownership and auth.behalfid.com/ bounces to the marketing
+  // homepage. Must run before the general ownership redirect below.
+  //
+  // Deliberately the bare root only: locale-prefixed paths keep their existing
+  // ownership behaviour, and /login already resolves to the auth host, so this
+  // cannot loop.
+  if (currentApp === "auth" && (input.pathname === "/" || input.pathname === "")) {
+    return `${protocol}//${hosts.auth}/login${search}`;
+  }
+
   const owner = resolveOwnerForPath(input.pathname);
   if (owner === currentApp) return null;
 
@@ -296,8 +311,6 @@ export function resolveSubdomainRedirect(input: {
   }
 
   const targetHost = hosts[owner];
-  const protocol = input.protocol ?? "https:";
-  const search = input.search ?? "";
   return `${protocol}//${targetHost}${input.pathname}${search}`;
 }
 

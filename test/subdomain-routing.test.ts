@@ -239,3 +239,102 @@ describe("subdomain env gates", () => {
     );
   });
 });
+
+describe("auth host root is the sign-in entry point", () => {
+  const AUTH = "auth.behalfid.com";
+
+  it("redirects the auth host root to /login on the same host", () => {
+    expect(
+      resolveSubdomainRedirect({ hostname: AUTH, pathname: "/", protocol: "https:" })
+    ).toBe("https://auth.behalfid.com/login");
+  });
+
+  it("preserves the query string", () => {
+    expect(
+      resolveSubdomainRedirect({
+        hostname: AUTH,
+        pathname: "/",
+        search: "?next=%2Fdashboard&foo=bar",
+        protocol: "https:"
+      })
+    ).toBe("https://auth.behalfid.com/login?next=%2Fdashboard&foo=bar");
+  });
+
+  it("does not loop: /login on the auth host stays put", () => {
+    expect(
+      resolveSubdomainRedirect({ hostname: AUTH, pathname: "/login", protocol: "https:" })
+    ).toBeNull();
+    // And the redirect target itself resolves to no further redirect.
+    const target = new URL(
+      resolveSubdomainRedirect({ hostname: AUTH, pathname: "/", protocol: "https:" })!
+    );
+    expect(
+      resolveSubdomainRedirect({
+        hostname: target.hostname,
+        pathname: target.pathname,
+        protocol: "https:"
+      })
+    ).toBeNull();
+  });
+
+  it("leaves the marketing root on www and apex", () => {
+    for (const hostname of ["www.behalfid.com", "behalfid.com"]) {
+      expect(
+        resolveSubdomainRedirect({ hostname, pathname: "/", protocol: "https:" })
+      ).toBeNull();
+    }
+  });
+
+  it("does not change app, console or docs roots", () => {
+    expect(
+      resolveSubdomainRedirect({ hostname: "app.behalfid.com", pathname: "/", protocol: "https:" })
+    ).toBe("https://www.behalfid.com/");
+    expect(
+      resolveSubdomainRedirect({ hostname: "console.behalfid.com", pathname: "/", protocol: "https:" })
+    ).toBe("https://www.behalfid.com/");
+    expect(
+      resolveSubdomainRedirect({ hostname: "docs.behalfid.com", pathname: "/", protocol: "https:" })
+    ).toBe("https://www.behalfid.com/");
+  });
+
+  it("leaves locale and OAuth routes unchanged", () => {
+    // Locale-prefixed auth pages stay on the auth host.
+    for (const pathname of ["/de/login", "/en/signup", "/fr/forgot-password"]) {
+      expect(
+        resolveSubdomainRedirect({ hostname: AUTH, pathname, protocol: "https:" })
+      ).toBeNull();
+    }
+    // OAuth initiation and callbacks are auth-owned and untouched.
+    for (const pathname of [
+      "/api/auth/github",
+      "/api/auth/github/callback",
+      "/api/auth/google",
+      "/api/auth/google/callback"
+    ]) {
+      expect(
+        resolveSubdomainRedirect({ hostname: AUTH, pathname, protocol: "https:" })
+      ).toBeNull();
+    }
+    // A locale root keeps its existing ownership (not part of this fix).
+    expect(
+      resolveSubdomainRedirect({ hostname: AUTH, pathname: "/de", protocol: "https:" })
+    ).toBe("https://www.behalfid.com/de");
+  });
+
+  it("honours a custom configured auth host", () => {
+    expect(
+      resolveSubdomainRedirect({
+        hostname: "signin.example.test",
+        pathname: "/",
+        protocol: "https:",
+        hosts: {
+          www: "www.example.test",
+          auth: "signin.example.test",
+          app: "app.example.test",
+          console: "console.example.test",
+          docs: "docs.example.test"
+        }
+      })
+    ).toBe("https://signin.example.test/login");
+  });
+});
