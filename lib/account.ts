@@ -1,5 +1,6 @@
 import { ensureAccountMembership } from "@/lib/delegatedAuth";
 import { createPublicId } from "@/lib/ids";
+import { MISSING_ACCOUNT_ID_CLAUSE } from "@/lib/missingAccountId";
 import { createAccount, findAccount } from "@/lib/repositories/accounts";
 import { listAgents, updateAgents } from "@/lib/repositories/agents";
 import { updatePermissions } from "@/lib/repositories/permissions";
@@ -55,7 +56,7 @@ export async function getDefaultAccountId() {
 export async function backfillDefaultAccountId() {
   const accountId = await getDefaultAccountId();
   await updateAgents(
-    { $or: [{ accountId: { $exists: false } }, { accountId: null }] },
+    { ...MISSING_ACCOUNT_ID_CLAUSE },
     { $set: { accountId } }
   );
 
@@ -66,14 +67,14 @@ export async function backfillDefaultAccountId() {
         updatePermissions(
           {
             agentId: agent.agentId,
-            $or: [{ accountId: { $exists: false } }, { accountId: null }]
+            ...MISSING_ACCOUNT_ID_CLAUSE
           },
           { $set: { accountId: agent.accountId } }
         ),
         updateLogs(
           {
             agentId: agent.agentId,
-            $or: [{ accountId: { $exists: false } }, { accountId: null }]
+            ...MISSING_ACCOUNT_ID_CLAUSE
           },
           { $set: { accountId: agent.accountId } }
         )

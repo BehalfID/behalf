@@ -46,7 +46,10 @@ describe("backfillLegacyAgentsForActor", () => {
     expect(mocks.agentUpdateMany).toHaveBeenCalledWith(
       {
         developerUserId: "user_owner",
-        $or: [{ accountId: { $exists: false } }, { accountId: null }]
+        // `{ accountId: null }` matches missing-or-null on Mongo and maps to
+        // IS NULL on Postgres. The old `$or`/`$exists` form threw
+        // "Unsupported agent filter operator: $exists" on the Postgres adapter.
+        accountId: null
       },
       { $set: { accountId: "acct_primary" } }
     );
@@ -115,7 +118,7 @@ describe("findAccountAgent", () => {
     const filter = mocks.agentUpdateMany.mock.calls[0]?.[0];
     expect(filter).toEqual({
       developerUserId: "user_owner",
-      $or: [{ accountId: { $exists: false } }, { accountId: null }]
+      accountId: null
     });
     expect(filter).not.toHaveProperty("agentId");
   });
