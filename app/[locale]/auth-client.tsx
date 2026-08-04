@@ -21,6 +21,12 @@ import {
 import { oauthErrorMessage } from "@/lib/authProviders/oauthErrors";
 import { assignOwnedLocation } from "@/lib/subdomainRouting";
 
+/** Same sanitisation as the root auth route: relative, single-slash paths only. */
+function safeNextPath(next?: string) {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
+  return next;
+}
+
 function maxDateOfBirth(minAge: number): string {
   const d = new Date();
   d.setFullYear(d.getFullYear() - minAge);
@@ -29,16 +35,20 @@ function maxDateOfBirth(minAge: number): string {
 
 export function AuthPage({
   mode,
+  nextPath,
   googleEnabled = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID),
   githubEnabled = false,
   passkeyEnabled = false
 }: {
   mode: "login" | "signup";
+  nextPath?: string;
   googleEnabled?: boolean;
   githubEnabled?: boolean;
   passkeyEnabled?: boolean;
 }) {
   const t = useTranslations("auth");
+  // Mirrors the root route: a validated `next` wins, else the per-mode default.
+  const redirectPath = safeNextPath(nextPath) ?? (mode === "signup" ? "/onboarding" : "/dashboard");
   const searchParams = useSearchParams();
   const oauthError = useMemo(() => {
     const code = searchParams.get("oauth_error")?.trim();
@@ -84,7 +94,7 @@ export function AuthPage({
         setError(body?.error ?? t("authFailed"));
         return;
       }
-      assignOwnedLocation(mode === "signup" ? "/onboarding" : "/dashboard");
+      assignOwnedLocation(redirectPath);
     } catch {
       setError(t("authFailed"));
     } finally {
@@ -129,12 +139,18 @@ export function AuthPage({
           <>
             <div className="space-y-2.5">
               {showPasskey ? (
-                <ContinueWithPasskey enabled stackClassName="space-y-2" buttonClassName={authOAuthButtonClass} />
+                <ContinueWithPasskey
+                  nextPath={nextPath}
+                  enabled
+                  stackClassName="space-y-2"
+                  buttonClassName={authOAuthButtonClass}
+                />
               ) : null}
               {githubEnabled ? (
                 <ContinueWithGitHub
                   label={t("continueWithGitHub")}
                   mode={mode}
+                  next={nextPath}
                   unstyled
                   className={authOAuthButtonClass}
                 />
@@ -143,6 +159,7 @@ export function AuthPage({
                 <ContinueWithGoogle
                   label={t("continueWithGoogle")}
                   mode={mode}
+                  next={nextPath}
                   unstyled
                   className={authOAuthButtonClass}
                 />

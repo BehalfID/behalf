@@ -11,6 +11,7 @@ import { getLoginProvider } from "@/lib/authProviders/providers/registry";
 import { getCurrentDeveloper } from "@/lib/developerAuth";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { jsonError } from "@/lib/responses";
+import { oauthInitFailureRedirect } from "@/lib/authProviders/oauthInitFailure";
 import type { OAuthFlowMode } from "@/lib/repositories/postgres/oauthAuthorizationStates";
 
 function readMode(raw: string | null): OAuthFlowMode {
@@ -36,14 +37,16 @@ export async function GET(request: NextRequest) {
     return jsonError("GitHub sign-in is not available.", 503);
   }
 
+  const mode = readMode(request.nextUrl.searchParams.get("mode"));
+
   const configured = provider.isConfigured();
   if (!configured.configured) {
     // Deliberately generic: the reason names an env var and belongs in logs,
-    // not in a response to an anonymous caller.
-    return jsonError("GitHub sign-in is not configured.", 503);
+    // not in a response to an anonymous caller. This route is only reached by a
+    // top-level navigation, so send the user back to a page that explains it.
+    return oauthInitFailureRedirect(request, "provider_unconfigured", mode);
   }
 
-  const mode = readMode(request.nextUrl.searchParams.get("mode"));
   const next = safeOAuthNextPath(request.nextUrl.searchParams.get("next"));
 
   // Linking and reauth must start from an authenticated session.
@@ -71,25 +74,34 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const { state, codeChallenge } = await createOAuthState({
-    provider: "github",
-    mode,
-    next: mode === "reauth" ? next ?? "/dashboard/settings" : next,
-    userId
-  });
+  // State creation touches the database and the authorize URL build can throw on
+  // misconfiguration. Without this guard an unhandled throw returns a zero-byte
+  // 500 with no Content-Type, which a browser may offer as a file download
+  // instead of rendering — see lib/authProviders/oauthInitFailure.ts.
+  try {
+    const { state, codeChallenge } = await createOAuthState({
+      provider: "github",
+      mode,
+      next: mode === "reauth" ? next ?? "/dashboard/settings" : next,
+      userId
+    });
 
-  const url = provider.buildAuthorizeUrl({
-    requestOrigin: request.nextUrl.origin,
-    mode,
-    codeChallenge,
-    state
-  });
+    const url = provider.buildAuthorizeUrl({
+      requestOrigin: request.nextUrl.origin,
+      mode,
+      codeChallenge,
+      state
+    });
 
-  const response = NextResponse.redirect(url);
-  response.cookies.set(
-    OAUTH_STATE_COOKIE,
-    state,
-    oauthCookieOptions(Math.floor(OAUTH_STATE_TTL_MS / 1000))
-  );
-  return response;
+    const response = NextResponse.redirect(url);
+    response.cookies.set(
+      OAUTH_STATE_COOKIE,
+      state,
+      oauthCookieOptions(Math.floor(OAUTH_STATE_TTL_MS / 1000))
+    );
+    return response;
+  } catch (error) {
+    console.error("[auth] GitHub authorization redirect failed", error);
+    return oauthInitFailureRedirect(request, "redirect_failed", mode);
+  }
 }

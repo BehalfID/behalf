@@ -26,12 +26,22 @@ export async function generateMetadata({
   };
 }
 
+/** Same sanitisation as the root auth route: relative, single-slash paths only. */
+function safeNextPath(next?: string) {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
+  return next;
+}
+
 export default async function SignupPage({
-  params
+  params,
+  searchParams
 }: {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<{ next?: string }>;
 }) {
   const { locale } = await params;
+  const { next } = await searchParams;
+  const nextPath = safeNextPath(next) ?? undefined;
   setRequestLocale(locale);
   const user = await getCurrentDeveloper();
   if (user) {
@@ -41,6 +51,7 @@ export default async function SignupPage({
   return (
     <AuthPage
       mode="signup"
+      nextPath={nextPath}
       googleEnabled={isGoogleOAuthConfigured()}
       githubEnabled={isGitHubOAuthConfigured()}
     />
