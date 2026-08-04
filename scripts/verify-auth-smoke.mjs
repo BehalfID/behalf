@@ -43,10 +43,19 @@ for(const [en,engine] of [["chromium",chromium],["webkit",webkit]]){
  await p.goto(B+"/login?next=https%3A%2F%2Fevil.example.com",{waitUntil:"load"}); await p.waitForTimeout(300);
  // Assert on navigable targets only. Next.js echoes the raw query param into the
  // inert RSC flight payload, which is not a redirect vector.
+ // Resolve each target and compare the parsed hostname. A substring test would
+ // be wrong here: the attacker host can appear anywhere in a URL without being
+ // the host actually navigated to (and vice versa).
  const leaked=await p.evaluate(()=>{
-   const hrefs=[...document.querySelectorAll('a')].map(a=>a.getAttribute('href')||"");
-   const actions=[...document.querySelectorAll('form')].map(f=>f.getAttribute('action')||"");
-   return [...hrefs,...actions].some(v=>v.includes("evil.example.com"));
+   const targets=[
+     ...[...document.querySelectorAll('a')].map(a=>a.getAttribute('href')),
+     ...[...document.querySelectorAll('form')].map(f=>f.getAttribute('action'))
+   ].filter(Boolean);
+   return targets.some((value)=>{
+     let resolved;
+     try { resolved=new URL(value, document.baseURI); } catch { return false; }
+     return resolved.hostname === "evil.example.com";
+   });
  });
  console.log(`  ${leaked?"✗":"✓"} ${en} unsafe external next rejected`);
  if(leaked) fail++;
