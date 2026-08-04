@@ -6,8 +6,17 @@ import { FormEvent, useMemo, useState } from "react";
 import { ContinueWithGitHub } from "@/components/auth/ContinueWithGitHub";
 import { ContinueWithGoogle } from "@/components/auth/ContinueWithGoogle";
 import { ContinueWithPasskey } from "@/components/auth/ContinueWithPasskey";
-import { AuthPrinciple, AuthShell, AuthTaskHeader, FormAlert } from "@/components/auth/AuthShell";
-import { Button, Field, FieldLabel, Input } from "@/components/ui";
+import { FormAlert } from "@/components/auth/AuthShell";
+import {
+  AuthDivider,
+  AuthField,
+  AuthFooterLinks,
+  AuthShell,
+  authInputClass,
+  authOAuthButtonClass,
+  authPrimaryButtonClass
+} from "@/components/auth/lovable/AuthShell";
+import { cn } from "@/lib/cn";
 import { oauthErrorMessage } from "@/lib/authProviders/oauthErrors";
 import { assignOwnedLocation, crossAppClickHandler } from "@/lib/subdomainRouting";
 
@@ -156,46 +165,12 @@ export function AuthPage({
   if (mfaToken !== null) {
     return (
       <AuthShell
-        support={
-          <AuthPrinciple
-            eyebrow="Authorization control plane"
-            title="Confirm it is you."
-            description="Enter the six-digit code from your authenticator app to finish signing in."
-            points={[
-              { label: "Factor", value: "Password plus TOTP" },
-              { label: "Expiry", value: "Challenge expires in five minutes" },
-              { label: "Backup", value: "Use a backup code if you lost your device" }
-            ]}
-          />
-        }
-      >
-        <form className="auth-task" onSubmit={submitMfa} aria-busy={submitting}>
-          <AuthTaskHeader
-            eyebrow="Two-factor authentication"
-            title="Authenticator code"
-            description="Open your authenticator app and enter the current code for BehalfID."
-          />
-          <div className="auth-task__fields">
-            <Field>
-              <FieldLabel htmlFor="auth-mfa-code">Authentication code</FieldLabel>
-              <Input
-                autoComplete="one-time-code"
-                id="auth-mfa-code"
-                inputMode="numeric"
-                onChange={(event) => setMfaCode(event.target.value)}
-                pattern="[0-9]*"
-                required
-                value={mfaCode}
-              />
-            </Field>
-          </div>
-          {error ? <FormAlert id="auth-submit-error">{error}</FormAlert> : null}
-          <Button loading={submitting} variant="primary" type="submit">
-            {submitting ? "Verifying…" : "Verify and continue"}
-          </Button>
-          <p className="auth-task__row auth-task__row--center">
+        title="Authenticator code"
+        description="Open your authenticator app and enter the current code for BehalfID."
+        footer={
+          <AuthFooterLinks className="text-center">
             <button
-              className="button-link"
+              className="text-primary hover:underline"
               type="button"
               onClick={() => {
                 setMfaToken(null);
@@ -205,7 +180,26 @@ export function AuthPage({
             >
               Back to sign in
             </button>
-          </p>
+          </AuthFooterLinks>
+        }
+      >
+        <form className="space-y-4" onSubmit={submitMfa} aria-busy={submitting}>
+          <AuthField htmlFor="auth-mfa-code" label="Authentication code">
+            <input
+              autoComplete="one-time-code"
+              className={authInputClass}
+              id="auth-mfa-code"
+              inputMode="numeric"
+              onChange={(event) => setMfaCode(event.target.value)}
+              pattern="[0-9]*"
+              required
+              value={mfaCode}
+            />
+          </AuthField>
+          {error ? <FormAlert id="auth-submit-error">{error}</FormAlert> : null}
+          <button className={authPrimaryButtonClass} disabled={submitting} type="submit">
+            {submitting ? "Verifying…" : "Verify and continue"}
+          </button>
         </form>
       </AuthShell>
     );
@@ -213,116 +207,17 @@ export function AuthPage({
 
   return (
     <AuthShell
-      support={
-        <AuthPrinciple
-          eyebrow="Authorization control plane"
-          title="Every agent starts with an identity."
-          description="BehalfID checks an agent’s requested action against workspace policy before it runs, then records the decision."
-          points={[
-            { label: "Identity", value: "One accountable identity per agent" },
-            { label: "Policy", value: "Scoped permissions and approval gates" },
-            { label: "Record", value: "A durable decision trail" }
-          ]}
-        />
+      title={mode === "signup" ? "Create your workspace" : "Sign in"}
+      description={
+        mode === "signup"
+          ? "Create the account you’ll use to register agents and set their operating boundaries."
+          : "Enter the account credentials for your BehalfID control plane."
       }
-    >
-      <form className="auth-task" onSubmit={submit} aria-busy={submitting}>
-        <AuthTaskHeader
-          eyebrow={mode === "signup" ? "New workspace" : "Control plane access"}
-          title={mode === "signup" ? "Create your workspace" : "Sign in"}
-          description={mode === "signup"
-            ? "Create the account you’ll use to register agents and set their operating boundaries."
-            : "Enter the account credentials for your BehalfID control plane."}
-        />
-
-        {showOauth || showPasskey ? (
-          <div className="auth-task__oauth">
-            {showPasskey ? <ContinueWithPasskey nextPath={nextPath} enabled /> : null}
-            {githubEnabled ? <ContinueWithGitHub mode={mode} next={nextPath} /> : null}
-            {googleEnabled ? <ContinueWithGoogle mode={mode} next={nextPath} /> : null}
-            <p className="auth-divider" role="separator">
-              <span>or</span>
-            </p>
-          </div>
-        ) : null}
-
-        <div className="auth-task__fields">
-          <Field>
-            <FieldLabel htmlFor="auth-email">Email</FieldLabel>
-            <Input
-              aria-describedby={error ? "auth-submit-error" : undefined}
-              autoComplete="email"
-              id="auth-email"
-              onChange={(event) => setEmail(event.target.value)}
-              required
-              type="email"
-              value={email}
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="auth-password">Password</FieldLabel>
-            <Input
-              aria-describedby={error ? "auth-submit-error" : undefined}
-              autoComplete={mode === "signup" ? "new-password" : "current-password"}
-              id="auth-password"
-              minLength={10}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-              type="password"
-              value={password}
-            />
-          </Field>
-          {mode === "signup" && (
-            <Field>
-              <FieldLabel htmlFor="auth-date-of-birth">Date of birth</FieldLabel>
-              <Input
-                aria-describedby={error ? "auth-submit-error" : undefined}
-                autoComplete="bday"
-                id="auth-date-of-birth"
-                max={maxDateOfBirth(13)}
-                onChange={(event) => setDateOfBirth(event.target.value)}
-                required
-                type="date"
-                value={dateOfBirth}
-              />
-            </Field>
-          )}
-        </div>
-
-        {error ? <FormAlert id="auth-submit-error">{error}</FormAlert> : null}
-
-        {mode === "login" ? (
-          <p className="auth-task__row">
-            <span />
-            <Link href="/forgot-password" onClick={crossAppClickHandler("/forgot-password")}>
-              Forgot password?
-            </Link>
-          </p>
-        ) : null}
-
-        <Button loading={submitting} variant="primary" type="submit">
-          {submitting
-            ? mode === "signup" ? "Creating account…" : "Signing in…"
-            : mode === "signup" ? "Create account" : "Log in"}
-        </Button>
-
-        {mode === "signup" ? (
-          <p className="auth-task__legal">
-            By creating an account you agree to the{" "}
-            <Link href="/terms" onClick={crossAppClickHandler("/terms")}>
-              Terms of Service
-            </Link>{" "}
-            and{" "}
-            <Link href="/privacy" onClick={crossAppClickHandler("/privacy")}>
-              Privacy Policy
-            </Link>
-            .
-          </p>
-        ) : null}
-
-        <p className="auth-task__row auth-task__row--center">
+      footer={
+        <AuthFooterLinks className="text-center">
           {mode === "signup" ? "Already have an account?" : "New to BehalfID?"}{" "}
           <Link
+            className="text-primary hover:underline"
             href={
               mode === "signup"
                 ? `/login${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""}`
@@ -336,7 +231,113 @@ export function AuthPage({
           >
             {mode === "signup" ? "Log in" : "Create account"}
           </Link>
-        </p>
+        </AuthFooterLinks>
+      }
+    >
+      <form onSubmit={submit} aria-busy={submitting}>
+        {/* Login order: passkey, GitHub, Google, divider, credentials. */}
+        {showOauth || showPasskey ? (
+          <>
+            <div className="space-y-2.5">
+              {showPasskey ? (
+                <ContinueWithPasskey
+                  nextPath={nextPath}
+                  enabled
+                  stackClassName="space-y-2"
+                  buttonClassName={authOAuthButtonClass}
+                />
+              ) : null}
+              {githubEnabled ? (
+                <ContinueWithGitHub mode={mode} next={nextPath} unstyled className={authOAuthButtonClass} />
+              ) : null}
+              {googleEnabled ? (
+                <ContinueWithGoogle mode={mode} next={nextPath} unstyled className={authOAuthButtonClass} />
+              ) : null}
+            </div>
+            <AuthDivider />
+          </>
+        ) : null}
+
+        <div className="space-y-4">
+          <AuthField htmlFor="auth-email" label="Email">
+            <input
+              aria-describedby={error ? "auth-submit-error" : undefined}
+              autoComplete="email"
+              className={authInputClass}
+              id="auth-email"
+              onChange={(event) => setEmail(event.target.value)}
+              required
+              type="email"
+              value={email}
+            />
+          </AuthField>
+          <AuthField htmlFor="auth-password" label="Password">
+            <input
+              aria-describedby={error ? "auth-submit-error" : undefined}
+              autoComplete={mode === "signup" ? "new-password" : "current-password"}
+              className={authInputClass}
+              id="auth-password"
+              minLength={10}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+              type="password"
+              value={password}
+            />
+          </AuthField>
+          {mode === "signup" && (
+            <AuthField htmlFor="auth-date-of-birth" label="Date of birth">
+              <input
+                aria-describedby={error ? "auth-submit-error" : undefined}
+                autoComplete="bday"
+                className={authInputClass}
+                id="auth-date-of-birth"
+                max={maxDateOfBirth(13)}
+                onChange={(event) => setDateOfBirth(event.target.value)}
+                required
+                type="date"
+                value={dateOfBirth}
+              />
+            </AuthField>
+          )}
+        </div>
+
+        {error ? (
+          <div className="mt-4">
+            <FormAlert id="auth-submit-error">{error}</FormAlert>
+          </div>
+        ) : null}
+
+        {mode === "login" ? (
+          <p className="mt-3 text-right text-sm">
+            <Link
+              className="text-muted-foreground hover:text-foreground"
+              href="/forgot-password"
+              onClick={crossAppClickHandler("/forgot-password")}
+            >
+              Forgot password?
+            </Link>
+          </p>
+        ) : null}
+
+        <button className={cn(authPrimaryButtonClass, "mt-5")} disabled={submitting} type="submit">
+          {submitting
+            ? mode === "signup" ? "Creating account…" : "Signing in…"
+            : mode === "signup" ? "Create account" : "Log in"}
+        </button>
+
+        {mode === "signup" ? (
+          <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+            By creating an account you agree to the{" "}
+            <Link className="text-primary hover:underline" href="/terms" onClick={crossAppClickHandler("/terms")}>
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <Link className="text-primary hover:underline" href="/privacy" onClick={crossAppClickHandler("/privacy")}>
+              Privacy Policy
+            </Link>
+            .
+          </p>
+        ) : null}
       </form>
     </AuthShell>
   );

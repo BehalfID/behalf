@@ -7,10 +7,25 @@ import { FormEvent, useMemo, useState } from "react";
 import { ContinueWithGitHub } from "@/components/auth/ContinueWithGitHub";
 import { ContinueWithGoogle } from "@/components/auth/ContinueWithGoogle";
 import { ContinueWithPasskey } from "@/components/auth/ContinueWithPasskey";
-import { AuthPrinciple, AuthShell, AuthTaskHeader, FormAlert } from "@/components/auth/AuthShell";
-import { Button, Field, FieldLabel, Input } from "@/components/ui";
+import { FormAlert } from "@/components/auth/AuthShell";
+import {
+  AuthDivider,
+  AuthField,
+  AuthFooterLinks,
+  AuthProductPanel,
+  AuthShell,
+  authInputClass,
+  authOAuthButtonClass,
+  authPrimaryButtonClass
+} from "@/components/auth/lovable/AuthShell";
 import { oauthErrorMessage } from "@/lib/authProviders/oauthErrors";
 import { assignOwnedLocation } from "@/lib/subdomainRouting";
+
+/** Same sanitisation as the root auth route: relative, single-slash paths only. */
+function safeNextPath(next?: string) {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
+  return next;
+}
 
 function maxDateOfBirth(minAge: number): string {
   const d = new Date();
@@ -20,16 +35,20 @@ function maxDateOfBirth(minAge: number): string {
 
 export function AuthPage({
   mode,
+  nextPath,
   googleEnabled = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID),
   githubEnabled = false,
   passkeyEnabled = false
 }: {
   mode: "login" | "signup";
+  nextPath?: string;
   googleEnabled?: boolean;
   githubEnabled?: boolean;
   passkeyEnabled?: boolean;
 }) {
   const t = useTranslations("auth");
+  // Mirrors the root route: a validated `next` wins, else the per-mode default.
+  const redirectPath = safeNextPath(nextPath) ?? (mode === "signup" ? "/onboarding" : "/dashboard");
   const searchParams = useSearchParams();
   const oauthError = useMemo(() => {
     const code = searchParams.get("oauth_error")?.trim();
@@ -75,7 +94,7 @@ export function AuthPage({
         setError(body?.error ?? t("authFailed"));
         return;
       }
-      assignOwnedLocation(mode === "signup" ? "/onboarding" : "/dashboard");
+      assignOwnedLocation(redirectPath);
     } catch {
       setError(t("authFailed"));
     } finally {
@@ -85,75 +104,101 @@ export function AuthPage({
 
   return (
     <AuthShell
-      footerLabel={t("contextKicker")}
-      privacyLabel={t("privacy")}
-      returnLabel="BehalfID"
-      support={
-        <AuthPrinciple
-          eyebrow={t("contextKicker")}
+      title={mode === "signup" ? t("signupH1") : t("loginH1")}
+      description={mode === "signup" ? t("signupBody") : t("loginBody")}
+      panel={
+        <AuthProductPanel
           title={t("contextHeading")}
           description={t("contextBody")}
-          points={[
-            { label: "01", value: t("feature1") },
-            { label: "02", value: t("feature2") },
-            { label: "03", value: t("feature4") }
-          ]}
+          points={[t("feature1"), t("feature2"), t("feature4")]}
         />
       }
-      termsLabel={t("terms")}
+      footer={
+        <AuthFooterLinks className="text-center">
+          {mode === "signup" ? (
+            <>
+              {t("haveAccount")}
+              <Link className="text-primary hover:underline" href="/login">
+                {t("signIn")}
+              </Link>
+            </>
+          ) : (
+            <>
+              {t("noAccount")}
+              <Link className="text-primary hover:underline" href="/signup">
+                {t("signUp")}
+              </Link>
+            </>
+          )}
+        </AuthFooterLinks>
+      }
     >
-      <form className="auth-task" onSubmit={submit} aria-busy={submitting}>
-        <AuthTaskHeader
-          eyebrow={mode === "signup" ? t("signupKicker") : t("loginKicker")}
-          title={mode === "signup" ? t("signupH1") : t("loginH1")}
-          description={mode === "signup" ? t("signupBody") : t("loginBody")}
-        />
-
+      <form onSubmit={submit} aria-busy={submitting}>
+        {/* Login order: passkey, GitHub, Google, divider, credentials. */}
         {showOauth || showPasskey ? (
-          <div className="auth-task__oauth">
-            {showPasskey ? <ContinueWithPasskey enabled /> : null}
-            {githubEnabled ? (
-              <ContinueWithGitHub label={t("continueWithGitHub")} mode={mode} />
-            ) : null}
-            {googleEnabled ? (
-              <ContinueWithGoogle label={t("continueWithGoogle")} mode={mode} />
-            ) : null}
-            <p className="auth-divider" role="separator">
-              <span>{t("orDivider")}</span>
-            </p>
-          </div>
+          <>
+            <div className="space-y-2.5">
+              {showPasskey ? (
+                <ContinueWithPasskey
+                  nextPath={nextPath}
+                  enabled
+                  stackClassName="space-y-2"
+                  buttonClassName={authOAuthButtonClass}
+                />
+              ) : null}
+              {githubEnabled ? (
+                <ContinueWithGitHub
+                  label={t("continueWithGitHub")}
+                  mode={mode}
+                  next={nextPath}
+                  unstyled
+                  className={authOAuthButtonClass}
+                />
+              ) : null}
+              {googleEnabled ? (
+                <ContinueWithGoogle
+                  label={t("continueWithGoogle")}
+                  mode={mode}
+                  next={nextPath}
+                  unstyled
+                  className={authOAuthButtonClass}
+                />
+              ) : null}
+            </div>
+            <AuthDivider label={t("orDivider")} />
+          </>
         ) : null}
 
-        <div className="auth-task__fields">
-          <Field>
-            <FieldLabel htmlFor="auth-email">{t("emailLabel")}</FieldLabel>
-            <Input
+        <div className="space-y-4">
+          <AuthField htmlFor="auth-email" label={t("emailLabel")}>
+            <input
               aria-describedby={error ? "auth-submit-error" : undefined}
               autoComplete="email"
+              className={authInputClass}
               id="auth-email"
               onChange={(e) => setEmail(e.target.value)}
               required
               type="email"
               value={email}
             />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="auth-password">{t("passwordLabel")}</FieldLabel>
-            <Input
+          </AuthField>
+          <AuthField htmlFor="auth-password" label={t("passwordLabel")}>
+            <input
               aria-describedby={error ? "auth-submit-error" : undefined}
               autoComplete={mode === "signup" ? "new-password" : "current-password"}
+              className={authInputClass}
               id="auth-password"
               onChange={(e) => setPassword(e.target.value)}
               required
               type="password"
               value={password}
             />
-          </Field>
+          </AuthField>
           {mode === "signup" && (
-            <Field>
-              <FieldLabel htmlFor="auth-date-of-birth">{t("dobLabel")}</FieldLabel>
-              <Input
+            <AuthField htmlFor="auth-date-of-birth" label={t("dobLabel")}>
+              <input
                 aria-describedby={error ? "auth-submit-error" : undefined}
+                className={authInputClass}
                 id="auth-date-of-birth"
                 max={maxDateOfBirth(13)}
                 onChange={(e) => setDateOfBirth(e.target.value)}
@@ -161,39 +206,41 @@ export function AuthPage({
                 type="date"
                 value={dateOfBirth}
               />
-            </Field>
+            </AuthField>
           )}
         </div>
 
-        {error ? <FormAlert id="auth-submit-error">{error}</FormAlert> : null}
+        {error ? (
+          <div className="mt-4">
+            <FormAlert id="auth-submit-error">{error}</FormAlert>
+          </div>
+        ) : null}
 
         {mode === "login" ? (
-          <p className="auth-task__row">
-            <span />
-            <Link href="/forgot-password">{t("forgotPassword")}</Link>
+          <p className="mt-3 text-right text-sm">
+            <Link className="text-muted-foreground hover:text-foreground" href="/forgot-password">
+              {t("forgotPassword")}
+            </Link>
           </p>
         ) : null}
 
-        <Button loading={submitting} type="submit" variant="primary">
+        <button className={`${authPrimaryButtonClass} mt-5`} disabled={submitting} type="submit">
           {mode === "signup" ? t("createAccount") : t("logIn")}
-        </Button>
+        </button>
 
         {mode === "signup" ? (
-          <p className="auth-task__legal">
+          <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
             {t("agreePrefix")}
-            <Link href="/terms">{t("terms")}</Link>
+            <Link className="text-primary hover:underline" href="/terms">
+              {t("terms")}
+            </Link>
             {t("and")}
-            <Link href="/privacy">{t("privacy")}</Link>
+            <Link className="text-primary hover:underline" href="/privacy">
+              {t("privacy")}
+            </Link>
             {t("agreeSuffix")}
           </p>
         ) : null}
-
-        <p className="auth-task__row auth-task__row--center">
-          {mode === "signup"
-            ? <>{t("haveAccount")}<Link href="/login">{t("signIn")}</Link></>
-            : <>{t("noAccount")}<Link href="/signup">{t("signUp")}</Link></>
-          }
-        </p>
       </form>
     </AuthShell>
   );

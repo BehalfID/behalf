@@ -23,6 +23,12 @@ export type ContinueWithGitHubProps = Omit<
   label?: string;
   size?: ButtonSize;
   variant?: ButtonVariant;
+  /**
+   * Presentation-only escape hatch: drop the legacy `ui-button` chrome so the
+   * caller supplies the full visual treatment (used by the Lovable auth shell).
+   * Does not affect the OAuth href, state cookie or navigation behaviour.
+   */
+  unstyled?: boolean;
 };
 
 /**
@@ -40,6 +46,7 @@ export function ContinueWithGitHub({
   className,
   size = "default",
   variant = "secondary",
+  unstyled = false,
   onClick,
   ...props
 }: ContinueWithGitHubProps) {
@@ -47,13 +54,17 @@ export function ContinueWithGitHub({
   // It exists so the button reads as busy if GitHub is slow to respond.
   const [redirecting, setRedirecting] = useState(false);
 
-  const classes = [
-    "ui-button",
-    `ui-button--${variant}`,
-    size !== "default" ? `ui-button--${size}` : undefined,
-    "auth-github-button",
-    className
-  ]
+  const classes = (
+    unstyled
+      ? [className]
+      : [
+          "ui-button",
+          `ui-button--${variant}`,
+          size !== "default" ? `ui-button--${size}` : undefined,
+          "auth-github-button",
+          className
+        ]
+  )
     .filter(Boolean)
     .join(" ");
 

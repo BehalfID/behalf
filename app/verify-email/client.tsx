@@ -2,8 +2,15 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { AuthShell, AuthStateMark, AuthTaskHeader, FormAlert } from "@/components/auth/AuthShell";
-import { Button, ButtonLink, Field, FieldLabel, Input } from "@/components/ui";
+import { FormAlert } from "@/components/auth/AuthShell";
+import {
+  AuthField,
+  AuthFooterLinks,
+  AuthShell,
+  authInputClass,
+  authOAuthButtonClass,
+  authPrimaryButtonClass
+} from "@/components/auth/lovable/AuthShell";
 import { assignOwnedLocation } from "@/lib/subdomainRouting";
 
 type State = "idle" | "verifying" | "success" | "error" | "resending" | "resent" | "code-verifying";
@@ -123,120 +130,105 @@ export function VerifyEmailClient({ token }: { token?: string }) {
     setState("resent");
   };
 
+  const copy: Record<string, { title: string; description: string }> = {
+    verifying: {
+      title: "Verifying your email",
+      description: "We’re checking the verification link. This should only take a moment."
+    },
+    success: {
+      title: "Email verified",
+      description: "Your email is confirmed. Agent creation and developer credentials are now available."
+    },
+    error: {
+      title: "We couldn’t verify this email",
+      description:
+        "The link or code may be invalid or expired. Request a new verification message to try again."
+    },
+    idle: {
+      title: "Verify your email",
+      description:
+        "Use the link or 8-character code from your verification message. This page will continue automatically when your email is confirmed."
+    },
+    "code-verifying": {
+      title: "Checking your code",
+      description: "We’re validating the code against your account."
+    },
+    resending: {
+      title: "Requesting a new message",
+      description: "Keep this page open while the request completes."
+    },
+    resent: {
+      title: "Verification message requested",
+      description:
+        "If your account still needs verification, check your inbox for a new link and code. This page will continue automatically after confirmation."
+    }
+  };
+  const active = copy[state] ?? copy.idle;
+
   return (
-    <AuthShell compact returnHref="/login" returnLabel="Back to login">
-      <section className="auth-task">
-        {state === "verifying" ? (
-          <>
-            <AuthStateMark tone="pending" />
-            <AuthTaskHeader
-              eyebrow="Account activation"
-              title="Verifying your email"
-              description="We’re checking the verification link. This should only take a moment."
-            />
-            <FormAlert tone="notice">Verification is in progress.</FormAlert>
-          </>
-        ) : null}
+    <AuthShell
+      title={active.title}
+      description={active.description}
+      footer={
+        <AuthFooterLinks className="text-center">
+          <Link className="text-primary hover:underline" href="/login">
+            Back to login
+          </Link>
+        </AuthFooterLinks>
+      }
+    >
+      {state === "verifying" || state === "code-verifying" ? (
+        <FormAlert tone="notice">Verification is in progress.</FormAlert>
+      ) : null}
 
-        {state === "success" ? (
-          <>
-            <AuthStateMark tone="success" />
-            <AuthTaskHeader
-              eyebrow="Account activated"
-              title="Email verified"
-              description="Your email is confirmed. Agent creation and developer credentials are now available."
-            />
-            <ButtonLink href="/dashboard" variant="primary">Go to dashboard</ButtonLink>
-          </>
-        ) : null}
+      {state === "success" ? (
+        <Link className={authPrimaryButtonClass} href="/dashboard">
+          Go to dashboard
+        </Link>
+      ) : null}
 
-        {state === "error" ? (
-          <>
-            <AuthStateMark tone="error" />
-            <AuthTaskHeader
-              eyebrow="Verification unavailable"
-              title="We couldn’t verify this email"
-              description="The link or code may be invalid or expired. Request a new verification message to try again."
-            />
-            <FormAlert>{message}</FormAlert>
-            <Button variant="primary" onClick={resend} type="button">Resend verification email</Button>
-          </>
-        ) : null}
+      {state === "error" ? (
+        <div className="space-y-4">
+          <FormAlert>{message}</FormAlert>
+          <button className={authPrimaryButtonClass} onClick={resend} type="button">
+            Resend verification email
+          </button>
+        </div>
+      ) : null}
 
-        {state === "idle" ? (
-          <>
-            <AuthTaskHeader
-              eyebrow="Account activation"
-              title="Verify your email"
-              description="Use the link or 8-character code from your verification message. This page will continue automatically when your email is confirmed."
-            />
-            <form onSubmit={submitCode}>
-              <div className="auth-task__code-row">
-                <Field>
-                  <FieldLabel htmlFor="verify-code">Verification code</FieldLabel>
-                  <Input
-                    aria-describedby={message ? "verification-code-error" : undefined}
-                    autoComplete="one-time-code"
-                    id="verify-code"
-                    inputMode="text"
-                    maxLength={9}
-                    onChange={(event) => setCode(formatCode(event.target.value))}
-                    placeholder="XXXX-XXXX"
-                    type="text"
-                    value={code}
-                  />
-                </Field>
-                <Button variant="primary" type="submit">Verify code</Button>
-              </div>
-            </form>
-            {message ? <FormAlert id="verification-code-error">{message}</FormAlert> : null}
-            <div className="auth-task__resend">
-              <p className="auth-task__meta">Need a new message?</p>
-              <Button onClick={resend} size="small" type="button" variant="ghost">Resend verification email</Button>
-            </div>
-          </>
-        ) : null}
+      {state === "idle" ? (
+        <div className="space-y-4">
+          <form className="space-y-4" onSubmit={submitCode}>
+            <AuthField htmlFor="verify-code" label="Verification code">
+              <input
+                aria-describedby={message ? "verification-code-error" : undefined}
+                autoComplete="one-time-code"
+                className={authInputClass}
+                id="verify-code"
+                inputMode="text"
+                maxLength={9}
+                onChange={(event) => setCode(formatCode(event.target.value))}
+                placeholder="XXXX-XXXX"
+                type="text"
+                value={code}
+              />
+            </AuthField>
+            <button className={authPrimaryButtonClass} type="submit">
+              Verify code
+            </button>
+          </form>
+          {message ? <FormAlert id="verification-code-error">{message}</FormAlert> : null}
+          <div className="space-y-2 pt-2">
+            <p className="text-sm text-muted-foreground">Need a new message?</p>
+            <button className={authOAuthButtonClass} onClick={resend} type="button">
+              Resend verification email
+            </button>
+          </div>
+        </div>
+      ) : null}
 
-        {state === "code-verifying" ? (
-          <>
-            <AuthStateMark tone="pending" />
-            <AuthTaskHeader
-              eyebrow="Account activation"
-              title="Checking your code"
-              description="We’re validating the code against your account."
-            />
-            <FormAlert tone="notice">Verification is in progress.</FormAlert>
-          </>
-        ) : null}
-
-        {state === "resending" ? (
-          <>
-            <AuthStateMark tone="pending" />
-            <AuthTaskHeader
-              eyebrow="Email verification"
-              title="Requesting a new message"
-              description="Keep this page open while the request completes."
-            />
-            <FormAlert tone="notice">Resend request is pending.</FormAlert>
-          </>
-        ) : null}
-
-        {state === "resent" ? (
-          <>
-            <AuthStateMark tone="success" />
-            <AuthTaskHeader
-              eyebrow="Resend complete"
-              title="Verification message requested"
-              description="If your account still needs verification, check your inbox for a new link and code. This page will continue automatically after confirmation."
-            />
-            <FormAlert tone="success">The resend request completed.</FormAlert>
-          </>
-        ) : null}
-
-        <p className="auth-task__row auth-task__row--center">
-          <Link href="/login">Back to login</Link>
-        </p>
-      </section>
+      {state === "resending" ? <FormAlert tone="notice">Resend request is pending.</FormAlert> : null}
+      {state === "resent" ? <FormAlert tone="success">The resend request completed.</FormAlert> : null}
     </AuthShell>
   );
 }
