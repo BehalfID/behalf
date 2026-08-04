@@ -7,6 +7,8 @@
 
 > Interactive view: open the gap analysis canvas beside chat (see evidence pack README).
 
+Remaining open gaps (G-06–G-19) are tracked at https://github.com/BehalfID/behalf/issues/157
+
 ---
 
 ## 1. Executive summary

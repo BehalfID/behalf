@@ -10,6 +10,8 @@ import { isRecord, readString, rejectUnknownFields } from "@/lib/validation";
 import { verifyAction } from "@/lib/verify";
 import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
 
+// Generalizing beyond browse_web is Phase 1 of the roadmap tracked at
+// https://github.com/BehalfID/behalf/issues/130
 const SUPPORTED_ACTION = "browse_web";
 const SUPPORTED_RESOURCE = "web";
 

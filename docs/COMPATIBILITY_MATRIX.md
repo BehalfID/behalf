@@ -5,6 +5,9 @@ Package publish status: `@behalfid/sdk` and `@behalfid/cli` are on npm; `@behalf
 `@behalfid/install`, and `@behalfid/mcp-audit` are **source-only** (not on npm). See
 `docs/CAPABILITY_MATRIX.md`.
 
+Production-readiness gaps for these adapters are tracked at
+https://github.com/BehalfID/behalf/issues/131
+
 ## Summary
 
 | Adapter | Status | Unit tests | Allowed-path live | Denied-path live | Runtime verified | npm-publishable | Production-ready? |
