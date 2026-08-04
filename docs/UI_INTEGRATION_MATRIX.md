@@ -9,9 +9,9 @@ Production target: `BehalfID/behalf` (Next.js 16 App Router, custom CSS, custom 
 
 ## Status
 
-**READY WITH DOCUMENTED LIMITATIONS** (Phase 1 validation)
+**READY WITH DOCUMENTED LIMITATIONS** (Phase 2 marketing cutover)
 
-Hard blockers: none. Soft limitations below. See §11 for validation findings.
+Hard blockers: none. Phase 1 foundation remains; Phase 2 activates public marketing under `.ds`. Soft limitations in §12.
 
 ---
 
@@ -73,11 +73,11 @@ Hard blockers: none. Soft limitations below. See §11 for validation findings.
 | Surface | Lovable | Production route | Data / notes | Risk |
 | ------- | ------- | ---------------- | ------------ | ---- |
 | Homepage | `routes/index.tsx` | `app/page.tsx`, `home-v2`, `marketing-v2` | SEO + real auth CTAs; mock demos → Illustrative or real | Med |
-| Adaptive engine | `adaptive-engine.tsx` | **Missing** → add `app/adaptive-engine` (Phase 2) | Beta/In development; no fake enforcement | Med |
-| Pricing | `pricing.tsx` | **Missing** → add `app/pricing` (Phase 2) | Wire to real plans/entitlements; no fake invoices | Med |
-| Security | `security.tsx` | `app/security` | Keep factual security claims | Low |
-| Blog | `blog.*` | `app/blog` | Existing CMS/content | Low |
-| Contact | `contact.tsx` | **Missing** → add (Phase 2) | Real submit path or mailto; no mock-only | Low |
+| Adaptive engine | `adaptive-engine.tsx` | `app/adaptive-engine` | Beta/In development; Illustrative patterns; no fake enforcement | Med |
+| Pricing | `pricing.tsx` | `app/pricing` | Free/Pro/Enterprise from `lib/plans.ts`; no fake $99 Team | Med |
+| Security | `security.tsx` | `app/security` | Keep factual security claims; Lovable chrome via PublicNav | Low |
+| Blog | `blog.*` | `app/blog` | Existing CMS/content; Lovable chrome via PublicNav | Low |
+| Contact | `contact.tsx` | `app/contact` | Posts to `/api/billing/enterprise-inquiry` | Low |
 | Status | `status.tsx` | `app/status` + `/api/status` | **Keep probes**; Lovable visuals only | High if mocks slip in |
 | Docs preview | `docs-preview.tsx` | Prefer `app/docs` / quickstart | Do not replace docs host | Low |
 | Header / Footer | `marketing-layout.tsx` | `PublicNav*`, `PublicFooter`, marketing nav | Preserve subdomain + auth actions | Med |
@@ -160,7 +160,7 @@ Adapters/view-models allowed when Lovable components expect different shapes. **
 4. **Claim hygiene** — adaptive Observe/Recommend/Enforce must stay Beta/Illustrative until enforced.
 5. **Status honesty** — visual polish must not invent green/uptime.
 6. **Auth presentation** — never show password UI without password identity.
-7. **Missing routes** — `/pricing`, `/adaptive-engine`, `/contact` absent today (Phase 2).
+7. **Missing routes** — `/pricing`, `/adaptive-engine`, `/contact` added in Phase 2.
 8. **Hydration** — motion + theme scripts must remain SSR-safe.
 9. **Duplicate primitives** — must converge Button/Dialog/Table/Toast systems by Phase 8.
 10. **i18n** — Lovable is English-first; preserve next-intl keys when cutting over nav.
@@ -228,9 +228,9 @@ Wrap a route or subtree in `className="ds"` (or use a design-system shell that a
 `Wordmark`, `BrandMark`, `AgentAvatar`, `Reveal`, `IllustrativeTag`, `BetaTag`, `Section`, `SectionHeading`, `use-motion` hooks, `.ds` environments/motion utilities.  
 `MarketingHeader` / `MarketingFooter` stay **exported only** until `/pricing`, `/adaptive-engine`, `/contact` exist.
 
-### Live chrome
+### Live chrome (Phase 2)
 
-`PublicNav` / `PublicFooter` / `marketing-v2/MarketingFooter` remain active. Design-system header/footer are not imported by live pages.
+`PublicNavClient` → `MarketingHeader`; `PublicFooter` → `MarketingFooter`. Homepage and new marketing routes use `MarketingLayout` (`.ds` + ending CTA). Auth/dashboard/console shells remain on the production design system.
 
 ### Known CSS collision risks (mitigated)
 
@@ -252,3 +252,53 @@ Non-`.ds` pages keep existing layout density, sticky nav, forms, and motion. Exp
 Playwright harness: `node scripts/phase1-visual-check.mjs` (against a local production server). Validated homepage, login, signup, complete-profile, security, status, 404 across light/dark/system, 1440/1024/390, reduced motion — theme sync, no live `.ds`, no Lovable motion classes, no horizontal overflow, sticky public nav.
 
 Dashboard/console authenticated screens were not exercised in the headless harness (session-gated); static boundary tests + production CSS scoping cover their non-opt-in stability.
+
+---
+
+## 12. Phase 2 validation findings
+
+### Delivered
+
+- Homepage cutover: `MarketingHomePage` → `MarketingLayout` + `LovableHomeContent` (editorial hero, copper path, adaptive modes, approval flow, dashboard preview, developer/security sections).
+- New routes: `/pricing`, `/adaptive-engine`, `/contact` with metadata + sitemap entries.
+- Public nav/footer cutover to design-system chrome; links limited to real production routes + subdomain-aware handlers.
+- Pricing sourced from `PLAN_ENTITLEMENTS` / `PRO_PLAN_PRICE_CENTS` ($20 Pro); no fabricated Team tier.
+- Contact posts to existing `/api/billing/enterprise-inquiry` (server-side email/storage; no client secrets).
+- Adaptive page: “In development”, policy-first, Observe → Recommend → Enforce after admin enable; Illustrative/Beta tags.
+- Motion: CSS + `use-motion` / `Reveal`; reduced-motion collapse retained under `.ds`.
+- Utilities: `app/lovable-utilities.css` scoped under `.ds`, loaded after token layer.
+
+### Limitations
+
+- Blog/security/status/legal keep legacy page bodies; only chrome is Lovable-derived (header/footer carry `.ds`).
+- New marketing routes have `[locale]` wrappers; copy remains English-first like Lovable.
+- Status probes and StatusBoard UI unchanged (not a Lovable visual restyle of status content).
+- Auth/dashboard/console not cut over (Phase 3+).
+- Fidelity is verified against the **real running applications** (the Next.js target and, where available, the Lovable Vite source), not a reconstructed HTML fixture. `scripts/verify-marketing-grids.mjs` measures computed `grid-template-columns` for the marketing sections in Chromium + WebKit at desktop and mobile. The former synthetic `scripts/phase2-source-parity.mjs` and `scripts/fixtures/lovable-hero-source.html` fixture were removed.
+
+### Critical fidelity fix (post-preview)
+
+`.ds .max-w-7xl` was incorrectly set to `22ch` (intended for a display measure utility) instead of Tailwind’s `80rem`. That collapsed the hero shell so `display-2xl` wrapped one word per line. Restored `max-w-7xl` → `80rem`, added missing `max-w-{sm,md,lg,xl,4xl,5xl,6xl}`, fixed `left-0`, and restored Lovable’s `md` header breakpoint with nowrap Sign in / CTA.
+
+### Hero CTA clipping / header density (parity pass)
+
+- Missing `.ds` preflight (`h1`/`p` margin: 0) let UA margins (~56px below `h1`, ~18px below `p`) push CTAs to the fold — especially visible in Safari/WebKit at 1280×800.
+- Missing `.ds .px-6` zeroed hero button horizontal padding; CTAs now match Lovable `Button size="lg"` (`h-10`, `text-sm`, `px-6`).
+- Header: Blog mobile/footer-only; `DsAppearanceToggle` icon group replaces labeled theme switcher; locale globe without `EN` label; Google remains on login/signup (+ mobile drawer).
+
+### Phase 3 (NOT in PR #164): Lovable auth UI inventory
+
+Recorded for the next phase only — **no auth code was changed in PR #164**. Login,
+signup, password reset, OAuth, passkeys, MFA, sessions and auth routes are untouched.
+
+| Lovable source | Purpose | Port notes for Phase 3 |
+| --- | --- | --- |
+| `src/routes/login.tsx` | Login page | Visual/layout only. Uses `supabase.auth` — **must not** be ported; keep production custom auth (SimpleWebAuthn passkeys, `jose` sessions, `otpauth` MFA). |
+| `src/routes/signup.tsx` | Signup page | Same: presentation only, keep production submit path. |
+| `src/routes/[.]lovable.oauth.consent.tsx` | Lovable OAuth consent | Lovable-specific; **not** applicable to production OAuth. |
+| `src/components/layouts/auth-layout.tsx` | Auth shell (wordmark, ThemeToggle, ShieldCheck trust strip) | Portable structure; adapt `@tanstack/react-router` Link → `next/link`, `lucide-react` → local `./icons`. |
+| `src/components/ui/{button,input,label}.tsx` | Form primitives | Port the literal Tailwind classes (same approach as the marketing transplant). `Button` cva already mirrored for the header/ending CTAs. |
+| `sonner` `toast` | Form feedback | Production has no `sonner`; map to the existing notification pattern. |
+| `src/lib/safe-next.ts` | `?next=` redirect guard | Compare against production's existing redirect validation before reusing. |
+
+Dependencies to **exclude**: `@supabase/supabase-js`, `sonner`, `@tanstack/react-router`.

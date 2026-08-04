@@ -52,6 +52,7 @@ export function LanguageSwitcher() {
         className="lang-switcher__toggle"
         onClick={() => setOpen((o) => !o)}
         aria-label={t("select")}
+        title={`${t("select")}: ${LOCALE_LABELS[locale] ?? locale.toUpperCase()}`}
         aria-expanded={open}
         aria-haspopup="listbox"
         type="button"

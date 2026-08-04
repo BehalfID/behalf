@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, ReactNode } from "react";
+import type { ElementType, ReactNode } from "react";
 import { useInView, usePrefersReducedMotion } from "@/hooks/use-motion";
 import { cn } from "@/lib/cn";
 
@@ -11,41 +11,53 @@ import { cn } from "@/lib/cn";
 export function Reveal({
   children,
   className,
-  delay = 0
+  delay = 0,
+  as: As = "div",
 }: {
   children: ReactNode;
   className?: string;
   delay?: number;
+  as?: ElementType;
 }) {
   const { ref, inView } = useInView(0.15);
   const reduced = usePrefersReducedMotion();
   const shown = reduced || inView;
-  const style: CSSProperties | undefined =
-    shown && !reduced ? { transitionDelay: `${delay}ms` } : undefined;
 
   return (
-    <div
+    <As
       ref={ref}
-      className={cn(shown ? "ds-reveal-shown" : "ds-reveal-hidden", className)}
-      style={style}
+      className={cn(shown ? "reveal-shown" : "reveal-hidden", className)}
+      style={shown && !reduced ? { transitionDelay: `${delay}ms` } : undefined}
     >
       {children}
-    </div>
+    </As>
   );
 }
 
 /** Marks mock product numbers as reference content, never measured results. */
 export function IllustrativeTag({ className }: { className?: string }) {
-  return <span className={cn("ds-tag", className)}>Illustrative</span>;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground",
+        className,
+      )}
+    >
+      Illustrative
+    </span>
+  );
 }
 
 /** Roadmap / maturity marker for the adaptive engine. */
-export function BetaTag({
-  label = "Beta",
-  className
-}: {
-  label?: string;
-  className?: string;
-}) {
-  return <span className={cn("ds-tag ds-tag--beta", className)}>{label}</span>;
+export function BetaTag({ label = "Beta", className }: { label?: string; className?: string }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full bg-primary-soft px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-primary",
+        className,
+      )}
+    >
+      {label}
+    </span>
+  );
 }

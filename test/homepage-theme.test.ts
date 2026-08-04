@@ -10,9 +10,7 @@ function source(path: string) {
 describe("system-aware homepage theme", () => {
   const layoutSource = source("app/layout.tsx");
   const homeSource = source("components/marketing-v2/MarketingHomePage.tsx");
-  const navbarSource = source("components/marketing-v2/MarketingNavbarClient.tsx");
-  const publicNavSource = source("components/layout/PublicNavClient.tsx");
-  const homeCss = source("app/home-v2/home-v2.module.css");
+  const headerSource = source("components/design-system/MarketingHeader.tsx");
   const globalCss = source("app/globals.css");
 
   it("uses only light and dark as explicit stored preferences", () => {
@@ -39,17 +37,17 @@ describe("system-aware homepage theme", () => {
     expect(layoutSource).toContain("e.key==='theme'||e.key===null");
   });
 
-  it("allows the homepage to inherit the resolved root theme", () => {
+  it("allows the homepage to inherit the resolved root theme via .ds", () => {
+    expect(homeSource).toContain("MarketingLayout");
     expect(homeSource).not.toContain("ui-theme-light");
-    expect(homeCss).not.toContain("color-scheme: light");
-    expect(homeCss).toContain("var(--surface-page)");
-    expect(homeCss).toContain(':global(html[data-theme="dark"]) .root');
+    expect(source("components/design-system/MarketingLayout.tsx")).toMatch(
+      /className="ds min-h-dvh(?: overflow-x-clip)?"/
+    );
   });
 
   it("restores the shared public theme control on desktop and mobile", () => {
-    expect(navbarSource.match(/<ThemeToggle allowSystem \/>/g)).toHaveLength(2);
-    expect(publicNavSource.match(/<ThemeToggle allowSystem \/>/g)).toHaveLength(2);
-    expect(navbarSource).toContain("drawerTheme");
+    // Lovable-parity icon segmented control (desktop chrome + mobile drawer).
+    expect(headerSource.match(/<DsAppearanceToggle\s*\/>/g)?.length).toBeGreaterThanOrEqual(2);
   });
 
   it("keeps the cookie banner on the accessible brand foreground token", () => {
