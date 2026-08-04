@@ -7,6 +7,7 @@ import { getWorkspaceActor } from "@/lib/delegatedAuth";
 import { requireWorkspaceMutationActor } from "@/lib/workspaceActor";
 import { checkAgentLimit, quotaErrorDetails } from "@/lib/quota";
 import { readJsonObject } from "@/lib/request";
+import { serverErrorResponse } from "@/lib/apiErrors";
 import { jsonError, noCacheJson } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
 import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
@@ -17,9 +18,18 @@ export async function GET(request: NextRequest) {
   const actor = await getWorkspaceActor(auth.user.userId, auth.activeAccountId);
   if (!actor) return jsonError("Workspace account required.", 403);
 
-  const agents = await listAccountAgents(actor);
-
-  return noCacheJson({ agents: agents.map(serializeAgent) });
+  // Repository faults (connection, pooler, schema drift, an unimplemented
+  // backend adapter method) must not escape as an unhandled, bodiless 500 —
+  // the client can only render "Request failed with 500" and the cause is lost.
+  try {
+    const agents = await listAccountAgents(actor);
+    return noCacheJson({ agents: agents.map(serializeAgent) });
+  } catch (error) {
+    return serverErrorResponse("dashboard.agents.list", error, {
+      userId: auth.user.userId,
+      accountId: actor.accountId
+    });
+  }
 }
 
 export async function POST(request: NextRequest) {
