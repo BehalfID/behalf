@@ -37,7 +37,15 @@ export async function POST(request: NextRequest) {
   if (auth.error || !auth.user) return auth.error;
 
   const workspace = await requireWorkspaceMutationActor(auth.user, auth.activeAccountId);
-  if (workspace.error) return workspace.error;
+  if (workspace.error || !workspace.actor) return workspace.error;
+
+  // The authorization result is the source of truth for the rest of the
+  // request. `requireWorkspaceMutationActor` resolves
+  // `activeAccountId ?? user.primaryAccountId`, so `auth.activeAccountId` may
+  // legitimately be null for a caller who still has a valid workspace. Reading
+  // it again after this point would evaluate quota without an account, create
+  // an unscoped legacy-style row, and scope the event to nothing.
+  const accountId = workspace.actor.accountId;
 
   const { body, error } = await readJsonObject(request);
   if (error) return error;
@@ -56,7 +64,7 @@ export async function POST(request: NextRequest) {
   const name = readString(body.name);
   if (!name) return jsonError("name is required.");
 
-  const agentQuota = await checkAgentLimit(auth.activeAccountId);
+  const agentQuota = await checkAgentLimit(accountId);
   if (!agentQuota.allowed) {
     return jsonError(agentQuota.reason ?? "Agent limit reached.", 402, quotaErrorDetails(agentQuota));
   }
@@ -64,14 +72,43 @@ export async function POST(request: NextRequest) {
   const { metadata, error: metadataError } = parseAgentMetadata(body);
   if (metadataError || !metadata) return jsonError(metadataError ?? "Invalid agent metadata.");
 
-  const result = await createDeveloperAgent(auth.user.userId, auth.activeAccountId ?? undefined, { name, ...metadata });
-  await emitWebhookEvent(
-    createWebhookEvent(null, "agent.created", {
-      agentId: result.agent.agentId,
+  // The agent insert and the one-time key are the request's whole purpose, so
+  // only that work may fail the request. Everything after the commit is a
+  // notification and must not be able to withhold the credential.
+  let result: Awaited<ReturnType<typeof createDeveloperAgent>>;
+  try {
+    result = await createDeveloperAgent(auth.user.userId, accountId, {
       name,
-      agentType: metadata.agentType,
-      provider: metadata.provider
-    }, auth.user.userId)
+      ...metadata
+    });
+  } catch (error) {
+    return serverErrorResponse("dashboard.agents.create", error, {
+      userId: auth.user.userId,
+      accountId
+    });
+  }
+
+  // Past this point the agent and its API-key hash are committed and the
+  // plaintext key exists exactly once, in `result`. `emitWebhookEvent` never
+  // throws; a failed enqueue is logged and the credential is still returned.
+  //
+  // The account id comes from the authorized workspace actor. It used to be
+  // `null`, which made `createWebhookEvent` fall back to the developer's user
+  // id and violate the `webhook_events.account_id` foreign key on Postgres —
+  // a 500 raised *after* the commit, which is exactly how a created agent
+  // could exist with a key nobody would ever see.
+  await emitWebhookEvent(
+    createWebhookEvent(
+      accountId,
+      "agent.created",
+      {
+        agentId: result.agent.agentId,
+        name,
+        agentType: metadata.agentType,
+        provider: metadata.provider
+      },
+      auth.user.userId
+    )
   );
   return NextResponse.json(result, { status: 201 });
 }

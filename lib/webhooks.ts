@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import net from "net";
 import { createPublicId, createWebhookSecret } from "@/lib/ids";
+import { logger } from "@/lib/logger";
 import { createEvent } from "@/lib/repositories/webhooks";
 
 export const WEBHOOK_EVENT_TYPES = [
@@ -161,12 +162,13 @@ export function createWebhookEvent(
   data: Record<string, unknown>,
   developerUserId?: string | null
 ) {
-  if (!accountId && !developerUserId) {
-    return null;
-  }
-
-  const eventAccountId = accountId ?? developerUserId;
-  if (!eventAccountId) {
+  // `accountId` must be a real account. It previously fell back to the
+  // developer's user id, which Mongo accepted silently — but on Postgres
+  // `webhook_events.account_id` is NOT NULL *and* a foreign key to
+  // `accounts.account_id`, so a `usr_…` id raised SQLSTATE 23503. Callers that
+  // cannot name an account must not emit an account-scoped event at all.
+  if (!accountId) {
+    logger.warn("webhook_event_skipped_no_account", { type, developerUserId: developerUserId ?? null });
     return null;
   }
 
@@ -174,18 +176,48 @@ export function createWebhookEvent(
     eventId: createPublicId("evt"),
     type,
     createdAt: new Date().toISOString(),
-    accountId: eventAccountId,
+    accountId,
     developerUserId: developerUserId ?? undefined,
     data
   } satisfies WebhookEvent;
 }
 
-export async function emitWebhookEvent(event: WebhookEvent | null) {
+/**
+ * Fire-and-forget notification enqueue.
+ *
+ * Deliberately never throws. Webhook delivery is a *nonessential downstream
+ * side effect*: callers await it after the primary mutation has already
+ * committed, so letting it throw turned a successful write into an unhandled
+ * 500. For agent creation that was destructive — the agent and its API-key
+ * hash were committed, but the one-time plaintext key only ever existed in the
+ * response body that was then never sent, making the credential unrecoverable.
+ *
+ * Failures are logged with a stable scope and the database error code so they
+ * stay diagnosable and alertable rather than silent. Use `enqueueWebhookEvent`
+ * directly where the caller genuinely needs the failure to propagate (the
+ * delivery worker does).
+ */
+export async function emitWebhookEvent(event: WebhookEvent | null): Promise<boolean> {
   if (!event) {
-    return;
+    return false;
   }
 
-  await enqueueWebhookEvent(event);
+  try {
+    await enqueueWebhookEvent(event);
+    return true;
+  } catch (error) {
+    const detail = error as { name?: string; message?: string; code?: unknown; constraint?: unknown };
+    logger.error("webhook_event_enqueue_failed", {
+      eventId: event.eventId,
+      type: event.type,
+      accountId: event.accountId,
+      error: detail?.message,
+      name: detail?.name,
+      ...(detail?.code === undefined ? {} : { code: detail.code }),
+      ...(detail?.constraint === undefined ? {} : { constraint: detail.constraint })
+    });
+    return false;
+  }
 }
 
 export async function enqueueWebhookEvent(event: WebhookEvent) {

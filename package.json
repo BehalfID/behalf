@@ -50,7 +50,11 @@
     "migration:import": "tsx scripts/migration/import-postgres.ts",
     "migration:verify": "tsx scripts/migration/verify-import.ts",
     "migration:reverse-sync": "tsx scripts/migration/reverse-sync.ts",
-    "test:browser": "node test/browser/auth-theme.mjs"
+    "test:browser": "node test/browser/auth-theme.mjs",
+    "api:inventory": "node scripts/api-inventory.mjs",
+    "api:inventory:check": "node scripts/api-inventory.mjs --check",
+    "test:api-contracts": "vitest run test/api-route-contracts.test.ts test/postgres-compatibility-guards.test.ts",
+    "test:api-postgres": "RUN_POSTGRES_API_FLOWS=true vitest run test/api-postgres-critical-flows.test.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.68.0",

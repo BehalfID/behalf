@@ -158,7 +158,12 @@ export function buildVerificationLogQuery(
   if (allowed === "approval") { query.allowed = false; query.approvalRequired = true; }
   if (risk && RISKS.has(risk)) query.risk = risk;
   if (shadowParam === "true") query.shadow = true;
-  if (shadowParam === "false") query.$or = [{ shadow: false }, { shadow: { $exists: false } }];
+  // `{ shadow: null }` rather than `{ $exists: false }`: Mongo's null equality
+  // also matches documents where the field is absent, and the Postgres adapters
+  // map a literal null to `IS NULL` — whereas `$exists` throws "Unsupported
+  // filter operator" there. `shadow` is `NOT NULL DEFAULT false` in Postgres,
+  // so the null branch only ever matches legacy Mongo documents.
+  if (shadowParam === "false") query.$or = [{ shadow: false }, { shadow: null }];
   if (environment) {
     query.$and = [
       ...(Array.isArray(query.$and) ? query.$and : []),

@@ -129,6 +129,7 @@ jobs:
       POSTGRES_TEST_URL: postgres://postgres:postgres@localhost:5432/behalf_ci
       RUN_POSTGRES_MIGRATION_SMOKE: "true"
       RUN_POSTGRES_REPOSITORY_CONTRACTS: "true"
+      RUN_POSTGRES_API_FLOWS: "true"
     steps:
       - uses: actions/checkout@v4
 
@@ -145,6 +146,49 @@ jobs:
 
       - name: Repository contracts
         run: npm run test:postgres-repositories
+
+      # Critical agent/token flows against the real adapters. These are the
+      # cases the mocked suites cannot see: foreign keys, unsupported filter
+      # operators, and Mongo-only query methods.
+      - name: API critical flows (real Postgres)
+        run: npm run test:api-postgres -- --reporter=json --outputFile=/tmp/api-postgres.json
+
+      # A critical suite that quietly skips must fail the job. Read vitest's
+      # JSON report rather than grepping colourised console output.
+      - name: Assert the Postgres API suite actually ran
+        run: |
+          node -e "
+            const report = require('/tmp/api-postgres.json');
+            const total = report.numTotalTests ?? 0;
+            const passed = report.numPassedTests ?? 0;
+            if (total < 10) {
+              console.error('::error::Postgres API flow suite ran only ' + total + ' tests — it skipped.');
+              process.exit(1);
+            }
+            console.log('Postgres API flows executed: ' + passed + '/' + total + ' passed.');
+          "
+
+  api-contracts:
+    name: API route contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The generated matrix is the inventory the contract suite is measured
+      # against; a stale one hides newly added routes.
+      - name: API inventory is current
+        run: npm run api:inventory:check
+
+      - name: Route contracts and Postgres compatibility guards
+        run: npm run test:api-contracts
 
   windows-cli:
     name: Windows CLI

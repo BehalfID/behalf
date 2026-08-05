@@ -201,7 +201,10 @@ describe("buildVerificationLogQuery — shadow filter", () => {
       new URLSearchParams("shadow=false"),
       { accountId: "acct_test" }
     );
-    expect(query.$or).toEqual([{ shadow: false }, { shadow: { $exists: false } }]);
+    // Backend-neutral: Mongo's null equality also matches a missing field, and
+    // the Postgres adapters map null to `IS NULL` — whereas `$exists` throws
+    // "Unsupported filter operator" there. Same rows, both backends.
+    expect(query.$or).toEqual([{ shadow: false }, { shadow: null }]);
   });
 
   it("does not filter by shadow when param is absent", async () => {

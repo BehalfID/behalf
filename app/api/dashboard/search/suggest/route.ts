@@ -35,8 +35,15 @@ export async function GET(request: NextRequest) {
     const filter: Record<string, unknown> = { ...accountScopeFilter(actor.accountId) };
     if (retentionStart) filter.createdAt = { $gte: retentionStart };
 
-    const recent = await findLogs(filter, { sort: { createdAt: -1 }, limit: 80, select: "-_id action vendor agentId" })
-      .lean<FacetRow[]>();
+    // Await the repository result directly — `.lean()` is a Mongoose query
+    // method. The Mongo adapter returns a thenable query that resolves to the
+    // same lean rows; the Postgres adapter returns a plain Promise of an array,
+    // which has no `.lean()`. Same defect that 500'd decision history.
+    const recent = (await findLogs(filter, {
+      sort: { createdAt: -1 },
+      limit: 80,
+      select: "-_id action vendor agentId"
+    })) as FacetRow[];
 
     const seen = new Set<string>();
     for (const row of recent) {
