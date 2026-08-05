@@ -151,19 +151,22 @@ jobs:
       # cases the mocked suites cannot see: foreign keys, unsupported filter
       # operators, and Mongo-only query methods.
       - name: API critical flows (real Postgres)
-        run: npm run test:api-postgres
+        run: npm run test:api-postgres -- --reporter=json --outputFile=/tmp/api-postgres.json
 
-      # A skipped critical suite must fail the job rather than pass quietly.
+      # A critical suite that quietly skips must fail the job. Read vitest's
+      # JSON report rather than grepping colourised console output.
       - name: Assert the Postgres API suite actually ran
         run: |
-          if npm run test:api-postgres 2>&1 | grep -q "postgres API critical flows (optional)"; then
-            if npm run test:api-postgres 2>&1 | grep -qE "^\s+Tests\s+.*[1-9][0-9]* passed"; then
-              echo "Postgres API flows executed."
-            else
-              echo "::error::Postgres API flow suite did not execute any tests."
-              exit 1
-            fi
-          fi
+          node -e "
+            const report = require('/tmp/api-postgres.json');
+            const total = report.numTotalTests ?? 0;
+            const passed = report.numPassedTests ?? 0;
+            if (total < 10) {
+              console.error('::error::Postgres API flow suite ran only ' + total + ' tests — it skipped.');
+              process.exit(1);
+            }
+            console.log('Postgres API flows executed: ' + passed + '/' + total + ' passed.');
+          "
 
   api-contracts:
     name: API route contracts
