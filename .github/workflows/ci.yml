@@ -129,6 +129,7 @@ jobs:
       POSTGRES_TEST_URL: postgres://postgres:postgres@localhost:5432/behalf_ci
       RUN_POSTGRES_MIGRATION_SMOKE: "true"
       RUN_POSTGRES_REPOSITORY_CONTRACTS: "true"
+      RUN_POSTGRES_API_FLOWS: "true"
     steps:
       - uses: actions/checkout@v4
 
@@ -145,6 +146,46 @@ jobs:
 
       - name: Repository contracts
         run: npm run test:postgres-repositories
+
+      # Critical agent/token flows against the real adapters. These are the
+      # cases the mocked suites cannot see: foreign keys, unsupported filter
+      # operators, and Mongo-only query methods.
+      - name: API critical flows (real Postgres)
+        run: npm run test:api-postgres
+
+      # A skipped critical suite must fail the job rather than pass quietly.
+      - name: Assert the Postgres API suite actually ran
+        run: |
+          if npm run test:api-postgres 2>&1 | grep -q "postgres API critical flows (optional)"; then
+            if npm run test:api-postgres 2>&1 | grep -qE "^\s+Tests\s+.*[1-9][0-9]* passed"; then
+              echo "Postgres API flows executed."
+            else
+              echo "::error::Postgres API flow suite did not execute any tests."
+              exit 1
+            fi
+          fi
+
+  api-contracts:
+    name: API route contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The generated matrix is the inventory the contract suite is measured
+      # against; a stale one hides newly added routes.
+      - name: API inventory is current
+        run: npm run api:inventory:check
+
+      - name: Route contracts and Postgres compatibility guards
+        run: npm run test:api-contracts
 
   windows-cli:
     name: Windows CLI

@@ -38,8 +38,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
     await revokePermission(permissionId, accountScopeFilter(actor.accountId), auth.user.userId);
   }
 
+  // Scope the event to the authorized workspace. Passing `null` made
+  // `createWebhookEvent` substitute the developer's user id for the account id,
+  // which violates the `webhook_events.account_id` foreign key on Postgres.
   await emitWebhookEvent(
-    createWebhookEvent(null, "permission.revoked", { permissionId, agentId, action: permission.action }, auth.user.userId)
+    createWebhookEvent(
+      actor.accountId,
+      "permission.revoked",
+      { permissionId, agentId, action: permission.action },
+      auth.user.userId
+    )
   );
 
   return NextResponse.json({ revoked: true });

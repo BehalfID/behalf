@@ -13,6 +13,8 @@ import {
 import { createPermissionForAgent } from "@/lib/permissionMutations";
 import { checkAgentLimit, quotaErrorDetails } from "@/lib/quota";
 import { readJsonObject } from "@/lib/request";
+import { serverErrorResponse } from "@/lib/apiErrors";
+import { logger } from "@/lib/logger";
 import { jsonError } from "@/lib/responses";
 import { rejectUnknownFields } from "@/lib/validation";
 import { requireWorkspaceMutationActor } from "@/lib/workspaceActor";
@@ -37,6 +39,31 @@ async function rollbackIncompleteFirstAgentSetup(input: {
     ...accountScopeFilter(input.accountId),
     agentId: input.agentId
   });
+}
+
+/**
+ * Roll back a partial setup without ever masking the failure that caused it.
+ *
+ * Both deletes are scoped by `accountScopeFilter`, so a rollback can only ever
+ * touch the actor's own workspace. If the rollback itself fails the caller
+ * still reports the original error; the leftover rows are logged with a stable
+ * scope so they can be reconciled rather than disappearing silently.
+ */
+async function rollbackQuietly(input: {
+  accountId: string;
+  agentId: string;
+  permissionIds: string[];
+}) {
+  try {
+    await rollbackIncompleteFirstAgentSetup(input);
+  } catch (error) {
+    logger.error("dashboard.agents.first_setup.rollback_failed", {
+      accountId: input.accountId,
+      agentId: input.agentId,
+      permissionIds: input.permissionIds.length,
+      error: (error as { message?: string })?.message
+    });
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -72,31 +99,57 @@ export async function POST(request: NextRequest) {
 
   const input = validated.input;
   const provider = mapAgentSurfaceToProvider(input.surface);
-  const result = await createDeveloperAgent(auth.user.userId, auth.activeAccountId ?? undefined, {
-    name: input.name,
-    agentType: "native",
-    provider,
-    description: input.description ?? `${AGENT_SURFACE_DESCRIPTION[input.surface]} agent created via first-agent setup.`,
-    connectionStatus: "manual"
-  });
 
+  // Stage 1 — the agent and its one-time key. Nothing is committed yet, so a
+  // failure here is safe to report as a plain 500 with no cleanup owed.
+  let result: Awaited<ReturnType<typeof createDeveloperAgent>>;
+  try {
+    result = await createDeveloperAgent(auth.user.userId, auth.activeAccountId ?? undefined, {
+      name: input.name,
+      agentType: "native",
+      provider,
+      description:
+        input.description ??
+        `${AGENT_SURFACE_DESCRIPTION[input.surface]} agent created via first-agent setup.`,
+      connectionStatus: "manual"
+    });
+  } catch (error) {
+    return serverErrorResponse("dashboard.agents.first_setup", error, {
+      userId: auth.user.userId,
+      accountId,
+      stage: "create_agent"
+    });
+  }
+
+  // Stage 2 — permissions. A partial setup must never be presented as
+  // successful, so any failure rolls back the permissions created so far *and*
+  // the agent, discarding the unusable key with them.
   const permissions = buildPermissionsFromSetup(input);
   const permissionIds: string[] = [];
 
   for (const permission of permissions) {
-    const created = await createPermissionForAgent({
-      actor: workspace.actor,
-      userId: auth.user.userId,
-      agentId: result.agent.agentId,
-      body: permissionBodyFromSetupPermission(permission)
-    });
-
-    if ("error" in created && created.error) {
-      await rollbackIncompleteFirstAgentSetup({
+    let created: Awaited<ReturnType<typeof createPermissionForAgent>>;
+    try {
+      created = await createPermissionForAgent({
+        actor: workspace.actor,
+        userId: auth.user.userId,
+        agentId: result.agent.agentId,
+        body: permissionBodyFromSetupPermission(permission)
+      });
+    } catch (error) {
+      // A throw is as fatal as a returned error — roll back either way, and
+      // never let a rollback failure mask the original cause.
+      await rollbackQuietly({ accountId, agentId: result.agent.agentId, permissionIds });
+      return serverErrorResponse("dashboard.agents.first_setup", error, {
+        userId: auth.user.userId,
         accountId,
         agentId: result.agent.agentId,
-        permissionIds
+        stage: "create_permission"
       });
+    }
+
+    if ("error" in created && created.error) {
+      await rollbackQuietly({ accountId, agentId: result.agent.agentId, permissionIds });
       return jsonError("First agent setup failed while applying permissions.", 500, {
         code: "SETUP_FAILED"
       });
@@ -107,6 +160,9 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Stage 3 — notification only. The agent, its key hash and every permission
+  // are committed; `emitWebhookEvent` never throws, so the one-time key is
+  // returned even if the enqueue fails.
   await emitWebhookEvent(
     createWebhookEvent(auth.activeAccountId ?? null, "agent.created", {
       agentId: result.agent.agentId,

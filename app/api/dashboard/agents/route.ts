@@ -64,14 +64,43 @@ export async function POST(request: NextRequest) {
   const { metadata, error: metadataError } = parseAgentMetadata(body);
   if (metadataError || !metadata) return jsonError(metadataError ?? "Invalid agent metadata.");
 
-  const result = await createDeveloperAgent(auth.user.userId, auth.activeAccountId ?? undefined, { name, ...metadata });
-  await emitWebhookEvent(
-    createWebhookEvent(null, "agent.created", {
-      agentId: result.agent.agentId,
+  // The agent insert and the one-time key are the request's whole purpose, so
+  // only that work may fail the request. Everything after the commit is a
+  // notification and must not be able to withhold the credential.
+  let result: Awaited<ReturnType<typeof createDeveloperAgent>>;
+  try {
+    result = await createDeveloperAgent(auth.user.userId, auth.activeAccountId ?? undefined, {
       name,
-      agentType: metadata.agentType,
-      provider: metadata.provider
-    }, auth.user.userId)
+      ...metadata
+    });
+  } catch (error) {
+    return serverErrorResponse("dashboard.agents.create", error, {
+      userId: auth.user.userId,
+      accountId: workspace.actor?.accountId ?? auth.activeAccountId ?? null
+    });
+  }
+
+  // Past this point the agent and its API-key hash are committed and the
+  // plaintext key exists exactly once, in `result`. `emitWebhookEvent` never
+  // throws; a failed enqueue is logged and the credential is still returned.
+  //
+  // The account id comes from the authorized workspace actor. It used to be
+  // `null`, which made `createWebhookEvent` fall back to the developer's user
+  // id and violate the `webhook_events.account_id` foreign key on Postgres —
+  // a 500 raised *after* the commit, which is exactly how a created agent
+  // could exist with a key nobody would ever see.
+  await emitWebhookEvent(
+    createWebhookEvent(
+      workspace.actor?.accountId ?? auth.activeAccountId ?? null,
+      "agent.created",
+      {
+        agentId: result.agent.agentId,
+        name,
+        agentType: metadata.agentType,
+        provider: metadata.provider
+      },
+      auth.user.userId
+    )
   );
   return NextResponse.json(result, { status: 201 });
 }
