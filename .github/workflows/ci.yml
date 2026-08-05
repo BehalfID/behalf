@@ -161,7 +161,7 @@ jobs:
             const report = require('/tmp/api-postgres.json');
             const total = report.numTotalTests ?? 0;
             const passed = report.numPassedTests ?? 0;
-            if (total < 10) {
+            if (total < 20) {
               console.error('::error::Postgres API flow suite ran only ' + total + ' tests — it skipped.');
               process.exit(1);
             }

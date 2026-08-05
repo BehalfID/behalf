@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
   if (actorCheck.error) return actorCheck.error;
 
   // Entitlement gate; allowed on every current plan.
-  const featureCheck = checkManagedProfilesEnabled(auth.account?.plan);
+  const featureCheck = checkManagedProfilesEnabled(auth.account);
   if (!featureCheck.allowed) {
     return jsonError(
       featureCheck.reason ?? "Managed Profiles are not available on this plan.",

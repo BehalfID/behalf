@@ -6,7 +6,7 @@ import { ensureAccountHasSlug } from "@/lib/workspaceSlugServer";
 import { findAccountByIdLean, findOneAccount } from "@/lib/repositories/accounts";
 import { countAgents } from "@/lib/repositories/agents";
 import { findManagedProfilePolicyByAccountId } from "@/lib/repositories/managedProfiles";
-import { normalizePlan } from "@/lib/plans";
+import { complimentaryBadge, effectivePlan } from "@/lib/planGrants";
 import { countBillableSeats } from "@/lib/quota";
 import { BillingClient } from "./client";
 
@@ -38,7 +38,8 @@ export default async function BillingPage() {
 
   return (
     <BillingClient
-      plan={normalizePlan(account?.plan)}
+      plan={effectivePlan(account)}
+      complimentary={complimentaryBadge(account)}
       stripeSubscriptionStatus={account?.stripeSubscriptionStatus ?? null}
       stripeTrialEnd={account?.stripeTrialEnd ? new Date(account.stripeTrialEnd).toISOString() : null}
       stripeCurrentPeriodEnd={account?.stripeCurrentPeriodEnd ? new Date(account.stripeCurrentPeriodEnd).toISOString() : null}

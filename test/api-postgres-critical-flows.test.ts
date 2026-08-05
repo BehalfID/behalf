@@ -19,6 +19,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { hashApiKey } from "@/lib/auth";
 import {
   accountMemberships,
+  accountPlanGrants,
   accounts,
   agents,
   developerUsers,
@@ -26,6 +27,7 @@ import {
 } from "@/lib/db/postgres/schema";
 import { createPublicId } from "@/lib/ids";
 import { MISSING_ACCOUNT_ID_CLAUSE } from "@/lib/missingAccountId";
+import { effectiveEntitlements, effectivePlan } from "@/lib/planGrants";
 import {
   countAgentsByAccountId,
   createAgent,
@@ -33,6 +35,14 @@ import {
   listAgents,
   updateAgent
 } from "@/lib/repositories/postgres/agents";
+import {
+  clearComplimentaryPlan,
+  createAccountPlanGrant,
+  findAccountById,
+  listAccountPlanGrants,
+  setComplimentaryPlan,
+  updateAccountByFilter
+} from "@/lib/repositories/postgres/accounts";
 import { createEvent } from "@/lib/repositories/postgres/webhooks";
 import { findLogs } from "@/lib/repositories/postgres/verificationLogs";
 import {
@@ -432,6 +442,172 @@ if (enabled) {
         ...MISSING_ACCOUNT_ID_CLAUSE
       });
       expect(legacy.map((r) => r.agentId)).toContain(agentId);
+    });
+  });
+
+  describe("complimentary plan grants survive Stripe", () => {
+    it("stores a grant in columns the billing update does not touch", async () => {
+      const db = context!.db;
+      const { accountId } = await seedWorkspace("comp");
+
+      await setComplimentaryPlan(db, accountId, {
+        plan: "pro",
+        reason: "Lifetime early-tester grant",
+        grantedBy: "founder",
+        grantedAt: new Date("2026-08-04T00:00:00Z"),
+        expiresAt: null
+      });
+
+      // Exactly the write `customer.subscription.deleted` performs.
+      await updateAccountByFilter(
+        db,
+        { accountId },
+        {
+          $set: {
+            plan: "free",
+            stripeSubscriptionStatus: "canceled",
+            stripeSubscriptionId: null,
+            stripeTrialEnd: null,
+            stripeCurrentPeriodEnd: null
+          }
+        }
+      );
+
+      const account = await findAccountById(db, accountId);
+      expect(account!.plan).toBe("free");
+      expect(account!.complimentaryPlan).toBe("pro");
+      expect(account!.complimentaryPlanReason).toBe("Lifetime early-tester grant");
+      expect(account!.complimentaryPlanExpiresAt).toBeNull();
+      // Entitlements resolved from the row Postgres actually returned.
+      expect(effectivePlan(account)).toBe("pro");
+      expect(effectiveEntitlements(account).webhooksEnabled).toBe(true);
+    });
+
+    it("rejects a plan the grant columns do not allow", async () => {
+      const db = context!.db;
+      const { accountId } = await seedWorkspace("compcheck");
+
+      // accounts_complimentary_plan_check — "free" is not a grantable plan.
+      await expect(
+        setComplimentaryPlan(db, accountId, {
+          plan: "free" as never,
+          reason: "should not persist",
+          grantedBy: "founder",
+          grantedAt: new Date(),
+          expiresAt: null
+        })
+      ).rejects.toThrow();
+
+      const account = await findAccountById(db, accountId);
+      expect(account!.complimentaryPlan).toBeNull();
+    });
+
+    it("refuses an orphaned half-grant", async () => {
+      const db = context!.db;
+      const { accountId } = await seedWorkspace("halfgrant");
+
+      // accounts_complimentary_plan_coherent — an expiry with no plan reads as
+      // "this workspace was comped" while granting nothing.
+      await expect(
+        updateAccountByFilter(
+          db,
+          { accountId },
+          { $set: { complimentaryPlanExpiresAt: new Date("2099-01-01T00:00:00Z") } }
+        )
+      ).rejects.toThrow();
+    });
+
+    it("keeps the ledger after the grant is revoked", async () => {
+      const db = context!.db;
+      const { accountId } = await seedWorkspace("ledger");
+
+      await createAccountPlanGrant(db, {
+        grantId: createPublicId("cgrant"),
+        accountId,
+        action: "grant",
+        plan: "pro",
+        previousPlan: null,
+        billingPlanAtChange: "free",
+        reason: "Lifetime early-tester grant",
+        expiresAt: null,
+        actor: "founder",
+        actorType: "operator_script"
+      });
+      await setComplimentaryPlan(db, accountId, {
+        plan: "pro",
+        reason: "Lifetime early-tester grant",
+        grantedBy: "founder",
+        grantedAt: new Date(),
+        expiresAt: null
+      });
+
+      await createAccountPlanGrant(db, {
+        grantId: createPublicId("cgrant"),
+        accountId,
+        action: "revoke",
+        plan: null,
+        previousPlan: "pro",
+        billingPlanAtChange: "free",
+        reason: "Converted to a paid subscription",
+        expiresAt: null,
+        actor: "founder",
+        actorType: "operator_script"
+      });
+      await clearComplimentaryPlan(db, accountId);
+
+      const account = await findAccountById(db, accountId);
+      expect(account!.complimentaryPlan).toBeNull();
+      expect(account!.complimentaryPlanReason).toBeNull();
+      expect(effectivePlan(account)).toBe("free");
+
+      // The revocation must not erase who comped the workspace or why.
+      const ledger = await listAccountPlanGrants(db, accountId);
+      expect(ledger).toHaveLength(2);
+      expect(ledger[0]!.action).toBe("revoke");
+      expect(ledger[1]!.action).toBe("grant");
+      expect(ledger[1]!.reason).toBe("Lifetime early-tester grant");
+      expect(ledger[1]!.actor).toBe("founder");
+    });
+
+    it("rejects a ledger entry for an account that does not exist", async () => {
+      const db = context!.db;
+      // account_plan_grants_account_id_accounts_account_id_fk (SQLSTATE 23503).
+      await expect(
+        createAccountPlanGrant(db, {
+          grantId: createPublicId("cgrant"),
+          accountId: "acct_does_not_exist",
+          action: "grant",
+          plan: "pro",
+          previousPlan: null,
+          billingPlanAtChange: "free",
+          reason: "orphan",
+          expiresAt: null,
+          actor: "founder",
+          actorType: "operator_script"
+        })
+      ).rejects.toThrow();
+      expect(await db.select().from(accountPlanGrants)).toEqual([]);
+    });
+
+    it("rejects a grant entry with no plan", async () => {
+      const db = context!.db;
+      const { accountId } = await seedWorkspace("noplan");
+      // account_plan_grants_grant_has_plan — a grant row with no plan would
+      // leave no record of what was awarded.
+      await expect(
+        createAccountPlanGrant(db, {
+          grantId: createPublicId("cgrant"),
+          accountId,
+          action: "grant",
+          plan: null,
+          previousPlan: null,
+          billingPlanAtChange: "free",
+          reason: "missing plan",
+          expiresAt: null,
+          actor: "founder",
+          actorType: "operator_script"
+        })
+      ).rejects.toThrow();
     });
   });
 

@@ -11,7 +11,7 @@ Derived from the route files under `app/api/**`, not from `docs/API.md`. Each ro
 - Exported HTTP handlers: **184**
 - Mutating modules: **115**
 - Modules returning a one-time secret: **7**
-- Modules with no direct handler test: **97**
+- Modules with no direct handler test: **96**
 
 `Direct test` means a test imports the route module and invokes its handler.
 Route-contract coverage (`test/api-route-contracts.test.ts`) additionally
@@ -74,10 +74,10 @@ credential the caller can never retrieve again.
 | POST | `/api/auth/signup` | auth | rate-limited | — | yes | no | email | errors, users | no | — | P0 |
 | GET | `/api/auth/verification-status` | auth | rate-limited | — | no | no | — | — | no | — | P0 |
 | POST | `/api/auth/verify-email` | auth | rate-limited | — | yes | no | — | users | no | 1 | P0 |
-| POST | `/api/billing/checkout` | app | session (developer); rate-limited | — | yes | no | stripe | accounts | no | — | P1 |
+| POST | `/api/billing/checkout` | app | session (developer); rate-limited | — | yes | no | stripe | accounts | no | 1 | P1 |
 | POST | `/api/billing/enterprise-inquiry` | app | public/none detected | — | yes | no | — | enterpriseInquiries | no | — | P1 |
 | POST | `/api/billing/portal` | app | session (developer); rate-limited | — | yes | no | stripe | — | no | — | P1 |
-| POST | `/api/billing/webhook` | app | public/none detected | — | yes | no | stripe | accounts, stripeEvents, webhooks | no | 2 | P1 |
+| POST | `/api/billing/webhook` | app | public/none detected | — | yes | no | stripe | accounts, stripeEvents, webhooks | no | 3 | P1 |
 | GET | `/api/cli/pause/approvals/:approvalRequestId` | www | rate-limited | — | no | no | — | — | no | 1 | P0 |
 | POST | `/api/cli/pause` | www | rate-limited | — | yes | no | — | — | no | 2 | P1 |
 | POST | `/api/cli/session-policy` | www | rate-limited | — | yes | no | — | — | no | 2 | P1 |

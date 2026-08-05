@@ -30,6 +30,7 @@ import type {
 import { LOGIN_METHODS } from "@/lib/authProviders/loginMethods";
 import { EXTERNAL_IDENTITY_PROVIDERS } from "@/lib/db/postgres/enums";
 import { logger } from "@/lib/logger";
+import { effectivePlan } from "@/lib/planGrants";
 
 export const TOP_N = 10;
 const APPROVAL_REASON_PATTERN = "requires approval|approval required|approval before execution";
@@ -685,7 +686,16 @@ async function hydrateWorkspaceRows(
   degradations: Degradations
 ): Promise<WorkspaceVolumeRow[]> {
   const ids = rows.map((row) => row._id).filter((id): id is string => Boolean(id));
-  const byId = new Map<string, { name?: string; slug?: string | null; plan?: string }>();
+  const byId = new Map<
+    string,
+    {
+      name?: string;
+      slug?: string | null;
+      plan?: string;
+      complimentaryPlan?: string | null;
+      complimentaryPlanExpiresAt?: Date | null;
+    }
+  >();
   if (ids.length) {
     await safely("top_workspace_names", degradations, undefined, async () => {
       const db = getPostgresDb();
@@ -694,7 +704,9 @@ async function hydrateWorkspaceRows(
           accountId: accounts.accountId,
           name: accounts.name,
           slug: accounts.slug,
-          plan: accounts.plan
+          plan: accounts.plan,
+          complimentaryPlan: accounts.complimentaryPlan,
+          complimentaryPlanExpiresAt: accounts.complimentaryPlanExpiresAt
         })
         .from(accounts)
         .where(inArray(accounts.accountId, ids));
@@ -707,7 +719,9 @@ async function hydrateWorkspaceRows(
       accountId: row._id ?? null,
       name: account?.name ?? null,
       slug: account?.slug ?? null,
-      plan: account?.plan ?? null,
+      // Operators need the plan the workspace is actually running on, not the
+      // billing column — a comped workspace would otherwise read as "free".
+      plan: account ? effectivePlan(account) : null,
       attempts: row.attempts ?? 0,
       allowed: row.allowed ?? 0,
       denied: row.denied ?? 0,

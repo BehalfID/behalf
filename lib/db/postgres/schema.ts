@@ -17,6 +17,7 @@ import {
 import {
   ACCOUNT_PLANS,
   ACCOUNT_TYPES,
+  COMPLIMENTARY_PLANS,
   AGENT_PROVIDERS,
   AGENT_STATUSES,
   AGENT_TYPES,
@@ -46,6 +47,8 @@ import {
   PERMISSION_PROFILE_STATUSES,
   PERMISSION_STATUSES,
   PERMISSION_TEMPLATES,
+  PLAN_GRANT_ACTIONS,
+  PLAN_GRANT_ACTOR_TYPES,
   RISK_LEVELS,
   SITE_GUARD_KEY_STATUSES,
   SITE_STATUSES,
@@ -87,7 +90,36 @@ export const accounts = pgTable(
     website: text("website"),
     teamSize: text("team_size"),
     onboarding: jsonb("onboarding"),
+    /**
+     * Billing-owned plan. Stripe webhooks write this column and only this
+     * column; it reflects what the workspace is paying for, nothing else.
+     */
     plan: text("plan").notNull().default("free"),
+    /**
+     * Complimentary plan grant — deliberately separate columns rather than an
+     * override of `plan`.
+     *
+     * Every Stripe webhook branch ends in `$set: { plan: ... }`. A subscription
+     * that lapses, a failed invoice, or a cancelled trial all reset `plan` to
+     * "free" unconditionally, so a comp stored in `plan` is one webhook away
+     * from being erased with no record that it ever existed. Keeping the grant
+     * in columns Stripe never writes makes that overwrite structurally
+     * impossible instead of merely unlikely.
+     *
+     * `lib/planGrants.ts` resolves the effective plan from both.
+     */
+    complimentaryPlan: text("complimentary_plan"),
+    complimentaryPlanReason: text("complimentary_plan_reason"),
+    complimentaryPlanGrantedBy: text("complimentary_plan_granted_by"),
+    complimentaryPlanGrantedAt: timestamp("complimentary_plan_granted_at", {
+      withTimezone: true,
+      mode: "date"
+    }),
+    /** NULL means the grant does not expire (lifetime). */
+    complimentaryPlanExpiresAt: timestamp("complimentary_plan_expires_at", {
+      withTimezone: true,
+      mode: "date"
+    }),
     stripeCustomerId: text("stripe_customer_id"),
     stripeSubscriptionId: text("stripe_subscription_id"),
     stripeSubscriptionStatus: text("stripe_subscription_status"),
@@ -121,8 +153,21 @@ export const accounts = pgTable(
       "accounts_team_size_check",
       sql`${table.teamSize} IS NULL OR ${table.teamSize} IN (${sql.raw(sqlInList(TEAM_SIZES))})`
     ),
+    check(
+      "accounts_complimentary_plan_check",
+      sql`${table.complimentaryPlan} IS NULL OR ${table.complimentaryPlan} IN (${sql.raw(sqlInList(COMPLIMENTARY_PLANS))})`
+    ),
+    // An expiry or a reason without a plan is an orphaned half-grant: it reads
+    // as "this workspace was comped" while granting nothing.
+    check(
+      "accounts_complimentary_plan_coherent",
+      sql`${table.complimentaryPlan} IS NOT NULL OR (${table.complimentaryPlanExpiresAt} IS NULL AND ${table.complimentaryPlanReason} IS NULL AND ${table.complimentaryPlanGrantedBy} IS NULL AND ${table.complimentaryPlanGrantedAt} IS NULL)`
+    ),
     check("accounts_verification_count_nonneg", sql`${table.verificationCount} >= 0`),
     index("accounts_plan_idx").on(table.plan),
+    index("accounts_complimentary_plan_idx")
+      .on(table.complimentaryPlan)
+      .where(sql`${table.complimentaryPlan} IS NOT NULL`),
     uniqueIndex("accounts_slug_uq")
       .on(table.slug)
       .where(sql`${table.slug} IS NOT NULL`),
@@ -1511,6 +1556,68 @@ export const adminAuditLogs = pgTable(
     index("admin_audit_logs_created_at_idx").on(table.createdAt),
     index("admin_audit_logs_admin_id_idx").on(table.adminId),
     index("admin_audit_logs_action_idx").on(table.action)
+  ]
+);
+
+/**
+ * Append-only ledger of complimentary plan grants and revocations.
+ *
+ * The account columns hold current state; this table holds how that state was
+ * reached. Rows are never updated or deleted — a revoked grant is a new row,
+ * so "who comped this workspace, when, why, and on whose authority" survives
+ * the revocation. Every row records the billing-owned plan at the time, which
+ * is what makes it possible to tell a comp apart from a paid upgrade later.
+ */
+export const accountPlanGrants = pgTable(
+  "account_plan_grants",
+  {
+    grantId: text("grant_id").primaryKey(),
+    accountId: text("account_id")
+      .notNull()
+      .references(() => accounts.accountId, { onDelete: "cascade" }),
+    action: text("action").notNull(),
+    /** Plan awarded. NULL for a revoke. */
+    plan: text("plan"),
+    /** Complimentary plan in effect immediately before this row. */
+    previousPlan: text("previous_plan"),
+    /** `accounts.plan` at the moment of the change — the Stripe-owned value. */
+    billingPlanAtChange: text("billing_plan_at_change").notNull(),
+    reason: text("reason").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }),
+    actor: text("actor").notNull(),
+    actorType: text("actor_type").notNull(),
+    metadata: jsonb("metadata"),
+    createdAt: timestamptz().notNull().defaultNow()
+  },
+  (table) => [
+    check(
+      "account_plan_grants_action_check",
+      sql`${table.action} IN (${sql.raw(sqlInList(PLAN_GRANT_ACTIONS))})`
+    ),
+    check(
+      "account_plan_grants_actor_type_check",
+      sql`${table.actorType} IN (${sql.raw(sqlInList(PLAN_GRANT_ACTOR_TYPES))})`
+    ),
+    check(
+      "account_plan_grants_plan_check",
+      sql`${table.plan} IS NULL OR ${table.plan} IN (${sql.raw(sqlInList(COMPLIMENTARY_PLANS))})`
+    ),
+    check(
+      "account_plan_grants_previous_plan_check",
+      sql`${table.previousPlan} IS NULL OR ${table.previousPlan} IN (${sql.raw(sqlInList(COMPLIMENTARY_PLANS))})`
+    ),
+    check(
+      "account_plan_grants_billing_plan_check",
+      sql`${table.billingPlanAtChange} IN (${sql.raw(sqlInList(ACCOUNT_PLANS))})`
+    ),
+    // A grant row without a plan would leave no record of what was awarded.
+    check(
+      "account_plan_grants_grant_has_plan",
+      sql`${table.action} <> 'grant' OR ${table.plan} IS NOT NULL`
+    ),
+    check("account_plan_grants_reason_length", sql`length(${table.reason}) BETWEEN 1 AND 500`),
+    index("account_plan_grants_account_created_idx").on(table.accountId, table.createdAt),
+    index("account_plan_grants_created_at_idx").on(table.createdAt)
   ]
 );
 

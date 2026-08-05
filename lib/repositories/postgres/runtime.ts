@@ -135,6 +135,10 @@ function bindAccounts(db: BehalfPostgresDb): typeof mongoAccounts {
     findOneAndUpdateAccount: bindDb(db, pgAccounts.findOneAndUpdateAccount),
     updateAccountByFilter: bindDb(db, pgAccounts.updateAccountByFilter),
     countAccountDocuments: bindDb(db, pgAccounts.countAccountDocuments),
+    setComplimentaryPlan: bindDb(db, pgAccounts.setComplimentaryPlan),
+    clearComplimentaryPlan: bindDb(db, pgAccounts.clearComplimentaryPlan),
+    createAccountPlanGrant: bindDb(db, pgAccounts.createAccountPlanGrant),
+    listAccountPlanGrants: bindDb(db, pgAccounts.listAccountPlanGrants),
     findAccountsEnforcingSsoForDomain: bindDb(db, pgAccounts.findAccountsEnforcingSsoForDomain),
     findAccountsWithSsoForDomain: bindDb(db, pgAccounts.findAccountsWithSsoForDomain)
   });

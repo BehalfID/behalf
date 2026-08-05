@@ -1,4 +1,4 @@
-import { getPlanEntitlements } from "@/lib/plans";
+import { effectiveEntitlements } from "@/lib/planGrants";
 import {
   findAccountsEnforcingSsoForDomain,
   findAccountsWithSsoForDomain
@@ -95,7 +95,7 @@ export async function isPasswordLoginBlockedBySso(email: string): Promise<boolea
   const accounts = await findAccountsEnforcingSsoForDomain(domain);
 
   for (const account of accounts) {
-    const entitlements = getPlanEntitlements(account.plan);
+    const entitlements = effectiveEntitlements(account);
     if (!entitlements.googleWorkspaceSsoEnabled) continue;
     const sso = readWorkspaceSso(account);
     if (sso.enabled && sso.enforce && accountAllowsEmailDomain(sso.allowedEmailDomains, domain)) {
@@ -124,7 +124,7 @@ export async function resolvePreferredSsoAccountId(
   const accounts = await findAccountsWithSsoForDomain(accountIds, domain);
 
   for (const account of accounts) {
-    const entitlements = getPlanEntitlements(account.plan);
+    const entitlements = effectiveEntitlements(account);
     if (!entitlements.googleWorkspaceSsoEnabled) continue;
     const sso = readWorkspaceSso(account);
     if (sso.enabled && accountAllowsEmailDomain(sso.allowedEmailDomains, domain)) {

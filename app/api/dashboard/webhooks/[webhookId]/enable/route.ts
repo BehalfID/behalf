@@ -11,7 +11,7 @@ type RouteContext = {
 export async function POST(request: NextRequest, context: RouteContext) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
-  const webhookQuota = checkWebhooksEnabled(auth.account?.plan);
+  const webhookQuota = checkWebhooksEnabled(auth.account);
   if (!webhookQuota.allowed) {
     return jsonError(webhookQuota.reason ?? "Webhooks are not available on this plan.", 403, quotaErrorDetails(webhookQuota));
   }

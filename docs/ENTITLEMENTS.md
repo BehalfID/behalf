@@ -1,6 +1,8 @@
 # Plan Entitlements
 
-`lib/plans.ts` is the single source of truth for what each plan can do. All quota and feature enforcement in `lib/quota.ts` reads from `PLAN_ENTITLEMENTS` via `getPlanEntitlements(plan)`; nothing else should hardcode plan limits.
+`lib/plans.ts` is the single source of truth for what each plan can do. All quota and feature enforcement in `lib/quota.ts` reads from `PLAN_ENTITLEMENTS`; nothing else should hardcode plan limits.
+
+Enforcement resolves entitlements through `effectiveEntitlements(account)` in `lib/planGrants.ts`, **not** through `getPlanEntitlements(account.plan)`. `account.plan` is the Stripe-owned billing plan; a workspace may also hold a complimentary grant that raises what it can do. See [Complimentary plans](#complimentary-plans).
 
 ## Plans
 
@@ -39,7 +41,55 @@ Creation limits block **new** resources only:
 - Billable member add / invite / acceptance (`checkSeatLimit`).
 - Metered verifications (`checkAndIncrementVerifications`) — unchanged behavior.
 
-Existing resources are **never deleted or disabled** when a workspace downgrades or is over a limit. A free workspace with 5 agents keeps all 5; it just cannot create a 6th. (The only exception predates this layer: Stripe payment failure/downgrade webhooks disable webhook endpoints, which is billing behavior, not entitlement enforcement.)
+Existing resources are **never deleted or disabled** when a workspace downgrades or is over a limit. A free workspace with 5 agents keeps all 5; it just cannot create a 6th. (Stripe payment failure/downgrade webhooks still disable webhook endpoints, which is billing behavior rather than entitlement enforcement — but they now leave delivery enabled for a workspace whose complimentary grant entitles it to webhooks.)
+
+## Complimentary plans
+
+A complimentary plan is a grant: entitlements a workspace holds without paying for them. Grants are stored in their own columns — `complimentary_plan`, `complimentary_plan_reason`, `complimentary_plan_granted_by`, `complimentary_plan_granted_at`, `complimentary_plan_expires_at` — and never in `account.plan`.
+
+That separation is the whole point. Every branch of the Stripe webhook handler ends in an unconditional write to `account.plan`, and three of them write `"free"`: subscription deleted, invoice payment failed, and a subscription updated to any non-active status. A comp stored in `account.plan` is one webhook away from silent erasure, with no record that it existed. Billing code never writes the complimentary columns, so the overwrite is structurally impossible rather than merely unlikely.
+
+### Resolution
+
+| Function | Use for |
+| --- | --- |
+| `effectiveEntitlements(account)` | **Anything that gates behaviour.** Per-field maximum of the billing plan and any active grant. |
+| `effectivePlan(account)` | Display label only — the higher-ranked of billing and granted plan. |
+| `planSource(account)` | `"complimentary"` only when the grant is what raises the plan above billing. |
+| `hasActiveComplimentaryPlan(account)` | Guarding billing actions, e.g. refusing checkout. |
+| `billingPlan(account)` | The Stripe-owned plan, when you specifically mean what the customer pays for. |
+
+A grant is **strictly additive**: `effectiveEntitlements` takes the per-field maximum, so a grant can never reduce what a workspace already pays for. This matters because plan rank and plan entitlements are not monotonic — legacy `pro` allows 50 agents where `team` allows 25 — so replacing the plan wholesale would take agents away from a paying customer granted a nominally higher tier.
+
+A grant with no expiry is a lifetime grant. An expired grant awards nothing but is still reported by `complimentaryGrantView` so operators can see it. `free` is not grantable: it would be a no-op that still read as an active comp.
+
+### Audit
+
+`account_plan_grants` is an append-only ledger. Rows are never updated or deleted — a revocation is a new row, so who comped a workspace, when, why, and on whose authority survives the revocation. Each row records `billing_plan_at_change`, which is what makes a comp distinguishable from a paid upgrade after the fact.
+
+`lib/complimentaryPlans.ts` is the only sanctioned writer. It records the ledger entry **before** applying the account change: there is no cross-backend transaction, so one write must go first, and a recorded-but-unapplied change is discoverable (`getComplimentaryPlanStatus` reports `ledgerMismatch`) where an applied-but-unrecorded entitlement change is not.
+
+### Operating
+
+```bash
+npm run plan:comp -- status --account-id acct_...
+npm run plan:comp -- grant  --account-id acct_... --plan pro \
+    --reason "Lifetime early-tester grant" --expires lifetime --dry-run
+npm run plan:comp -- grant  --account-id acct_... --plan pro \
+    --reason "Lifetime early-tester grant" --expires lifetime --confirm
+npm run plan:comp -- revoke --account-id acct_... --reason "Converted to paid" --confirm
+```
+
+`--reason` and an actor (`--actor` or `$OPERATOR`) are required; both land in the ledger. `--expires` must be given explicitly on a grant — silence would mean "lifetime", which is too consequential to be a default. The tool is backend-neutral and follows `BEHALFID_REPOSITORY_BACKEND`.
+
+Do **not** use `npm run account:set-plan` to comp a workspace. That tool writes `account.plan` and warns, correctly, that Stripe webhooks may later overwrite it. It remains available for assigning internal `team`/`business`/`enterprise` plans that are not comps.
+
+### Effects on other surfaces
+
+- **Checkout** refuses while a grant is active, so a comped customer cannot start a paid subscription for entitlements they already hold.
+- **Webhook delivery** is kept enabled through a cancellation or failed invoice when the grant still entitles the workspace to webhooks.
+- **Log purge** buckets accounts by effective plan. Grouping by `account.plan` would delete a comped workspace's logs on the free-tier seven-day window while the product showed ninety days.
+- **Console analytics** report the effective plan, so a comped workspace does not read as "free".
 
 ## Error codes
 
@@ -58,7 +108,7 @@ Denials return structured errors via `quotaErrorDetails`: `code`, `currentPlan`,
 
 ## Out of scope
 
-Stripe integration, checkout, payment state, and plan purchase flows are intentionally untouched by the entitlement layer. Stripe webhooks still only move accounts between `free` and `pro`; `team` and `business` have no purchase path yet.
+Stripe integration, checkout, payment state, and plan purchase flows remain owned by billing code. Stripe webhooks still only move accounts between `free` and `pro`; `team` and `business` have no purchase path yet. The entitlement layer reads what Stripe writes and adds complimentary grants on top; it never writes billing state.
 
 ## Data access (repository boundary)
 

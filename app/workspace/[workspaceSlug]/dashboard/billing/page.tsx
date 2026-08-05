@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { getCurrentDeveloperContext } from "@/lib/developerAuth";
 import { requireWorkspaceMembershipBySlug } from "@/lib/accountContext";
 import { shouldForceAccountSetup } from "@/lib/onboardingRedirect";
-import { normalizePlan } from "@/lib/plans";
+import { complimentaryBadge, effectivePlan } from "@/lib/planGrants";
 import { countBillableSeats } from "@/lib/quota";
 import { findOneAccount } from "@/lib/repositories/accounts";
 import { countAgents } from "@/lib/repositories/agents";
@@ -41,7 +41,8 @@ export default async function WorkspaceBillingPage({
 
   return (
     <BillingClient
-      plan={normalizePlan(account?.plan)}
+      plan={effectivePlan(account)}
+      complimentary={complimentaryBadge(account)}
       stripeSubscriptionStatus={account?.stripeSubscriptionStatus ?? null}
       stripeTrialEnd={account?.stripeTrialEnd ? new Date(account.stripeTrialEnd).toISOString() : null}
       stripeCurrentPeriodEnd={
