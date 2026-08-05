@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
   const validated = validateFirstAgentSetupBody(body);
   if (validated.error || !validated.input) return jsonError(validated.error ?? "Invalid setup payload.");
 
-  const agentQuota = await checkAgentLimit(auth.activeAccountId);
+  const agentQuota = await checkAgentLimit(accountId);
   if (!agentQuota.allowed) {
     return jsonError(agentQuota.reason ?? "Agent limit reached.", 402, quotaErrorDetails(agentQuota));
   }
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
   // failure here is safe to report as a plain 500 with no cleanup owed.
   let result: Awaited<ReturnType<typeof createDeveloperAgent>>;
   try {
-    result = await createDeveloperAgent(auth.user.userId, auth.activeAccountId ?? undefined, {
+    result = await createDeveloperAgent(auth.user.userId, accountId, {
       name: input.name,
       agentType: "native",
       provider,
@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
   // are committed; `emitWebhookEvent` never throws, so the one-time key is
   // returned even if the enqueue fails.
   await emitWebhookEvent(
-    createWebhookEvent(auth.activeAccountId ?? null, "agent.created", {
+    createWebhookEvent(accountId, "agent.created", {
       agentId: result.agent.agentId,
       name: input.name,
       agentType: "native",

@@ -168,6 +168,44 @@ describe("routes that hand back a one-time secret", () => {
   });
 });
 
+describe("the resolved workspace actor is the source of truth", () => {
+  // Behavioural coverage lives in agent-creation-workspace-resolution.test.ts;
+  // this guard stops the pattern being reintroduced in a new mutation route.
+  const CREATION_ROUTES = [
+    "app/api/dashboard/agents/route.ts",
+    "app/api/dashboard/agents/first-setup/route.ts"
+  ];
+
+  it.each(CREATION_ROUTES)("%s reads activeAccountId only to resolve the actor", (path) => {
+    const source = withoutComments(readFileSync(join(ROOT, path), "utf-8"));
+    for (const match of source.matchAll(/auth\.activeAccountId/g)) {
+      const line = source.slice(0, match.index).split("\n").pop() ?? "";
+      const context = source.slice(match.index ?? 0, (match.index ?? 0) + 200);
+      const isResolverInput =
+        line.includes("requireWorkspaceMutationActor") ||
+        line.includes("getWorkspaceActor") ||
+        context.startsWith("auth.activeAccountId)");
+      expect(
+        isResolverInput,
+        `${path} uses auth.activeAccountId outside actor resolution: "${line.trim()}"`
+      ).toBe(true);
+    }
+  });
+
+  it.each(CREATION_ROUTES)("%s binds one authoritative accountId after authorization", (path) => {
+    const source = withoutComments(readFileSync(join(ROOT, path), "utf-8"));
+    expect(source).toMatch(/const accountId = workspace\.actor\.accountId;/);
+    // Optional chaining after a successful authorization means the code still
+    // treats the actor as possibly absent.
+    expect(source).not.toContain("workspace.actor?.");
+  });
+
+  it.each(CREATION_ROUTES)("%s narrows the actor before using it", (path) => {
+    const source = withoutComments(readFileSync(join(ROOT, path), "utf-8"));
+    expect(source).toContain("if (workspace.error || !workspace.actor) return workspace.error;");
+  });
+});
+
 describe("repository facades stay backend-neutral", () => {
   it("every facade export goes through delegate()", () => {
     const facades = readdirSync(join(ROOT, "lib", "repositories"))

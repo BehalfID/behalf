@@ -37,7 +37,15 @@ export async function POST(request: NextRequest) {
   if (auth.error || !auth.user) return auth.error;
 
   const workspace = await requireWorkspaceMutationActor(auth.user, auth.activeAccountId);
-  if (workspace.error) return workspace.error;
+  if (workspace.error || !workspace.actor) return workspace.error;
+
+  // The authorization result is the source of truth for the rest of the
+  // request. `requireWorkspaceMutationActor` resolves
+  // `activeAccountId ?? user.primaryAccountId`, so `auth.activeAccountId` may
+  // legitimately be null for a caller who still has a valid workspace. Reading
+  // it again after this point would evaluate quota without an account, create
+  // an unscoped legacy-style row, and scope the event to nothing.
+  const accountId = workspace.actor.accountId;
 
   const { body, error } = await readJsonObject(request);
   if (error) return error;
@@ -56,7 +64,7 @@ export async function POST(request: NextRequest) {
   const name = readString(body.name);
   if (!name) return jsonError("name is required.");
 
-  const agentQuota = await checkAgentLimit(auth.activeAccountId);
+  const agentQuota = await checkAgentLimit(accountId);
   if (!agentQuota.allowed) {
     return jsonError(agentQuota.reason ?? "Agent limit reached.", 402, quotaErrorDetails(agentQuota));
   }
@@ -69,14 +77,14 @@ export async function POST(request: NextRequest) {
   // notification and must not be able to withhold the credential.
   let result: Awaited<ReturnType<typeof createDeveloperAgent>>;
   try {
-    result = await createDeveloperAgent(auth.user.userId, auth.activeAccountId ?? undefined, {
+    result = await createDeveloperAgent(auth.user.userId, accountId, {
       name,
       ...metadata
     });
   } catch (error) {
     return serverErrorResponse("dashboard.agents.create", error, {
       userId: auth.user.userId,
-      accountId: workspace.actor?.accountId ?? auth.activeAccountId ?? null
+      accountId
     });
   }
 
@@ -91,7 +99,7 @@ export async function POST(request: NextRequest) {
   // could exist with a key nobody would ever see.
   await emitWebhookEvent(
     createWebhookEvent(
-      workspace.actor?.accountId ?? auth.activeAccountId ?? null,
+      accountId,
       "agent.created",
       {
         agentId: result.agent.agentId,

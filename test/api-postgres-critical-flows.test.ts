@@ -364,6 +364,77 @@ if (enabled) {
     });
   });
 
+  describe("the resolved workspace account id, end to end", () => {
+    it("scopes the agent and its event to the same account", async () => {
+      const db = context!.db;
+      // Stands in for the account the actor resolved to — whether that came
+      // from activeAccountId or from primaryAccountId is invisible here, which
+      // is the point: one id reaches every write.
+      const { userId, accountId } = await seedWorkspace("resolved");
+      const agentId = createPublicId("agent");
+
+      await createAgent(db, {
+        agentId,
+        accountId,
+        developerUserId: userId,
+        name: "Resolved workspace agent",
+        agentType: "native",
+        provider: "custom",
+        connectionStatus: "manual",
+        apiKeyHash: hashApiKey(PLAINTEXT_KEY),
+        status: "active"
+      } as never);
+
+      await createEvent(db, {
+        eventId: createPublicId("evt"),
+        accountId,
+        developerUserId: userId,
+        type: "agent.created",
+        payload: { agentId },
+        status: "pending",
+        attempts: 0,
+        nextAttemptAt: new Date(),
+        deadLetter: false
+      });
+
+      const stored = await findOneAgent(db, { accountId, agentId });
+      const [event] = await db.select().from(webhookEvents);
+      expect(stored!.accountId).toBe(accountId);
+      // The identity the route now guarantees.
+      expect(event!.accountId).toBe(stored!.accountId);
+    });
+
+    it("an agent written without an account id is invisible to its workspace", async () => {
+      const db = context!.db;
+      // Exactly what `createDeveloperAgent(userId, undefined, …)` produced when
+      // the route re-read a null activeAccountId after authorization.
+      const { userId, accountId } = await seedWorkspace("unscoped");
+      const agentId = createPublicId("agent");
+
+      await createAgent(db, {
+        agentId,
+        developerUserId: userId,
+        name: "Legacy unscoped agent",
+        agentType: "native",
+        provider: "custom",
+        connectionStatus: "manual",
+        apiKeyHash: hashApiKey(PLAINTEXT_KEY),
+        status: "active"
+      } as never);
+
+      // The workspace the user actually authorized against cannot see it.
+      expect(await listAgents(db, { accountId })).toEqual([]);
+      expect(await countAgentsByAccountId(db, accountId)).toBe(0);
+      expect(await findOneAgent(db, { accountId, agentId })).toBeNull();
+      // It only surfaces through the legacy backfill clause.
+      const legacy = await listAgents(db, {
+        developerUserId: userId,
+        ...MISSING_ACCOUNT_ID_CLAUSE
+      });
+      expect(legacy.map((r) => r.agentId)).toContain(agentId);
+    });
+  });
+
   describe("agents table shape", () => {
     it("never stores a plaintext key column", async () => {
       const db = context!.db;
