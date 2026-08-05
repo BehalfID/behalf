@@ -29,8 +29,8 @@ credential the caller can never retrieve again.
 | POST | `/api/console/agents/:agentId/rotate-key` | **no** | webhook event | **none** |
 | GET, POST | `/api/console/agents` | **no** | webhook event | **none** |
 | POST | `/api/dashboard/agents/:agentId/rotate-key` | yes | webhook event | 1 |
-| POST | `/api/dashboard/agents/first-setup` | yes | webhook event | 2 |
-| GET, POST | `/api/dashboard/agents` | yes | webhook event | 5 |
+| POST | `/api/dashboard/agents/first-setup` | yes | webhook event | 3 |
+| GET, POST | `/api/dashboard/agents` | yes | webhook event | 6 |
 
 ## Full inventory
 
@@ -135,8 +135,8 @@ credential the caller can never retrieve again.
 | POST | `/api/dashboard/agents/:agentId/permissions` | app | session (human developer) | workspace member | yes | no | — | — | no | — | P1 |
 | POST | `/api/dashboard/agents/:agentId/rotate-key` | app | session (developer) | workspace mutation authority; workspace member | yes | **yes** | webhook event | agents | yes | 1 | P0 |
 | GET, PATCH | `/api/dashboard/agents/:agentId` | app | session (developer) | workspace mutation authority; workspace member | yes | no | — | agents | no | — | P1 |
-| POST | `/api/dashboard/agents/first-setup` | app | session (verified developer) | workspace mutation authority | yes | **yes** | webhook event | agents, permissions | yes | 2 | P0 |
-| GET, POST | `/api/dashboard/agents` | app | session (verified developer); session (developer) | workspace mutation authority; workspace member | yes | **yes** | webhook event | — | yes | 5 | P0 |
+| POST | `/api/dashboard/agents/first-setup` | app | session (verified developer) | workspace mutation authority | yes | **yes** | webhook event | agents, permissions | yes | 3 | P0 |
+| GET, POST | `/api/dashboard/agents` | app | session (verified developer); session (developer) | workspace mutation authority; workspace member | yes | **yes** | webhook event | — | yes | 6 | P0 |
 | POST | `/api/dashboard/approvals/:approvalId/approve` | app | session (developer) | workspace member | yes | no | — | — | no | 1 | P0 |
 | POST | `/api/dashboard/approvals/:approvalId/deny` | app | session (developer) | workspace member | yes | no | — | — | no | 1 | P0 |
 | GET | `/api/dashboard/approvals` | app | session (developer) | workspace member | no | no | — | agents, approvals, users | no | 1 | P0 |
