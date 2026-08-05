@@ -215,3 +215,55 @@ describe("the shell stays production infrastructure", () => {
     expect(shell).not.toMatch(/pendingCount\s*=\s*\d+/);
   });
 });
+
+describe("the chrome stylesheet cannot leak", () => {
+  const css = readFileSync(join(ROOT, "app/globals.css"), "utf-8");
+  const marker = "Dashboard chrome — Lovable design port";
+
+  it("every selector in the port block is scoped to the dashboard chrome", () => {
+    const start = css.indexOf(marker);
+    expect(start).toBeGreaterThan(-1);
+    const block = css.slice(start);
+
+    const unscoped: string[] = [];
+    for (const match of block.matchAll(/^([.#][^{@\n][^{]*)\{/gm)) {
+      for (const part of match[1].split(",")) {
+        const selector = part.trim();
+        if (!selector) continue;
+        // `.dashboard-menu*` is a class name introduced by this port and used
+        // nowhere else, so it is scoped by uniqueness rather than by ancestor.
+        if (selector.startsWith(".dashboard-shell ")) continue;
+        if (selector.startsWith(".dashboard-menu")) continue;
+        unscoped.push(selector);
+      }
+    }
+    expect(unscoped).toEqual([]);
+  });
+
+  it("leaves the shared sidebar rules alone", () => {
+    // These are also used by .docs-sidebar, .console-sidebar and .app-sidebar.
+    // Editing them would restyle docs and console along with the dashboard.
+    const start = css.indexOf(marker);
+    const block = css.slice(start);
+    expect(block).not.toMatch(/^\.docs-sidebar/m);
+    expect(block).not.toMatch(/^\.console-sidebar/m);
+    expect(block).not.toMatch(/^\.app-sidebar[ ,{]/m);
+  });
+
+  it("wins the cascade without !important", () => {
+    const start = css.indexOf(marker);
+    const block = css.slice(start);
+    // `.dashboard-shell .dashboard-sidebar` (0,2,0) already beats the shared
+    // `.dashboard-sidebar` (0,1,0), and the block is last in source order.
+    expect(block).not.toContain("!important");
+    expect(css.indexOf(".dashboard-sidebar,")).toBeLessThan(start);
+  });
+
+  it("the menu class names belong to this port alone", () => {
+    const shell = readFileSync(join(ROOT, "components/layout/DashboardShell.tsx"), "utf-8");
+    const menu = readFileSync(join(ROOT, "components/layout/DashboardMenu.tsx"), "utf-8");
+    // If another surface adopts these names the global rules stop being scoped.
+    expect(menu).toContain("dashboard-menu");
+    expect(shell).toContain("dashboard-menu__item-main");
+  });
+});
