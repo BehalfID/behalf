@@ -2,19 +2,32 @@
 
 import { WorkspaceProvider } from "@/components/workspace/WorkspaceProvider";
 import { SessionInactivityMonitor } from "@/components/auth/SessionInactivityMonitor";
-import { DashboardShellLayout } from "@/components/layout/DashboardShell";
+import {
+  DashboardShellLayout,
+  type DashboardShellUser
+} from "@/components/layout/DashboardShell";
 
 export function WorkspaceDashboardProviders({
-  workspaceSlug,
-  children
+  children,
+  effectivePlan = null,
+  user = null,
+  workspaceSlug
 }: {
-  workspaceSlug: string;
   children: React.ReactNode;
+  effectivePlan?: string | null;
+  user?: DashboardShellUser | null;
+  workspaceSlug: string;
 }) {
   return (
     <WorkspaceProvider workspaceSlug={workspaceSlug}>
       <SessionInactivityMonitor />
-      <DashboardShellLayout workspaceSlug={workspaceSlug}>{children}</DashboardShellLayout>
+      <DashboardShellLayout
+        effectivePlan={effectivePlan}
+        user={user}
+        workspaceSlug={workspaceSlug}
+      >
+        {children}
+      </DashboardShellLayout>
     </WorkspaceProvider>
   );
 }
