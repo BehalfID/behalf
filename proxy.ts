@@ -30,7 +30,7 @@ export function shouldBypassIntl(pathname: string) {
 // require it. For script-src, 'unsafe-inline' is dropped in favour of a per-request
 // nonce. Next.js reads the x-nonce request header and applies the nonce to all
 // inline script tags it generates during streaming SSR.
-function buildCsp(nonce: string, isDev: boolean) {
+export function buildCsp(nonce: string, isDev: boolean) {
   const scriptSrc = isDev
     ? `'nonce-${nonce}' 'unsafe-inline' 'unsafe-eval'`
     : `'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline'`;

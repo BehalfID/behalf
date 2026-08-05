@@ -3,11 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { haptic } from "@/lib/haptic";
 import {
-  applyResolvedTheme,
-  parseThemePreference,
-  resolveTheme,
-  THEME_CHANGE_EVENT,
-  THEME_STORAGE_KEY,
+  applyThemePreference,
+  subscribeToThemeChanges,
+  syncThemeFromPreference,
   type Theme,
   type ThemePreference
 } from "@/lib/theme";
@@ -52,31 +50,6 @@ type ThemeToggleProps = {
   allowSystem?: boolean;
 };
 
-function readPreference(): ThemePreference {
-  try {
-    return parseThemePreference(localStorage.getItem(THEME_STORAGE_KEY));
-  } catch {
-    return "system";
-  }
-}
-
-function applyPreference(preference: ThemePreference, systemPrefersDark: boolean) {
-  try {
-    if (preference === "system") {
-      localStorage.removeItem(THEME_STORAGE_KEY);
-    } else {
-      localStorage.setItem(THEME_STORAGE_KEY, preference);
-    }
-  } catch {
-    // Storage can be unavailable in hardened browser contexts.
-  }
-
-  const resolved = resolveTheme(preference, systemPrefersDark);
-  applyResolvedTheme(resolved);
-  window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
-  return resolved;
-}
-
 function preferenceLabel(preference: ThemePreference) {
   return PREFERENCE_OPTIONS.find((option) => option.value === preference)?.label ?? "System";
 }
@@ -91,13 +64,10 @@ export function ThemeToggle({ allowSystem = false }: ThemeToggleProps) {
   const close = useCallback(() => setOpen(false), []);
 
   useEffect(() => {
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
     let active = true;
 
     function sync() {
-      const nextPreference = readPreference();
-      const resolved = resolveTheme(nextPreference, media.matches);
-      applyResolvedTheme(resolved);
+      const { preference: nextPreference, theme: resolved } = syncThemeFromPreference();
       queueMicrotask(() => {
         if (!active) return;
         setPreference(nextPreference);
@@ -106,24 +76,12 @@ export function ThemeToggle({ allowSystem = false }: ThemeToggleProps) {
       });
     }
 
-    function syncSystemPreference() {
-      if (readPreference() === "system") sync();
-    }
-
-    function syncStoredPreference(event: StorageEvent) {
-      if (event.key === THEME_STORAGE_KEY || event.key === null) sync();
-    }
-
     sync();
-    media.addEventListener("change", syncSystemPreference);
-    window.addEventListener("storage", syncStoredPreference);
-    window.addEventListener(THEME_CHANGE_EVENT, sync);
+    const unsubscribe = subscribeToThemeChanges(sync);
 
     return () => {
       active = false;
-      media.removeEventListener("change", syncSystemPreference);
-      window.removeEventListener("storage", syncStoredPreference);
-      window.removeEventListener(THEME_CHANGE_EVENT, sync);
+      unsubscribe();
     };
   }, []);
 
@@ -148,10 +106,7 @@ export function ThemeToggle({ allowSystem = false }: ThemeToggleProps) {
 
   function choose(nextPreference: ThemePreference) {
     haptic("light");
-    const nextTheme = applyPreference(
-      nextPreference,
-      window.matchMedia("(prefers-color-scheme: dark)").matches
-    );
+    const nextTheme = applyThemePreference(nextPreference);
     setPreference(nextPreference);
     setTheme(nextTheme);
     close();

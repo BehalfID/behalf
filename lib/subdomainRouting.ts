@@ -116,8 +116,7 @@ const OWNERSHIP: Array<{ app: SubdomainApp; prefixes: string[] }> = [
       "/api/auth",
       "/api/passport",
       "/api/onboarding",
-      "/api/invites",
-      "/api/consent-ping"
+      "/api/invites"
     ]
   },
   {
@@ -238,6 +237,27 @@ export function isAppHostAuthApiPath(pathname: string): boolean {
   );
 }
 
+/**
+ * Paths that every host serves for itself and must never be redirected.
+ *
+ * The cookie banner is rendered by the root layout, so it runs on every
+ * subdomain and posts to the relative `/api/consent-ping`. While that path was
+ * listed as auth-owned, the proxy answered it with a cross-host 308 to
+ * auth.behalfid.com; the browser applies `connect-src` to the *redirect
+ * target*, so `connect-src 'self'` blocked the request on app.behalfid.com and
+ * the banner's telemetry never arrived.
+ *
+ * The route itself is host-agnostic — it rate-limits, allowlists the state
+ * value and logs it. It reads no session and sets no cookie, so there is
+ * nothing for the auth host to own. Keeping it same-origin is the fix; adding
+ * the auth origin to `connect-src` (plus CORS for a credentialed cross-origin
+ * POST) would widen the policy to buy nothing.
+ */
+export function isHostNeutralPath(pathname: string): boolean {
+  const { pathname: path } = stripLocalePrefix(pathname);
+  return path === "/api/consent-ping";
+}
+
 export function resolveOwnerForPath(pathname: string): SubdomainApp {
   // Locale prefixes are orthogonal to subdomain ownership:
   // /de/docs and /docs both belong on the docs host.
@@ -294,6 +314,9 @@ export function resolveSubdomainRedirect(input: {
   if (currentApp === "auth" && (input.pathname === "/" || input.pathname === "")) {
     return `${protocol}//${hosts.auth}/login${search}`;
   }
+
+  // Served by whichever host received it — never redirected across origins.
+  if (isHostNeutralPath(input.pathname)) return null;
 
   const owner = resolveOwnerForPath(input.pathname);
   if (owner === currentApp) return null;

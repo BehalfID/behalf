@@ -49,7 +49,8 @@
     "migration:preflight": "tsx scripts/migration/preflight-mongo.ts",
     "migration:import": "tsx scripts/migration/import-postgres.ts",
     "migration:verify": "tsx scripts/migration/verify-import.ts",
-    "migration:reverse-sync": "tsx scripts/migration/reverse-sync.ts"
+    "migration:reverse-sync": "tsx scripts/migration/reverse-sync.ts",
+    "test:browser": "node test/browser/auth-theme.mjs"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.68.0",

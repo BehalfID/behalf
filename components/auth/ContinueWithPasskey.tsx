@@ -1,9 +1,24 @@
 "use client";
 
 import { startAuthentication } from "@simplewebauthn/browser";
-import { FormEvent, useState } from "react";
+import { FormEvent, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui";
 import { assignOwnedLocation } from "@/lib/subdomainRouting";
+
+/** WebAuthn presence — a browser-only fact, never known while rendering on the server. */
+function isWebAuthnAvailable() {
+  return typeof window !== "undefined" && typeof window.PublicKeyCredential !== "undefined";
+}
+
+/** Capability is fixed for the lifetime of the page, so there is nothing to watch. */
+const subscribeToNothing = () => () => {};
+
+/**
+ * Assumed available for the server render *and* the hydration pass, so both
+ * produce the same markup. A browser that actually lacks WebAuthn corrects this
+ * in the render straight after hydration.
+ */
+const assumeAvailableOnServer = () => true;
 
 /**
  * Discoverable (usernameless) passkey sign-in.
@@ -27,20 +42,33 @@ export function ContinueWithPasskey({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-
-  if (!enabled || typeof window === "undefined") {
-    // Still render a disabled-capable control on the server; client hydrates.
-  }
-
-  const browserSupported =
-    typeof window !== "undefined" &&
-    typeof window.PublicKeyCredential !== "undefined";
+  // Reading WebAuthn support during render made the server emit `disabled` plus
+  // a "not supported" paragraph that the client's first render omits — a
+  // structural hydration mismatch on every login page view. React responded by
+  // regenerating the tree (minified error #418), and because <html> is a React
+  // 19 Host Singleton the regeneration rebuilt its attributes from props and
+  // dropped the `data-theme` / `dark` the pre-paint bootstrap had just set.
+  // That is what left the auth page painting the light `.ds` register inside a
+  // dark document.
+  //
+  // `useSyncExternalStore` keeps the server render and the hydration render on
+  // the same snapshot, so the markup matches; the true capability lands in the
+  // render immediately after hydration.
+  const webAuthnAvailable = useSyncExternalStore(
+    subscribeToNothing,
+    isWebAuthnAvailable,
+    assumeAvailableOnServer
+  );
 
   if (!enabled) return null;
 
+  // Only a confirmed absence disables the control; the click handler re-checks
+  // before starting a ceremony regardless.
+  const unsupported = !webAuthnAvailable;
+
   const signIn = async (event: FormEvent) => {
     event.preventDefault();
-    if (!browserSupported) {
+    if (!isWebAuthnAvailable()) {
       setError("Passkeys are not supported in this browser.");
       return;
     }
@@ -112,12 +140,12 @@ export function ContinueWithPasskey({
         type="button"
         variant="secondary"
         className={buttonClassName ?? "oauth-provider-button"}
-        disabled={busy || !browserSupported}
+        disabled={busy || unsupported}
         onClick={(e) => void signIn(e as unknown as FormEvent)}
       >
         {busy ? "Waiting for passkey…" : "Sign in with a passkey"}
       </Button>
-      {!browserSupported ? (
+      {unsupported ? (
         <p className="field-help">Passkeys are not supported in this browser.</p>
       ) : null}
       {error ? (
