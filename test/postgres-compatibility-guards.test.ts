@@ -269,6 +269,28 @@ describe("complimentary grants stay out of Stripe's reach", () => {
     expect(callers).toEqual([]);
   });
 
+  it("any projection that selects plan also selects the grant fields", () => {
+    // A narrowed projection is how a grant goes missing without anyone editing
+    // resolution logic: `effectiveEntitlements` on a row selected as
+    // "accountId plan sso" sees no grant and silently resolves to free.
+    const offenders: string[] = [];
+    const files = [...SHARED_FILES, "lib/repositories/mongo/accounts.ts"];
+
+    for (const file of new Set(files)) {
+      const source = withoutComments(readFileSync(join(ROOT, file), "utf-8"));
+      for (const match of source.matchAll(/\.select\(\s*"([^"]*)"/g)) {
+        const fields = match[1].split(/\s+/).filter(Boolean);
+        if (!fields.includes("plan")) continue;
+        if (fields.includes("complimentaryPlan") && fields.includes("complimentaryPlanExpiresAt")) {
+          continue;
+        }
+        offenders.push(`${file}: ${match[1]}`);
+      }
+    }
+
+    expect(offenders).toEqual([]);
+  });
+
   it("the log purge buckets accounts by effective plan", () => {
     // Grouping by `account.plan` would delete a comped workspace's logs on the
     // free-tier window — irreversible, and invisible until someone looked.

@@ -220,7 +220,7 @@ export async function findAccountsEnforcingSsoForDomain(domain: string) {
     "sso.enforce": true,
     "sso.allowedEmailDomains": domain
   })
-    .select("accountId plan sso")
+    .select("accountId plan complimentaryPlan complimentaryPlanExpiresAt sso")
     .lean();
 }
 
@@ -232,7 +232,7 @@ export async function findAccountsWithSsoForDomain(accountIds: string[], domain:
     "sso.enabled": true,
     "sso.allowedEmailDomains": domain
   })
-    .select("accountId plan sso")
+    .select("accountId plan complimentaryPlan complimentaryPlanExpiresAt sso")
     .lean();
 }
 
