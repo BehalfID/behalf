@@ -19,6 +19,15 @@ import {
   getDashboardContentVariant,
   isDashboardNavItemActive
 } from "@/lib/dashboardShellPresentation";
+import {
+  DashboardMenu,
+  DashboardMenuItem,
+  DashboardMenuLabel,
+  DashboardMenuLink,
+  DashboardMenuLogout,
+  DashboardMenuSeparator
+} from "@/components/layout/DashboardMenu";
+import { workspaceInitials } from "@/lib/dashboardShellPresentation";
 
 type NavIconName =
   | "home"
@@ -32,6 +41,7 @@ type NavIconName =
   | "profiles"
   | "billing"
   | "docs"
+  | "support"
   | "delegation";
 
 const dashboardNavItems = [
@@ -66,6 +76,23 @@ const dashboardNavItems = [
   label: string;
   items: ReadonlyArray<{ subpath: string; label: string; icon: NavIconName }>;
 }>;
+
+/**
+ * Lovable's shell closes the sidebar with a bordered secondary group linking out
+ * to documentation and status. Docs is workspace-scoped in production; status is
+ * a public host-neutral page, so it stays an absolute path.
+ */
+const secondaryNavItems = [
+  { subpath: "/docs", label: "Documentation", icon: "docs", external: false },
+  { href: "/status", label: "Status & support", icon: "support", external: true }
+] as const;
+
+/** Identity and plan resolved server-side and handed to the shell as props. */
+export type DashboardShellUser = {
+  name: string;
+  email: string;
+  initials: string;
+};
 
 type WorkspaceAccount = {
   accountId: string;
@@ -172,9 +199,12 @@ function useWorkspaceAccounts(workspaceSlug: string | null): WorkspaceState {
 }
 
 function WorkspaceSwitcher({
+  effectivePlan,
   state,
   workspaceSlug
 }: {
+  /** Effective plan of the active workspace; null until the summary resolves. */
+  effectivePlan: string | null;
   state: WorkspaceState;
   workspaceSlug: string | null;
 }) {
@@ -184,30 +214,108 @@ function WorkspaceSwitcher({
   const workspaceName = state.activeAccount?.name ?? fallbackName;
   const workspaceRole = state.activeAccount?.role ?? null;
 
+  // Plan is only known for the active workspace, so it is shown there and never
+  // guessed for the others in the list.
+  const descriptor = [effectivePlan, workspaceRole].filter(Boolean).join(" · ");
+  const identity = (
+    <>
+      <span aria-hidden="true" className="workspace-switcher__mark">
+        {workspaceInitials(workspaceName)}
+      </span>
+      <span className="workspace-switcher__text">
+        <span className="workspace-switcher__name" title={workspaceName}>
+          {workspaceName}
+        </span>
+        {descriptor ? (
+          <span className="workspace-switcher__meta">{descriptor}</span>
+        ) : null}
+      </span>
+    </>
+  );
+
+  // One workspace means nothing to switch to; rendering a menu that only ever
+  // contains the current workspace would be a control that does nothing.
+  if (state.accounts.length <= 1) {
+    return (
+      <div className="workspace-switcher" aria-busy={!state.loaded || state.switching}>
+        <div className="workspace-switcher__static">{identity}</div>
+      </div>
+    );
+  }
+
   return (
     <div className="workspace-switcher" aria-busy={!state.loaded || state.switching}>
-      <span className="workspace-switcher__eyebrow">Workspace</span>
-      {state.accounts.length > 1 ? (
-        <label className="workspace-switcher__label">
-          <span className="sr-only">Switch workspace</span>
-          <select
-            value={state.activeAccount?.accountId ?? ""}
+      <DashboardMenu label="Switch workspace" trigger={identity}>
+        <DashboardMenuLabel>Workspaces</DashboardMenuLabel>
+        {state.accounts.map((account) => (
+          <DashboardMenuItem
             disabled={state.switching}
-            onChange={(event) => void state.switchAccount(event.target.value)}
-            aria-label="Switch workspace"
+            key={account.accountId}
+            onSelect={() => void state.switchAccount(account.accountId)}
+            selected={account.accountId === state.activeAccount?.accountId}
           >
-            {state.accounts.map((account) => (
-              <option key={account.accountId} value={account.accountId}>
-                {account.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      ) : (
-        <strong className="workspace-switcher__name" title={workspaceName}>{workspaceName}</strong>
-      )}
-      {workspaceRole ? <small className="workspace-switcher__role">{workspaceRole}</small> : null}
+            <span className="dashboard-menu__item-main">{account.name}</span>
+            <span className="dashboard-menu__item-meta">{account.role}</span>
+          </DashboardMenuItem>
+        ))}
+      </DashboardMenu>
     </div>
+  );
+}
+
+/**
+ * Sidebar user menu, ported from the Lovable shell. Identity is passed down from
+ * the server layout rather than fetched: the shell already makes one client
+ * request for workspace accounts, and the user's own name and email are known
+ * during SSR, so fetching them again would add a request and a visible swap
+ * from placeholder to real name on every dashboard page.
+ */
+function UserMenu({
+  user,
+  workspaceSlug
+}: {
+  user: DashboardShellUser | null;
+  workspaceSlug: string | null;
+}) {
+  const settingsHref = workspaceSlug
+    ? workspaceDashboardHref(workspaceSlug, "/settings")
+    : "/dashboard/settings";
+
+  if (!user) {
+    // No identity resolved: still offer sign-out rather than an empty footer.
+    return (
+      // eslint-disable-next-line @next/next/no-html-link-for-pages
+      <a className="ui-button ui-button--secondary app-sidebar__logout" href="/logout">
+        Log out
+      </a>
+    );
+  }
+
+  return (
+    <DashboardMenu
+      align="end"
+      className="dashboard-user-menu"
+      label="Account menu"
+      trigger={
+        <>
+          <span aria-hidden="true" className="dashboard-user-menu__avatar">
+            {user.initials}
+          </span>
+          <span className="dashboard-user-menu__text">
+            <span className="dashboard-user-menu__name" title={user.name}>
+              {user.name}
+            </span>
+            <span className="dashboard-user-menu__email" title={user.email}>
+              {user.email}
+            </span>
+          </span>
+        </>
+      }
+    >
+      <DashboardMenuLink href={settingsHref}>Settings &amp; members</DashboardMenuLink>
+      <DashboardMenuSeparator />
+      <DashboardMenuLogout>Log out</DashboardMenuLogout>
+    </DashboardMenu>
   );
 }
 
@@ -224,7 +332,8 @@ function NavIcon({ name }: { name: NavIconName }) {
     settings: <><circle cx="10" cy="10" r="2.5" /><path d="M10 2.5v2M10 15.5v2M2.5 10h2M15.5 10h2M4.7 4.7l1.4 1.4M13.9 13.9l1.4 1.4M15.3 4.7l-1.4 1.4M6.1 13.9l-1.4 1.4" /></>,
     profiles: <><path d="M4 4h12v12H4z" /><path d="M7 7h6M7 10h6M7 13h3" /></>,
     billing: <><path d="M3 5h14v10H3z" /><path d="M3 8h14M6 12h3" /></>,
-    docs: <><path d="M5 3h8l2 2v12H5z" /><path d="M13 3v3h3M8 10h4M8 13h4" /></>
+    docs: <><path d="M5 3h8l2 2v12H5z" /><path d="M13 3v3h3M8 10h4M8 13h4" /></>,
+    support: <><circle cx="10" cy="10" r="7" /><path d="M10 13.5h.01M8.2 7.8a1.8 1.8 0 1 1 2.3 2.2c-.4.2-.5.5-.5.9" /></>
   };
   return (
     <svg className="dashboard-nav__icon" viewBox="0 0 20 20" aria-hidden="true">
@@ -247,9 +356,14 @@ function useMobileShell() {
 
 export function DashboardShellLayout({
   children,
+  effectivePlan = null,
+  user = null,
   workspaceSlug: workspaceSlugProp
 }: {
   children: React.ReactNode;
+  /** Effective plan label for the active workspace (grants included). */
+  effectivePlan?: string | null;
+  user?: DashboardShellUser | null;
   workspaceSlug?: string | null;
 }) {
   const pathname = usePathname();
@@ -333,7 +447,7 @@ export function DashboardShellLayout({
       <aside
         id="dashboard-drawer"
         ref={drawerRef}
-        className={`dashboard-sidebar app-sidebar${drawerOpen ? " app-sidebar--open" : ""}`}
+        className={`ds dashboard-sidebar app-sidebar${drawerOpen ? " app-sidebar--open" : ""}`}
         aria-hidden={isMobile && !drawerOpen ? true : undefined}
         aria-label={isMobile ? "Dashboard navigation" : undefined}
         aria-modal={isMobile && drawerOpen ? true : undefined}
@@ -349,7 +463,11 @@ export function DashboardShellLayout({
           </button>
         </div>
 
-        <WorkspaceSwitcher state={workspaceState} workspaceSlug={workspaceSlug} />
+        <WorkspaceSwitcher
+          effectivePlan={effectivePlan}
+          state={workspaceState}
+          workspaceSlug={workspaceSlug}
+        />
 
         <nav className="dashboard-nav" aria-label="Dashboard">
           {navSections.map((section, sectionIndex) => {
@@ -378,6 +496,32 @@ export function DashboardShellLayout({
               </section>
             );
           })}
+
+          <section className="dashboard-nav__section dashboard-nav__section--secondary">
+            <ul>
+              {secondaryNavItems.map((item) => {
+                const href = item.external
+                  ? item.href
+                  : workspaceSlug
+                    ? workspaceDashboardHref(workspaceSlug, item.subpath)
+                    : `/dashboard${item.subpath}`;
+                const active = !item.external && isDashboardNavItemActive(pathname, href);
+                return (
+                  <li key={item.label}>
+                    <Link
+                      aria-current={active ? "page" : undefined}
+                      href={href}
+                      onClick={isMobile ? closeDrawer : undefined}
+                    >
+                      <NavIcon name={item.icon} />
+                      <span>{item.label}</span>
+                      {active ? <span className="sr-only">, current page</span> : null}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
         </nav>
 
         <div className="app-sidebar__footer">
@@ -385,11 +529,7 @@ export function DashboardShellLayout({
             <span>Appearance</span>
             <ThemeToggle />
           </div>
-          {/* A document navigation is intentional: the GET route clears the session before redirecting. */}
-          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-          <a className="ui-button ui-button--secondary app-sidebar__logout" href="/logout">
-            Log out
-          </a>
+          <UserMenu user={user} workspaceSlug={workspaceSlug} />
         </div>
       </aside>
 
@@ -398,7 +538,7 @@ export function DashboardShellLayout({
         inert={isMobile && drawerOpen ? true : undefined}
         aria-hidden={isMobile && drawerOpen ? true : undefined}
       >
-        <header className="dashboard-topbar">
+        <header className="ds dashboard-topbar">
           <nav className="dashboard-breadcrumb" aria-label="Current location">
             <span>{currentItem.group}</span>
             <span aria-hidden="true">/</span>
@@ -411,7 +551,7 @@ export function DashboardShellLayout({
           </div>
         </header>
 
-        <header className="app-mobile-topbar">
+        <header className="ds app-mobile-topbar">
           <button
             ref={hamburgerRef}
             className="app-mobile-hamburger"

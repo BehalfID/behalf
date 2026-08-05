@@ -14820,3 +14820,318 @@ html[data-theme="light"] .ops-btn--approve {
     color: #fff;
   }
 }
+
+/* ==========================================================================
+   Dashboard chrome — Lovable design port
+   --------------------------------------------------------------------------
+   Source of visual truth:
+   agent-gatekeeper-suite/src/components/layouts/dashboard-shell.tsx @ 130b83b
+
+   Scoped to `.dashboard-shell` descendants only. The shared sidebar rules
+   above are also used by `.docs-sidebar`, `.console-sidebar` and
+   `.app-sidebar`, so they are deliberately left untouched — restyling them
+   would leak this port into docs, console and other app shells.
+
+   The chrome elements carry `.ds`, which resolves the `--ds-*` token set on
+   that subtree. `<main>` is intentionally excluded: page interiors keep the
+   production token set until each is ported on its own.
+   ========================================================================== */
+
+.dashboard-shell .dashboard-sidebar {
+  gap: 0;
+  padding: 0;
+  border-right: 1px solid var(--ds-sidebar-border);
+  background: var(--ds-sidebar);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  color: var(--ds-sidebar-foreground);
+}
+
+.dashboard-shell .dashboard-sidebar__brand {
+  min-height: 48px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--ds-sidebar-border);
+}
+
+/* Switcher and user menu read as one bordered card each, per the Lovable shell. */
+.dashboard-shell .workspace-switcher {
+  padding: 12px 12px 0;
+}
+
+.dashboard-shell .workspace-switcher__static,
+.dashboard-shell .dashboard-menu__trigger {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-md);
+  padding: 6px 8px;
+  background: var(--ds-surface);
+  text-align: left;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.dashboard-shell .dashboard-menu__trigger {
+  cursor: pointer;
+  list-style: none;
+}
+
+.dashboard-shell .dashboard-menu__trigger::-webkit-details-marker {
+  display: none;
+}
+
+.dashboard-shell .dashboard-menu__trigger:hover {
+  background: var(--ds-surface-2);
+}
+
+.dashboard-shell .dashboard-menu__trigger:focus-visible {
+  outline: 2px solid var(--ds-primary);
+  outline-offset: 2px;
+}
+
+.dashboard-shell .workspace-switcher__mark {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-primary-soft);
+  color: var(--ds-primary);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.dashboard-shell .workspace-switcher__text,
+.dashboard-shell .dashboard-user-menu__text {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+}
+
+.dashboard-shell .workspace-switcher__name,
+.dashboard-shell .dashboard-user-menu__name {
+  overflow: hidden;
+  color: var(--ds-foreground);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-shell .workspace-switcher__meta,
+.dashboard-shell .dashboard-user-menu__email {
+  overflow: hidden;
+  color: var(--ds-muted-foreground);
+  font-size: 0.6875rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-shell .workspace-switcher__meta {
+  text-transform: capitalize;
+}
+
+.dashboard-shell .dashboard-menu__chevron {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  color: var(--ds-muted-foreground);
+}
+
+/* Navigation */
+.dashboard-shell .dashboard-nav {
+  flex: 1;
+  gap: 20px;
+  padding: 16px 12px;
+  overflow-y: auto;
+}
+
+.dashboard-shell .dashboard-nav__section--secondary {
+  border-top: 1px solid var(--ds-sidebar-border);
+  padding-top: 16px;
+}
+
+.dashboard-shell .app-sidebar__section-label {
+  margin: 0 0 6px;
+  padding: 0 8px;
+  color: var(--ds-muted-foreground);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dashboard-shell .dashboard-sidebar nav a {
+  min-height: 30px;
+  gap: 10px;
+  border-radius: var(--ds-radius-md);
+  padding: 0 8px;
+  color: var(--ds-muted-foreground);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.dashboard-shell .dashboard-sidebar nav a:hover {
+  background: var(--ds-sidebar-accent);
+  color: var(--ds-foreground);
+}
+
+.dashboard-shell .dashboard-sidebar nav a[aria-current="page"] {
+  background: var(--ds-sidebar-accent);
+  color: var(--ds-foreground);
+}
+
+.dashboard-shell .dashboard-sidebar nav a[aria-current="page"] .dashboard-nav__icon {
+  color: var(--ds-primary);
+}
+
+.dashboard-shell .dashboard-nav__icon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  color: currentColor;
+}
+
+/* Sidebar footer: identity, per the Lovable shell. */
+.dashboard-shell .app-sidebar__footer {
+  gap: 8px;
+  border-top: 1px solid var(--ds-sidebar-border);
+  padding: 8px;
+}
+
+.dashboard-shell .dashboard-user-menu__avatar {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--ds-border);
+  border-radius: 999px;
+  background: var(--ds-surface);
+  color: var(--ds-foreground);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+/* Menu surface */
+.dashboard-menu {
+  position: relative;
+}
+
+.dashboard-menu__content {
+  position: absolute;
+  z-index: 40;
+  min-width: 100%;
+  margin-top: 4px;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-lg);
+  padding: 4px;
+  background: var(--ds-popover);
+  box-shadow: var(--ds-shadow-overlay);
+}
+
+.dashboard-menu__content--start {
+  left: 0;
+}
+
+.dashboard-menu__content--end {
+  right: 0;
+  bottom: calc(100% + 4px);
+  margin-top: 0;
+}
+
+.dashboard-menu__label {
+  margin: 0;
+  padding: 6px 8px 4px;
+  color: var(--ds-muted-foreground);
+  font-size: 0.6875rem;
+  font-weight: 500;
+}
+
+.dashboard-menu__separator {
+  margin: 4px 0;
+  border: 0;
+  border-top: 1px solid var(--ds-border);
+}
+
+.dashboard-menu__item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-radius: var(--ds-radius-md);
+  padding: 6px 8px;
+  background: none;
+  color: var(--ds-foreground);
+  font-size: 0.8125rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dashboard-menu__item:hover:not(:disabled) {
+  background: var(--ds-sidebar-accent);
+}
+
+.dashboard-menu__item:focus-visible {
+  outline: 2px solid var(--ds-primary);
+  outline-offset: -2px;
+}
+
+.dashboard-menu__item:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.dashboard-menu__item[aria-checked="true"] {
+  color: var(--ds-primary);
+  font-weight: 600;
+}
+
+.dashboard-menu__item--danger {
+  color: var(--ds-destructive, #b3261e);
+}
+
+.dashboard-menu__item-main {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-menu__item-meta {
+  flex-shrink: 0;
+  color: var(--ds-muted-foreground);
+  font-size: 0.6875rem;
+  text-transform: capitalize;
+}
+
+/* Top bar */
+.dashboard-shell .dashboard-topbar {
+  min-height: 48px;
+  border-bottom: 1px solid var(--ds-border);
+  background: color-mix(in oklab, var(--ds-background) 90%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.dashboard-shell .dashboard-breadcrumb {
+  color: var(--ds-muted-foreground);
+  font-size: 0.8125rem;
+}
+
+.dashboard-shell .dashboard-breadcrumb strong {
+  color: var(--ds-foreground);
+  font-weight: 500;
+}
+
+/* Reduced motion: the chrome's only transitions are hover tints. */
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-shell .workspace-switcher__static,
+  .dashboard-shell .dashboard-menu__trigger,
+  .dashboard-shell .dashboard-sidebar nav a {
+    transition: none;
+  }
+}

@@ -6,6 +6,7 @@ import { requireWorkspaceMembershipBySlug } from "@/lib/accountContext";
 import { shouldForceAccountSetup } from "@/lib/onboardingRedirect";
 import { REQUEST_PATH_HEADER, resolveOwnedHref } from "@/lib/subdomainRouting";
 import { validateWorkspaceSlug } from "@/lib/workspaceSlug";
+import { resolveDashboardShellProps } from "@/lib/dashboardShellServer";
 import { WorkspaceDashboardProviders } from "./providers";
 
 export default async function WorkspaceDashboardLayout({
@@ -58,8 +59,16 @@ export default async function WorkspaceDashboardLayout({
     notFound();
   }
 
+  // Scope the sidebar plan to the workspace being viewed rather than the
+  // session's active account — they differ while a switch is in flight.
+  const shell = await resolveDashboardShellProps(resolved.workspace.accountId);
+
   return (
-    <WorkspaceDashboardProviders workspaceSlug={resolved.workspace.slug}>
+    <WorkspaceDashboardProviders
+      effectivePlan={shell.effectivePlan}
+      user={shell.user}
+      workspaceSlug={resolved.workspace.slug}
+    >
       {children}
     </WorkspaceDashboardProviders>
   );
