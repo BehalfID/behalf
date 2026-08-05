@@ -1,7 +1,8 @@
 import { hashApiKey } from "@/lib/auth";
 import { normalizeAgentMetadata, type AgentProvider, type AgentType, type ConnectionStatus } from "@/lib/agents";
 import { createApiKey, createPublicId } from "@/lib/ids";
-import { getPlanEntitlements, normalizePlan, verificationPeriodStart } from "@/lib/plans";
+import { verificationPeriodStart } from "@/lib/plans";
+import { effectiveEntitlements, effectivePlan } from "@/lib/planGrants";
 import { countBillableSeats } from "@/lib/quota";
 import type { AccountLean } from "@/lib/repositories/accounts";
 import { countAgentsByScope, createAgent, findOneAgent } from "@/lib/repositories/agents";
@@ -140,8 +141,10 @@ export async function getDashboardSummary(userId: string, account?: AccountLean 
       : Promise.resolve(0)
   ]);
 
-  const plan = normalizePlan(account?.plan);
-  const entitlements = getPlanEntitlements(plan);
+  // The dashboard reports what the workspace can actually do, so a granted
+  // plan must be reflected here as well as in enforcement.
+  const plan = effectivePlan(account);
+  const entitlements = effectiveEntitlements(account);
 
   return {
     totalAgents,

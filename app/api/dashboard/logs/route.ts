@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     const query = buildVerificationLogQuery(
       request.nextUrl.searchParams,
       { ...accountScopeFilter(actor.accountId) },
-      { retentionStart: retentionSince(auth.account?.plan) }
+      { retentionStart: retentionSince(auth.account) }
     );
 
     // Fetch the page of logs and the total count in parallel.

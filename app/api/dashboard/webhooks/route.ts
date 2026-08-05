@@ -11,14 +11,14 @@ import {
   validateWebhookUrl,
   WEBHOOK_EVENT_TYPES
 } from "@/lib/webhooks";
-import { getPlanEntitlements, normalizePlan } from "@/lib/plans";
+import { effectiveEntitlements, effectivePlan } from "@/lib/planGrants";
 import { createEndpoint, listEndpoints } from "@/lib/repositories/webhooks";
 
 export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
-  const plan = normalizePlan(auth.account?.plan);
-  const entitlements = getPlanEntitlements(plan);
+  const plan = effectivePlan(auth.account);
+  const entitlements = effectiveEntitlements(auth.account);
   const webhooks = await listEndpoints({
     developerUserId: auth.user.userId,
     ...(auth.activeAccountId ? { accountId: auth.activeAccountId } : {})
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
 
-  const webhookQuota = checkWebhooksEnabled(auth.account?.plan);
+  const webhookQuota = checkWebhooksEnabled(auth.account);
   if (!webhookQuota.allowed) {
     return jsonError(webhookQuota.reason ?? "Webhooks are not available on this plan.", 403, quotaErrorDetails(webhookQuota));
   }

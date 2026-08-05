@@ -2,7 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { loadAccountSetupState, patchAccountSetup, PATCH_ALLOWED_FIELDS } from "@/lib/accountSetup";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import { canManageMembers, getWorkspaceActor, serializeWorkspaceAuthority } from "@/lib/delegatedAuth";
-import { getPlanEntitlements, isSameBillingPeriod, normalizePlan } from "@/lib/plans";
+import { isSameBillingPeriod } from "@/lib/plans";
+import { effectiveEntitlements, type PlanBearingAccount } from "@/lib/planGrants";
 import { jsonError, noCacheJson } from "@/lib/responses";
 import { readJsonObject } from "@/lib/request";
 import { rejectUnknownFields } from "@/lib/validation";
@@ -11,14 +12,17 @@ import { rejectUnknownFields } from "@/lib/validation";
  * Read-only usage summary for the settings page. Mirrors the quota data used
  * by billing surfaces without touching enforcement in lib/quota.ts.
  */
-function apiUsageSummary(account: {
-  plan?: string | null;
-  verificationCount?: number | null;
-  verificationPeriodStart?: Date | string | null;
-} | null): string {
+function apiUsageSummary(
+  account:
+    | (PlanBearingAccount & {
+        verificationCount?: number | null;
+        verificationPeriodStart?: Date | string | null;
+      })
+    | null
+): string {
   if (!account) return "Usage data unavailable";
 
-  const entitlements = getPlanEntitlements(normalizePlan(account.plan));
+  const entitlements = effectiveEntitlements(account);
 
   const periodStart = account.verificationPeriodStart ? new Date(account.verificationPeriodStart) : null;
   const inCurrentPeriod = periodStart !== null && !Number.isNaN(periodStart.getTime()) && isSameBillingPeriod(periodStart);

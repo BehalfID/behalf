@@ -4,6 +4,7 @@ import { findOneAccount, updateAccountByFilter } from "@/lib/repositories/accoun
 import { createStripeEventIfAbsent } from "@/lib/repositories/stripeEvents";
 import { updateEndpoints } from "@/lib/repositories/webhooks";
 import { getStripe } from "@/lib/stripe";
+import { effectiveEntitlements } from "@/lib/planGrants";
 
 async function setAccountWebhookStatus(accountId: string, status: "active" | "disabled") {
   const currentStatus = status === "active" ? "disabled" : "active";
@@ -11,6 +12,23 @@ async function setAccountWebhookStatus(accountId: string, status: "active" | "di
     { accountId, status: currentStatus },
     { $set: { status } }
   );
+}
+
+/**
+ * Whether webhook delivery should stay on once this event's plan change lands.
+ *
+ * Resolved from the account's *effective* entitlements, not from the Stripe
+ * subscription status. A workspace holding a complimentary plan is entitled to
+ * webhooks whether or not it has a live subscription, so keying this off
+ * `isActive` alone would silently disable delivery for a comped workspace on a
+ * cancellation or a failed invoice. The grant fields on `account` are untouched
+ * by this handler, so overlaying the new billing plan is enough.
+ */
+function webhooksStayEnabled(
+  account: { complimentaryPlan?: string | null; complimentaryPlanExpiresAt?: Date | null } | null,
+  nextBillingPlan: string
+) {
+  return effectiveEntitlements({ ...(account ?? {}), plan: nextBillingPlan }).webhooksEnabled;
 }
 
 function asString(value: unknown) {
@@ -89,7 +107,10 @@ export async function POST(request: NextRequest) {
           }
         }
       );
-      await setAccountWebhookStatus(account.accountId, isActive ? "active" : "disabled");
+      await setAccountWebhookStatus(
+        account.accountId,
+        webhooksStayEnabled(account, isActive ? "pro" : "free") ? "active" : "disabled"
+      );
       break;
     }
 
@@ -110,7 +131,12 @@ export async function POST(request: NextRequest) {
           }
         }
       );
-      if (account) await setAccountWebhookStatus(account.accountId, "disabled");
+      if (account) {
+        await setAccountWebhookStatus(
+          account.accountId,
+          webhooksStayEnabled(account, "free") ? "active" : "disabled"
+        );
+      }
       break;
     }
 
@@ -123,7 +149,12 @@ export async function POST(request: NextRequest) {
         { stripeCustomerId: customerId },
         { $set: { plan: "free", stripeSubscriptionStatus: "past_due", stripeTrialEnd: null, stripeCurrentPeriodEnd: null } }
       );
-      if (account) await setAccountWebhookStatus(account.accountId, "disabled");
+      if (account) {
+        await setAccountWebhookStatus(
+          account.accountId,
+          webhooksStayEnabled(account, "free") ? "active" : "disabled"
+        );
+      }
       break;
     }
   }

@@ -37,6 +37,7 @@ export function createPublicId(
     | "pra"
     | "prk"
     | "reauth"
+    | "cgrant"
 ) {
   return `${prefix}_${crypto.randomBytes(12).toString("base64url")}`;
 }

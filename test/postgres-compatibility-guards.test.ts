@@ -206,6 +206,101 @@ describe("the resolved workspace actor is the source of truth", () => {
   });
 });
 
+describe("complimentary grants stay out of Stripe's reach", () => {
+  const GRANT_FIELDS = [
+    "complimentaryPlan",
+    "complimentaryPlanReason",
+    "complimentaryPlanGrantedBy",
+    "complimentaryPlanGrantedAt",
+    "complimentaryPlanExpiresAt",
+    "complimentary_plan"
+  ];
+
+  const BILLING_FILES = SHARED_FILES.filter(
+    (file) => file.startsWith(join("app", "api", "billing")) || file === "lib/stripe.ts"
+  );
+
+  it("has billing code to check", () => {
+    // A rename that emptied this list would make the guards below vacuous.
+    expect(BILLING_FILES.length).toBeGreaterThan(0);
+  });
+
+  it.each(GRANT_FIELDS)("no billing route writes %s", (field) => {
+    const hits = BILLING_FILES.filter((file) => {
+      const source = withoutComments(readFileSync(join(ROOT, file), "utf-8"));
+      // Reading a grant is fine (checkout refuses while one is active); writing
+      // one from billing code is what must never happen.
+      return new RegExp(`${field}\\s*:`).test(source);
+    });
+    expect(hits).toEqual([]);
+  });
+
+  it("only the grant service applies a grant", () => {
+    const writers = SHARED_FILES.filter((file) => {
+      if (file === "lib/complimentaryPlans.ts") return false;
+      if (file === "lib/repositories/accounts.ts") return false;
+      const source = withoutComments(readFileSync(join(ROOT, file), "utf-8"));
+      return /\b(setComplimentaryPlan|clearComplimentaryPlan)\s*\(/.test(source);
+    });
+    expect(writers).toEqual([]);
+  });
+
+  it("nothing resolves entitlements from a raw plan field", () => {
+    // `getPlanEntitlements(account.plan)` reads the Stripe-owned column and
+    // silently ignores an active grant. `effectiveEntitlements(account)` is the
+    // backend-neutral replacement.
+    const pattern = /(getPlanEntitlements|effectiveEntitlements)\s*\([^)]*\.plan\b/;
+    expect(offenders(pattern)).toEqual([]);
+  });
+
+  it("entitlement resolution stays inside the plan modules", () => {
+    const ALLOWED = new Set([
+      "lib/plans.ts",
+      "lib/planGrants.ts",
+      // Client component; it is handed an already-resolved effective plan and
+      // renders static plan-comparison copy from the matrix.
+      "app/dashboard/billing/client.tsx"
+    ]);
+    const callers = SHARED_FILES.filter((file) => {
+      if (ALLOWED.has(file)) return false;
+      const source = withoutComments(readFileSync(join(ROOT, file), "utf-8"));
+      return /\bgetPlanEntitlements\s*\(/.test(source);
+    });
+    expect(callers).toEqual([]);
+  });
+
+  it("any projection that selects plan also selects the grant fields", () => {
+    // A narrowed projection is how a grant goes missing without anyone editing
+    // resolution logic: `effectiveEntitlements` on a row selected as
+    // "accountId plan sso" sees no grant and silently resolves to free.
+    const offenders: string[] = [];
+    const files = [...SHARED_FILES, "lib/repositories/mongo/accounts.ts"];
+
+    for (const file of new Set(files)) {
+      const source = withoutComments(readFileSync(join(ROOT, file), "utf-8"));
+      for (const match of source.matchAll(/\.select\(\s*"([^"]*)"/g)) {
+        const fields = match[1].split(/\s+/).filter(Boolean);
+        if (!fields.includes("plan")) continue;
+        if (fields.includes("complimentaryPlan") && fields.includes("complimentaryPlanExpiresAt")) {
+          continue;
+        }
+        offenders.push(`${file}: ${match[1]}`);
+      }
+    }
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("the log purge buckets accounts by effective plan", () => {
+    // Grouping by `account.plan` would delete a comped workspace's logs on the
+    // free-tier window — irreversible, and invisible until someone looked.
+    const source = withoutComments(readFileSync(join(ROOT, "lib/logPurge.ts"), "utf-8"));
+    expect(source).toMatch(/effectivePlan\(account, now\)/);
+    expect(source).toMatch(/effectiveEntitlements\(account, now\)\.logRetentionDays/);
+    expect(source).not.toMatch(/listAccounts\(\s*\{\s*plan\s*\}/);
+  });
+});
+
 describe("repository facades stay backend-neutral", () => {
   it("every facade export goes through delegate()", () => {
     const facades = readdirSync(join(ROOT, "lib", "repositories"))

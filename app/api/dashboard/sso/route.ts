@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import { canManageMembers, getWorkspaceActor } from "@/lib/delegatedAuth";
-import { getPlanEntitlements, normalizePlan } from "@/lib/plans";
+import { effectiveEntitlements, effectivePlan } from "@/lib/planGrants";
 import { findOneAndUpdateAccount } from "@/lib/repositories/accounts";
 import { readJsonObject } from "@/lib/request";
 import { jsonError, noCacheJson } from "@/lib/responses";
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user || !auth.activeAccountId) return auth.error;
 
-  const entitlements = getPlanEntitlements(auth.account?.plan);
+  const entitlements = effectiveEntitlements(auth.account);
   const sso = readWorkspaceSso(auth.account);
   const actor = await getWorkspaceActor(auth.user.userId, auth.activeAccountId);
 
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     available: entitlements.googleWorkspaceSsoEnabled,
     canEdit: Boolean(actor && canManageMembers(actor) && entitlements.googleWorkspaceSsoEnabled),
     sso,
-    plan: normalizePlan(auth.account?.plan)
+    plan: effectivePlan(auth.account)
   });
 }
 
@@ -28,7 +28,7 @@ export async function PATCH(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user || !auth.activeAccountId) return auth.error;
 
-  const entitlements = getPlanEntitlements(auth.account?.plan);
+  const entitlements = effectiveEntitlements(auth.account);
   if (!entitlements.googleWorkspaceSsoEnabled) {
     return jsonError("Workspace Google SSO requires a Pro plan or higher.", 403);
   }
@@ -78,6 +78,6 @@ export async function PATCH(request: NextRequest) {
     available: true,
     canEdit: true,
     sso: readWorkspaceSso(updated),
-    plan: normalizePlan(updated?.plan ?? auth.account?.plan)
+    plan: effectivePlan(updated ?? auth.account)
   });
 }

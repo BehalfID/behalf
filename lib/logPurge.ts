@@ -1,4 +1,5 @@
 import { PLANS, getLogRetentionDays, type Plan } from "@/lib/plans";
+import { effectiveEntitlements, effectivePlan } from "@/lib/planGrants";
 import { listAccounts } from "@/lib/repositories/accounts";
 import { deleteAccessLogs } from "@/lib/repositories/sites";
 import { deleteLogs } from "@/lib/repositories/verificationLogs";
@@ -19,6 +20,8 @@ export type LogPurgeSummary = {
     string,
     {
       accounts: number;
+      /** Retention window actually applied, which a grant can widen. */
+      retentionDays: number;
       cutoffIso: string;
       verificationDeleted: number;
       siteAccessDeleted: number;
@@ -49,9 +52,14 @@ async function deleteSiteAccessOlderThan(
 
 /**
  * Physically delete verification and site-access logs older than each account's
- * plan retention window plus a grace period. Orphaned logs (unknown accountId)
- * use the longest plan retention so we never delete more aggressively than any
- * paid tier would allow.
+ * retention window plus a grace period. Orphaned logs (unknown accountId) use
+ * the longest plan retention so we never delete more aggressively than any paid
+ * tier would allow.
+ *
+ * Accounts are bucketed by *effective* plan, not by `account.plan`. Grouping by
+ * the billing plan would purge a comped workspace's logs on the free-tier
+ * seven-day window while the product was showing it ninety days of history —
+ * an irreversible loss caused by reading the wrong plan field.
  */
 export async function purgeExpiredLogs(now = new Date()): Promise<LogPurgeSummary> {
   const summary: LogPurgeSummary = {
@@ -63,10 +71,30 @@ export async function purgeExpiredLogs(now = new Date()): Promise<LogPurgeSummar
     byPlan: {}
   };
 
+  const allAccounts = await listAccounts(
+    {},
+    "accountId plan complimentaryPlan complimentaryPlanExpiresAt"
+  );
+
+  // Within a bucket the widest retention wins, so an account is never purged on
+  // a shorter window than it holds. That also covers the non-monotonic tiers:
+  // a paying "pro" workspace granted "team" reports as team but keeps pro's
+  // ninety days, because `effectiveEntitlements` takes the per-field maximum.
+  const buckets = new Map<Plan, { accountIds: string[]; retentionDays: number }>();
+  for (const account of allAccounts) {
+    const plan = effectivePlan(account, now);
+    const retention = effectiveEntitlements(account, now).logRetentionDays;
+    const bucket = buckets.get(plan) ?? { accountIds: [], retentionDays: 0 };
+    bucket.accountIds.push(account.accountId);
+    bucket.retentionDays = Math.max(bucket.retentionDays, retention);
+    buckets.set(plan, bucket);
+  }
+
   for (const plan of PLANS) {
-    const retentionDays = getLogRetentionDays(plan);
+    const bucket = buckets.get(plan);
+    const retentionDays = bucket?.retentionDays ?? getLogRetentionDays(plan);
     const cutoff = cutoffForRetentionDays(retentionDays, now);
-    const accountIds = (await listAccounts({ plan }, "accountId")).map((a) => a.accountId);
+    const accountIds = bucket?.accountIds ?? [];
 
     let verificationDeleted = 0;
     let siteAccessDeleted = 0;
@@ -86,6 +114,7 @@ export async function purgeExpiredLogs(now = new Date()): Promise<LogPurgeSummar
     summary.siteAccessLogsDeleted += siteAccessDeleted;
     summary.byPlan[plan] = {
       accounts: accountIds.length,
+      retentionDays,
       cutoffIso: cutoff.toISOString(),
       verificationDeleted,
       siteAccessDeleted
@@ -94,7 +123,7 @@ export async function purgeExpiredLogs(now = new Date()): Promise<LogPurgeSummar
 
   const longestRetention = Math.max(...PLANS.map((p: Plan) => getLogRetentionDays(p)));
   const orphanCutoff = cutoffForRetentionDays(longestRetention, now);
-  const knownAccountIds = (await listAccounts({}, "accountId")).map((a) => a.accountId);
+  const knownAccountIds = allAccounts.map((a) => a.accountId);
 
   const orphanFilter =
     knownAccountIds.length > 0

@@ -1,11 +1,14 @@
 import {
-  getPlanEntitlements,
   isSameBillingPeriod,
   isUnlimitedLimit,
-  normalizePlan,
   verificationPeriodStart,
   type Plan
 } from "@/lib/plans";
+import {
+  effectiveEntitlements,
+  effectivePlan,
+  type PlanBearingAccount
+} from "@/lib/planGrants";
 import { isBillableWorkspaceRole } from "@/lib/authority";
 import {
   countAgentsByAccountId,
@@ -86,8 +89,8 @@ export async function checkAndIncrementVerifications(accountId: string | null | 
   const account = await findAccountById(accountId);
   if (!account) return { allowed: true };
 
-  const plan = normalizePlan(account.plan);
-  const entitlements = getPlanEntitlements(plan);
+  const plan = effectivePlan(account);
+  const entitlements = effectiveEntitlements(account);
   if (isUnlimitedLimit(entitlements.monthlyVerifications)) return { allowed: true };
 
   if (!isSameBillingPeriod(account.verificationPeriodStart)) {
@@ -101,7 +104,7 @@ export async function checkAndIncrementVerifications(accountId: string | null | 
       code: "VERIFICATION_LIMIT_REACHED",
       plan,
       limit: entitlements.monthlyVerifications,
-      reason: `Monthly verification limit of ${entitlements.monthlyVerifications.toLocaleString()} reached on the ${account.plan} plan.`,
+      reason: `Monthly verification limit of ${entitlements.monthlyVerifications.toLocaleString()} reached on the ${plan} plan.`,
       upgradeHint: upgradeHintFor(plan, "Upgrade to Pro to continue.")
     };
   }
@@ -116,8 +119,8 @@ export async function checkAgentLimit(accountId: string | null | undefined): Pro
   const account = await findAccountById(accountId);
   if (!account) return { allowed: true };
 
-  const plan = normalizePlan(account.plan);
-  const entitlements = getPlanEntitlements(plan);
+  const plan = effectivePlan(account);
+  const entitlements = effectiveEntitlements(account);
   if (isUnlimitedLimit(entitlements.maxAgents)) return { allowed: true };
 
   const count = await countAgentsByAccountId(accountId);
@@ -127,7 +130,7 @@ export async function checkAgentLimit(accountId: string | null | undefined): Pro
       code: "AGENT_LIMIT_REACHED",
       plan,
       limit: entitlements.maxAgents,
-      reason: `Agent limit of ${entitlements.maxAgents} reached on the ${account.plan} plan.`,
+      reason: `Agent limit of ${entitlements.maxAgents} reached on the ${plan} plan.`,
       upgradeHint: upgradeHintFor(plan, "Upgrade to Pro to add more agents.")
     };
   }
@@ -156,8 +159,8 @@ export async function checkSeatLimit(
   const account = await findAccountById(accountId);
   if (!account) return { allowed: true };
 
-  const plan = normalizePlan(account.plan);
-  const entitlements = getPlanEntitlements(plan);
+  const plan = effectivePlan(account);
+  const entitlements = effectiveEntitlements(account);
   if (isUnlimitedLimit(entitlements.maxBillableUsers)) return { allowed: true };
 
   const seats = await countBillableSeats(accountId);
@@ -167,7 +170,7 @@ export async function checkSeatLimit(
       code: "SEAT_LIMIT_REACHED",
       plan,
       limit: entitlements.maxBillableUsers,
-      reason: `Billable seat limit of ${entitlements.maxBillableUsers} reached on the ${account.plan} plan.`,
+      reason: `Billable seat limit of ${entitlements.maxBillableUsers} reached on the ${plan} plan.`,
       upgradeHint: upgradeHintFor(plan, "Upgrade to Pro to add more billable seats.")
     };
   }
@@ -191,8 +194,8 @@ export async function checkProtectedRepoLimit(
   const account = await findAccountById(accountId);
   if (!account) return { allowed: true };
 
-  const plan = normalizePlan(account.plan);
-  const entitlements = getPlanEntitlements(plan);
+  const plan = effectivePlan(account);
+  const entitlements = effectiveEntitlements(account);
   if (isUnlimitedLimit(entitlements.maxProtectedRepos)) return { allowed: true };
 
   if (counts.nextCount > entitlements.maxProtectedRepos) {
@@ -201,7 +204,7 @@ export async function checkProtectedRepoLimit(
       code: "PROTECTED_REPO_LIMIT_REACHED",
       plan,
       limit: entitlements.maxProtectedRepos,
-      reason: `Protected repo limit of ${entitlements.maxProtectedRepos} reached on the ${account.plan} plan.`,
+      reason: `Protected repo limit of ${entitlements.maxProtectedRepos} reached on the ${plan} plan.`,
       upgradeHint: upgradeHintFor(plan, "Upgrade to Pro to protect more repositories.")
     };
   }
@@ -209,9 +212,14 @@ export async function checkProtectedRepoLimit(
   return { allowed: true };
 }
 
-export function checkWebhooksEnabled(plan: string | null | undefined): QuotaResult {
-  const resolvedPlan = normalizePlan(plan);
-  const entitlements = getPlanEntitlements(resolvedPlan);
+/**
+ * These gates take the account, not a plan string, on purpose. Passing
+ * `account.plan` would read the billing plan and deny a workspace the feature
+ * its grant awards; taking the account makes that mistake unrepresentable.
+ */
+export function checkWebhooksEnabled(account: PlanBearingAccount | null | undefined): QuotaResult {
+  const resolvedPlan = effectivePlan(account);
+  const entitlements = effectiveEntitlements(account);
   if (!entitlements.webhooksEnabled) {
     return {
       allowed: false,
@@ -230,9 +238,11 @@ export function checkWebhooksEnabled(plan: string | null | undefined): QuotaResu
  * the check cannot deny today; it exists so future plan changes gate in one
  * place without touching Managed Profiles enforcement semantics.
  */
-export function checkManagedProfilesEnabled(plan: string | null | undefined): QuotaResult {
-  const resolvedPlan = normalizePlan(plan);
-  const entitlements = getPlanEntitlements(resolvedPlan);
+export function checkManagedProfilesEnabled(
+  account: PlanBearingAccount | null | undefined
+): QuotaResult {
+  const resolvedPlan = effectivePlan(account);
+  const entitlements = effectiveEntitlements(account);
   if (!entitlements.managedProfilesEnabled) {
     return {
       allowed: false,
@@ -252,9 +262,11 @@ export function checkManagedProfilesEnabled(plan: string | null | undefined): Qu
  * deny today. It is intentionally not wired into policy validation to avoid
  * changing Managed Profiles enforcement semantics.
  */
-export function checkRequiredManagedProfileMode(plan: string | null | undefined): QuotaResult {
-  const resolvedPlan = normalizePlan(plan);
-  const entitlements = getPlanEntitlements(resolvedPlan);
+export function checkRequiredManagedProfileMode(
+  account: PlanBearingAccount | null | undefined
+): QuotaResult {
+  const resolvedPlan = effectivePlan(account);
+  const entitlements = effectiveEntitlements(account);
   if (!entitlements.requiredManagedProfileModeEnabled) {
     return {
       allowed: false,
@@ -268,7 +280,12 @@ export function checkRequiredManagedProfileMode(plan: string | null | undefined)
   return { allowed: true };
 }
 
-export function retentionSince(plan: string | null | undefined): Date {
-  const entitlements = getPlanEntitlements(plan);
+/**
+ * Start of the readable log window. Takes the account so a granted retention
+ * window is honoured — reading `account.plan` here would hide history the
+ * workspace is entitled to and that `purgeExpiredLogs` is still keeping.
+ */
+export function retentionSince(account: PlanBearingAccount | null | undefined): Date {
+  const entitlements = effectiveEntitlements(account);
   return new Date(Date.now() - entitlements.logRetentionDays * 86_400_000);
 }

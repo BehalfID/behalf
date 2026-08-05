@@ -195,7 +195,41 @@ describe("billing and quota enforcement", () => {
   it("does not grant paid webhook behavior when plan state is missing or invalid", async () => {
     const { checkWebhooksEnabled } = await import("@/lib/quota");
 
-    expect(checkWebhooksEnabled(undefined)).toEqual({
+    const denied = {
+      allowed: false,
+      code: "WEBHOOKS_REQUIRE_PRO",
+      plan: "free",
+      limit: 0,
+      reason: "Webhooks require a paid plan.",
+      upgradeHint: "Upgrade to Pro to enable webhook delivery."
+    };
+
+    expect(checkWebhooksEnabled(undefined)).toEqual(denied);
+    expect(checkWebhooksEnabled(null)).toEqual(denied);
+    expect(checkWebhooksEnabled({ plan: "stripe_missing" })).toEqual(denied);
+    expect(checkWebhooksEnabled({ plan: "free" })).toEqual(denied);
+    expect(checkWebhooksEnabled({ plan: "pro" })).toEqual({ allowed: true });
+    expect(checkWebhooksEnabled({ plan: "team" })).toEqual({ allowed: true });
+    expect(checkWebhooksEnabled({ plan: "business" })).toEqual({ allowed: true });
+    expect(checkWebhooksEnabled({ plan: "enterprise" })).toEqual({ allowed: true });
+  });
+
+  it("honours a complimentary grant in the pure feature gates", async () => {
+    const { checkWebhooksEnabled } = await import("@/lib/quota");
+
+    // Billing says free; the grant is what makes webhooks available.
+    expect(
+      checkWebhooksEnabled({ plan: "free", complimentaryPlan: "pro" })
+    ).toEqual({ allowed: true });
+
+    // An expired grant awards nothing.
+    expect(
+      checkWebhooksEnabled({
+        plan: "free",
+        complimentaryPlan: "pro",
+        complimentaryPlanExpiresAt: new Date(Date.now() - 60_000)
+      })
+    ).toEqual({
       allowed: false,
       code: "WEBHOOKS_REQUIRE_PRO",
       plan: "free",
@@ -203,18 +237,6 @@ describe("billing and quota enforcement", () => {
       reason: "Webhooks require a paid plan.",
       upgradeHint: "Upgrade to Pro to enable webhook delivery."
     });
-    expect(checkWebhooksEnabled("stripe_missing")).toEqual({
-      allowed: false,
-      code: "WEBHOOKS_REQUIRE_PRO",
-      plan: "free",
-      limit: 0,
-      reason: "Webhooks require a paid plan.",
-      upgradeHint: "Upgrade to Pro to enable webhook delivery."
-    });
-    expect(checkWebhooksEnabled("pro")).toEqual({ allowed: true });
-    expect(checkWebhooksEnabled("team")).toEqual({ allowed: true });
-    expect(checkWebhooksEnabled("business")).toEqual({ allowed: true });
-    expect(checkWebhooksEnabled("enterprise")).toEqual({ allowed: true });
   });
 });
 
@@ -347,8 +369,10 @@ describe("managed profile feature gates", () => {
   it("allows managed profiles and required mode on every current plan", async () => {
     const { checkManagedProfilesEnabled, checkRequiredManagedProfileMode } = await import("@/lib/quota");
     for (const plan of ["free", "pro", "team", "business", "enterprise", undefined, "bogus"]) {
-      expect(checkManagedProfilesEnabled(plan)).toEqual({ allowed: true });
-      expect(checkRequiredManagedProfileMode(plan)).toEqual({ allowed: true });
+      expect(checkManagedProfilesEnabled({ plan })).toEqual({ allowed: true });
+      expect(checkRequiredManagedProfileMode({ plan })).toEqual({ allowed: true });
     }
+    expect(checkManagedProfilesEnabled(null)).toEqual({ allowed: true });
+    expect(checkRequiredManagedProfileMode(undefined)).toEqual({ allowed: true });
   });
 });

@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
 
   let extra: SmartSuggestion[] = [];
   try {
-    const retentionStart = retentionSince(auth.account?.plan);
+    const retentionStart = retentionSince(auth.account);
     const filter: Record<string, unknown> = { ...accountScopeFilter(actor.accountId) };
     if (retentionStart) filter.createdAt = { $gte: retentionStart };
 

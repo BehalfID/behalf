@@ -4,6 +4,16 @@
  */
 
 export const ACCOUNT_PLANS = ["free", "pro", "team", "business", "enterprise"] as const;
+/**
+ * Plans a complimentary grant may award. "free" is excluded deliberately: a
+ * grant exists to raise entitlements above what billing provides, so granting
+ * "free" would be a no-op that still looked like an active grant.
+ */
+export const COMPLIMENTARY_PLANS = ["pro", "team", "business", "enterprise"] as const;
+/** Lifecycle actions recorded in the append-only plan-grant ledger. */
+export const PLAN_GRANT_ACTIONS = ["grant", "revoke"] as const;
+/** Who performed a plan-grant action. Never Stripe — Stripe cannot write grants. */
+export const PLAN_GRANT_ACTOR_TYPES = ["console_admin", "operator_script"] as const;
 export const ACCOUNT_TYPES = ["individual", "business"] as const;
 export const TEAM_SIZES = ["1", "2-5", "6-20", "21-50", "51+"] as const;
 

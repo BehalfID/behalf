@@ -24,7 +24,10 @@ import {
 import { useDashboardApi } from "@/components/workspace/WorkspaceProvider";
 
 type BillingProps = {
+  /** Effective plan: the higher of the billing plan and any active grant. */
   plan: Plan;
+  /** Present when a complimentary grant is what raises the plan above billing. */
+  complimentary: { plan: Plan; expiresAt: string | null } | null;
   stripeSubscriptionStatus: string | null;
   stripeTrialEnd: string | null;
   stripeCurrentPeriodEnd: string | null;
@@ -80,6 +83,7 @@ function UsageBar({ used, limit, label }: { used: number; limit: number; label: 
 
 export function BillingClient({
   plan,
+  complimentary,
   stripeSubscriptionStatus,
   stripeTrialEnd,
   stripeCurrentPeriodEnd,
@@ -95,6 +99,10 @@ export function BillingClient({
   const entitlements = getPlanEntitlements(plan);
   const proEntitlements = getPlanEntitlements("pro");
   const resetDate = nextResetDate(verificationPeriodStart);
+  // A comped workspace with no subscription has nothing for the Stripe portal
+  // to manage, so it must not be offered an action that would only error.
+  const hasSubscription = stripeSubscriptionStatus !== null;
+  const complimentaryOnly = complimentary !== null && !hasSubscription;
 
   const handleCheckout = useCallback(async () => {
     setLoading("checkout");
@@ -155,6 +163,14 @@ export function BillingClient({
         </div>
       )}
 
+      {complimentary && (
+        <div className="billing-alert billing-alert--info" role="status">
+          Complimentary {complimentary.plan} plan applied to this workspace
+          {complimentary.expiresAt ? ` until ${formatDate(complimentary.expiresAt)}` : " — no expiry"}.
+          {" "}Allowances below reflect it, and no payment is required.
+        </div>
+      )}
+
       {error && (
         <div className="billing-alert" role="alert">
           {error}
@@ -174,7 +190,7 @@ export function BillingClient({
                 <PlanStatusBadge plan={plan} />
                 {plan === "free" || plan === "pro" ? (
                   <p className="billing-plan-summary__price">
-                    <strong>{plan === "free" ? "$0" : `$${(PRO_PLAN_PRICE_CENTS / 100).toFixed(0)}`}</strong>
+                    <strong>{plan === "free" || complimentaryOnly ? "$0" : `$${(PRO_PLAN_PRICE_CENTS / 100).toFixed(0)}`}</strong>
                     <span>/ month</span>
                   </p>
                 ) : (
@@ -182,7 +198,11 @@ export function BillingClient({
                 )}
               </div>
               <div className="billing-plan-actions">
-                {plan === "free" ? (
+                {complimentaryOnly ? (
+                  <p className="billing-trial-note">
+                    Complimentary plan — there is no subscription to manage.
+                  </p>
+                ) : plan === "free" ? (
                   <Button variant="primary" onClick={handleCheckout} loading={loading === "checkout"} disabled={loading !== null}>
                     Start 7-day Pro trial
                   </Button>
@@ -199,7 +219,7 @@ export function BillingClient({
               </div>
             </div>
             <dl className="settings-summary">
-              <div><dt>Subscription status</dt><dd>{stripeSubscriptionStatus ?? (plan === "free" ? "No paid subscription" : "Not reported")}</dd></div>
+              <div><dt>Subscription status</dt><dd>{stripeSubscriptionStatus ?? (complimentary ? "Complimentary — no paid subscription" : plan === "free" ? "No paid subscription" : "Not reported")}</dd></div>
               <div><dt>Monthly verification reset</dt><dd>{formatDate(resetDate.toISOString())} · UTC calendar month</dd></div>
               {stripeCurrentPeriodEnd ? <div><dt>Current Stripe period ends</dt><dd>{formatDate(stripeCurrentPeriodEnd)}</dd></div> : null}
             </dl>

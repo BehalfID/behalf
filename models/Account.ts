@@ -46,6 +46,9 @@ const AccountSchema = new Schema(
         ]
       }
     },
+    /**
+     * Billing-owned plan. Stripe webhooks write this field and only this field.
+     */
     plan: {
       type: String,
       enum: ["free", "pro", "team", "business", "enterprise"],
@@ -53,6 +56,31 @@ const AccountSchema = new Schema(
       required: true,
       index: true
     },
+    /**
+     * Complimentary plan grant, deliberately kept out of `plan`.
+     *
+     * Every Stripe webhook branch ends in an unconditional `$set: { plan }`
+     * — "free" on cancellation, on a failed invoice, and on any non-active
+     * subscription status. A comp stored in `plan` is one webhook away from
+     * being erased with no record it existed. These fields are never written by
+     * billing code, so the overwrite is structurally impossible rather than
+     * merely unlikely. `lib/planGrants.ts` resolves the effective plan.
+     *
+     * "free" is not grantable: a grant raises entitlements above billing, so
+     * granting "free" would be a no-op that still read as an active comp.
+     */
+    complimentaryPlan: {
+      type: String,
+      enum: ["pro", "team", "business", "enterprise"],
+      default: null,
+      index: true,
+      sparse: true
+    },
+    complimentaryPlanReason: { type: String, trim: true, maxlength: 500, default: null },
+    complimentaryPlanGrantedBy: { type: String, trim: true, default: null },
+    complimentaryPlanGrantedAt: { type: Date, default: null },
+    /** null means the grant does not expire (lifetime). */
+    complimentaryPlanExpiresAt: { type: Date, default: null },
     stripeCustomerId: { type: String, trim: true, index: true, sparse: true },
     stripeSubscriptionId: { type: String, trim: true },
     stripeSubscriptionStatus: { type: String, trim: true },

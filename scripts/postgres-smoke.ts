@@ -61,12 +61,14 @@ export const CORE_TABLES = [
   "admin_audit_logs",
   "permission_replacement_audits",
   "adaptive_delegation_recommendations",
-  "adaptive_delegation_events"
+  "adaptive_delegation_events",
+  "account_plan_grants"
 ] as const;
 
 /** Indexes that must exist after the full migration chain (by stable SQL name). */
 export const CRITICAL_INDEX_NAMES = [
   "accounts_plan_idx",
+  "account_plan_grants_account_created_idx",
   "accounts_slug_uq",
   "accounts_stripe_customer_id_uq",
   "developer_users_email_lower_uq",
@@ -131,24 +133,23 @@ export function isPostgresRepositoryContractsEnabled(): boolean {
   );
 }
 
-function migrationSqlPaths(): string[] {
-  return [
-    join(process.cwd(), "drizzle/0000_initial_behalf_schema.sql"),
-    join(process.cwd(), "drizzle/0001_workspace_slug.sql"),
-    join(process.cwd(), "drizzle/0002_google_sso.sql"),
-    join(process.cwd(), "drizzle/0003_schema_parity.sql"),
-    join(process.cwd(), "drizzle/0004_managed_profile_pause_index_parity.sql"),
-    join(process.cwd(), "drizzle/0005_policy_and_integrations.sql"),
-    join(process.cwd(), "drizzle/0006_permission_replacement_parity.sql"),
-    join(process.cwd(), "drizzle/0007_external_identities.sql"),
-    join(process.cwd(), "drizzle/0008_passkeys_auth_usage.sql"),
-    join(process.cwd(), "drizzle/0009_console_auth_audit_tables.sql"),
-    join(process.cwd(), "drizzle/0010_developer_user_mfa.sql"),
-    join(process.cwd(), "drizzle/0011_adaptive_delegation.sql"),
-    join(process.cwd(), "drizzle/0012_reauth_proofs.sql"),
-    join(process.cwd(), "drizzle/0013_agent_provider_ollama.sql"),
-    join(process.cwd(), "drizzle/0014_agent_ollama_runtime.sql")
-  ];
+type MigrationJournal = { entries?: Array<{ idx: number; tag: string }> };
+
+/**
+ * Migration chain, read from the Drizzle journal rather than a hand-kept list.
+ *
+ * A hardcoded list silently drops any migration someone forgets to add, so the
+ * schema these tests run against would quietly stop being the schema production
+ * gets — which is precisely the gap the Postgres suites exist to close.
+ */
+export function migrationSqlPaths(): string[] {
+  const journalPath = join(process.cwd(), "drizzle/meta/_journal.json");
+  const journal = JSON.parse(readFileSync(journalPath, "utf8")) as MigrationJournal;
+  const entries = [...(journal.entries ?? [])].sort((a, b) => a.idx - b.idx);
+  if (!entries.length) {
+    throw new Error("drizzle/meta/_journal.json lists no migrations.");
+  }
+  return entries.map((entry) => join(process.cwd(), `drizzle/${entry.tag}.sql`));
 }
 
 function readMigrationSql(): string {

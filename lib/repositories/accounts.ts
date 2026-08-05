@@ -4,6 +4,9 @@ import { delegate } from "@/lib/repositories/delegate";
 
 export type {
   AccountLean,
+  AccountPlanGrantLean,
+  AccountPlanGrantRecord,
+  ComplimentaryPlanAssignment,
 } from "@/lib/repositories/mongo/accounts";
 
 export {
@@ -33,6 +36,10 @@ export const findOneAccount = delegate("accounts", "findOneAccount", mongo.findO
 export const findOneAndUpdateAccount = delegate("accounts", "findOneAndUpdateAccount", mongo.findOneAndUpdateAccount);
 export const updateAccountByFilter = delegate("accounts", "updateAccountByFilter", mongo.updateAccountByFilter);
 export const countAccountDocuments = delegate("accounts", "countAccountDocuments", mongo.countAccountDocuments);
+export const setComplimentaryPlan = delegate("accounts", "setComplimentaryPlan", mongo.setComplimentaryPlan);
+export const clearComplimentaryPlan = delegate("accounts", "clearComplimentaryPlan", mongo.clearComplimentaryPlan);
+export const createAccountPlanGrant = delegate("accounts", "createAccountPlanGrant", mongo.createAccountPlanGrant);
+export const listAccountPlanGrants = delegate("accounts", "listAccountPlanGrants", mongo.listAccountPlanGrants);
 export const findAccountsEnforcingSsoForDomain = delegate(
   "accounts",
   "findAccountsEnforcingSsoForDomain",

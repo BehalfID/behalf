@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import Stripe from "stripe";
 import { requireDeveloperApi } from "@/lib/developerAuth";
+import { hasActiveComplimentaryPlan } from "@/lib/planGrants";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { jsonError } from "@/lib/responses";
 import { getStripe } from "@/lib/stripe";
@@ -16,6 +17,16 @@ export async function POST(request: NextRequest) {
 
   if (auth.account.plan !== "free") {
     return jsonError("Account is already on a paid plan.", 409);
+  }
+
+  // A comped workspace still reads as "free" here, because a grant never
+  // touches `plan`. Without this check the customer could start a paid
+  // subscription for entitlements they already hold and be charged for it.
+  if (hasActiveComplimentaryPlan(auth.account)) {
+    return jsonError(
+      "This workspace has a complimentary plan. Contact BehalfID to start a paid subscription.",
+      409
+    );
   }
 
   const priceId = process.env.STRIPE_PRO_PRICE_ID;

@@ -1,9 +1,13 @@
-import { and, count, eq, inArray, sql, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type { BehalfPostgresDb } from "@/lib/db/postgres";
-import { accounts } from "@/lib/db/postgres/schema";
+import { accountPlanGrants, accounts } from "@/lib/db/postgres/schema";
 import { translatePostgresError } from "@/lib/repositories/errors";
-import type { AccountLean } from "@/lib/repositories/accounts";
+import type {
+  AccountLean,
+  AccountPlanGrantRecord,
+  ComplimentaryPlanAssignment
+} from "@/lib/repositories/accounts";
 
 type AccountRow = typeof accounts.$inferSelect;
 type AccountInsert = typeof accounts.$inferInsert;
@@ -18,6 +22,11 @@ const columns: Record<string, AnyPgColumn> = {
   teamSize: accounts.teamSize,
   onboarding: accounts.onboarding,
   plan: accounts.plan,
+  complimentaryPlan: accounts.complimentaryPlan,
+  complimentaryPlanReason: accounts.complimentaryPlanReason,
+  complimentaryPlanGrantedBy: accounts.complimentaryPlanGrantedBy,
+  complimentaryPlanGrantedAt: accounts.complimentaryPlanGrantedAt,
+  complimentaryPlanExpiresAt: accounts.complimentaryPlanExpiresAt,
   stripeCustomerId: accounts.stripeCustomerId,
   stripeSubscriptionId: accounts.stripeSubscriptionId,
   stripeSubscriptionStatus: accounts.stripeSubscriptionStatus,
@@ -353,4 +362,99 @@ export async function findAccountsWithSsoForDomain(
       )
     );
   return rows.filter((row) => ssoDomainMatches(row, domain)).map(toLean);
+}
+
+/**
+ * Write a complimentary plan grant.
+ *
+ * Deliberately narrow: it touches the five complimentary columns and nothing
+ * else, so it can never be repurposed into a general plan editor and can never
+ * write `plan` or any Stripe column. Callers go through
+ * `lib/complimentaryPlans.ts`, which also records the ledger entry.
+ */
+export async function setComplimentaryPlan(
+  db: BehalfPostgresDb,
+  accountId: string,
+  assignment: ComplimentaryPlanAssignment
+) {
+  try {
+    const rows = await db
+      .update(accounts)
+      .set({
+        complimentaryPlan: assignment.plan,
+        complimentaryPlanReason: assignment.reason,
+        complimentaryPlanGrantedBy: assignment.grantedBy,
+        complimentaryPlanGrantedAt: assignment.grantedAt,
+        complimentaryPlanExpiresAt: assignment.expiresAt,
+        updatedAt: new Date()
+      })
+      .where(eq(accounts.accountId, accountId))
+      .returning({ accountId: accounts.accountId });
+    return { acknowledged: true, matchedCount: rows.length, modifiedCount: rows.length };
+  } catch (error) {
+    translatePostgresError(error);
+  }
+}
+
+/** Clear a complimentary grant. The ledger entry is what preserves the history. */
+export async function clearComplimentaryPlan(db: BehalfPostgresDb, accountId: string) {
+  try {
+    const rows = await db
+      .update(accounts)
+      .set({
+        complimentaryPlan: null,
+        complimentaryPlanReason: null,
+        complimentaryPlanGrantedBy: null,
+        complimentaryPlanGrantedAt: null,
+        complimentaryPlanExpiresAt: null,
+        updatedAt: new Date()
+      })
+      .where(eq(accounts.accountId, accountId))
+      .returning({ accountId: accounts.accountId });
+    return { acknowledged: true, matchedCount: rows.length, modifiedCount: rows.length };
+  } catch (error) {
+    translatePostgresError(error);
+  }
+}
+
+/** Append a ledger entry. Entries are never updated or deleted. */
+export async function createAccountPlanGrant(
+  db: BehalfPostgresDb,
+  record: AccountPlanGrantRecord
+) {
+  try {
+    const [row] = await db
+      .insert(accountPlanGrants)
+      .values({
+        grantId: record.grantId,
+        accountId: record.accountId,
+        action: record.action,
+        plan: record.plan,
+        previousPlan: record.previousPlan,
+        billingPlanAtChange: record.billingPlanAtChange,
+        reason: record.reason,
+        expiresAt: record.expiresAt,
+        actor: record.actor,
+        actorType: record.actorType,
+        metadata: record.metadata ?? null
+      })
+      .returning();
+    return row;
+  } catch (error) {
+    translatePostgresError(error);
+  }
+}
+
+/** Ledger history for one account, newest first. */
+export async function listAccountPlanGrants(
+  db: BehalfPostgresDb,
+  accountId: string,
+  limit = 50
+) {
+  return db
+    .select()
+    .from(accountPlanGrants)
+    .where(eq(accountPlanGrants.accountId, accountId))
+    .orderBy(desc(accountPlanGrants.createdAt))
+    .limit(limit);
 }

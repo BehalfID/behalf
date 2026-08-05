@@ -1,9 +1,41 @@
 import Account from "@/models/Account";
 import type { AccountDocument } from "@/models/Account";
+import AccountPlanGrant from "@/models/AccountPlanGrant";
+import type { AccountPlanGrantDocument } from "@/models/AccountPlanGrant";
 import { translateDuplicateKey } from "@/lib/repositories/errors";
 import { lazyModelMethod, selectLean } from "@/lib/repositories/mongoModelAdapter";
+import type { ComplimentaryPlan, PlanGrantAction, PlanGrantActorType } from "@/lib/planGrants";
+import type { Plan } from "@/lib/plans";
 
 export type AccountLean = AccountDocument;
+
+export type AccountPlanGrantLean = AccountPlanGrantDocument;
+
+/** One entry in the append-only complimentary-plan ledger. */
+export type AccountPlanGrantRecord = {
+  grantId: string;
+  accountId: string;
+  action: PlanGrantAction;
+  /** Plan awarded; null for a revoke. */
+  plan: ComplimentaryPlan | null;
+  previousPlan: ComplimentaryPlan | null;
+  /** `account.plan` at the moment of the change — the Stripe-owned value. */
+  billingPlanAtChange: Plan;
+  reason: string;
+  /** null means the grant does not expire (lifetime). */
+  expiresAt: Date | null;
+  actor: string;
+  actorType: PlanGrantActorType;
+  metadata?: Record<string, unknown>;
+};
+
+export type ComplimentaryPlanAssignment = {
+  plan: ComplimentaryPlan;
+  reason: string;
+  grantedBy: string;
+  grantedAt: Date;
+  expiresAt: Date | null;
+};
 
 export async function findAccountById(accountId: string) {
   return Account.findOne({ accountId });
@@ -90,6 +122,68 @@ export async function incrementVerificationCount(accountId: string) {
   return Account.updateOne({ accountId }, { $inc: { verificationCount: 1 } });
 }
 
+/**
+ * Write a complimentary plan grant.
+ *
+ * Deliberately narrow: it touches the five complimentary fields and nothing
+ * else, so it can never be repurposed into a general plan editor and can never
+ * write `plan` or any Stripe field. Callers go through
+ * `lib/complimentaryPlans.ts`, which also records the ledger entry.
+ */
+export async function setComplimentaryPlan(
+  accountId: string,
+  assignment: ComplimentaryPlanAssignment
+) {
+  return Account.updateOne(
+    { accountId },
+    {
+      $set: {
+        complimentaryPlan: assignment.plan,
+        complimentaryPlanReason: assignment.reason,
+        complimentaryPlanGrantedBy: assignment.grantedBy,
+        complimentaryPlanGrantedAt: assignment.grantedAt,
+        complimentaryPlanExpiresAt: assignment.expiresAt
+      }
+    }
+  );
+}
+
+/** Clear a complimentary grant. The ledger entry is what preserves the history. */
+export async function clearComplimentaryPlan(accountId: string) {
+  return Account.updateOne(
+    { accountId },
+    {
+      $set: {
+        complimentaryPlan: null,
+        complimentaryPlanReason: null,
+        complimentaryPlanGrantedBy: null,
+        complimentaryPlanGrantedAt: null,
+        complimentaryPlanExpiresAt: null
+      }
+    }
+  );
+}
+
+/** Append a ledger entry. Entries are never updated or deleted. */
+export async function createAccountPlanGrant(record: AccountPlanGrantRecord) {
+  try {
+    return await AccountPlanGrant.create(record);
+  } catch (error) {
+    translateDuplicateKey(error, "A plan grant entry with this ID already exists.");
+  }
+}
+
+/** Ledger history for one account, newest first. */
+export async function listAccountPlanGrants(
+  accountId: string,
+  limit = 50
+): Promise<AccountPlanGrantLean[]> {
+  return AccountPlanGrant.find({ accountId })
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .lean<AccountPlanGrantLean[]>();
+}
+
 /** Mongo query primitives for routes that need an exact model query shape. */
 export function createAccountDocument(input: Partial<AccountDocument>) {
   return Account.create(input);
@@ -126,7 +220,7 @@ export async function findAccountsEnforcingSsoForDomain(domain: string) {
     "sso.enforce": true,
     "sso.allowedEmailDomains": domain
   })
-    .select("accountId plan sso")
+    .select("accountId plan complimentaryPlan complimentaryPlanExpiresAt sso")
     .lean();
 }
 
@@ -138,7 +232,7 @@ export async function findAccountsWithSsoForDomain(accountIds: string[], domain:
     "sso.enabled": true,
     "sso.allowedEmailDomains": domain
   })
-    .select("accountId plan sso")
+    .select("accountId plan complimentaryPlan complimentaryPlanExpiresAt sso")
     .lean();
 }
 

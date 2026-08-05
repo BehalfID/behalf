@@ -6,6 +6,7 @@
 import type { PipelineStage } from "mongoose";
 import { connectToDatabase } from "@/lib/db";
 import { logger } from "@/lib/logger";
+import { effectivePlan } from "@/lib/planGrants";
 import { ADMIN_ANALYTICS_DEFINITIONS } from "@/lib/adminAnalytics/definitions";
 import {
   bucketKeyFormat,
@@ -727,7 +728,7 @@ async function hydrateWorkspaceRows(
   if (ids.length) {
     await safely("top_workspace_names", degradations, undefined, async () => {
       const accounts = await Account.find({ accountId: { $in: ids } })
-        .select("-_id accountId name slug plan")
+        .select("-_id accountId name slug plan complimentaryPlan complimentaryPlanExpiresAt")
         .lean<Array<{ accountId: string; name?: string; slug?: string | null; plan?: string }>>();
       for (const account of accounts) byId.set(account.accountId, account);
     });
@@ -739,7 +740,9 @@ async function hydrateWorkspaceRows(
       accountId: row._id ?? null,
       name: account?.name ?? null,
       slug: account?.slug ?? null,
-      plan: account?.plan ?? null,
+      // Operators need the plan the workspace is actually running on, not the
+      // billing column — a comped workspace would otherwise read as "free".
+      plan: account ? effectivePlan(account) : null,
       attempts: row.attempts ?? 0,
       allowed: row.allowed ?? 0,
       denied: row.denied ?? 0,
