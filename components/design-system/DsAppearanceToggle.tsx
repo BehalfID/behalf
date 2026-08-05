@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import {
-  applyResolvedTheme,
-  parseThemePreference,
-  resolveTheme,
-  THEME_CHANGE_EVENT,
-  THEME_STORAGE_KEY,
+  applyThemePreference,
+  readThemePreference,
+  serverThemePreference,
+  subscribeToThemeChanges,
+  syncThemeFromPreference,
   type ThemePreference
 } from "@/lib/theme";
 import { cn } from "@/lib/cn";
@@ -54,44 +54,25 @@ function Icon({ name }: { name: "sun" | "moon" | "monitor" }) {
   );
 }
 
-function readPreference(): Mode {
-  try {
-    return parseThemePreference(localStorage.getItem(THEME_STORAGE_KEY));
-  } catch {
-    return "system";
-  }
-}
-
-function applyPreference(preference: Mode) {
-  try {
-    if (preference === "system") localStorage.removeItem(THEME_STORAGE_KEY);
-    else localStorage.setItem(THEME_STORAGE_KEY, preference);
-  } catch {
-    // ignore
-  }
-  const resolved = resolveTheme(preference, window.matchMedia("(prefers-color-scheme: dark)").matches);
-  applyResolvedTheme(resolved);
-  window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
-}
-
 /** Lovable-parity segmented appearance control (icon-only, accessible labels). */
 export function DsAppearanceToggle({ className }: { className?: string }) {
-  const [mode, setMode] = useState<Mode>("system");
-  const [mounted, setMounted] = useState(false);
+  // The preference lives outside React (localStorage, the OS setting, and the
+  // other appearance control). `useSyncExternalStore` is the supported way to
+  // read it: React renders `getServerSnapshot` on the server *and* for the
+  // hydration pass, so the two agree, then re-renders with the real value.
+  const mode = useSyncExternalStore<Mode>(
+    subscribeToThemeChanges,
+    readThemePreference,
+    serverThemePreference
+  );
 
+  // Assert the resolved theme on <html> after hydration. The pre-paint
+  // bootstrap already did this, but if React ever re-acquires the <html>
+  // singleton it rebuilds the attribute set from props and drops `data-theme`,
+  // so converging once per preference change keeps the document honest.
   useEffect(() => {
-    setMode(readPreference());
-    setMounted(true);
-    function sync() {
-      setMode(readPreference());
-    }
-    window.addEventListener(THEME_CHANGE_EVENT, sync);
-    return () => window.removeEventListener(THEME_CHANGE_EVENT, sync);
-  }, []);
-
-  if (!mounted) {
-    return <span className={cn("ds-appearance", className)} aria-hidden />;
-  }
+    syncThemeFromPreference();
+  }, [mode]);
 
   return (
     <div
@@ -108,10 +89,7 @@ export function DsAppearanceToggle({ className }: { className?: string }) {
           aria-label={label}
           title={label}
           className={cn("ds-appearance__btn", mode === value && "ds-appearance__btn--active")}
-          onClick={() => {
-            applyPreference(value);
-            setMode(value);
-          }}
+          onClick={() => applyThemePreference(value)}
         >
           <Icon name={icon} />
         </button>
