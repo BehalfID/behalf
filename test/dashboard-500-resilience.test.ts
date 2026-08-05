@@ -131,7 +131,7 @@ describe("GET /api/dashboard/agents", () => {
 
 describe("GET /api/dashboard/logs", () => {
   function okLogs() {
-    mocks.findLogs.mockReturnValue({ lean: () => Promise.resolve([]) });
+    mocks.findLogs.mockResolvedValue([]);
     mocks.countLogs.mockResolvedValue(0);
   }
 
@@ -194,7 +194,7 @@ describe("GET /api/dashboard/logs", () => {
 describe("shared workspace resolver contract", () => {
   it("both endpoints resolve the actor from the same auth + workspace pair", async () => {
     mocks.listAccountAgents.mockResolvedValue([]);
-    mocks.findLogs.mockReturnValue({ lean: () => Promise.resolve([]) });
+    mocks.findLogs.mockResolvedValue([]);
     mocks.countLogs.mockResolvedValue(0);
 
     await agentsGet(makeRequest("https://app.behalfid.com/api/dashboard/agents"));

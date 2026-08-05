@@ -9,10 +9,9 @@ import {
   updatePermissions
 } from "@/lib/repositories/permissions";
 import { countLogs, updateLogs } from "@/lib/repositories/verificationLogs";
+import { MISSING_ACCOUNT_ID_CLAUSE } from "@/lib/missingAccountId";
 
-const missingAccountIdClause = {
-  $or: [{ accountId: { $exists: false } }, { accountId: null }]
-};
+const missingAccountIdClause = MISSING_ACCOUNT_ID_CLAUSE;
 
 async function backfillLegacyAgentResources(actor: WorkspaceActor, agentId: string) {
   await Promise.all([

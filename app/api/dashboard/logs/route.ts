@@ -38,8 +38,19 @@ export async function GET(request: NextRequest) {
     // Summary stats are computed via an aggregation pipeline to avoid fetching
     // up to 1000 documents into JavaScript just for counting.
     const [rawLogs, total, summary] = await Promise.all([
-      findLogs(query, { sort: { createdAt: -1 }, limit: limit, skip: skip, select: "-_id requestId agentId permissionId action amount vendor allowed approvalRequired reason risk shadow metadata createdAt" })
-        .lean<VerificationLogListItem[]>(),
+      // Await the repository result directly — never a Mongo query method.
+      // The Mongo adapter returns a thenable query (awaiting it resolves the
+      // same lean rows `.lean()` would) and the Postgres adapter returns a
+      // plain Promise of an array, which has no `.lean()`; calling it there
+      // threw `TypeError: findLogs(...).lean is not a function`.
+      // sort/limit/skip/select stay inside `options`, honoured by both adapters.
+      findLogs(query, {
+        sort: { createdAt: -1 },
+        limit: limit,
+        skip: skip,
+        select:
+          "-_id requestId agentId permissionId action amount vendor allowed approvalRequired reason risk shadow metadata createdAt"
+      }) as Promise<VerificationLogListItem[]>,
       countLogs(query),
       getVerificationLogSummaryAgg(query)
     ]);

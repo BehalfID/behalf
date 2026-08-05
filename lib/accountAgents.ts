@@ -1,5 +1,6 @@
 import { accountScopeFilter } from "@/lib/accountAccess";
 import type { WorkspaceActor } from "@/lib/delegatedAuth";
+import { MISSING_ACCOUNT_ID_CLAUSE } from "@/lib/missingAccountId";
 import {
   findOneAgent,
   listAgents,
@@ -7,9 +8,7 @@ import {
   updateAgents
 } from "@/lib/repositories/agents";
 
-const missingAccountIdClause = {
-  $or: [{ accountId: { $exists: false } }, { accountId: null }]
-};
+const missingAccountIdClause = MISSING_ACCOUNT_ID_CLAUSE;
 
 /** Backfill accountId on the actor's own legacy agents missing account scoping. */
 export async function backfillLegacyAgentsForActor(actor: WorkspaceActor) {
