@@ -65,7 +65,10 @@ export default async function WorkspaceDashboardLayout({
 
   return (
     <WorkspaceDashboardProviders
+      canMutate={shell.canMutate}
       effectivePlan={shell.effectivePlan}
+      planIsComplimentary={shell.planIsComplimentary}
+      usage={shell.usage}
       user={shell.user}
       workspaceSlug={resolved.workspace.slug}
     >
