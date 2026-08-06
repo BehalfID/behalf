@@ -73,3 +73,63 @@ design work, not a port, and could not be checked against any reference.
 
 Producing those screens in Lovable and pushing them to the mirror is the
 prerequisite for migrating them.
+
+---
+
+# Correction: authenticated shell fidelity (PR #181)
+
+PR #180 kept the legacy shell composition and recoloured it. The structure —
+brand block with a "Control plane" subtitle, legacy nav taxonomy, breadcrumb top
+bar, workspace name as raw text in the top right — was unchanged, so the result
+still read as the legacy dashboard. It also shipped without an authenticated
+screenshot, which is why the mismatch was not caught.
+
+## What changed
+
+The chrome is rebuilt in a `shell-*` namespace with its own stylesheet
+(`components/layout/dashboard-chrome.css`). Reusing the legacy
+`dashboard-sidebar` / `app-sidebar` names meant inheriting a composition built
+for a different design and fighting it with overrides; a fresh namespace means
+no legacy selector applies.
+
+| Reference element | Production route / source |
+| --- | --- |
+| Brand "Behalf/ID" | static, links to the overview |
+| Workspace selector | `/api/dashboard/accounts`, switch via `/accounts/switch` |
+| Plan · role descriptor | `effectivePlan(account)` + membership role, server-resolved |
+| Overview | dashboard index |
+| Agents | `/agents` |
+| Approvals | `/approvals` |
+| Activity | `/logs` |
+| Managed profiles | `/managed-profiles` |
+| Team | **no separate route** — production merges members into `/settings`, shown as "Settings & members" |
+| Usage & billing | `/billing` |
+| Settings | `/settings` |
+| Protected repositories | **no page route** — only an API (`/api/dashboard/managed-profiles/protected-repos`); omitted rather than linked to a dead path |
+| Documentation | `/docs` |
+| Status & support | `/status` (public, host-neutral) |
+| Plan usage card | `effectivePlan` + `verificationCount` from the account row already read; `effectiveEntitlements().monthlyVerifications` for the limit |
+| Search | existing `DashboardOmniSearch`, left-aligned per the reference |
+| Appearance control | existing `DsAppearanceToggle` (already the 3-segment Lovable control) |
+| Add agent | `/onboarding`, hidden unless the actor may mutate |
+| Notification bell | links to `/inbox`; **no indicator dot** — there is no cheap production source for a pending count, so none is invented |
+
+Production surfaces with no reference equivalent (Needs attention, Adaptive
+delegation, Webhooks) are kept under OPERATE rather than deleted — removing them
+would remove navigation to working features.
+
+## Boundaries kept
+
+The wrapper still carries the legacy `dashboard-shell` class, because that class
+supplies the page-interior palette and `.app-main` layout. Dropping it silently
+restyled every dashboard page; the chrome's own grid wins on specificity
+instead. `.ds` is on the sidebar and the two headers only — never the wrapper,
+because that pulls `<main>` into the design-system scope.
+
+## Verification
+
+`scripts/dev/authenticated-shell-preview.mjs` boots a disposable Postgres,
+applies the migration chain, seeds a verified user with a workspace and a live
+session, starts the built app against it, and screenshots the real authenticated
+shell. It requires `npm i --no-save embedded-postgres` and touches no real
+database.

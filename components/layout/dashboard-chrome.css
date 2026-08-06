@@ -1,0 +1,613 @@
+/*
+ * Dashboard shell — Lovable authenticated chrome.
+ *
+ * Deliberately uses a `shell-*` namespace rather than the legacy
+ * `dashboard-sidebar` / `app-sidebar` names. Those legacy rules are shared with
+ * `.docs-sidebar` and `.console-sidebar`, so reusing the names meant inheriting
+ * a composition built for a different design and fighting it with overrides —
+ * which is exactly how the first attempt at this port ended up looking legacy.
+ * A fresh namespace means no legacy selector applies at all.
+ *
+ * The shell carries `.ds`, so `--ds-*` tokens resolve here. `<main>` is
+ * excluded: page interiors keep the production token set until each is ported.
+ */
+
+.shell {
+  --shell-sidebar-width: 232px;
+  --shell-bar-height: 52px;
+
+  display: grid;
+  grid-template-columns: var(--shell-sidebar-width) minmax(0, 1fr);
+  min-height: 100svh;
+  background: var(--bg, #050505);
+}
+
+/*
+ * The wrapper also carries the legacy `dashboard-shell` class so page-interior
+ * rules (interior palette, `.app-main` padding, heading sizes) keep applying —
+ * this PR does not redesign interiors. Those legacy rules also declare a grid,
+ * so the shell's own columns must win on specificity.
+ */
+.shell.dashboard-shell {
+  grid-template-columns: var(--shell-sidebar-width) minmax(0, 1fr);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Sidebar                                                                    */
+/* -------------------------------------------------------------------------- */
+
+.shell-sidebar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100svh;
+  border-right: 1px solid var(--ds-sidebar-border);
+  background: var(--ds-sidebar);
+  color: var(--ds-sidebar-foreground);
+}
+
+.shell-brand {
+  display: flex;
+  align-items: center;
+  min-height: var(--shell-bar-height);
+  padding: 0 16px;
+  color: var(--ds-foreground);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+
+.shell-brand__slash {
+  margin: 0 1px;
+  color: var(--ds-primary);
+  font-weight: 500;
+}
+
+.shell-brand__id {
+  color: var(--ds-muted-foreground);
+  font-weight: 500;
+}
+
+/* Workspace selector */
+.shell-workspace {
+  padding: 4px 12px 10px;
+}
+
+.shell-workspace__static,
+.shell-workspace .dashboard-menu__trigger {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-lg);
+  padding: 7px 9px;
+  background: var(--ds-surface);
+  text-align: left;
+  transition: background 120ms ease;
+}
+
+.shell-workspace .dashboard-menu__trigger {
+  cursor: pointer;
+  list-style: none;
+}
+
+.shell-workspace .dashboard-menu__trigger::-webkit-details-marker {
+  display: none;
+}
+
+.shell-workspace .dashboard-menu__trigger:hover {
+  background: var(--ds-surface-2);
+}
+
+.shell-workspace__mark {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid color-mix(in oklab, var(--ds-primary) 32%, transparent);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-primary-soft);
+  color: var(--ds-primary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.shell-workspace__text,
+.shell-user__text {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 1px;
+}
+
+.shell-workspace__name,
+.shell-user__name {
+  overflow: hidden;
+  color: var(--ds-foreground);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell-workspace__meta,
+.shell-user__email {
+  overflow: hidden;
+  color: var(--ds-muted-foreground);
+  font-size: 0.6875rem;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Navigation */
+.shell-nav {
+  flex: 1;
+  padding: 0 12px;
+  overflow-y: auto;
+}
+
+.shell-nav__group + .shell-nav__group {
+  margin-top: 18px;
+}
+
+.shell-nav__label {
+  margin: 0 0 4px;
+  padding: 0 8px;
+  color: var(--ds-muted-foreground);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.shell-nav ul {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shell-nav a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+  border-radius: var(--ds-radius-md);
+  padding: 0 8px;
+  color: var(--ds-muted-foreground);
+  font-size: 0.8125rem;
+  font-weight: 450;
+  text-decoration: none;
+  transition: background 100ms ease, color 100ms ease;
+}
+
+.shell-nav a:hover {
+  background: var(--ds-sidebar-accent);
+  color: var(--ds-foreground);
+}
+
+.shell-nav a[aria-current="page"] {
+  background: var(--ds-sidebar-accent);
+  color: var(--ds-foreground);
+  font-weight: 500;
+}
+
+.shell-nav a[aria-current="page"] .shell-nav__icon {
+  color: var(--ds-primary);
+}
+
+.shell-nav__icon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  color: currentColor;
+}
+
+.shell-nav__utility {
+  margin-top: 18px;
+  border-top: 1px solid var(--ds-sidebar-border);
+  padding-top: 14px;
+}
+
+/* Plan usage card */
+.shell-plan {
+  margin: 12px;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-lg);
+  padding: 10px 11px;
+  background: var(--ds-surface);
+}
+
+.shell-plan__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.shell-plan__name {
+  color: var(--ds-foreground);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.shell-plan__percent {
+  color: var(--ds-muted-foreground);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.shell-plan__track {
+  height: 4px;
+  margin: 8px 0 6px;
+  border-radius: 999px;
+  background: var(--ds-secondary);
+  overflow: hidden;
+}
+
+.shell-plan__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--ds-primary);
+}
+
+.shell-plan__detail {
+  margin: 0;
+  color: var(--ds-muted-foreground);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.shell-plan__badge {
+  display: inline-block;
+  margin-left: 6px;
+  border-radius: 999px;
+  padding: 0 6px;
+  background: var(--ds-primary-soft);
+  color: var(--ds-primary);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  vertical-align: 1px;
+}
+
+/* User footer */
+.shell-user {
+  border-top: 1px solid var(--ds-sidebar-border);
+  padding: 8px;
+}
+
+.shell-user .dashboard-menu__trigger {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 9px;
+  border-radius: var(--ds-radius-lg);
+  padding: 6px 7px;
+  background: none;
+  cursor: pointer;
+  list-style: none;
+  text-align: left;
+  transition: background 120ms ease;
+}
+
+.shell-user .dashboard-menu__trigger::-webkit-details-marker {
+  display: none;
+}
+
+.shell-user .dashboard-menu__trigger:hover {
+  background: var(--ds-sidebar-accent);
+}
+
+.shell-user__avatar {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--ds-border);
+  border-radius: 999px;
+  background: var(--ds-surface);
+  color: var(--ds-foreground);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Top bar                                                                    */
+/* -------------------------------------------------------------------------- */
+
+.shell-body {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.shell-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--shell-bar-height);
+  border-bottom: 1px solid var(--ds-border);
+  padding: 0 16px;
+  background: color-mix(in oklab, var(--ds-background) 88%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.shell-topbar .dashboard-omni-trigger {
+  flex: 1 1 auto;
+  justify-content: flex-start;
+  gap: 8px;
+  max-width: 460px;
+  min-height: 34px;
+  /* The legacy rule centres the field; the reference anchors it left. */
+  margin-inline: 0;
+  border-color: var(--ds-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-surface);
+  color: var(--ds-muted-foreground);
+  font-size: 0.8125rem;
+}
+
+.shell-topbar .dashboard-omni-trigger > span {
+  flex: 1;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell-topbar .dashboard-omni-trigger kbd {
+  border-color: var(--ds-border);
+  border-radius: 4px;
+  background: var(--ds-background);
+  color: var(--ds-muted-foreground);
+  font-size: 0.6875rem;
+}
+
+.shell-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.shell-iconbutton {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid transparent;
+  border-radius: var(--ds-radius-md);
+  background: none;
+  color: var(--ds-muted-foreground);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.shell-iconbutton:hover {
+  background: var(--ds-sidebar-accent);
+  color: var(--ds-foreground);
+}
+
+.shell-cta {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  border: 0;
+  border-radius: var(--ds-radius-lg);
+  padding: 0 13px;
+  background: var(--ds-primary);
+  color: var(--ds-primary-foreground);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: filter 120ms ease;
+}
+
+.shell-cta:hover {
+  filter: brightness(1.06);
+}
+
+.shell-main {
+  min-width: 0;
+  flex: 1;
+}
+
+/* Focus is never removed, only made consistent across the chrome. */
+.shell :focus-visible {
+  outline: 2px solid var(--ds-primary);
+  outline-offset: 2px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Mobile                                                                     */
+/* -------------------------------------------------------------------------- */
+
+.shell-mobilebar {
+  display: none;
+}
+
+@media (max-width: 859px) {
+  .shell,
+  .shell.dashboard-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .shell-sidebar {
+    position: fixed;
+    z-index: 60;
+    left: 0;
+    width: min(300px, 86vw);
+    transform: translateX(-100%);
+    transition: transform 180ms ease;
+  }
+
+  .shell-sidebar[data-open="true"] {
+    transform: translateX(0);
+  }
+
+  .shell-mobilebar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: var(--shell-bar-height);
+    border-bottom: 1px solid var(--ds-border);
+    padding: 0 12px;
+    background: var(--ds-background);
+  }
+
+  .shell-topbar {
+    display: none;
+  }
+
+  .shell-mobilebar__title {
+    flex: 1;
+    overflow: hidden;
+    color: var(--ds-foreground);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .shell-backdrop {
+    position: fixed;
+    z-index: 50;
+    inset: 0;
+    border: 0;
+    background: oklch(0 0 0 / 0.5);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell-sidebar,
+  .shell-nav a,
+  .shell-topbar .dashboard-omni-trigger,
+  .shell-iconbutton,
+  .shell-cta,
+  .shell-workspace .dashboard-menu__trigger,
+  .shell-user .dashboard-menu__trigger {
+    transition: none;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Menus (workspace selector, user footer)                                    */
+/* -------------------------------------------------------------------------- */
+/*
+ * These live here rather than in globals.css because the shell owns the only
+ * two menus that use them; the previous attempt scoped them to a legacy
+ * `.dashboard-shell` wrapper that no longer exists, which left the chevron
+ * unsized and the footer unreadable.
+ */
+
+.shell .dashboard-menu {
+  position: relative;
+}
+
+.shell .dashboard-menu__chevron {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  color: var(--ds-muted-foreground);
+}
+
+.shell .dashboard-menu__content {
+  position: absolute;
+  z-index: 60;
+  min-width: 100%;
+  margin-top: 4px;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-lg);
+  padding: 4px;
+  background: var(--ds-popover);
+  box-shadow: var(--ds-shadow-overlay);
+}
+
+.shell .dashboard-menu__content--start {
+  left: 0;
+}
+
+.shell .dashboard-menu__content--end {
+  right: 0;
+  bottom: calc(100% + 4px);
+  margin-top: 0;
+}
+
+.shell .dashboard-menu__label {
+  margin: 0;
+  padding: 6px 8px 4px;
+  color: var(--ds-muted-foreground);
+  font-size: 0.6875rem;
+  font-weight: 500;
+}
+
+.shell .dashboard-menu__separator {
+  margin: 4px 0;
+  border: 0;
+  border-top: 1px solid var(--ds-border);
+}
+
+.shell .dashboard-menu__item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-radius: var(--ds-radius-md);
+  padding: 6px 8px;
+  background: none;
+  color: var(--ds-foreground);
+  font-size: 0.8125rem;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.shell .dashboard-menu__item:hover:not(:disabled) {
+  background: var(--ds-sidebar-accent);
+}
+
+.shell .dashboard-menu__item:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.shell .dashboard-menu__item[aria-checked="true"] {
+  color: var(--ds-primary);
+  font-weight: 600;
+}
+
+.shell .dashboard-menu__item--danger {
+  color: var(--ds-destructive, #e5484d);
+}
+
+.shell .dashboard-menu__item-main {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell .dashboard-menu__item-meta {
+  flex-shrink: 0;
+  color: var(--ds-muted-foreground);
+  font-size: 0.6875rem;
+}
