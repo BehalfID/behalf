@@ -83,6 +83,7 @@ export type PostgresReadyAggregate = (typeof POSTGRES_READY_AGGREGATES)[number];
 
 type AnyFn = (...args: never[]) => unknown;
 
+/** Unported methods throw here rather than falling back to Mongo; tracked in #144. */
 function notImplemented(aggregate: string, method: string): AnyFn {
   return (() => {
     throw new Error(`${method} is not implemented on postgres ${aggregate} adapter`);

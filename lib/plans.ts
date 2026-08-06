@@ -5,7 +5,7 @@ export const PRO_PLAN_PRICE_CENTS = 2000; // $20/month
  *
  * "pro" is the legacy Stripe-billed paid plan and keeps its historical limits.
  * "team" and "business" are internal tiers introduced ahead of Stripe/checkout
- * support; nothing assigns them automatically yet.
+ * support; nothing assigns them automatically yet. Tracked in #182.
  */
 export const PLANS = ["free", "pro", "team", "business", "enterprise"] as const;
 export type Plan = (typeof PLANS)[number];
