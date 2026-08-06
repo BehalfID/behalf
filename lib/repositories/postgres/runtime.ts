@@ -267,6 +267,7 @@ function bindVerificationLogs(db: BehalfPostgresDb): typeof mongoVerificationLog
     findOneLog: bindDb(db, pgVerificationLogs.findOneLog),
     countLogs: bindDb(db, pgVerificationLogs.countLogs),
     aggregateStats: bindDb(db, pgVerificationLogs.aggregateStats),
+    aggregateDailyDecisions: bindDb(db, pgVerificationLogs.aggregateDailyDecisions),
     findAgentNames: bindDb(db, pgVerificationLogs.findAgentNames),
     updateLogs: bindDb(db, pgVerificationLogs.updateLogs),
     deleteLogs: bindDb(db, pgVerificationLogs.deleteLogs),

@@ -583,3 +583,45 @@ export function createPostgresVerificationLogRepository(db: BehalfPostgresDb) {
 export type PostgresVerificationLogRepository = ReturnType<
   typeof createPostgresVerificationLogRepository
 >;
+
+/**
+ * Decisions per day, split into mutually exclusive outcomes.
+ *
+ * Categories are exclusive and exhaustive so the chart and the outcome split
+ * reconcile to the same population:
+ *   approval required → the gate fired, whatever the eventual answer
+ *   allowed           → executed without a gate
+ *   denied            → refused
+ *
+ * Shadow decisions are excluded: they record what *would* have happened and
+ * were never enforced, so counting them would overstate real activity.
+ */
+export async function aggregateDailyDecisions(
+  db: BehalfPostgresDb,
+  filter: { accountId: string; since: Date }
+): Promise<Array<{ day: string; allowed: number; denied: number; approvalRequired: number }>> {
+  const rows = await db
+    .select({
+      day: sql<string>`to_char(date_trunc('day', ${verificationLogs.createdAt}), 'YYYY-MM-DD')`,
+      approvalRequired: sql<number>`count(*) FILTER (WHERE ${verificationLogs.approvalRequired})::int`,
+      allowed: sql<number>`count(*) FILTER (WHERE ${verificationLogs.allowed} AND NOT ${verificationLogs.approvalRequired})::int`,
+      denied: sql<number>`count(*) FILTER (WHERE NOT ${verificationLogs.allowed} AND NOT ${verificationLogs.approvalRequired})::int`
+    })
+    .from(verificationLogs)
+    .where(
+      and(
+        eq(verificationLogs.accountId, filter.accountId),
+        gte(verificationLogs.createdAt, filter.since),
+        eq(verificationLogs.shadow, false)
+      )
+    )
+    .groupBy(sql`date_trunc('day', ${verificationLogs.createdAt})`)
+    .orderBy(sql`date_trunc('day', ${verificationLogs.createdAt})`);
+
+  return rows.map((row) => ({
+    day: row.day,
+    allowed: Number(row.allowed ?? 0),
+    denied: Number(row.denied ?? 0),
+    approvalRequired: Number(row.approvalRequired ?? 0)
+  }));
+}
