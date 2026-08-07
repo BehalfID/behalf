@@ -257,3 +257,26 @@
 #   only committed env file is .env.example / examples/site-guard-demo/.env.example; no key/cert
 #   files tracked; the sk-... strings in test/mcp-audit.test.ts are intentional test fixtures,
 #   not real credentials)
+
+# Last audit: 2026-08-07
+# Result: PASSED (after remediation)
+# - npm audit (root): found 1 high-severity advisory - js-yaml 4.3.0
+#   (GHSA-5p4m-2wfm-xmqj, quadratic CPU consumption in !!omap resolution,
+#   CVE-2026-59870 fix not backported to 4.x). Transitive build-time dep
+#   (eslint -> @eslint/eslintrc -> js-yaml), not runtime request-path code.
+#   npm audit --omit=dev was already 0 vulnerabilities. Fixed by adding a
+#   js-yaml ^4.3.1 override in package.json; re-audit is now clean.
+# - npm audit: 0 vulnerabilities in packages/cli, packages/github-action, packages/install,
+#   packages/mcp-audit, packages/mcp-runtime, packages/sdk, packages/egress-proxy,
+#   examples/enforcement-demo, examples/node-demo, examples/site-guard-express,
+#   examples/site-guard-nextjs, examples/webhook-receiver
+# - Unit tests: 2805 passed, 78 skipped (219/220 files, root); 146 passed (egress-proxy,
+#   install, github-action); 93 passed (mcp-runtime)
+#   - test/mongo-repository-contracts.test.ts (73 tests) could not execute: MongoMemoryServer
+#     binary download blocked by this sandbox's outbound network policy (fastdl.mongodb.org);
+#     unrelated to source changes and runs normally in GitHub Actions CI
+# - No hardcoded secrets detected (grepped for API key/AWS key/private-key/Slack-token/Google-API-key
+#   patterns across the repo, including the newer example dirs without their own package.json;
+#   only committed env file is .env.example / examples/site-guard-demo/.env.example; no key/cert
+#   files tracked; the sk-... strings in test/mcp-audit.test.ts are intentional test fixtures,
+#   not real credentials)
