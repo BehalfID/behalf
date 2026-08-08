@@ -280,3 +280,25 @@
 #   only committed env file is .env.example / examples/site-guard-demo/.env.example; no key/cert
 #   files tracked; the sk-... strings in test/mcp-audit.test.ts are intentional test fixtures,
 #   not real credentials)
+
+# Last audit: 2026-08-08
+# Result: PASSED (after remediation)
+# - npm audit (root): found 1 high-severity advisory - nanoid <3.3.17
+#   (GHSA-2v37-7h3g-55p8, custom generators can loop indefinitely when size
+#   is zero), a transitive dep via next -> postcss. Fixed with a
+#   nanoid ^3.3.17 override in package.json; re-audit is now clean.
+# - npm audit: 0 vulnerabilities in packages/cli, packages/github-action, packages/install,
+#   packages/mcp-audit, packages/mcp-runtime, packages/sdk, packages/egress-proxy,
+#   examples/enforcement-demo, examples/node-demo, examples/site-guard-express,
+#   examples/webhook-receiver
+# - examples/site-guard-nextjs: same nanoid advisory (own overrides block, not covered
+#   by the root workspace); fixed with matching nanoid ^3.3.17 override; re-audit clean
+# - Unit tests: 2805 passed, 78 skipped (219/220 files, root); 146 passed (egress-proxy,
+#   install, github-action); 93 passed (mcp-runtime)
+#   - test/mongo-repository-contracts.test.ts (73 tests) could not execute: MongoMemoryServer
+#     binary download blocked by this sandbox's outbound network policy (fastdl.mongodb.org);
+#     unrelated to source changes and runs normally in GitHub Actions CI
+# - No hardcoded secrets detected (grepped for AWS key/OpenAI key/Slack-token/Google-API-key/
+#   private-key patterns across the repo; only committed env file is .env.example /
+#   examples/site-guard-demo/.env.example; no key/cert files tracked; the sk-... string in
+#   test/mcp-audit.test.ts is an intentional test fixture, not a real credential)
