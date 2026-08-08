@@ -27,3 +27,4 @@ export const deleteLogs = delegate("verificationLogs", "deleteLogs", mongo.delet
 export const findOneVerificationLog = delegate("verificationLogs", "findOneVerificationLog", mongo.findOneVerificationLog);
 export const findVerificationLogs = delegate("verificationLogs", "findVerificationLogs", mongo.findVerificationLogs);
 export const aggregateVerificationLogs = delegate("verificationLogs", "aggregateVerificationLogs", mongo.aggregateVerificationLogs);
+export const aggregateDailyDecisions = delegate("verificationLogs", "aggregateDailyDecisions", mongo.aggregateDailyDecisions);

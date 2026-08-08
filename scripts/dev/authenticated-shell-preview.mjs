@@ -58,6 +58,7 @@ const PLAN = opt("plan", "business");
 const COMP = opt("comp", null);
 const ROLE = opt("role", "OWNER");
 const KEEP = args.includes("--keep");
+const POPULATED = args.includes("--populated");
 const PORT = Number(opt("port", "3222"));
 const PG_PORT = Number(opt("pg-port", "55433"));
 const BASE = `http://localhost:${PORT}`;
@@ -144,6 +145,84 @@ await client.query(
    VALUES ($1, $2, $3, $4, now() + interval '1 day', now())`,
   [publicId("sess"), userId, sha256(sessionToken), accountId]
 );
+// ---------------------------------------------------------------------------
+// Optional populated scenario: real agents, decisions and approvals written
+// through the real schemas so the Overview aggregates them exactly as it would
+// in production. No value is injected into the React page.
+// ---------------------------------------------------------------------------
+if (POPULATED) {
+  const agents = [
+    { name: "Cursor Production", provider: "custom" },
+    { name: "Claude Code Development", provider: "claude" },
+    { name: "Deploy Bot", provider: "custom" }
+  ].map((agent) => ({ ...agent, agentId: publicId("agent") }));
+
+  for (const agent of agents) {
+    await client.query(
+      `INSERT INTO agents
+         (agent_id, account_id, developer_user_id, name, agent_type, provider,
+          connection_status, api_key_hash, status)
+       VALUES ($1, $2, $3, $4, 'native', $5, 'manual', $6, 'active')`,
+      [agent.agentId, accountId, userId, agent.name, agent.provider, sha256(agent.agentId)]
+    );
+  }
+
+  // Fourteen days of decisions with a realistic outcome mix.
+  const actions = ["read_file", "write_file", "deploy_service", "run_query", "send_email"];
+  let logCount = 0;
+  for (let dayOffset = 13; dayOffset >= 0; dayOffset -= 1) {
+    const volume = 12 + ((dayOffset * 7) % 11);
+    for (let index = 0; index < volume; index += 1) {
+      const agent = agents[index % agents.length];
+      const roll = (dayOffset * 13 + index * 7) % 100;
+      const approvalRequired = roll >= 94;
+      const allowed = !approvalRequired && roll < 88;
+      const created = new Date(Date.now() - dayOffset * 86_400_000 - index * 90_000);
+      await client.query(
+        `INSERT INTO verification_logs
+           (log_id, request_id, account_id, developer_user_id, agent_id, action, vendor,
+            allowed, approval_required, reason, risk, shadow, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, false, $12)`,
+        [
+          publicId("log"),
+          publicId("req"),
+          accountId,
+          userId,
+          agent.agentId,
+          actions[index % actions.length],
+          agent.provider,
+          allowed,
+          approvalRequired,
+          approvalRequired ? "Requires approval" : allowed ? "Allowed by policy" : "Denied by policy",
+          roll >= 94 ? "high" : roll >= 70 ? "medium" : "low",
+          created
+        ]
+      );
+      logCount += 1;
+    }
+  }
+
+  for (const [index, action] of ["deploy_service", "run_query"].entries()) {
+    await client.query(
+      `INSERT INTO approval_requests
+         (approval_id, request_id, account_id, developer_user_id, agent_id, action, vendor,
+          status, kind, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', 'agent_action', now())`,
+      [
+        publicId("apr"),
+        publicId("req"),
+        accountId,
+        userId,
+        agents[index].agentId,
+        action,
+        agents[index].provider
+      ]
+    );
+  }
+
+  console.log(`seeded ${agents.length} agents, ${logCount} decisions, 2 pending approvals`);
+}
+
 console.log(`seeded "BehalfID" (plan=${PLAN}${COMP ? `, comp=${COMP}` : ""}, role=${ROLE})`);
 
 server = spawn("npm", ["start"], {

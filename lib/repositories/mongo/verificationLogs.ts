@@ -162,3 +162,51 @@ export const create = lazyModelMethod(() => VerificationLog, "create");
 export const updateMany = lazyModelMethod(() => VerificationLog, "updateMany");
 export const deleteMany = lazyModelMethod(() => VerificationLog, "deleteMany");
 export const countDocuments = lazyModelMethod(() => VerificationLog, "countDocuments");
+
+/**
+ * Decisions per day, split into mutually exclusive outcomes.
+ * Mirrors the Postgres adapter's classification exactly — see that file for the
+ * semantics of each bucket and why shadow decisions are excluded.
+ */
+export async function aggregateDailyDecisions(filter: {
+  accountId: string;
+  since: Date;
+}): Promise<Array<{ day: string; allowed: number; denied: number; approvalRequired: number }>> {
+  const rows = await VerificationLog.aggregate([
+    {
+      $match: {
+        accountId: filter.accountId,
+        createdAt: { $gte: filter.since },
+        $or: [{ shadow: false }, { shadow: null }]
+      }
+    },
+    {
+      $group: {
+        _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: "UTC" } },
+        approvalRequired: { $sum: { $cond: ["$approvalRequired", 1, 0] } },
+        allowed: {
+          $sum: {
+            $cond: [{ $and: ["$allowed", { $not: ["$approvalRequired"] }] }, 1, 0]
+          }
+        },
+        denied: {
+          $sum: {
+            $cond: [
+              { $and: [{ $not: ["$allowed"] }, { $not: ["$approvalRequired"] }] },
+              1,
+              0
+            ]
+          }
+        }
+      }
+    },
+    { $sort: { _id: 1 } }
+  ]);
+
+  return rows.map((row) => ({
+    day: String(row._id),
+    allowed: Number(row.allowed ?? 0),
+    denied: Number(row.denied ?? 0),
+    approvalRequired: Number(row.approvalRequired ?? 0)
+  }));
+}
