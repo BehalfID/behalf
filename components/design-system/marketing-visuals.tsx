@@ -575,6 +575,7 @@ export function AuthorityMap({ className }: { className?: string }) {
                 onClick={() => setActive(i)}
                 className="flex shrink-0 items-start gap-5 text-left md:block"
                 aria-current={i === active}
+                aria-label={n.label}
               >
                 <span
                   className={cn(

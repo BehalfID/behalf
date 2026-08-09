@@ -22,7 +22,7 @@ const plans = [
     name: "Free",
     price: "$0",
     cadence: "forever",
-    blurb: "Evaluate enforcement against real agent traffic.",
+    blurb: "For solo builders evaluating enforcement against real agent traffic.",
     cta: "Start free",
     href: "/signup",
     features: [
@@ -37,7 +37,7 @@ const plans = [
     name: "Pro",
     price: `$${PRO_PLAN_PRICE_CENTS / 100}`,
     cadence: "per month",
-    blurb: "Enforced permissions, webhooks, and team-ready limits.",
+    blurb: "For small teams enforcing permissions, webhooks and approvals in production.",
     cta: "Start building",
     href: "/signup",
     featured: true,
@@ -54,7 +54,7 @@ const plans = [
     name: "Enterprise",
     price: "Custom",
     cadence: "annual",
-    blurb: "Organisation-wide policy, retention, and procurement.",
+    blurb: "For organisations that need custom retention, procurement and security review.",
     cta: "Contact sales",
     href: "/contact",
     features: [
@@ -90,7 +90,7 @@ const matrix: { label: string; values: (string | boolean)[] }[] = [
     values: [
       `${free.logRetentionDays} days`,
       `${pro.logRetentionDays} days`,
-      "Custom / up to 13 months"
+      `Custom / up to ${enterprise.logRetentionDays} days`
     ]
   },
   {
@@ -127,6 +127,50 @@ const faqs = [
   }
 ];
 
+/**
+ * Structured data mirrors the visible page: the two purchasable self-serve
+ * plans and the billing FAQ rendered below. Team/Business are internal
+ * entitlement tiers without public checkout, so they are not marked up as offers.
+ */
+const pricingJsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://behalfid.com/#software",
+      name: "BehalfID",
+      url: "https://behalfid.com",
+      applicationCategory: "DeveloperApplication",
+      operatingSystem: "Web",
+      offers: [
+        {
+          "@type": "Offer",
+          name: "Free plan",
+          price: "0",
+          priceCurrency: "USD",
+          url: "https://behalfid.com/pricing"
+        },
+        {
+          "@type": "Offer",
+          name: `Pro plan ($${PRO_PLAN_PRICE_CENTS / 100}/month)`,
+          price: String(PRO_PLAN_PRICE_CENTS / 100),
+          priceCurrency: "USD",
+          url: "https://behalfid.com/pricing"
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://behalfid.com/pricing#faq",
+      mainEntity: faqs.map((faq) => ({
+        "@type": "Question",
+        name: faq.q,
+        acceptedAnswer: { "@type": "Answer", text: faq.a }
+      }))
+    }
+  ]
+};
+
 export function PricingPage({
   authAction,
   googleEnabled
@@ -136,11 +180,15 @@ export function PricingPage({
 }) {
   return (
     <MarketingLayout authAction={authAction} googleEnabled={googleEnabled}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingJsonLd) }}
+      />
       <Section>
         <SectionHeading
           eyebrow="Pricing"
-          title="Pay for decisions, not seats"
-          description="Limits below come from current production entitlements. Higher tiers add volume, retention, and organisational controls — the policy engine is the same."
+          title="Start free. Upgrade when you enforce in production."
+          description="Limits below come from current production entitlements. Free and Pro are self-serve — no sales call. Higher tiers add volume, retention, and organisational controls — the policy engine is the same."
         />
 
         <div className="mt-10 grid gap-4 lg:grid-cols-3">
@@ -188,6 +236,25 @@ export function PricingPage({
             </div>
           ))}
         </div>
+        <p className="mt-8 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+          Running a security review? The{" "}
+          <Link
+            href="/security"
+            className="text-primary underline underline-offset-2"
+            onClick={crossAppClickHandler("/security")}
+          >
+            security model
+          </Link>{" "}
+          and current{" "}
+          <Link
+            href="/compliance"
+            className="text-primary underline underline-offset-2"
+            onClick={crossAppClickHandler("/compliance")}
+          >
+            compliance posture
+          </Link>{" "}
+          are documented, including what is and isn&apos;t certified today.
+        </p>
       </Section>
 
       <Section className="bg-surface-2">

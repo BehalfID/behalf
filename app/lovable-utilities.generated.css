@@ -228,6 +228,9 @@
 .ds .collapse {
   visibility: collapse;
 }
+.ds .invisible {
+  visibility: hidden;
+}
 .ds .visible {
   visibility: visible;
 }
@@ -1019,6 +1022,9 @@
 .ds .pt-5 {
   padding-top: calc(var(--spacing) * 5);
 }
+.ds .pt-7 {
+  padding-top: calc(var(--spacing) * 7);
+}
 .ds .pt-10 {
   padding-top: calc(var(--spacing) * 10);
 }
@@ -1229,6 +1235,12 @@
 }
 .ds .uppercase {
   text-transform: uppercase;
+}
+.ds .underline {
+  text-decoration-line: underline;
+}
+.ds .underline-offset-2 {
+  text-underline-offset: 2px;
 }
 .ds .opacity-40 {
   opacity: 40%;
@@ -1534,6 +1546,9 @@
   }
   .ds .lg\:hidden {
     display: none;
+  }
+  .ds .lg\:grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .ds .lg\:grid-cols-3 {
     grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -5,15 +5,17 @@ import { getPublicAuthAction } from "@/lib/publicAuthAction";
 import { isGoogleOAuthConfigured } from "@/lib/googleOAuth";
 
 const description =
-  "BehalfID gives every AI agent an identity, clear permissions and approval rules — and learns from human approval decisions so control gets more precise over time.";
+  "Approval gates and runtime authorization for AI coding agents. Decide what agents such as Claude Code, Codex and Cursor may do, what is denied, and what requires human approval — decided before integrated actions run.";
+
+const title = "BehalfID — Approval gates for coding agents";
 
 export const homepageMetadata: Metadata = {
-  title: "BehalfID — Give AI agents freedom, keep their authority controlled",
+  title,
   description,
   alternates: { canonical: "/" },
   robots: { index: true, follow: true },
   openGraph: {
-    title: "BehalfID — Give AI agents freedom, keep their authority controlled",
+    title,
     description,
     url: "https://behalfid.com",
     siteName: "BehalfID",
@@ -21,7 +23,7 @@ export const homepageMetadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "BehalfID — Give AI agents freedom, keep their authority controlled",
+    title,
     description
   }
 };
@@ -44,7 +46,33 @@ const jsonLd = {
       description,
       publisher: { "@id": "https://behalfid.com/#organization" },
       datePublished: "2026-05-03",
-      dateModified: "2026-08-02"
+      dateModified: "2026-08-09"
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://behalfid.com/#software",
+      name: "BehalfID",
+      url: "https://behalfid.com",
+      description,
+      applicationCategory: "DeveloperApplication",
+      operatingSystem: "Web",
+      publisher: { "@id": "https://behalfid.com/#organization" },
+      offers: [
+        {
+          "@type": "Offer",
+          name: "Free plan",
+          price: "0",
+          priceCurrency: "USD",
+          url: "https://behalfid.com/pricing"
+        },
+        {
+          "@type": "Offer",
+          name: "Pro plan ($20/month)",
+          price: "20",
+          priceCurrency: "USD",
+          url: "https://behalfid.com/pricing"
+        }
+      ]
     }
   ]
 };

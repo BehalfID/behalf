@@ -53,15 +53,15 @@ export function LovableHomeContent() {
         <div className="mx-auto max-w-7xl px-5 pt-10 sm:px-8 sm:pt-14 lg:pt-16 xl:pt-[5.5rem]">
           <div className="max-w-3xl">
             <div className="inline-flex items-center gap-2.5 text-[11px] font-medium uppercase tracking-[0.2em] text-primary">
-              <span aria-hidden>/</span> Authority for AI agents
+              <span aria-hidden>/</span> Approval gates for coding agents
             </div>
             <h1 className="display-2xl mt-7">
               Give AI agents freedom.
               <span className="mt-1 block text-muted-foreground">Keep their authority controlled.</span>
             </h1>
             <p className="mt-8 max-w-lg text-[18px] leading-relaxed text-muted-foreground">
-              Every agent gets an identity, a clear scope and a decision before it acts. BehalfID learns from human
-              decisions to make that control more precise over time.
+              Decide what coding agents such as Claude Code, Codex and Cursor may do, what is always denied, and what
+              requires human approval &mdash; before the action runs, not after.
             </p>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
               <Link
@@ -108,11 +108,47 @@ export function LovableHomeContent() {
           <div className="flex flex-wrap items-end justify-between gap-8">
             <h2 className="display-lg max-w-[18ch]">One path, from request to action.</h2>
             <p className="max-w-sm text-[16px] leading-relaxed text-muted-foreground">
-              Nothing an agent does skips a checkpoint. Routine work passes without friction; risk stops and waits.
+              Inside the enforcement path, nothing skips the checkpoint. Routine work passes without friction; risk
+              stops and waits.
             </p>
           </div>
           <SlashSeam className="my-14 max-w-[220px]" />
           <AuthorityMap />
+
+          {/* Enforcement boundary: structural vs advisory — kept in sync with /security */}
+          <div className="hairline-t mt-16 pt-10">
+            <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary">
+              Enforcement boundary
+            </div>
+            <div className="mt-6 grid gap-10 lg:grid-cols-2">
+              <div>
+                <h3 className="text-[16px] font-medium">Structural enforcement</h3>
+                <p className="mt-3 max-w-lg text-[15px] leading-relaxed text-muted-foreground">
+                  Where the check sits in the execution path &mdash; action-time hooks installed by the CLI,{" "}
+                  <code className="font-mono text-[13px]">behalf.verify()</code>{" "}
+                  in your own code, or the Action Gateway &mdash; a denied or approval-required decision means the
+                  integrated executor does not run.
+                  Outage behavior is path-specific and documented per integration.
+                </p>
+              </div>
+              <div>
+                <h3 className="text-[16px] font-medium">Advisory context</h3>
+                <p className="mt-3 max-w-lg text-[15px] leading-relaxed text-muted-foreground">
+                  Advisory MCP tools, passport links and memory blocks tell an agent what it is allowed to do. They
+                  inform the model &mdash; they do not intercept. An action that bypasses the enforcement point cannot
+                  be stopped by an advisory integration.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/security"
+              className="group mt-8 inline-flex items-center gap-2 text-[15px] text-primary hover:underline"
+              onClick={crossAppClickHandler("/security")}
+            >
+              How enforcement works
+              <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -261,10 +297,16 @@ export function LovableHomeContent() {
                 ]}
               />
               <div className="min-w-0 overflow-hidden rounded-xl bg-surface p-5">
-                <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                <div id="decision-example-label" className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
                   Decision
                 </div>
-                <pre className="mt-4 max-w-full overflow-x-auto font-mono text-[12.5px] leading-relaxed text-muted-foreground">
+                {/* Horizontally scrollable: focusable so keyboard users can scroll it. */}
+                <pre
+                  tabIndex={0}
+                  role="region"
+                  aria-labelledby="decision-example-label"
+                  className="mt-4 max-w-full overflow-x-auto font-mono text-[12.5px] leading-relaxed text-muted-foreground"
+                >
                   {decisionSnippet}
                 </pre>
               </div>
@@ -279,7 +321,7 @@ export function LovableHomeContent() {
           <h2 className="display-lg max-w-[14ch]">Default to no. Allow with intent.</h2>
           <dl>
             {[
-              ["Evaluated before execution", "Every sensitive action is decided before it can take effect."],
+              ["Evaluated before execution", "Integrated action paths — hooks, SDK, gateway — get an allow, deny or approval decision before the action takes effect."],
               ["Scoped, single-use approvals", "An approval covers one request and expires on its own."],
               ["Decision logs", "Allowed, denied or approved — with who decided, the policy path, and why."],
               ["Managed profiles", "Reusable controls for coding agents at the tool boundary, including pause and required modes."],
@@ -291,6 +333,17 @@ export function LovableHomeContent() {
               </div>
             ))}
           </dl>
+        </div>
+        <div className="hairline-t mt-2 grid gap-10 pt-7 lg:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)] lg:gap-16">
+          <div aria-hidden />
+          <Link
+            href="/security"
+            className="group inline-flex items-center gap-2 text-[15px] text-primary hover:underline"
+            onClick={crossAppClickHandler("/security")}
+          >
+            Read the full security model
+            <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
+          </Link>
         </div>
       </Section>
     </>

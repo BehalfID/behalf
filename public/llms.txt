@@ -1,13 +1,15 @@
 # BehalfID
 
-> Permission passports for AI agents.
+> Runtime authorization and approval gates for AI agents.
 
-BehalfID helps developers and users define what AI agents are allowed to do and verify actions before they happen.
+BehalfID helps developers and teams define what AI agents — including coding agents such as Claude Code, Codex, and Cursor — are allowed to do, what is denied, and what requires human approval, with verification before integrated actions execute.
 
 Primary site:
 https://behalfid.com
 
 Key pages:
+- https://behalfid.com/pricing
+- https://behalfid.com/compliance
 - https://behalfid.com/docs
 - https://behalfid.com/docs/quickstart
 - https://behalfid.com/docs/concepts
