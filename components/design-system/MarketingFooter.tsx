@@ -35,6 +35,7 @@ const columns = [
     title: "Trust",
     links: [
       { label: "Security", href: "/security" },
+      { label: "Compliance", href: "/compliance" },
       { label: "Privacy", href: "/privacy" },
       { label: "Terms", href: "/terms" },
       { label: "Legal", href: "/legal" }
@@ -50,7 +51,7 @@ export function MarketingFooter({ className }: { className?: string }) {
           <div>
             <Wordmark className="ds-text-17" />
             <p className="mt-4 ds-max-w-24ch text-sm leading-relaxed text-muted-foreground">
-              Identity and authority for AI agents.
+              Identity, permissions and approval gates for AI agents.
             </p>
           </div>
           {columns.map((column) => (

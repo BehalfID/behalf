@@ -49,26 +49,37 @@ export function CodeTabs({
   if (!current) return null;
   return (
     <div className={cn("overflow-hidden rounded-lg border bg-surface", className)}>
-      <div role="tablist" aria-label="Code examples" className="flex items-center gap-1 overflow-x-auto border-b bg-surface-2 px-1.5 py-1">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            role="tab"
-            aria-selected={t.id === current.id}
-            onClick={() => setActive(t.id)}
-            className={cn(
-              "rounded-md px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground",
-              t.id === current.id && "bg-surface text-foreground shadow-subtle",
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
+      {/* The copy button stays outside the tablist: role="tablist" may only own tabs. */}
+      <div className="flex items-center gap-1 border-b bg-surface-2 px-1.5 py-1">
+        <div role="tablist" aria-label="Code examples" className="flex min-w-0 items-center gap-1 overflow-x-auto">
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              id={`${t.id}-tab`}
+              role="tab"
+              aria-selected={t.id === current.id}
+              aria-controls={`${t.id}-panel`}
+              onClick={() => setActive(t.id)}
+              className={cn(
+                "rounded-md px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground",
+                t.id === current.id && "bg-surface text-foreground shadow-subtle",
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
         <div className="ml-auto pr-1">
           <CopyButton value={current.code} />
         </div>
       </div>
-      <pre className="overflow-x-auto px-3 py-3 text-[12.5px] leading-relaxed">
+      <pre
+        id={`${current.id}-panel`}
+        role="tabpanel"
+        aria-labelledby={`${current.id}-tab`}
+        tabIndex={0}
+        className="overflow-x-auto px-3 py-3 text-[12.5px] leading-relaxed"
+      >
         <code>{current.code}</code>
       </pre>
     </div>
