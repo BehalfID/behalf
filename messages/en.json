@@ -187,7 +187,7 @@
       "prefsBody": "Theme preference (light / dark) is stored in <code>localStorage</code> and never transmitted to our servers.",
       "consentH": "Cookie consent",
       "consentBody": "Your cookie-consent choice is stored in <code>localStorage</code> under the key <code>behalf_cookie_consent</code>. A minimal log entry (consent state only — no personal data) is also written server-side for product-integrity purposes.",
-      "noThirdParty": "No third-party or advertising cookies are used. BehalfID does not load tracking pixels, fingerprinting scripts, or analytics SDKs."
+      "noThirdParty": "No advertising cookies and no cross-site tracking are used. If you choose “Accept all”, our analytics provider (HeyCatch) sets a first-party analytics cookie and stores a random device identifier in localStorage and sessionStorage to measure product usage. Choosing “Essential only” means the analytics SDK is never initialised and none of that storage is written. No advertising networks, tracking pixels, or fingerprinting scripts are loaded."
     },
     "s4": {
       "heading": "4. How we use your data",
@@ -201,7 +201,7 @@
     },
     "s5": {
       "heading": "5. Analytics",
-      "body": "BehalfID does not use third-party analytics, advertising networks, or cross-site tracking. No tracking cookies or fingerprinting scripts are loaded on any page of the service."
+      "body": "BehalfID uses HeyCatch for product analytics, and only after you accept analytics storage. It records pageviews, clicks, and in-app navigation, plus business events such as subscription changes sent from our servers. Session recording, surveys, and feature-flag requests are disabled in our configuration. We do not use advertising networks or cross-site tracking. Analytics never starts before consent, and choosing “Essential only” keeps it off entirely."
     },
     "s6": {
       "heading": "6. Data retention",
@@ -229,7 +229,10 @@
       "row2Data": "Request metadata (IP, path) for routing and abuse prevention",
       "row3Proc": "Stripe",
       "row3Purpose": "Payment processing and subscription management",
-      "row3Data": "Email address, billing name, payment card details (held by Stripe only), subscription events"
+      "row3Data": "Email address, billing name, payment card details (held by Stripe only), subscription events",
+      "row4Proc": "HeyCatch",
+      "row4Purpose": "Product analytics (only after analytics consent)",
+      "row4Data": "Pageviews, clicks, in-app navigation, a random device identifier, and — once signed in — your user id, email, name, and plan; plus subscription events sent from our servers"
     },
     "s8": {
       "heading": "8. Your rights",
@@ -622,7 +625,7 @@
       "item7": "Rate limiting on all public endpoints to prevent abuse",
       "item8": "Audit trail of every permission decision (agent ID, action, outcome, timestamp)",
       "item9": "IP addresses used for rate limiting and security event logging; not sold or used for advertising",
-      "item10": "No third-party advertising trackers or cross-site tracking scripts"
+      "item10": "Product analytics (HeyCatch) initialise only after analytics consent; no advertising trackers, no cross-site tracking, and session recording disabled"
     },
     "contact": {
       "heading": "Contact",
@@ -750,7 +753,7 @@
     "signUp": "Sign up"
   },
   "cookies": {
-    "body": "We use a session cookie to keep you signed in. No analytics or tracking cookies are used.",
+    "body": "We use a session cookie to keep you signed in. If you accept, we also set a first-party analytics cookie to measure product usage. No advertising or cross-site tracking cookies.",
     "privacyLink": "Privacy policy",
     "essentialOnly": "Essential only",
     "acceptAll": "Accept all",

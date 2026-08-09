@@ -4,34 +4,36 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { isDashboardPath } from "@/lib/dashboardShellPresentation";
+import { CONSENT_STORAGE_KEY, publishAnalyticsConsent } from "@/lib/analytics/consent";
 
-const CONSENT_KEY = "behalf_cookie_consent";
+/** Analytics init is gated on this value — see lib/analytics/consent.ts. */
+const CONSENT_KEY = CONSENT_STORAGE_KEY;
 
 // Inline translations so this works outside next-intl provider (dashboard, etc.)
 const TRANSLATIONS: Record<string, { body: string; privacy: string; essential: string; accept: string; dialog: string }> = {
   de: {
-    body: "Wir verwenden ein Sitzungs-Cookie, um Sie angemeldet zu halten. Es werden keine Analyse- oder Tracking-Cookies verwendet.",
+    body: "Wir verwenden ein Sitzungs-Cookie, um Sie angemeldet zu halten. Wenn Sie zustimmen, setzen wir zusätzlich ein Erstanbieter-Analyse-Cookie zur Messung der Produktnutzung. Keine Werbe- oder websiteübergreifenden Tracking-Cookies.",
     privacy: "Datenschutzrichtlinie",
     essential: "Nur notwendige",
     accept: "Alle akzeptieren",
     dialog: "Website-Einstellungen",
   },
   es: {
-    body: "Usamos una cookie de sesión para mantenerte conectado. No se usan cookies de análisis ni de seguimiento.",
+    body: "Usamos una cookie de sesión para mantenerte conectado. Si aceptas, también usamos una cookie de análisis propia para medir el uso del producto. Sin cookies publicitarias ni de seguimiento entre sitios.",
     privacy: "Política de privacidad",
     essential: "Solo esencial",
     accept: "Aceptar todo",
     dialog: "Preferencias del sitio",
   },
   fr: {
-    body: "Nous utilisons un cookie de session pour vous maintenir connecté. Aucun cookie d'analyse ou de suivi n'est utilisé.",
+    body: "Nous utilisons un cookie de session pour vous maintenir connecté. Si vous acceptez, nous utilisons également un cookie d'analyse propriétaire pour mesurer l'usage du produit. Aucun cookie publicitaire ni de suivi intersites.",
     privacy: "Politique de confidentialité",
     essential: "Essentiel uniquement",
     accept: "Tout accepter",
     dialog: "Préférences du site",
   },
   en: {
-    body: "We use a session cookie to keep you signed in. No analytics or tracking cookies are used.",
+    body: "We use a session cookie to keep you signed in. If you accept, we also set a first-party analytics cookie to measure product usage. No advertising or cross-site tracking cookies.",
     privacy: "Privacy policy",
     essential: "Essential only",
     accept: "Accept all",
@@ -104,6 +106,8 @@ export function CookieBanner() {
   function accept() {
     rememberConsent("accepted");
     ping("accepted");
+    // Starts analytics in this document without waiting for a reload.
+    publishAnalyticsConsent();
     setVisible(false);
   }
 

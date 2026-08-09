@@ -30,10 +30,19 @@ export function shouldBypassIntl(pathname: string) {
 // require it. For script-src, 'unsafe-inline' is dropped in favour of a per-request
 // nonce. Next.js reads the x-nonce request header and applies the nonce to all
 // inline script tags it generates during streaming SSR.
+// HeyCatch analytics ingest. The SDK is bundled from npm (so it needs no
+// script-src origin) but sends events to its default apiHost, which must be
+// reachable from connect-src. This is the only analytics origin the SDK uses.
+export const ANALYTICS_INGEST_ORIGIN = "https://in.heycatch.ai";
+
 export function buildCsp(nonce: string, isDev: boolean) {
+  // The analytics origin is listed so the SDK's own tracing-headers script can
+  // load. In production 'strict-dynamic' makes host allowlists a no-op (the
+  // script inherits trust from the nonced bundle that injects it); the host is
+  // kept for the same non-strict-dynamic fallback path as 'unsafe-inline'.
   const scriptSrc = isDev
-    ? `'nonce-${nonce}' 'unsafe-inline' 'unsafe-eval'`
-    : `'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline'`;
+    ? `'nonce-${nonce}' 'unsafe-inline' 'unsafe-eval' ${ANALYTICS_INGEST_ORIGIN}`
+    : `'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline' ${ANALYTICS_INGEST_ORIGIN}`;
   // 'strict-dynamic' causes compliant browsers to ignore 'unsafe-inline',
   // allowing scripts loaded by a nonced script to run. 'unsafe-inline' is
   // kept as a fallback for browsers that don't support strict-dynamic.
@@ -52,7 +61,7 @@ export function buildCsp(nonce: string, isDev: boolean) {
     `style-src ${styleSrc}`,
     "img-src 'self' data:",
     `font-src ${fontSrc}`,
-    "connect-src 'self'",
+    `connect-src 'self' ${ANALYTICS_INGEST_ORIGIN}`,
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",

@@ -187,7 +187,7 @@
       "prefsBody": "La preferencia de tema (claro / oscuro) se almacena en <code>localStorage</code> y nunca se transmite a nuestros servidores.",
       "consentH": "Consentimiento de cookies",
       "consentBody": "Tu elección de consentimiento de cookies se almacena en <code>localStorage</code> bajo la clave <code>behalf_cookie_consent</code>. También se escribe una entrada de registro mínima (solo estado de consentimiento — sin datos personales) en el servidor para fines de integridad del producto.",
-      "noThirdParty": "No se usan cookies de terceros ni de publicidad. BehalfID no carga píxeles de seguimiento, scripts de fingerprinting ni SDKs de análisis."
+      "noThirdParty": "No se usan cookies publicitarias ni seguimiento entre sitios. Si eliges «Aceptar todo», nuestro proveedor de análisis (HeyCatch) establece una cookie de análisis propia y guarda un identificador de dispositivo aleatorio en localStorage y sessionStorage para medir el uso del producto. Al elegir «Solo esencial», el SDK de análisis nunca se inicializa y no se escribe ninguno de esos datos. No se cargan redes publicitarias, píxeles de seguimiento ni scripts de fingerprinting."
     },
     "s4": {
       "heading": "4. Cómo usamos tus datos",
@@ -201,7 +201,7 @@
     },
     "s5": {
       "heading": "5. Análisis",
-      "body": "BehalfID no usa análisis de terceros, redes publicitarias ni seguimiento entre sitios. No se cargan cookies de seguimiento ni scripts de fingerprinting en ninguna página del servicio."
+      "body": "BehalfID usa HeyCatch para análisis de producto, y solo después de que aceptes el almacenamiento de análisis. Registra vistas de página, clics y navegación dentro de la app, además de eventos de negocio como cambios de suscripción enviados desde nuestros servidores. La grabación de sesiones, las encuestas y las peticiones de feature flags están desactivadas en nuestra configuración. No usamos redes publicitarias ni seguimiento entre sitios. El análisis nunca se inicia antes del consentimiento, y «Solo esencial» lo mantiene desactivado por completo."
     },
     "s6": {
       "heading": "6. Retención de datos",
@@ -229,7 +229,10 @@
       "row2Data": "Metadatos de solicitud (IP, ruta) para enrutamiento y prevención de abusos",
       "row3Proc": "Stripe",
       "row3Purpose": "Procesamiento de pagos y gestión de suscripciones",
-      "row3Data": "Dirección de correo, nombre de facturación, detalles de tarjeta de pago (conservados solo por Stripe), eventos de suscripción"
+      "row3Data": "Dirección de correo, nombre de facturación, detalles de tarjeta de pago (conservados solo por Stripe), eventos de suscripción",
+      "row4Proc": "HeyCatch",
+      "row4Purpose": "Análisis de producto (solo tras el consentimiento de análisis)",
+      "row4Data": "Vistas de página, clics, navegación en la app, un identificador de dispositivo aleatorio y — tras iniciar sesión — tu id de usuario, correo, nombre y plan; además de eventos de suscripción enviados desde nuestros servidores"
     },
     "s8": {
       "heading": "8. Tus derechos",
@@ -622,7 +625,7 @@
       "item7": "Limitación de velocidad en todos los endpoints públicos para prevenir abusos",
       "item8": "Rastro de auditoría de cada decisión de permisos (ID de agente, acción, resultado, marca de tiempo)",
       "item9": "Direcciones IP usadas solo para limitación de velocidad; no persistidas ni vinculadas a cuentas",
-      "item10": "Sin análisis de terceros, rastreadores de publicidad ni scripts de seguimiento entre sitios"
+      "item10": "El análisis de producto (HeyCatch) se inicia solo tras el consentimiento de análisis; sin rastreadores publicitarios, sin seguimiento entre sitios y con la grabación de sesiones desactivada"
     },
     "contact": {
       "heading": "Contacto",
@@ -750,7 +753,7 @@
     "signUp": "Registrarse"
   },
   "cookies": {
-    "body": "Usamos una cookie de sesión para mantenerte conectado. No se usan cookies de análisis ni de seguimiento.",
+    "body": "Usamos una cookie de sesión para mantenerte conectado. Si aceptas, también usamos una cookie de análisis propia para medir el uso del producto. Sin cookies publicitarias ni de seguimiento entre sitios.",
     "privacyLink": "Política de privacidad",
     "essentialOnly": "Solo esencial",
     "acceptAll": "Aceptar todo",

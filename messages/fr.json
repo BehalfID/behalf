@@ -187,7 +187,7 @@
       "prefsBody": "La préférence de thème (clair / sombre) est stockée dans <code>localStorage</code> et n'est jamais transmise à nos serveurs.",
       "consentH": "Consentement aux cookies",
       "consentBody": "Votre choix de consentement aux cookies est stocké dans <code>localStorage</code> sous la clé <code>behalf_cookie_consent</code>. Une entrée de journal minimale (état du consentement uniquement — sans données personnelles) est également écrite côté serveur à des fins d'intégrité du produit.",
-      "noThirdParty": "Aucun cookie tiers ni publicitaire n'est utilisé. BehalfID ne charge aucun pixel de suivi, script de fingerprinting ni SDK d'analyse."
+      "noThirdParty": "Aucun cookie publicitaire ni suivi intersites n'est utilisé. Si vous choisissez « Tout accepter », notre prestataire d'analyse (HeyCatch) dépose un cookie d'analyse propriétaire et stocke un identifiant d'appareil aléatoire dans localStorage et sessionStorage pour mesurer l'usage du produit. En choisissant « Essentiel uniquement », le SDK d'analyse n'est jamais initialisé et aucun de ces éléments n'est écrit. Aucun réseau publicitaire, pixel de suivi ou script de fingerprinting n'est chargé."
     },
     "s4": {
       "heading": "4. Comment nous utilisons vos données",
@@ -201,7 +201,7 @@
     },
     "s5": {
       "heading": "5. Analyses",
-      "body": "BehalfID n'utilise pas d'analyses tierces, de réseaux publicitaires ni de suivi inter-sites. Aucun cookie de suivi ni script de fingerprinting n'est chargé sur aucune page du service."
+      "body": "BehalfID utilise HeyCatch pour l'analyse produit, et uniquement après votre consentement au stockage d'analyse. Sont enregistrés les pages vues, les clics et la navigation dans l'application, ainsi que des événements métier comme les changements d'abonnement envoyés depuis nos serveurs. L'enregistrement de session, les sondages et les requêtes de feature flags sont désactivés dans notre configuration. Nous n'utilisons ni réseaux publicitaires ni suivi intersites. L'analyse ne démarre jamais avant le consentement, et « Essentiel uniquement » la laisse totalement désactivée."
     },
     "s6": {
       "heading": "6. Conservation des données",
@@ -229,7 +229,10 @@
       "row2Data": "Métadonnées de requête (IP, chemin) pour le routage et la prévention des abus",
       "row3Proc": "Stripe",
       "row3Purpose": "Traitement des paiements et gestion des abonnements",
-      "row3Data": "Adresse e-mail, nom de facturation, détails de carte de paiement (détenus par Stripe uniquement), événements d'abonnement"
+      "row3Data": "Adresse e-mail, nom de facturation, détails de carte de paiement (détenus par Stripe uniquement), événements d'abonnement",
+      "row4Proc": "HeyCatch",
+      "row4Purpose": "Analyse produit (uniquement après consentement analytique)",
+      "row4Data": "Pages vues, clics, navigation dans l'app, un identifiant d'appareil aléatoire et — une fois connecté — votre id utilisateur, e-mail, nom et offre ; ainsi que les événements d'abonnement envoyés par nos serveurs"
     },
     "s8": {
       "heading": "8. Vos droits",
@@ -622,7 +625,7 @@
       "item7": "Limitation de débit sur tous les endpoints publics pour prévenir les abus",
       "item8": "Piste d'audit de chaque décision de permission (ID agent, action, résultat, horodatage)",
       "item9": "Adresses IP utilisées uniquement pour la limitation de débit ; non persistées ni liées aux comptes",
-      "item10": "Aucun analytics tiers, traceurs publicitaires ou scripts de suivi intersites"
+      "item10": "L'analyse produit (HeyCatch) ne démarre qu'après consentement analytique ; aucun traceur publicitaire, aucun suivi intersites, enregistrement de session désactivé"
     },
     "contact": {
       "heading": "Contact",
@@ -750,7 +753,7 @@
     "signUp": "S'inscrire"
   },
   "cookies": {
-    "body": "Nous utilisons un cookie de session pour vous maintenir connecté. Aucun cookie d'analyse ou de suivi n'est utilisé.",
+    "body": "Nous utilisons un cookie de session pour vous maintenir connecté. Si vous acceptez, nous utilisons également un cookie d'analyse propriétaire pour mesurer l'usage du produit. Aucun cookie publicitaire ni de suivi intersites.",
     "privacyLink": "Politique de confidentialité",
     "essentialOnly": "Essentiel uniquement",
     "acceptAll": "Tout accepter",
