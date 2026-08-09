@@ -77,7 +77,7 @@ credential the caller can never retrieve again.
 | POST | `/api/billing/checkout` | app | session (developer); rate-limited | — | yes | no | stripe | accounts | no | 1 | P1 |
 | POST | `/api/billing/enterprise-inquiry` | app | public/none detected | — | yes | no | — | enterpriseInquiries | no | — | P1 |
 | POST | `/api/billing/portal` | app | session (developer); rate-limited | — | yes | no | stripe | — | no | — | P1 |
-| POST | `/api/billing/webhook` | app | public/none detected | — | yes | no | stripe | accounts, stripeEvents, webhooks | no | 3 | P1 |
+| POST | `/api/billing/webhook` | app | public/none detected | — | yes | no | stripe | accounts, memberships, stripeEvents, webhooks | no | 3 | P1 |
 | GET | `/api/cli/pause/approvals/:approvalRequestId` | www | rate-limited | — | no | no | — | — | no | 1 | P0 |
 | POST | `/api/cli/pause` | www | rate-limited | — | yes | no | — | — | no | 2 | P1 |
 | POST | `/api/cli/session-policy` | www | rate-limited | — | yes | no | — | — | no | 2 | P1 |
