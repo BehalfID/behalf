@@ -382,20 +382,23 @@ describe("Content-Security-Policy", () => {
     return buildCsp("test-nonce", isDev);
   }
 
-  it("keeps connect-src restricted to the same origin", async () => {
+  it("keeps connect-src restricted to the same origin plus the analytics ingest", async () => {
     for (const isDev of [true, false]) {
       expect(await csp(isDev)).toContain("connect-src 'self'");
     }
   });
 
   it("introduces no wildcard or cross-subdomain connect origin", async () => {
+    // The analytics ingest is the ONLY third-party connect origin, and it is a
+    // single pinned https host — no wildcard, no cross-subdomain widening.
     for (const isDev of [true, false]) {
       const policy = await csp(isDev);
       const connect = policy.split("; ").find((d) => d.startsWith("connect-src"));
-      expect(connect).toBe("connect-src 'self'");
+      expect(connect).toBe("connect-src 'self' https://in.heycatch.ai");
       expect(policy).not.toContain("*.behalfid.com");
       expect(policy).not.toContain("connect-src *");
       expect(policy).not.toContain("auth.behalfid.com");
+      expect(policy).not.toMatch(/connect-src[^;]*\*/);
     }
   });
 

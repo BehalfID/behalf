@@ -84,6 +84,23 @@ const nextConfig: NextConfig = {
       ...privatePageCacheHeaders,
       ...publicCacheHeaders
     ];
+  },
+  /**
+   * HeyCatch short links. Single-character paths (/a-/z, /0-/9) are reserved
+   * for channel attribution; the utm query IS the attribution, so this forwards
+   * to it rather than bare "/". Redirects run before middleware, so these never
+   * reach locale routing. No real single-character route exists in the app
+   * (locales are two characters; workspace slugs are matched deeper), so the
+   * pattern needs no exclusions.
+   */
+  async redirects() {
+    return [
+      {
+        source: "/:shortLink([a-z0-9])",
+        destination: "/?utm_source=heycatch&utm_campaign=:shortLink",
+        permanent: false
+      }
+    ];
   }
 };
 

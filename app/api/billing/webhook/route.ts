@@ -5,6 +5,65 @@ import { createStripeEventIfAbsent } from "@/lib/repositories/stripeEvents";
 import { updateEndpoints } from "@/lib/repositories/webhooks";
 import { getStripe } from "@/lib/stripe";
 import { effectiveEntitlements } from "@/lib/planGrants";
+import { findMembershipsByAccountId } from "@/lib/repositories/memberships";
+import { trackServerEvent, type AnalyticsProperties } from "@/lib/analytics/server";
+
+/**
+ * Analytics identity for an account-level billing fact.
+ *
+ * Analytics identifies people, but a subscription belongs to a workspace, so
+ * the event is attributed to the workspace OWNER — the same stable developer
+ * user id the browser sends to setIdentity, which is what joins the two sides.
+ * Returns null when no owner can be resolved, in which case the event is
+ * skipped rather than attributed to a guessed id.
+ */
+async function resolveOwnerUserId(accountId: string): Promise<string | null> {
+  try {
+    const memberships = await findMembershipsByAccountId(accountId);
+    const owner = memberships?.find((membership) => membership.role === "OWNER");
+    return owner?.userId ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Billing analytics must never change, fail, or stall the webhook's outcome.
+ * The send is awaited (a serverless handler must not freeze mid-send) but
+ * bounded, so a slow owner lookup or ingest call cannot hold up Stripe's
+ * delivery — Stripe retries on a slow response, which would double-process.
+ */
+const ANALYTICS_BUDGET_MS = 2_000;
+
+async function trackBillingEvent(
+  accountId: string | null | undefined,
+  event: string,
+  properties: AnalyticsProperties
+) {
+  if (!accountId) return;
+  const send = (async () => {
+    const userId = await resolveOwnerUserId(accountId);
+    if (!userId) return;
+    await trackServerEvent(event, { ...properties, account_id: accountId }, {
+      userId,
+      set: typeof properties.plan === "string" ? { plan: properties.plan } : undefined
+    });
+  })();
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      send,
+      new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, ANALYTICS_BUDGET_MS);
+      })
+    ]);
+  } catch {
+    // trackServerEvent already swallows; this is belt-and-braces.
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 async function setAccountWebhookStatus(accountId: string, status: "active" | "disabled") {
   const currentStatus = status === "active" ? "disabled" : "active";
@@ -84,6 +143,7 @@ export async function POST(request: NextRequest) {
         }
       );
       await setAccountWebhookStatus(accountId, "active");
+      await trackBillingEvent(accountId, "subscription_started", { plan: "pro" });
       break;
     }
 
@@ -111,6 +171,10 @@ export async function POST(request: NextRequest) {
         account.accountId,
         webhooksStayEnabled(account, isActive ? "pro" : "free") ? "active" : "disabled"
       );
+      await trackBillingEvent(account.accountId, "subscription_updated", {
+        plan: isActive ? "pro" : "free",
+        status: sub.status
+      });
       break;
     }
 
@@ -136,6 +200,7 @@ export async function POST(request: NextRequest) {
           account.accountId,
           webhooksStayEnabled(account, "free") ? "active" : "disabled"
         );
+        await trackBillingEvent(account.accountId, "subscription_canceled", { plan: "free" });
       }
       break;
     }
@@ -154,6 +219,7 @@ export async function POST(request: NextRequest) {
           account.accountId,
           webhooksStayEnabled(account, "free") ? "active" : "disabled"
         );
+        await trackBillingEvent(account.accountId, "payment_failed", { plan: "free" });
       }
       break;
     }

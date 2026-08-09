@@ -187,7 +187,7 @@
       "prefsBody": "Die Theme-Präferenz (hell / dunkel) wird in <code>localStorage</code> gespeichert und nie an unsere Server übertragen.",
       "consentH": "Cookie-Einwilligung",
       "consentBody": "Ihre Cookie-Einwilligungsentscheidung wird in <code>localStorage</code> unter dem Schlüssel <code>behalf_cookie_consent</code> gespeichert. Ein minimaler Protokolleintrag (nur Einwilligungsstatus — keine personenbezogenen Daten) wird auch serverseitig für Produktintegritätszwecke geschrieben.",
-      "noThirdParty": "Es werden keine Drittanbieter- oder Werbe-Cookies verwendet. BehalfID lädt keine Tracking-Pixel, Fingerprinting-Skripte oder Analytics-SDKs."
+      "noThirdParty": "Es werden keine Werbe-Cookies und kein websiteübergreifendes Tracking verwendet. Wenn Sie „Alle akzeptieren“ wählen, setzt unser Analyseanbieter (HeyCatch) ein Erstanbieter-Analyse-Cookie und speichert eine zufällige Gerätekennung in localStorage und sessionStorage, um die Produktnutzung zu messen. Bei „Nur notwendige“ wird das Analyse-SDK nie initialisiert und keiner dieser Speicherwerte geschrieben. Es werden keine Werbenetzwerke, Tracking-Pixel oder Fingerprinting-Skripte geladen."
     },
     "s4": {
       "heading": "4. Wie wir Ihre Daten verwenden",
@@ -201,7 +201,7 @@
     },
     "s5": {
       "heading": "5. Analyse",
-      "body": "BehalfID verwendet keine Drittanbieter-Analysen, Werbenetzwerke oder seitenübergreifendes Tracking. Auf keiner Seite des Dienstes werden Tracking-Cookies oder Fingerprinting-Skripte geladen."
+      "body": "BehalfID nutzt HeyCatch für Produktanalysen, und zwar erst nachdem Sie der Analyse-Speicherung zugestimmt haben. Erfasst werden Seitenaufrufe, Klicks und In-App-Navigation sowie Geschäftsereignisse wie Aboänderungen, die von unseren Servern gesendet werden. Sitzungsaufzeichnung, Umfragen und Feature-Flag-Anfragen sind in unserer Konfiguration deaktiviert. Wir verwenden keine Werbenetzwerke und kein websiteübergreifendes Tracking. Die Analyse startet nie vor der Einwilligung; mit „Nur notwendige“ bleibt sie vollständig aus."
     },
     "s6": {
       "heading": "6. Datenspeicherung",
@@ -229,7 +229,10 @@
       "row2Data": "Anfrage-Metadaten (IP, Pfad) für Routing und Missbrauchsprävention",
       "row3Proc": "Stripe",
       "row3Purpose": "Zahlungsverarbeitung und Abonnementverwaltung",
-      "row3Data": "E-Mail-Adresse, Rechnungsname, Zahlungskartendetails (nur bei Stripe), Abonnement-Ereignisse"
+      "row3Data": "E-Mail-Adresse, Rechnungsname, Zahlungskartendetails (nur bei Stripe), Abonnement-Ereignisse",
+      "row4Proc": "HeyCatch",
+      "row4Purpose": "Produktanalyse (nur nach Analyse-Einwilligung)",
+      "row4Data": "Seitenaufrufe, Klicks, In-App-Navigation, eine zufällige Gerätekennung und — nach der Anmeldung — Ihre Nutzer-ID, E-Mail, Name und Plan; zudem Abo-Ereignisse von unseren Servern"
     },
     "s8": {
       "heading": "8. Ihre Rechte",
@@ -622,7 +625,7 @@
       "item7": "Rate-Limiting auf allen öffentlichen Endpunkten zur Missbrauchsprävention",
       "item8": "Audit-Trail jeder Berechtigungsentscheidung (Agenten-ID, Aktion, Ergebnis, Zeitstempel)",
       "item9": "IP-Adressen nur für Rate-Limiting verwendet; nicht dauerhaft gespeichert oder mit Konten verknüpft",
-      "item10": "Keine Drittanbieter-Analytics, Werbe-Tracker oder Site-übergreifende Tracking-Skripte"
+      "item10": "Produktanalyse (HeyCatch) startet erst nach Analyse-Einwilligung; keine Werbe-Tracker, kein websiteübergreifendes Tracking, Sitzungsaufzeichnung deaktiviert"
     },
     "contact": {
       "heading": "Kontakt",
@@ -750,7 +753,7 @@
     "signUp": "Registrieren"
   },
   "cookies": {
-    "body": "Wir verwenden ein Sitzungs-Cookie, um Sie angemeldet zu halten. Es werden keine Analyse- oder Tracking-Cookies verwendet.",
+    "body": "Wir verwenden ein Sitzungs-Cookie, um Sie angemeldet zu halten. Wenn Sie zustimmen, setzen wir zusätzlich ein Erstanbieter-Analyse-Cookie zur Messung der Produktnutzung. Keine Werbe- oder websiteübergreifenden Tracking-Cookies.",
     "privacyLink": "Datenschutzrichtlinie",
     "essentialOnly": "Nur notwendige",
     "acceptAll": "Alle akzeptieren",

@@ -25,6 +25,9 @@ import {
   workspaceApiHref
 } from "@/lib/workspaceSlug";
 import { isDashboardNavItemActive, workspaceInitials } from "@/lib/dashboardShellPresentation";
+// Clears the analytics person on sign-out so the next visitor on this device
+// starts anonymous. No-op when analytics never initialised (consent declined).
+import { resetIdentity } from "@/lib/analytics/identity";
 import "./dashboard-chrome.css";
 
 /**
@@ -310,7 +313,9 @@ function UserFooter({
       <div className="shell-user">
         {/* A document navigation is intentional: the GET route clears the session. */}
         {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-        <a className="shell-cta" href="/logout">Log out</a>
+        <a className="shell-cta" href="/logout" onClick={() => resetIdentity()}>
+          Log out
+        </a>
       </div>
     );
   }

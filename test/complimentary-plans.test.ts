@@ -196,6 +196,12 @@ vi.mock("@/models/WebhookEndpoint", () => ({
   default: { updateMany: billingMocks.webhookUpdateMany }
 }));
 
+// Analytics attribution resolves the workspace owner; mocked so the webhook
+// route under test never reaches a live datastore for a side-effect lookup.
+vi.mock("@/lib/repositories/memberships", () => ({
+  findMembershipsByAccountId: vi.fn().mockResolvedValue([])
+}));
+
 /** A comped workspace with a live subscription that is about to end badly. */
 const COMPED_ACCOUNT = {
   accountId: "acct_comped",

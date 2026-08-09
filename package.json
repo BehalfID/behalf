@@ -58,6 +58,7 @@
     "test:api-postgres": "RUN_POSTGRES_API_FLOWS=true vitest run test/api-postgres-critical-flows.test.ts"
   },
   "dependencies": {
+    "@heycatch/sdk": "^0.7.0",
     "@sentry/nextjs": "^10.68.0",
     "@simplewebauthn/browser": "^13.3.0",
     "@simplewebauthn/server": "^13.3.2",
