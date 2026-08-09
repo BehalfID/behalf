@@ -302,3 +302,20 @@
 #   private-key patterns across the repo; only committed env file is .env.example /
 #   examples/site-guard-demo/.env.example; no key/cert files tracked; the sk-... string in
 #   test/mcp-audit.test.ts is an intentional test fixture, not a real credential)
+
+# Last audit: 2026-08-09
+# Result: PASSED
+# - npm audit (root + --omit=dev): 0 vulnerabilities
+# - npm audit: 0 vulnerabilities in packages/cli, packages/github-action, packages/install,
+#   packages/mcp-audit, packages/mcp-runtime, packages/sdk, packages/egress-proxy,
+#   examples/enforcement-demo, examples/node-demo, examples/site-guard-express,
+#   examples/site-guard-nextjs, examples/webhook-receiver
+# - Unit tests: 2828 passed, 78 skipped (220/221 files, root); 146 passed (egress-proxy,
+#   install, github-action); 93 passed (mcp-runtime)
+#   - test/mongo-repository-contracts.test.ts (73 tests) could not execute: MongoMemoryServer
+#     binary download blocked by this sandbox's outbound network policy (fastdl.mongodb.org);
+#     unrelated to source changes and runs normally in GitHub Actions CI
+# - No hardcoded secrets detected (grepped for AWS key/OpenAI key/Slack-token/Google-API-key/
+#   private-key patterns across the repo; only committed env file is .env.example /
+#   examples/site-guard-demo/.env.example; no key/cert files tracked; the sk-... string in
+#   test/mcp-audit.test.ts is an intentional test fixture, not a real credential)
