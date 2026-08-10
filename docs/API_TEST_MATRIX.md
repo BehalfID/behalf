@@ -7,11 +7,11 @@ Derived from the route files under `app/api/**`, not from `docs/API.md`. Each ro
 
 ## Totals
 
-- Route modules: **155**
-- Exported HTTP handlers: **185**
-- Mutating modules: **116**
+- Route modules: **154**
+- Exported HTTP handlers: **184**
+- Mutating modules: **115**
 - Modules returning a one-time secret: **7**
-- Modules with no direct handler test: **97**
+- Modules with no direct handler test: **96**
 
 `Direct test` means a test imports the route module and invokes its handler.
 Route-contract coverage (`test/api-route-contracts.test.ts`) additionally
@@ -173,7 +173,6 @@ credential the caller can never retrieve again.
 | GET | `/api/dashboard/webhooks/:webhookId` | app | session (developer) | — | no | no | — | — | no | — | P1 |
 | GET, POST | `/api/dashboard/webhooks` | app | session (developer) | — | yes | no | — | webhooks | no | 2 | P1 |
 | POST | `/api/demo/verify` | www | public/none detected | — | yes | no | — | — | no | 1 | P1 |
-| POST | `/api/diagnostics/analytics-probe` | www | rate-limited | — | yes | no | — | — | no | — | P1 |
 | POST | `/api/egress/authorize` | www | agent API key; rate-limited | — | yes | no | — | — | no | — | P1 |
 | POST | `/api/gateway/execute` | www | agent API key; rate-limited | — | yes | no | webhook event | — | no | — | P0 |
 | GET | `/api/health/db` | www | rate-limited | — | no | no | — | backend | no | 1 | P2 |
