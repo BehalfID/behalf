@@ -6,7 +6,9 @@ import { PublicNav } from "@/components/layout/PublicNav";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { PublicAuthSplitCTA } from "@/components/layout/PublicAuthSplitCTA";
 import { ButtonLink } from "@/components/ui";
+import { PostByline } from "@/components/marketing/PostByline";
 import { getPost, posts } from "../../../blog/posts";
+import { articleJsonLd } from "../../../blog/articleJsonLd";
 import { routing } from "@/i18n/routing";
 
 export function generateStaticParams() {
@@ -44,6 +46,10 @@ export default async function BlogPostPage({
 
   return (
     <main id="main-content" className="marketing" tabIndex={-1}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd(post)) }}
+      />
       <PublicNav />
 
       <div className="blog-post-page">
@@ -61,6 +67,7 @@ export default async function BlogPostPage({
               <span>{post.readingTime}</span>
             </div>
             <h1 className="blog-post__title">{post.title}</h1>
+            <PostByline />
             <p className="blog-post__excerpt">{post.excerpt}</p>
             <div className="blog-card__tags">
               {post.tags.map((tag) => (

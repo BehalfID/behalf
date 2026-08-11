@@ -9223,6 +9223,28 @@ html[data-theme="light"] .dashboard-shell .dashboard-sidebar nav a[aria-current=
   letter-spacing: 0;
 }
 
+.blog-post__byline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.blog-post__byline a {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.blog-post__byline-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
 .blog-post__excerpt {
   margin: 0 0 16px;
   color: var(--muted);
@@ -9322,6 +9344,53 @@ html[data-theme="light"] .dashboard-shell .dashboard-sidebar nav a[aria-current=
   color: var(--text);
   font-family: var(--font-mono);
   font-size: 0.86em;
+}
+
+/* Design-partner quotes — populated from lib/testimonials.ts. */
+.dp-quotes {
+  display: grid;
+  gap: 16px;
+  margin: 20px 0;
+  padding: 0;
+  list-style: none;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.dp-quote {
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.dp-quote blockquote {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.dp-quote__person {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.dp-quote__person > span {
+  display: flex;
+  flex-direction: column;
+}
+
+.dp-quote__person small {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.dp-quote__avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  object-fit: cover;
 }
 
 .blog-post__footer {
@@ -10485,6 +10554,22 @@ body.ops-drawer-open .site-consent {
   font-size: 13px;
   color: var(--muted);
   margin: 0;
+}
+
+/* Dated review marker on /security and /compliance — see lib/trustPosture.ts. */
+.posture-reviewed {
+  margin: 20px 0 0;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.posture-reviewed time {
+  color: var(--text);
+  font-weight: 600;
 }
 
 .legal-body {

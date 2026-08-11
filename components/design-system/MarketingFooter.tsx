@@ -26,9 +26,18 @@ const columns = [
   {
     title: "Company",
     links: [
+      { label: "About", href: "/about" },
       { label: "Blog", href: "/blog" },
       { label: "Contact", href: "/contact" },
       { label: "Design partners", href: "/design-partners" }
+    ]
+  },
+  {
+    title: "Compare",
+    links: [
+      { label: "BehalfID vs PolicyLayer", href: "/behalfid-vs-policylayer" },
+      { label: "BehalfID vs Cerbos", href: "/behalfid-vs-cerbos" },
+      { label: "Best AI agent authorization", href: "/best-ai-agent-authorization" }
     ]
   },
   {
@@ -47,7 +56,8 @@ export function MarketingFooter({ className }: { className?: string }) {
   return (
     <footer className={cn("ds ds-footer env-ink dark", className)}>
       <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8">
-        <div className="grid gap-10 md:ds-grid-footer">
+        {/* 1 column on mobile, 3 on tablet, all six across from lg. */}
+        <div className="grid gap-10 md:ds-grid-footer lg:ds-grid-footer">
           <div>
             <Wordmark className="ds-text-17" />
             <p className="mt-4 ds-max-w-24ch text-sm leading-relaxed text-muted-foreground">

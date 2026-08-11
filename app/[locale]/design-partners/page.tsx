@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { PublicNav } from "@/components/layout/PublicNav";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { ButtonLink, CodeBlock } from "@/components/ui";
+import { DesignPartnerQuotes } from "@/components/marketing/DesignPartnerQuotes";
 import { routing } from "@/i18n/routing";
 
 export function generateStaticParams() {
@@ -68,6 +69,8 @@ Approve at: https://behalfid.com/dashboard/approvals`}</CodeBlock>
             This is an early product. The core enforcement loop works end-to-end.
             We&apos;re looking for real usage to find the edges.
           </p>
+
+          <DesignPartnerQuotes />
 
           <h2>{t("whoLookingFor")}</h2>
           <ul>

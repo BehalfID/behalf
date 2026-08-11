@@ -18,9 +18,13 @@ import {
   PatternCards
 } from "@/components/design-system/adaptive-visuals";
 import { BetaTag, Reveal } from "@/components/design-system/motion";
+import { TrustCallout } from "@/components/design-system/TrustCallout";
 import { CodeTabs } from "@/components/design-system/code";
 import { ArrowRight } from "@/components/design-system/icons";
 import { crossAppClickHandler } from "@/lib/subdomainRouting";
+import { TestimonialWall } from "@/components/marketing/TestimonialWall";
+import { TrustPostureStrip } from "@/components/marketing/TrustPostureStrip";
+import { SDK_NPM_URL, SDK_PACKAGE, formatDownloads, type SdkDownloads } from "@/lib/npmDownloads";
 
 const sdkSnippet = `import { behalf } from "@behalfid/sdk";
 
@@ -43,7 +47,7 @@ const cliSnippet = `behalf agents create cursor-agent --provider cursor`;
 
 const mcpSnippet = `behalf mcp connect --server internal-tools`;
 
-export function LovableHomeContent() {
+export function LovableHomeContent({ downloads = null }: { downloads?: SdkDownloads | null }) {
   return (
     <>
       {/* ── Hero — warm ivory, one dominant composition ─────────────── */}
@@ -63,6 +67,11 @@ export function LovableHomeContent() {
               Decide what coding agents such as Claude Code, Codex and Cursor may do, what is always denied, and what
               requires human approval &mdash; before the action runs, not after.
             </p>
+            {/* The nouns the audience actually searches for, kept above the fold. */}
+            <p className="mt-5 max-w-lg text-[18px] font-medium leading-relaxed">
+              Every action gets an allow, deny, or approval-required decision &mdash; fail closed at the integration
+              point.
+            </p>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
               <Link
                 href="/signup"
@@ -78,6 +87,7 @@ export function LovableHomeContent() {
                 See how it works
               </a>
             </div>
+            <TrustCallout className="mt-5 max-w-lg" />
           </div>
         </div>
 
@@ -102,6 +112,9 @@ export function LovableHomeContent() {
         </div>
       </Section>
 
+      {/* Named-user proof. Renders only once lib/testimonials.ts holds real quotes. */}
+      <TestimonialWall />
+
       {/* ── Signature section: the authority map — deep charcoal ─────── */}
       <section id="authority" className="dark env-charcoal text-foreground">
         <div className="mx-auto max-w-7xl px-5 py-28 sm:px-8 sm:py-36">
@@ -123,6 +136,10 @@ export function LovableHomeContent() {
             <div className="mt-6 grid gap-10 lg:grid-cols-2">
               <div>
                 <h3 className="text-[16px] font-medium">Structural enforcement</h3>
+                <p className="mt-3 max-w-lg text-[15px] font-medium leading-relaxed">
+                  Every action resolves to allow, deny, or approval required &mdash; and fails closed at the
+                  integration point.
+                </p>
                 <p className="mt-3 max-w-lg text-[15px] leading-relaxed text-muted-foreground">
                   Where the check sits in the execution path &mdash; action-time hooks installed by the CLI,{" "}
                   <code className="font-mono text-[13px]">behalf.verify()</code>{" "}
@@ -172,6 +189,14 @@ export function LovableHomeContent() {
 
         <Reveal delay={80}>
           <LearningTimeline className="mt-14" />
+          {/* The timeline is a worked example, not a measurement — say which
+              part is real rather than leaving an unlabelled illustrative panel
+              as the only evidence the engine exists. */}
+          <p className="mt-6 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
+            The decision counts above are a worked example. What is live today: the engine records every approval and
+            decline, and the decision history behind these recommendations is visible in your own dashboard from the
+            first action you verify.
+          </p>
         </Reveal>
 
         <Reveal delay={60} className="mt-20">
@@ -266,6 +291,23 @@ export function LovableHomeContent() {
               Open the dashboard <ArrowRight className="size-4" aria-hidden />
             </Link>
           </div>
+          {/* The panel below is a sample workspace and is labelled as such. This
+              line is the one number on the page anybody can go and check. */}
+          {downloads ? (
+            <p className="mt-8 text-[15px] leading-relaxed text-muted-foreground">
+              The numbers in the panel below are illustrative.{" "}
+              <span className="num font-medium text-foreground">{formatDownloads(downloads.count)}</span> downloads of{" "}
+              <a
+                className="text-primary underline underline-offset-2"
+                href={SDK_NPM_URL}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                <code className="font-mono text-[13px]">{SDK_PACKAGE}</code>
+              </a>{" "}
+              in the last 30 days is not &mdash; that is npm&apos;s count, and you can check it.
+            </p>
+          ) : null}
           <DashboardShowcase className="canvas-light mt-16" />
         </div>
       </section>
@@ -346,6 +388,9 @@ export function LovableHomeContent() {
           </Link>
         </div>
       </Section>
+
+      {/* Dated compliance posture, on the page rather than a link away. */}
+      <TrustPostureStrip downloads={downloads} />
     </>
   );
 }

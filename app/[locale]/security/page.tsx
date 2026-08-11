@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { PublicNav } from "@/components/layout/PublicNav";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { PublicAuthSplitCTA } from "@/components/layout/PublicAuthSplitCTA";
+import { PostureReviewedNote } from "@/components/marketing/PostureReviewedNote";
 import { ButtonLink, CodeBlock } from "@/components/ui";
 import { routing } from "@/i18n/routing";
 
@@ -43,6 +44,7 @@ export default async function SecurityPage({
           <h1>{t("title")}</h1>
           <p className="security-lede">{t("lede1")}</p>
           <p className="security-lede">{t("lede2")}</p>
+          <PostureReviewedNote scope="security posture" />
         </header>
 
         {/* 1. Enforcement model */}

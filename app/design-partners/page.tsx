@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PublicNav } from "@/components/layout/PublicNav";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { ButtonLink, CodeBlock } from "@/components/ui";
+import { DesignPartnerQuotes } from "@/components/marketing/DesignPartnerQuotes";
 
 export const metadata: Metadata = {
   title: "Design partners — BehalfID",
@@ -54,6 +55,8 @@ Approve at: https://behalfid.com/dashboard/approvals`}</CodeBlock>
             This is an early product. The core enforcement loop works end-to-end.
             We&apos;re looking for real usage to find the edges.
           </p>
+
+          <DesignPartnerQuotes />
 
           <h2>Who we&apos;re looking for</h2>
           <ul>

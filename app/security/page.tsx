@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PublicNav } from "@/components/layout/PublicNav";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { PublicAuthSplitCTA } from "@/components/layout/PublicAuthSplitCTA";
+import { PostureReviewedNote } from "@/components/marketing/PostureReviewedNote";
 import { ButtonLink, CodeBlock } from "@/components/ui";
 
 export const metadata = {
@@ -45,6 +46,7 @@ export default function SecurityPage() {
             This page explains the enforcement model, what secrets are stored and how, the public
             passport design, and the current known limitations.
           </p>
+          <PostureReviewedNote scope="security posture" />
         </header>
 
         {/* 1. Enforcement model */}

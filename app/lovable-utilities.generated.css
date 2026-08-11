@@ -413,6 +413,9 @@
 .ds .-mb-24 {
   margin-bottom: calc(var(--spacing) * -24);
 }
+.ds .mb-5 {
+  margin-bottom: calc(var(--spacing) * 5);
+}
 .ds .ml-auto {
   margin-left: auto;
 }
@@ -483,6 +486,10 @@
   width: calc(var(--spacing) * 9);
   height: calc(var(--spacing) * 9);
 }
+.ds .size-10 {
+  width: calc(var(--spacing) * 10);
+  height: calc(var(--spacing) * 10);
+}
 .ds .size-11 {
   width: calc(var(--spacing) * 11);
   height: calc(var(--spacing) * 11);
@@ -490,6 +497,10 @@
 .ds .size-14 {
   width: calc(var(--spacing) * 14);
   height: calc(var(--spacing) * 14);
+}
+.ds .size-16 {
+  width: calc(var(--spacing) * 16);
+  height: calc(var(--spacing) * 16);
 }
 .ds .size-\[19px\] {
   width: 19px;
@@ -726,6 +737,11 @@
   margin-block-start: calc(calc(var(--spacing) * 2.5) * var(--tw-space-y-reverse));
   margin-block-end: calc(calc(var(--spacing) * 2.5) * calc(1 - var(--tw-space-y-reverse)));
 }
+.ds :where(.space-y-3 > :not(:last-child)) {
+  --tw-space-y-reverse: 0;
+  margin-block-start: calc(calc(var(--spacing) * 3) * var(--tw-space-y-reverse));
+  margin-block-end: calc(calc(var(--spacing) * 3) * calc(1 - var(--tw-space-y-reverse)));
+}
 .ds :where(.space-y-4 > :not(:last-child)) {
   --tw-space-y-reverse: 0;
   margin-block-start: calc(calc(var(--spacing) * 4) * var(--tw-space-y-reverse));
@@ -743,6 +759,9 @@
 }
 .ds .gap-x-3 {
   column-gap: calc(var(--spacing) * 3);
+}
+.ds .gap-x-4 {
+  column-gap: calc(var(--spacing) * 4);
 }
 .ds .gap-x-7 {
   column-gap: calc(var(--spacing) * 7);
@@ -842,11 +861,18 @@
   border-bottom-style: var(--tw-border-style);
   border-bottom-width: 0px;
 }
+.ds .border-l-2 {
+  border-left-style: var(--tw-border-style);
+  border-left-width: 2px;
+}
 .ds .border-border {
   border-color: var(--ds-border);
 }
 .ds .border-input {
   border-color: var(--ds-input);
+}
+.ds .border-primary {
+  border-color: var(--ds-primary);
 }
 .ds .border-primary\/40 {
   border-color: var(--ds-primary);
@@ -923,6 +949,9 @@
 .ds .bg-\[radial-gradient\(70\%_100\%_at_50\%_0\%\,var\(--color-primary-soft\)\,transparent_75\%\)\] {
   background-image: radial-gradient(70% 100% at 50% 0%,var(--color-primary-soft),transparent 75%);
 }
+.ds .object-cover {
+  object-fit: cover;
+}
 .ds .p-4 {
   padding: calc(var(--spacing) * 4);
 }
@@ -992,6 +1021,9 @@
 .ds .py-3\.5 {
   padding-block: calc(var(--spacing) * 3.5);
 }
+.ds .py-4 {
+  padding-block: calc(var(--spacing) * 4);
+}
 .ds .py-5 {
   padding-block: calc(var(--spacing) * 5);
 }
@@ -1052,6 +1084,9 @@
 .ds .pl-3 {
   padding-left: calc(var(--spacing) * 3);
 }
+.ds .pl-5 {
+  padding-left: calc(var(--spacing) * 5);
+}
 .ds .text-center {
   text-align: center;
 }
@@ -1060,6 +1095,9 @@
 }
 .ds .text-right {
   text-align: right;
+}
+.ds .align-top {
+  vertical-align: top;
 }
 .ds .font-mono {
   font-family: var(--font-ds-mono);
@@ -1373,6 +1411,9 @@
   .ds .hover\:text-foreground:hover {
     color: var(--ds-foreground);
   }
+  .ds .hover\:no-underline:hover {
+    text-decoration-line: none;
+  }
   .ds .hover\:underline:hover {
     text-decoration-line: underline;
   }
@@ -1441,6 +1482,9 @@
   }
   .ds .sm\:grid-cols-5 {
     grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  .ds .sm\:grid-cols-\[minmax\(0\,13rem\)_minmax\(0\,1fr\)\] {
+    grid-template-columns: minmax(0,13rem) minmax(0,1fr);
   }
   .ds .sm\:grid-cols-\[minmax\(0\,16rem\)_minmax\(0\,1fr\)\] {
     grid-template-columns: minmax(0,16rem) minmax(0,1fr);
@@ -1513,6 +1557,9 @@
   }
   .ds .md\:hidden {
     display: none;
+  }
+  .ds .md\:grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .ds .md\:grid-cols-3 {
     grid-template-columns: repeat(3, minmax(0, 1fr));

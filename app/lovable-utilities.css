@@ -827,15 +827,18 @@
 .ds .ds-grid-asymmetric-h { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); }
 .ds .ds-grid-asymmetric-i { grid-template-columns: minmax(0, 1fr) minmax(0, 480px); }
 .ds .ds-grid-asymmetric-j { grid-template-columns: minmax(0, 16rem) minmax(0, 1fr); }
-.ds .ds-grid-footer { grid-template-columns: 1.6fr repeat(4, 1fr); }
+.ds .ds-grid-footer { grid-template-columns: 1.4fr repeat(5, minmax(0, 1fr)); }
 
 @media (min-width: 640px) {
   .ds .sm\:ds-grid-asymmetric-j { grid-template-columns: minmax(0, 16rem) minmax(0, 1fr); }
 }
 @media (min-width: 768px) {
-  .ds .md\:ds-grid-footer { grid-template-columns: 1.6fr repeat(4, 1fr); }
+  /* Two rows on tablet so the five link columns keep readable measure. */
+  .ds .md\:ds-grid-footer { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (min-width: 1024px) {
+  /* All six blocks on one row once there is room for a readable measure. */
+  .ds .lg\:ds-grid-footer { grid-template-columns: 1.4fr repeat(5, minmax(0, 1fr)); }
   .ds .lg\:ds-grid-asymmetric-a { grid-template-columns: minmax(0, 0.72fr) minmax(0, 1fr); }
   .ds .lg\:ds-grid-asymmetric-b { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); }
   .ds .lg\:ds-grid-asymmetric-c { grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.9fr); }
