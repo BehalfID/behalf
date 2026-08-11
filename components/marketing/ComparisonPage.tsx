@@ -53,6 +53,18 @@ function jsonLdFor(data: ComparisonPageData) {
   };
 }
 
+/**
+ * Marks a row where both products do substantially the same thing. Comparison
+ * pages that invent a winner in every row are the reason nobody trusts them.
+ */
+function ParityTag() {
+  return (
+    <span className="inline-flex shrink-0 items-center rounded-full bg-surface-2 px-2 py-0.5 ds-text-11 font-medium uppercase ds-tracking-0_12 text-muted-foreground">
+      Both
+    </span>
+  );
+}
+
 export function ComparisonPage({
   data,
   authAction,
@@ -86,11 +98,30 @@ export function ComparisonPage({
           {data.competitorName ? (
             <>
               {" "}
-              &mdash; {data.competitorName}&apos;s own documentation is the authoritative source for anything we say
-              about them here.
+              &mdash; competitor capabilities reviewed from publicly available {data.competitorName} materials on that
+              date. Products change; verify current capabilities with each vendor.
             </>
           ) : null}
         </p>
+        {data.sources?.length ? (
+          <p className="mt-3 text-[13px] text-muted-foreground">
+            Sources:{" "}
+            {data.sources.map((source, index) => (
+              <span key={source.url}>
+                {index > 0 ? ", " : ""}
+                <a
+                  className="text-primary underline underline-offset-2"
+                  href={source.url}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  {source.label}
+                </a>
+              </span>
+            ))}
+            .
+          </p>
+        ) : null}
       </Section>
 
       {rows && columns ? (
@@ -102,7 +133,10 @@ export function ComparisonPage({
           <div className="mt-8 grid gap-3 sm:hidden">
             {rows.map((row) => (
               <div key={row.dimension} className="rounded-lg border bg-surface p-4">
-                <div className="ds-text-13 font-medium">{row.dimension}</div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="ds-text-13 font-medium">{row.dimension}</span>
+                  {row.parity ? <ParityTag /> : null}
+                </div>
                 <dl className="mt-3 space-y-3">
                   <div>
                     <dt className="ds-text-11 uppercase ds-tracking-0_12 text-primary">{columns[0]}</dt>
@@ -139,7 +173,10 @@ export function ComparisonPage({
                 {rows.map((row) => (
                   <tr key={row.dimension} className="border-b align-top last:border-0">
                     <th scope="row" className="px-4 py-4 text-left font-medium">
-                      {row.dimension}
+                      <span className="flex flex-wrap items-center gap-2">
+                        {row.dimension}
+                        {row.parity ? <ParityTag /> : null}
+                      </span>
                     </th>
                     <td className="px-4 py-4 leading-relaxed">{row.behalfid}</td>
                     <td className="px-4 py-4 leading-relaxed text-muted-foreground">{row.other}</td>
