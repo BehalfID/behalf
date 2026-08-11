@@ -128,13 +128,6 @@ export const comparisons: ComparisonPageData[] = [
           "Positioned as a system of record for AI agent authority, with signed team playbooks and approvals shared across a team's coding agents."
       },
       {
-        dimension: "Outage behaviour",
-        behalfid:
-          "Path-specific and documented per integration. SDK adapters and Site Guard fail closed on verify errors; the Claude Code PreToolUse hook fails open on missing config and network or timeout errors. Not universally fail-closed.",
-        other:
-          "A hosted gateway sits in the call path, so its availability is your agents' MCP availability. Check their published behaviour for gateway outages."
-      },
-      {
         dimension: "Maturity",
         behalfid:
           "Early. CLI and SDK are on npm; hooks and managed profiles are pilot. No SOC 2, no external security audit, no named public customers.",
@@ -152,7 +145,7 @@ export const comparisons: ComparisonPageData[] = [
         body: [
           "It would be convenient for us to claim that BehalfID intercepts and PolicyLayer only advises. That is not true. PolicyLayer's published material describes deterministic policy evaluation before MCP tool calls reach the real world, with allow, deny and require-approval outcomes, deny-by-default policies, argument conditions and audit logging. On the questions most buyers ask first — does it stop the action, can a human approve, is there a record — both products answer yes.",
           "So the useful question is not whose enforcement is more real. It is which of your agents' actions actually reach each product's checkpoint. Write down the five actions that would ruin a week and trace how each one happens.",
-          "If they happen as MCP tool calls, a gateway sees all of them with no application changes, and that is the stronger position. If they happen inside your own service — a deploy function, a migration runner, a refund call behind a library — an MCP gateway never sees them, and a check in that code path does. Many teams have both kinds."
+          "If they happen as MCP tool calls, a gateway covers all of them with no application changes, and that is the stronger position. If they happen inside your own service — a deploy function, a migration runner, a refund call behind a library — the action is not an MCP tool call, so covering it means putting a check in that code path. Many teams have both kinds, and the scope each product covers is worth confirming with the vendor rather than inferring."
         ]
       },
       {
@@ -196,8 +189,8 @@ export const comparisons: ComparisonPageData[] = [
         a: "Not in a shipped, supported form today. The MCP server distributed with our CLI is advisory. An MCP interceptor package exists in our repository but is not published to npm and is not production-supported, so you should not count on it when comparing. If MCP is where your agents act, PolicyLayer covers that boundary and we currently do not."
       },
       {
-        q: "Can PolicyLayer stop an action that does not go through MCP?",
-        a: "A gateway evaluates what passes through it. An action that runs inside your own service — a deploy function, a migration runner, a payment call behind a library — is not an MCP tool call and does not traverse the gateway. That is the gap a check in your own executor is for, and it is the main reason a team might run both."
+        q: "What does an MCP gateway cover, and what sits outside it?",
+        a: "A gateway evaluates the calls that pass through it, so an MCP gateway covers the agent's MCP tool calls — all of them, without application changes. Actions that run inside your own service, such as a deploy function, a migration runner or a payment call behind a library, are not MCP tool calls, so covering those means putting a check in that code path. That is the main reason a team might run both. Map your highest-consequence actions to the boundary each one crosses, and confirm coverage with each vendor rather than assuming it."
       },
       {
         q: "Do I have to choose one?",
@@ -230,8 +223,9 @@ export const comparisons: ComparisonPageData[] = [
       {
         dimension: "Human approval",
         behalfid:
-          "Built in. An action can park, wait for a named person, and resume with a single-use grant that expires.",
-        other: "Not the model. A policy decision point evaluates and answers; parking an action for a human is your application's job."
+          "First-class approval requests: an action can park, wait for a named person to approve or deny in the dashboard, and resume with a single-use grant that expires.",
+        other:
+          "Primarily a policy decision point — applications or gateways query it for an authorization decision and enforce the result. Check their current documentation for how human approval fits your design."
       },
       {
         dimension: "Policy authoring",
@@ -260,8 +254,8 @@ export const comparisons: ComparisonPageData[] = [
         heading: "This is not really a head-to-head",
         body: [
           "Cerbos is a good policy decision point and has been doing that job longer than BehalfID has existed. If you need fine-grained, testable, version-controlled authorization for users and services, that is what it is built for and a comparison page will not talk you out of it.",
-          "The case where the two get compared is narrower: a team has coding agents doing real work, wants production deploys to stop and wait for a person, and starts looking at authorization tooling. A policy decision point will tell you whether the action is permitted. It will not hold the action open while a human decides, notify them, record who approved, and issue a grant that expires — that loop is what BehalfID is.",
-          "If you already run Cerbos, you do not need to remove it. The gap to check is whether anything currently pauses an agent mid-action for a person."
+          "The case where the two get compared is narrower: a team has coding agents doing real work, wants production deploys to stop and wait for a person, and starts looking at authorization tooling. A policy decision point answers whether an action is permitted, and the calling application enforces that answer. BehalfID adds the loop around the decision — an approval request that holds the action, a notification to a named reviewer, a record of who decided, and a resulting grant that covers one request and expires.",
+          "If you already run Cerbos, you do not need to remove it. It is worth checking whether anything in your current setup pauses an agent mid-action for a person, and building or buying only that piece."
         ]
       },
       {
@@ -296,8 +290,8 @@ export const comparisons: ComparisonPageData[] = [
         a: "Two answers. Self-hosted Cerbos is open source with no licence cost — the cost is running and operating it yourself. For the managed service, Cerbos Hub Production starts at $933/month including the first 5,000 monthly active principals, per Cerbos's published pricing as reviewed 11 August 2026. That is a starting price rather than a flat rate, and pricing changes, so confirm current figures on their pricing page."
       },
       {
-        q: "Can Cerbos hold an action for human approval?",
-        a: "Not as a built-in model. A policy decision point returns permit or deny; keeping an action parked, notifying an approver, recording who decided and issuing an expiring single-use grant is application work you would build. That loop is what BehalfID ships."
+        q: "How does human approval work in each?",
+        a: "Cerbos is primarily a policy decision point: applications or gateways query it for an authorization decision and enforce the result, so how a human fits into that flow is a question for their current documentation and your design. BehalfID ships the approval loop itself — an approval request holds the action, a named reviewer approves or denies it in the dashboard, the decision is recorded, and the resulting grant covers one request and expires on its own."
       }
     ]
   },
@@ -321,7 +315,7 @@ export const comparisons: ComparisonPageData[] = [
           "Gateway enforcement. A gateway sits between the agent's client and the tools or servers it calls, and evaluates each call before it reaches the real world. Covers everything that passes through the gateway with no application code changes; misses actions that never traverse it. MCP gateways such as PolicyLayer are this shape.",
           "In-executor checks. The check sits in the code path or tool invocation that performs the action — an SDK call before the executor, or an action-time hook in a coding agent. Covers effects that never take the shape of agent traffic; misses anything that skips the integration point. BehalfID is primarily this shape, and also offers a gateway for a supported action set.",
           "Both of the above enforce before execution and can hold an action for human approval. The difference between them is coverage, not whether the decision is real — do not let a comparison page tell you otherwise.",
-          "Policy decision points. A service answers 'may this principal do this to this resource' from version-controlled policy. Expressive, testable, mature. Not an approval loop — parking an action for a human is your application's job. Cerbos and OPA are this shape.",
+          "Policy decision points. A service answers 'may this principal do this to this resource' from version-controlled policy, and the caller enforces the answer. Expressive, testable, mature. Whether a human review step is part of your flow depends on how the calling application is built. Cerbos and OPA are this shape.",
           "Sandboxing and capability restriction. Constrain what the agent's environment can reach at all — filesystem, network, credentials. Strong and coarse. Good at 'never', weak at 'sometimes, if a person says yes'."
         ]
       },
