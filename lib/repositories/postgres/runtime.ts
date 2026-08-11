@@ -83,6 +83,8 @@ export type PostgresReadyAggregate = (typeof POSTGRES_READY_AGGREGATES)[number];
 
 type AnyFn = (...args: never[]) => unknown;
 
+// Pre-cutover follow-ups (partial-unique constraint, last_activity_at import fidelity,
+// pg_cron enablement) tracked in https://github.com/BehalfID/behalf/issues/144
 function notImplemented(aggregate: string, method: string): AnyFn {
   return (() => {
     throw new Error(`${method} is not implemented on postgres ${aggregate} adapter`);

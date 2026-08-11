@@ -11,7 +11,7 @@ The rebuilt and relinked Windows Claude Code 2.1.209 path has now passed both ac
 - Allowed: Claude invoked the real shell tool for `echo behalfid-allowed`, real shell output appeared, and BehalfID recorded an allowed `execute_command` / `shell` decision with request ID `req_8MLJRFhKUgTVeYpj`. The hook exited normally with no error or libuv assertion.
 - Denied: Claude attempted the real shell tool for `echo behalfid-canary`, the hook reported `BehalfID: blocked by policy.`, no shell-result output contained the marker, and BehalfID recorded a denied decision with reason `command_blocked` and request ID `req_qkBkxJ1tCPtkZ-WU`. The hook did not crash.
 
-Approval support is **implemented** (permission replacement/review and Action Inbox approval UI). Live two-person Trajectus approval evidence remains **PENDING** — do not treat prior allow/deny canaries as an approval pass. Canonical Phase 3 pilot steps live under `pilot/` (`CHECKLIST.md`, `EXPECTED_OUTCOMES.md`, `EVIDENCE_TEMPLATE.md`); keep those PENDING until a human records sanitized two-person evidence.
+Approval support is **implemented** (permission replacement/review and Action Inbox approval UI). Live two-person Trajectus approval evidence remains **PENDING** — do not treat prior allow/deny canaries as an approval pass. Canonical Phase 3 pilot steps live under `pilot/` (`CHECKLIST.md`, `EXPECTED_OUTCOMES.md`, `EVIDENCE_TEMPLATE.md`); keep those PENDING until a human records sanitized two-person evidence. Tracked in [#129](https://github.com/BehalfID/behalf/issues/129).
 
 ## Enforcement architecture and outage contract
 
