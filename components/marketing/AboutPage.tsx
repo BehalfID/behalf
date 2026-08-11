@@ -3,11 +3,16 @@ import Image from "next/image";
 import Link from "next/link";
 import { MarketingLayout, Section, SectionHeading } from "@/components/design-system/MarketingLayout";
 import { ArrowRight } from "@/components/design-system/icons";
-import { FOUNDER, isFounderNamed } from "@/lib/founder";
+import {
+  COMPANY_EMAIL,
+  COMPANY_PROFILES,
+  FOUNDERS,
+  founderPersonSchema
+} from "@/lib/founders";
 import type { PublicAuthAction } from "@/lib/publicAuthAction";
 
 const description =
-  "Who builds BehalfID, why it exists, and what it does not do yet. Runtime authorization and approval gates for AI coding agents.";
+  "Who builds BehalfID, why the three of us started it, and what the product does not do yet. Runtime authorization and approval gates for AI coding agents.";
 
 const title = "About BehalfID — who builds it and why";
 
@@ -21,26 +26,22 @@ export const aboutMetadata: Metadata = {
     description,
     url: "https://behalfid.com/about",
     siteName: "BehalfID",
-    type: "profile"
+    type: "website"
   },
   twitter: { card: "summary_large_image", title, description }
 };
 
 /**
- * First-person founder story. Only rendered once FOUNDER.name is filled in —
- * an unsigned "I" reads worse than no story at all.
+ * Founding-team origin story, in company voice.
  *
- * TODO(founder): rewrite these three paragraphs in your own words. They are
- * assembled from claims already published on this site (the enforcement model
- * on /security, the thesis in /blog/authorization-is-broken-for-ai-agents, and
- * the honesty note on /design-partners) so nothing here is invented — but the
- * point of this section is that it sounds like you, not like the marketing copy
- * on the rest of the page.
+ * Deliberately short and free of backstory: it says what the three of us ran
+ * into and what we built, and nothing about who we were before that. Every
+ * claim here is one the rest of the site already makes and can back up.
  */
-const founderStory = [
-  "I kept giving coding agents credentials that were far broader than the task in front of them. An agent that needs to open a pull request ends up holding a key that can also deploy, rotate a secret, or move money. Nothing catches that until after it has happened, in a log nobody reads.",
-  "So I built the checkpoint I wanted: one decision, evaluated before the action runs, that comes back as allow, deny, or approval required — and fails closed at the point where you integrate it. Routine work passes without friction. Risk stops and waits for a person whose name ends up on the record.",
-  "It is early, and I would rather say so here than have you find out during a security review. The enforcement loop works end to end today. The gaps are written down on the security page, not buried."
+const originStory = [
+  "We started BehalfID after running into the same problem while working with increasingly capable AI coding agents. The agents could act — deploy, migrate, rotate a secret, move money — but the controls around what they were actually allowed to do were still too coarse. A key that lets an agent open a pull request usually lets it do far more, and nothing catches the difference until afterwards, in a log nobody reads.",
+  "So we built the checkpoint we wanted. BehalfID gives agents enforceable permissions rather than standing credentials: one decision evaluated before the action runs, returned as allow, deny, or approval required, failing closed at the point where you integrate it. Routine work passes without friction. Risk stops and waits for a named person, and the approval becomes part of the audit trail.",
+  "It is early, and we would rather say so here than have you find out during a security review. The enforcement loop works end to end today. The gaps are written down on the security page, not buried."
 ];
 
 const honestyPoints = [
@@ -57,10 +58,19 @@ const honestyPoints = [
     "No SOC 2 Type I or Type II, no ISO 27001, no HIPAA. Controls hardening is underway and the current posture is documented in full, including the parts that are not finished."
   ],
   [
-    "What is still a prototype",
-    "No formal external security audit yet. Claude Code's PreToolUse hook fails open on missing config and network timeouts — it is not universally fail-closed, and we will not describe it that way."
+    "What is still early",
+    "No formal external security audit yet. Claude Code's PreToolUse hook fails open on missing config and network timeouts — BehalfID is not universally fail-closed, and we will not describe it that way."
   ]
 ] as const;
+
+function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
 
 export function AboutPage({
   authAction,
@@ -69,8 +79,6 @@ export function AboutPage({
   authAction: PublicAuthAction;
   googleEnabled: boolean;
 }) {
-  const named = isFounderNamed();
-
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
@@ -79,7 +87,8 @@ export function AboutPage({
         "@id": "https://behalfid.com/about#page",
         name: title,
         description,
-        url: "https://behalfid.com/about"
+        url: "https://behalfid.com/about",
+        about: { "@id": "https://behalfid.com/#organization" }
       },
       {
         "@type": "Organization",
@@ -87,17 +96,9 @@ export function AboutPage({
         name: "BehalfID",
         url: "https://behalfid.com",
         description,
-        email: FOUNDER.email,
-        ...(named
-          ? {
-              founder: {
-                "@type": "Person",
-                name: FOUNDER.name,
-                jobTitle: FOUNDER.role,
-                ...(FOUNDER.linkedin ? { sameAs: [FOUNDER.linkedin, FOUNDER.x].filter(Boolean) } : {})
-              }
-            }
-          : {})
+        email: COMPANY_EMAIL,
+        sameAs: COMPANY_PROFILES,
+        founder: founderPersonSchema()
       }
     ]
   };
@@ -114,77 +115,81 @@ export function AboutPage({
         />
       </Section>
 
-      {named ? (
-        <Section className="bg-surface-2">
-          <div className="grid gap-10 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)] lg:gap-16">
-            <div>
-              {FOUNDER.photo ? (
-                <Image
-                  src={FOUNDER.photo}
-                  alt={FOUNDER.photoAlt || `${FOUNDER.name}, ${FOUNDER.role} of BehalfID`}
-                  width={288}
-                  height={288}
-                  className="w-full max-w-[18rem] rounded-xl border object-cover"
-                />
-              ) : null}
-              <h2 className="mt-5 text-[18px] font-medium">{FOUNDER.name}</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {FOUNDER.role}, BehalfID
-              </p>
-              <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm">
-                {FOUNDER.linkedin ? (
-                  <a
-                    className="text-primary underline underline-offset-2"
-                    href={FOUNDER.linkedin}
-                    rel="me noopener noreferrer"
-                    target="_blank"
-                  >
-                    LinkedIn
-                  </a>
-                ) : null}
-                {FOUNDER.x ? (
-                  <a
-                    className="text-primary underline underline-offset-2"
-                    href={FOUNDER.x}
-                    rel="me noopener noreferrer"
-                    target="_blank"
-                  >
-                    X
-                  </a>
-                ) : null}
-                <a className="text-primary underline underline-offset-2" href={`mailto:${FOUNDER.email}`}>
-                  {FOUNDER.email}
-                </a>
-              </div>
-            </div>
-            <div>
-              <h2 className="display-lg">Why I built this.</h2>
-              {founderStory.map((paragraph) => (
-                <p key={paragraph.slice(0, 24)} className="mt-5 max-w-2xl text-[16px] leading-relaxed">
-                  {paragraph}
-                </p>
-              ))}
-              <p className="mt-6 text-sm text-muted-foreground">
-                &mdash; {FOUNDER.name}, {FOUNDER.role}
-              </p>
-            </div>
-          </div>
-        </Section>
-      ) : (
-        <Section className="bg-surface-2">
-          <SectionHeading
-            title="Why this exists."
-            description="Coding agents get handed credentials far broader than the task in front of them. An agent that needs to open a pull request ends up holding a key that can also deploy, rotate a secret, or move money — and nothing catches it until afterwards, in a log nobody reads."
-          />
-          <p className="mt-6 max-w-2xl text-[16px] leading-relaxed">
-            BehalfID is the checkpoint that sits before the action: one decision, evaluated before the action runs,
-            returned as allow, deny, or approval required, and failing closed at the point where you integrate it.
-            Routine work passes without friction. Risk stops and waits for a person whose name ends up on the record.
+      <Section className="bg-surface-2">
+        <SectionHeading title="Why we built it." />
+        {originStory.map((paragraph) => (
+          <p key={paragraph.slice(0, 24)} className="mt-6 max-w-3xl text-[16px] leading-relaxed">
+            {paragraph}
           </p>
-        </Section>
-      )}
+        ))}
+      </Section>
 
       <Section>
+        <SectionHeading
+          eyebrow="Founding team"
+          title="The three of us."
+          description="BehalfID is built by three founders. If you are evaluating it, these are the people accountable for it."
+        />
+        <ul className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {FOUNDERS.map((founder) => (
+            <li key={founder.name} className="flex flex-col rounded-xl border bg-surface p-6">
+              {founder.photo ? (
+                <Image
+                  src={founder.photo}
+                  alt={founder.photoAlt || `${founder.name}, ${founder.role} of BehalfID`}
+                  width={64}
+                  height={64}
+                  className="mb-5 size-16 rounded-full object-cover"
+                />
+              ) : (
+                /* Initials until a real headshot exists — derived from the name,
+                   never a stock photo or an illustrated avatar. */
+                <span
+                  aria-hidden
+                  className="mb-5 grid size-16 place-items-center rounded-full border border-primary/40 bg-primary-soft text-[17px] font-medium text-primary"
+                >
+                  {initials(founder.name)}
+                </span>
+              )}
+              <h3 className="text-[17px] font-medium">{founder.name}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">{founder.role}</p>
+              {founder.linkedin || founder.x ? (
+                <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-sm">
+                  {founder.linkedin ? (
+                    <a
+                      className="text-primary underline underline-offset-2"
+                      href={founder.linkedin}
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >
+                      LinkedIn
+                    </a>
+                  ) : null}
+                  {founder.x ? (
+                    <a
+                      className="text-primary underline underline-offset-2"
+                      href={founder.x}
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >
+                      X
+                    </a>
+                  ) : null}
+                </div>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+        <p className="mt-8 text-sm leading-relaxed text-muted-foreground">
+          Reach any of us at{" "}
+          <a className="text-primary underline underline-offset-2" href={`mailto:${COMPANY_EMAIL}`}>
+            {COMPANY_EMAIL}
+          </a>
+          .
+        </p>
+      </Section>
+
+      <Section className="bg-surface-2">
         <SectionHeading
           eyebrow="Straight answers"
           title="What BehalfID does and does not do."
@@ -192,7 +197,7 @@ export function AboutPage({
         />
         <dl className="mt-10 max-w-3xl">
           {honestyPoints.map(([term, detail]) => (
-            <div key={term} className="grid gap-2 border-t py-7 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)] sm:gap-10">
+            <div key={term} className="grid gap-2 border-t py-7 sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)] sm:gap-10">
               <dt className="text-[16px] font-medium">{term}</dt>
               <dd className="text-[15px] leading-relaxed text-muted-foreground">{detail}</dd>
             </div>
@@ -211,7 +216,7 @@ export function AboutPage({
         </p>
       </Section>
 
-      <Section className="bg-surface-2">
+      <Section>
         <SectionHeading
           title="Talk to us."
           description="We answer within one business day. If BehalfID is not ready for what you need, we would rather tell you that than sell you a rollout."

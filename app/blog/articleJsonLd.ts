@@ -1,14 +1,15 @@
-import { FOUNDER, bylineName, isFounderNamed } from "@/lib/founder";
+import { BLOG_AUTHOR } from "@/lib/founders";
 import type { PostMeta } from "./posts";
 
 /**
- * Article structured data with a real author. Search and AI readers use the
- * author field to decide whether writing about enforcement models comes from a
- * person or from an anonymous vendor; the byline rendered on the page and this
- * markup are driven by the same source of truth.
+ * Article structured data.
+ *
+ * Author is the organisation, matching the visible byline: posts here carry no
+ * per-post author, and naming one founder in markup we cannot back up on the
+ * page would be inventing attribution. The founders themselves are named on
+ * /about and in the Organization schema there.
  */
 export function articleJsonLd(post: PostMeta) {
-  const named = isFounderNamed();
   const url = `https://behalfid.com/blog/${post.slug}`;
 
   return {
@@ -22,15 +23,12 @@ export function articleJsonLd(post: PostMeta) {
     dateModified: post.date,
     keywords: post.tags.join(", "),
     mainEntityOfPage: { "@type": "WebPage", "@id": url },
-    author: named
-      ? {
-          "@type": "Person",
-          name: FOUNDER.name,
-          jobTitle: FOUNDER.role,
-          url: "https://behalfid.com/about",
-          ...(FOUNDER.linkedin ? { sameAs: [FOUNDER.linkedin, FOUNDER.x].filter(Boolean) } : {})
-        }
-      : { "@type": "Organization", name: bylineName(), url: "https://behalfid.com/about" },
+    author: {
+      "@type": "Organization",
+      "@id": "https://behalfid.com/#organization",
+      name: BLOG_AUTHOR,
+      url: "https://behalfid.com/about"
+    },
     publisher: { "@id": "https://behalfid.com/#organization" }
   };
 }

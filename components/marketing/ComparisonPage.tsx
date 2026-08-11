@@ -62,6 +62,10 @@ export function ComparisonPage({
   authAction: PublicAuthAction;
   googleEnabled: boolean;
 }) {
+  // Destructured so the optional-property narrowing below survives into the
+  // map callbacks.
+  const { rows, columns } = data;
+
   return (
     <MarketingLayout authAction={authAction} googleEnabled={googleEnabled}>
       <script
@@ -82,19 +86,41 @@ export function ComparisonPage({
           {data.competitorName ? (
             <>
               {" "}
-              &mdash; claims about {data.competitorName} reflect their public material on that date.
+              &mdash; {data.competitorName}&apos;s own documentation is the authoritative source for anything we say
+              about them here.
             </>
           ) : null}
         </p>
       </Section>
 
-      {data.rows && data.columns ? (
+      {rows && columns ? (
         <Section className="bg-surface-2">
           <SectionHeading title="Side by side" />
-          <div className="mt-8 overflow-x-auto rounded-lg border bg-surface">
+
+          {/* Below sm the three-column table is unreadable even inside a scroll
+              container, so it becomes stacked cards — same pattern as /pricing. */}
+          <div className="mt-8 grid gap-3 sm:hidden">
+            {rows.map((row) => (
+              <div key={row.dimension} className="rounded-lg border bg-surface p-4">
+                <div className="ds-text-13 font-medium">{row.dimension}</div>
+                <dl className="mt-3 space-y-3">
+                  <div>
+                    <dt className="ds-text-11 uppercase ds-tracking-0_12 text-primary">{columns[0]}</dt>
+                    <dd className="mt-1 ds-text-13 leading-relaxed">{row.behalfid}</dd>
+                  </div>
+                  <div>
+                    <dt className="ds-text-11 uppercase ds-tracking-0_12 text-muted-foreground">{columns[1]}</dt>
+                    <dd className="mt-1 ds-text-13 leading-relaxed text-muted-foreground">{row.other}</dd>
+                  </div>
+                </dl>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-8 hidden overflow-x-auto rounded-lg border bg-surface sm:block">
             <table className="w-full ds-min-w-640 text-sm">
               <caption className="sr-only">
-                {data.columns[0]} compared with {data.columns[1]} across integration, approvals, outage behaviour and
+                {columns[0]} compared with {columns[1]} across integration, approvals, outage behaviour and
                 pricing
               </caption>
               <thead>
@@ -102,7 +128,7 @@ export function ComparisonPage({
                   <th scope="col" className="px-4 py-3 font-medium text-muted-foreground">
                     Dimension
                   </th>
-                  {data.columns.map((column) => (
+                  {columns.map((column) => (
                     <th key={column} scope="col" className="px-4 py-3 font-semibold">
                       {column}
                     </th>
@@ -110,7 +136,7 @@ export function ComparisonPage({
                 </tr>
               </thead>
               <tbody>
-                {data.rows.map((row) => (
+                {rows.map((row) => (
                   <tr key={row.dimension} className="border-b align-top last:border-0">
                     <th scope="row" className="px-4 py-4 text-left font-medium">
                       {row.dimension}

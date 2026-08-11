@@ -413,6 +413,9 @@
 .ds .-mb-24 {
   margin-bottom: calc(var(--spacing) * -24);
 }
+.ds .mb-5 {
+  margin-bottom: calc(var(--spacing) * 5);
+}
 .ds .ml-auto {
   margin-left: auto;
 }
@@ -495,6 +498,10 @@
   width: calc(var(--spacing) * 14);
   height: calc(var(--spacing) * 14);
 }
+.ds .size-16 {
+  width: calc(var(--spacing) * 16);
+  height: calc(var(--spacing) * 16);
+}
 .ds .size-\[19px\] {
   width: 19px;
   height: 19px;
@@ -570,9 +577,6 @@
 }
 .ds .max-w-\[18ch\] {
   max-width: 18ch;
-}
-.ds .max-w-\[18rem\] {
-  max-width: 18rem;
 }
 .ds .max-w-\[20ch\] {
   max-width: 20ch;
@@ -733,6 +737,11 @@
   margin-block-start: calc(calc(var(--spacing) * 2.5) * var(--tw-space-y-reverse));
   margin-block-end: calc(calc(var(--spacing) * 2.5) * calc(1 - var(--tw-space-y-reverse)));
 }
+.ds :where(.space-y-3 > :not(:last-child)) {
+  --tw-space-y-reverse: 0;
+  margin-block-start: calc(calc(var(--spacing) * 3) * var(--tw-space-y-reverse));
+  margin-block-end: calc(calc(var(--spacing) * 3) * calc(1 - var(--tw-space-y-reverse)));
+}
 .ds :where(.space-y-4 > :not(:last-child)) {
   --tw-space-y-reverse: 0;
   margin-block-start: calc(calc(var(--spacing) * 4) * var(--tw-space-y-reverse));
@@ -751,8 +760,8 @@
 .ds .gap-x-3 {
   column-gap: calc(var(--spacing) * 3);
 }
-.ds .gap-x-5 {
-  column-gap: calc(var(--spacing) * 5);
+.ds .gap-x-4 {
+  column-gap: calc(var(--spacing) * 4);
 }
 .ds .gap-x-7 {
   column-gap: calc(var(--spacing) * 7);
@@ -1474,8 +1483,8 @@
   .ds .sm\:grid-cols-5 {
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }
-  .ds .sm\:grid-cols-\[minmax\(0\,14rem\)_minmax\(0\,1fr\)\] {
-    grid-template-columns: minmax(0,14rem) minmax(0,1fr);
+  .ds .sm\:grid-cols-\[minmax\(0\,13rem\)_minmax\(0\,1fr\)\] {
+    grid-template-columns: minmax(0,13rem) minmax(0,1fr);
   }
   .ds .sm\:grid-cols-\[minmax\(0\,16rem\)_minmax\(0\,1fr\)\] {
     grid-template-columns: minmax(0,16rem) minmax(0,1fr);
@@ -1617,9 +1626,6 @@
   }
   .ds .lg\:grid-cols-\[minmax\(0\,1fr\)_minmax\(0\,520px\)\] {
     grid-template-columns: minmax(0,1fr) minmax(0,520px);
-  }
-  .ds .lg\:grid-cols-\[minmax\(0\,18rem\)_minmax\(0\,1fr\)\] {
-    grid-template-columns: minmax(0,18rem) minmax(0,1fr);
   }
   .ds .lg\:items-center {
     align-items: center;

@@ -1,36 +1,23 @@
-import Image from "next/image";
 import Link from "next/link";
-import { FOUNDER, bylineName, isFounderNamed } from "@/lib/founder";
+import { BLOG_AUTHOR } from "@/lib/founders";
 
 /**
- * Byline for blog posts. A named, linkable author is part of the same
- * vendor-anonymity fix as /about — posts arguing about enforcement models carry
- * more weight when a person's name is on them.
+ * Blog byline.
  *
- * Degrades to "The BehalfID team" while lib/founder.ts is unfilled.
+ * Posts in this repo carry no per-post author field, so every post is
+ * attributed to the team and linked to /about, where the founders are named.
+ * Attributing an unsigned post to a specific founder would be inventing
+ * authorship — if a post gains a real author, render that instead.
  */
 export function PostByline({ variant = "full" }: { variant?: "full" | "compact" }) {
-  const name = bylineName();
-  const named = isFounderNamed();
-
   if (variant === "compact") {
-    return <span>{name}</span>;
+    return <span>{BLOG_AUTHOR}</span>;
   }
 
   return (
     <div className="blog-post__byline">
-      {named && FOUNDER.photo ? (
-        <Image
-          src={FOUNDER.photo}
-          alt={FOUNDER.photoAlt || `${FOUNDER.name}, ${FOUNDER.role} of BehalfID`}
-          width={36}
-          height={36}
-          className="blog-post__byline-avatar"
-        />
-      ) : null}
       <span>
-        By <Link href="/about">{name}</Link>
-        {named ? `, ${FOUNDER.role} of BehalfID` : ""}
+        By <Link href="/about">{BLOG_AUTHOR}</Link>
       </span>
     </div>
   );

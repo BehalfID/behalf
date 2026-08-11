@@ -4,6 +4,7 @@ import { LovableHomeContent } from "@/components/marketing/LovableHomeContent";
 import { getPublicAuthAction } from "@/lib/publicAuthAction";
 import { isGoogleOAuthConfigured } from "@/lib/googleOAuth";
 import { getSdkDownloads } from "@/lib/npmDownloads";
+import { COMPANY_PROFILES, founderPersonSchema } from "@/lib/founders";
 
 const description =
   "Approval gates and runtime authorization for AI coding agents. Decide what agents such as Claude Code, Codex and Cursor may do, what is denied, and what requires human approval — decided before integrated actions run.";
@@ -37,7 +38,9 @@ const jsonLd = {
       "@id": "https://behalfid.com/#organization",
       name: "BehalfID",
       url: "https://behalfid.com",
-      description
+      description,
+      sameAs: COMPANY_PROFILES,
+      founder: founderPersonSchema()
     },
     {
       "@type": "WebSite",

@@ -123,7 +123,8 @@ export const comparisons: ComparisonPageData[] = [
     honesty: [
       "BehalfID is early. There is no completed SOC 2 or ISO 27001 audit and no formal external security review yet.",
       "BehalfID is not universally fail-closed. Outage behaviour differs per integration and is documented per path.",
-      "Claims about PolicyLayer are based on their public documentation as published on the review date above. Check their current material before deciding."
+      "PolicyLayer is described here as a routing-style policy layer, which is how the category positions itself. We have not re-verified their current architecture, features or pricing for this page — read their own documentation before deciding, and tell us if anything here is wrong.",
+      "BehalfID has no named public customers yet. Nothing on this page should be read as evidence of adoption."
     ],
     faqs: [
       {
@@ -191,7 +192,7 @@ export const comparisons: ComparisonPageData[] = [
         dimension: "Getting to production",
         behalfid: "$20/month, self-serve, no sales call. Free tier to evaluate against real agent traffic first.",
         other:
-          "Self-hostable and open source at no licence cost; the managed Cerbos Hub production tier was listed at $933/month at the time of writing. Verify their current pricing before budgeting."
+          "Open source and self-hostable at no licence cost — you run and operate it. The managed Cerbos Hub tiers are priced separately; see their pricing page for current figures."
       }
     ],
     sections: [
@@ -214,8 +215,9 @@ export const comparisons: ComparisonPageData[] = [
     ],
     honesty: [
       "Cerbos is more mature than BehalfID by a wide margin, is open source, and can be self-hosted at no licence cost.",
-      "The $933/month figure is the Cerbos Hub production tier as published at the time of the review date above. Pricing changes — check their site.",
-      "BehalfID has no SOC 2 or ISO 27001 certification and no formal external security audit yet."
+      "We do not restate Cerbos pricing on this page. Managed-tier pricing changes, and a stale competitor price is worse than no price — read it from their pricing page.",
+      "We have not re-verified Cerbos's current feature set for this page. Where this description is out of date, theirs is the authoritative source — tell us and we will correct it.",
+      "BehalfID has no SOC 2 or ISO 27001 certification and no formal external security audit yet, and no named public customers."
     ],
     faqs: [
       {
@@ -228,7 +230,7 @@ export const comparisons: ComparisonPageData[] = [
       },
       {
         q: "How much does Cerbos cost in production?",
-        a: "Self-hosted Cerbos is open source with no licence cost; you run and operate it. The managed Cerbos Hub production tier was listed at $933/month at the time of writing. Check their pricing page for current figures before budgeting against this page."
+        a: "Self-hosted Cerbos is open source with no licence cost — the cost is running and operating it. Managed Cerbos Hub tiers are priced separately and change over time, so read the current figures from their pricing page rather than from a comparison page written by a competitor."
       },
       {
         q: "Can Cerbos hold an action for human approval?",
@@ -278,8 +280,8 @@ export const comparisons: ComparisonPageData[] = [
     ],
     honesty: [
       "BehalfID is one of the four shapes above and covers pre-execution interception at the integration point. It does not cover actions that bypass that point.",
-      "BehalfID is early: no SOC 2, no ISO 27001, no formal external security audit yet. The full limitations list is published on the security page.",
-      "This guide describes categories rather than ranking vendors. Where specific products are named, claims reflect their public material on the review date above."
+      "BehalfID is early: no SOC 2, no ISO 27001, no formal external security audit yet, and no named public customers. The full limitations list is published on the security page.",
+      "This guide describes categories rather than ranking vendors. Where specific products are named, the description reflects how they publicly position themselves and has not been re-verified for this page — check their documentation."
     ],
     faqs: [
       {
