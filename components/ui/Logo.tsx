@@ -27,10 +27,13 @@ export function Logo({
         .join(" ")}
       href={href}
     >
-      <span className="site-logo__mark" aria-hidden="true">
+      {/* Real alt, not an empty one: image readers and assistive tech should be
+          able to name the mark. The link's own aria-label still supplies the
+          accessible name, so this does not double-announce. */}
+      <span className="site-logo__mark">
         <Image
           src="/icon-transparent.png"
-          alt=""
+          alt="BehalfID logo — the slash mark used as the brand's checkpoint symbol"
           width={26}
           height={26}
           className="site-logo__icon"

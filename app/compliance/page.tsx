@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PublicNav } from "@/components/layout/PublicNav";
 import { PublicFooter } from "@/components/layout/PublicFooter";
+import { PostureReviewedNote } from "@/components/marketing/PostureReviewedNote";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -45,6 +46,7 @@ export default function CompliancePage() {
             place today. For questions or a compliance questionnaire, email{" "}
             <a href={`mailto:${CONTACT}`}>{CONTACT}</a>.
           </p>
+          <PostureReviewedNote scope="compliance posture" />
         </header>
 
         {/* Table of contents */}

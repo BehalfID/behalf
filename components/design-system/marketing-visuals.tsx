@@ -52,6 +52,15 @@ export function AuthorityFlowCanvas({ className }: { className?: string }) {
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
+      {/* Text alternative for a visual built from CSS and SVG rather than an
+          <img>: without it, image readers and assistive tech get nothing
+          describing what the decision path actually shows. */}
+      <p className="sr-only">
+        BehalfID decision path: a Cursor agent acting for Maya Okafor requests &ldquo;Deploy payments API to
+        production&rdquo;. The request is checked against policy, comes back as approval required, and is routed to a
+        named human approver. After the person approves, the action is authorized as a single-use grant that expires
+        in 60 minutes, and the decision is recorded as evidence.
+      </p>
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(70%_100%_at_50%_0%,var(--color-primary-soft),transparent_75%)] opacity-80"
@@ -177,6 +186,13 @@ export function IdentityCanvas({ className }: { className?: string }) {
         className="absolute inset-x-3 -top-2 h-16 rounded-[calc(var(--radius)+14px)] bg-surface opacity-70"
       />
       <div className="canvas-frame relative p-6 sm:p-9">
+        <p className="sr-only">
+          BehalfID agent identity card: an agent named &ldquo;Cursor agent&rdquo;, owned by Maya Okafor in
+          Engineering, status active. Its environments are development and staging; its authority covers deploying,
+          reading secrets and opening pull requests; its most recent action was merging a release branch, which was
+          allowed; production deploys and refunds over $500 are beyond its scope. Every action answers to this
+          identity and every decision is kept as evidence.
+        </p>
         <div className="flex flex-wrap items-start gap-5">
           <AgentAvatar name="Cursor agent" provider="cursor" size="lg" className="size-14 text-base" />
           <div className="min-w-0 flex-1">
@@ -399,6 +415,14 @@ export function DashboardShowcase({ className }: { className?: string }) {
 
   return (
     <div ref={ref} className={cn("canvas-frame overflow-hidden", className)}>
+      <p className="sr-only">
+        BehalfID dashboard overview for a sample workspace, last 24 hours: 3 pending approvals, 142 actions verified
+        today, 9 active agents, and a 14-day verification volume chart trending up. Outcomes are mostly allowed, with
+        some approved by a person and a few denied. Recent actions: a Cursor agent deploy of the payments API
+        awaiting approval, an allowed release-branch merge by a release bot, a denied database secret rotation by an
+        ops assistant, and an allowed $240 refund by a billing agent. These figures are illustrative, not measured
+        results.
+      </p>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-6 py-5 sm:px-8">
         <span className="text-[15px] font-medium">Overview</span>
         <span className="text-[13px] text-muted-foreground">Sample workspace</span>

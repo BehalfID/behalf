@@ -3,6 +3,7 @@ import { Link } from "@/i18n/navigation";
 import type { Metadata } from "next";
 import { PublicNav } from "@/components/layout/PublicNav";
 import { PublicFooter } from "@/components/layout/PublicFooter";
+import { PostureReviewedNote } from "@/components/marketing/PostureReviewedNote";
 import { routing } from "@/i18n/routing";
 
 export function generateStaticParams() {
@@ -51,6 +52,7 @@ export default async function CompliancePage({
               email: (chunks) => <a href={`mailto:${CONTACT}`}>{chunks}</a>
             })}
           </p>
+          <PostureReviewedNote scope="compliance posture" />
         </header>
 
         <nav className="legal-toc" aria-label={t("toc.heading")}>

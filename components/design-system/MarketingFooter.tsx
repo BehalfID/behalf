@@ -26,9 +26,18 @@ const columns = [
   {
     title: "Company",
     links: [
+      { label: "About", href: "/about" },
       { label: "Blog", href: "/blog" },
       { label: "Contact", href: "/contact" },
       { label: "Design partners", href: "/design-partners" }
+    ]
+  },
+  {
+    title: "Compare",
+    links: [
+      { label: "BehalfID vs PolicyLayer", href: "/behalfid-vs-policylayer" },
+      { label: "BehalfID vs Cerbos", href: "/behalfid-vs-cerbos" },
+      { label: "Best AI agent authorization", href: "/best-ai-agent-authorization" }
     ]
   },
   {

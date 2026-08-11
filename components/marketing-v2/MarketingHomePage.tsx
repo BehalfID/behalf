@@ -3,6 +3,7 @@ import { MarketingLayout } from "@/components/design-system/MarketingLayout";
 import { LovableHomeContent } from "@/components/marketing/LovableHomeContent";
 import { getPublicAuthAction } from "@/lib/publicAuthAction";
 import { isGoogleOAuthConfigured } from "@/lib/googleOAuth";
+import { getSdkDownloads } from "@/lib/npmDownloads";
 
 const description =
   "Approval gates and runtime authorization for AI coding agents. Decide what agents such as Claude Code, Codex and Cursor may do, what is denied, and what requires human approval — decided before integrated actions run.";
@@ -78,7 +79,7 @@ const jsonLd = {
 };
 
 export async function MarketingHomePage() {
-  const authAction = await getPublicAuthAction();
+  const [authAction, downloads] = await Promise.all([getPublicAuthAction(), getSdkDownloads()]);
   let googleEnabled = false;
   try {
     googleEnabled = isGoogleOAuthConfigured();
@@ -93,7 +94,7 @@ export async function MarketingHomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <MarketingLayout authAction={authAction} googleEnabled={googleEnabled}>
-        <LovableHomeContent />
+        <LovableHomeContent downloads={downloads} />
       </MarketingLayout>
     </>
   );

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { MarketingLayout, Section, SectionHeading } from "@/components/design-system/MarketingLayout";
 import { Check, Minus } from "@/components/design-system/icons";
+import { TrustCallout } from "@/components/design-system/TrustCallout";
 import { cn } from "@/lib/cn";
 import { crossAppClickHandler } from "@/lib/subdomainRouting";
 import {
@@ -20,6 +21,9 @@ const enterprise = PLAN_ENTITLEMENTS.enterprise;
 const plans = [
   {
     name: "Free",
+    // Descriptor is shown on the card so the tier signals who it fits; the bare
+    // `name` stays short for the comparison-table column headers.
+    descriptor: "solo builders",
     price: "$0",
     cadence: "forever",
     blurb: "For solo builders evaluating enforcement against real agent traffic.",
@@ -35,8 +39,10 @@ const plans = [
   },
   {
     name: "Pro",
+    descriptor: "small eng teams",
     price: `$${PRO_PLAN_PRICE_CENTS / 100}`,
     cadence: "per month",
+    anchor: `$${PRO_PLAN_PRICE_CENTS / 100}/mo — less than the cost of one avoided production incident.`,
     blurb: "For small teams enforcing permissions, webhooks and approvals in production.",
     cta: "Start building",
     href: "/signup",
@@ -52,6 +58,7 @@ const plans = [
   },
   {
     name: "Enterprise",
+    descriptor: "security-reviewed orgs",
     price: "Custom",
     cadence: "annual",
     blurb: "For organisations that need custom retention, procurement and security review.",
@@ -122,8 +129,8 @@ const faqs = [
     a: "Plans include an agent allowance and a billable seat limit derived from your workspace plan. Enterprise has no practical agent or seat cap under contract."
   },
   {
-    q: "Is Team or Business available at checkout?",
-    a: "Internal Team and Business entitlement tiers exist in the product model. Public self-serve checkout currently emphasizes Free and Pro; Enterprise is available via contact."
+    q: "Which plans can I actually buy today?",
+    a: "Three: Free and Pro are self-serve at checkout, Enterprise is via contact. That is the whole funnel — there is no fourth tier to wait for, and nothing is gated behind a sales call except Enterprise."
   }
 ];
 
@@ -201,10 +208,12 @@ export function PricingPage({
               )}
             >
               <div className="flex items-center justify-between gap-2">
-                <h3 className="text-sm font-semibold">{plan.name}</h3>
+                <h3 className="text-sm font-semibold">
+                  {plan.name} <span className="font-normal text-muted-foreground">&mdash; {plan.descriptor}</span>
+                </h3>
                 {plan.featured ? (
-                  <span className="rounded-full bg-primary-soft px-2 py-0.5 ds-text-11 font-medium text-primary">
-                    Self-serve
+                  <span className="shrink-0 rounded-full bg-primary px-2 py-0.5 ds-text-11 font-semibold uppercase ds-tracking-0_12 text-primary-foreground">
+                    Most popular
                   </span>
                 ) : null}
               </div>
@@ -212,6 +221,9 @@ export function PricingPage({
                 <span className="num text-3xl font-semibold">{plan.price}</span>
                 <span className="text-xs text-muted-foreground">{plan.cadence}</span>
               </div>
+              {plan.anchor ? (
+                <p className="mt-2 text-[13px] font-medium leading-relaxed">{plan.anchor}</p>
+              ) : null}
               <p className="mt-2 text-sm text-muted-foreground">{plan.blurb}</p>
               <Link
                 href={plan.href}
@@ -225,6 +237,7 @@ export function PricingPage({
               >
                 {plan.cta}
               </Link>
+              {plan.featured ? <TrustCallout className="mt-3" tone="compact" /> : null}
               <ul className="mt-6 space-y-2.5 border-t pt-5">
                 {plan.features.map((feature) => (
                   <li key={feature} className="flex items-start gap-2.5 text-sm">

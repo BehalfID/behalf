@@ -3,6 +3,7 @@ import { Link } from "@/i18n/navigation";
 import type { Metadata } from "next";
 import { PublicNav } from "@/components/layout/PublicNav";
 import { PublicFooter } from "@/components/layout/PublicFooter";
+import { PostByline } from "@/components/marketing/PostByline";
 import { getPostMeta } from "../../blog/posts";
 import { routing } from "@/i18n/routing";
 
@@ -56,6 +57,8 @@ export default async function BlogPage({
                 <span>{post.dateLabel}</span>
                 <span className="blog-card__dot" aria-hidden="true" />
                 <span>{post.readingTime}</span>
+                <span className="blog-card__dot" aria-hidden="true" />
+                <PostByline variant="compact" />
               </div>
               <h2 className="blog-card__title">{post.title}</h2>
               <p className="blog-card__excerpt">{post.excerpt}</p>
