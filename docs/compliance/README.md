@@ -112,12 +112,26 @@ Derived from privacy disclosures and production docs (validate contracts separat
 | R-P1-5 | Done | Sentry instrumentation + `MONITORING.md` |
 | R-P1-6 | Done | `INCIDENT_RESPONSE.md` + `BCP_DR.md` |
 
+### Closed in 2026-08-12 remediation pass
+
+| ID | Status | Notes |
+|----|--------|-------|
+| R-P1-9 | Done | Account-deletion erasure now cascades `PasskeyCredential` + `ExternalIdentity` (G-21) |
+| R-P1-10 | Done | Admin audit log wired into all 19 console mutation routes, not just login (G-22) |
+| R-P1-11 | Done | Privacy policy corrected re: rate-limit IP storage via Upstash Redis; Upstash added as subprocessor (G-23) |
+| R-P1-12 | Done | Webhook delivery purge job added, matching documented 30-day retention (G-24) |
+| R-P1-13 | Done | `X-Powered-By` header disabled (G-25) |
+
 ### Still open
 
 | ID | Action | Owner hint |
 |----|--------|------------|
 | R-P1-7 | Approve InfoSec policy, risk register, SoA; appoint ISMS owner | Leadership |
 | R-P1-8 | Complete vendor risk assessments for subprocessors | Security/Legal |
+| R-P1-14 | Enforce `consoleAdmins.role` (least privilege) — audit existing admin rows before turning on enforcement to avoid lockout (G-26) | Eng/Security |
+| R-P1-15 | Design tamper-evident audit log storage (append-only/hash-chained) — schema/infra decision, not a safe blind patch (G-27) | Eng/Security |
+| R-P1-16 | Design MFA-secret key-rotation plan before changing key derivation (G-28a); enforce Postgres TLS before cutover (G-28b) | Eng/Security |
+| R-P1-17 | Decide retention/pseudonymization policy for durable audit logs (`IdentityAuditLog`/`CliAuditLog`/`AdminAuditLog`) and add a retention path for `EnterpriseInquiry` lead data (G-29) | Leadership/Legal |
 | R-P2-* | Pepper, Dependabot, deploy change control, transactions, webhook queue, training, CSRF | Eng / People |
 
 Ops runbooks: [ops/BACKUP_RESTORE.md](./ops/BACKUP_RESTORE.md), [ops/BCP_DR.md](./ops/BCP_DR.md), [ops/INCIDENT_RESPONSE.md](./ops/INCIDENT_RESPONSE.md), [ops/MONITORING.md](./ops/MONITORING.md).
@@ -142,3 +156,4 @@ Engage a licensed CPA for SOC 2 and an accredited certification body for ISO 270
 |------|--------|
 | 2026-07-24 | Initial evidence pack from internal readiness assessment |
 | 2026-07-24 | Remediation pass: disclosures, purge cron, AuthEvents, MFA, ConsoleAdmin, Sentry, ops runbooks |
+| 2026-08-12 | Supplementary ISO27001/SOC2/HIPAA/GDPR/CPRA scan (encryption, access control, audit logging, retention, PII, security config): erasure cascade fixed (G-21), admin audit log coverage completed (G-22), privacy/retention disclosure fixes (G-23, G-24), header hardening (G-25); RBAC role enforcement, audit-log tamper-evidence, MFA key derivation, and audit-log retention policy left open pending design/business decisions (G-26–G-29) — see [GAP_ANALYSIS.md §2b](./GAP_ANALYSIS.md#2b-2026-08-12-supplementary-review-iso-27001--soc-2--hipaa--gdpr--cpra-scan) |

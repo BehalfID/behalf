@@ -75,6 +75,8 @@ const privatePageCacheHeaders = [
 }));
 
 const nextConfig: NextConfig = {
+  // Don't advertise the framework/version via X-Powered-By.
+  poweredByHeader: false,
   async headers() {
     return [
       {
