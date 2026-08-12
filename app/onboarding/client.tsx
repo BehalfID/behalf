@@ -4,22 +4,30 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FormAlert } from "@/components/auth/AuthShell";
 import { OnboardingIntro, OnboardingShell, StepActions } from "@/components/onboarding/OnboardingShell";
+import {
+  ProtectionPolicyEditor,
+  protectionPolicyOrDefault
+} from "@/components/protection/ProtectionPolicyEditor";
+import { ProtectionSummary } from "@/components/protection/ProtectionSummary";
 import { Input, PageLoadingState, Select } from "@/components/ui";
 import {
   AGENT_TOOL_LABELS,
   AGENT_TOOLS,
-  CONTROL_AREA_LABELS,
-  CONTROL_AREAS,
-  CONTROL_POLICY_HINTS,
   TEAM_SIZE_LABELS,
   TEAM_SIZES,
   defaultWorkspaceName,
   type AccountType,
   type AgentTool,
-  type ControlArea,
   type FirstSetupGoal,
   type TeamSize
 } from "@/lib/onboarding";
+import {
+  PROTECTION_PRESET_LABELS,
+  defaultProtectionPolicy,
+  priorityCategoriesForSurfaces,
+  type ProtectionPolicy
+} from "@/lib/protectionPolicy";
+import { protectionPolicyCounts } from "@/lib/protectionPolicyPermissions";
 import { assignOwnedLocation } from "@/lib/subdomainRouting";
 
 const BRAND_NAME = "BehalfID"; // pragma: allowlist secret
@@ -39,8 +47,7 @@ type SetupState = {
   teamSize: TeamSize | "";
   agentTools: AgentTool[];
   agentToolsOther: string;
-  controlAreas: ControlArea[];
-  controlAreasOther: string;
+  protectionPolicy: ProtectionPolicy;
   firstSetupGoal: FirstSetupGoal | "";
 };
 
@@ -51,8 +58,8 @@ const ACCOUNT_SETUP_STEPS = [
   { label: "Operator" },
   { label: "Workspace" },
   { label: "Agent surfaces" },
-  { label: "Controls" },
-  { label: "Next step" }
+  { label: "Protection" },
+  { label: "Review" }
 ] as const;
 
 const ACCOUNT_TYPE_OPTIONS: Array<{
@@ -105,8 +112,7 @@ const EMPTY_STATE: SetupState = {
   teamSize: "",
   agentTools: [],
   agentToolsOther: "",
-  controlAreas: [],
-  controlAreasOther: "",
+  protectionPolicy: defaultProtectionPolicy(),
   firstSetupGoal: ""
 };
 
@@ -117,7 +123,6 @@ function SetupReview({ form }: { form: SetupState }) {
       ? "Team / company"
       : "—";
   const surfaces = form.agentTools.map((tool) => AGENT_TOOL_LABELS[tool]).join(", ") || "—";
-  const boundaries = form.controlAreas.map((area) => CONTROL_AREA_LABELS[area]).join(", ") || "—";
   const destination = form.firstSetupGoal ? TRACK_DESTINATIONS[form.firstSetupGoal] : "—";
 
   return (
@@ -128,15 +133,15 @@ function SetupReview({ form }: { form: SetupState }) {
           <dd>{modeLabel}</dd>
         </div>
         <div className="setup-review__row">
-          <dt>Surfaces</dt>
+          <dt>Agents</dt>
           <dd>{surfaces}</dd>
         </div>
         <div className="setup-review__row">
-          <dt>Boundaries</dt>
-          <dd>{boundaries}</dd>
+          <dt>Protection</dt>
+          <dd>{PROTECTION_PRESET_LABELS[form.protectionPolicy.preset]}</dd>
         </div>
         <div className="setup-review__row">
-          <dt>Destination</dt>
+          <dt>Next</dt>
           <dd>{destination}</dd>
         </div>
       </dl>
@@ -175,8 +180,9 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
         teamSize: (data.account?.teamSize as TeamSize) ?? "",
         agentTools: (data.account?.onboarding?.agentTools as AgentTool[]) ?? [],
         agentToolsOther: data.account?.onboarding?.agentToolsOther ?? "",
-        controlAreas: (data.account?.onboarding?.controlAreas as ControlArea[]) ?? [],
-        controlAreasOther: data.account?.onboarding?.controlAreasOther ?? "",
+        protectionPolicy: protectionPolicyOrDefault(
+          data.account?.onboarding?.protectionPolicy as ProtectionPolicy | undefined
+        ),
         firstSetupGoal: (data.account?.onboarding?.firstSetupGoal as FirstSetupGoal) ?? ""
       });
     } catch {
@@ -192,6 +198,11 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
     void loadState();
   }, [loadState]);
 
+  const policyCounts = useMemo(
+    () => protectionPolicyCounts(form.protectionPolicy),
+    [form.protectionPolicy]
+  );
+
   const patchPayload = useMemo(() => {
     const payload: Record<string, unknown> = {};
     if (form.accountType) payload.accountType = form.accountType;
@@ -205,8 +216,7 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
     if (form.teamSize) payload.teamSize = form.teamSize;
     if (form.agentTools.length) payload.agentTools = form.agentTools;
     if (form.agentToolsOther) payload.agentToolsOther = form.agentToolsOther;
-    if (form.controlAreas.length) payload.controlAreas = form.controlAreas;
-    if (form.controlAreasOther) payload.controlAreasOther = form.controlAreasOther;
+    payload.protectionPolicy = form.protectionPolicy;
     if (form.firstSetupGoal) payload.firstSetupGoal = form.firstSetupGoal;
     return payload;
   }, [form]);
@@ -263,12 +273,13 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
     });
   };
 
-  const toggleMulti = <T extends string>(key: "agentTools" | "controlAreas", value: T) => {
-    setForm((prev) => {
-      const current = prev[key] as T[];
-      const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
-      return { ...prev, [key]: next };
-    });
+  const toggleAgentTool = (value: AgentTool) => {
+    setForm((prev) => ({
+      ...prev,
+      agentTools: prev.agentTools.includes(value)
+        ? prev.agentTools.filter((tool) => tool !== value)
+        : [...prev.agentTools, value]
+    }));
   };
 
   const validateStep = (current: Step): string | null => {
@@ -286,10 +297,12 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
       if (form.agentTools.includes("other") && !form.agentToolsOther.trim()) return "Describe the unlisted agent surface.";
     }
     if (current === 5) {
-      if (!form.controlAreas.length) return "Define at least one control boundary.";
-      if (form.controlAreas.includes("other") && !form.controlAreasOther.trim()) return "Describe the additional control boundary.";
+      const { enabled, approveOver, blockOver } = form.protectionPolicy.spending;
+      if (enabled && blockOver < approveOver) {
+        return "The amount you refuse above has to be at least the amount you allow automatically.";
+      }
     }
-    if (current === 6 && !form.firstSetupGoal) return "Select an implementation track.";
+    if (current === 6 && !form.firstSetupGoal) return "Choose what you want to do next.";
     return null;
   };
 
@@ -347,8 +360,8 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
         : step === 4
           ? "Select agent surfaces"
           : step === 5
-            ? "Define initial control boundaries"
-            : "Choose implementation track";
+            ? "Decide what your agents can do"
+            : "Review and finish";
 
   const stepHelper = step === 1
     ? "Determines membership, approval ownership, and audit scope."
@@ -361,8 +374,8 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
         : step === 4
           ? `Every surface ${BRAND_NAME} should sit in front of.`
           : step === 5
-            ? "Operations to gate, block, or audit from day one."
-            : "Where the console routes you when setup completes.";
+            ? "Three answers for every action: it happens on its own, it waits for you, or it is refused. Start from a level and change anything you like."
+            : "This is the policy we will apply to your first agent. You can change any of it now, or later from your dashboard.";
 
   if (loading) {
     return (
@@ -484,7 +497,7 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
                     <span className="setup-choice__mark" aria-hidden="true">{active ? "✓" : ""}</span>
                     <input
                       checked={active}
-                      onChange={() => toggleMulti("agentTools", tool)}
+                      onChange={() => toggleAgentTool(tool)}
                       type="checkbox"
                     />
                     <span className="setup-choice__body">
@@ -507,39 +520,27 @@ export function AccountSetupClient({ emailVerified }: { emailVerified: boolean }
 
         {step === 5 ? (
           <>
-            <div className="setup-choices">
-              {CONTROL_AREAS.map((area) => {
-                const active = form.controlAreas.includes(area);
-                return (
-                  <label className={`setup-choice setup-choice--check${active ? " setup-choice--active" : ""}`} key={area}>
-                    <span className="setup-choice__mark" aria-hidden="true">{active ? "✓" : ""}</span>
-                    <input
-                      checked={active}
-                      onChange={() => toggleMulti("controlAreas", area)}
-                      type="checkbox"
-                    />
-                    <span className="setup-choice__body">
-                      <strong>{CONTROL_AREA_LABELS[area]}</strong>
-                    </span>
-                    <span className="setup-choice__hint">{CONTROL_POLICY_HINTS[area]}</span>
-                  </label>
-                );
-              })}
-            </div>
-            {form.controlAreas.includes("other") ? (
-              <div className="setup-form setup-form--follow">
-                <label>
-                  <span>Additional boundary</span>
-                  <Input onChange={(e) => update("controlAreasOther", e.target.value)} placeholder="Describe what needs governing" value={form.controlAreasOther} />
-                </label>
-              </div>
-            ) : null}
+            <ProtectionPolicyEditor
+              onChange={(next) => update("protectionPolicy", next)}
+              policy={form.protectionPolicy}
+              priorityCategories={priorityCategoriesForSurfaces(form.agentTools)}
+            />
+            <p className="protect-note">
+              {policyCounts.allow} run on their own · {policyCounts.approve} wait for you ·{" "}
+              {policyCounts.block} refused. Nothing is final — you can change every one of these
+              from your dashboard whenever you want.
+            </p>
           </>
         ) : null}
 
         {step === 6 ? (
           <>
-            <div className="setup-choices">
+            <ProtectionSummary
+              footnote="These become real permissions on your first agent. Change them anytime from your BehalfID dashboard."
+              policy={form.protectionPolicy}
+            />
+            <p className="protect-subhead">Where should we take you next?</p>
+            <div className="setup-choices setup-choices--follow">
               {TRACK_OPTIONS.map(({ goal, title, hint }) => (
                 <button
                   className={`setup-choice${form.firstSetupGoal === goal ? " setup-choice--active" : ""}`}

@@ -69,14 +69,17 @@ import {
 import {
   AGENT_TOOL_LABELS,
   AGENT_TOOLS,
-  CONTROL_AREA_LABELS,
-  CONTROL_AREAS,
-  CONTROL_POLICY_HINTS,
   PRIMARY_GOAL_LABELS,
   PRIMARY_GOALS,
-  type AgentTool,
-  type ControlArea
+  type AgentTool
 } from "@/lib/onboarding";
+import {
+  ProtectionPolicyEditor,
+  protectionPolicyOrDefault
+} from "@/components/protection/ProtectionPolicyEditor";
+import { ProtectionSummary } from "@/components/protection/ProtectionSummary";
+import { defaultProtectionPolicy, type ProtectionPolicy } from "@/lib/protectionPolicy";
+import { summarizeProtectionPolicy } from "@/lib/protectionPolicyPermissions";
 
 type Agent = {
   agentId: string;
@@ -536,15 +539,6 @@ export function DashboardShell({
   );
 }
 
-const HOME_CONTROL_ROUTES: Record<string, string> = {
-  production_deploys: "/dashboard/onboarding?setup=deploy-approvals",
-  github_writes: "/dashboard/onboarding?setup=profiles",
-  db_migrations: "/dashboard/onboarding",
-  secrets: "/dashboard/onboarding",
-  billing_vendor_apis: "/dashboard/onboarding",
-  external_comms: "/dashboard/onboarding",
-  other: "/dashboard/onboarding"
-};
 
 function feedTime(value?: string) {
   if (!value) return "â€”";
@@ -564,11 +558,25 @@ function FirstAgentSetupView({ emailVerified }: { emailVerified: boolean }) {
 function FirstAgentSetupViewInner({ emailVerified }: { emailVerified: boolean }) {
   const searchParams = useSearchParams();
   const summary = useResource<{
-    accountOnboarding?: { agentTools?: AgentTool[] } | null;
+    accountOnboarding?: {
+      agentTools?: AgentTool[];
+      protectionPolicy?: ProtectionPolicy | null;
+    } | null;
   }>("/api/dashboard/summary");
   const suggestedSurfaces = summary.data?.accountOnboarding?.agentTools ?? [];
+  const workspacePolicy = summary.data?.accountOnboarding?.protectionPolicy ?? null;
   const focus = searchParams.get("focus");
-  return <FirstAgentSetup emailVerified={emailVerified} suggestedSurfaces={suggestedSurfaces} focus={focus} />;
+  if (summary.loading && !summary.data) {
+    return <PageLoadingState label="Loading agent setup" variant="form" />;
+  }
+  return (
+    <FirstAgentSetup
+      emailVerified={emailVerified}
+      focus={focus}
+      suggestedSurfaces={suggestedSurfaces}
+      workspacePolicy={workspacePolicy}
+    />
+  );
 }
 
 function HomeView() {
@@ -584,6 +592,7 @@ function HomeView() {
       controlAreas?: string[];
       agentTools?: string[];
       firstSetupGoal?: string;
+      protectionPolicy?: ProtectionPolicy | null;
     } | null;
     usage: UsageSummary;
   }>("/api/dashboard/summary");
@@ -596,7 +605,27 @@ function HomeView() {
   }
 
   const hasAgents = (summary.data?.totalAgents ?? 0) > 0;
-  const controlAreas = (summary.data?.accountOnboarding?.controlAreas ?? []) as ControlArea[];
+  const protectionPolicy = summary.data?.accountOnboarding?.protectionPolicy ?? null;
+  const policySummary = protectionPolicy ? summarizeProtectionPolicy(protectionPolicy) : null;
+  const policyRows = policySummary
+    ? [
+        ...policySummary.blocked.map((entry) => ({
+          label: entry.label,
+          state: "Blocked",
+          tone: "deny" as const
+        })),
+        ...policySummary.approval.map((entry) => ({
+          label: entry.label,
+          state: "Needs approval",
+          tone: "warn" as const
+        })),
+        ...policySummary.allowed.map((entry) => ({
+          label: entry.label,
+          state: "Automatic",
+          tone: "ok" as const
+        }))
+      ]
+    : [];
   const agentTools = (summary.data?.accountOnboarding?.agentTools ?? []) as AgentTool[];
   const firstSetupGoal = summary.data?.accountOnboarding?.firstSetupGoal;
 
@@ -775,20 +804,24 @@ function HomeView() {
             </div>
             {summary.error && !summary.data ? (
               <p className="ops-empty" role="alert">Policy coverage could not be loaded.</p>
-            ) : controlAreas.length === 0 ? (
-              <p className="ops-empty">No control boundaries selected during setup. Add them in settings to track coverage here.</p>
+            ) : !protectionPolicy ? (
+              <p className="ops-empty">No protection policy chosen yet. Set one up to see coverage here.</p>
             ) : (
               <div className="ops-coverage">
-                {controlAreas.map((area) => (
-                  <Link className="ops-coverage__row" href={dHref(HOME_CONTROL_ROUTES[area] ?? "/dashboard/onboarding")} key={area}>
-                    <span>{CONTROL_AREA_LABELS[area] ?? area}</span>
-                    <span className="cx-chip">Not configured</span>
+                {policyRows.map((row) => (
+                  <Link className="ops-coverage__row" href={dHref("/dashboard/settings")} key={row.label}>
+                    <span>{row.label}</span>
+                    <span className={`cx-chip cx-chip--${row.tone}`}>{row.state}</span>
                   </Link>
                 ))}
               </div>
             )}
-            {controlAreas.length > 0 ? (
-              <div className="ops-panel__foot">Boundaries selected at setup. Configure each to move it under enforcement.</div>
+            {protectionPolicy ? (
+              <div className="ops-panel__foot">
+                {hasAgents
+                  ? "Your workspace default. Each agent keeps the permissions it was given — open the agent to change them."
+                  : "Your workspace default. It becomes real permissions on the first agent you create."}
+              </div>
             ) : null}
           </section>
 
@@ -3199,6 +3232,7 @@ function SettingsView() {
         agentToolsOther?: string;
         controlAreas?: string[];
         controlAreasOther?: string;
+        protectionPolicy?: ProtectionPolicy | null;
         primaryGoal?: string;
         firstSetupGoal?: string;
       } | null;
@@ -3226,6 +3260,7 @@ function SettingsView() {
     agentToolsOther: "",
     controlAreas: [] as string[],
     controlAreasOther: "",
+    protectionPolicy: defaultProtectionPolicy(),
     primaryGoal: "",
     firstSetupGoal: ""
   });
@@ -3272,6 +3307,7 @@ function SettingsView() {
       agentToolsOther: settings.data.account?.onboarding?.agentToolsOther ?? "",
       controlAreas: settings.data.account?.onboarding?.controlAreas ?? [],
       controlAreasOther: settings.data.account?.onboarding?.controlAreasOther ?? "",
+      protectionPolicy: protectionPolicyOrDefault(settings.data.account?.onboarding?.protectionPolicy),
       primaryGoal: settings.data.account?.onboarding?.primaryGoal ?? "",
       firstSetupGoal: settings.data.account?.onboarding?.firstSetupGoal ?? ""
     });
@@ -3311,8 +3347,8 @@ function SettingsView() {
           teamSize: accountForm.teamSize || undefined,
           agentTools: accountForm.agentTools,
           agentToolsOther: accountForm.agentToolsOther,
-          controlAreas: accountForm.controlAreas,
           controlAreasOther: accountForm.controlAreasOther,
+          protectionPolicy: accountForm.protectionPolicy,
           primaryGoal: accountForm.primaryGoal || undefined,
           firstSetupGoal: accountForm.firstSetupGoal || undefined
         })
@@ -3537,28 +3573,20 @@ function SettingsView() {
                 ))}
               </div>
             </fieldset>
-            <fieldset className="setup-fieldset">
-              <legend>Control areas</legend>
-              <div className="setup-checkgrid setup-checkgrid--settings">
-                {CONTROL_AREAS.map((area) => (
-                  <label className="setup-check setup-check--setting" key={area}>
-                    <input
-                      checked={accountForm.controlAreas.includes(area)}
-                      onChange={() => setAccountForm((prev) => ({
-                        ...prev,
-                        controlAreas: prev.controlAreas.includes(area)
-                          ? prev.controlAreas.filter((value) => value !== area)
-                          : [...prev.controlAreas, area]
-                      }))}
-                      type="checkbox"
-                    />
-                    <span className="setup-check__body">
-                      <span className="setup-check__label">{CONTROL_AREA_LABELS[area]}</span>
-                      <span className="setup-check__hint">{CONTROL_POLICY_HINTS[area]}</span>
-                    </span>
-                  </label>
-                ))}
-              </div>
+            <fieldset className="setup-fieldset setup-fieldset--policy">
+              <legend>Default protection for new agents</legend>
+              <p className="field-help">
+                The starting point for the next agent you create. Agents that already exist keep the
+                permissions they were given — edit those on the agent&rsquo;s own page.
+              </p>
+              <ProtectionPolicyEditor
+                onChange={(next) => setAccountForm((prev) => ({ ...prev, protectionPolicy: next }))}
+                policy={accountForm.protectionPolicy}
+              />
+              <ProtectionSummary
+                policy={accountForm.protectionPolicy}
+                title="What a new agent would start with"
+              />
             </fieldset>
             <label>
               <span>Primary goal</span>

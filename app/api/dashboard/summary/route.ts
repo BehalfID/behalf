@@ -1,5 +1,6 @@
 import { type NextRequest } from "next/server";
 import { requireDeveloperApi } from "@/lib/developerAuth";
+import { validateOnboardingProtectionPolicy } from "@/lib/onboarding";
 import { getDashboardSummary } from "@/lib/dashboardData";
 import { noCacheJson } from "@/lib/responses";
 
@@ -16,7 +17,10 @@ export async function GET(request: NextRequest) {
       ? {
           controlAreas: auth.account.onboarding.controlAreas ?? [],
           agentTools: auth.account.onboarding.agentTools ?? [],
-          firstSetupGoal: auth.account.onboarding.firstSetupGoal ?? null
+          firstSetupGoal: auth.account.onboarding.firstSetupGoal ?? null,
+          protectionPolicy:
+            validateOnboardingProtectionPolicy(auth.account.onboarding.protectionPolicy, false)
+              .value ?? null
         }
       : null
   });

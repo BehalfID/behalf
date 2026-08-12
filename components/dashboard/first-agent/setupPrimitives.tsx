@@ -7,14 +7,13 @@ import { OnboardingIntro, OnboardingShell, StepActions } from "@/components/onbo
 import { useDashboardPaths } from "@/components/workspace/WorkspaceProvider";
 
 const STEP_LABELS = [
-  { label: "Surface" },
+  { label: "Agent" },
   { label: "Identity" },
-  { label: "Control profile" },
-  { label: "Approval gates" },
-  { label: "Credential" },
-  { label: "Integration" },
-  { label: "Test decision" },
-  { label: "Audit logs" }
+  { label: "Protection" },
+  { label: "API key" },
+  { label: "Connect" },
+  { label: "Try it" },
+  { label: "Activity" }
 ] as const;
 
 const SetupNavigationContext = createContext<{

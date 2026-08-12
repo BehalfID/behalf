@@ -17,12 +17,14 @@ import {
   validateNameField,
   validateOtherText,
   validatePhone,
+  validateOnboardingProtectionPolicy,
   validatePrimaryGoal,
   validateTeamSize,
   validateWorkspaceName,
   AGENT_TOOLS,
   CONTROL_AREAS
 } from "@/lib/onboarding";
+import { deriveControlAreas } from "@/lib/protectionPolicy";
 import { findAccount, findAccountByIdLean, updateAccount } from "@/lib/repositories/accounts";
 import { findByUserId, updateUser } from "@/lib/repositories/users";
 import { readString } from "@/lib/validation";
@@ -41,7 +43,8 @@ const ONBOARDING_FIELDS = [
   "controlAreas",
   "controlAreasOther",
   "primaryGoal",
-  "firstSetupGoal"
+  "firstSetupGoal",
+  "protectionPolicy"
 ] as const;
 
 export const PATCH_ALLOWED_FIELDS = [
@@ -110,7 +113,9 @@ export async function loadAccountSetupState(
             controlAreas: (account.onboarding.controlAreas ?? undefined) as AccountOnboarding["controlAreas"],
             controlAreasOther: account.onboarding.controlAreasOther ?? undefined,
             primaryGoal: account.onboarding.primaryGoal ?? undefined,
-            firstSetupGoal: account.onboarding.firstSetupGoal ?? undefined
+            firstSetupGoal: account.onboarding.firstSetupGoal ?? undefined,
+            protectionPolicy:
+              validateOnboardingProtectionPolicy(account.onboarding.protectionPolicy, false).value
           }
         : null,
       legacyAccountType: legacyUseCaseToAccountType(user.onboardingUseCase) ?? null
@@ -255,6 +260,21 @@ export async function patchAccountSetup(
     onboardingUpdate.controlAreasOther = result.value ?? null;
   }
 
+  if ("protectionPolicy" in body) {
+    const result = validateOnboardingProtectionPolicy(body.protectionPolicy, false);
+    if (result.error) return { error: result.error };
+    if (result.value) {
+      onboardingUpdate.protectionPolicy = result.value;
+      // Keep the derived list in step with the policy unless the caller is
+      // explicitly editing control areas in the same request.
+      if (!("controlAreas" in body)) {
+        onboardingUpdate.controlAreas = deriveControlAreas(result.value);
+      }
+    } else {
+      onboardingUpdate.protectionPolicy = null;
+    }
+  }
+
   if ("primaryGoal" in body) {
     const result = validatePrimaryGoal(body.primaryGoal, false);
     if (result.error) return { error: result.error };
@@ -322,7 +342,8 @@ export async function completeAccountSetup(
         : undefined,
       controlAreasOther: readString(body.controlAreasOther),
       primaryGoal: readString(body.primaryGoal) as AccountOnboarding["primaryGoal"],
-      firstSetupGoal: readString(body.firstSetupGoal) as AccountOnboarding["firstSetupGoal"]
+      firstSetupGoal: readString(body.firstSetupGoal) as AccountOnboarding["firstSetupGoal"],
+      protectionPolicy: body.protectionPolicy as AccountOnboarding["protectionPolicy"]
     }
   };
 

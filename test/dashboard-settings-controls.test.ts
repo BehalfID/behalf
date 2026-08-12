@@ -2,15 +2,14 @@
  * Static source checks for the Settings & members workspace form polish
  * (Dashboard Settings Control Cards Polish v1).
  *
- * Guards that the Agent tools / Control areas checkbox groups render as
- * compact setting rows with native inputs, that the polished row states
- * exist in the stylesheet, and that the save actions use the shared
- * setup-actions pattern.
+ * Guards that the Agent tools checkbox group renders as compact setting rows
+ * with native inputs, that the workspace protection policy is editable from
+ * settings, that the polished row states exist in the stylesheet, and that the
+ * save actions use the shared setup-actions pattern.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { CONTROL_AREAS, CONTROL_POLICY_HINTS } from "@/lib/onboarding";
 
 const clientSource = readFileSync(join(process.cwd(), "app/dashboard/client.tsx"), "utf-8");
 const cssSource = readFileSync(join(process.cwd(), "app/globals.css"), "utf-8");
@@ -26,7 +25,7 @@ describe("dashboard settings control rows", () => {
   it("keeps accessible native checkbox inputs inside the label", () => {
     // The label wraps the input, so clicking the label toggles the checkbox.
     const settingRows = clientSource.split('className="setup-check setup-check--setting"');
-    expect(settingRows.length).toBeGreaterThanOrEqual(3);
+    expect(settingRows.length).toBeGreaterThanOrEqual(2);
     for (const row of settingRows.slice(1)) {
       expect(row.slice(0, 600)).toContain('type="checkbox"');
     }
@@ -35,11 +34,14 @@ describe("dashboard settings control rows", () => {
     expect(cssSource).not.toMatch(/\.setup-check--setting\s+input[^{]*\{[^}]*visibility:\s*hidden/);
   });
 
-  it("shows the shared control-policy hint copy under control area labels", () => {
-    expect(clientSource).toContain("CONTROL_POLICY_HINTS[area]");
-    for (const area of CONTROL_AREAS) {
-      expect(CONTROL_POLICY_HINTS[area]).toBeTruthy();
-    }
+  it("lets the workspace protection policy be changed after onboarding", () => {
+    // Control areas used to be a row of checkboxes that changed nothing. The
+    // settings page now edits the same policy onboarding creates, using the
+    // same editor, and shows the resulting rules.
+    expect(clientSource).toContain("<ProtectionPolicyEditor");
+    expect(clientSource).toContain("<ProtectionSummary");
+    expect(clientSource).toContain("protectionPolicy: accountForm.protectionPolicy");
+    expect(clientSource).not.toContain("CONTROL_POLICY_HINTS[area]");
   });
 
   it("defines hover, checked, focus-visible, and disabled row states", () => {

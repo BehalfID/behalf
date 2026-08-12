@@ -6,6 +6,7 @@ import {
   validateAccountSetupCompletion,
   validatePhone
 } from "@/lib/onboarding";
+import { presetPolicy } from "@/lib/protectionPolicy";
 
 describe("onboarding helpers", () => {
   it("maps firstSetupGoal to next routes", () => {
@@ -142,6 +143,42 @@ describe("account setup validation", () => {
         }
       }).error
     ).toMatch(/agentToolsOther|controlAreasOther/);
+  });
+
+  it("stores the recommended protection policy when the client sends none", () => {
+    const onboarding = { ...validIndividual.onboarding, controlAreas: undefined };
+    const result = validateAccountSetupCompletion({ ...validIndividual, onboarding });
+    expect(result.error).toBeNull();
+    expect(result.account.onboarding.protectionPolicy.preset).toBe("recommended");
+    expect(result.account.onboarding.protectionPolicy.controls.deploy_production).toBe("approve");
+  });
+
+  it("derives control areas from the protection policy when none are chosen", () => {
+    const result = validateAccountSetupCompletion({
+      ...validIndividual,
+      onboarding: {
+        ...validIndividual.onboarding,
+        controlAreas: undefined,
+        protectionPolicy: presetPolicy("recommended")
+      }
+    });
+    expect(result.error).toBeNull();
+    // Recommended gates production deploys, credentials, data, and money.
+    expect(result.account.onboarding.controlAreas).toEqual(
+      expect.arrayContaining(["production_deploys", "secrets", "billing_vendor_apis"])
+    );
+  });
+
+  it("rejects a malformed protection policy rather than silently dropping it", () => {
+    expect(
+      validateAccountSetupCompletion({
+        ...validIndividual,
+        onboarding: {
+          ...validIndividual.onboarding,
+          protectionPolicy: { preset: "recommended", controls: { deploy_production: "maybe" } } as never
+        }
+      }).error
+    ).toMatch(/deploy_production/);
   });
 });
 
@@ -327,6 +364,116 @@ describe("account setup API", () => {
         })
       })
     );
+  });
+
+  it("persists a protection policy through PATCH and reads it back unchanged", async () => {
+    mocks.requireDeveloperApi.mockResolvedValue({
+      user: {
+        userId: "dev_test",
+        email: "dev@example.com",
+        primaryAccountId: "acct_test",
+        emailVerified: true
+      },
+      account: { accountId: "acct_test", name: "Workspace" },
+      error: null
+    });
+
+    const chosen = {
+      ...presetPolicy("recommended"),
+      preset: "custom" as const,
+      controls: { ...presetPolicy("recommended").controls, run_commands: "approve" as const },
+      spending: { enabled: true, approveOver: 10, blockOver: 250 }
+    };
+
+    const { PATCH } = await import("@/app/api/onboarding/account-setup/route");
+    const response = await PATCH(
+      jsonRequest("http://example.test/api/onboarding/account-setup", {
+        method: "PATCH",
+        body: JSON.stringify({ protectionPolicy: chosen })
+      }) as never
+    );
+    expect(response.status).toBe(200);
+
+    const [, update] = mocks.Account.updateOne.mock.calls.at(-1) as [
+      unknown,
+      { $set: { onboarding: { protectionPolicy: unknown; controlAreas: string[] } } }
+    ];
+    const persisted = update.$set.onboarding.protectionPolicy;
+    expect(persisted).toEqual(chosen);
+    // Derived so the older coverage panel keeps working without a second question.
+    expect(update.$set.onboarding.controlAreas).toContain("github_writes");
+
+    // Reload: the GET path re-validates and must return exactly what was saved.
+    mocks.Account.findOne.mockReturnValue({
+      select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue({ accountType: "business" }) }),
+      lean: vi.fn().mockResolvedValue({
+        accountId: "acct_test",
+        name: "Workspace",
+        accountType: "business",
+        companyName: null,
+        website: null,
+        teamSize: null,
+        onboarding: JSON.parse(JSON.stringify(update.$set.onboarding))
+      })
+    });
+
+    const { GET } = await import("@/app/api/onboarding/account-setup/route");
+    const reloaded = await GET(
+      jsonRequest("http://example.test/api/onboarding/account-setup") as never
+    );
+    const json = await reloaded.json();
+    expect(json.account.onboarding.protectionPolicy).toEqual(chosen);
+  });
+
+  it("rejects an invalid protection policy on PATCH instead of storing it", async () => {
+    mocks.requireDeveloperApi.mockResolvedValue({
+      user: {
+        userId: "dev_test",
+        email: "dev@example.com",
+        primaryAccountId: "acct_test",
+        emailVerified: true
+      },
+      account: { accountId: "acct_test", name: "Workspace" },
+      error: null
+    });
+
+    const { PATCH } = await import("@/app/api/onboarding/account-setup/route");
+    const response = await PATCH(
+      jsonRequest("http://example.test/api/onboarding/account-setup", {
+        method: "PATCH",
+        body: JSON.stringify({ protectionPolicy: { controls: { read_files: "sometimes" } } })
+      }) as never
+    );
+    expect(response.status).toBe(400);
+    expect(mocks.Account.updateOne).not.toHaveBeenCalled();
+  });
+
+  it("submitting the same step twice leaves one policy, not two", async () => {
+    mocks.requireDeveloperApi.mockResolvedValue({
+      user: {
+        userId: "dev_test",
+        email: "dev@example.com",
+        primaryAccountId: "acct_test",
+        emailVerified: true
+      },
+      account: { accountId: "acct_test", name: "Workspace" },
+      error: null
+    });
+
+    const { PATCH } = await import("@/app/api/onboarding/account-setup/route");
+    const body = JSON.stringify({ protectionPolicy: presetPolicy("strict") });
+    for (let i = 0; i < 2; i += 1) {
+      const response = await PATCH(
+        jsonRequest("http://example.test/api/onboarding/account-setup", { method: "PATCH", body }) as never
+      );
+      expect(response.status).toBe(200);
+    }
+
+    // Both writes target the same account document with a whole-object $set, so
+    // a repeated submit overwrites rather than accumulating.
+    const calls = mocks.Account.updateOne.mock.calls;
+    expect(calls).toHaveLength(2);
+    expect(calls[0]?.[1]).toEqual(calls[1]?.[1]);
   });
 
   it("blocks VIEWER from account-level PATCH", async () => {

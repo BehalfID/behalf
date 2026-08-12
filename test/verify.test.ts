@@ -580,6 +580,81 @@ describe("verifyAction permission decisions", () => {
       })
     );
   });
+
+  it("surfaces the approval path instead of an unrelated permission's denial", async () => {
+    const { verifyAction } = await import("@/lib/verify");
+
+    // Two overlapping permissions on the same action: a capped auto-allow and a
+    // higher approval tier. A request above the cap must offer the approval
+    // path, not report the cap's denial.
+    mockPermissions([
+      permissionFixture({
+        permissionId: "perm_approval",
+        constraints: { maxAmount: 100 },
+        requiresApproval: true
+      }),
+      permissionFixture({ permissionId: "perm_auto", constraints: { maxAmount: 25 } })
+    ]);
+
+    await expect(verifyAction(verificationRequestFixture({ amount: 10 }))).resolves.toEqual(
+      expect.objectContaining({ allowed: true, permissionId: "perm_auto" })
+    );
+
+    await expect(verifyAction(verificationRequestFixture({ amount: 50 }))).resolves.toEqual(
+      expect.objectContaining({
+        allowed: false,
+        approvalRequired: true,
+        permissionId: "perm_approval"
+      })
+    );
+
+    // Above every tier, no permission offers an approval path, so it stays denied.
+    await expect(verifyAction(verificationRequestFixture({ amount: 500 }))).resolves.toEqual(
+      expect.objectContaining({ allowed: false, approvalRequired: false })
+    );
+  });
+
+  it("does not let the approval preference reorder deny precedence", async () => {
+    const { verifyAction } = await import("@/lib/verify");
+
+    mockPermissions([
+      permissionFixture({ permissionId: "perm_approval", requiresApproval: true }),
+      permissionFixture({ permissionId: "perm_block", blockedActions: ["purchase"] })
+    ]);
+
+    await expect(verifyAction(verificationRequestFixture())).resolves.toEqual(
+      expect.objectContaining({
+        allowed: false,
+        approvalRequired: false,
+        permissionId: "perm_block",
+        reason: "Action is blocked by this permission."
+      })
+    );
+  });
+
+  it("keeps the approval preference from bypassing a permission's own hard limits", async () => {
+    const { verifyAction } = await import("@/lib/verify");
+
+    // The only approval-required permission fails its own vendor constraint, so
+    // there is no approval path to offer and the request stays denied.
+    mockPermissions([
+      permissionFixture({
+        permissionId: "perm_approval",
+        requiresApproval: true,
+        constraints: { allowedVendors: ["amazon.com"] }
+      })
+    ]);
+
+    await expect(
+      verifyAction(verificationRequestFixture({ vendor: "sketchy.example" }))
+    ).resolves.toEqual(
+      expect.objectContaining({
+        allowed: false,
+        approvalRequired: false,
+        reason: "Vendor is not included in allowedVendors constraint."
+      })
+    );
+  });
 });
 
 describe("argument-level constraints (path and command)", () => {

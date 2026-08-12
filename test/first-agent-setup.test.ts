@@ -1,133 +1,130 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  APPROVAL_GATES,
   buildPermissionsFromSetup,
   buildTestDecision,
-  recommendControlProfile,
+  recommendPresetForSurface,
   sanitizeVerifyMetadata,
   validateFirstAgentSetupBody
 } from "@/lib/firstAgentSetup";
 import { getNextRouteForFirstSetupGoal } from "@/lib/onboarding";
+import { PROTECTION_CONTROLS, presetPolicy } from "@/lib/protectionPolicy";
 
 describe("first agent setup helpers", () => {
-  it("recommends control profiles by agent surface", () => {
-    expect(recommendControlProfile("cursor")).toBe("balanced");
-    expect(recommendControlProfile("github_actions")).toBe("production_strict");
-    expect(recommendControlProfile("internal")).toBe("production_strict");
-    expect(recommendControlProfile("other")).toBe("conservative");
+  it("suggests a stricter starting policy for unattended surfaces", () => {
+    expect(recommendPresetForSurface("cursor")).toBe("recommended");
+    expect(recommendPresetForSurface("claude_code")).toBe("recommended");
+    expect(recommendPresetForSurface("github_actions")).toBe("strict");
+    expect(recommendPresetForSurface("internal")).toBe("strict");
   });
 
-  it("maps approval gates to permissions with profile behavior", () => {
-    const balanced = buildPermissionsFromSetup({
+  it("compiles the chosen policy into permissions with canonical actions only", () => {
+    const permissions = buildPermissionsFromSetup({
       surface: "cursor",
       name: "Cursor agent",
       environment: "production",
-      controlProfile: "balanced",
-      approvalGates: ["production_deploys", "secret_env_changes"]
+      protectionPolicy: presetPolicy("recommended")
     });
-    expect(balanced.some((permission) => permission.action === "deploy")).toBe(true);
-    expect(balanced.find((permission) => permission.action === "deploy_production")?.requiresApproval).toBe(true);
-    expect(balanced.find((permission) => permission.action === "secrets_write")?.requiresApproval).toBe(true);
 
-    const custom = buildPermissionsFromSetup({
-      surface: "internal",
-      name: "Internal agent",
-      environment: "production",
-      controlProfile: "custom",
-      approvalGates: ["billing_payment_actions"]
-    });
-    expect(custom).toHaveLength(1);
-    expect(custom[0]?.action).toBe("billing_vendor_api");
-    expect(custom[0]?.requiresApproval).toBe(true);
-  });
+    expect(permissions.length).toBeGreaterThanOrEqual(PROTECTION_CONTROLS.length);
+    expect(permissions.find((p) => p.action === "deploy_production")?.requiresApproval).toBe(true);
+    expect(permissions.find((p) => p.action === "secrets_write")?.requiresApproval).toBe(true);
+    expect(permissions.find((p) => p.action === "write_file")?.requiresApproval).toBe(false);
 
-  it("requires approval for every selected gate regardless of profile", () => {
-    const gates = [
-      "production_deploys",
-      "secret_env_changes",
-      "infrastructure_mutations",
-      "database_schema_changes",
-      "billing_payment_actions",
-      "external_network_actions"
-    ] as const;
-
-    for (const profile of ["conservative", "balanced", "production_strict", "custom"] as const) {
-      const permissions = buildPermissionsFromSetup({
-        surface: "cursor",
-        name: "Cursor agent",
-        environment: "production",
-        controlProfile: profile,
-        approvalGates: [...gates]
-      });
-
-      for (const gate of gates) {
-        const gatePermission = permissions.find((permission) => permission.gate === gate);
-        expect(gatePermission?.requiresApproval, `${gate} under ${profile}`).toBe(true);
+    for (const permission of permissions) {
+      // Prose here would be read as an exact-match action allowlist by verify.
+      expect(permission).not.toHaveProperty("allowedActions");
+      for (const blocked of permission.blockedActions ?? []) {
+        expect(blocked).not.toMatch(/\s/);
       }
     }
   });
 
-  it("builds production-focused test decisions regardless of default environment", () => {
-    const withGate = buildTestDecision({
-      approvalGates: ["production_deploys"],
+  it("blocks rather than gates when the customer chose block", () => {
+    const policy = presetPolicy("strict");
+    const permissions = buildPermissionsFromSetup({
+      surface: "github_actions",
+      name: "CI agent",
+      environment: "production",
+      protectionPolicy: policy
+    });
+    const secrets = permissions.find((p) => p.action === "secrets_write");
+    expect(secrets?.blockedActions).toEqual(["secrets_write"]);
+    expect(secrets?.requiresApproval).toBe(false);
+  });
+
+  it("builds a test decision that states the outcome the policy will produce", () => {
+    const gated = buildTestDecision({
+      protectionPolicy: presetPolicy("recommended"),
       defaultEnvironment: "staging",
       agentName: "Deploy agent"
     });
-    expect(withGate.action).toBe("deploy_production");
-    expect(withGate.resource).toBe("production");
-    expect(withGate.vendor).toBe("production");
-    expect(withGate.environment).toBe("production");
-    expect(withGate.metadata?.defaultEnvironment).toBe("staging");
-    expect(withGate.expectsApproval).toBe(true);
-    expect(withGate.expectsDenied).toBe(false);
+    expect(gated.action).toBe("deploy_production");
+    expect(gated.expectsApproval).toBe(true);
+    expect(gated.expectsDenied).toBe(false);
+    expect(gated.metadata?.defaultEnvironment).toBe("staging");
 
-    const withoutGate = buildTestDecision({
-      approvalGates: ["secret_env_changes"],
-      defaultEnvironment: "development",
-      agentName: "Deploy agent"
+    const strict = buildTestDecision({
+      protectionPolicy: presetPolicy("strict"),
+      agentName: "CI agent"
     });
-    expect(withoutGate.resource).toBe("production");
-    expect(withoutGate.vendor).toBe("production");
-    expect(withoutGate.environment).toBe("production");
-    expect(withoutGate.metadata?.defaultEnvironment).toBe("development");
-    expect(withoutGate.expectsApproval).toBe(false);
-    expect(withoutGate.expectsDenied).toBe(true);
+    expect(strict.expectsApproval).toBe(true);
+
+    const openPolicy = presetPolicy("minimal");
+    const open = buildTestDecision({ protectionPolicy: openPolicy, agentName: "Local agent" });
+    expect(open.expectsAllowed).toBe(true);
+    expect(open.expectsApproval).toBe(false);
   });
 
-  it("rejects invalid custom gate selections server-side", () => {
-    const missingGates = validateFirstAgentSetupBody({
+  it("sends an amount that lands in the band the test decision claims", () => {
+    const policy = presetPolicy("minimal");
+    policy.controls = { ...policy.controls, spend_money: "approve" };
+    policy.spending = { enabled: true, approveOver: 25, blockOver: 100 };
+    const decision = buildTestDecision({ protectionPolicy: policy, agentName: "Buyer" });
+    expect(decision.action).toBe("purchase");
+    expect(decision.expectsApproval).toBe(true);
+    expect(decision.amount).toBeGreaterThan(25);
+    expect(decision.amount!).toBeLessThanOrEqual(100);
+  });
+
+  it("rejects a malformed protection policy server-side", () => {
+    const badState = validateFirstAgentSetupBody({
       surface: "cursor",
       name: "Agent",
-      controlProfile: "custom",
-      approvalGates: []
+      protectionPolicy: { controls: { read_files: "sometimes" } }
     });
-    expect(missingGates.error).toMatch(/at least one approval gate/i);
+    expect(badState.error).toMatch(/allow, approve, or block/);
 
-    const invalidGate = validateFirstAgentSetupBody({
+    const badControl = validateFirstAgentSetupBody({
+      surface: "cursor",
+      name: "Agent",
+      protectionPolicy: { controls: { teleport: "allow" } }
+    });
+    expect(badControl.error).toMatch(/unknown control/);
+  });
+
+  it("defaults to the recommended policy when the client sends none", () => {
+    const result = validateFirstAgentSetupBody({ surface: "cursor", name: "Agent" });
+    expect(result.error).toBeNull();
+    expect(result.input?.protectionPolicy.preset).toBe("recommended");
+  });
+
+  it("translates a pre-upgrade browser payload instead of failing it", () => {
+    const legacy = validateFirstAgentSetupBody({
       surface: "cursor",
       name: "Agent",
       controlProfile: "balanced",
-      approvalGates: ["not_a_gate"]
+      approvalGates: ["production_deploys"]
     });
-    expect(invalidGate.error).toMatch(/invalid gate/i);
+    expect(legacy.error).toBeNull();
+    expect(legacy.input?.protectionPolicy.controls.deploy_production).toBe("approve");
   });
 
-  it("requires a valid surface and profile", () => {
+  it("requires a valid surface", () => {
     const invalidSurface = validateFirstAgentSetupBody({
       surface: "vscode",
-      name: "Agent",
-      controlProfile: "balanced",
-      approvalGates: APPROVAL_GATES.slice(0, 1)
+      name: "Agent"
     });
     expect(invalidSurface.error).toMatch(/surface/i);
-
-    const invalidProfile = validateFirstAgentSetupBody({
-      surface: "cursor",
-      name: "Agent",
-      controlProfile: "wide_open",
-      approvalGates: APPROVAL_GATES.slice(0, 1)
-    });
-    expect(invalidProfile.error).toMatch(/controlProfile/i);
   });
 
   it("strips token-like keys from first-agent verify metadata", () => {
@@ -140,7 +137,7 @@ describe("first agent setup helpers", () => {
     ).toEqual({ source: "first_agent_setup" });
 
     const decision = buildTestDecision({
-      approvalGates: ["production_deploys"],
+      protectionPolicy: presetPolicy("recommended"),
       agentName: "Deploy agent"
     });
     expect(decision.metadata).not.toHaveProperty("apiKey");
@@ -235,8 +232,7 @@ describe("POST /api/dashboard/agents/first-setup", () => {
       postRequest({
         surface: "cursor",
         name: "Deploy agent",
-        controlProfile: "balanced",
-        approvalGates: ["production_deploys"]
+        protectionPolicy: presetPolicy("recommended")
       })
     );
     expect(response.status).toBe(403);
@@ -252,8 +248,7 @@ describe("POST /api/dashboard/agents/first-setup", () => {
       postRequest({
         surface: "cursor",
         name: "Deploy agent",
-        controlProfile: "balanced",
-        approvalGates: ["production_deploys"]
+        protectionPolicy: presetPolicy("recommended")
       })
     );
     expect(response.status).toBe(403);
@@ -267,8 +262,7 @@ describe("POST /api/dashboard/agents/first-setup", () => {
         name: "CI deploy agent",
         description: "Production deploy gate",
         environment: "production",
-        controlProfile: "production_strict",
-        approvalGates: ["production_deploys", "secret_env_changes"]
+        protectionPolicy: presetPolicy("recommended")
       })
     );
     const json = await response.json();
@@ -276,7 +270,7 @@ describe("POST /api/dashboard/agents/first-setup", () => {
     expect(json.apiKey).toBe("bhf_sk_test_key_once");
     expect(json.agent.agentId).toBe("agent_test");
     expect(json.testDecision.action).toBe("deploy_production");
-    expect(json.testDecision.resource).toBe("production");
+    expect(json.testDecision.expectsApproval).toBe(true);
     expect(json.testDecision.environment).toBe("production");
     expect(json.testDecision.metadata).not.toHaveProperty("apiKey");
     expect(mocks.createDeveloperAgent).toHaveBeenCalledOnce();
@@ -293,8 +287,7 @@ describe("POST /api/dashboard/agents/first-setup", () => {
       postRequest({
         surface: "cursor",
         name: "Cursor agent",
-        controlProfile: "balanced",
-        approvalGates: ["production_deploys", "secret_env_changes"]
+        protectionPolicy: presetPolicy("recommended")
       })
     );
     const json = await response.json();
@@ -319,8 +312,7 @@ describe("POST /api/dashboard/agents/first-setup", () => {
       postRequest({
         surface: "cursor",
         name: "Cursor agent",
-        controlProfile: "balanced",
-        approvalGates: ["production_deploys"]
+        protectionPolicy: presetPolicy("recommended")
       })
     );
     expect(mocks.emitWebhookEvent).toHaveBeenCalled();
@@ -328,17 +320,33 @@ describe("POST /api/dashboard/agents/first-setup", () => {
     expect(payload).not.toMatch(/bhf_sk_/);
   });
 
-  it("rejects invalid gate combinations", async () => {
+  it("rejects a malformed protection policy", async () => {
     const { POST } = await import("@/app/api/dashboard/agents/first-setup/route");
     const response = await POST(
       postRequest({
         surface: "cursor",
         name: "Cursor agent",
-        controlProfile: "custom",
-        approvalGates: []
+        protectionPolicy: { controls: { read_files: "sometimes" } }
       })
     );
     expect(response.status).toBe(400);
+  });
+
+  it("creates one permission per compiled rule", async () => {
+    const { POST } = await import("@/app/api/dashboard/agents/first-setup/route");
+    await POST(
+      postRequest({
+        surface: "cursor",
+        name: "Cursor agent",
+        protectionPolicy: presetPolicy("recommended")
+      })
+    );
+    const expected = buildPermissionsFromSetup({
+      surface: "cursor",
+      name: "Cursor agent",
+      protectionPolicy: presetPolicy("recommended")
+    }).length;
+    expect(mocks.createPermissionForAgent.mock.calls.length).toBe(expected);
   });
 });
 
