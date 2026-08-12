@@ -13,6 +13,9 @@ vi.mock("@/models/DeveloperApiToken", () => ({
     updateOne: developerTokenMocks.tokenUpdateOne
   }
 }));
+vi.mock("@/lib/authEvents", () => ({
+  recordAuthFailure: vi.fn().mockResolvedValue(undefined)
+}));
 
 function tokenRequest(token?: string) {
   return new Request("http://localhost/api/verify", {
@@ -54,11 +57,15 @@ describe("developer token authentication", () => {
       select: vi.fn().mockResolvedValue(null)
     });
     const { authenticateDeveloperToken } = await import("@/lib/developerToken");
+    const { recordAuthFailure } = await import("@/lib/authEvents");
 
     const result = await authenticateDeveloperToken(tokenRequest("bhf_dev_invalid_value"));
 
     expect(result).toEqual({ tokenDoc: null, error: "Invalid developer token." });
     expect(developerTokenMocks.tokenUpdateOne).not.toHaveBeenCalled();
+    expect(recordAuthFailure).toHaveBeenCalledWith(
+      expect.objectContaining({ surface: "developer_token", reason: "invalid_api_key" })
+    );
   });
 
   it("does not expose raw developer tokens when lastUsedAt updates fail", async () => {
