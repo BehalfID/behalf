@@ -11,6 +11,7 @@ import { FirstAgentSetup } from "@/components/dashboard/first-agent/FirstAgentSe
 import { ManagedProfilesView } from "@/components/dashboard/ManagedProfilesView";
 import { ManagedProfileActivityView } from "@/components/dashboard/ManagedProfileActivityView";
 import { AccountDeletionSection } from "@/components/dashboard/AccountDeletionSection";
+import { DataExportSection } from "@/components/dashboard/DataExportSection";
 import { LinkedAccountsSection } from "@/components/dashboard/LinkedAccountsSection";
 import { MfaSettingsSection } from "@/components/dashboard/MfaSettingsSection";
 import { OpsInboxConsole } from "@/components/dashboard/OpsInboxConsole";
@@ -3657,6 +3658,7 @@ function SettingsView() {
           {tokens.data && tokens.data.tokens.length === 0 ? <DashboardState className="dashboard-empty" kind="empty" title="No developer tokens" description="Create a token when a developer workflow needs account-authenticated API access." /> : null}
         </div>
       </SettingsSection>
+      <DataExportSection />
       <AccountDeletionSection />
         </div>
       </div>
