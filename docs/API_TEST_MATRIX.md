@@ -7,8 +7,8 @@ Derived from the route files under `app/api/**`, not from `docs/API.md`. Each ro
 
 ## Totals
 
-- Route modules: **154**
-- Exported HTTP handlers: **184**
+- Route modules: **155**
+- Exported HTTP handlers: **185**
 - Mutating modules: **115**
 - Modules returning a one-time secret: **7**
 - Modules with no direct handler test: **96**
@@ -40,6 +40,7 @@ credential the caller can never retrieve again.
 | POST | `/api/agents/:agentId/rotate-key` | www | agent API key; rate-limited | — | yes | **yes** | webhook event | agents | no | 1 | P0 |
 | GET | `/api/agents/:agentId` | www | agent API key; rate-limited | — | no | no | — | permissions | no | 1 | P2 |
 | POST | `/api/agents` | www | setup token / console session; developer API token; rate-limited | — | yes | **yes** | webhook event | agents | no | — | P0 |
+| GET | `/api/auth/account/export` | auth | session (verified developer); rate-limited | — | no | no | — | accounts, externalIdentities, identityAudit, memberships, passkeys | no | 1 | P0 |
 | DELETE | `/api/auth/account` | auth | session (verified developer); rate-limited | — | yes | no | — | sessions | no | 1 | P0 |
 | GET | `/api/auth/cleanup` | auth | rate-limited | — | no | no | — | — | no | 1 | P0 |
 | POST | `/api/auth/device/authorize` | auth | session (developer) | — | yes | no | — | deviceCodes | no | — | P0 |
