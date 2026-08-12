@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireConsoleApi } from "@/lib/adminAuth";
+import { getConsoleSessionActorId, requireConsoleApi } from "@/lib/adminAuth";
+import { recordAdminAudit } from "@/lib/consoleAdmins";
 import { getConsoleAccountId } from "@/lib/consoleData";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
@@ -30,6 +31,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     { returnDocument: "after" }
   );
   if (!site) return jsonError("Site not found.", 404);
+
+  await recordAdminAudit({
+    adminId: getConsoleSessionActorId(request),
+    action: "site.updated",
+    target: siteId,
+    metadata: { status }
+  });
 
   return NextResponse.json({ site });
 }

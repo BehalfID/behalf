@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireConsoleApi } from "@/lib/adminAuth";
+import { getConsoleSessionActorId, requireConsoleApi } from "@/lib/adminAuth";
+import { recordAdminAudit } from "@/lib/consoleAdmins";
 import { getConsoleAccountId } from "@/lib/consoleData";
 import { jsonError } from "@/lib/responses";
 import { updateEndpoint } from "@/lib/repositories/webhooks";
@@ -24,6 +25,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (result.matchedCount !== 1) {
     return jsonError("Webhook not found.", 404);
   }
+
+  await recordAdminAudit({
+    adminId: getConsoleSessionActorId(request),
+    action: "webhook.disabled",
+    target: webhookId
+  });
 
   return NextResponse.json({ disabled: true });
 }

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { hashApiKey } from "@/lib/auth";
-import { requireConsoleApi } from "@/lib/adminAuth";
+import { getConsoleSessionActorId, requireConsoleApi } from "@/lib/adminAuth";
+import { recordAdminAudit } from "@/lib/consoleAdmins";
 import { getConsoleAccountId } from "@/lib/consoleData";
 import { createApiKey } from "@/lib/ids";
 import { jsonError } from "@/lib/responses";
@@ -35,6 +36,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   await emitWebhookEvent(createWebhookEvent(accountId, "agent.key_rotated", { agentId }));
+
+  await recordAdminAudit({
+    adminId: getConsoleSessionActorId(request),
+    action: "agent.key_rotated",
+    target: agentId
+  });
 
   return NextResponse.json({ agentId, apiKey });
 }

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireConsoleApi } from "@/lib/adminAuth";
+import { getConsoleSessionActorId, requireConsoleApi } from "@/lib/adminAuth";
+import { recordAdminAudit } from "@/lib/consoleAdmins";
 import { getConsoleAccountId } from "@/lib/consoleData";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
@@ -30,6 +31,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     { returnDocument: "after" }
   );
   if (!rule) return jsonError("Site Guard rule not found.", 404);
+
+  await recordAdminAudit({
+    adminId: getConsoleSessionActorId(request),
+    action: "site.rule_updated",
+    target: siteId,
+    metadata: { ruleId, status }
+  });
 
   return NextResponse.json({ rule });
 }

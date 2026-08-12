@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireConsoleApi } from "@/lib/adminAuth";
+import { getConsoleSessionActorId, requireConsoleApi } from "@/lib/adminAuth";
+import { recordAdminAudit } from "@/lib/consoleAdmins";
 import { randomUUID } from "crypto";
 import { createIncident, findStatusIncidents } from "@/lib/repositories/status";
 
@@ -47,6 +48,13 @@ export async function POST(request: NextRequest) {
       ? [{ body: body.message.trim().slice(0, 2000), status, createdAt: new Date() }]
       : [],
     resolvedAt: status === "fixed" ? new Date() : undefined
+  });
+
+  await recordAdminAudit({
+    adminId: getConsoleSessionActorId(request),
+    action: "status_incident.created",
+    target: incident.incidentId,
+    metadata: { title: incident.title, status: incident.status, severity: incident.severity }
   });
 
   return NextResponse.json(

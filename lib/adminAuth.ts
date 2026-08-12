@@ -195,6 +195,16 @@ export async function hasConsoleSession() {
   return isValidConsoleSession(cookieStore.get(COOKIE_NAME)?.value);
 }
 
+/**
+ * Actor identity for audit logging. "shared" sessions (the password-only
+ * fallback) have no individual admin attached — callers should record that
+ * explicitly rather than guessing an adminId.
+ */
+export function getConsoleSessionActorId(request: NextRequest): string {
+  const parsed = parseConsoleSession(request.cookies.get(COOKIE_NAME)?.value);
+  return parsed?.kind === "admin" ? parsed.adminId : "shared";
+}
+
 export async function requireConsoleApi(request: NextRequest) {
   const limit = await checkRateLimit(request);
   if (limit.limited) {

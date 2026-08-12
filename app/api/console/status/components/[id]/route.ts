@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireConsoleApi } from "@/lib/adminAuth";
+import { getConsoleSessionActorId, requireConsoleApi } from "@/lib/adminAuth";
+import { recordAdminAudit } from "@/lib/consoleAdmins";
 import {
   findOneAndDeleteStatusComponent,
   findOneStatusComponent,
@@ -49,6 +50,13 @@ export async function PATCH(
     return NextResponse.json({ error: "Component not found" }, { status: 404 });
   }
 
+  await recordAdminAudit({
+    adminId: getConsoleSessionActorId(request),
+    action: "status_component.updated",
+    target: id,
+    metadata: { update }
+  });
+
   return NextResponse.json({
     component: {
       componentId: updated.componentId,
@@ -75,6 +83,13 @@ export async function DELETE(
   if (!deleted) {
     return NextResponse.json({ error: "Component not found" }, { status: 404 });
   }
+
+  await recordAdminAudit({
+    adminId: getConsoleSessionActorId(request),
+    action: "status_component.deleted",
+    target: id,
+    metadata: { name: deleted.name }
+  });
 
   return NextResponse.json({ ok: true });
 }
