@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/privacy" }
 };
 
-const EFFECTIVE = "2 July 2026";
+const EFFECTIVE = "12 August 2026";
 const CONTACT   = "legal@behalfid.com";
 
 const TOC = [
@@ -161,9 +161,20 @@ export default function PrivacyPage() {
               personal data) is also written server-side for product-integrity purposes.
             </p>
 
+            <h3>Analytics cookie</h3>
             <p>
-              <strong>No third-party or advertising cookies are used.</strong> BehalfID does
-              not load tracking pixels, fingerprinting scripts, or analytics SDKs.
+              If you accept analytics in the cookie-consent banner, we load HeyCatch, a
+              third-party product-analytics processor, which sets a persistent cookie
+              (<code>ph_&lt;token&gt;_posthog</code>, ~12 month expiry) and associated
+              <code> localStorage</code>/<code>sessionStorage</code> identifiers. This cookie is
+              not loaded, and no analytics data is captured, until you accept. See{' '}
+              <Link href="#analytics">section 5</Link> for what it collects.
+            </p>
+
+            <p>
+              <strong>No advertising or cross-site tracking cookies are used.</strong> BehalfID
+              does not load tracking pixels or fingerprinting scripts, and does not sell
+              analytics data or share it for advertising purposes.
             </p>
 
           </section>
@@ -190,9 +201,13 @@ export default function PrivacyPage() {
           <section className="legal-section" id="analytics">
             <h2>5. Analytics</h2>
             <p>
-              BehalfID does not use third-party analytics, advertising networks, or
-              cross-site tracking. No tracking cookies or fingerprinting scripts are loaded on
-              any page of the service.
+              With your consent (see <Link href="#cookies">section 3</Link>), we use HeyCatch,
+              a third-party product-analytics processor, to understand how the product is used.
+              Once you accept, and only then, the following is sent to HeyCatch: a stable
+              internal user ID, your account email and name, your plan, and product-usage
+              events (pages viewed, features used). We do not use advertising networks or
+              cross-site tracking, and analytics data is never used to serve ads or sold to
+              third parties.
             </p>
           </section>
 
@@ -234,7 +249,7 @@ export default function PrivacyPage() {
               </thead>
               <tbody>
                 <tr>
-                  <td>MongoDB Atlas</td>
+                  <td>Supabase (Postgres)</td>
                   <td>Database hosting</td>
                   <td>All stored account, agent, and log data</td>
                 </tr>
@@ -247,6 +262,11 @@ export default function PrivacyPage() {
                   <td>Stripe</td>
                   <td>Payment processing and subscription management</td>
                   <td>Email address, billing name, payment card details (held by Stripe only), subscription events</td>
+                </tr>
+                <tr>
+                  <td>HeyCatch</td>
+                  <td>Product analytics (consent-gated — see sections 3 and 5)</td>
+                  <td>Internal user ID, account email and name, plan, product-usage events</td>
                 </tr>
               </tbody>
             </table>

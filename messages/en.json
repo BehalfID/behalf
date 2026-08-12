@@ -221,7 +221,7 @@
       "colProcessor": "Processor",
       "colPurpose": "Purpose",
       "colData": "Data shared",
-      "row1Proc": "MongoDB Atlas",
+      "row1Proc": "Supabase (Postgres)",
       "row1Purpose": "Database hosting",
       "row1Data": "All stored account, agent, and log data",
       "row2Proc": "Vercel",

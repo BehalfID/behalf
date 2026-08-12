@@ -104,8 +104,8 @@ export default function CompliancePage() {
               </li>
               <li>
                 <strong>A1 — Availability.</strong> The service is hosted on Vercel with
-                managed platform redundancy and global edge delivery. MongoDB Atlas provides
-                managed database availability. BehalfID does <strong>not</strong> publish a
+                managed platform redundancy and global edge delivery. Supabase (Postgres)
+                provides managed database availability. BehalfID does <strong>not</strong> publish a
                 contractual uptime SLA (including any 99.99% claim) or a verified p99 latency SLO
                 at this time — see the status page for component state, not an SLA.
               </li>
@@ -300,10 +300,10 @@ export default function CompliancePage() {
 
             <h3>Data transfers</h3>
             <p>
-              Data may be processed in the United States by Vercel and MongoDB Atlas. Both
-              processors operate under Standard Contractual Clauses (SCCs) for cross-border
-              transfers. Stripe processes billing data under its own EU data transfer
-              mechanisms.
+              Data may be processed in the United States by Vercel and Supabase (Postgres).
+              Both processors operate under Standard Contractual Clauses (SCCs) for
+              cross-border transfers. Stripe processes billing data under its own EU data
+              transfer mechanisms.
             </p>
 
             <h3>Data Protection Officer</h3>

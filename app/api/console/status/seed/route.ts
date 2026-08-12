@@ -16,7 +16,7 @@ const DEFAULT_COMPONENTS = [
   { name: "Authentication",      description: "Login, signup, and session management",                group: "Core API",            sortOrder: 30 },
   { name: "Developer Dashboard", description: "Dashboard portal for managing agents and permissions", group: "Developer Platform",  sortOrder: 40 },
   { name: "Admin Console",       description: "Internal admin console",                               group: "Developer Platform",  sortOrder: 50 },
-  { name: "Database",            description: "Primary MongoDB data store",                           group: "Infrastructure",      sortOrder: 60 },
+  { name: "Database",            description: "Primary Postgres (Supabase) data store",               group: "Infrastructure",      sortOrder: 60 },
   { name: "Webhook Delivery",    description: "Event delivery and retry pipeline",                    group: "Infrastructure",      sortOrder: 70 },
   { name: "Site Guard",          description: "AI agent website access control",                      group: "Add-ons",             sortOrder: 80 },
   { name: "SDK & CLI",           description: "npm packages — @behalfid/sdk and @behalfid/cli",      group: "Add-ons",             sortOrder: 90 },
