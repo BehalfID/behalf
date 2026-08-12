@@ -12,9 +12,11 @@ import {
   developerApiTokens,
   developerSessions,
   developerUsers,
+  externalIdentities,
   integrationBindings,
   managedProfilePolicies,
   managedProfileProtectedRepos,
+  passkeyCredentials,
   permissionProfiles,
   permissions,
   policyDocuments,
@@ -183,6 +185,10 @@ export async function deleteAccountCascade(
 export async function deleteDeveloperUserCredentials(db: BehalfPostgresDb, userId: string) {
   await db.delete(developerSessions).where(eq(developerSessions.userId, userId));
   await db.delete(developerApiTokens).where(eq(developerApiTokens.userId, userId));
+  // Live credential/identity material tied to this user, not durable audit
+  // history — must be erased on deletion (GDPR Art. 17 / CPRA right to delete).
+  await db.delete(passkeyCredentials).where(eq(passkeyCredentials.userId, userId));
+  await db.delete(externalIdentities).where(eq(externalIdentities.userId, userId));
   const rows = await db
     .delete(developerUsers)
     .where(eq(developerUsers.userId, userId))
