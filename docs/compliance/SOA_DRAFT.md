@@ -1,8 +1,8 @@
 # BehalfID — ISO 27001:2022 Statement of Applicability (Draft)
 
 **Document status:** Draft for internal readiness — **not** an approved SoA under a certified ISMS  
-**Date:** 2026-07-24  
-**Scope (proposed):** BehalfID hosted SaaS (developer dashboard, verify API, audit logs, webhooks, Site Guard, admin console, billing integrations) operated on Vercel + MongoDB Atlas  
+**Date:** 2026-07-24 (infrastructure references updated 2026-08-12 to match the 2026-07-31 Supabase/Postgres cutover)  
+**Scope (proposed):** BehalfID hosted SaaS (developer dashboard, verify API, audit logs, webhooks, Site Guard, admin console, billing integrations) operated on Vercel + Supabase (Postgres)  
 **Exclusions (proposed):** Physical office security (fully remote / cloud); customer-side agent runtimes outside BehalfID control
 
 **Legend:**  
@@ -35,7 +35,7 @@
 | A.5.17 | Authentication information | Y | Partial | scrypt, hashed tokens; no MFA |
 | A.5.18 | Access rights | Y | Partial | Membership roles; no periodic access review cadence |
 | A.5.19 | Information security in supplier relationships | Y | Not implemented | Subprocessors listed; no assessments |
-| A.5.20 | Addressing information security within supplier agreements | Y | Partial | Stripe/Google/Vercel/Atlas contractual reliance undocumented in pack |
+| A.5.20 | Addressing information security within supplier agreements | Y | Partial | Stripe/Google/Vercel/Supabase/HeyCatch contractual reliance undocumented in pack |
 | A.5.21 | Managing information security in the ICT supply chain | Y | Not implemented | |
 | A.5.22 | Monitoring, review and change management of supplier services | Y | Not implemented | |
 | A.5.23 | Information security for use of cloud services | Y | Partial | Production checklist; no cloud security standard |
@@ -75,7 +75,7 @@
 
 | ID | Control | Applicable | Implementation | Justification / notes |
 |----|---------|------------|----------------|----------------------|
-| A.7.1–A.7.14 | Physical / environmental | Mostly N/A | N/A | No company data center; rely on Vercel/Atlas physical controls via supplier due diligence (to be evidenced) |
+| A.7.1–A.7.14 | Physical / environmental | Mostly N/A | N/A | No company data center; rely on Vercel/Supabase physical controls via supplier due diligence (to be evidenced) |
 
 ---
 
@@ -92,11 +92,11 @@
 | A.8.7 | Protection against malware | Y | Partial | Rely on endpoints + CI; no formal malware control |
 | A.8.8 | Management of technical vulnerabilities | Y | Partial | `npm audit` history; no Dependabot/CodeQL |
 | A.8.9 | Configuration management | Y | Partial | `lib/env.ts` prod asserts; no IaC for app |
-| A.8.10 | Information deletion | Y | Partial | Account deletion; log purge incomplete on Mongo |
+| A.8.10 | Information deletion | Y | Partial | Account deletion cascade now covers linked identities/passkeys on both backends (2026-08-12); log purge runs on Postgres; data export/portability still manual (G-25) |
 | A.8.11 | Data masking | Y | Implemented | `lib/secretRedaction.ts` |
 | A.8.12 | Data leakage prevention | Y | Partial | Redaction + CSP; no enterprise DLP |
-| A.8.13 | Information backup | Y | Not implemented | Atlas capability unevidenced |
-| A.8.14 | Redundancy of information processing facilities | Y | Partial | Vercel/Atlas HA assumptions |
+| A.8.13 | Information backup | Y | Not implemented | Supabase backup capability unevidenced — see ops/BACKUP_RESTORE.md |
+| A.8.14 | Redundancy of information processing facilities | Y | Partial | Vercel/Supabase HA assumptions |
 | A.8.15 | Logging | Y | Partial | Strong verify logs; failed-auth missing |
 | A.8.16 | Monitoring activities | Y | Not implemented | No APM/SIEM |
 | A.8.17 | Clock synchronization | Y | Partial | Cloud provider NTP assumed |

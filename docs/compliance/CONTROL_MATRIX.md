@@ -1,20 +1,20 @@
 # BehalfID — SOC 2 / ISO 27001 Control Matrix
 
 **Assessment type:** Internal readiness (not a CPA SOC 2 report or accredited ISO 27001 certificate)  
-**Assessment date:** 2026-07-24  
-**System:** BehalfID hosted SaaS (Next.js on Vercel + MongoDB Atlas)  
+**Assessment date:** 2026-07-24 (infrastructure facts refreshed 2026-08-12 — see note below)  
+**System:** BehalfID hosted SaaS (Next.js on Vercel + Supabase/Postgres)  
 **Trust criteria in scope:** Security (CC), Processing Integrity (PI), Availability (A)  
 **ISO scope:** ISO/IEC 27001:2022 Annex A controls relevant to SaaS + ISMS clause readiness (4–10)
 
 > This matrix maps SaaS features to controls and evidence paths. Status values are refined in [GAP_ANALYSIS.md](./GAP_ANALYSIS.md) and tested in the internal audits.
-
----
+>
+> **2026-08-12 note:** the datastore migrated from MongoDB Atlas to Supabase/Postgres (Drizzle) after the 2026-07-24 assessment date; this page's infrastructure references have been updated in place to match current reality, and the migration also means the app now uses real multi-statement `db.transaction()` on the primary write paths (see PI1.3 below) rather than the Mongo-era "no multi-doc transactions" caveat. Control *findings* below otherwise reflect the 2026-07-24 review; see [GAP_ANALYSIS.md](./GAP_ANALYSIS.md) for newer dated findings.
 
 ## 1. System description
 
 BehalfID is agent permission infrastructure: it verifies AI-agent actions against scoped permission “passports,” fail-closes on deny (when integrated), and writes an audit trail with stable `requestId` values. Customers are developers and security teams integrating via dashboard, API, SDK, CLI/MCP, Site Guard, and Action Gateway.
 
-**Hosting assumptions (ops):** Vercel (app), MongoDB Atlas (primary datastore), Upstash Redis (rate limits), Stripe (billing), Google OAuth (identity), optional email for verify/reset.
+**Hosting assumptions (ops):** Vercel (app), Supabase/Postgres (primary datastore), Upstash Redis (rate limits), Stripe (billing), Google OAuth (identity), optional email for verify/reset.
 
 **Product posture:** Engineering docs still describe the product as a prototype suitable for constrained deployments (`docs/SECURITY.md`, `/security`). Public `/compliance` states SOC 2 / ISO certification in progress — not completed.
 
@@ -93,7 +93,7 @@ Status legend used in audits: **I** = Implemented, **P** = Partial, **M** = Miss
 | PI1.1 / A.8.26 | Input validation | Public/console APIs | `lib/validation.ts` (`rejectUnknownFields`) | I |
 | PI1.2 | Integrity of outbound events | F08 | HMAC-SHA256 webhook signing (`lib/webhooks.ts`); optional signing pepper | I |
 | PI1.2 | Provider webhook integrity | F11, F13 | Stripe signature + idempotency; Slack request signature verify | I |
-| PI1.3 | Complete / accurate processing | F04, F08 | Verification writes audit log; webhook outbox + retry/DLQ; **not** Mongo multi-doc transactions; at-least-once delivery | P |
+| PI1.3 | Complete / accurate processing | F04, F08 | Verification writes audit log; webhook outbox + retry/DLQ; Postgres now uses real `db.transaction()` for several write paths (account deletion, agent/webhook writes) — an improvement over the Mongo era — but webhook delivery itself remains at-least-once, not transactional | P |
 | PI1.4 | Origin checks on mutations | F01, F14 | Origin header checks on dashboard/console mutations | P |
 | PI1.5 | Claim accuracy (public disclosures) | Marketing | `/compliance` session/retention claims diverge from code | M |
 
@@ -102,9 +102,9 @@ Status legend used in audits: **I** = Implemented, **P** = Partial, **M** = Miss
 | Control ID | Requirement summary | Features | Evidence | Status |
 |------------|---------------------|----------|----------|--------|
 | A1.1 | Capacity / health monitoring | Platform | `GET /api/health`, auth’d `GET /api/health/db`; no external uptime monitor config | P |
-| A1.2 / A.8.13 | Backup | Data store | Atlas backup assumed in ops docs / Postgres migration checklist; no tested restore evidence in-repo | M |
-| A1.2 / A.5.30 | DR / BCP / RTO-RPO | Platform | Listed “in progress” on `/compliance`; no runbook | M |
-| A1.3 | Environmental protections | Hosting | Relies on Vercel + Atlas provider controls | P |
+| A1.2 / A.8.13 | Backup | Data store | Supabase (Postgres) point-in-time recovery / backup capability assumed per provider plan; no tested restore evidence in-repo — see [ops/BACKUP_RESTORE.md](./ops/BACKUP_RESTORE.md) | M |
+| A1.2 / A.5.30 | DR / BCP / RTO-RPO | Platform | Runbook exists ([ops/BCP_DR.md](./ops/BCP_DR.md)); no drill evidence in-repo | M |
+| A1.3 | Environmental protections | Hosting | Relies on Vercel + Supabase provider controls | P |
 | A1.2 | Recovery of async jobs | F08 | Webhook cron worker + DLQ replay; not a dedicated queue | P |
 | A1.1 | Status communication | F15 | Public status + console incidents | P |
 

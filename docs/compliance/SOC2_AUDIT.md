@@ -9,6 +9,15 @@
 
 > This is **not** a SOC 2 Type I or Type II report issued by a licensed CPA firm.
 
+> **2026-08-12 note:** this report is a point-in-time snapshot from 2026-07-24 and is left
+> as historical record — findings below are **not** re-scored here. Several findings marked
+> "Fail" (SOC-01, SOC-02, SOC-03, SOC-05) were remediated later the same day; see
+> [GAP_ANALYSIS.md](./GAP_ANALYSIS.md) G-01–G-05 for current status. The datastore has also
+> since migrated from MongoDB Atlas to Supabase (Postgres) on 2026-07-31 — the
+> "Infrastructure (documented)" line below is updated to match current reality, but
+> Mongo-specific evidence text elsewhere in this report reflects the system as it was on the
+> audit date.
+
 ---
 
 ## 1. Opinion (internal)
@@ -28,7 +37,7 @@ Based on design review of the BehalfID codebase and documentation:
 ## 2. System under audit
 
 - **Application:** BehalfID SaaS — agent permission verification, audit logs, webhooks, Site Guard, developer dashboard, admin console.
-- **Infrastructure (documented):** Vercel + MongoDB Atlas + Upstash Redis + Stripe + Google OAuth.
+- **Infrastructure (documented):** Vercel + Supabase (Postgres) + Upstash Redis + Stripe + Google OAuth. *(At audit time this was Vercel + MongoDB Atlas; migrated 2026-07-31 — see note above.)*
 - **Boundaries:** Customer integrations (SDK/CLI/MCP/egress) are in scope for control design where they affect integrity/availability of enforcement; customer-side fail-open choices are residual risk.
 
 Reference: [CONTROL_MATRIX.md](./CONTROL_MATRIX.md).

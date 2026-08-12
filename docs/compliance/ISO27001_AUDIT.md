@@ -8,6 +8,13 @@
 
 > This is **not** an ISO 27001 certificate and does not satisfy Stage 1/Stage 2 CB requirements by itself.
 
+> **2026-08-12 note:** point-in-time snapshot from 2026-07-24, left as historical record —
+> findings below are not re-scored here. ISO-03 and parts of ISO-04 were remediated later
+> the same day (IR/BCP runbooks); see [GAP_ANALYSIS.md](./GAP_ANALYSIS.md) G-09. The
+> datastore has since migrated from MongoDB Atlas to Supabase (Postgres) on 2026-07-31;
+> ops runbooks under `docs/compliance/ops/` have been rewritten for Postgres, but a restore
+> drill still has not been performed (ISO-04 remains a real gap).
+
 ---
 
 ## 1. Opinion (internal)

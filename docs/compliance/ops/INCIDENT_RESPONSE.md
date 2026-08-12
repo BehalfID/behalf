@@ -21,7 +21,7 @@
 3. **Contain** — Rotate secrets if leaked; disable public agent creation; revoke keys; rate-limit.
 4. **Eradicate / recover** — Patch, restore from backup if needed, clear DLQ with care.
 5. **Communicate** — Status page transitions: investigating → identified → monitoring → fixed.
-6. **Evidence** — Preserve AuthEvents, verification logs, Vercel/Atlas logs; do not wipe before counsel/security review on Sev-1 security events.
+6. **Evidence** — Preserve AuthEvents, verification logs, Vercel/Supabase logs; do not wipe before counsel/security review on Sev-1 security events.
 7. **Postmortem** — Root cause, timeline, CAPA; link from this doc.
 
 ## On-call
