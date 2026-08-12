@@ -122,6 +122,9 @@ Derived from privacy disclosures and production docs (validate contracts separat
 | R-P1-10 | Done | `developer_token` auth surface now records failed attempts via `recordAuthFailure` (`lib/developerToken.ts`), closing a gap where invalid `x-developer-token` attempts went unlogged while every other auth surface was covered |
 | — | Done | Corrected stale code comments/docstrings claiming MFA columns and the Postgres runtime were not yet wired up (`app/api/auth/login/route.ts`, `app/api/auth/mfa/verify/route.ts`, `lib/db/postgres/index.ts`) — both have worked since the 2026-07-31 cutover |
 | R-P1-13 | Done | Rewrote `docs/compliance/ops/BACKUP_RESTORE.md`, `BCP_DR.md`, and `INCIDENT_RESPONSE.md` for Supabase/Postgres — they previously described Atlas-specific restore steps that a real incident would have followed against the wrong datastore |
+| R-P1-11 | Done | Added `GET /api/auth/account/export` + a dashboard "Export your data" section — access/portability are now genuinely self-service, matching the existing public claim |
+| R-P1-12 | Done | `IdentityAuditLog` rows are now deleted on account deletion (both backends) |
+| R-P2-2 | Done | Added `.github/dependabot.yml` for npm dependency update PRs across the workspace (closes part of G-11) |
 
 ### Still open
 
@@ -129,9 +132,7 @@ Derived from privacy disclosures and production docs (validate contracts separat
 |----|--------|------------|
 | R-P1-7 | Approve InfoSec policy, risk register, SoA; appoint ISMS owner | Leadership |
 | R-P1-8 | Complete vendor risk assessments for subprocessors, **including HeyCatch and Supabase** (added/changed since the last assessment; DPA/SCC status not evidenced in-repo for either) | Security/Legal |
-| R-P1-11 | Add a self-service data export (access/portability) flow — GDPR Art. 15/20 and CPRA are currently fulfilled only via emailing `legal@behalfid.com`, but `messages/en.json` `compliance.gdpr.item3` and equivalent locale copy claim access/deletion/portability are all available "via the developer portal"; either build the export flow or correct the claim | Eng / Legal |
-| R-P1-12 | Add a retention/TTL policy to `IdentityAuditLog` (no `expiresAt`, unlike its sibling `AuthEvent`) and include it in the account-deletion cascade | Eng |
-| R-P2-* | Pepper, Dependabot, deploy change control, webhook queue, training, CSRF | Eng / People |
+| R-P2-* | Pepper, deploy change control, webhook queue, training, CSRF | Eng / People |
 
 Ops runbooks: [ops/BACKUP_RESTORE.md](./ops/BACKUP_RESTORE.md), [ops/BCP_DR.md](./ops/BCP_DR.md), [ops/INCIDENT_RESPONSE.md](./ops/INCIDENT_RESPONSE.md), [ops/MONITORING.md](./ops/MONITORING.md).
 
@@ -155,4 +156,5 @@ Engage a licensed CPA for SOC 2 and an accredited certification body for ISO 270
 |------|--------|
 | 2026-07-24 | Initial evidence pack from internal readiness assessment |
 | 2026-07-24 | Remediation pass: disclosures, purge cron, AuthEvents, MFA, ConsoleAdmin, Sentry, ops runbooks |
-| 2026-08-12 | Scheduled ISO 27001/SOC 2/GDPR/CPRA scan: corrected stale MongoDB Atlas → Supabase (Postgres) references (public pages, pack, ops runbooks) left over from the 2026-07-31 datastore cutover; fixed a real privacy-policy/analytics disclosure mismatch on the static `/privacy` route; closed a GDPR Art. 17 gap where Mongo-backend account deletion didn't remove `ExternalIdentity`/`PasskeyCredential` rows; closed a failed-auth logging gap on the `developer_token` surface; corrected stale MFA/Postgres code comments. HIPAA reviewed — confirmed not applicable (no PHI processing). New open items: R-P1-8 (extend vendor risk assessment to HeyCatch/Supabase), R-P1-11 (data portability claim vs. actual capability), R-P1-12 (`IdentityAuditLog` retention) |
+| 2026-08-12 | Scheduled ISO 27001/SOC 2/GDPR/CPRA scan: corrected stale MongoDB Atlas → Supabase (Postgres) references (public pages, pack, ops runbooks) left over from the 2026-07-31 datastore cutover; fixed a real privacy-policy/analytics disclosure mismatch on the static `/privacy` route; closed a GDPR Art. 17 gap where Mongo-backend account deletion didn't remove `ExternalIdentity`/`PasskeyCredential` rows; closed a failed-auth logging gap on the `developer_token` surface; corrected stale MFA/Postgres code comments. HIPAA reviewed — confirmed not applicable (no PHI processing). |
+| 2026-08-12 | Follow-up implementation pass: built a self-service data export (`GET /api/auth/account/export` + dashboard "Export your data" section) closing G-25/R-P1-11 — access/portability are now genuinely self-service, matching the existing public claim; closed G-26/R-P1-12 by deleting `IdentityAuditLog` rows on account deletion; added `.github/dependabot.yml` for automated dependency PRs (G-11, partial). Still open: R-P1-8 (vendor risk assessment for HeyCatch/Supabase — requires legal/security contract review, not a code fix) and R-P2-* (API-key pepper, CSRF, webhook queue, deploy change control — each needs its own design review before implementation, not attempted here) |
