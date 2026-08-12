@@ -214,7 +214,7 @@
       "item4Strong": "Abrechnungsdaten",
       "item4": " — so lange aufbewahrt, wie es das anwendbare Steuer- und Buchhaltungsrecht erfordert (typischerweise 7 Jahre), auch nach Kontolöschung.",
       "item5Strong": "Für Rate-Limiting verwendete IP-Adressen",
-      "item5": " — nur im Speicher abgelegt; nicht auf Festplatte persistiert."
+      "item5": " — im Speicher oder, falls für die Produktion konfiguriert, in Redis (Upstash) abgelegt, ausschließlich für das Rate-Limit-Fenster (bis zu 15 Minuten); danach nicht aufbewahrt."
     },
     "s7": {
       "heading": "7. Drittanbieter-Verarbeiter",
@@ -232,7 +232,10 @@
       "row3Data": "E-Mail-Adresse, Rechnungsname, Zahlungskartendetails (nur bei Stripe), Abonnement-Ereignisse",
       "row4Proc": "HeyCatch",
       "row4Purpose": "Produktanalyse (nur nach Analyse-Einwilligung)",
-      "row4Data": "Seitenaufrufe, Klicks, In-App-Navigation, eine zufällige Gerätekennung und — nach der Anmeldung — Ihre Nutzer-ID, E-Mail, Name und Plan; zudem Abo-Ereignisse von unseren Servern"
+      "row4Data": "Seitenaufrufe, Klicks, In-App-Navigation, eine zufällige Gerätekennung und — nach der Anmeldung — Ihre Nutzer-ID, E-Mail, Name und Plan; zudem Abo-Ereignisse von unseren Servern",
+      "row5Proc": "Upstash",
+      "row5Purpose": "Redis-gestützte Ratenbegrenzung (Produktion)",
+      "row5Data": "IP-Adressen, für die Dauer des Rate-Limit-Fensters (bis zu 15 Minuten)"
     },
     "s8": {
       "heading": "8. Ihre Rechte",

@@ -19,7 +19,8 @@ export async function GET(request: NextRequest) {
     const summary = await purgeExpiredLogs();
     logger.info("log_purge_completed", {
       verificationLogsDeleted: summary.verificationLogsDeleted,
-      siteAccessLogsDeleted: summary.siteAccessLogsDeleted
+      siteAccessLogsDeleted: summary.siteAccessLogsDeleted,
+      webhookDeliveriesDeleted: summary.webhookDeliveriesDeleted
     });
     return NextResponse.json({
       status: "ok",

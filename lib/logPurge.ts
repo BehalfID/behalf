@@ -3,9 +3,13 @@ import { effectiveEntitlements, effectivePlan } from "@/lib/planGrants";
 import { listAccounts } from "@/lib/repositories/accounts";
 import { deleteAccessLogs } from "@/lib/repositories/sites";
 import { deleteLogs } from "@/lib/repositories/verificationLogs";
+import { deleteDeliveries } from "@/lib/repositories/webhooks";
 
 /** Extra days after plan retention before physical delete. */
 export const LOG_PURGE_GRACE_DAYS = 7;
+
+/** Matches the retention window promised in the privacy policy (s6.item2). */
+export const WEBHOOK_DELIVERY_RETENTION_DAYS = 30;
 
 /** Max documents deleted per collection per plan batch. */
 export const LOG_PURGE_BATCH_LIMIT = 5_000;
@@ -14,6 +18,7 @@ export type LogPurgeSummary = {
   graceDays: number;
   verificationLogsDeleted: number;
   siteAccessLogsDeleted: number;
+  webhookDeliveriesDeleted: number;
   orphanVerificationLogsDeleted: number;
   orphanSiteAccessLogsDeleted: number;
   byPlan: Record<
@@ -66,10 +71,15 @@ export async function purgeExpiredLogs(now = new Date()): Promise<LogPurgeSummar
     graceDays: LOG_PURGE_GRACE_DAYS,
     verificationLogsDeleted: 0,
     siteAccessLogsDeleted: 0,
+    webhookDeliveriesDeleted: 0,
     orphanVerificationLogsDeleted: 0,
     orphanSiteAccessLogsDeleted: 0,
     byPlan: {}
   };
+
+  const webhookDeliveryCutoff = cutoffForRetentionDays(WEBHOOK_DELIVERY_RETENTION_DAYS, now);
+  const webhookDeliveryResult = await deleteDeliveries({ createdAt: { $lt: webhookDeliveryCutoff } });
+  summary.webhookDeliveriesDeleted = webhookDeliveryResult?.deletedCount ?? 0;
 
   const allAccounts = await listAccounts(
     {},

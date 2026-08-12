@@ -214,7 +214,7 @@
       "item4Strong": "Données de facturation",
       "item4": " — conservées aussi longtemps que l'exige le droit fiscal et comptable applicable (généralement 7 ans), même après la suppression du compte.",
       "item5Strong": "Adresses IP utilisées pour la limitation de débit",
-      "item5": " — stockées en mémoire uniquement ; non persistées sur disque."
+      "item5": " — stockées en mémoire ou, si configuré pour la production, dans Redis (Upstash), uniquement pendant la fenêtre de limitation de débit (jusqu'à 15 minutes) ; non conservées au-delà."
     },
     "s7": {
       "heading": "7. Processeurs tiers",
@@ -232,7 +232,10 @@
       "row3Data": "Adresse e-mail, nom de facturation, détails de carte de paiement (détenus par Stripe uniquement), événements d'abonnement",
       "row4Proc": "HeyCatch",
       "row4Purpose": "Analyse produit (uniquement après consentement analytique)",
-      "row4Data": "Pages vues, clics, navigation dans l'app, un identifiant d'appareil aléatoire et — une fois connecté — votre id utilisateur, e-mail, nom et offre ; ainsi que les événements d'abonnement envoyés par nos serveurs"
+      "row4Data": "Pages vues, clics, navigation dans l'app, un identifiant d'appareil aléatoire et — une fois connecté — votre id utilisateur, e-mail, nom et offre ; ainsi que les événements d'abonnement envoyés par nos serveurs",
+      "row5Proc": "Upstash",
+      "row5Purpose": "Limitation de débit basée sur Redis (production)",
+      "row5Data": "Adresses IP, pendant la durée de la fenêtre de limitation de débit (jusqu'à 15 minutes)"
     },
     "s8": {
       "heading": "8. Vos droits",

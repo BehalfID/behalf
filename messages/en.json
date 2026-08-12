@@ -214,7 +214,7 @@
       "item4Strong": "Billing data",
       "item4": " — retained for as long as required by applicable tax and accounting law (typically 7 years), even after account deletion.",
       "item5Strong": "IP addresses used for rate limiting",
-      "item5": " — stored in memory only; not persisted to disk."
+      "item5": " — stored in memory, or in Redis (Upstash) when configured for production, for the rate-limit window only (up to 15 minutes); not retained beyond that."
     },
     "s7": {
       "heading": "7. Third-party processors",
@@ -232,7 +232,10 @@
       "row3Data": "Email address, billing name, payment card details (held by Stripe only), subscription events",
       "row4Proc": "HeyCatch",
       "row4Purpose": "Product analytics (only after analytics consent)",
-      "row4Data": "Pageviews, clicks, in-app navigation, a random device identifier, and — once signed in — your user id, email, name, and plan; plus subscription events sent from our servers"
+      "row4Data": "Pageviews, clicks, in-app navigation, a random device identifier, and — once signed in — your user id, email, name, and plan; plus subscription events sent from our servers",
+      "row5Proc": "Upstash",
+      "row5Purpose": "Redis-backed rate limiting (production)",
+      "row5Data": "IP addresses, for the duration of the rate-limit window (up to 15 minutes)"
     },
     "s8": {
       "heading": "8. Your rights",
