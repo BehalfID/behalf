@@ -12,6 +12,7 @@ import {
   developerApiTokens,
   developerSessions,
   developerUsers,
+  identityAuditLogs,
   integrationBindings,
   managedProfilePolicies,
   managedProfileProtectedRepos,
@@ -183,6 +184,7 @@ export async function deleteAccountCascade(
 export async function deleteDeveloperUserCredentials(db: BehalfPostgresDb, userId: string) {
   await db.delete(developerSessions).where(eq(developerSessions.userId, userId));
   await db.delete(developerApiTokens).where(eq(developerApiTokens.userId, userId));
+  await db.delete(identityAuditLogs).where(eq(identityAuditLogs.userId, userId));
   const rows = await db
     .delete(developerUsers)
     .where(eq(developerUsers.userId, userId))
