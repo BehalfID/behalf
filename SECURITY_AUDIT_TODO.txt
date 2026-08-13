@@ -386,3 +386,29 @@
 #   private-key patterns across the repo; only committed env file is .env.example /
 #   examples/site-guard-demo/.env.example; no key/cert files tracked; the sk-... string in
 #   test/mcp-audit.test.ts is an intentional test fixture, not a real credential)
+
+# --- Compliance scan: ISO27001 / SOC2 / HIPAA / GDPR / CPRA ---
+# Date: 2026-08-13
+# Scope: data encryption, access controls, audit logging, data retention, PII handling,
+#   security configurations, independently checked against source (not just docs/compliance/).
+# Result: NO new Critical or High findings. HIPAA is not applicable (no health data handled).
+# Confirmed present: scrypt password hashing, TLS-only SDK default, no CORS wildcard, full
+#   security-header set (next.config.ts), plan-aware log retention/purge (lib/logPurge.ts),
+#   cascading account deletion for GDPR/CPRA erasure requests (lib/accountDeletion.ts),
+#   enforced auth rate limiting, CI workflow scoped to contents:read.
+# 4 pre-existing Medium/Low items reconfirmed, all already tracked with owners in
+#   docs/compliance/GAP_ANALYSIS.md and require a product/deployment decision rather than a
+#   mechanical patch, so none were auto-remediated here:
+#   - G-04 (High, partially remediated): shared console-admin password stays enabled by
+#     default outside VERCEL_ENV=production (i.e. on preview deploys too) -- set
+#     BEHALFID_ALLOW_SHARED_ADMIN=false after bootstrapping ConsoleAdmin identities.
+#   - G-15 (Medium): auth rate limiter falls back to unsynchronized per-process memory, and
+#     fails open, if Upstash Redis is unreachable at runtime.
+#   - G-17 (Low): no CSRF tokens on cookie-authenticated console/dashboard mutations, only
+#     SameSite=Lax + Origin check.
+#   - G-19 (Low): verification-log `metadata` is stored with only pattern-based secret
+#     redaction (no general PII scrubbing) and is enabled by default
+#     (BEHALFID_LOG_METADATA=true in .env.example).
+# No application code changed this run -- each item needs a human product/deployment call
+# (e.g. changing fail-open auth behavior, or redefining what metadata is safe to log), not a
+# speculative automated patch. See docs/compliance/GAP_ANALYSIS.md for owners/next steps.
