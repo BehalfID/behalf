@@ -93,9 +93,7 @@ function makeRequest(body: unknown, path = "/api/dashboard/agents") {
 const SETUP_BODY = {
   surface: "claude_code",
   name: "First agent",
-  controlProfile: "balanced",
-  // At least one gate is required by validateFirstAgentSetupBody.
-  approvalGates: ["production_deploys"]
+  // Omitted protectionPolicy falls back to the recommended policy server-side.
 };
 
 /** `activeAccountId` is what the session carries; may legitimately be null. */

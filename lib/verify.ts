@@ -554,11 +554,27 @@ function evaluatePermissions(permissions: PermissionDocument[], input: VerifyInp
     return { permission: blockingPermission, decision: evaluatePermission(blockingPermission, input) };
   }
 
+  let approvalCandidate: { permission: PermissionDocument; decision: RawDecision } | null = null;
   for (const permission of activePermissions) {
     const decision = evaluatePermission(permission, input);
     if (decision.allowed) {
       return { permission, decision };
     }
+    // A permission that would grant this request once a human signs off is a
+    // better answer than an unrelated permission's hard denial. Overlapping
+    // permissions are normal — a spending ladder, for example, pairs a capped
+    // auto-allow with a higher approval tier, and a request that exceeds the
+    // auto cap must surface the approval path rather than the cap's denial.
+    // Deny still wins overall: blockedActions short-circuits above, and the
+    // approval gate only ever runs against a permission that already passed
+    // every hard constraint of its own.
+    if (!approvalCandidate && decision.approvalRequired) {
+      approvalCandidate = { permission, decision };
+    }
+  }
+
+  if (approvalCandidate) {
+    return approvalCandidate;
   }
 
   const deniedActivePermission = activePermissions[0] ?? null;

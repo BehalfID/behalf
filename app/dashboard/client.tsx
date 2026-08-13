@@ -33,14 +33,12 @@ import {
   formatPauseApprovalTitle,
   isManagedProfilePauseApproval,
 } from "@/components/dashboard/opsLogTypes";
-import { CLI_NPM_INSTALL_COMMAND } from "@/lib/cliInstallCommands";
 import { SessionInactivityMonitor } from "@/components/auth/SessionInactivityMonitor";
 import {
   Alert,
   Badge,
   Button,
   ButtonLink,
-  Card,
   CodeBlock,
   ConfirmDialog,
   DashboardState,
@@ -56,10 +54,7 @@ import {
   InfoUsageLimitTile,
   WebhookUsageLimitTile
 } from "@/components/usage/UsageLimitTile";
-import { SCOPE_TEMPLATES } from "@/lib/scopeTemplates";
 import { useDashboardApi, useDashboardPaths, useOptionalWorkspace } from "@/components/workspace/WorkspaceProvider";
-import { POLICY_TEMPLATES, POLICY_CATEGORY_LABELS, type PolicyTemplate } from "@/lib/policyTemplates";
-import { PASSPORT_PRESETS, buildPresetPermissions, type PassportPreset } from "@/lib/passportPresets";
 import {
   buildSiteGuardCurlSnippet,
   buildSiteGuardEnvSnippet,
@@ -69,14 +64,18 @@ import {
 import {
   AGENT_TOOL_LABELS,
   AGENT_TOOLS,
-  CONTROL_AREA_LABELS,
-  CONTROL_AREAS,
-  CONTROL_POLICY_HINTS,
   PRIMARY_GOAL_LABELS,
   PRIMARY_GOALS,
-  type AgentTool,
-  type ControlArea
+  type AgentTool
 } from "@/lib/onboarding";
+import {
+  ProtectionPolicyEditor,
+  protectionPolicyOrDefault
+} from "@/components/protection/ProtectionPolicyEditor";
+import { ProtectionSummary } from "@/components/protection/ProtectionSummary";
+import { defaultProtectionPolicy, type ProtectionPolicy } from "@/lib/protectionPolicy";
+import { summarizeProtectionPolicy } from "@/lib/protectionPolicyPermissions";
+import type { WorkspaceProtectionStatus } from "@/lib/setupReadinessTypes";
 
 type Agent = {
   agentId: string;
@@ -245,7 +244,6 @@ type DashboardResource<T> = {
   reload: () => Promise<void>;
 };
 type AgentProvider = "custom" | "ollie" | "chatgpt" | "claude" | "gemini" | "zapier" | "make" | "langchain" | "openai" | "ollama" | "other";
-type ProviderSelection = AgentProvider | "";
 type Plan = "free" | "pro" | "team" | "business" | "enterprise";
 type UsageSummary = {
   plan: Plan;
@@ -263,58 +261,10 @@ type UsageSummary = {
   logRetentionDays: number;
   stripeSubscriptionStatus: string | null;
 };
-type OnboardingUserPath = "developer" | "regular" | null;
 type OnboardingUseCase = "personal" | "website" | "sdk";
-type DraftConstraints = {
-  maxAmount?: number;
-  allowedVendors?: string[];
-  expiresAt?: null;
-};
-type DraftPermission = {
-  action: string;
-  resource: string;
-  allowedActions: string[];
-  blockedActions: string[];
-  requiresApproval: boolean;
-  status: "active";
-  constraints?: DraftConstraints;
-  riskLevel: "low" | "medium" | "high";
-  reason: string;
-};
-type PermissionDraftResponse = {
-  agentDraft: { provider: string; description: string };
-  permissions: DraftPermission[];
-  needsClarification: { question: string; reason: string }[];
-  warnings: string[];
-  limitations: string[];
-};
-type VerifyResult = { requestId: string; allowed: boolean; reason: string; risk: string };
 
-const permissionTemplates: Array<{ value: PermissionTemplate; title: string; body: string }> = [
-  { value: "access_data", title: "Access data", body: "Read from a service or dataset without granting write access." },
-  { value: "create_content", title: "Create or send content", body: "Draft, create, or send messages and records with approval controls." },
-  { value: "schedule", title: "Schedule or coordinate", body: "Suggest times, create draft events, or book meetings inside a workflow." },
-  { value: "purchase", title: "Purchase or transaction", body: "Allow buying or payment-like actions under vendor and amount limits." },
-  { value: "custom", title: "Custom permission", body: "Define your own action, resource, and constraints." }
-];
 
-const regularProviderOptions: Array<{ value: AgentProvider; label: string; description: string }> = [
-  { value: "chatgpt", label: "ChatGPT", description: "OpenAI's ChatGPT" },
-  { value: "claude", label: "Claude", description: "Anthropic's Claude" },
-  { value: "gemini", label: "Gemini", description: "Google's Gemini" },
-  { value: "ollama", label: "Ollama", description: "Local Ollama models — you confirm permissions before anything is created" },
-  { value: "ollie", label: "Ollie", description: "Ollie personal assistant" },
-  { value: "zapier", label: "Zapier", description: "Zapier automation" },
-  { value: "make", label: "Make", description: "Make (formerly Integromat)" },
-  { value: "other", label: "Custom / Other", description: "Another AI assistant" }
-];
 
-const DESCRIPTION_EXAMPLES = [
-  "Browse the web and summarize public pages, but do not submit forms, log in, or buy anything.",
-  "Read and summarize my emails, but do not send, delete, forward, or change filters.",
-  "Compare products and make purchases under $25 only after I approve them.",
-  "Help schedule meetings by reading my calendar, but ask before creating, changing, or deleting events."
-];
 
 const FIRST_AGENT_EXAMPLES = [
   { title: "Coding agent", body: "Allow staging deploys. Require approval before production. Deny secret access and destructive repo actions." },
@@ -337,10 +287,10 @@ const dashboardUseCaseContent: Record<OnboardingUseCase, {
     title: "Create a permission passport for an assistant you already use.",
     body: "Start with a simple passport, review the drafted boundaries, then paste the instructions into the assistant.",
     actionLabel: "Create passport",
-    actionHref: "/dashboard/onboarding",
+    actionHref: "/dashboard/agents/new",
     steps: [
-      { title: "Choose assistant", body: "Pick ChatGPT, Claude, Gemini, Ollama, Ollie, Zapier, Make, or another tool.", href: "/dashboard/onboarding" },
-      { title: "Describe the job", body: "State what it can do, what it must not do, and any spending or vendor limits.", href: "/dashboard/onboarding" },
+      { title: "Choose assistant", body: "Pick ChatGPT, Claude, Gemini, Ollama, Ollie, Zapier, Make, or another tool.", href: "/dashboard/agents/new" },
+      { title: "Describe the job", body: "State what it can do, what it must not do, and any spending or vendor limits.", href: "/dashboard/agents/new" },
       { title: "Review passport", body: "Confirm allowed actions, blocked actions, approval requirements, and limits.", href: "/dashboard/agents" },
       { title: "Paste instructions", body: "Add the passport instructions to the assistant and keep enforcement expectations explicit.", href: "/dashboard/docs" }
     ]
@@ -353,7 +303,7 @@ const dashboardUseCaseContent: Record<OnboardingUseCase, {
     actionHref: "/dashboard/docs",
     steps: [
       { title: "Map protected actions", body: "Identify public reads, form submits, checkout, account, or content workflows.", href: "/dashboard/docs" },
-      { title: "Create site agent", body: "Represent the agent or gateway that will check requests before site actions execute.", href: "/dashboard/onboarding" },
+      { title: "Create site agent", body: "Represent the agent or gateway that will check requests before site actions execute.", href: "/dashboard/agents/new" },
       { title: "Define site rules", body: "Set resources, blocked actions, approval needs, and limits for risky workflows.", href: "/dashboard/agents" },
       { title: "Review events", body: "Use logs and webhooks to inspect allowed, denied, and failed decisions.", href: "/dashboard/logs" }
     ]
@@ -363,9 +313,9 @@ const dashboardUseCaseContent: Record<OnboardingUseCase, {
     title: "Create a guarded agent and verify its first test action.",
     body: "Get to the core loop quickly: create an agent, define a boundary, call verify(), and inspect the audit event.",
     actionLabel: "Add agent",
-    actionHref: "/dashboard/onboarding",
+    actionHref: "/dashboard/agents/new",
     steps: [
-      { title: "Add agent", body: "Create a native identity and store the one-time API key in your environment.", href: "/dashboard/onboarding" },
+      { title: "Add agent", body: "Create a native identity and store the one-time API key in your environment.", href: "/dashboard/agents/new" },
       { title: "Create permission", body: "Define the action, resource, spending limit, expiration, and approval requirement.", href: "/dashboard/agents" },
       { title: "Install SDK", body: "Use @behalfid/sdk from Node 18+ and call verify before tool execution.", href: "/docs/sdk" },
       { title: "Verify before acting", body: "Fail closed on denied decisions and use request IDs for debugging.", href: "/dashboard/docs" }
@@ -467,7 +417,7 @@ export function DashboardViews({
   emailVerified = true,
   showSetupBanner = false
 }: {
-  view: "home" | "onboarding" | "first-agent" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "inbox" | "docs" | "settings" | "managed-profiles" | "managed-profiles-activity" | "adaptive-delegation";
+  view: "home" | "first-agent" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "inbox" | "docs" | "settings" | "managed-profiles" | "managed-profiles-activity" | "adaptive-delegation";
   id?: string;
   agentSection?: AgentDetailSection;
   emailVerified?: boolean;
@@ -490,7 +440,6 @@ export function DashboardViews({
           </div>
         ) : null}
         {view === "home" ? <HomeView /> : null}
-        {view === "onboarding" ? <OnboardingView /> : null}
         {view === "first-agent" ? <FirstAgentSetupView emailVerified={emailVerified} /> : null}
         {view === "agents" ? <AgentsView /> : null}
         {view === "agent" && id ? <AgentDetailShell agentId={id} section={agentSection} /> : null}
@@ -516,7 +465,7 @@ export function DashboardShell({
   emailVerified = true,
   showSetupBanner = false
 }: {
-  view: "home" | "onboarding" | "first-agent" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "inbox" | "docs" | "settings" | "managed-profiles" | "managed-profiles-activity" | "adaptive-delegation";
+  view: "home" | "first-agent" | "agents" | "agent" | "sites" | "webhooks" | "webhook" | "logs" | "approvals" | "inbox" | "docs" | "settings" | "managed-profiles" | "managed-profiles-activity" | "adaptive-delegation";
   id?: string;
   agentSection?: AgentDetailSection;
   emailVerified?: boolean;
@@ -536,15 +485,6 @@ export function DashboardShell({
   );
 }
 
-const HOME_CONTROL_ROUTES: Record<string, string> = {
-  production_deploys: "/dashboard/onboarding?setup=deploy-approvals",
-  github_writes: "/dashboard/onboarding?setup=profiles",
-  db_migrations: "/dashboard/onboarding",
-  secrets: "/dashboard/onboarding",
-  billing_vendor_apis: "/dashboard/onboarding",
-  external_comms: "/dashboard/onboarding",
-  other: "/dashboard/onboarding"
-};
 
 function feedTime(value?: string) {
   if (!value) return "â€”";
@@ -564,11 +504,25 @@ function FirstAgentSetupView({ emailVerified }: { emailVerified: boolean }) {
 function FirstAgentSetupViewInner({ emailVerified }: { emailVerified: boolean }) {
   const searchParams = useSearchParams();
   const summary = useResource<{
-    accountOnboarding?: { agentTools?: AgentTool[] } | null;
+    accountOnboarding?: {
+      agentTools?: AgentTool[];
+      protectionPolicy?: ProtectionPolicy | null;
+    } | null;
   }>("/api/dashboard/summary");
   const suggestedSurfaces = summary.data?.accountOnboarding?.agentTools ?? [];
+  const workspacePolicy = summary.data?.accountOnboarding?.protectionPolicy ?? null;
   const focus = searchParams.get("focus");
-  return <FirstAgentSetup emailVerified={emailVerified} suggestedSurfaces={suggestedSurfaces} focus={focus} />;
+  if (summary.loading && !summary.data) {
+    return <PageLoadingState label="Loading agent setup" variant="form" />;
+  }
+  return (
+    <FirstAgentSetup
+      emailVerified={emailVerified}
+      focus={focus}
+      suggestedSurfaces={suggestedSurfaces}
+      workspacePolicy={workspacePolicy}
+    />
+  );
 }
 
 function HomeView() {
@@ -584,10 +538,12 @@ function HomeView() {
       controlAreas?: string[];
       agentTools?: string[];
       firstSetupGoal?: string;
+      protectionPolicy?: ProtectionPolicy | null;
     } | null;
     usage: UsageSummary;
   }>("/api/dashboard/summary");
   const inbox = useResource<{ pendingApprovals: ApprovalRequest[]; deniedHighRisk: Log[] }>("/api/dashboard/inbox");
+  const protection = useResource<{ surfaces: WorkspaceProtectionStatus[] }>("/api/dashboard/protection-status");
   const activity = useResource<{ logs: Log[] }>("/api/dashboard/logs?limit=8");
 
   const initialLoading = [summary, inbox, activity].some((resource) => resource.loading && !resource.data);
@@ -596,7 +552,27 @@ function HomeView() {
   }
 
   const hasAgents = (summary.data?.totalAgents ?? 0) > 0;
-  const controlAreas = (summary.data?.accountOnboarding?.controlAreas ?? []) as ControlArea[];
+  const protectionPolicy = summary.data?.accountOnboarding?.protectionPolicy ?? null;
+  const policySummary = protectionPolicy ? summarizeProtectionPolicy(protectionPolicy) : null;
+  const policyRows = policySummary
+    ? [
+        ...policySummary.blocked.map((entry) => ({
+          label: entry.label,
+          state: "Blocked",
+          tone: "deny" as const
+        })),
+        ...policySummary.approval.map((entry) => ({
+          label: entry.label,
+          state: "Needs approval",
+          tone: "warn" as const
+        })),
+        ...policySummary.allowed.map((entry) => ({
+          label: entry.label,
+          state: "Automatic",
+          tone: "ok" as const
+        }))
+      ]
+    : [];
   const agentTools = (summary.data?.accountOnboarding?.agentTools ?? []) as AgentTool[];
   const firstSetupGoal = summary.data?.accountOnboarding?.firstSetupGoal;
 
@@ -634,8 +610,8 @@ function HomeView() {
     : pendingApprovals.length > 0
       ? { label: "Review approvals", href: dHref("/dashboard/approvals") }
       : firstSetupGoal === "setup_deploy_approvals"
-        ? { label: "Configure deploy approvals", href: dHref("/dashboard/onboarding?setup=deploy-approvals") }
-        : { label: "Add agent", href: dHref("/dashboard/onboarding") };
+        ? { label: "Configure deploy approvals", href: dHref("/dashboard/agents/new?focus=production_deploys") }
+        : { label: "Add agent", href: dHref("/dashboard/agents/new") };
 
   return (
     <>
@@ -775,45 +751,53 @@ function HomeView() {
             </div>
             {summary.error && !summary.data ? (
               <p className="ops-empty" role="alert">Policy coverage could not be loaded.</p>
-            ) : controlAreas.length === 0 ? (
-              <p className="ops-empty">No control boundaries selected during setup. Add them in settings to track coverage here.</p>
+            ) : !protectionPolicy ? (
+              <p className="ops-empty">No protection policy chosen yet. Set one up to see coverage here.</p>
             ) : (
               <div className="ops-coverage">
-                {controlAreas.map((area) => (
-                  <Link className="ops-coverage__row" href={dHref(HOME_CONTROL_ROUTES[area] ?? "/dashboard/onboarding")} key={area}>
-                    <span>{CONTROL_AREA_LABELS[area] ?? area}</span>
-                    <span className="cx-chip">Not configured</span>
+                {policyRows.map((row) => (
+                  <Link className="ops-coverage__row" href={dHref("/dashboard/settings")} key={row.label}>
+                    <span>{row.label}</span>
+                    <span className={`cx-chip cx-chip--${row.tone}`}>{row.state}</span>
                   </Link>
                 ))}
               </div>
             )}
-            {controlAreas.length > 0 ? (
-              <div className="ops-panel__foot">Boundaries selected at setup. Configure each to move it under enforcement.</div>
+            {protectionPolicy ? (
+              <div className="ops-panel__foot">
+                {hasAgents
+                  ? "Your workspace default. Each agent keeps the permissions it was given — open the agent to change them."
+                  : "Your workspace default. It becomes real permissions on the first agent you create."}
+              </div>
             ) : null}
           </section>
 
-          <section className="ops-panel" aria-label="Integration surfaces">
+          <section className="ops-panel" aria-label="What is protected">
             <div className="ops-panel__head">
-              <p className="cx-label">Integration surfaces</p>
+              <p className="cx-label">What is protected</p>
             </div>
-            {summary.error && !summary.data ? (
-              <p className="ops-empty" role="alert">Integration surfaces could not be loaded.</p>
-            ) : agentTools.length === 0 ? (
-              <p className="ops-empty">No agent surfaces registered during setup.</p>
+            {protection.error && !protection.data ? (
+              <p className="ops-empty" role="alert">Protection status could not be loaded.</p>
             ) : (
               <div className="ops-coverage">
-                {agentTools.map((tool) => (
-                  <Link className="ops-coverage__row" href={dHref("/dashboard/onboarding")} key={tool}>
-                    <span>{AGENT_TOOL_LABELS[tool] ?? tool}</span>
-                    {hasAgents ? (
-                      <span className="cx-chip cx-chip--ok">Active</span>
-                    ) : (
-                      <span className="cx-chip">Awaiting agent</span>
-                    )}
+                {(protection.data?.surfaces ?? []).map((surface) => (
+                  <Link
+                    className="ops-coverage__row"
+                    href={dHref(surface.active ? "/dashboard/logs" : "/dashboard/agents/new")}
+                    key={surface.surface}
+                    title={surface.hint}
+                  >
+                    <span>{surface.label}</span>
+                    <span className={`cx-chip${surface.active ? " cx-chip--ok" : ""}`}>
+                      {surface.active ? "Protected" : "Not connected"}
+                    </span>
                   </Link>
                 ))}
               </div>
             )}
+            <div className="ops-panel__foot">
+              A surface counts as protected only once BehalfID has decided a real action for it.
+            </div>
           </section>
 
           {nextActions.length ? (
@@ -1435,1004 +1419,6 @@ function SiteGuardIntegrationPanel({ site, hasKeys, rawKey }: {
     </SettingsSection>
   );
 }
-
-function OnboardingView() {
-  const { apiJson: api } = useDashboardApi();
-  const { apiPath, href: dHref } = useDashboardPaths();
-  // Shared developer path state
-  const [step, setStep] = useState(1);
-  const [apiKey, setApiKey] = useState("");
-  const [passportUrl, setPassportUrl] = useState("");
-  const [agent, setAgent] = useState<Agent | null>(null);
-  const [permissionId, setPermissionId] = useState("");
-  const [decision, setDecision] = useState<VerifyResult | null>(null);
-  const [onboardingError, setOnboardingError] = useState("");
-  const [onboardingScopeId, setOnboardingScopeId] = useState("");
-  const [onboardingPolicyTemplateId, setOnboardingPolicyTemplateId] = useState("");
-  const [onboardingPolicyApplying, setOnboardingPolicyApplying] = useState(false);
-  const [agentForm, setAgentForm] = useState({
-    name: "",
-    provider: "" as ProviderSelection,
-    externalAgentLabel: "",
-    description: ""
-  });
-  const [permissionForm, setPermissionForm] = useState({
-    template: "" as PermissionTemplate | "",
-    actionChoice: "",
-    customAction: "",
-    resource: "",
-    scope: "",
-    allowedActions: "",
-    blockedActions: "",
-    requiresApproval: "yes",
-    maxAmount: "",
-    expiration: "",
-    notes: ""
-  });
-  const [testForm, setTestForm] = useState({ action: "", resource: "", amount: "", context: "" });
-
-  // Path selection
-  const [userPath, setUserPath] = useState<OnboardingUserPath>(null);
-
-  // Regular user path state
-  const [regularStep, setRegularStep] = useState(1);
-  const [activePresetId, setActivePresetId] = useState<string | null>(null);
-  const [regularProvider, setRegularProvider] = useState<AgentProvider | "">("");
-  const [regularDescription, setRegularDescription] = useState("");
-  const [draftResponse, setDraftResponse] = useState<PermissionDraftResponse | null>(null);
-  const [draftLoading, setDraftLoading] = useState(false);
-  const [draftError, setDraftError] = useState("");
-  const [draftDetails, setDraftDetails] = useState("");
-  const [draftErrorCode, setDraftErrorCode] = useState("");
-  const [regularAgent, setRegularAgent] = useState<Agent | null>(null);
-  const [regularPassportUrl, setRegularPassportUrl] = useState("");
-  const [regularApiKey, setRegularApiKey] = useState("");
-  // Preset flow: holds the chosen preset while the user picks a provider for it
-  const [pendingPreset, setPendingPreset] = useState<PassportPreset | null>(null);
-  const [pendingPresetProvider, setPendingPresetProvider] = useState<AgentProvider | "">("");
-  // True when the current draft was generated from a preset (so "back" on review goes to step 1 not step 2)
-  const [arrivedViaPreset, setArrivedViaPreset] = useState(false);
-
-  const selectedAction = permissionForm.template === "custom" ? permissionForm.customAction : permissionForm.actionChoice;
-
-  const useExampleValues = () => {
-    setOnboardingError("");
-    setAgentForm({
-      name: "Ollie",
-      provider: "ollie",
-      externalAgentLabel: "",
-      description: "Personal assistant used for planning"
-    });
-    setPermissionForm({
-      template: "purchase",
-      actionChoice: "purchase",
-      customAction: "",
-      resource: "coachella.com",
-      scope: "",
-      allowedActions: "purchase tickets",
-      blockedActions: "purchase from other vendors, exceed amount limit",
-      requiresApproval: "yes",
-      maxAmount: "800",
-      expiration: "2",
-      notes: ""
-    });
-  };
-
-  const resetPermissionForm = () => {
-    setPermissionForm({
-      template: "",
-      actionChoice: "",
-      customAction: "",
-      resource: "",
-      scope: "",
-      allowedActions: "",
-      blockedActions: "",
-      requiresApproval: "yes",
-      maxAmount: "",
-      expiration: "",
-      notes: ""
-    });
-  };
-
-  const applyOnboardingScopeTemplate = (scopeId: string) => {
-    setOnboardingScopeId(scopeId);
-    if (!scopeId) { resetPermissionForm(); return; }
-    const scope = SCOPE_TEMPLATES.find((t) => t.id === scopeId);
-    if (!scope || scope.id === "custom") { resetPermissionForm(); return; }
-    const template = actionToPermTemplate(scope.defaultAction);
-    setPermissionForm({
-      template,
-      actionChoice: scope.defaultAction,
-      customAction: "",
-      resource: scope.exampleResource,
-      scope: "",
-      allowedActions: scope.defaultAllowedActions.join(", "),
-      blockedActions: scope.defaultBlockedActions.join(", "),
-      requiresApproval: scope.requiresApprovalDefault ? "yes" : "no",
-      maxAmount: "",
-      expiration: "",
-      notes: ""
-    });
-  };
-
-  const applyOnboardingPolicyTemplate = (pt: PolicyTemplate) => {
-    setOnboardingPolicyTemplateId(pt.id);
-    if (pt.permissions.length === 1) {
-      const p = pt.permissions[0];
-      const template = actionToPermTemplate(p.action);
-      setPermissionForm({
-        template,
-        actionChoice: p.action,
-        customAction: "",
-        resource: p.resource,
-        scope: "",
-        allowedActions: p.allowedActions.join(", "),
-        blockedActions: p.blockedActions.join(", "),
-        requiresApproval: p.requiresApproval ? "yes" : "no",
-        maxAmount: p.constraints?.maxAmount != null ? String(p.constraints.maxAmount) : "",
-        expiration: "",
-        notes: p.notes ?? ""
-      });
-    }
-  };
-
-  const applyOnboardingPolicyTemplateAll = async (pt: PolicyTemplate) => {
-    if (!agent || pt.permissions.length <= 1) return;
-    setOnboardingPolicyApplying(true);
-    try {
-      let lastPermissionId = "";
-      for (const p of pt.permissions) {
-        const tmpl = actionToPermTemplate(p.action);
-        const result = await api<{ permissionId: string }>(`/api/dashboard/agents/${agent.agentId}/permissions`, {
-          method: "POST",
-          body: JSON.stringify({
-            action: p.action,
-            resource: p.resource || undefined,
-            allowedActions: p.allowedActions,
-            blockedActions: p.blockedActions,
-            requiresApproval: p.requiresApproval,
-            template: tmpl || undefined,
-            notes: p.notes || undefined,
-            constraints: {
-              maxAmount: p.constraints?.maxAmount,
-              allowedVendors: p.constraints?.allowedVendors
-            }
-          })
-        });
-        lastPermissionId = result.permissionId;
-      }
-      setPermissionId(lastPermissionId);
-      setTestForm({ action: pt.permissions[0].action, resource: pt.permissions[0].resource, amount: "", context: "" });
-      setStep(4);
-    } finally {
-      setOnboardingPolicyApplying(false);
-    }
-  };
-
-  const chooseTemplate = (template: PermissionTemplate) => {
-    const defaults: Record<PermissionTemplate, Partial<typeof permissionForm>> = {
-      access_data: { actionChoice: "access_data" },
-      create_content: { actionChoice: "create_content", requiresApproval: "yes" },
-      schedule: { actionChoice: "schedule" },
-      purchase: { actionChoice: "purchase" },
-      custom: { actionChoice: "custom" }
-    };
-    setOnboardingError("");
-    setPermissionForm({
-      template,
-      actionChoice: "",
-      customAction: "",
-      resource: "",
-      scope: "",
-      allowedActions: "",
-      blockedActions: "",
-      requiresApproval: "yes",
-      maxAmount: "",
-      expiration: "",
-      notes: "",
-      ...defaults[template]
-    });
-  };
-
-  const createAgent = async (event: FormEvent) => {
-    event.preventDefault();
-    setOnboardingError("");
-    if (!agentForm.name.trim()) {
-      setOnboardingError("Agent name is required.");
-      return;
-    }
-    const result = await api<{ agent: Agent; apiKey: string }>("/api/dashboard/agents", {
-      method: "POST",
-      body: JSON.stringify({
-        name: agentForm.name,
-        agentType: "native",
-        provider: "custom",
-        description: agentForm.description || undefined
-      })
-    });
-    setAgent(result.agent);
-    setApiKey(result.apiKey);
-    const passport = await api<{ passportUrl: string }>(`/api/dashboard/agents/${result.agent.agentId}/passport`, { method: "POST" });
-    setPassportUrl(passport.passportUrl);
-    setStep(3);
-  };
-
-  const createPermission = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!agent) return;
-    setOnboardingError("");
-    if (!selectedAction.trim()) {
-      setOnboardingError("Action is required for permissions.");
-      return;
-    }
-    const result = await api<{ permissionId: string }>(`/api/dashboard/agents/${agent.agentId}/permissions`, {
-      method: "POST",
-      body: JSON.stringify({
-        action: selectedAction,
-        resource: permissionForm.resource || undefined,
-        scope: permissionForm.scope || undefined,
-        allowedActions: permissionForm.allowedActions
-          ? permissionForm.allowedActions.split(",").map((item) => item.trim()).filter(Boolean)
-          : undefined,
-        blockedActions: permissionForm.blockedActions
-          ? permissionForm.blockedActions.split(",").map((item) => item.trim()).filter(Boolean)
-          : undefined,
-        requiresApproval: permissionForm.requiresApproval === "yes" ? true : permissionForm.requiresApproval === "no" ? false : undefined,
-        notes: permissionForm.notes || undefined,
-        template: permissionForm.template || undefined,
-        constraints: {
-          maxAmount: permissionForm.maxAmount ? Number(permissionForm.maxAmount) : undefined,
-          allowedVendors: permissionForm.resource ? [permissionForm.resource] : undefined,
-          expiresAt: permissionForm.expiration
-            ? new Date(Date.now() + Number(permissionForm.expiration) * 60 * 60 * 1000).toISOString()
-            : undefined
-        }
-      })
-    });
-    setPermissionId(result.permissionId);
-    setTestForm({ action: selectedAction, resource: permissionForm.resource, amount: permissionForm.maxAmount || "", context: "" });
-    setStep(4);
-  };
-
-  const testAction = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!agent) return;
-    setDecision(await api<VerifyResult>("/api/verify", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        agentId: agent.agentId,
-        action: testForm.action,
-        resource: testForm.resource || undefined,
-        amount: testForm.amount ? Number(testForm.amount) : undefined,
-        metadata: testForm.context ? { context: testForm.context } : undefined
-      })
-    }));
-    setStep(5);
-  };
-
-  const applyPreset = (preset: PassportPreset) => {
-    setDraftError("");
-    setDraftDetails("");
-    setDraftErrorCode("");
-    // Store the preset and ask the user to choose a provider before generating the draft
-    setPendingPreset(preset);
-    // Pre-select the preset's default provider but let the user change it
-    setPendingPresetProvider(preset.provider);
-    setRegularStep(2);
-  };
-
-  const confirmPresetWithProvider = () => {
-    if (!pendingPreset) return;
-    if (!pendingPresetProvider) { setDraftError("Select a provider to continue."); return; }
-    setDraftError("");
-    const provider = pendingPresetProvider;
-    const permissions = buildPresetPermissions(pendingPreset);
-    setRegularProvider(provider);
-    setRegularDescription(pendingPreset.agentDescription);
-    setDraftResponse({
-      agentDraft: { provider, description: pendingPreset.agentDescription },
-      permissions,
-      needsClarification: [],
-      warnings: [],
-      limitations: [
-        "This passport was generated from a preset. Review and adjust the permissions to fit your specific needs."
-      ]
-    });
-    setPendingPreset(null);
-    setArrivedViaPreset(true);
-    setRegularStep(3);
-  };
-
-  const generateDraft = async () => {
-    if (!regularProvider) { setDraftError("Select a provider first."); return; }
-    if (!regularDescription.trim() || regularDescription.trim().length < 5) { setDraftError("Describe what you want the assistant to do."); return; }
-    setDraftError("");
-    setDraftDetails("");
-    setDraftErrorCode("");
-    setDraftLoading(true);
-    try {
-      const res = await fetch(apiPath("/api/dashboard/onboarding/draft-permissions"), {
-        method: "POST",
-        credentials: "include",
-        headers: { Accept: "application/json", "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: regularProvider, description: regularDescription.trim() })
-      });
-      const body = await res.json().catch(() => null) as { error?: string; details?: string; code?: string } & Partial<PermissionDraftResponse> | null;
-      if (!res.ok) {
-        setDraftError(body?.error ?? `Request failed (${res.status})`);
-        setDraftDetails(body?.details ?? "");
-        setDraftErrorCode(body?.code ?? "");
-        return;
-      }
-      setDraftResponse(body as PermissionDraftResponse);
-      setArrivedViaPreset(false);
-      setRegularStep(3);
-    } catch (err) {
-      setDraftError(err instanceof Error ? err.message : "Failed to reach the server.");
-      setDraftDetails("");
-      setDraftErrorCode("");
-    } finally {
-      setDraftLoading(false);
-    }
-  };
-
-  const confirmDraft = async () => {
-    const permissions = draftResponse?.permissions;
-    if (!permissions?.length) return;
-    setDraftError("");
-    setDraftLoading(true);
-    const providerLabel = regularProviderOptions.find((p) => p.value === regularProvider)?.label ?? regularProvider;
-    const agentDescription = draftResponse?.agentDraft.description || regularDescription.trim() || undefined;
-    try {
-      const result = await api<{ agent: Agent; apiKey: string }>("/api/dashboard/agents", {
-        method: "POST",
-        body: JSON.stringify({
-          name: `My ${providerLabel} agent`,
-          agentType: "connected",
-          provider: regularProvider || "other",
-          description: agentDescription
-        })
-      });
-      const newAgent = result.agent;
-      setRegularAgent(newAgent);
-      if (regularProvider === "ollama" && result.apiKey) {
-        setRegularApiKey(result.apiKey);
-      } else {
-        setRegularApiKey("");
-      }
-      const passport = await api<{ passportUrl: string }>(`/api/dashboard/agents/${newAgent.agentId}/passport`, { method: "POST" });
-      setRegularPassportUrl(passport.passportUrl);
-      for (const perm of permissions) {
-        await api(`/api/dashboard/agents/${newAgent.agentId}/permissions`, {
-          method: "POST",
-          body: JSON.stringify({
-            action: perm.action,
-            resource: perm.resource || undefined,
-            allowedActions: perm.allowedActions.length ? perm.allowedActions : undefined,
-            blockedActions: perm.blockedActions.length ? perm.blockedActions : undefined,
-            requiresApproval: perm.requiresApproval,
-            constraints: perm.constraints ? {
-              maxAmount: perm.constraints.maxAmount ?? undefined,
-              allowedVendors: perm.constraints.allowedVendors?.length ? perm.constraints.allowedVendors : undefined,
-              expiresAt: perm.constraints.expiresAt ?? undefined
-            } : undefined
-          })
-        });
-      }
-      setRegularStep(4);
-    } catch (err) {
-      setDraftError(err instanceof Error ? err.message : "Something went wrong creating the passport.");
-    } finally {
-      setDraftLoading(false);
-    }
-  };
-
-  const instructions = `You are connected to my BehalfID permission passport.
-
-Open the passport link and read the Allowed scopes section or Machine-readable passport section before deciding what you are allowed to do.
-
-Before taking an external action, compare the requested action against the allowed scopes in this passport. If the action is not listed, exceeds a limit, is expired, or conflicts with a blocked action, ask me to verify it first.
-
-If BehalfID denies the action, do not proceed.
-
-Permission passport:
-${passportUrl || "[passport link]"}`;
-
-  const regularInstructions = `You are connected to my BehalfID permission passport.
-
-Open the passport link and read the Allowed scopes section or Machine-readable passport section before deciding what you are allowed to do.
-
-Before taking an external action, compare the requested action against the allowed scopes in this passport. If the action is not listed, exceeds a limit, is expired, or conflicts with a blocked action, ask me to verify it first.
-
-If BehalfID denies the action, do not proceed.
-
-Permission passport:
-${regularPassportUrl || "[passport link]"}`;
-
-  // --- Initial path choice ---
-  if (userPath === null) {
-    return (
-      <>
-        <Header title="Add agent" description="Choose how you want to integrate BehalfID â€” as a developer or as an existing AI assistant user." />
-        <section className="agent-create-grid ob-step--enter">
-          <button
-            className="dashboard-panel onboarding-choice"
-            onClick={() => {
-              setUserPath("developer");
-              setAgentForm({ name: "", provider: "custom", externalAgentLabel: "", description: "" });
-              resetPermissionForm();
-              setStep(2);
-            }}
-            type="button"
-          >
-            <span className="console-status">Developer mode</span>
-            <h2>I&apos;m a developer building with agents</h2>
-            <p>Use the API, SDK, webhooks, and verification endpoint to enforce permissions before your agent acts.</p>
-            <small>Create an agent â†’ define scopes â†’ call verify() â†’ fail closed.</small>
-          </button>
-          <button
-            className="dashboard-panel onboarding-choice"
-            onClick={() => {
-              setUserPath("regular");
-              setRegularStep(1);
-              setActivePresetId(null);
-              setRegularProvider("");
-              setRegularDescription("");
-              setDraftResponse(null);
-              setDraftError("");
-              setPendingPreset(null);
-              setPendingPresetProvider("");
-              setArrivedViaPreset(false);
-              setRegularApiKey("");
-            }}
-            type="button"
-          >
-            <span className="console-status console-status--active">Passport mode</span>
-            <h2>I&apos;m using an existing AI assistant</h2>
-            <p>Create a manual permission passport for ChatGPT, Claude, Gemini, Ollama, Ollie, Zapier, Make, or another assistant.</p>
-            <small>Describe what you want â†’ AI drafts permissions â†’ you review and confirm.</small>
-          </button>
-        </section>
-      </>
-    );
-  }
-
-  // --- Regular user path ---
-  if (userPath === "regular") {
-    return (
-      <>
-        <Header title="Create a permission passport" action={<Button onClick={() => { setUserPath(null); setRegularStep(1); setPendingPreset(null); setPendingPresetProvider(""); setArrivedViaPreset(false); }} type="button">Back</Button>} />
-        <Card className="dashboard-panel onboarding-callout">
-          <p className="section-kicker">Choose provider / describe what you want / review draft / confirm</p>
-          <h2>Describe what you want the assistant to do. AI will draft the permissions. You review and confirm.</h2>
-        </Card>
-        {/* Step indicator: hide on preset provider-picker step to avoid a broken/skipped Step 2 pill */}
-        {!pendingPreset ? (
-          <div className="onboarding-steps">
-            {[1, 2, 3, 4].map((item) => (
-              <span className={item === regularStep ? "console-status console-status--active" : "console-status"} key={item}>Step {item}</span>
-            ))}
-          </div>
-        ) : null}
-
-        <div key={`regular-${regularStep}-${pendingPreset?.id ?? ""}`} className="ob-step--enter">
-        {regularStep === 1 ? (
-          <section className="onboarding-form dashboard-panel">
-            <h2>Start from a preset or choose a provider</h2>
-
-            <p className="section-kicker">Preset passports</p>
-            <p>Pick a common use case â€” your passport permissions will be ready to review instantly, no description needed.</p>
-            <div className="agent-create-grid">
-              {PASSPORT_PRESETS.map((preset) => (
-                <button
-                  key={preset.id}
-                  className={`dashboard-panel onboarding-choice${activePresetId === preset.id ? " onboarding-choice--selected" : ""}`}
-                  type="button"
-                  onClick={() => {
-                    setActivePresetId(preset.id);
-                    setTimeout(() => { applyPreset(preset); setActivePresetId(null); }, 120);
-                  }}
-                >
-                  <strong>{preset.label}</strong>
-                  <span>{preset.tagline}</span>
-                </button>
-              ))}
-            </div>
-
-            <p className="section-kicker" style={{ marginTop: 24 }}>Or choose a provider</p>
-            <p>Pick your AI assistant and describe what you want it to do. AI will draft the permissions. Nothing is created until you confirm.</p>
-            <div className="agent-create-grid">
-              {regularProviderOptions.map((opt) => (
-                <button
-                  key={opt.value}
-                  className={regularProvider === opt.value ? "dashboard-panel onboarding-choice onboarding-choice--selected" : "dashboard-panel onboarding-choice"}
-                  onClick={() => setRegularProvider(opt.value)}
-                  type="button"
-                >
-                  <strong>{opt.label}</strong>
-                  <span>{opt.description}</span>
-                </button>
-              ))}
-            </div>
-            {regularProvider === "ollama" ? (
-              <p className="field-help">
-                Ollama runs locally on your machine. After you confirm the passport, you will get a snippet to gate tool calls with <code>@behalfid/sdk/adapters/ollama</code>.
-                Not the same as <strong>Ollie</strong>, the personal assistant provider.
-              </p>
-            ) : null}
-            {draftError ? <p className="form-error" role="alert">{draftError}</p> : null}
-            <Button
-              variant="primary"
-              type="button"
-              onClick={() => {
-                if (!regularProvider) { setDraftError("Select a provider to continue."); return; }
-                setDraftError("");
-                setRegularStep(2);
-              }}
-            >
-              Continue
-            </Button>
-          </section>
-        ) : null}
-
-        {regularStep === 2 && pendingPreset ? (
-          <section className="onboarding-form dashboard-panel">
-            <h2>Which assistant are you using?</h2>
-            <p>You chose the <strong>{pendingPreset.label}</strong> preset. Pick the assistant you want to create this passport for â€” the agent will be named accordingly.</p>
-            <div className="agent-create-grid">
-              {regularProviderOptions.map((opt) => (
-                <button
-                  key={opt.value}
-                  className={pendingPresetProvider === opt.value ? "dashboard-panel onboarding-choice onboarding-choice--selected" : "dashboard-panel onboarding-choice"}
-                  onClick={() => { setDraftError(""); setPendingPresetProvider(opt.value); }}
-                  type="button"
-                >
-                  <strong>{opt.label}</strong>
-                  <span>{opt.description}</span>
-                </button>
-              ))}
-            </div>
-            {draftError ? <p className="form-error" role="alert">{draftError}</p> : null}
-            <div className="form-actions">
-              <Button type="button" onClick={() => { setDraftError(""); setPendingPreset(null); setPendingPresetProvider(""); setRegularStep(1); }}>Back</Button>
-              <Button variant="primary" type="button" onClick={confirmPresetWithProvider}>Continue to review</Button>
-            </div>
-          </section>
-        ) : null}
-
-        {regularStep === 2 && !pendingPreset ? (
-          <section className="dashboard-panel onboarding-form">
-            <h2>What do you want this assistant to do?</h2>
-            <p>Include what it <strong>can</strong> do, what it <strong>must not</strong> do, and any limits (e.g. dollar amounts, specific services). The more specific you are, the better the draft.</p>
-            <label>
-              <textarea
-                placeholder="e.g. Read and summarize my emails, but do not send, delete, forward, or change filters."
-                rows={5}
-                maxLength={2000}
-                value={regularDescription}
-                onChange={(e) => setRegularDescription(e.target.value)}
-              />
-            </label>
-            <p className="field-help" style={{ textAlign: "right", marginTop: 2 }}>{regularDescription.length} / 2000</p>
-            <p className="section-kicker">Examples â€” click to use</p>
-            <div className="permission-template-grid permission-template-grid--nested">
-              {DESCRIPTION_EXAMPLES.map((example) => (
-                <button
-                  key={example}
-                  className="permission-template"
-                  type="button"
-                  onClick={() => setRegularDescription(example)}
-                >
-                  {example}
-                </button>
-              ))}
-            </div>
-            {draftError ? (
-              <div>
-                <p className="form-error" role="alert">{draftError}</p>
-                {draftDetails ? <p className="field-help">{draftDetails}</p> : null}
-                {draftErrorCode === "LOCALHOST_IN_PRODUCTION" ? (
-                  <p className="field-help">Production cannot use localhost for Ollama. Test this flow locally with <code>npm run dev</code>, or configure a secure Ollama proxy.</p>
-                ) : null}
-                {draftErrorCode === "NOT_CONFIGURED" ? (
-                  <p className="field-help">Run <code>npm run check:ollama</code> locally to verify your Ollama setup, then add the env vars to .env.</p>
-                ) : null}
-                {draftErrorCode === "MODEL_NOT_FOUND" ? (
-                  <p className="field-help">Run <code>npm run check:ollama</code> to see which models are installed.</p>
-                ) : null}
-                {draftErrorCode === "TIMEOUT" ? (
-                  <p className="field-help">Ollama took too long. Increase <code>OLLAMA_TIMEOUT_MS</code> in .env, then restart both the dev server (<code>npm run dev</code>) and the secure proxy (<code>npm run ollama:proxy</code>) so they both pick up the new value.</p>
-                ) : null}
-                {draftErrorCode === "UNREACHABLE" ? (
-                  <p className="field-help">Could not connect to Ollama. Make sure Ollama is running (<code>ollama serve</code>) and restart the dev server after editing .env. If your description matches a known pattern, BehalfID will generate a rule-based draft automatically.</p>
-                ) : null}
-              </div>
-            ) : null}
-            <div className="form-actions">
-              <Button type="button" onClick={() => { setDraftError(""); setDraftDetails(""); setDraftErrorCode(""); setRegularStep(1); }}>Back</Button>
-              <Button variant="primary" type="button" onClick={generateDraft} disabled={draftLoading}>
-                {draftLoading ? "Generating draftâ€¦" : "Generate draft passport"}
-              </Button>
-            </div>
-          </section>
-        ) : null}
-
-        {regularStep === 3 && draftResponse ? (
-          <section className="dashboard-panel onboarding-form">
-            <div className="agent-passport__header">
-              <span className="console-status">Draft â€” not active yet</span>
-            </div>
-            <h2>Review your draft passport</h2>
-            <p>BehalfID drafted these permissions based on your description. Review them carefully. <strong>Nothing has been created yet.</strong></p>
-            <p className="field-help">Permissions are inactive until you confirm. You can add, edit, or revoke permissions later from the agent detail page.</p>
-
-            {draftResponse.needsClarification.length > 0 ? (
-              <div className="dashboard-panel review-notice review-notice--clarify">
-                <strong>This draft needs clarification before it can be created:</strong>
-                <ul className="review-list">
-                  {draftResponse.needsClarification.map((item, i) => (
-                    <li key={i}>{item.question}<small>{item.reason}</small></li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-
-            {draftResponse.warnings.length > 0 ? (
-              <div className="dashboard-panel review-notice review-notice--warning">
-                <strong>Heads up:</strong>
-                <ul className="review-list">
-                  {draftResponse.warnings.map((w, i) => <li key={i}>{w}</li>)}
-                </ul>
-              </div>
-            ) : null}
-
-            {draftResponse.permissions.map((perm, index) => (
-              <div key={index} className="dashboard-panel review-permission">
-                <div className="agent-passport__header">
-                  <span className="console-status">Draft permission {index + 1}</span>
-                  <code>{perm.action}</code>
-                  <Badge>{perm.riskLevel} risk</Badge>
-                  {perm.requiresApproval ? <span className="console-status console-status--active">Requires your approval</span> : null}
-                </div>
-                {perm.reason ? <p className="field-help">{perm.reason}</p> : null}
-                {perm.resource ? <p><strong>Resource:</strong> {perm.resource}</p> : null}
-                {perm.constraints?.maxAmount ? <p><strong>Spending limit:</strong> ${perm.constraints.maxAmount}</p> : null}
-                {perm.constraints?.allowedVendors?.length ? (
-                  <p><strong>Allowed vendors:</strong> {perm.constraints.allowedVendors.join(", ")}</p>
-                ) : null}
-                {perm.allowedActions.length ? (
-                  <div>
-                    <strong>Allowed:</strong>
-                    <ul className="review-list review-list--compact">
-                      {perm.allowedActions.map((a) => <li key={a}>{a}</li>)}
-                    </ul>
-                  </div>
-                ) : null}
-                {perm.blockedActions.length ? (
-                  <div>
-                    <strong>Blocked:</strong>
-                    <ul className="review-list review-list--compact">
-                      {perm.blockedActions.map((a) => <li key={a}>{a}</li>)}
-                    </ul>
-                  </div>
-                ) : null}
-              </div>
-            ))}
-
-            {draftResponse.limitations.length > 0 ? (
-              <div className="field-help review-limitations">
-                <strong>Limitations of this draft:</strong>
-                <ul className="review-list review-list--compact">
-                  {draftResponse.limitations.map((l, i) => <li key={i}>{l}</li>)}
-                </ul>
-              </div>
-            ) : null}
-
-            {draftError ? (
-              <div>
-                <p className="form-error" role="alert">{draftError}</p>
-                {draftDetails ? <p className="field-help">{draftDetails}</p> : null}
-              </div>
-            ) : null}
-            <div className="form-actions">
-              <Button type="button" onClick={() => { setDraftError(""); setDraftDetails(""); setDraftErrorCode(""); setRegularStep(arrivedViaPreset ? 1 : 2); setArrivedViaPreset(false); }}>{arrivedViaPreset ? "Back to presets" : "Edit description"}</Button>
-              {draftResponse.needsClarification.length > 0 ? (
-                <Button type="button" disabled>
-                  Clarify before creating passport
-                </Button>
-              ) : (
-                <Button variant="primary" type="button" onClick={confirmDraft} disabled={draftLoading}>
-                  {draftLoading ? "Creating passportâ€¦" : "Confirm and create passport"}
-                </Button>
-              )}
-            </div>
-          </section>
-        ) : null}
-
-        {regularStep === 4 && regularAgent ? (
-          <section className="onboarding-result-grid">
-            <Card className="dashboard-panel">
-              <h2>Passport created</h2>
-              <p>Your permission passport is live. Copy the instructions below and paste them into your AI assistant.</p>
-              <div className="agent-passport__header">
-                <ButtonLink href={dHref(`/dashboard/agents/${regularAgent.agentId}`)}>Open agent</ButtonLink>
-                {regularPassportUrl ? <ButtonLink href={regularPassportUrl}>Open passport</ButtonLink> : null}
-              </div>
-            </Card>
-            <Card className="dashboard-panel">
-              <h2>Paste into your assistant</h2>
-              <p>Copy this block into your AI assistant&apos;s system prompt, memory, or instructions. The assistant will read the passport link and ask you to verify actions it is not explicitly allowed to take.</p>
-              <p className="field-help">Some assistants cannot fetch passport links directly (for example, Gemini memory or ChatGPT system prompts). If the assistant cannot read the link, open the passport page and paste the Agent memory block instead.</p>
-              <CodeBlock label="copy into your assistant">{regularInstructions}</CodeBlock>
-            </Card>
-            {regularProvider === "ollama" ? (
-              <Card className="dashboard-panel">
-                <h2>Gate Ollama tool calls</h2>
-                <p>
-                  For local apps that call Ollama with tools, verify each tool before it runs.
-                  Store the one-time API key in your environment — it is shown only here.
-                </p>
-                {regularApiKey ? <Secret value={regularApiKey} label="Agent API key" /> : null}
-                <CodeBlock label="ollama-gate.ts">{`import { BehalfID } from "@behalfid/sdk";
-import {
-  parseOllamaToolCalls,
-  checkToolCall,
-  buildDeniedToolMessage,
-} from "@behalfid/sdk/adapters/ollama";
-
-const config = {
-  client: new BehalfID({ apiKey: process.env.BEHALFID_API_KEY! }),
-  agentId: "${regularAgent.agentId}",
-};
-
-// POST to OLLAMA_HOST (default http://localhost:11434)/api/chat, then:
-const toolCalls = parseOllamaToolCalls(message.tool_calls);
-for (const toolCall of toolCalls) {
-  const gated = await checkToolCall(config, toolCall, async () => {
-    return await handlers[toolCall.name](toolCall.arguments);
-  });
-  if (gated.blocked) {
-    messages.push(buildDeniedToolMessage(gated.reason));
-    continue;
-  }
-  messages.push({ role: "tool", content: JSON.stringify(gated.result) });
-}`}</CodeBlock>
-                <p className="field-help">
-                  Example: <code>examples/ollama-tool-gating</code>. MCP wrapping: <code>docs/OLLAMA.md</code>.
-                </p>
-              </Card>
-            ) : null}
-          </section>
-        ) : null}
-        </div>
-      </>
-    );
-  }
-
-  // --- Developer path ---
-  return (
-    <>
-      <Header title="Add agent" action={step === 2 ? <Button onClick={() => { setUserPath(null); setStep(1); }} type="button">Back</Button> : null} />
-      <Card className="dashboard-panel onboarding-callout">
-        <p className="section-kicker">Create agent / define scopes / call verify() / use SDK or webhooks / fail closed</p>
-        <h2>Create a native BehalfID agent with an API key for SDK/API enforcement.</h2>
-      </Card>
-      <div className="onboarding-steps">
-        {[2, 3, 4, 5].map((item) => <span className={item === step ? "console-status console-status--active" : "console-status"} key={item}>Step {item - 1}</span>)}
-      </div>
-      <div key={step} className="ob-step--enter">
-      {step === 2 ? (
-        <form className="dashboard-panel onboarding-form" noValidate onSubmit={createAgent}>
-          <h2>Agent setup</h2>
-          <p>This creates a native BehalfID agent with an API key for SDK/API enforcement.</p>
-          <label><span>Agent name</span><input placeholder="e.g. Checkout agent, Support workflow agent" value={agentForm.name} onChange={(event) => setAgentForm({ ...agentForm, name: event.target.value })} required /></label>
-          <label><span>Description</span><textarea placeholder="Optional: what this agent is used for" rows={3} value={agentForm.description} onChange={(event) => setAgentForm({ ...agentForm, description: event.target.value })} /></label>
-          {onboardingError ? <p className="form-error" role="alert">{onboardingError}</p> : null}
-          <Button variant="primary" type="submit">Create agent</Button>
-        </form>
-      ) : null}
-      {step === 3 ? (
-        <form className="dashboard-panel onboarding-form" noValidate onSubmit={createPermission}>
-          <h2>Create first permission</h2>
-          <p>Choose a policy template for real developer workflows, or use a scope template to pre-fill the form, or define a custom action from scratch.</p>
-          <Button onClick={useExampleValues} type="button">Use example values</Button>
-          <div className="policy-template-section">
-            <span className="field-label">Policy templates</span>
-            <p className="field-help">Opinionated policies for coding agents and developer tools. Single-permission templates pre-fill the form. Multi-permission templates are applied immediately.</p>
-            <div className="permission-template-grid">
-              {POLICY_TEMPLATES.map((pt) => (
-                <button
-                  key={pt.id}
-                  type="button"
-                  className={onboardingPolicyTemplateId === pt.id ? "permission-template permission-template--active" : "permission-template"}
-                  onClick={() => {
-                    if (pt.permissions.length === 1) {
-                      applyOnboardingPolicyTemplate(pt);
-                    } else {
-                      setOnboardingPolicyTemplateId(onboardingPolicyTemplateId === pt.id ? "" : pt.id);
-                    }
-                  }}
-                >
-                  <strong>{pt.label}</strong>
-                  <span>{pt.tagline}</span>
-                  <small>{POLICY_CATEGORY_LABELS[pt.category]} Â· {pt.permissions.length === 1 ? "1 permission" : `${pt.permissions.length} permissions`}</small>
-                </button>
-              ))}
-            </div>
-            {onboardingPolicyTemplateId && (() => {
-              const pt = POLICY_TEMPLATES.find((t) => t.id === onboardingPolicyTemplateId);
-              if (!pt || pt.permissions.length <= 1) return null;
-              return (
-                <div className="policy-template-multi-preview" style={{ marginTop: 12, padding: "12px 16px", background: "var(--surface-2)", borderRadius: 8 }}>
-                  <strong>Permissions that will be created:</strong>
-                  <ul style={{ margin: "8px 0", paddingLeft: 18 }}>
-                    {pt.permissions.map((p, i) => (
-                      <li key={i}>
-                        <strong>{p.action}</strong> on <code>{p.resource}</code>{p.requiresApproval ? " â€” requires approval" : " â€” auto-allowed"}
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="field-help">Blocks: {pt.blocks.join(", ")}.</p>
-                  <div className="form-actions">
-                    <Button type="button" variant="primary" onClick={() => applyOnboardingPolicyTemplateAll(pt)} disabled={onboardingPolicyApplying}>
-                      {onboardingPolicyApplying ? "Applyingâ€¦" : `Apply ${pt.permissions.length} permissions`}
-                    </Button>
-                    <Button type="button" onClick={() => setOnboardingPolicyTemplateId("")}>Cancel</Button>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-          <label>
-            <span>Scope template</span>
-            <select value={onboardingScopeId} onChange={(e) => applyOnboardingScopeTemplate(e.target.value)}>
-              <option value="">Select a scope template (optional)</option>
-              {SCOPE_TEMPLATES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
-            </select>
-            <small className="field-help">Scopes are reusable permission patterns. You can edit the allowed and blocked actions before saving.</small>
-          </label>
-          <div className="permission-template-grid">
-            {permissionTemplates.map((template) => (
-              <button
-                className={permissionForm.template === template.value ? "permission-template permission-template--active" : "permission-template"}
-                key={template.value}
-                onClick={() => chooseTemplate(template.value)}
-                type="button"
-              >
-                <strong>{template.title}</strong>
-                <span>{template.body}</span>
-              </button>
-            ))}
-          </div>
-          {permissionForm.template === "access_data" ? (
-            <>
-              <label><span>Service / resource</span><input placeholder="gmail.com, notion, google-drive, crm" value={permissionForm.resource} onChange={(event) => setPermissionForm({ ...permissionForm, resource: event.target.value })} /></label>
-              <label><span>Allowed actions</span><input placeholder="read labels, summarize docs, view tickets, provide pricing metrics" value={permissionForm.allowedActions} onChange={(event) => setPermissionForm({ ...permissionForm, allowedActions: event.target.value })} /><small className="field-help">Comma-separated list of what this agent may do.</small></label>
-              <label><span>Blocked actions</span><input placeholder="send email, delete files, make purchases, place orders" value={permissionForm.blockedActions} onChange={(event) => setPermissionForm({ ...permissionForm, blockedActions: event.target.value })} /><small className="field-help">Comma-separated list of what this agent must never do.</small></label>
-              <label><span>Requires approval?</span><select value={permissionForm.requiresApproval} onChange={(event) => setPermissionForm({ ...permissionForm, requiresApproval: event.target.value })}><option value="yes">Yes</option><option value="no">No</option></select></label>
-            </>
-          ) : null}
-          {permissionForm.template === "create_content" ? (
-            <>
-              <label><span>Service / channel</span><input placeholder="gmail.com, slack, hubspot" value={permissionForm.resource} onChange={(event) => setPermissionForm({ ...permissionForm, resource: event.target.value })} /></label>
-              <label><span>Allowed actions</span><input placeholder="draft replies, create notes, write ticket summaries" value={permissionForm.allowedActions} onChange={(event) => setPermissionForm({ ...permissionForm, allowedActions: event.target.value })} /><small className="field-help">Comma-separated list of what this agent may create or send.</small></label>
-              <label><span>Blocked actions</span><input placeholder="send without review, delete messages, modify contacts" value={permissionForm.blockedActions} onChange={(event) => setPermissionForm({ ...permissionForm, blockedActions: event.target.value })} /></label>
-              <label><span>Requires approval?</span><select value={permissionForm.requiresApproval} onChange={(event) => setPermissionForm({ ...permissionForm, requiresApproval: event.target.value })}><option value="yes">Yes</option><option value="no">No</option></select></label>
-            </>
-          ) : null}
-          {permissionForm.template === "schedule" ? (
-            <>
-              <label><span>Calendar / workflow</span><input placeholder="google-calendar, family schedule, sales calendar" value={permissionForm.resource} onChange={(event) => setPermissionForm({ ...permissionForm, resource: event.target.value })} /></label>
-              <label><span>Allowed actions</span><input placeholder="suggest times, create draft event, book meeting" value={permissionForm.allowedActions} onChange={(event) => setPermissionForm({ ...permissionForm, allowedActions: event.target.value })} /><small className="field-help">Comma-separated list of what this agent may schedule.</small></label>
-              <label><span>Blocked actions</span><input placeholder="delete events, invite external contacts, modify recurring events" value={permissionForm.blockedActions} onChange={(event) => setPermissionForm({ ...permissionForm, blockedActions: event.target.value })} /></label>
-              <label><span>Time limit / expiration</span><select value={permissionForm.expiration} onChange={(event) => setPermissionForm({ ...permissionForm, expiration: event.target.value })}><option value="">No expiration</option><option value="1">1 hour</option><option value="2">2 hours</option><option value="24">24 hours</option><option value="168">7 days</option></select></label>
-            </>
-          ) : null}
-          {permissionForm.template === "purchase" ? (
-            <>
-              <label><span>Vendor / merchant</span><input placeholder="coachella.com, amazon.com" value={permissionForm.resource} onChange={(event) => setPermissionForm({ ...permissionForm, resource: event.target.value })} /></label>
-              <label><span>Max amount</span><input min="0" placeholder="800" type="number" value={permissionForm.maxAmount} onChange={(event) => setPermissionForm({ ...permissionForm, maxAmount: event.target.value })} /></label>
-              <label><span>Expiration</span><select value={permissionForm.expiration} onChange={(event) => setPermissionForm({ ...permissionForm, expiration: event.target.value })}><option value="">No expiration</option><option value="1">1 hour</option><option value="2">2 hours</option><option value="24">24 hours</option><option value="168">7 days</option></select></label>
-            </>
-          ) : null}
-          {permissionForm.template === "custom" ? (
-            <>
-              <label><span>Action</span><input placeholder="analyze_statement, create_invoice, update_ticket" value={permissionForm.customAction} onChange={(event) => setPermissionForm({ ...permissionForm, customAction: event.target.value })} /></label>
-              <label><span>Resource / service</span><input placeholder="quickbooks invoices, zendesk tickets, student progress" value={permissionForm.resource} onChange={(event) => setPermissionForm({ ...permissionForm, resource: event.target.value })} /></label>
-              <label><span>Allowed actions</span><input placeholder="read records, summarize, generate report" value={permissionForm.allowedActions} onChange={(event) => setPermissionForm({ ...permissionForm, allowedActions: event.target.value })} /><small className="field-help">Comma-separated list of what this agent may do.</small></label>
-              <label><span>Blocked actions</span><input placeholder="edit records, delete, export raw data" value={permissionForm.blockedActions} onChange={(event) => setPermissionForm({ ...permissionForm, blockedActions: event.target.value })} /></label>
-              <label><span>Requires approval?</span><select value={permissionForm.requiresApproval} onChange={(event) => setPermissionForm({ ...permissionForm, requiresApproval: event.target.value })}><option value="yes">Yes</option><option value="no">No</option></select></label>
-              <label><span>Notes</span><input placeholder="read-only, max 10 records, internal use only" value={permissionForm.notes} onChange={(event) => setPermissionForm({ ...permissionForm, notes: event.target.value })} /></label>
-            </>
-          ) : null}
-          <p className="field-help">BehalfID enforces action, blocked actions, allowed actions, approval requirements, expiration, and simple resource/vendor/amount constraints. Your integration still needs to call verify before the tool runs.</p>
-          {onboardingError ? <p className="form-error" role="alert">{onboardingError}</p> : null}
-          <Button variant="primary" type="submit">Create permission</Button>
-        </form>
-      ) : null}
-      {step === 4 ? (
-        <section>
-          <div className="onboarding-result-grid onboarding-result-grid--native" style={{ marginBottom: 18 }}>
-            <Card className="dashboard-panel">
-              <h2>Install the SDK</h2>
-              <p>Install the BehalfID SDK in the app or executor that will call verify before tools run.</p>
-              <CodeBlock label="terminal">npm install @behalfid/sdk</CodeBlock>
-              <p className="field-help" style={{ marginTop: 16, marginBottom: 8 }}>If you also use the BehalfID CLI or MCP server, install the CLI and configure it with the same agent.</p>
-              <CodeBlock label="terminal">{CLI_NPM_INSTALL_COMMAND}</CodeBlock>
-              <CodeBlock label="copy and run">{`behalf config set api-key ${apiKey}\nbehalf config set agent-id ${agent?.agentId ?? ""}`}</CodeBlock>
-              <p className="field-help" style={{ marginTop: 8 }}>Your API key was shown once after creating the agent. If you missed it, rotate it from the agent detail page.</p>
-            </Card>
-            <Card className="dashboard-panel">
-              <h2>Connect your AI tool</h2>
-              <p>After authenticating, launch your AI with BehalfID enforcement active.</p>
-              <div className="sdk-connect-tools">
-                <div className="sdk-connect-tool">
-                  <strong>Claude Code</strong>
-                  <CodeBlock label="terminal">behalf claude</CodeBlock>
-                </div>
-                <div className="sdk-connect-tool">
-                  <strong>Codex CLI</strong>
-                  <CodeBlock label="terminal">behalf codex</CodeBlock>
-                </div>
-                <div className="sdk-connect-tool">
-                  <strong>Gemini / other tools</strong>
-                  <CodeBlock label="terminal">behalf mcp init</CodeBlock>
-                  <p className="field-help">Generates a <code>.mcp.json</code> and injects the BehalfID context into your agent config file. Open Gemini or your IDE with that config active.</p>
-                </div>
-              </div>
-            </Card>
-          </div>
-          <form className="dashboard-panel onboarding-form" onSubmit={testAction}>
-            <h2>Test a verification call</h2>
-            <p>Preview how BehalfID will respond when your agent requests permission for an action. Permission created: <code>{permissionId}</code></p>
-            <label><span>Action</span><input value={testForm.action} onChange={(event) => setTestForm({ ...testForm, action: event.target.value })} /></label>
-            <label><span>Resource / service</span><input placeholder="gmail.com, slack, google-calendar, coachella.com" value={testForm.resource} onChange={(event) => setTestForm({ ...testForm, resource: event.target.value })} /></label>
-            {permissionForm.template === "purchase" ? <label><span>Amount</span><input min="0" type="number" value={testForm.amount} onChange={(event) => setTestForm({ ...testForm, amount: event.target.value })} /></label> : null}
-            <label><span>Context / notes</span><input placeholder="Optional context for the preview" value={testForm.context} onChange={(event) => setTestForm({ ...testForm, context: event.target.value })} /></label>
-            <Button variant="primary" type="submit">Test verification</Button>
-          </form>
-        </section>
-      ) : null}
-      {step === 5 && agent ? (
-        <section className="onboarding-result-grid">
-          <Card className="dashboard-panel">
-            <h2>{decision?.allowed ? "Allowed" : "Denied"}</h2>
-            <p>{decision?.reason}</p>
-            <div className="agent-passport__header"><ButtonLink href={dHref(`/dashboard/agents/${agent.agentId}`)}>Open agent</ButtonLink>{passportUrl ? <ButtonLink href={passportUrl}>Open passport</ButtonLink> : null}</div>
-          </Card>
-          <Card className="dashboard-panel">
-            <h2>Manual test mode</h2>
-            <p>Send this link to your agent so it can read the allowed scopes and ask you to verify actions.</p>
-            <p>This does not automatically control the external agent. Developer integration is required for automatic enforcement.</p>
-            <p className="field-help">Some agents cannot fetch passport links directly (for example, Gemini memory or ChatGPT system prompts). If the agent cannot read the link, open the passport page and paste the Agent memory block into the agent instead.</p>
-            <CodeBlock label="copy into your agent">{instructions}</CodeBlock>
-          </Card>
-          <Card className="dashboard-panel">
-            <h2>Developer integration</h2>
-            <p>The API key was shown once during setup. Store it as <code>BEHALFID_API_KEY</code> and call verify before actions happen.</p>
-            <CodeBlock label="verify.ts">{`import { BehalfID } from "@behalfid/sdk";
-
-const behalf = new BehalfID({
-  apiKey: process.env.BEHALFID_API_KEY!,
-  baseUrl: "https://behalfid.com"
-});
-
-const result = await behalf.verify({
-  agentId: "${agent.agentId}",
-  action: "access_data",
-  vendor: "gmail.com"
-});`}</CodeBlock>
-            <div className="agent-passport__header"><ButtonLink href="/docs/quickstart">Quickstart</ButtonLink><ButtonLink href="/docs/sdk">SDK docs</ButtonLink></div>
-          </Card>
-        </section>
-      ) : null}
-      </div>
-      {apiKey && step < 5 ? <Secret value={apiKey} label="Agent API key" /> : null}
-    </>
-  );
-}
-
 
 function WebhooksView() {
   const { apiJson: api } = useDashboardApi();
@@ -3199,6 +2185,7 @@ function SettingsView() {
         agentToolsOther?: string;
         controlAreas?: string[];
         controlAreasOther?: string;
+        protectionPolicy?: ProtectionPolicy | null;
         primaryGoal?: string;
         firstSetupGoal?: string;
       } | null;
@@ -3226,6 +2213,7 @@ function SettingsView() {
     agentToolsOther: "",
     controlAreas: [] as string[],
     controlAreasOther: "",
+    protectionPolicy: defaultProtectionPolicy(),
     primaryGoal: "",
     firstSetupGoal: ""
   });
@@ -3272,6 +2260,7 @@ function SettingsView() {
       agentToolsOther: settings.data.account?.onboarding?.agentToolsOther ?? "",
       controlAreas: settings.data.account?.onboarding?.controlAreas ?? [],
       controlAreasOther: settings.data.account?.onboarding?.controlAreasOther ?? "",
+      protectionPolicy: protectionPolicyOrDefault(settings.data.account?.onboarding?.protectionPolicy),
       primaryGoal: settings.data.account?.onboarding?.primaryGoal ?? "",
       firstSetupGoal: settings.data.account?.onboarding?.firstSetupGoal ?? ""
     });
@@ -3311,8 +2300,8 @@ function SettingsView() {
           teamSize: accountForm.teamSize || undefined,
           agentTools: accountForm.agentTools,
           agentToolsOther: accountForm.agentToolsOther,
-          controlAreas: accountForm.controlAreas,
           controlAreasOther: accountForm.controlAreasOther,
+          protectionPolicy: accountForm.protectionPolicy,
           primaryGoal: accountForm.primaryGoal || undefined,
           firstSetupGoal: accountForm.firstSetupGoal || undefined
         })
@@ -3537,28 +2526,20 @@ function SettingsView() {
                 ))}
               </div>
             </fieldset>
-            <fieldset className="setup-fieldset">
-              <legend>Control areas</legend>
-              <div className="setup-checkgrid setup-checkgrid--settings">
-                {CONTROL_AREAS.map((area) => (
-                  <label className="setup-check setup-check--setting" key={area}>
-                    <input
-                      checked={accountForm.controlAreas.includes(area)}
-                      onChange={() => setAccountForm((prev) => ({
-                        ...prev,
-                        controlAreas: prev.controlAreas.includes(area)
-                          ? prev.controlAreas.filter((value) => value !== area)
-                          : [...prev.controlAreas, area]
-                      }))}
-                      type="checkbox"
-                    />
-                    <span className="setup-check__body">
-                      <span className="setup-check__label">{CONTROL_AREA_LABELS[area]}</span>
-                      <span className="setup-check__hint">{CONTROL_POLICY_HINTS[area]}</span>
-                    </span>
-                  </label>
-                ))}
-              </div>
+            <fieldset className="setup-fieldset setup-fieldset--policy">
+              <legend>Default protection for new agents</legend>
+              <p className="field-help">
+                The starting point for the next agent you create. Agents that already exist keep the
+                permissions they were given — edit those on the agent&rsquo;s own page.
+              </p>
+              <ProtectionPolicyEditor
+                onChange={(next) => setAccountForm((prev) => ({ ...prev, protectionPolicy: next }))}
+                policy={accountForm.protectionPolicy}
+              />
+              <ProtectionSummary
+                policy={accountForm.protectionPolicy}
+                title="What a new agent would start with"
+              />
             </fieldset>
             <label>
               <span>Primary goal</span>
@@ -3851,23 +2832,7 @@ function LogList({ logs, approvalFilter }: { logs: Log[]; approvalFilter?: boole
   );
 }
 
-function Secret({ label, value }: { label: string; value: string }) {
-  return (
-    <SecretLifecycleNotice
-      description="Shown once. Store it securely now; only a non-sensitive preview or hash remains available afterward."
-      label={label}
-      value={value}
-    />
-  );
-}
 
-function actionToPermTemplate(action: string): PermissionTemplate {
-  if (action === "schedule") return "schedule";
-  if (action === "purchase") return "purchase";
-  if (["create_content", "send_email", "send_message"].includes(action)) return "create_content";
-  if (!action) return "custom";
-  return "access_data";
-}
 
 function buildVerifySnippet(agentId: string, permissions: Permission[] | undefined): string {
   const active = permissions?.find((p) => p.status === "active");

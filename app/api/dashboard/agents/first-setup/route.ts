@@ -84,6 +84,8 @@ export async function POST(request: NextRequest) {
     "name",
     "description",
     "environment",
+    "protectionPolicy",
+    // Accepted for browser sessions opened before the protection step shipped.
     "controlProfile",
     "approvalGates"
   ]);
@@ -171,12 +173,12 @@ export async function POST(request: NextRequest) {
       provider,
       source: "first_agent_setup",
       surface: input.surface,
-      controlProfile: input.controlProfile
+      protectionPreset: input.protectionPolicy.preset
     }, auth.user.userId)
   );
 
   const testDecision = buildTestDecision({
-    approvalGates: input.approvalGates,
+    protectionPolicy: input.protectionPolicy,
     agentName: input.name,
     defaultEnvironment: input.environment
   });
@@ -187,13 +189,17 @@ export async function POST(request: NextRequest) {
       apiKey: result.apiKey,
       permissionIds,
       testDecision: {
+        controlId: testDecision.controlId,
+        controlLabel: testDecision.controlLabel,
         action: testDecision.action,
         resource: testDecision.resource,
         vendor: testDecision.vendor,
+        ...(typeof testDecision.amount === "number" ? { amount: testDecision.amount } : {}),
         environment: testDecision.environment,
         metadata: sanitizeVerifyMetadata(testDecision.metadata),
         expectsApproval: testDecision.expectsApproval,
-        expectsDenied: testDecision.expectsDenied
+        expectsDenied: testDecision.expectsDenied,
+        expectsAllowed: testDecision.expectsAllowed
       }
     },
     { status: 201 }

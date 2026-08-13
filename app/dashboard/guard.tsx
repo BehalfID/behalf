@@ -21,7 +21,6 @@ export async function ProtectedDashboard({
 }: {
   view:
     | "home"
-    | "onboarding"
     | "first-agent"
     | "agents"
     | "agent"

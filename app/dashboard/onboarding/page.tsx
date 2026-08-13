@@ -1,11 +1,10 @@
-import type { Metadata } from "next";
-import { ProtectedDashboard } from "../guard";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "Add agent — BehalfID",
-  description: "Create a new agent with credentials, permissions, and enforcement mode.",
-};
-
+/**
+ * `/dashboard/onboarding` used to host a second, older agent-creation wizard
+ * with its own permission model. There is now one setup flow, so this route
+ * exists only to keep old links and bookmarks working.
+ */
 export default function OnboardingPage() {
-  return <ProtectedDashboard view="onboarding" />;
+  redirect("/dashboard/agents/new");
 }

@@ -10,7 +10,6 @@ export async function WorkspaceProtectedDashboard({
 }: {
   view:
     | "home"
-    | "onboarding"
     | "first-agent"
     | "agents"
     | "agent"

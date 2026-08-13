@@ -44,7 +44,14 @@ const AccountSchema = new Schema(
           "invite_team",
           "explore_sandbox"
         ]
-      }
+      },
+      /**
+       * Starting protection policy from onboarding. Stored as an opaque
+       * document; `lib/protectionPolicy.ts` owns its shape and validates every
+       * read and write, matching the Postgres `accounts.onboarding` JSONB
+       * column so both backends round-trip identically.
+       */
+      protectionPolicy: { type: Schema.Types.Mixed }
     },
     /**
      * Billing-owned plan. Stripe webhooks write this field and only this field.

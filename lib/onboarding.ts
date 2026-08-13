@@ -1,3 +1,10 @@
+import {
+  defaultProtectionPolicy,
+  reconcilePreset,
+  validateProtectionPolicy,
+  type ProtectionPolicy
+} from "@/lib/protectionPolicy";
+import { deriveControlAreas } from "@/lib/protectionPolicy";
 import { readString } from "@/lib/validation";
 
 export const ACCOUNT_TYPES = ["individual", "business"] as const;
@@ -53,7 +60,29 @@ export type AccountOnboarding = {
   controlAreasOther?: string;
   primaryGoal?: PrimaryGoal;
   firstSetupGoal?: FirstSetupGoal;
+  /**
+   * The workspace's starting protection policy. This is the enforceable half of
+   * onboarding: it compiles into real permissions the first time an agent is
+   * created. `controlAreas` is derived from it for the older dashboard panels.
+   */
+  protectionPolicy?: ProtectionPolicy;
 };
+
+export function validateOnboardingProtectionPolicy(
+  value: unknown,
+  required: boolean
+): { value?: ProtectionPolicy; error: string | null } {
+  if (value === undefined || value === null) {
+    return required
+      ? { value: defaultProtectionPolicy(), error: null }
+      : { value: undefined, error: null };
+  }
+  const parsed = validateProtectionPolicy(value);
+  if (parsed.error || !parsed.policy) {
+    return { error: parsed.error ?? "protectionPolicy is invalid." };
+  }
+  return { value: reconcilePreset(parsed.policy), error: null };
+}
 
 export type AccountSetupProfile = {
   firstName?: string;
@@ -357,7 +386,10 @@ export function validateAccountSetupCompletion(input: CompletionInput): {
     website?: string;
     teamSize?: TeamSize;
     onboarding: Required<
-      Pick<AccountOnboarding, "agentTools" | "controlAreas" | "primaryGoal" | "firstSetupGoal">
+      Pick<
+        AccountOnboarding,
+        "agentTools" | "controlAreas" | "primaryGoal" | "firstSetupGoal" | "protectionPolicy"
+      >
     > &
       Pick<AccountOnboarding, "agentToolsOther" | "controlAreasOther"> & {
         primaryGoal?: PrimaryGoal;
@@ -413,13 +445,31 @@ export function validateAccountSetupCompletion(input: CompletionInput): {
   );
   if (agentToolsOther.error) return { profile: {} as never, account: {} as never, error: agentToolsOther.error };
 
-  const controlAreas = validateEnumArray(
+  const protectionPolicy = validateOnboardingProtectionPolicy(
+    input.onboarding?.protectionPolicy,
+    true
+  );
+  if (protectionPolicy.error) {
+    return { profile: {} as never, account: {} as never, error: protectionPolicy.error };
+  }
+
+  // Control areas are no longer asked for directly — they are derived from the
+  // protection policy so the older dashboard panels keep working. An explicit
+  // list (e.g. edited later in settings) still wins.
+  const explicitControlAreas = validateEnumArray(
     input.onboarding?.controlAreas,
     CONTROL_AREAS,
     "controlAreas",
-    true
+    false
   );
-  if (controlAreas.error) return { profile: {} as never, account: {} as never, error: controlAreas.error };
+  if (explicitControlAreas.error) {
+    return { profile: {} as never, account: {} as never, error: explicitControlAreas.error };
+  }
+  const controlAreas = {
+    value:
+      explicitControlAreas.value ??
+      (deriveControlAreas(protectionPolicy.value!) as ControlArea[])
+  };
 
   const controlAreasOther = validateOtherText(
     controlAreas.value,
@@ -458,7 +508,8 @@ export function validateAccountSetupCompletion(input: CompletionInput): {
         controlAreas: controlAreas.value!,
         controlAreasOther: controlAreasOther.value,
         primaryGoal: resolvedPrimaryGoal,
-        firstSetupGoal: firstSetupGoal.value!
+        firstSetupGoal: firstSetupGoal.value!,
+        protectionPolicy: protectionPolicy.value!
       }
     },
     error: null
@@ -474,26 +525,13 @@ export const AGENT_TOOL_LABELS: Record<AgentTool, string> = {
   other: "Other"
 };
 
-export const CONTROL_AREA_LABELS: Record<ControlArea, string> = {
-  production_deploys: "Production deploys",
-  github_writes: "GitHub writes",
-  db_migrations: "Database migrations",
-  secrets: "Secrets and .env files",
-  billing_vendor_apis: "Billing or vendor APIs",
-  external_comms: "External communications",
-  other: "Other"
-};
-
-export const CONTROL_POLICY_HINTS: Record<ControlArea, string> = {
-  production_deploys: "Approval required",
-  github_writes: "Profile-scoped",
-  db_migrations: "Approval required",
-  secrets: "Deny by default",
-  billing_vendor_apis: "Approval required",
-  external_comms: "Audit only",
-  other: "Review required"
-};
-
+/**
+ * Legacy control areas are no longer chosen by hand — `deriveControlAreas`
+ * fills them in from the protection policy. The labels and the old
+ * "Approval required" / "Deny by default" hints were removed with the
+ * checkbox step they described: they named an outcome the engine never
+ * produced, which is exactly what this rewrite set out to fix.
+ */
 export const PRIMARY_GOAL_LABELS: Record<PrimaryGoal, string> = {
   approvals: "Require approval before risky actions",
   block: "Block unsafe actions",

@@ -1,8 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { FormAlert } from "@/components/auth/AuthShell";
-import { OnboardingIntro } from "@/components/onboarding/OnboardingShell";
 import { DecisionIndicator } from "@/components/dashboard/OpsEventPrimitives";
 import { useDashboardPaths } from "@/components/workspace/WorkspaceProvider";
 import type { TestDecisionResult } from "./TestDecisionStep";
@@ -45,56 +43,5 @@ export function SetupReceiptCard({ result }: { result: TestDecisionResult }) {
         ) : null}
       </dl>
     </section>
-  );
-}
-
-export function LogsHandoffStep({
-  requestId,
-  agentId,
-  onCopy
-}: {
-  requestId?: string;
-  agentId?: string;
-  onCopy: (value: string, label: string) => void;
-}) {
-  const { href } = useDashboardPaths();
-  const logsHref = requestId
-    ? href(`/dashboard/logs?search=${encodeURIComponent(requestId)}`)
-    : agentId
-      ? href(`/dashboard/logs?agentId=${encodeURIComponent(agentId)}`)
-      : href("/dashboard/logs");
-
-  return (
-    <>
-      <OnboardingIntro
-        eyebrow="Agent setup · Complete"
-        title="Your first agent is ready"
-        description="The test decision is recorded in audit logs. Open the event to inspect its receipt, metadata, and linked approval when one was created."
-      />
-      <FormAlert tone="success">Agent identity, credential, control profile, and approval gates are active.</FormAlert>
-      <section className="first-agent-receipt ops-panel">
-        {requestId ? (
-          <dl className="setup-review__list">
-            <div className="setup-review__row">
-              <dt>Event ID</dt>
-              <dd><code>{requestId}</code></dd>
-            </div>
-          </dl>
-        ) : null}
-        <div className="first-agent-token-panel__actions">
-          {requestId ? (
-            <button type="button" className="ui-button ui-button--ghost" onClick={() => onCopy(requestId, "event")}>
-              Copy event ID
-            </button>
-          ) : null}
-          <Link className="ui-button ui-button--primary" href={logsHref}>
-            Open audit logs
-          </Link>
-          <Link className="ui-button ui-button--ghost" href={href("/dashboard")}>
-            Return to control plane
-          </Link>
-        </div>
-      </section>
-    </>
   );
 }

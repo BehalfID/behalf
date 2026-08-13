@@ -24,7 +24,7 @@ export function QuickstartDocsBody() {
         BehalfID first. If the decision is not allowed, the executor does not run.
       </p>
       <ol className="docs-steps">
-        <li><strong>Create an agent.</strong> Use <code>/dashboard/onboarding</code> or <code>behalf agents create</code>. Store the one-time <code>bhf_sk_...</code> API key as <code>BEHALFID_API_KEY</code>.</li>
+        <li><strong>Create an agent.</strong> Use <code>/dashboard/agents/new</code> or <code>behalf agents create</code>. Store the one-time <code>bhf_sk_...</code> API key as <code>BEHALFID_API_KEY</code>.</li>
         <li><strong>Create a permission.</strong> Start with one clear rule — for a coding agent: <code>deploy</code> on <code>vercel.com</code> with <code>requiresApproval: true</code> for production. For other agents: <code>browse_web</code> on <code>web</code>, or <code>purchase</code> on <code>amazon.com</code> with <code>maxAmount: 25</code>.</li>
         <li><strong>Install the SDK.</strong> Add the published Node SDK to the app that owns the tool execution.</li>
         <li><strong>Call verify before the action.</strong> The SDK requires <code>agentId</code>, <code>action</code>, and the API key. Pass <code>vendor</code> or <code>resource</code> when a permission is scoped to a service.</li>

@@ -2,15 +2,9 @@
 
 import { useState } from "react";
 import { CodeBlock } from "@/components/ui";
-import {
-  AGENT_SURFACE_LABELS,
-  APPROVAL_GATE_LABELS,
-  CONTROL_PROFILE_LABELS,
-  type AgentEnvironment,
-  type AgentSurface,
-  type ApprovalGate,
-  type ControlProfile
-} from "@/lib/firstAgentSetup";
+import { AGENT_SURFACE_LABELS, type AgentEnvironment, type AgentSurface } from "@/lib/firstAgentSetup";
+import { PROTECTION_PRESET_LABELS, type ProtectionPolicy } from "@/lib/protectionPolicy";
+import { protectionPolicyCounts } from "@/lib/protectionPolicyPermissions";
 import { SetupContinueRow, SetupStepIntro } from "./setupPrimitives";
 
 export function AgentTokenStep({
@@ -18,8 +12,7 @@ export function AgentTokenStep({
   agentName,
   surface,
   environment,
-  controlProfile,
-  approvalGates,
+  protectionPolicy,
   creating,
   onCreate,
   emailVerified,
@@ -29,14 +22,14 @@ export function AgentTokenStep({
   agentName: string;
   surface: AgentSurface;
   environment: AgentEnvironment;
-  controlProfile: ControlProfile;
-  approvalGates: ApprovalGate[];
+  protectionPolicy: ProtectionPolicy;
   creating: boolean;
   onCreate: () => void;
   emailVerified: boolean;
   error?: string;
 }) {
   const [copied, setCopied] = useState(false);
+  const counts = protectionPolicyCounts(protectionPolicy);
 
   const copyKey = async () => {
     if (!apiKey) return;
@@ -52,7 +45,7 @@ export function AgentTokenStep({
           title="Review and create the agent"
           helper={
             emailVerified
-              ? "BehalfID will create the agent, apply your profile and gates, and return a one-time API key." // pragma: allowlist secret
+              ? "BehalfID creates the agent, turns your policy into permissions, and shows you an API key once." // pragma: allowlist secret
               : "Agent creation stays locked until your email is verified. Complete verification to issue a token." // pragma: allowlist secret
           }
         >
@@ -71,16 +64,18 @@ export function AgentTokenStep({
                 <dd>{environment.charAt(0).toUpperCase() + environment.slice(1)}</dd>
               </div>
               <div className="setup-review__row">
-                <dt>Control profile</dt>
-                <dd>{CONTROL_PROFILE_LABELS[controlProfile]}</dd>
+                <dt>Protection</dt>
+                <dd>{PROTECTION_PRESET_LABELS[protectionPolicy.preset]}</dd>
               </div>
               <div className="setup-review__row">
-                <dt>Approval gates</dt>
-                <dd>{approvalGates.map((gate) => APPROVAL_GATE_LABELS[gate]).join(", ") || "—"}</dd>
+                <dt>Rules</dt>
+                <dd>
+                  {counts.allow} automatic · {counts.approve} ask you · {counts.block} refused
+                </dd>
               </div>
               <div className="setup-review__row">
-                <dt>Token policy</dt>
-                <dd>Shown once · store it before leaving this flow</dd>
+                <dt>API key</dt>
+                <dd>Shown once — store it before you leave this page</dd>
               </div>
             </dl>
           </div>

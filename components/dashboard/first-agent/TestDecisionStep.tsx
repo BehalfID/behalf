@@ -18,6 +18,8 @@ export function TestDecisionStep({
   action,
   resource,
   environment,
+  controlLabel,
+  expected,
   running,
   result,
   onRun,
@@ -26,16 +28,25 @@ export function TestDecisionStep({
   action: string;
   resource: string;
   environment: string;
+  controlLabel?: string;
+  expected?: "allow" | "approve" | "block";
   running: boolean;
   result: TestDecisionResult | null;
   onRun: () => void;
   error?: string;
 }) {
+  const expectedCopy =
+    expected === "approve"
+      ? "BehalfID should hold this and ask you to approve it."
+      : expected === "block"
+        ? "BehalfID should refuse this outright."
+        : "BehalfID should let this through and record it.";
+
   return (
     <>
       <SetupStepIntro
-        title="Run a test decision"
-        helper="This sends a real verification request with the new agent credential. The result should reflect the control profile and approval gates you just applied."
+        title="See it work"
+        helper={`We will send a real request through your new agent${controlLabel ? ` for "${controlLabel}"` : ""}. ${expectedCopy}`}
       >
         <div className="setup-review">
           <dl className="setup-review__list">
@@ -51,13 +62,17 @@ export function TestDecisionStep({
               <dt>Environment</dt>
               <dd><code>{environment}</code></dd>
             </div>
+            <div className="setup-review__row">
+              <dt>Expected answer</dt>
+              <dd>{expected === "approve" ? "Waits for you" : expected === "block" ? "Refused" : "Runs on its own"}</dd>
+            </div>
           </dl>
         </div>
         {result ? <SetupReceiptCard result={result} /> : null}
       </SetupStepIntro>
       <SetupContinueRow
         onContinue={onRun}
-        continueLabel={running ? "Running…" : result ? "Continue to logs" : "Run test decision"}
+        continueLabel={running ? "Running…" : result ? "Continue to logs" : "Send the request"}
         disabled={running}
         loading={running}
         error={error}

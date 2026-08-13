@@ -2,24 +2,31 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  defaultApprovalGatesForSurface,
-  mergeSuggestedGates,
-  recommendControlProfile,
+  recommendPolicyForSurface,
   sanitizeVerifyMetadata,
   type AgentEnvironment,
-  type AgentSurface,
-  type ApprovalGate,
-  type ControlProfile
+  type AgentSurface
 } from "@/lib/firstAgentSetup";
 import type { AgentTool } from "@/lib/onboarding";
+import {
+  presetPolicy,
+  validateProtectionPolicy,
+  type ProtectionPolicy
+} from "@/lib/protectionPolicy";
 import { useDashboardApi } from "@/components/workspace/WorkspaceProvider";
+import {
+  TARGET_LOCATIONS,
+  setupTargetForSurface,
+  type SetupLocation
+} from "@/lib/integrationSetup";
+import { protectionPolicyCounts } from "@/lib/protectionPolicyPermissions";
+import type { AgentSetupReadiness } from "@/lib/setupReadinessTypes";
 import { AgentIdentityStep } from "./AgentIdentityStep";
 import { AgentSurfaceStep } from "./AgentSurfaceStep";
 import { AgentTokenStep } from "./AgentTokenStep";
-import { ApprovalGatesStep } from "./ApprovalGatesStep";
-import { ControlProfileStep } from "./ControlProfileStep";
-import { IntegrationInstructions } from "./IntegrationInstructions";
-import { LogsHandoffStep } from "./SetupReceiptCard";
+import { ConnectStep } from "./ConnectStep";
+import { ProtectionStep } from "./ProtectionStep";
+import { SetupSummaryStep } from "./SetupSummaryStep";
 import { FirstAgentSetupShell, VerificationLockBanner } from "./setupPrimitives";
 import { TestDecisionStep, type TestDecisionResult } from "./TestDecisionStep";
 
@@ -32,23 +39,37 @@ type SetupApiResponse = {
   agent: CreatedAgent;
   apiKey: string;
   testDecision: {
+    controlId: string;
+    controlLabel: string;
     action: string;
     resource: string;
     vendor: string;
+    amount?: number;
     environment: string;
     metadata: Record<string, unknown>;
     expectsApproval: boolean;
     expectsDenied: boolean;
+    expectsAllowed: boolean;
   };
 };
+
+function expectedOutcome(testConfig: SetupApiResponse["testDecision"] | null) {
+  if (!testConfig) return undefined;
+  if (testConfig.expectsApproval) return "approve" as const;
+  if (testConfig.expectsDenied) return "block" as const;
+  return "allow" as const;
+}
 
 export function FirstAgentSetup({
   emailVerified,
   suggestedSurfaces = [],
+  workspacePolicy = null,
   focus = null
 }: {
   emailVerified: boolean;
   suggestedSurfaces?: AgentTool[];
+  /** The policy chosen during account setup, when the workspace has one. */
+  workspacePolicy?: ProtectionPolicy | null;
   focus?: string | null;
 }) {
   const { apiJson } = useDashboardApi();
@@ -57,13 +78,21 @@ export function FirstAgentSetup({
     return (first ?? "") as AgentSurface | "";
   }, [suggestedSurfaces]);
 
+  const inheritedPolicy = useMemo(() => {
+    if (!workspacePolicy) return null;
+    const parsed = validateProtectionPolicy(workspacePolicy);
+    return parsed.policy ?? null;
+  }, [workspacePolicy]);
+
   const [step, setStep] = useState(1);
   const [surface, setSurface] = useState<AgentSurface | "">(initialSurface);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [environment, setEnvironment] = useState<AgentEnvironment>("production");
-  const [controlProfile, setControlProfile] = useState<ControlProfile>("balanced");
-  const [approvalGates, setApprovalGates] = useState<ApprovalGate[]>([]);
+  const [policy, setPolicy] = useState<ProtectionPolicy>(
+    () => inheritedPolicy ?? presetPolicy("recommended")
+  );
+  const [policyTouched, setPolicyTouched] = useState(false);
   const [agent, setAgent] = useState<CreatedAgent | null>(null);
   const [apiKey, setApiKey] = useState("");
   const [testConfig, setTestConfig] = useState<SetupApiResponse["testDecision"] | null>(null);
@@ -71,41 +100,49 @@ export function FirstAgentSetup({
   const [creating, setCreating] = useState(false);
   const [runningTest, setRunningTest] = useState(false);
   const [error, setError] = useState("");
+  const [readiness, setReadiness] = useState<AgentSetupReadiness | null>(null);
+  const [location, setLocation] = useState<SetupLocation>("workstation");
+
+  const target = setupTargetForSurface(surface || "other");
 
   /* These effects hydrate recommendations from route/account context without
      changing the creation payload or server-side validation. */
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (!surface) return;
-    setControlProfile(recommendControlProfile(surface));
-    setApprovalGates(defaultApprovalGatesForSurface(surface));
-  }, [surface]);
+    // A workspace policy always wins over the per-surface suggestion, and an
+    // edit the customer has already made always wins over both.
+    if (!surface || policyTouched || inheritedPolicy) return;
+    setPolicy(recommendPolicyForSurface(surface));
+  }, [surface, policyTouched, inheritedPolicy]);
 
   useEffect(() => {
-    if (focus === "production_deploys") {
-      setControlProfile("production_strict");
-      setApprovalGates((current) => mergeSuggestedGates(current, ["production_deploys"]));
+    if (focus === "production_deploys" && !policyTouched) {
+      setPolicy((current) => ({
+        ...current,
+        preset: "custom",
+        controls: { ...current.controls, deploy_production: "approve" }
+      }));
     }
-    if (focus === "profiles") {
-      setControlProfile("balanced");
-    }
-  }, [focus]);
+  }, [focus, policyTouched]);
 
   useEffect(() => {
     if (initialSurface && !surface) setSurface(initialSurface);
   }, [initialSurface, surface]);
+
+  useEffect(() => {
+    const allowed = TARGET_LOCATIONS[target];
+    if (!allowed.includes(location)) setLocation(allowed[0]);
+  }, [target, location]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  const toggleGate = useCallback((gate: ApprovalGate, enabled: boolean) => {
-    setApprovalGates((current) => {
-      if (enabled) return mergeSuggestedGates(current, [gate]);
-      return current.filter((item) => item !== gate);
-    });
+  const updatePolicy = useCallback((next: ProtectionPolicy) => {
+    setPolicyTouched(true);
+    setPolicy(next);
   }, []);
 
   const createAgent = async () => {
     if (apiKey) {
-      setStep(6);
+      setStep(5);
       return;
     }
     if (!surface) {
@@ -122,14 +159,14 @@ export function FirstAgentSetup({
           name: name.trim(),
           description: description.trim() || undefined,
           environment,
-          controlProfile,
-          approvalGates
+          protectionPolicy: policy
         })
       });
       setAgent(result.agent);
       setApiKey(result.apiKey);
       setTestConfig(result.testDecision);
-      setStep(6);
+      setReadiness(null);
+      setStep(5);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Agent creation failed.");
     } finally {
@@ -138,9 +175,9 @@ export function FirstAgentSetup({
   };
 
   const runTestDecision = async () => {
-    if (step === 8) return;
+    if (step === 7) return;
     if (testResult) {
-      setStep(8);
+      setStep(7);
       return;
     }
     if (!agent || !apiKey || !testConfig) {
@@ -156,8 +193,8 @@ export function FirstAgentSetup({
         body: JSON.stringify({
           agentId: agent.agentId,
           action: testConfig.action,
-          resource: testConfig.resource,
-          vendor: testConfig.vendor,
+          ...(testConfig.vendor ? { vendor: testConfig.vendor } : {}),
+          ...(typeof testConfig.amount === "number" ? { amount: testConfig.amount } : {}),
           metadata: sanitizeVerifyMetadata(testConfig.metadata)
         })
       });
@@ -171,15 +208,23 @@ export function FirstAgentSetup({
         vendor: testConfig.vendor,
         environment: testConfig.environment
       });
+      // The test wrote a real decision, so re-read readiness rather than
+      // assuming what it now says.
+      if (agent) {
+        try {
+          const status = await apiJson<{ readiness: AgentSetupReadiness }>(
+            `/api/dashboard/agents/${encodeURIComponent(agent.agentId)}/setup-status`
+          );
+          setReadiness(status.readiness);
+        } catch {
+          // The summary falls back to what it already knows.
+        }
+      }
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Test decision failed.");
     } finally {
       setRunningTest(false);
     }
-  };
-
-  const copyValue = async (value: string) => {
-    await navigator.clipboard.writeText(value);
   };
 
   const goBack = () => {
@@ -188,7 +233,7 @@ export function FirstAgentSetup({
   };
 
   return (
-    <FirstAgentSetupShell step={step} onBack={step > 1 && step < 8 ? goBack : undefined} backDisabled={creating || runningTest}>
+    <FirstAgentSetupShell step={step} onBack={step > 1 && step < 7 ? goBack : undefined} backDisabled={creating || runningTest}>
       <VerificationLockBanner emailVerified={emailVerified} />
 
       {step === 1 ? (
@@ -231,66 +276,58 @@ export function FirstAgentSetup({
       ) : null}
 
       {step === 3 ? (
-        <ControlProfileStep
-          surface={surface as AgentSurface}
-          value={controlProfile}
-          onChange={setControlProfile}
+        <ProtectionStep
+          error={error}
+          inheritedFromWorkspace={Boolean(inheritedPolicy) && !policyTouched}
+          onChange={updatePolicy}
           onContinue={() => {
             setError("");
             setStep(4);
           }}
-          error={error}
+          policy={policy}
+          surface={surface as AgentSurface}
         />
       ) : null}
 
       {step === 4 ? (
-        <ApprovalGatesStep
-          selected={approvalGates}
-          onToggle={toggleGate}
-          onContinue={() => {
-            if (!approvalGates.length) {
-              setError("Select at least one approval gate.");
-              return;
-            }
-            setError("");
-            setStep(5);
-          }}
-          error={error}
-        />
-      ) : null}
-
-      {step === 5 ? (
         <AgentTokenStep
-          approvalGates={approvalGates}
           apiKey={apiKey}
           agentName={name}
-          controlProfile={controlProfile}
           creating={creating}
           environment={environment}
           onCreate={() => void createAgent()}
           emailVerified={emailVerified}
           error={error}
+          protectionPolicy={policy}
           surface={surface as AgentSurface}
         />
       ) : null}
 
-      {step === 6 && surface ? (
-        <IntegrationInstructions
-          surface={surface}
-          apiKey={apiKey}
+      {step === 5 && surface ? (
+        <ConnectStep
+          agentId={agent?.agentId ?? null}
+          approvalCount={protectionPolicyCounts(policy).approve}
+          baseUrl={typeof window === "undefined" ? null : window.location.origin}
+          error={error}
+          location={location}
           onContinue={() => {
             setError("");
-            setStep(7);
+            setStep(6);
           }}
-          error={error}
+          onLocationChange={setLocation}
+          onReadinessChange={setReadiness}
+          readiness={readiness}
+          target={target}
         />
       ) : null}
 
-      {step === 7 && testConfig ? (
+      {step === 6 && testConfig ? (
         <TestDecisionStep
           action={testConfig.action}
-          resource={testConfig.resource}
+          controlLabel={testConfig.controlLabel}
           environment={testConfig.environment}
+          expected={expectedOutcome(testConfig)}
+          resource={testConfig.resource || "—"}
           running={runningTest}
           result={testResult}
           onRun={() => void runTestDecision()}
@@ -298,8 +335,14 @@ export function FirstAgentSetup({
         />
       ) : null}
 
-      {step === 8 ? (
-        <LogsHandoffStep requestId={testResult?.requestId} agentId={agent?.agentId} onCopy={(value) => void copyValue(value)} />
+      {step === 7 ? (
+        <SetupSummaryStep
+          agentId={agent?.agentId}
+          location={location}
+          policy={policy}
+          readiness={readiness}
+          target={target}
+        />
       ) : null}
     </FirstAgentSetupShell>
   );
