@@ -7,8 +7,8 @@ Derived from the route files under `app/api/**`, not from `docs/API.md`. Each ro
 
 ## Totals
 
-- Route modules: **154**
-- Exported HTTP handlers: **184**
+- Route modules: **156**
+- Exported HTTP handlers: **186**
 - Mutating modules: **115**
 - Modules returning a one-time secret: **7**
 - Modules with no direct handler test: **96**
@@ -135,6 +135,7 @@ credential the caller can never retrieve again.
 | POST | `/api/dashboard/agents/:agentId/permissions` | app | session (human developer) | workspace member | yes | no | — | — | no | — | P1 |
 | POST | `/api/dashboard/agents/:agentId/rotate-key` | app | session (developer) | workspace mutation authority; workspace member | yes | **yes** | webhook event | agents | yes | 1 | P0 |
 | GET, PATCH | `/api/dashboard/agents/:agentId` | app | session (developer) | workspace mutation authority; workspace member | yes | no | — | agents | no | — | P1 |
+| GET | `/api/dashboard/agents/:agentId/setup-status` | app | session (developer) | workspace member | no | no | — | — | no | 1 | P1 |
 | POST | `/api/dashboard/agents/first-setup` | app | session (verified developer) | workspace mutation authority | yes | **yes** | webhook event | agents, permissions | yes | 3 | P0 |
 | GET, POST | `/api/dashboard/agents` | app | session (verified developer); session (developer) | workspace mutation authority; workspace member | yes | **yes** | webhook event | — | yes | 6 | P0 |
 | POST | `/api/dashboard/approvals/:approvalId/approve` | app | session (developer) | workspace member | yes | no | — | — | no | 1 | P0 |
@@ -155,6 +156,7 @@ credential the caller can never retrieve again.
 | GET, POST | `/api/dashboard/permission-profiles` | app | session (developer) | workspace member | yes | no | — | — | no | — | P1 |
 | GET, PUT, DELETE | `/api/dashboard/policies` | app | session (developer) | workspace member | yes | no | — | policyDocuments | no | — | P1 |
 | POST | `/api/dashboard/policies/test` | app | session (developer) | workspace member | yes | no | — | policyDocuments | no | — | P1 |
+| GET | `/api/dashboard/protection-status` | app | session (developer) | workspace member | no | no | — | — | no | 1 | P1 |
 | GET | `/api/dashboard/search/suggest` | app | session (developer) | workspace member | no | no | — | verificationLogs | no | — | P1 |
 | GET, PATCH | `/api/dashboard/settings` | app | session (developer) | workspace member | yes | no | — | — | no | 2 | P1 |
 | DELETE | `/api/dashboard/sites/:siteId/keys/:keyId` | app | session (developer) | — | yes | no | — | sites | no | 1 | P1 |
