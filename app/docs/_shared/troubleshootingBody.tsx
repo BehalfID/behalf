@@ -20,8 +20,8 @@ export function TroubleshootingBody() {
       <DocsCallout tone="tip" title="Start here">
         <p>
           Run <code>behalf doctor</code> (or <code>behalf --json doctor</code>) before chasing symptoms.
-          Each non-ok check prints a <code>fix:</code> line. For the installer package, use{" "}
-          <code>npx @behalfid/install doctor --json</code>.
+          Each non-ok check prints a <code>fix:</code> line, and it already covers hooks, MCP
+          config, credentials, and connectivity.
         </p>
       </DocsCallout>
 
@@ -62,9 +62,9 @@ export function TroubleshootingBody() {
               <td>PATH order, shim vs real binary, required-mode prerequisites</td>
             </tr>
             <tr>
-              <td>Install / MCP registration</td>
-              <td><code>npx @behalfid/install doctor --json</code></td>
-              <td><code>healthy</code>, <code>errors[].code</code>, <code>remediation</code></td>
+              <td>MCP registration</td>
+              <td><code>behalf doctor</code></td>
+              <td><code>MCP config</code>, <code>MCP server entry</code>, <code>Context file</code> checks</td>
             </tr>
           </tbody>
         </table>
@@ -292,72 +292,17 @@ behalf login`}</CodeBlock>
         Full payload and signature details: <Link href="/docs/webhooks">Webhooks</Link>.
       </p>
 
-      <h2 id="install">Installer errors (@behalfid/install)</h2>
+      <h2 id="install">Installer package</h2>
       <p>
-        Prefer JSON output. Codes match the installer&apos;s stable{" "}
-        <code>InstallerErrorCode</code> set:
-      </p>
-      <CodeBlock label="terminal">{`npx @behalfid/install doctor --json
-npx @behalfid/install status --json
-npx @behalfid/install install --force --json`}</CodeBlock>
-      <div className="docs-table-wrap">
-        <table className="docs-table">
-          <thead>
-            <tr>
-              <th>Code</th>
-              <th>Typical cause</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><code>DETECTION_FAILED</code></td>
-              <td>No usable AI clients found</td>
-              <td>Install/launch a supported client; pass <code>--clients</code></td>
-            </tr>
-            <tr>
-              <td><code>CONFIG_INVALID</code> / <code>CONFIG_READ_FAILED</code></td>
-              <td>Broken MCP JSON/TOML</td>
-              <td>Fix syntax at the reported path; installer will not overwrite unreadable files</td>
-            </tr>
-            <tr>
-              <td><code>CONFIG_WRITE_FAILED</code></td>
-              <td>Permissions or file lock</td>
-              <td>Close locking apps; fix permissions; retry</td>
-            </tr>
-            <tr>
-              <td><code>RUNTIME_REGISTRATION_FAILED</code></td>
-              <td>MCP register step failed</td>
-              <td>Read nested error; re-run with <code>--force</code> after fix</td>
-            </tr>
-            <tr>
-              <td><code>NOT_INSTALLED</code></td>
-              <td>Operation requires prior install</td>
-              <td><code>npx @behalfid/install install --json</code></td>
-            </tr>
-            <tr>
-              <td><code>VERIFY_FAILED</code></td>
-              <td>Verify endpoint probe failed</td>
-              <td>
-                Override with{" "}
-                <code>--verify-endpoint https://your-host/api/verify</code>
-              </td>
-            </tr>
-            <tr>
-              <td><code>STATE_INVALID</code> / state errors</td>
-              <td>Corrupt <code>~/.behalfid/install-state.json</code></td>
-              <td>Repair or remove state, then reinstall</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <p>
-        Operator-depth guide (scenarios, warnings, platform notes):{" "}
-        <code>packages/install/docs/TROUBLESHOOTING.md</code> in the repo — keep that file as the
-        install-package source of truth; this page surfaces the same codes for product docs.
+        <code>@behalfid/install</code> is a preview package and is not published to npm, so{" "}
+        <code>npx @behalfid/install</code> will not resolve. Use <code>behalf doctor</code>,{" "}
+        <code>behalf mcp init</code>, and <code>behalf claude</code> /{" "}
+        <code>behalf codex</code> / <code>behalf cursor</code> from{" "}
+        <code>@behalfid/cli</code> instead — they cover the same install, MCP registration, and
+        diagnostic ground.
       </p>
 
-      <h2 id="managed-profiles">Managed Profiles</h2>
+<h2 id="managed-profiles">Managed Profiles</h2>
       <p>
         Run <code>behalf profile doctor</code> first. Frequent issues:{" "}
         <code>~/.behalf/bin</code> not first on PATH, missing real tool binaries, unauthenticated CLI,

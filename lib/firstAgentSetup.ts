@@ -259,59 +259,12 @@ export function sanitizeVerifyMetadata(metadata: Record<string, unknown> | undef
   return clone;
 }
 
-export function buildIntegrationInstructions(input: {
-  surface: AgentSurface;
-  apiKeyPlaceholder?: string;
-}) {
-  const key = input.apiKeyPlaceholder ?? "bhf_sk_…";
-  const envBlock = `BEHALF_API_KEY=${key}`;
-
-  switch (input.surface) {
-    case "github_actions":
-      return {
-        title: "Add BehalfID to GitHub Actions", // pragma: allowlist secret
-        body: "Store the agent key as a repository or organization secret, then call verify before deploy steps.",
-        envBlock,
-        snippet: `# .github/workflows/deploy.yml\n- name: Verify production deploy\n  env:\n    BEHALF_API_KEY: \${{ secrets.BEHALF_API_KEY }}\n  run: |\n    curl -sS -X POST "$BEHALF_API_URL/verify" \\\n      -H "Authorization: Bearer $BEHALF_API_KEY" \\\n      -H "Content-Type: application/json" \\\n      -d '{"agentId":"YOUR_AGENT_ID","action":"deploy_production","resource":"production"}'`
-      };
-    case "claude_code":
-      return {
-        title: "Add BehalfID to Claude Code", // pragma: allowlist secret
-        body: "Export the key in your shell profile or project env file and call verify before tool actions that touch production.",
-        envBlock,
-        snippet: `# ~/.zshrc or project .env\n${envBlock}\n\n# Before a risky tool action:\n# POST /api/verify with Authorization: Bearer $BEHALF_API_KEY`
-      };
-    case "codex":
-      return {
-        title: "Add BehalfID to Codex", // pragma: allowlist secret
-        body: "Load the key into your Codex workspace environment and verify before deploy or secret mutations.",
-        envBlock,
-        snippet: `# Project environment\n${envBlock}\n\n# Verify before executing gated actions in your agent workflow.`
-      };
-    case "cursor":
-      return {
-        title: "Add BehalfID to Cursor agents", // pragma: allowlist secret
-        body: "Add the key to your project environment or CI secret store and verify before production-impacting tool calls.",
-        envBlock,
-        snippet: `# .env.local (never commit)\n${envBlock}\n\n# Call POST /api/verify before deploy_production, secrets_write, or other gated actions.`
-      };
-    case "internal":
-      return {
-        title: "Wire your internal agent",
-        body: "Inject the key into your internal runner and call verify at the enforcement boundary.",
-        envBlock,
-        snippet: `${envBlock}\n\n# Node example\nawait fetch(process.env.BEHALF_API_URL + "/verify", {\n  method: "POST",\n  headers: {\n    Authorization: "Bearer " + process.env.BEHALF_API_KEY,\n    "Content-Type": "application/json"\n  },\n  body: JSON.stringify({ agentId, action, resource })\n});`
-      };
-    case "other":
-    default:
-      return {
-        title: "Connect your agent",
-        body: "Store the key securely and verify before any action covered by your selected gates.",
-        envBlock,
-        snippet: `${envBlock}\n\n# POST /api/verify\n# Authorization: Bearer <BEHALF_API_KEY>`
-      };
-  }
-}
+/**
+ * Integration instructions used to live here as hand-written shell snippets —
+ * a `.zshrc` export plus a curl example — written before the CLI could install
+ * a hook. `lib/integrationSetup.ts` now owns them, one entry per real setup
+ * path, with the credential kept out of every generated command.
+ */
 
 export function surfaceFromAccountTool(tool: AgentTool): AgentSurface | null {
   if (tool === "other") return null;

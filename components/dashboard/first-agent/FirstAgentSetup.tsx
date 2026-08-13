@@ -14,12 +14,19 @@ import {
   type ProtectionPolicy
 } from "@/lib/protectionPolicy";
 import { useDashboardApi } from "@/components/workspace/WorkspaceProvider";
+import {
+  TARGET_LOCATIONS,
+  setupTargetForSurface,
+  type SetupLocation
+} from "@/lib/integrationSetup";
+import { protectionPolicyCounts } from "@/lib/protectionPolicyPermissions";
+import type { AgentSetupReadiness } from "@/lib/setupReadinessTypes";
 import { AgentIdentityStep } from "./AgentIdentityStep";
 import { AgentSurfaceStep } from "./AgentSurfaceStep";
 import { AgentTokenStep } from "./AgentTokenStep";
-import { IntegrationInstructions } from "./IntegrationInstructions";
+import { ConnectStep } from "./ConnectStep";
 import { ProtectionStep } from "./ProtectionStep";
-import { LogsHandoffStep } from "./SetupReceiptCard";
+import { SetupSummaryStep } from "./SetupSummaryStep";
 import { FirstAgentSetupShell, VerificationLockBanner } from "./setupPrimitives";
 import { TestDecisionStep, type TestDecisionResult } from "./TestDecisionStep";
 
@@ -93,6 +100,10 @@ export function FirstAgentSetup({
   const [creating, setCreating] = useState(false);
   const [runningTest, setRunningTest] = useState(false);
   const [error, setError] = useState("");
+  const [readiness, setReadiness] = useState<AgentSetupReadiness | null>(null);
+  const [location, setLocation] = useState<SetupLocation>("workstation");
+
+  const target = setupTargetForSurface(surface || "other");
 
   /* These effects hydrate recommendations from route/account context without
      changing the creation payload or server-side validation. */
@@ -117,6 +128,11 @@ export function FirstAgentSetup({
   useEffect(() => {
     if (initialSurface && !surface) setSurface(initialSurface);
   }, [initialSurface, surface]);
+
+  useEffect(() => {
+    const allowed = TARGET_LOCATIONS[target];
+    if (!allowed.includes(location)) setLocation(allowed[0]);
+  }, [target, location]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const updatePolicy = useCallback((next: ProtectionPolicy) => {
@@ -149,6 +165,7 @@ export function FirstAgentSetup({
       setAgent(result.agent);
       setApiKey(result.apiKey);
       setTestConfig(result.testDecision);
+      setReadiness(null);
       setStep(5);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Agent creation failed.");
@@ -191,15 +208,23 @@ export function FirstAgentSetup({
         vendor: testConfig.vendor,
         environment: testConfig.environment
       });
+      // The test wrote a real decision, so re-read readiness rather than
+      // assuming what it now says.
+      if (agent) {
+        try {
+          const status = await apiJson<{ readiness: AgentSetupReadiness }>(
+            `/api/dashboard/agents/${encodeURIComponent(agent.agentId)}/setup-status`
+          );
+          setReadiness(status.readiness);
+        } catch {
+          // The summary falls back to what it already knows.
+        }
+      }
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Test decision failed.");
     } finally {
       setRunningTest(false);
     }
-  };
-
-  const copyValue = async (value: string) => {
-    await navigator.clipboard.writeText(value);
   };
 
   const goBack = () => {
@@ -279,14 +304,20 @@ export function FirstAgentSetup({
       ) : null}
 
       {step === 5 && surface ? (
-        <IntegrationInstructions
-          surface={surface}
-          apiKey={apiKey}
+        <ConnectStep
+          agentId={agent?.agentId ?? null}
+          approvalCount={protectionPolicyCounts(policy).approve}
+          baseUrl={typeof window === "undefined" ? null : window.location.origin}
+          error={error}
+          location={location}
           onContinue={() => {
             setError("");
             setStep(6);
           }}
-          error={error}
+          onLocationChange={setLocation}
+          onReadinessChange={setReadiness}
+          readiness={readiness}
+          target={target}
         />
       ) : null}
 
@@ -305,7 +336,13 @@ export function FirstAgentSetup({
       ) : null}
 
       {step === 7 ? (
-        <LogsHandoffStep requestId={testResult?.requestId} agentId={agent?.agentId} onCopy={(value) => void copyValue(value)} />
+        <SetupSummaryStep
+          agentId={agent?.agentId}
+          location={location}
+          policy={policy}
+          readiness={readiness}
+          target={target}
+        />
       ) : null}
     </FirstAgentSetupShell>
   );

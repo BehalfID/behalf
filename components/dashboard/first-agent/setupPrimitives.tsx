@@ -13,7 +13,7 @@ const STEP_LABELS = [
   { label: "API key" },
   { label: "Connect" },
   { label: "Try it" },
-  { label: "Activity" }
+  { label: "Done" }
 ] as const;
 
 const SetupNavigationContext = createContext<{

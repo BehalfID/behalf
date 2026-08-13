@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Badge, Button, ButtonLink, CodeBlock } from "@/components/ui";
 import { useDashboardApi } from "@/components/workspace/WorkspaceProvider";
+import { AgentSetupPanel } from "./AgentSetupPanel";
 import { formatAgentDate, formatAgentProvider } from "./format";
 import type { AgentDetail, AgentPermission } from "./types";
 
@@ -114,6 +115,8 @@ export function AgentIntegrations({
       {error ? <p className="form-error" role="alert">{error}</p> : null}
       {newApiKey ? <OneTimeCredential label="Rotated agent API key" value={newApiKey} /> : null}
       {passportUrl ? <OneTimeCredential label="New passport link" value={passportUrl} /> : null}
+
+      <AgentSetupPanel agent={agent} />
 
       <section className="dashboard-panel" id="credential-management" aria-labelledby="credential-status-title">
         <div className="dashboard-section-header">

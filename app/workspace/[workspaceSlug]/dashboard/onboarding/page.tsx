@@ -1,11 +1,11 @@
-import type { Metadata } from "next";
-import { WorkspaceProtectedDashboard } from "../guard";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "Add agent — BehalfID",
-  description: "Create and configure a new agent."
+type PageProps = {
+  params: Promise<{ workspaceSlug: string }>;
 };
 
-export default function Page() {
-  return <WorkspaceProtectedDashboard view="onboarding" />;
+/** Workspace-scoped alias of the retired second setup wizard. */
+export default async function Page({ params }: PageProps) {
+  const { workspaceSlug } = await params;
+  redirect(`/workspace/${encodeURIComponent(workspaceSlug)}/dashboard/agents/new`);
 }
