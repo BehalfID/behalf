@@ -6,6 +6,9 @@ import ApprovalRequest from "@/models/ApprovalRequest";
 import DeveloperApiToken from "@/models/DeveloperApiToken";
 import DeveloperSession from "@/models/DeveloperSession";
 import DeveloperUser from "@/models/DeveloperUser";
+import ExternalIdentity from "@/models/ExternalIdentity";
+import IdentityAuditLog from "@/models/IdentityAuditLog";
+import PasskeyCredential from "@/models/PasskeyCredential";
 import Permission from "@/models/Permission";
 import Site from "@/models/Site";
 import SiteAccessLog from "@/models/SiteAccessLog";
@@ -76,5 +79,8 @@ export async function deleteAccountCascade(accountId: string, userId: string) {
 export async function deleteDeveloperUserCredentials(userId: string) {
   await DeveloperSession.deleteMany({ userId });
   await DeveloperApiToken.deleteMany({ userId });
+  await ExternalIdentity.deleteMany({ userId });
+  await PasskeyCredential.deleteMany({ userId });
+  await IdentityAuditLog.deleteMany({ userId });
   return DeveloperUser.deleteOne({ userId });
 }

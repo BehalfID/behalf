@@ -58,7 +58,7 @@ Related engineering sources (not replaced by this pack):
 - Admin console
 - Supporting packages used at customer edge (SDK, CLI, MCP, egress-proxy)
 
-**Hosting model:** Next.js application on **Vercel**; primary datastore **MongoDB Atlas**; rate limiting **Upstash Redis**; billing **Stripe**; identity federation **Google OAuth** (optional workspace SSO).
+**Hosting model:** Next.js application on **Vercel**; primary datastore **Supabase (Postgres)** (migrated from MongoDB Atlas on 2026-07-31); rate limiting **Upstash Redis**; billing **Stripe**; identity federation **Google OAuth** (optional workspace SSO).
 
 **Trust services requested for future SOC 2:** Security, Availability, Processing Integrity (Confidentiality secondary).
 
@@ -72,7 +72,7 @@ Derived from privacy disclosures and production docs (validate contracts separat
 
 | Supplier | Role | Typical data |
 |----------|------|----------------|
-| MongoDB Atlas | Primary database | Account, agent, permission, verification log, webhook outbox data |
+| Supabase (Postgres) | Primary database | Account, agent, permission, verification log, webhook outbox data |
 | Vercel | Application hosting / edge | Request handling, logs/telemetry as configured |
 | Stripe | Payments | Customer ID, subscription status; card data held by Stripe |
 | Upstash | Redis rate limiting | IP / rate-limit keys (not intended as account PII store) |
@@ -112,13 +112,27 @@ Derived from privacy disclosures and production docs (validate contracts separat
 | R-P1-5 | Done | Sentry instrumentation + `MONITORING.md` |
 | R-P1-6 | Done | `INCIDENT_RESPONSE.md` + `BCP_DR.md` |
 
+### Closed in 2026-08-12 remediation pass
+
+| ID | Status | Notes |
+|----|--------|-------|
+| R-P0-4 | Done | `app/privacy/page.tsx`, `app/compliance/page.tsx`, `app/security/page.tsx`, and the compliance evidence pack's live infra references corrected from MongoDB Atlas to Supabase (Postgres), matching the 2026-07-31 datastore cutover (see `docs/PRODUCTION.md`) |
+| R-P0-5 | Done | `app/privacy/page.tsx` (English static route) analytics/cookie disclosure corrected — it previously stated "no third-party analytics" while HeyCatch (consent-gated) is live; the `/[locale]/privacy` route's `messages/*.json` copy was already accurate and unaffected |
+| R-P1-9 | Done | Mongo-backend account deletion (`lib/repositories/mongo/accountDeletion.ts`) now also deletes `ExternalIdentity` and `PasskeyCredential` rows on request (GDPR Art. 17). The Postgres backend was already safe via `ON DELETE CASCADE` foreign keys on `developer_users` |
+| R-P1-10 | Done | `developer_token` auth surface now records failed attempts via `recordAuthFailure` (`lib/developerToken.ts`), closing a gap where invalid `x-developer-token` attempts went unlogged while every other auth surface was covered |
+| — | Done | Corrected stale code comments/docstrings claiming MFA columns and the Postgres runtime were not yet wired up (`app/api/auth/login/route.ts`, `app/api/auth/mfa/verify/route.ts`, `lib/db/postgres/index.ts`) — both have worked since the 2026-07-31 cutover |
+| R-P1-13 | Done | Rewrote `docs/compliance/ops/BACKUP_RESTORE.md`, `BCP_DR.md`, and `INCIDENT_RESPONSE.md` for Supabase/Postgres — they previously described Atlas-specific restore steps that a real incident would have followed against the wrong datastore |
+| R-P1-11 | Done | Added `GET /api/auth/account/export` + a dashboard "Export your data" section — access/portability are now genuinely self-service, matching the existing public claim |
+| R-P1-12 | Done | `IdentityAuditLog` rows are now deleted on account deletion (both backends) |
+| R-P2-2 | Done | Added `.github/dependabot.yml` for npm dependency update PRs across the workspace (closes part of G-11) |
+
 ### Still open
 
 | ID | Action | Owner hint |
 |----|--------|------------|
 | R-P1-7 | Approve InfoSec policy, risk register, SoA; appoint ISMS owner | Leadership |
-| R-P1-8 | Complete vendor risk assessments for subprocessors | Security/Legal |
-| R-P2-* | Pepper, Dependabot, deploy change control, transactions, webhook queue, training, CSRF | Eng / People |
+| R-P1-8 | Complete vendor risk assessments for subprocessors, **including HeyCatch and Supabase** (added/changed since the last assessment; DPA/SCC status not evidenced in-repo for either) | Security/Legal |
+| R-P2-* | Pepper, deploy change control, webhook queue, training, CSRF | Eng / People |
 
 Ops runbooks: [ops/BACKUP_RESTORE.md](./ops/BACKUP_RESTORE.md), [ops/BCP_DR.md](./ops/BCP_DR.md), [ops/INCIDENT_RESPONSE.md](./ops/INCIDENT_RESPONSE.md), [ops/MONITORING.md](./ops/MONITORING.md).
 
@@ -142,3 +156,5 @@ Engage a licensed CPA for SOC 2 and an accredited certification body for ISO 270
 |------|--------|
 | 2026-07-24 | Initial evidence pack from internal readiness assessment |
 | 2026-07-24 | Remediation pass: disclosures, purge cron, AuthEvents, MFA, ConsoleAdmin, Sentry, ops runbooks |
+| 2026-08-12 | Scheduled ISO 27001/SOC 2/GDPR/CPRA scan: corrected stale MongoDB Atlas → Supabase (Postgres) references (public pages, pack, ops runbooks) left over from the 2026-07-31 datastore cutover; fixed a real privacy-policy/analytics disclosure mismatch on the static `/privacy` route; closed a GDPR Art. 17 gap where Mongo-backend account deletion didn't remove `ExternalIdentity`/`PasskeyCredential` rows; closed a failed-auth logging gap on the `developer_token` surface; corrected stale MFA/Postgres code comments. HIPAA reviewed — confirmed not applicable (no PHI processing). |
+| 2026-08-12 | Follow-up implementation pass: built a self-service data export (`GET /api/auth/account/export` + dashboard "Export your data" section) closing G-25/R-P1-11 — access/portability are now genuinely self-service, matching the existing public claim; closed G-26/R-P1-12 by deleting `IdentityAuditLog` rows on account deletion; added `.github/dependabot.yml` for automated dependency PRs (G-11, partial). Still open: R-P1-8 (vendor risk assessment for HeyCatch/Supabase — requires legal/security contract review, not a code fix) and R-P2-* (API-key pepper, CSRF, webhook queue, deploy change control — each needs its own design review before implementation, not attempted here) |

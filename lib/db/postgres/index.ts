@@ -1,8 +1,8 @@
 /**
- * Postgres connection module for Drizzle — schema/migration tooling and future repository adapters.
- *
- * NOT wired to app runtime. Production still uses Mongo/Mongoose via lib/db.ts.
- * Import this module only from migration scripts, drizzle-kit, or test-only Postgres adapters.
+ * Postgres connection module for Drizzle — the authoritative production datastore
+ * (Supabase/Postgres) for cutover deployments (`BEHALFID_ALLOW_POSTGRES_RUNTIME=true` +
+ * `BEHALFID_REPOSITORY_BACKEND=postgres`). Mongo remains available only as a legacy/test
+ * path when the Postgres latch is off — see docs/PRODUCTION.md and docs/CAPABILITY_MATRIX.md.
  */
 
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";

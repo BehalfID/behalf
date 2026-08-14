@@ -26,10 +26,6 @@ type MfaUserFields = {
 
 /**
  * Completes an MFA challenge after password/OAuth first factor.
- *
- * Gap: MFA secret columns are not yet on the Postgres developer_users schema.
- * Until they are migrated, this path cannot verify TOTP against Postgres-backed
- * users (findByUserId will not return MFA secrets).
  */
 export async function POST(request: NextRequest) {
   const limit = await checkRateLimit(request);

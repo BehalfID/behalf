@@ -82,7 +82,6 @@ export async function POST(request: NextRequest) {
     request
   });
   const { recordIdentityAudit } = await import("@/lib/authProviders/identityAudit");
-  // MFA columns are not yet on the Postgres developer_users schema; treat as disabled.
   const mfaEnabled = Boolean((user as { mfaEnabledAt?: Date | null }).mfaEnabledAt);
   await recordIdentityAudit({
     userId: user.userId,

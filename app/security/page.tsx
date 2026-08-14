@@ -229,7 +229,7 @@ if (!result.allowed) {
               <li>Developer email, account ID, or session data.</li>
               <li>Webhook secrets or endpoint URLs.</li>
               <li>Audit logs or verification history.</li>
-              <li>Internal MongoDB IDs.</li>
+              <li>Internal database IDs.</li>
               <li>Revoked or expired permissions.</li>
             </ul>
             <div className="security-note">

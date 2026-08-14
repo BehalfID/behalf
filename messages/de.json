@@ -221,7 +221,7 @@
       "colProcessor": "Verarbeiter",
       "colPurpose": "Zweck",
       "colData": "Geteilte Daten",
-      "row1Proc": "MongoDB Atlas",
+      "row1Proc": "Supabase (Postgres)",
       "row1Purpose": "Datenbank-Hosting",
       "row1Data": "Alle gespeicherten Konto-, Agenten- und Protokolldaten",
       "row2Proc": "Vercel",
