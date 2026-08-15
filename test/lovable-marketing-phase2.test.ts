@@ -53,6 +53,8 @@ describe("lovable marketing phase 2", () => {
     const pricing = source("components/marketing/PricingPage.tsx");
     expect(pricing).toContain("PLAN_ENTITLEMENTS");
     expect(pricing).toContain("PRO_PLAN_PRICE_CENTS");
+    expect(pricing).toContain("TEAM_PLAN_PRICE_CENTS");
+    expect(pricing).toContain("BUSINESS_PLAN_PRICE_CENTS");
     expect(pricing).not.toContain("$99");
   });
 

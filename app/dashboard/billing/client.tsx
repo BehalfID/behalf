@@ -12,8 +12,17 @@ import {
   InfoUsageLimitTile,
   WebhookUsageLimitTile
 } from "@/components/usage/UsageLimitTile";
-import type { Plan } from "@/lib/plans";
-import { formatLimit, getPlanEntitlements, PRO_PLAN_PRICE_CENTS } from "@/lib/plans";
+import type { Plan, SelfServePlan } from "@/lib/plans";
+import {
+  BUSINESS_PLAN_PRICE_CENTS,
+  formatLimit,
+  getPlanEntitlements,
+  isSelfServePlan,
+  priceCentsForPlan,
+  PRO_PLAN_PRICE_CENTS,
+  SELF_SERVE_PLANS,
+  TEAM_PLAN_PRICE_CENTS
+} from "@/lib/plans";
 import {
   formatUsageCount,
   getCountedUsageHelper,
@@ -94,21 +103,29 @@ export function BillingClient({
   verificationPeriodStart
 }: BillingProps) {
   const { fetch: dashboardFetch } = useDashboardApi();
-  const [loading, setLoading] = useState<"checkout" | "portal" | null>(null);
+  const [loading, setLoading] = useState<"checkout" | "portal" | SelfServePlan | null>(null);
   const [error, setError] = useState<string | null>(null);
   const entitlements = getPlanEntitlements(plan);
-  const proEntitlements = getPlanEntitlements("pro");
   const resetDate = nextResetDate(verificationPeriodStart);
   // A comped workspace with no subscription has nothing for the Stripe portal
   // to manage, so it must not be offered an action that would only error.
   const hasSubscription = stripeSubscriptionStatus !== null;
   const complimentaryOnly = complimentary !== null && !hasSubscription;
+  const monthlyPriceLabel = isSelfServePlan(plan)
+    ? `$${(priceCentsForPlan(plan) / 100).toFixed(0)}`
+    : plan === "free" || complimentaryOnly
+      ? "$0"
+      : "Custom";
 
-  const handleCheckout = useCallback(async () => {
-    setLoading("checkout");
+  const handleCheckout = useCallback(async (target: SelfServePlan) => {
+    setLoading(target);
     setError(null);
     try {
-      const res = await dashboardFetch("/api/billing/checkout", { method: "POST" });
+      const res = await dashboardFetch("/api/billing/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: target })
+      });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Something went wrong. Please try again.");
@@ -188,13 +205,13 @@ export function BillingClient({
             <div className="billing-plan-summary__top">
               <div>
                 <PlanStatusBadge plan={plan} />
-                {plan === "free" || plan === "pro" ? (
+                {plan === "enterprise" && !complimentaryOnly ? (
+                  <p className="billing-plan-summary__price"><strong>Custom</strong><span>contract</span></p>
+                ) : (
                   <p className="billing-plan-summary__price">
-                    <strong>{plan === "free" || complimentaryOnly ? "$0" : `$${(PRO_PLAN_PRICE_CENTS / 100).toFixed(0)}`}</strong>
+                    <strong>{monthlyPriceLabel}</strong>
                     <span>/ month</span>
                   </p>
-                ) : (
-                  <p className="billing-plan-summary__price"><strong>Managed</strong><span>plan</span></p>
                 )}
               </div>
               <div className="billing-plan-actions">
@@ -203,9 +220,9 @@ export function BillingClient({
                     Complimentary plan — there is no subscription to manage.
                   </p>
                 ) : plan === "free" ? (
-                  <Button variant="primary" onClick={handleCheckout} loading={loading === "checkout"} disabled={loading !== null}>
-                    Start 7-day Pro trial
-                  </Button>
+                  <p className="billing-trial-note">
+                    Choose a self-serve plan below. Pro includes a 7-day trial.
+                  </p>
                 ) : (
                   <div>
                     <Button variant="secondary" onClick={handlePortal} loading={loading === "portal"} disabled={loading !== null}>
@@ -291,18 +308,50 @@ export function BillingClient({
       </section>
       </SettingsSection>
 
-      {(plan === "free" || plan === "pro") ? (
+      {plan === "free" && !complimentaryOnly ? (
         <SettingsSection
-          description="Only verified differences between the Free plan and the Stripe-billed Pro plan are shown."
-          eyebrow="Plan comparison"
+          description="Self-serve Stripe checkout. Pro includes a 7-day trial; Team and Business bill immediately."
+          eyebrow="Upgrade"
           id="plan-comparison"
-          title="Free and Pro"
+          title="Choose a plan"
         >
-          <dl className="billing-differences" aria-label="Free and Pro plan comparison">
-            <div><dt>Free</dt><dd>1 billable seat · 3 agents · 1 protected repo · 10,000 verifications · 7-day logs · no webhooks</dd></div>
-            <div><dt>Pro</dt><dd>{formatLimit(proEntitlements.maxBillableUsers)} billable seats · {formatLimit(proEntitlements.maxAgents)} agents · {formatLimit(proEntitlements.maxProtectedRepos)} protected repos · {formatLimit(proEntitlements.monthlyVerifications)} verifications · {proEntitlements.logRetentionDays}-day logs · webhooks</dd></div>
+          <dl className="billing-differences" aria-label="Self-serve plan comparison">
+            {SELF_SERVE_PLANS.map((tier) => {
+              const tierEntitlements = getPlanEntitlements(tier);
+              const dollars = (priceCentsForPlan(tier) / 100).toFixed(0);
+              return (
+                <div key={tier}>
+                  <dt>
+                    {tier === "pro" ? "Pro" : tier === "team" ? "Team" : "Business"}{" "}
+                    (${dollars}/mo)
+                  </dt>
+                  <dd>
+                    {formatLimit(tierEntitlements.maxBillableUsers)} seats ·{" "}
+                    {formatLimit(tierEntitlements.maxAgents)} agents ·{" "}
+                    {formatLimit(tierEntitlements.maxProtectedRepos)} protected repos ·{" "}
+                    {formatLimit(tierEntitlements.monthlyVerifications)} verifications ·{" "}
+                    {tierEntitlements.logRetentionDays}-day logs
+                    {tierEntitlements.advancedAuditExportsEnabled ? " · audit exports" : ""}
+                    {" · "}
+                    <Button
+                      variant={tier === "pro" ? "primary" : "secondary"}
+                      onClick={() => handleCheckout(tier)}
+                      loading={loading === tier}
+                      disabled={loading !== null}
+                    >
+                      {tier === "pro" ? "Start 7-day Pro trial" : `Upgrade to ${tier === "team" ? "Team" : "Business"}`}
+                    </Button>
+                  </dd>
+                </div>
+              );
+            })}
           </dl>
-          {plan === "free" ? <p className="billing-trial-note">Pro checkout starts a 7-day trial at ${(PRO_PLAN_PRICE_CENTS / 100).toFixed(0)}/month. Cancel through the billing portal before the trial ends to avoid a charge.</p> : null}
+          <p className="billing-trial-note">
+            Free includes {formatLimit(getPlanEntitlements("free").monthlyVerifications)} verifications / month.
+            Pro trial is ${(PRO_PLAN_PRICE_CENTS / 100).toFixed(0)}/mo after 7 days; Team is $
+            {(TEAM_PLAN_PRICE_CENTS / 100).toFixed(0)}/mo; Business is $
+            {(BUSINESS_PLAN_PRICE_CENTS / 100).toFixed(0)}/mo.
+          </p>
         </SettingsSection>
       ) : null}
 

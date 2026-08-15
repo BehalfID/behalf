@@ -31,6 +31,9 @@ vi.mock("@/models/WebhookEndpoint", () => ({
 vi.mock("@/lib/repositories/memberships", () => ({
   findMembershipsByAccountId: vi.fn().mockResolvedValue([])
 }));
+vi.mock("@/lib/analytics/server", () => ({
+  trackServerEvent: vi.fn().mockResolvedValue(undefined)
+}));
 
 function stripeRequest() {
   return new Request("http://localhost/api/billing/webhook", {
@@ -79,6 +82,70 @@ describe("POST /api/billing/webhook", () => {
         })
       })
     );
+  });
+
+  it("assigns team when checkout metadata requests the team plan", async () => {
+    billingMocks.constructEvent.mockReturnValue({
+      id: "evt_checkout_team",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          client_reference_id: "acct_team",
+          customer: "cus_team",
+          subscription: "sub_team",
+          metadata: { behalfPlan: "team", accountId: "acct_team" }
+        }
+      }
+    });
+    const { POST } = await import("@/app/api/billing/webhook/route");
+
+    const response = await POST(stripeRequest());
+
+    expect(response.status).toBe(204);
+    expect(billingMocks.accountUpdateOne).toHaveBeenCalledWith(
+      { accountId: "acct_team" },
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          plan: "team",
+          stripeCustomerId: "cus_team",
+          stripeSubscriptionId: "sub_team",
+          stripeSubscriptionStatus: "active"
+        })
+      })
+    );
+  });
+
+  it("maps subscription updates to the price-matched plan", async () => {
+    vi.stubEnv("STRIPE_PRO_PRICE_ID", "price_pro");
+    vi.stubEnv("STRIPE_TEAM_PRICE_ID", "price_team");
+    vi.stubEnv("STRIPE_BUSINESS_PRICE_ID", "price_business");
+    billingMocks.constructEvent.mockReturnValue({
+      id: "evt_sub_business",
+      type: "customer.subscription.updated",
+      data: {
+        object: {
+          id: "sub_biz",
+          customer: "cus_test",
+          status: "active",
+          items: { data: [{ price: { id: "price_business" }, current_period_end: 1_800_000_000 }] }
+        }
+      }
+    });
+    const { POST } = await import("@/app/api/billing/webhook/route");
+
+    const response = await POST(stripeRequest());
+
+    expect(response.status).toBe(204);
+    expect(billingMocks.accountUpdateOne).toHaveBeenCalledWith(
+      { stripeCustomerId: "cus_test" },
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          plan: "business",
+          stripeSubscriptionStatus: "active"
+        })
+      })
+    );
+    vi.unstubAllEnvs();
   });
 
   it("ignores duplicate Stripe events without repeating side effects", async () => {

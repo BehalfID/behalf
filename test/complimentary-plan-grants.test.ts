@@ -143,7 +143,7 @@ describe("grantComplimentaryPlan", () => {
     );
   });
 
-  it("reports entitlements the granted tier rates lower than billing", async () => {
+  it("reports when a granted tier would rate lower than billing (informational)", async () => {
     repoMocks.findAccountById.mockResolvedValue({ ...FREE_ACCOUNT, plan: "pro" });
     const { grantComplimentaryPlan } = await import("@/lib/complimentaryPlans");
 
@@ -156,8 +156,8 @@ describe("grantComplimentaryPlan", () => {
       actorType: "operator_script"
     });
 
-    expect(change.regressionsVersusBilling).toContain("maxAgents");
-    // Reported, not enforced: entitlements still resolve to the maximum.
+    // Current ladder is monotonic: team does not regress any pro field.
+    expect(change.regressionsVersusBilling).toEqual([]);
     expect(change.effectivePlanAfter).toBe("team");
   });
 

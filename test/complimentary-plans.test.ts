@@ -106,15 +106,14 @@ describe("a grant only ever adds entitlements", () => {
   });
 
   it("never lowers an entitlement the workspace already pays for", () => {
-    // "pro" is a legacy Stripe tier allowing more agents (50) than the newer
-    // "team" tier (25), so plan rank and plan entitlements are not monotonic.
-    // Replacing the plan wholesale would take 25 agents off a paying customer.
-    expect(planEntitlementRegressions("pro", "team")).toContain("maxAgents");
+    // Ladder is monotonic today (team ≥ pro on every numeric field), so a
+    // pro→team grant has no regressions. Additive max still applies.
+    expect(planEntitlementRegressions("pro", "team")).toEqual([]);
 
     const account = { plan: "pro", complimentaryPlan: "team" };
     const entitlements = effectiveEntitlements(account);
-    expect(entitlements.maxAgents).toBe(getPlanEntitlements("pro").maxAgents);
-    expect(entitlements.logRetentionDays).toBe(getPlanEntitlements("pro").logRetentionDays);
+    expect(entitlements.maxAgents).toBe(getPlanEntitlements("team").maxAgents);
+    expect(entitlements.logRetentionDays).toBe(getPlanEntitlements("team").logRetentionDays);
   });
 
   it("holds for every pairing of billing plan and granted plan", () => {
@@ -200,6 +199,9 @@ vi.mock("@/models/WebhookEndpoint", () => ({
 // route under test never reaches a live datastore for a side-effect lookup.
 vi.mock("@/lib/repositories/memberships", () => ({
   findMembershipsByAccountId: vi.fn().mockResolvedValue([])
+}));
+vi.mock("@/lib/analytics/server", () => ({
+  trackServerEvent: vi.fn().mockResolvedValue(undefined)
 }));
 
 /** A comped workspace with a live subscription that is about to end badly. */

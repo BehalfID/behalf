@@ -22,6 +22,8 @@ NEXT_PUBLIC_APP_URL=https://behalfid.com
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
 STRIPE_PRO_PRICE_ID=
+STRIPE_TEAM_PRICE_ID=
+STRIPE_BUSINESS_PRICE_ID=
 ```
 
 Requirements:
@@ -32,7 +34,7 @@ Requirements:
 - `BEHALFID_ADMIN_PASSWORD` must be strong and must not be a placeholder such as `change-me` or `replace-this-password`.
 - `BEHALFID_SETUP_TOKEN` is used for protected setup, health, and webhook-worker calls. Keep it server-side only.
 - `NEXT_PUBLIC_APP_URL` must be the canonical HTTPS origin.
-- `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and `STRIPE_PRO_PRICE_ID` are required because billing routes are part of the deployed product.
+- `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRO_PRICE_ID`, `STRIPE_TEAM_PRICE_ID`, and `STRIPE_BUSINESS_PRICE_ID` are required because billing routes are part of the deployed product.
 
 Production startup validation fails loudly when required variables are missing or unsafe. Error messages list variable names only and do not print secret values.
 
@@ -125,7 +127,7 @@ If either variable is missing, BehalfID intentionally falls back to per-process 
 
 1. Create or confirm Stripe products and prices.
 2. Set `STRIPE_SECRET_KEY`.
-3. Set `STRIPE_PRO_PRICE_ID` for checkout.
+3. Set `STRIPE_PRO_PRICE_ID`, `STRIPE_TEAM_PRICE_ID`, and `STRIPE_BUSINESS_PRICE_ID` for checkout.
 4. Create a Stripe webhook endpoint for:
 
 ```txt
@@ -139,12 +141,14 @@ Stripe webhook events are verified with Stripe signatures and processed idempote
 
 Billing state drives quota enforcement:
 
-- Free: 1 billable seat, 3 agents, 1 protected repo, 10,000 verifications/month, no dashboard webhooks, 7-day log retention.
-- Pro (legacy paid plan): 25 billable seats, 50 agents, 10 protected repos, 250,000 verifications/month, dashboard webhooks, 90-day log retention.
-- Enterprise: unlimited seats, agents, protected repos, and verifications, dashboard webhooks, 365-day log retention.
-- Team and Business are internal tiers with no Stripe checkout path yet; see [ENTITLEMENTS.md](ENTITLEMENTS.md) for the full entitlement model.
-- `checkout.session.completed` upgrades the account to Pro and re-enables previously disabled webhooks.
-- `customer.subscription.updated` keeps Pro only for `active` or `trialing`; other statuses downgrade to Free and disable webhooks.
+- Free: 1 billable seat, 3 agents, 1 protected repo, 1,000 verifications/month, no dashboard webhooks, 7-day log retention.
+- Pro ($20/mo): 25 billable seats, 50 agents, 10 protected repos, 250,000 verifications/month, dashboard webhooks, 90-day log retention.
+- Team ($79/mo): 50 billable seats, 100 agents, 25 protected repos, 1,000,000 verifications/month, dashboard webhooks, 90-day log retention.
+- Business ($249/mo): 100 billable seats, 250 agents, 100 protected repos, 2,000,000 verifications/month, dashboard webhooks, 180-day log retention, advanced audit exports.
+- Enterprise (contact-sales): unlimited seats, agents, protected repos, and verifications, dashboard webhooks, 365-day log retention.
+- See [ENTITLEMENTS.md](ENTITLEMENTS.md) for the full entitlement model.
+- `checkout.session.completed` upgrades the account to the purchased self-serve plan (`pro` / `team` / `business`) and re-enables previously disabled webhooks.
+- `customer.subscription.updated` keeps the price-mapped paid plan only for `active` or `trialing`; other statuses downgrade to Free and disable webhooks.
 - `customer.subscription.deleted` downgrades to Free and disables webhooks.
 - `invoice.payment_failed` marks the subscription `past_due`, downgrades to Free, and disables webhooks so paid limits are not left active by accident.
 
@@ -230,5 +234,5 @@ APP_URL=https://behalfid.com BEHALFID_SETUP_TOKEN=<token> scripts/diagnose-prod-
 ## Known Warnings
 
 - `Production rate limits are using per-process memory fallback`: set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`.
-- `Stripe billing is partially configured`: set both `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`, and add `STRIPE_PRO_PRICE_ID` if checkout is enabled.
+- `Stripe billing is partially configured`: set both `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`, and add the Pro/Team/Business price IDs if checkout is enabled.
 - `BEHALFID_PUBLIC_AGENT_CREATION=true`: anonymous agent creation is open. Keep it false for normal production.

@@ -273,7 +273,7 @@ Never expose `BEHALFID_SETUP_TOKEN` to frontend JavaScript.
 
 1. Push the repo to GitHub.
 2. Import the project in Vercel.
-3. Add required production env vars: `MONGODB_URI`, `BEHALFID_ADMIN_PASSWORD`, `BEHALFID_SETUP_TOKEN`, `NEXT_PUBLIC_APP_URL`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and `STRIPE_PRO_PRICE_ID`.
+3. Add required production env vars: `MONGODB_URI`, `BEHALFID_ADMIN_PASSWORD`, `BEHALFID_SETUP_TOKEN`, `NEXT_PUBLIC_APP_URL`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRO_PRICE_ID`, `STRIPE_TEAM_PRICE_ID`, and `STRIPE_BUSINESS_PRICE_ID`.
 4. Keep `BEHALFID_PUBLIC_AGENT_CREATION=false` unless intentionally running an open demo.
 5. Add `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` for shared production rate limiting.
 6. Ensure MongoDB Atlas allows Vercel egress connections.

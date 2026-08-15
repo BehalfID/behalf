@@ -8,25 +8,27 @@ import { TrustCallout } from "@/components/design-system/TrustCallout";
 import { cn } from "@/lib/cn";
 import { crossAppClickHandler } from "@/lib/subdomainRouting";
 import {
+  BUSINESS_PLAN_PRICE_CENTS,
   PLAN_ENTITLEMENTS,
   PRO_PLAN_PRICE_CENTS,
+  TEAM_PLAN_PRICE_CENTS,
   formatLimit
 } from "@/lib/plans";
 import type { PublicAuthAction } from "@/lib/publicAuthAction";
 
 const free = PLAN_ENTITLEMENTS.free;
 const pro = PLAN_ENTITLEMENTS.pro;
+const team = PLAN_ENTITLEMENTS.team;
+const business = PLAN_ENTITLEMENTS.business;
 const enterprise = PLAN_ENTITLEMENTS.enterprise;
 
 const plans = [
   {
     name: "Free",
-    // Descriptor is shown on the card so the tier signals who it fits; the bare
-    // `name` stays short for the comparison-table column headers.
     descriptor: "solo builders",
     price: "$0",
     cadence: "forever",
-    blurb: "For solo builders evaluating enforcement against real agent traffic.",
+    blurb: "Evaluate enforcement against real agent traffic — then upgrade when you go to production.",
     cta: "Start free",
     href: "/signup",
     features: [
@@ -53,7 +55,41 @@ const plans = [
       `${pro.logRetentionDays}-day activity retention`,
       "Webhooks & workspace SSO controls",
       `${formatLimit(pro.maxBillableUsers)} billable seats`,
-      "Email support"
+      "7-day trial · email support"
+    ]
+  },
+  {
+    name: "Team",
+    descriptor: "growing product orgs",
+    price: `$${TEAM_PLAN_PRICE_CENTS / 100}`,
+    cadence: "per month",
+    blurb: "More seats, agents, and verification volume for teams past the first production agents.",
+    cta: "Start building",
+    href: "/signup",
+    features: [
+      `${formatLimit(team.maxAgents)} agents`,
+      `${formatLimit(team.monthlyVerifications)} verifications / month`,
+      `${team.logRetentionDays}-day activity retention`,
+      `${formatLimit(team.maxBillableUsers)} billable seats`,
+      `${formatLimit(team.maxProtectedRepos)} protected repos`,
+      "Webhooks & workspace SSO"
+    ]
+  },
+  {
+    name: "Business",
+    descriptor: "multi-team orgs",
+    price: `$${BUSINESS_PLAN_PRICE_CENTS / 100}`,
+    cadence: "per month",
+    blurb: "Higher volume, longer retention, and advanced audit exports for organisational rollout.",
+    cta: "Start building",
+    href: "/signup",
+    features: [
+      `${formatLimit(business.maxAgents)} agents`,
+      `${formatLimit(business.monthlyVerifications)} verifications / month`,
+      `${business.logRetentionDays}-day activity retention`,
+      `${formatLimit(business.maxBillableUsers)} billable seats`,
+      "Advanced audit exports",
+      "Webhooks & workspace SSO"
     ]
   },
   {
@@ -77,42 +113,88 @@ const plans = [
 const matrix: { label: string; values: (string | boolean)[] }[] = [
   {
     label: "Agent identities",
-    values: [formatLimit(free.maxAgents), formatLimit(pro.maxAgents), "Unlimited"]
+    values: [
+      formatLimit(free.maxAgents),
+      formatLimit(pro.maxAgents),
+      formatLimit(team.maxAgents),
+      formatLimit(business.maxAgents),
+      "Unlimited"
+    ]
   },
   {
     label: "Verifications / month",
     values: [
       formatLimit(free.monthlyVerifications),
       formatLimit(pro.monthlyVerifications),
+      formatLimit(team.monthlyVerifications),
+      formatLimit(business.monthlyVerifications),
       "Committed"
     ]
   },
-  { label: "Webhooks", values: [free.webhooksEnabled, pro.webhooksEnabled, true] },
+  {
+    label: "Billable seats",
+    values: [
+      formatLimit(free.maxBillableUsers),
+      formatLimit(pro.maxBillableUsers),
+      formatLimit(team.maxBillableUsers),
+      formatLimit(business.maxBillableUsers),
+      "Unlimited"
+    ]
+  },
+  {
+    label: "Webhooks",
+    values: [
+      free.webhooksEnabled,
+      pro.webhooksEnabled,
+      team.webhooksEnabled,
+      business.webhooksEnabled,
+      true
+    ]
+  },
   {
     label: "Managed agent profiles",
-    values: [free.managedProfilesEnabled, pro.managedProfilesEnabled, true]
+    values: [
+      free.managedProfilesEnabled,
+      pro.managedProfilesEnabled,
+      team.managedProfilesEnabled,
+      business.managedProfilesEnabled,
+      true
+    ]
   },
   {
     label: "Activity retention",
     values: [
       `${free.logRetentionDays} days`,
       `${pro.logRetentionDays} days`,
+      `${team.logRetentionDays} days`,
+      `${business.logRetentionDays} days`,
       `Custom / up to ${enterprise.logRetentionDays} days`
     ]
   },
   {
     label: "Workspace Google SSO controls",
-    values: [free.googleWorkspaceSsoEnabled, pro.googleWorkspaceSsoEnabled, true]
+    values: [
+      free.googleWorkspaceSsoEnabled,
+      pro.googleWorkspaceSsoEnabled,
+      team.googleWorkspaceSsoEnabled,
+      business.googleWorkspaceSsoEnabled,
+      true
+    ]
   },
   {
     label: "Advanced audit exports",
     values: [
       free.advancedAuditExportsEnabled,
       pro.advancedAuditExportsEnabled,
+      team.advancedAuditExportsEnabled,
+      business.advancedAuditExportsEnabled,
       enterprise.advancedAuditExportsEnabled
     ]
   },
-  { label: "Support", values: ["Community", "Email", "Named engagement"] }
+  {
+    label: "Support",
+    values: ["Community", "Email", "Email", "Email", "Named engagement"]
+  }
 ];
 
 const faqs = [
@@ -122,22 +204,21 @@ const faqs = [
   },
   {
     q: "What happens when I exceed my included volume?",
-    a: "Verification evaluation continues; enforcement does not degrade because of billing. Usage and plan limits are visible in the dashboard. Contact us if you need a higher committed volume."
+    a: "Verification evaluation continues; enforcement does not degrade because of billing. Usage and plan limits are visible in the dashboard. Upgrade to the next tier if you need a higher committed volume."
   },
   {
     q: "Do you charge per agent or per seat?",
     a: "Plans include an agent allowance and a billable seat limit derived from your workspace plan. Enterprise has no practical agent or seat cap under contract."
   },
   {
-    q: "Which plans can I actually buy today?",
-    a: "Three: Free and Pro are self-serve at checkout, Enterprise is via contact. That is the whole funnel — there is no fourth tier to wait for, and nothing is gated behind a sales call except Enterprise."
+    q: "Which plans can I buy today?",
+    a: `Free, Pro ($${PRO_PLAN_PRICE_CENTS / 100}/mo), Team ($${TEAM_PLAN_PRICE_CENTS / 100}/mo), and Business ($${BUSINESS_PLAN_PRICE_CENTS / 100}/mo) are self-serve. Enterprise is via contact for custom contracts.`
   }
 ];
 
 /**
- * Structured data mirrors the visible page: the two purchasable self-serve
- * plans and the billing FAQ rendered below. Team/Business are internal
- * entitlement tiers without public checkout, so they are not marked up as offers.
+ * Structured data mirrors the visible page: self-serve plans plus the billing
+ * FAQ. Enterprise is contact-sales and is not listed as a fixed Offer price.
  */
 const pricingJsonLd = {
   "@context": "https://schema.org",
@@ -161,6 +242,20 @@ const pricingJsonLd = {
           "@type": "Offer",
           name: `Pro plan ($${PRO_PLAN_PRICE_CENTS / 100}/month)`,
           price: String(PRO_PLAN_PRICE_CENTS / 100),
+          priceCurrency: "USD",
+          url: "https://behalfid.com/pricing"
+        },
+        {
+          "@type": "Offer",
+          name: `Team plan ($${TEAM_PLAN_PRICE_CENTS / 100}/month)`,
+          price: String(TEAM_PLAN_PRICE_CENTS / 100),
+          priceCurrency: "USD",
+          url: "https://behalfid.com/pricing"
+        },
+        {
+          "@type": "Offer",
+          name: `Business plan ($${BUSINESS_PLAN_PRICE_CENTS / 100}/month)`,
+          price: String(BUSINESS_PLAN_PRICE_CENTS / 100),
           priceCurrency: "USD",
           url: "https://behalfid.com/pricing"
         }
@@ -195,10 +290,10 @@ export function PricingPage({
         <SectionHeading
           eyebrow="Pricing"
           title="Start free. Upgrade when you enforce in production."
-          description="Limits below come from current production entitlements. Free and Pro are self-serve — no sales call. Higher tiers add volume, retention, and organisational controls — the policy engine is the same."
+          description="Limits below come from current production entitlements. Free through Business are self-serve — no sales call. Enterprise adds custom retention, procurement, and security review — the policy engine is the same."
         />
 
-        <div className="mt-10 grid gap-4 lg:grid-cols-3">
+        <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           {plans.map((plan) => (
             <div
               key={plan.name}
@@ -272,11 +367,11 @@ export function PricingPage({
 
       <Section className="bg-surface-2">
         <SectionHeading title="Compare plans" />
-        <div className="mt-8 grid gap-3 sm:hidden">
+        <div className="mt-8 grid gap-3 lg:hidden">
           {matrix.map((row) => (
             <div key={row.label} className="rounded-lg bg-surface p-4">
               <div className="ds-text-13 font-medium">{row.label}</div>
-              <dl className="mt-3 grid grid-cols-3 gap-3">
+              <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {row.values.map((value, index) => (
                   <div key={plans[index]?.name} className="min-w-0">
                     <dt className="ds-text-11 uppercase ds-tracking-0_12 text-muted-foreground">
@@ -291,9 +386,11 @@ export function PricingPage({
             </div>
           ))}
         </div>
-        <div className="mt-8 hidden overflow-x-auto rounded-lg border bg-surface sm:block">
+        <div className="mt-8 hidden overflow-x-auto rounded-lg border bg-surface lg:block">
           <table className="w-full ds-min-w-640 text-sm">
-            <caption className="sr-only">Feature comparison across Free, Pro and Enterprise plans</caption>
+            <caption className="sr-only">
+              Feature comparison across Free, Pro, Team, Business and Enterprise plans
+            </caption>
             <thead>
               <tr className="border-b text-left">
                 <th scope="col" className="px-4 py-3 font-medium text-muted-foreground">

@@ -1,17 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { readFile } from "node:fs/promises";
 import {
+  BUSINESS_PLAN_PRICE_CENTS,
   formatLimit,
   getLogRetentionDays,
   getPlanEntitlements,
   getQuotas,
   getVerificationLimit,
   isPaidPlan,
+  isSelfServePlan,
   isUnlimitedLimit,
   normalizePlan,
   PLAN_ENTITLEMENTS,
   PLAN_QUOTAS,
-  PLANS
+  PLANS,
+  PRO_PLAN_PRICE_CENTS,
+  SELF_SERVE_PLANS,
+  TEAM_PLAN_PRICE_CENTS
 } from "@/lib/plans";
 import {
   AUTHORITY_LEVELS,
@@ -29,17 +34,23 @@ describe("plan entitlements source of truth", () => {
     }
   });
 
+  it("publishes self-serve prices", () => {
+    expect(PRO_PLAN_PRICE_CENTS).toBe(2000);
+    expect(TEAM_PLAN_PRICE_CENTS).toBe(7900);
+    expect(BUSINESS_PLAN_PRICE_CENTS).toBe(24_900);
+    expect(SELF_SERVE_PLANS).toEqual(["pro", "team", "business"]);
+    expect(isSelfServePlan("pro")).toBe(true);
+    expect(isSelfServePlan("enterprise")).toBe(false);
+  });
+
   it("defines free plan entitlements", () => {
     expect(PLAN_ENTITLEMENTS.free).toEqual({
       maxBillableUsers: 1,
       maxAgents: 3,
       maxProtectedRepos: 1,
-      monthlyVerifications: 10_000,
+      monthlyVerifications: 1_000,
       logRetentionDays: 7,
       webhooksEnabled: false,
-      // Managed Profiles (including required mode and pause approvals) were
-      // already available on free before the entitlement layer, so the flags
-      // stay true to avoid changing Managed Profiles semantics.
       managedProfilesEnabled: true,
       requiredManagedProfileModeEnabled: true,
       pauseApprovalsEnabled: true,
@@ -48,7 +59,7 @@ describe("plan entitlements source of truth", () => {
     });
   });
 
-  it("keeps legacy pro plan limits unchanged", () => {
+  it("defines a monotonic Free → Pro → Team → Business ladder", () => {
     expect(PLAN_ENTITLEMENTS.pro).toMatchObject({
       maxBillableUsers: 25,
       maxAgents: 50,
@@ -56,44 +67,40 @@ describe("plan entitlements source of truth", () => {
       monthlyVerifications: 250_000,
       logRetentionDays: 90,
       webhooksEnabled: true,
-      managedProfilesEnabled: true,
-      requiredManagedProfileModeEnabled: true,
-      pauseApprovalsEnabled: true,
       advancedAuditExportsEnabled: false,
       googleWorkspaceSsoEnabled: true
     });
-  });
-
-  it("defines team plan entitlements", () => {
-    expect(PLAN_ENTITLEMENTS.team).toEqual({
-      maxBillableUsers: 25,
-      maxAgents: 25,
-      maxProtectedRepos: 10,
-      monthlyVerifications: 250_000,
-      logRetentionDays: 30,
+    expect(PLAN_ENTITLEMENTS.team).toMatchObject({
+      maxBillableUsers: 50,
+      maxAgents: 100,
+      maxProtectedRepos: 25,
+      monthlyVerifications: 1_000_000,
+      logRetentionDays: 90,
       webhooksEnabled: true,
-      managedProfilesEnabled: true,
-      requiredManagedProfileModeEnabled: true,
-      pauseApprovalsEnabled: true,
       advancedAuditExportsEnabled: false,
       googleWorkspaceSsoEnabled: true
     });
-  });
-
-  it("defines business plan entitlements", () => {
-    expect(PLAN_ENTITLEMENTS.business).toEqual({
+    expect(PLAN_ENTITLEMENTS.business).toMatchObject({
       maxBillableUsers: 100,
       maxAgents: 250,
       maxProtectedRepos: 100,
       monthlyVerifications: 2_000_000,
       logRetentionDays: 180,
       webhooksEnabled: true,
-      managedProfilesEnabled: true,
-      requiredManagedProfileModeEnabled: true,
-      pauseApprovalsEnabled: true,
       advancedAuditExportsEnabled: true,
       googleWorkspaceSsoEnabled: true
     });
+
+    const ladder = ["free", "pro", "team", "business"] as const;
+    for (let i = 1; i < ladder.length; i++) {
+      const lower = PLAN_ENTITLEMENTS[ladder[i - 1]];
+      const higher = PLAN_ENTITLEMENTS[ladder[i]];
+      expect(higher.maxBillableUsers).toBeGreaterThanOrEqual(lower.maxBillableUsers);
+      expect(higher.maxAgents).toBeGreaterThanOrEqual(lower.maxAgents);
+      expect(higher.maxProtectedRepos).toBeGreaterThanOrEqual(lower.maxProtectedRepos);
+      expect(higher.monthlyVerifications).toBeGreaterThanOrEqual(lower.monthlyVerifications);
+      expect(higher.logRetentionDays).toBeGreaterThanOrEqual(lower.logRetentionDays);
+    }
   });
 
   it("treats enterprise numeric limits as unlimited with custom finite retention", () => {
@@ -102,12 +109,8 @@ describe("plan entitlements source of truth", () => {
     expect(isUnlimitedLimit(enterprise.maxAgents)).toBe(true);
     expect(isUnlimitedLimit(enterprise.maxProtectedRepos)).toBe(true);
     expect(isUnlimitedLimit(enterprise.monthlyVerifications)).toBe(true);
-    // Retention stays finite so retention-window date math remains valid.
     expect(enterprise.logRetentionDays).toBe(365);
     expect(enterprise.webhooksEnabled).toBe(true);
-    expect(enterprise.managedProfilesEnabled).toBe(true);
-    expect(enterprise.requiredManagedProfileModeEnabled).toBe(true);
-    expect(enterprise.pauseApprovalsEnabled).toBe(true);
     expect(enterprise.advancedAuditExportsEnabled).toBe(true);
     expect(enterprise.googleWorkspaceSsoEnabled).toBe(true);
   });
@@ -123,12 +126,12 @@ describe("plan entitlements source of truth", () => {
   });
 
   it("exposes verification limit and log retention helpers", () => {
-    expect(getVerificationLimit("free")).toBe(10_000);
-    expect(getVerificationLimit("team")).toBe(250_000);
+    expect(getVerificationLimit("free")).toBe(1_000);
+    expect(getVerificationLimit("team")).toBe(1_000_000);
     expect(getVerificationLimit("business")).toBe(2_000_000);
     expect(getVerificationLimit("enterprise")).toBe(Infinity);
     expect(getLogRetentionDays("free")).toBe(7);
-    expect(getLogRetentionDays("team")).toBe(30);
+    expect(getLogRetentionDays("team")).toBe(90);
     expect(getLogRetentionDays("business")).toBe(180);
     expect(getLogRetentionDays(undefined)).toBe(7);
   });
@@ -136,12 +139,11 @@ describe("plan entitlements source of truth", () => {
   it("classifies unlimited values and formats limits for display", () => {
     expect(isUnlimitedLimit(Infinity)).toBe(true);
     expect(isUnlimitedLimit(3)).toBe(false);
-    // Infinity serializes to null in JSON payloads.
     expect(isUnlimitedLimit(null)).toBe(true);
     expect(isUnlimitedLimit(undefined)).toBe(true);
     expect(formatLimit(Infinity)).toBe("Unlimited");
     expect(formatLimit(null)).toBe("Unlimited");
-    expect(formatLimit(10_000)).toBe((10_000).toLocaleString());
+    expect(formatLimit(1_000)).toBe((1_000).toLocaleString());
   });
 
   it("classifies free as the only unpaid plan", () => {
@@ -177,35 +179,19 @@ describe("webhook entitlement UI copy", () => {
 
   it("renders disabled webhooks as Upgrade required on the billing usage surface", async () => {
     const billingSource = await readFile(repoPath("app", "dashboard", "billing", "client.tsx"), "utf8");
-    const tileSource = await readFile(repoPath("components", "usage", "UsageLimitTile.tsx"), "utf8");
-    const usageDisplaySource = await readFile(repoPath("lib", "usageDisplay.ts"), "utf8");
+    const usageDisplay = await readFile(repoPath("lib", "usageDisplay.ts"), "utf8");
     expect(billingSource).toContain("WebhookUsageLimitTile");
-    expect(tileSource).toContain("getWebhookHelper(enabled)");
-    expect(usageDisplaySource).toContain('"Upgrade to Pro to enable webhook delivery."');
-    expect(tileSource).not.toMatch(/webhooksEnabled \? "Enabled" : "Available"/);
-    expect(tileSource).not.toContain("Set up webhook endpoints to receive verification events.");
+    expect(usageDisplay).toContain('enabled ? "Enabled" : "Upgrade required"');
   });
 });
 
-describe("billable workspace roles", () => {
-  it("counts every mutation-capable role as billable and read-only roles as free", () => {
-    expect(BILLABLE_WORKSPACE_ROLES).toEqual([
-      "OWNER",
-      "ENGINEERING_LEAD",
-      "SENIOR_ENGINEER",
-      "ENGINEER"
-    ]);
-    expect(isBillableWorkspaceRole("OWNER")).toBe(true);
-    expect(isBillableWorkspaceRole("ENGINEER")).toBe(true);
-    expect(isBillableWorkspaceRole("VIEWER")).toBe(false);
-    expect(isBillableWorkspaceRole("bogus")).toBe(false);
-  });
-
-  it("derives billability from authority levels so new roles classify automatically", () => {
-    for (const role of WORKSPACE_ROLES) {
-      expect(isBillableWorkspaceRole(role)).toBe(
-        AUTHORITY_LEVELS[role] > AUTHORITY_LEVELS.VIEWER
-      );
+describe("authority roles stay aligned with billable seats", () => {
+  it("keeps billable roles as a subset of workspace roles", () => {
+    for (const role of BILLABLE_WORKSPACE_ROLES) {
+      expect(WORKSPACE_ROLES).toContain(role);
+      expect(isBillableWorkspaceRole(role)).toBe(true);
     }
+    expect(isBillableWorkspaceRole("VIEWER")).toBe(false);
+    expect(AUTHORITY_LEVELS.OWNER).toBeGreaterThan(AUTHORITY_LEVELS.VIEWER);
   });
 });

@@ -1,14 +1,25 @@
+/** Self-serve monthly prices (USD cents). Enterprise is custom / contact-sales. */
 export const PRO_PLAN_PRICE_CENTS = 2000; // $20/month
+export const TEAM_PLAN_PRICE_CENTS = 7900; // $79/month
+export const BUSINESS_PLAN_PRICE_CENTS = 24_900; // $249/month
 
 /**
  * Internal plan identifiers.
  *
- * "pro" is the legacy Stripe-billed paid plan and keeps its historical limits.
- * "team" and "business" are internal tiers introduced ahead of Stripe/checkout
- * support; nothing assigns them automatically yet.
+ * Free → Pro → Team → Business is the self-serve Stripe ladder. Enterprise is
+ * contact-sales (custom contract). Numeric entitlements are monotonic up the
+ * ladder so upgrades never reduce allowances.
  */
 export const PLANS = ["free", "pro", "team", "business", "enterprise"] as const;
 export type Plan = (typeof PLANS)[number];
+
+/** Plans that can be purchased via Stripe Checkout. */
+export const SELF_SERVE_PLANS = ["pro", "team", "business"] as const;
+export type SelfServePlan = (typeof SELF_SERVE_PLANS)[number];
+
+export function isSelfServePlan(plan: unknown): plan is SelfServePlan {
+  return typeof plan === "string" && (SELF_SERVE_PLANS as readonly string[]).includes(plan);
+}
 
 /** Unknown, missing, or invalid plan values resolve to the free plan (fail closed). */
 export function normalizePlan(plan: string | null | undefined): Plan {
@@ -39,7 +50,8 @@ export const PLAN_ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     maxBillableUsers: 1,
     maxAgents: 3,
     maxProtectedRepos: 1,
-    monthlyVerifications: 10_000,
+    // Eval allowance — enough to try a few agents, not enough for free production.
+    monthlyVerifications: 1_000,
     logRetentionDays: 7,
     webhooksEnabled: false,
     // Managed Profiles (including required mode and pause approvals) are
@@ -52,8 +64,6 @@ export const PLAN_ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     advancedAuditExportsEnabled: false,
     googleWorkspaceSsoEnabled: false
   },
-  // Legacy Stripe-billed paid plan; numeric limits are unchanged from before
-  // the entitlement layer existed.
   pro: {
     maxBillableUsers: 25,
     maxAgents: 50,
@@ -68,11 +78,11 @@ export const PLAN_ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     googleWorkspaceSsoEnabled: true
   },
   team: {
-    maxBillableUsers: 25,
-    maxAgents: 25,
-    maxProtectedRepos: 10,
-    monthlyVerifications: 250_000,
-    logRetentionDays: 30,
+    maxBillableUsers: 50,
+    maxAgents: 100,
+    maxProtectedRepos: 25,
+    monthlyVerifications: 1_000_000,
+    logRetentionDays: 90,
     webhooksEnabled: true,
     managedProfilesEnabled: true,
     requiredManagedProfileModeEnabled: true,
@@ -178,4 +188,15 @@ export function isSameBillingPeriod(periodStart: Date, now = new Date()): boolea
   const current = verificationPeriodStart(now);
   return periodStart.getUTCFullYear() === current.getUTCFullYear() &&
     periodStart.getUTCMonth() === current.getUTCMonth();
+}
+
+export function priceCentsForPlan(plan: SelfServePlan): number {
+  switch (plan) {
+    case "pro":
+      return PRO_PLAN_PRICE_CENTS;
+    case "team":
+      return TEAM_PLAN_PRICE_CENTS;
+    case "business":
+      return BUSINESS_PLAN_PRICE_CENTS;
+  }
 }

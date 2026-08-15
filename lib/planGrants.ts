@@ -13,11 +13,8 @@
  *
  * A grant is strictly additive. `effectiveEntitlements` takes the per-field
  * maximum of the billing plan and the granted plan, so a grant can never reduce
- * what a workspace already pays for. That matters because plan rank and plan
- * entitlements are not monotonic in the current matrix: "pro" is a legacy
- * Stripe tier that allows more agents (50) than the newer "team" tier (25), so
- * naively replacing the plan would take agents away from a paying customer who
- * was granted a nominally higher tier.
+ * what a workspace already pays for — even if a future entitlement matrix
+ * temporarily regresses a field on a higher-ranked plan.
  */
 import {
   PLANS,

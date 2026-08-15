@@ -205,7 +205,7 @@ describe("POST /api/verify route", () => {
       allowed: false,
       code: "VERIFICATION_LIMIT_REACHED",
       plan: "free",
-      limit: 10_000,
+      limit: 1_000,
       reason: "Monthly verification limit reached.",
       upgradeHint: "Upgrade to Pro to continue."
     });
@@ -219,7 +219,7 @@ describe("POST /api/verify route", () => {
       error: "Monthly verification limit reached.",
       code: "VERIFICATION_LIMIT_REACHED",
       currentPlan: "free",
-      limit: 10_000,
+      limit: 1_000,
       upgradeHint: "Upgrade to Pro to continue."
     });
     expect(routeMocks.verifyAction).not.toHaveBeenCalled();

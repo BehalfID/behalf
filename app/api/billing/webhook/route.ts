@@ -1,4 +1,5 @@
 import { type NextRequest } from "next/server";
+import { billingPlanForSubscriptionStatus, resolveSubscriptionPlan } from "@/lib/billingPlans";
 import { jsonError } from "@/lib/responses";
 import { findOneAccount, updateAccountByFilter } from "@/lib/repositories/accounts";
 import { createStripeEventIfAbsent } from "@/lib/repositories/stripeEvents";
@@ -131,11 +132,19 @@ export async function POST(request: NextRequest) {
       if (!accountId) break;
       const customerId = asString(session.customer);
       const subscriptionId = asString(session.subscription);
+      const plan = resolveSubscriptionPlan({
+        metadata: {
+          ...(session.metadata ?? {}),
+          // Prefer subscription metadata when Stripe includes it on the session
+          // object; checkout session metadata is the reliable fallback we set.
+          behalfPlan: session.metadata?.behalfPlan ?? ""
+        }
+      });
       await updateAccountByFilter(
         { accountId },
         {
           $set: {
-            plan: "pro",
+            plan,
             ...(customerId ? { stripeCustomerId: customerId } : {}),
             ...(subscriptionId ? { stripeSubscriptionId: subscriptionId } : {}),
             stripeSubscriptionStatus: "active"
@@ -143,7 +152,7 @@ export async function POST(request: NextRequest) {
         }
       );
       await setAccountWebhookStatus(accountId, "active");
-      await trackBillingEvent(accountId, "subscription_started", { plan: "pro" });
+      await trackBillingEvent(accountId, "subscription_started", { plan });
       break;
     }
 
@@ -153,13 +162,13 @@ export async function POST(request: NextRequest) {
       if (!customerId) break;
       const account = await findOneAccount({ stripeCustomerId: customerId });
       if (!account) break;
-      const isActive = sub.status === "active" || sub.status === "trialing";
+      const nextPlan = billingPlanForSubscriptionStatus(sub.status, sub);
       const periodEnd = sub.items?.data?.[0]?.current_period_end;
       await updateAccountByFilter(
         { stripeCustomerId: customerId },
         {
           $set: {
-            plan: isActive ? "pro" : "free",
+            plan: nextPlan,
             stripeSubscriptionId: sub.id,
             stripeSubscriptionStatus: sub.status,
             stripeTrialEnd: typeof sub.trial_end === "number" ? new Date(sub.trial_end * 1000) : null,
@@ -169,10 +178,10 @@ export async function POST(request: NextRequest) {
       );
       await setAccountWebhookStatus(
         account.accountId,
-        webhooksStayEnabled(account, isActive ? "pro" : "free") ? "active" : "disabled"
+        webhooksStayEnabled(account, nextPlan) ? "active" : "disabled"
       );
       await trackBillingEvent(account.accountId, "subscription_updated", {
-        plan: isActive ? "pro" : "free",
+        plan: nextPlan,
         status: sub.status
       });
       break;

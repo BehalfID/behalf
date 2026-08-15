@@ -8,15 +8,15 @@ Enforcement resolves entitlements through `effectiveEntitlements(account)` in `l
 
 Plans are seat-based with pooled verification usage: every workspace member shares the account's monthly verification quota, and billable seats are counted per workspace.
 
-`pro` is the legacy Stripe-billed paid plan and keeps its historical limits. `team` and `business` are internal tiers introduced ahead of Stripe/checkout support; nothing assigns them automatically yet. Unlimited numeric limits use `Infinity` (existing repo convention); `Infinity` serializes to `null` in JSON API responses.
+`pro`, `team`, and `business` are self-serve Stripe-billed tiers ($20 / $79 / $249 per month). `enterprise` is contact-sales. Unlimited numeric limits use `Infinity` (existing repo convention); `Infinity` serializes to `null` in JSON API responses.
 
-| Entitlement | Free | Pro (legacy) | Team | Business | Enterprise |
+| Entitlement | Free | Pro | Team | Business | Enterprise |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Billable seats (`maxBillableUsers`) | 1 | 25 | 25 | 100 | Unlimited |
-| Agents (`maxAgents`) | 3 | 50 | 25 | 250 | Unlimited |
-| Protected repos (`maxProtectedRepos`) | 1 | 10 | 10 | 100 | Unlimited |
-| Verifications / month (`monthlyVerifications`) | 10,000 | 250,000 | 250,000 | 2,000,000 | Unlimited |
-| Log retention days (`logRetentionDays`) | 7 | 90 | 30 | 180 | 365 (custom) |
+| Billable seats (`maxBillableUsers`) | 1 | 25 | 50 | 100 | Unlimited |
+| Agents (`maxAgents`) | 3 | 50 | 100 | 250 | Unlimited |
+| Protected repos (`maxProtectedRepos`) | 1 | 10 | 25 | 100 | Unlimited |
+| Verifications / month (`monthlyVerifications`) | 1,000 | 250,000 | 1,000,000 | 2,000,000 | Unlimited |
+| Log retention days (`logRetentionDays`) | 7 | 90 | 90 | 180 | 365 (custom) |
 | Webhooks (`webhooksEnabled`) | No | Yes | Yes | Yes | Yes |
 | Managed Profiles (`managedProfilesEnabled`) | Yes (basic) | Yes | Yes | Yes | Yes |
 | Required managed profile mode (`requiredManagedProfileModeEnabled`) | Yes | Yes | Yes | Yes | Yes |
@@ -59,7 +59,7 @@ That separation is the whole point. Every branch of the Stripe webhook handler e
 | `hasActiveComplimentaryPlan(account)` | Guarding billing actions, e.g. refusing checkout. |
 | `billingPlan(account)` | The Stripe-owned plan, when you specifically mean what the customer pays for. |
 
-A grant is **strictly additive**: `effectiveEntitlements` takes the per-field maximum, so a grant can never reduce what a workspace already pays for. This matters because plan rank and plan entitlements are not monotonic — legacy `pro` allows 50 agents where `team` allows 25 — so replacing the plan wholesale would take agents away from a paying customer granted a nominally higher tier.
+A grant is **strictly additive**: `effectiveEntitlements` takes the per-field maximum, so a grant can never reduce what a workspace already pays for. The current Free → Pro → Team → Business → Enterprise matrix is monotonic on numeric and boolean allowances; the additive overlay remains as defence in depth if a future matrix regresses a field.
 
 A grant with no expiry is a lifetime grant. An expired grant awards nothing but is still reported by `complimentaryGrantView` so operators can see it. `free` is not grantable: it would be a no-op that still read as an active comp.
 
@@ -82,7 +82,7 @@ npm run plan:comp -- revoke --account-id acct_... --reason "Converted to paid" -
 
 `--reason` and an actor (`--actor` or `$OPERATOR`) are required; both land in the ledger. `--expires` must be given explicitly on a grant — silence would mean "lifetime", which is too consequential to be a default. The tool is backend-neutral and follows `BEHALFID_REPOSITORY_BACKEND`.
 
-Do **not** use `npm run account:set-plan` to comp a workspace. That tool writes `account.plan` and warns, correctly, that Stripe webhooks may later overwrite it. It remains available for assigning internal `team`/`business`/`enterprise` plans that are not comps.
+Do **not** use `npm run account:set-plan` to comp a workspace. That tool writes `account.plan` and warns, correctly, that Stripe webhooks may later overwrite it. It remains available for assigning `enterprise` (or recovering billing state) when Stripe is not the path.
 
 ### Effects on other surfaces
 
@@ -108,7 +108,7 @@ Denials return structured errors via `quotaErrorDetails`: `code`, `currentPlan`,
 
 ## Out of scope
 
-Stripe integration, checkout, payment state, and plan purchase flows remain owned by billing code. Stripe webhooks still only move accounts between `free` and `pro`; `team` and `business` have no purchase path yet. The entitlement layer reads what Stripe writes and adds complimentary grants on top; it never writes billing state.
+Stripe checkout, webhooks, and customer portal remain owned by billing code (`app/api/billing/*`, `lib/billingPlans.ts`). Self-serve checkout moves accounts onto `pro`, `team`, or `business` via Stripe Price IDs (`STRIPE_PRO_PRICE_ID`, `STRIPE_TEAM_PRICE_ID`, `STRIPE_BUSINESS_PRICE_ID`); webhooks map subscription metadata / price IDs back to those plans (or `free` on cancel / payment failure). Enterprise remains contact-sales. The entitlement layer reads what Stripe writes and adds complimentary grants on top; it never writes billing state.
 
 ## Data access (repository boundary)
 

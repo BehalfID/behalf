@@ -262,7 +262,7 @@ Dashboard/console authenticated screens were not exercised in the headless harne
 - Homepage cutover: `MarketingHomePage` → `MarketingLayout` + `LovableHomeContent` (editorial hero, copper path, adaptive modes, approval flow, dashboard preview, developer/security sections).
 - New routes: `/pricing`, `/adaptive-engine`, `/contact` with metadata + sitemap entries.
 - Public nav/footer cutover to design-system chrome; links limited to real production routes + subdomain-aware handlers.
-- Pricing sourced from `PLAN_ENTITLEMENTS` / `PRO_PLAN_PRICE_CENTS` ($20 Pro); no fabricated Team tier.
+- Pricing sourced from `PLAN_ENTITLEMENTS` / plan price constants ($20 Pro, $79 Team, $249 Business).
 - Contact posts to existing `/api/billing/enterprise-inquiry` (server-side email/storage; no client secrets).
 - Adaptive page: “In development”, policy-first, Observe → Recommend → Enforce after admin enable; Illustrative/Beta tags.
 - Motion: CSS + `use-motion` / `Reveal`; reduced-motion collapse retained under `.ds`.

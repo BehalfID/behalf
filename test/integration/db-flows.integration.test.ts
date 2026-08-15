@@ -643,7 +643,7 @@ describe("MongoDB-backed quotas", () => {
     });
 
     await expect(checkAndIncrementVerifications("acct_limit")).resolves.toEqual(
-      expect.objectContaining({ allowed: false, code: "VERIFICATION_LIMIT_REACHED", limit: 10_000 })
+      expect.objectContaining({ allowed: false, code: "VERIFICATION_LIMIT_REACHED", limit: 1_000 })
     );
     await expect(checkAndIncrementVerifications("acct_pro_limit")).resolves.toEqual(
       expect.objectContaining({ allowed: false, code: "VERIFICATION_LIMIT_REACHED", limit: 250_000 })

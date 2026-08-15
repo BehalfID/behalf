@@ -49,13 +49,13 @@ Plan entitlements are centralized in `lib/plans.ts`; see [ENTITLEMENTS.md](ENTIT
 
 | Plan | Billable seats | Agents | Protected repos | Verifications / month | Webhooks | Log retention |
 | --- | ---: | ---: | ---: | ---: | --- | ---: |
-| Free | 1 | 3 | 1 | 10,000 | Disabled | 7 days |
-| Pro (legacy) | 25 | 50 | 10 | 250,000 | Enabled | 90 days |
-| Team | 25 | 25 | 10 | 250,000 | Enabled | 30 days |
+| Free | 1 | 3 | 1 | 1,000 | Disabled | 7 days |
+| Pro | 25 | 50 | 10 | 250,000 | Enabled | 90 days |
+| Team | 50 | 100 | 25 | 1,000,000 | Enabled | 90 days |
 | Business | 100 | 250 | 100 | 2,000,000 | Enabled | 180 days |
 | Enterprise | Unlimited | Unlimited | Unlimited | Unlimited | Enabled | 365 days (custom) |
 
-Plans are seat-based with pooled verification usage. Creation limits block new resources only (`AGENT_LIMIT_REACHED`, `SEAT_LIMIT_REACHED`, `PROTECTED_REPO_LIMIT_REACHED`); existing resources are never deleted or disabled when an account is over a limit or downgrades. `team` and `business` are internal tiers with no checkout path yet; Stripe still only moves accounts between `free` and `pro`.
+Plans are seat-based with pooled verification usage. Creation limits block new resources only (`AGENT_LIMIT_REACHED`, `SEAT_LIMIT_REACHED`, `PROTECTED_REPO_LIMIT_REACHED`); existing resources are never deleted or disabled when an account is over a limit or downgrades. Self-serve Stripe checkout covers `pro` ($20), `team` ($79), and `business` ($249); `enterprise` is contact-sales.
 
 Verification usage is tracked on `Account.verificationCount` with `verificationPeriodStart`. The current reset boundary is the UTC calendar month: stale or missing period data resets the count on the next metered verification and sets the period start to the first day of the current UTC month. Enterprise verification and agent quotas are treated as unlimited. Metered quota checks fail closed with `ACCOUNT_CONTEXT_MISSING` when `accountId` is missing; a known `accountId` whose `Account` record is missing remains unmetered because it indicates data inconsistency rather than lost auth context.
 
@@ -1232,7 +1232,7 @@ The developer dashboard uses these session-protected routes:
     "protectedRepoCount": 0,
     "protectedRepoLimit": 1,
     "verificationCount": 42,
-    "verificationLimit": 10000,
+    "verificationLimit": 1000,
     "verificationPeriodStart": "2026-05-01T00:00:00.000Z",
     "verificationPeriodResetAt": "2026-06-01T00:00:00.000Z",
     "webhooksEnabled": false,

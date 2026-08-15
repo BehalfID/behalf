@@ -176,7 +176,7 @@ describe("dashboard billing and quota route UX", () => {
       protectedRepoCount: 1,
       protectedRepoLimit: 1,
       verificationCount: 123,
-      verificationLimit: 10_000,
+      verificationLimit: 1_000,
       verificationPeriodStart: "2026-05-01T00:00:00.000Z",
       verificationPeriodResetAt: "2026-06-01T00:00:00.000Z",
       webhooksEnabled: false,

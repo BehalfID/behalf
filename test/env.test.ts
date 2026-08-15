@@ -10,6 +10,8 @@ describe("production environment validation", () => {
     vi.stubEnv("STRIPE_SECRET_KEY", "");
     vi.stubEnv("STRIPE_WEBHOOK_SECRET", "");
     vi.stubEnv("STRIPE_PRO_PRICE_ID", "");
+    vi.stubEnv("STRIPE_TEAM_PRICE_ID", "");
+    vi.stubEnv("STRIPE_BUSINESS_PRICE_ID", "");
 
     const { validateProductionEnv } = await import("@/lib/env");
     const result = validateProductionEnv();
@@ -20,7 +22,9 @@ describe("production environment validation", () => {
       "BEHALFID_SETUP_TOKEN",
       "STRIPE_SECRET_KEY",
       "STRIPE_WEBHOOK_SECRET",
-      "STRIPE_PRO_PRICE_ID"
+      "STRIPE_PRO_PRICE_ID",
+      "STRIPE_TEAM_PRICE_ID",
+      "STRIPE_BUSINESS_PRICE_ID"
     ]));
     expect(result.invalid).toContain("BEHALFID_ADMIN_PASSWORD must not use a placeholder or default value.");
     expect(result.invalid).toContain("NEXT_PUBLIC_APP_URL must use https:// in production.");
@@ -36,6 +40,8 @@ describe("production environment validation", () => {
     vi.stubEnv("STRIPE_SECRET_KEY", "sk_live_test");
     vi.stubEnv("STRIPE_WEBHOOK_SECRET", "whsec_test");
     vi.stubEnv("STRIPE_PRO_PRICE_ID", "price_test");
+    vi.stubEnv("STRIPE_TEAM_PRICE_ID", "price_team_test");
+    vi.stubEnv("STRIPE_BUSINESS_PRICE_ID", "price_business_test");
     vi.stubEnv("KV_REST_API_URL", "https://redis.upstash.io");
     vi.stubEnv("KV_REST_API_TOKEN", "token_test");
     vi.stubEnv("BEHALFID_PUBLIC_AGENT_CREATION", "true");
@@ -59,6 +65,8 @@ describe("production environment validation", () => {
     vi.stubEnv("STRIPE_SECRET_KEY", "sk_live_test");
     vi.stubEnv("STRIPE_WEBHOOK_SECRET", "whsec_test");
     vi.stubEnv("STRIPE_PRO_PRICE_ID", "price_test");
+    vi.stubEnv("STRIPE_TEAM_PRICE_ID", "price_team_test");
+    vi.stubEnv("STRIPE_BUSINESS_PRICE_ID", "price_business_test");
     vi.stubEnv("KV_REST_API_URL", "");
     vi.stubEnv("KV_REST_API_TOKEN", "");
     vi.stubEnv("UPSTASH_REDIS_REST_URL", "");

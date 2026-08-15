@@ -5,6 +5,11 @@ import { getPublicAuthAction } from "@/lib/publicAuthAction";
 import { isGoogleOAuthConfigured } from "@/lib/googleOAuth";
 import { getSdkDownloads } from "@/lib/npmDownloads";
 import { COMPANY_PROFILES, founderPersonSchema } from "@/lib/founders";
+import {
+  BUSINESS_PLAN_PRICE_CENTS,
+  PRO_PLAN_PRICE_CENTS,
+  TEAM_PLAN_PRICE_CENTS
+} from "@/lib/plans";
 
 const description =
   "Approval gates and runtime authorization for AI coding agents. Decide what agents such as Claude Code, Codex and Cursor may do, what is denied, and what requires human approval — decided before integrated actions run.";
@@ -71,8 +76,22 @@ const jsonLd = {
         },
         {
           "@type": "Offer",
-          name: "Pro plan ($20/month)",
-          price: "20",
+          name: `Pro plan ($${PRO_PLAN_PRICE_CENTS / 100}/month)`,
+          price: String(PRO_PLAN_PRICE_CENTS / 100),
+          priceCurrency: "USD",
+          url: "https://behalfid.com/pricing"
+        },
+        {
+          "@type": "Offer",
+          name: `Team plan ($${TEAM_PLAN_PRICE_CENTS / 100}/month)`,
+          price: String(TEAM_PLAN_PRICE_CENTS / 100),
+          priceCurrency: "USD",
+          url: "https://behalfid.com/pricing"
+        },
+        {
+          "@type": "Offer",
+          name: `Business plan ($${BUSINESS_PLAN_PRICE_CENTS / 100}/month)`,
+          price: String(BUSINESS_PLAN_PRICE_CENTS / 100),
           priceCurrency: "USD",
           url: "https://behalfid.com/pricing"
         }

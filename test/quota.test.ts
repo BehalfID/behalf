@@ -65,9 +65,9 @@ describe("billing and quota enforcement", () => {
     const { checkAgentLimit } = await import("@/lib/quota");
 
     quotaMocks.accountFindOne.mockResolvedValue(mockAccountPlan("team"));
-    quotaMocks.agentCountDocuments.mockResolvedValue(25);
+    quotaMocks.agentCountDocuments.mockResolvedValue(100);
     await expect(checkAgentLimit("acct_test")).resolves.toEqual(
-      expect.objectContaining({ allowed: false, code: "AGENT_LIMIT_REACHED", plan: "team", limit: 25 })
+      expect.objectContaining({ allowed: false, code: "AGENT_LIMIT_REACHED", plan: "team", limit: 100 })
     );
 
     quotaMocks.accountFindOne.mockResolvedValue(mockAccountPlan("business"));
@@ -95,13 +95,13 @@ describe("billing and quota enforcement", () => {
   it("enforces free and pro monthly verification limits", async () => {
     const { checkAndIncrementVerifications } = await import("@/lib/quota");
 
-    quotaMocks.accountFindOne.mockResolvedValue(mockAccountPlan("free", { verificationCount: 10_000 }));
+    quotaMocks.accountFindOne.mockResolvedValue(mockAccountPlan("free", { verificationCount: 1_000 }));
     await expect(checkAndIncrementVerifications("acct_test")).resolves.toEqual({
       allowed: false,
       code: "VERIFICATION_LIMIT_REACHED",
       plan: "free",
-      limit: 10_000,
-      reason: "Monthly verification limit of 10,000 reached on the free plan.",
+      limit: 1_000,
+      reason: "Monthly verification limit of 1,000 reached on the free plan.",
       upgradeHint: "Upgrade to Pro to continue."
     });
 
@@ -119,9 +119,9 @@ describe("billing and quota enforcement", () => {
   it("enforces team and business monthly verification limits", async () => {
     const { checkAndIncrementVerifications } = await import("@/lib/quota");
 
-    quotaMocks.accountFindOne.mockResolvedValue(mockAccountPlan("team", { verificationCount: 250_000 }));
+    quotaMocks.accountFindOne.mockResolvedValue(mockAccountPlan("team", { verificationCount: 1_000_000 }));
     await expect(checkAndIncrementVerifications("acct_test")).resolves.toEqual(
-      expect.objectContaining({ allowed: false, code: "VERIFICATION_LIMIT_REACHED", plan: "team", limit: 250_000 })
+      expect.objectContaining({ allowed: false, code: "VERIFICATION_LIMIT_REACHED", plan: "team", limit: 1_000_000 })
     );
 
     quotaMocks.accountFindOne.mockResolvedValue(mockAccountPlan("business", { verificationCount: 2_000_000 }));
@@ -282,11 +282,11 @@ describe("billable seat limits", () => {
     const { checkSeatLimit } = await import("@/lib/quota");
 
     quotaMocks.accountFindOne.mockResolvedValue(mockAccountPlan("team"));
-    quotaMocks.membershipCountDocuments.mockResolvedValue(24);
+    quotaMocks.membershipCountDocuments.mockResolvedValue(49);
     await expect(checkSeatLimit("acct_test", "ENGINEER")).resolves.toEqual({ allowed: true });
-    quotaMocks.membershipCountDocuments.mockResolvedValue(25);
+    quotaMocks.membershipCountDocuments.mockResolvedValue(50);
     await expect(checkSeatLimit("acct_test", "ENGINEER")).resolves.toEqual(
-      expect.objectContaining({ allowed: false, code: "SEAT_LIMIT_REACHED", plan: "team", limit: 25 })
+      expect.objectContaining({ allowed: false, code: "SEAT_LIMIT_REACHED", plan: "team", limit: 50 })
     );
 
     quotaMocks.accountFindOne.mockResolvedValue(mockAccountPlan("business"));
