@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireConsoleApi } from "@/lib/adminAuth";
+import { getConsoleAuditActor, requireConsoleApi } from "@/lib/adminAuth";
+import { recordAdminAudit } from "@/lib/consoleAdmins";
 import { getConsoleAccountId } from "@/lib/consoleData";
 import { findOnePermission, revokePermission } from "@/lib/repositories/permissions";
 import { jsonError } from "@/lib/responses";
@@ -33,6 +34,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
       action: permission.action
     })
   );
+  await recordAdminAudit({
+    adminId: getConsoleAuditActor(request),
+    action: "permission.revoked",
+    target: permissionId,
+    metadata: { agentId }
+  });
 
   return NextResponse.json({ revoked: true });
 }

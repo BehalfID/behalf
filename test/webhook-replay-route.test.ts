@@ -2,13 +2,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const replayMocks = vi.hoisted(() => ({
   requireConsoleApi: vi.fn(),
+  getConsoleAuditActor: vi.fn(),
+  recordAdminAudit: vi.fn(),
   getConsoleAccountId: vi.fn(),
   findOneAndUpdateEvent: vi.fn(),
   webhookEventExists: vi.fn()
 }));
 
 vi.mock("@/lib/adminAuth", () => ({
-  requireConsoleApi: replayMocks.requireConsoleApi
+  requireConsoleApi: replayMocks.requireConsoleApi,
+  getConsoleAuditActor: replayMocks.getConsoleAuditActor
+}));
+
+vi.mock("@/lib/consoleAdmins", () => ({
+  recordAdminAudit: replayMocks.recordAdminAudit
 }));
 
 vi.mock("@/lib/consoleData", () => ({
@@ -23,6 +30,8 @@ vi.mock("@/lib/repositories/webhooks", () => ({
 describe("POST /api/console/webhook-events/[eventId]/replay", () => {
   beforeEach(() => {
     replayMocks.requireConsoleApi.mockResolvedValue(null);
+    replayMocks.getConsoleAuditActor.mockReturnValue("admin_test");
+    replayMocks.recordAdminAudit.mockResolvedValue(undefined);
     replayMocks.getConsoleAccountId.mockResolvedValue("acct_test");
     replayMocks.findOneAndUpdateEvent.mockResolvedValue(null);
     replayMocks.webhookEventExists.mockResolvedValue(null);
@@ -86,6 +95,11 @@ describe("POST /api/console/webhook-events/[eventId]/replay", () => {
       }),
       { returnDocument: "after" }
     );
+    expect(replayMocks.recordAdminAudit).toHaveBeenCalledWith({
+      adminId: "admin_test",
+      action: "webhook_event.replayed",
+      target: "evt_dead"
+    });
   });
 
   it("rejects completed events instead of duplicating them", async () => {

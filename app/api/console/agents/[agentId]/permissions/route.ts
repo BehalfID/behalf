@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireConsoleApi } from "@/lib/adminAuth";
+import { getConsoleAuditActor, requireConsoleApi } from "@/lib/adminAuth";
+import { recordAdminAudit } from "@/lib/consoleAdmins";
 import { getConsoleAccountId, getConsoleAgent } from "@/lib/consoleData";
 import { createPublicId } from "@/lib/ids";
 import { parsePermissionMetadata } from "@/lib/permissions";
@@ -132,6 +133,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
       action
     })
   );
+  await recordAdminAudit({
+    adminId: getConsoleAuditActor(request),
+    action: "permission.created",
+    target: permission.permissionId,
+    metadata: { agentId, action }
+  });
 
   return NextResponse.json(
     {

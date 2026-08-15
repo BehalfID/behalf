@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireConsoleApi } from "@/lib/adminAuth";
+import { getConsoleAuditActor, requireConsoleApi } from "@/lib/adminAuth";
+import { recordAdminAudit } from "@/lib/consoleAdmins";
 import {
   findOneAndDeleteStatusIncident,
   findOneStatusIncident,
@@ -71,6 +72,13 @@ export async function PATCH(
     return NextResponse.json({ error: "Incident not found" }, { status: 404 });
   }
 
+  await recordAdminAudit({
+    adminId: getConsoleAuditActor(request),
+    action: "status_incident.updated",
+    target: id,
+    metadata: { ...update, updates: undefined }
+  });
+
   return NextResponse.json({
     incident: {
       incidentId: updated.incidentId,
@@ -98,6 +106,12 @@ export async function DELETE(
   if (!deleted) {
     return NextResponse.json({ error: "Incident not found" }, { status: 404 });
   }
+
+  await recordAdminAudit({
+    adminId: getConsoleAuditActor(request),
+    action: "status_incident.deleted",
+    target: id
+  });
 
   return NextResponse.json({ ok: true });
 }

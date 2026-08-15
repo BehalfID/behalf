@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireConsoleApi } from "@/lib/adminAuth";
+import { getConsoleAuditActor, requireConsoleApi } from "@/lib/adminAuth";
+import { recordAdminAudit } from "@/lib/consoleAdmins";
 import { randomUUID } from "crypto";
 import { createComponent, findStatusComponents } from "@/lib/repositories/status";
 
@@ -40,6 +41,13 @@ export async function POST(request: NextRequest) {
     sortOrder: typeof body.sortOrder === "number" ? body.sortOrder : 0,
     status,
     enabled: true
+  });
+
+  await recordAdminAudit({
+    adminId: getConsoleAuditActor(request),
+    action: "status_component.created",
+    target: component.componentId,
+    metadata: { name: component.name }
   });
 
   return NextResponse.json(

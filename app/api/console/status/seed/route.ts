@@ -6,7 +6,8 @@
  */
 
 import { NextResponse, type NextRequest } from "next/server";
-import { requireConsoleApi } from "@/lib/adminAuth";
+import { getConsoleAuditActor, requireConsoleApi } from "@/lib/adminAuth";
+import { recordAdminAudit } from "@/lib/consoleAdmins";
 import { randomUUID } from "crypto";
 import { createComponent, findOneStatusComponent } from "@/lib/repositories/status";
 
@@ -50,6 +51,12 @@ export async function POST(request: NextRequest) {
 
   const created = results.filter((r) => r.action === "created").length;
   const skipped = results.filter((r) => r.action === "skipped").length;
+
+  await recordAdminAudit({
+    adminId: getConsoleAuditActor(request),
+    action: "status_component.seeded",
+    metadata: { created, skipped }
+  });
 
   return NextResponse.json({ created, skipped, results });
 }

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { hashApiKey } from "@/lib/auth";
-import { requireConsoleApi } from "@/lib/adminAuth";
+import { getConsoleAuditActor, requireConsoleApi } from "@/lib/adminAuth";
+import { recordAdminAudit } from "@/lib/consoleAdmins";
 import { parseAgentMetadata } from "@/lib/agents";
 import { getConsoleAccountId, serializeAgent } from "@/lib/consoleData";
 import { createApiKey, createPublicId } from "@/lib/ids";
@@ -75,6 +76,12 @@ export async function POST(request: NextRequest) {
       provider: metadata.provider
     })
   );
+  await recordAdminAudit({
+    adminId: getConsoleAuditActor(request),
+    action: "agent.created",
+    target: agentId,
+    metadata: { name }
+  });
 
   return NextResponse.json(
     {

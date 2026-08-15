@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireConsoleApi } from "@/lib/adminAuth";
+import { getConsoleAuditActor, requireConsoleApi } from "@/lib/adminAuth";
+import { recordAdminAudit } from "@/lib/consoleAdmins";
 import { getConsoleAccountId } from "@/lib/consoleData";
 import { jsonError } from "@/lib/responses";
 import { findOneAndUpdateEvent, webhookEventExists } from "@/lib/repositories/webhooks";
@@ -52,6 +53,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     return jsonError("Webhook event not found.", 404);
   }
+
+  await recordAdminAudit({
+    adminId: getConsoleAuditActor(request),
+    action: "webhook_event.replayed",
+    target: eventId
+  });
 
   return NextResponse.json({ replayed: true, event });
 }

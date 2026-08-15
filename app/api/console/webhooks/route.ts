@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireConsoleApi } from "@/lib/adminAuth";
+import { getConsoleAuditActor, requireConsoleApi } from "@/lib/adminAuth";
+import { recordAdminAudit } from "@/lib/consoleAdmins";
 import { getConsoleAccountId } from "@/lib/consoleData";
 import { createPublicId } from "@/lib/ids";
 import { createEndpoint, listEndpoints } from "@/lib/repositories/webhooks";
@@ -63,6 +64,13 @@ export async function POST(request: NextRequest) {
     secretPreview: signing.secretPreview,
     events,
     status: "active"
+  });
+
+  await recordAdminAudit({
+    adminId: getConsoleAuditActor(request),
+    action: "webhook.created",
+    target: webhook.webhookId,
+    metadata: { url }
   });
 
   return NextResponse.json(

@@ -126,6 +126,12 @@ Derived from privacy disclosures and production docs (validate contracts separat
 | R-P1-12 | Done | `IdentityAuditLog` rows are now deleted on account deletion (both backends) |
 | R-P2-2 | Done | Added `.github/dependabot.yml` for npm dependency update PRs across the workspace (closes part of G-11) |
 
+### Closed in 2026-08-15 remediation pass
+
+| ID | Status | Notes |
+|----|--------|-------|
+| G-28 | Done | `recordAdminAudit` was only wired into console login/bootstrap; the other ~19 state-changing console routes (agent enable/disable/rotate-key, permission grant/revoke, webhook create/enable/disable/rotate-secret, webhook-event replay, site/site-rule status, enterprise-inquiry status, status-page component/incident CRUD) recorded no admin attribution. Added `getConsoleAuditActor()` (`lib/adminAuth.ts`) to resolve the acting admin id from the session cookie and wired `recordAdminAudit` into every one of those routes |
+
 ### Still open
 
 | ID | Action | Owner hint |
@@ -158,3 +164,4 @@ Engage a licensed CPA for SOC 2 and an accredited certification body for ISO 270
 | 2026-07-24 | Remediation pass: disclosures, purge cron, AuthEvents, MFA, ConsoleAdmin, Sentry, ops runbooks |
 | 2026-08-12 | Scheduled ISO 27001/SOC 2/GDPR/CPRA scan: corrected stale MongoDB Atlas → Supabase (Postgres) references (public pages, pack, ops runbooks) left over from the 2026-07-31 datastore cutover; fixed a real privacy-policy/analytics disclosure mismatch on the static `/privacy` route; closed a GDPR Art. 17 gap where Mongo-backend account deletion didn't remove `ExternalIdentity`/`PasskeyCredential` rows; closed a failed-auth logging gap on the `developer_token` surface; corrected stale MFA/Postgres code comments. HIPAA reviewed — confirmed not applicable (no PHI processing). |
 | 2026-08-12 | Follow-up implementation pass: built a self-service data export (`GET /api/auth/account/export` + dashboard "Export your data" section) closing G-25/R-P1-11 — access/portability are now genuinely self-service, matching the existing public claim; closed G-26/R-P1-12 by deleting `IdentityAuditLog` rows on account deletion; added `.github/dependabot.yml` for automated dependency PRs (G-11, partial). Still open: R-P1-8 (vendor risk assessment for HeyCatch/Supabase — requires legal/security contract review, not a code fix) and R-P2-* (API-key pepper, CSRF, webhook queue, deploy change control — each needs its own design review before implementation, not attempted here) |
+| 2026-08-15 | Scheduled ISO 27001/SOC 2/HIPAA/GDPR/CPRA scan: spot-checked all 2026-08-12 "REMEDIATED" claims against current code — all held, no regressions. Independent re-scan of encryption, access control, audit logging, retention, PII handling, and security config found one new gap: `recordAdminAudit` was wired only into console login/bootstrap, so none of the ~19 state-changing console routes (agent/webhook create, enable, disable, key/secret rotation, permission grant/revoke, site/rule/status changes) recorded which admin performed the action. Closed as G-28 — added `getConsoleAuditActor()` and wired audit logging into all 19 routes; full test suite (2,839 tests) and typecheck pass with no regressions. R-P1-7, R-P1-8, and R-P2-* remain open — each needs leadership/legal/design-review action, not a further scan |

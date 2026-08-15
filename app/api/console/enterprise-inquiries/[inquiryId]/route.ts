@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireConsoleApi } from "@/lib/adminAuth";
+import { getConsoleAuditActor, requireConsoleApi } from "@/lib/adminAuth";
+import { recordAdminAudit } from "@/lib/consoleAdmins";
 import { updateEnterpriseInquiry } from "@/lib/repositories/enterpriseInquiries";
 import { isRecord, readString } from "@/lib/validation";
 import { jsonError } from "@/lib/responses";
@@ -30,6 +31,13 @@ export async function PATCH(
   });
 
   if (!inquiry) return jsonError("Inquiry not found.", 404);
+
+  await recordAdminAudit({
+    adminId: getConsoleAuditActor(request),
+    action: "enterprise_inquiry.status_updated",
+    target: params.inquiryId,
+    metadata: { status }
+  });
 
   return NextResponse.json({ inquiry });
 }

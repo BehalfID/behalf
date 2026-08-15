@@ -195,6 +195,16 @@ export async function hasConsoleSession() {
   return isValidConsoleSession(cookieStore.get(COOKIE_NAME)?.value);
 }
 
+/**
+ * Identifies who is performing a console mutation, for admin-audit attribution.
+ * Returns the authenticated admin's id, or "shared" for the legacy shared-password
+ * session (which has no per-identity admin record to attribute to).
+ */
+export function getConsoleAuditActor(request: NextRequest) {
+  const session = parseConsoleSession(request.cookies.get(COOKIE_NAME)?.value);
+  return session?.kind === "admin" ? session.adminId : "shared";
+}
+
 export async function requireConsoleApi(request: NextRequest) {
   const limit = await checkRateLimit(request);
   if (limit.limited) {
