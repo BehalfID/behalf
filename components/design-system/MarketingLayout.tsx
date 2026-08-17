@@ -1,13 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
-import Link from "next/link";
 import { MarketingHeader } from "@/components/design-system/MarketingHeader";
 import { MarketingFooter } from "@/components/design-system/MarketingFooter";
 import { SlashSeam } from "@/components/design-system/marketing-visuals";
-import { ArrowRight } from "@/components/design-system/icons";
+import { SecondaryCta, SignupCta } from "@/components/marketing/SignupCta";
 import { cn } from "@/lib/cn";
-import { crossAppClickHandler } from "@/lib/subdomainRouting";
 import type { PublicAuthAction } from "@/lib/publicAuthAction";
 
 export function MarketingLayout({
@@ -44,20 +42,12 @@ function MarketingEnding() {
             <span className="block opacity-70">Keep the final say.</span>
           </h2>
           <div className="flex flex-col gap-3 sm:flex-row lg:justify-end">
-            <Link
-              href="/signup"
-              className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-secondary px-6 text-sm font-medium text-secondary-foreground shadow-sm transition-colors hover:bg-secondary/80"
-              onClick={crossAppClickHandler("/signup")}
-            >
-              Start building <ArrowRight className="size-4" aria-hidden />
-            </Link>
-            <Link
-              href="/contact"
-              className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-full px-6 text-sm font-medium text-foreground hover:bg-surface"
-              onClick={crossAppClickHandler("/contact")}
-            >
+            <SignupCta placement="site_closing" tone="secondary">
+              Create your free account
+            </SignupCta>
+            <SecondaryCta href="/contact" className="text-foreground hover:bg-surface">
               Talk to us
-            </Link>
+            </SecondaryCta>
           </div>
         </div>
       </div>

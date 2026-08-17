@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useCallback, useMemo, useRef, useState } from "react";
 import { ContinueWithGitHub } from "@/components/auth/ContinueWithGitHub";
 import { ContinueWithGoogle } from "@/components/auth/ContinueWithGoogle";
 import { ContinueWithPasskey } from "@/components/auth/ContinueWithPasskey";
@@ -19,6 +19,13 @@ import {
 import { cn } from "@/lib/cn";
 import { oauthErrorMessage } from "@/lib/authProviders/oauthErrors";
 import { assignOwnedLocation, crossAppClickHandler } from "@/lib/subdomainRouting";
+import { identifyUser } from "@/lib/analytics/identity";
+import {
+  trackAuthFailed,
+  trackAuthFormStarted,
+  trackAuthSubmitted,
+  trackAuthSucceeded
+} from "@/lib/analytics/funnel";
 
 /** Returns the latest date of birth that satisfies the minimum age (YYYY-MM-DD). */
 function maxDateOfBirth(minAge: number): string {
@@ -80,6 +87,19 @@ export function AuthPage({
   const showOauth = googleEnabled || githubEnabled;
   const showPasskey = mode === "login" && passkeyEnabled;
 
+  // One "form started" per mount. Autocapture can tell us the page was viewed
+  // and that something was clicked; only the form itself knows that a visitor
+  // began typing, which is what separates "never started" from "abandoned".
+  const formStarted = useRef(false);
+  const noteFormStarted = useCallback(
+    (field: string) => {
+      if (formStarted.current) return;
+      formStarted.current = true;
+      trackAuthFormStarted(mode, field);
+    },
+    [mode]
+  );
+
   const submitMfa = async (event: FormEvent) => {
     event.preventDefault();
     if (mfaToken === null) return;
@@ -113,6 +133,7 @@ export function AuthPage({
     if (mode === "signup") {
       if (!dateOfBirth) {
         setError("Date of birth is required.");
+        trackAuthFailed(mode, "password", "Date of birth is required.");
         return;
       }
       const dob = new Date(dateOfBirth);
@@ -120,10 +141,12 @@ export function AuthPage({
       ageLimitDate.setFullYear(ageLimitDate.getFullYear() - 13);
       if (dob > ageLimitDate) {
         setError("You must be at least 13 years old to create an account.");
+        trackAuthFailed(mode, "password", "Under minimum age.");
         return;
       }
     }
 
+    trackAuthSubmitted(mode, "password");
     setSubmitting(true);
     try {
       const response = await fetch(`/api/auth/${mode}`, {
@@ -134,12 +157,14 @@ export function AuthPage({
       });
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as { error?: string } | null;
-        setError(body?.error ?? "Authentication failed.");
+        const message = body?.error ?? "Authentication failed.";
+        setError(message);
+        trackAuthFailed(mode, "password", message);
         return;
       }
 
       const body = (await response.json().catch(() => null)) as {
-        user?: { emailVerified?: boolean };
+        user?: { userId?: string; email?: string; emailVerified?: boolean };
         mfaRequired?: boolean;
         mfaToken?: string;
       } | null;
@@ -149,6 +174,19 @@ export function AuthPage({
         return;
       }
 
+      // Identify before navigating away. This is the call that stitches the
+      // anonymous browsing session onto the account; without it a visitor who
+      // reads the homepage and then signs up is counted as two people, and no
+      // funnel can join the halves back together afterwards.
+      if (body?.user?.userId) {
+        identifyUser({
+          userId: body.user.userId,
+          email: body.user.email ?? email,
+          signupDate: mode === "signup" ? new Date().toISOString() : undefined
+        });
+      }
+      trackAuthSucceeded(mode, "password");
+
       if (mode === "signup" || body?.user?.emailVerified === false) {
         assignOwnedLocation("/verify-email");
         return;
@@ -157,6 +195,7 @@ export function AuthPage({
       assignOwnedLocation(redirectPath);
     } catch {
       setError("We could not reach BehalfID. Check your connection and try again.");
+      trackAuthFailed(mode, "password", "Network error reaching BehalfID.");
     } finally {
       setSubmitting(false);
     }
@@ -265,7 +304,10 @@ export function AuthPage({
               autoComplete="email"
               className={authInputClass}
               id="auth-email"
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) => {
+                noteFormStarted("email");
+                setEmail(event.target.value);
+              }}
               required
               type="email"
               value={email}
@@ -278,7 +320,10 @@ export function AuthPage({
               className={authInputClass}
               id="auth-password"
               minLength={10}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={(event) => {
+                noteFormStarted("password");
+                setPassword(event.target.value);
+              }}
               required
               type="password"
               value={password}
@@ -292,7 +337,10 @@ export function AuthPage({
                 className={authInputClass}
                 id="auth-date-of-birth"
                 max={maxDateOfBirth(13)}
-                onChange={(event) => setDateOfBirth(event.target.value)}
+                onChange={(event) => {
+                  noteFormStarted("date_of_birth");
+                  setDateOfBirth(event.target.value);
+                }}
                 required
                 type="date"
                 value={dateOfBirth}

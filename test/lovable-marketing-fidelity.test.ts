@@ -14,6 +14,7 @@ function cssRuleBody(css: string, selector: string) {
 
 describe("lovable marketing visual fidelity", () => {
   const utilities = source("app/lovable-utilities.css");
+  const generatedUtilities = source("app/lovable-utilities.generated.css");
   const tokens = source("app/lovable-design-system.css");
   const home = source("components/marketing/LovableHomeContent.tsx");
 
@@ -32,7 +33,13 @@ describe("lovable marketing visual fidelity", () => {
 
   it("keeps display-2xl on a left-aligned unrestricted heading track", () => {
     const display = cssRuleBody(tokens, ".ds .display-2xl");
-    expect(display).toContain("clamp(2.6rem, 8.2vw, 5.25rem)");
+    // The clamp FLOOR is an INTENTIONAL deviation from Lovable's 2.6rem: below
+    // ~420px the 8.2vw term never wins, so 2.6rem pinned a six-line headline on
+    // a phone and pushed the hero's primary CTA under the fold. The vw term and
+    // the 5.25rem ceiling are untouched, so every width Lovable was designed
+    // against renders identically — assert both halves so a future edit cannot
+    // quietly restyle the desktop heading while claiming to be a mobile fix.
+    expect(display).toContain("clamp(2.15rem, 8.2vw, 5.25rem)");
     expect(display).toContain("text-align: left");
     expect(display).toContain("max-width: none");
   });
@@ -40,10 +47,25 @@ describe("lovable marketing visual fidelity", () => {
   it("keeps hero CTA padding utilities and preflight margin resets", () => {
     expect(cssRuleBody(utilities, ".ds .px-6")).toContain("1.5rem");
     expect(cssRuleBody(utilities, ".ds .px-8")).toContain("2rem");
-    expect(cssRuleBody(utilities, ".ds .h-10")).toContain("2.5rem");
+    // h-11 is emitted by the Tailwind build (lovable-utilities.generated.css)
+    // rather than the hand-maintained sheet. Assert it there so a CTA height
+    // whose utility was never generated cannot ship looking correct in source.
+    // Tailwind v4 emits the spacing scale as calc(var(--spacing) * n); with
+    // --spacing: 0.25rem that is the 2.75rem / 44px touch target.
+    expect(generatedUtilities).toContain("--spacing: 0.25rem");
+    expect(cssRuleBody(generatedUtilities, ".ds .h-11")).toContain("calc(var(--spacing) * 11)");
     expect(tokens).toMatch(/\.ds h1,[\s\S]*\.ds p \{[\s\S]*margin:\s*0;/);
-    expect(home).toContain("inline-flex h-10 items-center justify-center gap-2");
-    expect(home).toContain("rounded-full bg-primary px-6 text-sm font-medium");
+    // The hero CTA moved out of LovableHomeContent into a shared SignupCta so
+    // every entry point keeps one shape and reports its own placement. The pill
+    // itself is still Lovable's — rounded-full, bg-primary, px-6 — at h-11
+    // rather than h-10 so the touch target clears 44px, and full-width until
+    // `sm` so a phone gets a row instead of a pill in the left margin.
+    const cta = source("components/marketing/SignupCta.tsx");
+    expect(cta).toContain("h-11 w-full items-center justify-center gap-2");
+    expect(cta).toContain("rounded-full");
+    expect(cta).toContain("bg-primary text-primary-foreground hover:bg-primary/90");
+    expect(cta).toContain("px-6 text-[15px] font-medium");
+    expect(cta).toContain("sm:w-auto");
   });
 
   it("uses Lovable hero structure: max-w-7xl shell with max-w-3xl copy column", () => {
@@ -54,7 +76,10 @@ describe("lovable marketing visual fidelity", () => {
     // padding ladder rather than Lovable's original pt-20/28/32.
     expect(home).toContain('className="mx-auto max-w-7xl px-5 pt-10 sm:px-8 sm:pt-14 lg:pt-16 xl:pt-[5.5rem]"');
     expect(home).toContain('className="max-w-3xl"');
-    expect(home).toContain('className="display-2xl mt-7"');
+    // Lovable's mt-7 is kept from `sm` up; the base step is tightened so the
+    // hero's CTA is reachable on a phone. Assert the responsive pair rather
+    // than the bare utility, so a future edit cannot drop the desktop rhythm.
+    expect(home).toContain('className="display-2xl mt-5 sm:mt-7"');
     expect(home).toContain("AuthorityFlowCanvas");
     expect(home).toContain('href="#authority"');
   });

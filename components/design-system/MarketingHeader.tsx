@@ -10,6 +10,7 @@ import { ContinueWithGoogle } from "@/components/auth/ContinueWithGoogle";
 import { DsAppearanceToggle } from "@/components/design-system/DsAppearanceToggle";
 import { cn } from "@/lib/cn";
 import { crossAppClickHandler } from "@/lib/subdomainRouting";
+import { trackSignupCtaClick } from "@/lib/analytics/funnel";
 import type { PublicAuthAction } from "@/lib/publicAuthAction";
 
 /** Desktop nav mirrors Lovable; Blog stays mobile/footer-only to preserve density. */
@@ -124,11 +125,14 @@ export function MarketingHeader({
             {authLabel}
           </Link>
           {/* Google OAuth stays on login/signup; keep out of desktop chrome for Lovable density. */}
-          {/* Literal Lovable <Button size="sm" className="group rounded-full px-4 shadow-raised"> */}
+          {/* Literal Lovable <Button size="sm" className="group rounded-full px-4 shadow-raised">,
+              with the height raised to 36px below `sm` so the phone chrome matches
+              the 2.25rem hamburger beside it rather than offering a 32px target. */}
           <Link
             href="/signup"
-            className="group inline-flex h-8 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-primary px-4 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:pointer-events-none"
-            onClick={crossAppClickHandler("/signup")}
+            data-attr="signup-cta-header"
+            className="group inline-flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-primary px-4 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring sm:h-8 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:pointer-events-none"
+            onClick={crossAppClickHandler("/signup", () => trackSignupCtaClick("header"))}
           >
             Start building
             <ArrowRight className="transition-transform group-hover:translate-x-0.5" aria-hidden />
@@ -183,10 +187,11 @@ export function MarketingHeader({
           ) : null}
           <Link
             href="/signup"
+            data-attr="signup-cta-header-mobile"
             className="ds-header__cta mt-2 justify-center"
             onClick={(event) => {
               closeDrawer();
-              crossAppClickHandler("/signup")(event);
+              crossAppClickHandler("/signup", () => trackSignupCtaClick("header_mobile"))(event);
             }}
           >
             Start building

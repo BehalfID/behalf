@@ -24,7 +24,11 @@ import { ArrowRight } from "@/components/design-system/icons";
 import { crossAppClickHandler } from "@/lib/subdomainRouting";
 import { TestimonialWall } from "@/components/marketing/TestimonialWall";
 import { TrustPostureStrip } from "@/components/marketing/TrustPostureStrip";
+import { SecondaryCta, SignupCta } from "@/components/marketing/SignupCta";
+import { PLAN_ENTITLEMENTS, formatLimit } from "@/lib/plans";
 import { SDK_NPM_URL, SDK_PACKAGE, formatDownloads, type SdkDownloads } from "@/lib/npmDownloads";
+
+const freePlan = PLAN_ENTITLEMENTS.free;
 
 const sdkSnippet = `import { behalf } from "@behalfid/sdk";
 
@@ -59,34 +63,38 @@ export function LovableHomeContent({ downloads = null }: { downloads?: SdkDownlo
             <div className="inline-flex items-center gap-2.5 text-[11px] font-medium uppercase tracking-[0.2em] text-primary">
               <span aria-hidden>/</span> Approval gates for coding agents
             </div>
-            <h1 className="display-2xl mt-7">
+            {/* Mobile spacing is tightened at the base breakpoint and restored
+                from `sm`: on a phone this block is the whole first screen, and
+                the desktop rhythm spent enough of it on gaps to push the CTA
+                out of view. Copy is unchanged — only the gaps move. */}
+            <h1 className="display-2xl mt-5 sm:mt-7">
               Give AI agents freedom.
               <span className="mt-1 block text-muted-foreground">Keep their authority controlled.</span>
             </h1>
-            <p className="mt-8 max-w-lg text-[18px] leading-relaxed text-muted-foreground">
+            <p className="mt-5 max-w-lg text-[17px] leading-relaxed text-muted-foreground sm:mt-8 sm:text-[18px]">
               Decide what coding agents such as Claude Code, Codex and Cursor may do, what is always denied, and what
               requires human approval &mdash; before the action runs, not after.
             </p>
             {/* The nouns the audience actually searches for, kept above the fold. */}
-            <p className="mt-5 max-w-lg text-[18px] font-medium leading-relaxed">
+            <p className="mt-4 max-w-lg text-[17px] font-medium leading-relaxed sm:mt-5 sm:text-[18px]">
               Every action gets an allow, deny, or approval-required decision &mdash; fail closed at the integration
               point.
             </p>
-            <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Link
-                href="/signup"
-                className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-primary px-6 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
-                onClick={crossAppClickHandler("/signup")}
-              >
-                Start building <ArrowRight className="size-4" aria-hidden />
-              </Link>
-              <a
-                href="#authority"
-                className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-full px-6 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-              >
-                See how it works
-              </a>
+            <div className="mt-7 flex flex-col gap-3 sm:mt-10 sm:flex-row sm:items-center">
+              <SignupCta placement="home_hero" />
+              <SecondaryCta href="#authority">See how it works</SecondaryCta>
             </div>
+            {/* What the CTA actually costs, next to the CTA. The numbers come
+                from the live entitlement table, so the promise cannot drift
+                away from the plan the visitor is about to land on. */}
+            <p className="mt-4 max-w-lg text-[14px] leading-relaxed text-muted-foreground">
+              Free plan, no credit card &mdash;{" "}
+              <span className="num font-medium text-foreground">{formatLimit(freePlan.maxAgents)} agents</span> and{" "}
+              <span className="num font-medium text-foreground">
+                {formatLimit(freePlan.monthlyVerifications)} verifications
+              </span>{" "}
+              a month.
+            </p>
             <TrustCallout className="mt-5 max-w-lg" />
           </div>
         </div>
