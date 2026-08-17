@@ -121,8 +121,13 @@ describe("public navigation integration", () => {
 
   it("keeps primary homepage CTA on signup, not login", () => {
     const home = source("components/marketing/LovableHomeContent.tsx");
-    expect(home).toContain('href="/signup"');
-    expect(home).toContain("Start building");
+    const cta = source("components/marketing/SignupCta.tsx");
+    // The hero button is now the shared SignupCta rather than a hand-rolled
+    // anchor, so the invariant is asserted where it actually lives: the hero
+    // renders the sign-up component, and that component defaults to /signup.
+    expect(home).toContain('<SignupCta placement="home_hero" />');
+    expect(cta).toContain('href = "/signup"');
+    expect(cta).not.toContain('href = "/login"');
   });
 
   it("surfaces Google OAuth from server-configured homepage and public nav", () => {

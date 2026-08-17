@@ -1,6 +1,18 @@
 export const PRO_PLAN_PRICE_CENTS = 2000; // $20/month
 
 /**
+ * Per-API-key request ceiling, in requests per minute, on every plan.
+ *
+ * Enforced by lib/rateLimit.ts and published on /pricing so an evaluator can
+ * answer "will this keep up with my traffic?" without a sales conversation. It
+ * lives here rather than in the limiter because the limiter imports node:crypto
+ * and so cannot be pulled into a client component — and a marketing page that
+ * quotes a number the enforcement path no longer uses is worse than one that
+ * quotes none.
+ */
+export const API_RATE_LIMIT_PER_MINUTE = 60;
+
+/**
  * Internal plan identifiers.
  *
  * "pro" is the legacy Stripe-billed paid plan and keeps its historical limits.

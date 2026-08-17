@@ -297,9 +297,14 @@ html .ds pre {
   font-weight: 500;
 }
 
+/* Homepage hero H1 only. The lower clamp floor is a mobile fix, not a
+   restyle: below ~420px the 8.2vw term never wins, so the old 2.6rem floor
+   pinned a six-line headline on a phone and pushed the primary CTA under the
+   fold. From ~420px up the vw term takes over again and the desktop size is
+   unchanged. */
 .ds .display-2xl {
   margin: 0;
-  font-size: clamp(2.6rem, 8.2vw, 5.25rem);
+  font-size: clamp(2.15rem, 8.2vw, 5.25rem);
   line-height: 0.98;
   letter-spacing: -0.038em;
   font-weight: 500;

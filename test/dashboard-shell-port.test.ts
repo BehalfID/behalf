@@ -72,6 +72,9 @@ describe("resolveDashboardShellProps", () => {
 
     const props = await resolveDashboardShellProps();
     expect(props.user).toEqual({
+      // The stable internal id travels with the shell user so the client can
+      // identify the analytics person without a second round trip.
+      userId: "u1",
       name: "Ada Lovelace",
       email: "ada@example.test",
       initials: "AL"

@@ -1,9 +1,13 @@
 import crypto from "crypto";
 import type { NextRequest } from "next/server";
 import { jsonAppError } from "@/lib/appErrors";
+import { API_RATE_LIMIT_PER_MINUTE } from "@/lib/plans";
 
 const WINDOW_MS = 60_000;
-const MAX_REQUESTS = 60;
+// Published on /pricing. Defined in lib/plans.ts rather than here because this
+// module pulls in node:crypto and cannot be imported by a client component; the
+// limiter is still the only thing that enforces it.
+const MAX_REQUESTS = API_RATE_LIMIT_PER_MINUTE;
 const REDIS_PREFIX = "behalfid:rate-limit";
 
 // Auth endpoints: stricter window and lower cap to limit brute-force per identity

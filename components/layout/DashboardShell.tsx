@@ -25,9 +25,10 @@ import {
   workspaceApiHref
 } from "@/lib/workspaceSlug";
 import { isDashboardNavItemActive, workspaceInitials } from "@/lib/dashboardShellPresentation";
-// Clears the analytics person on sign-out so the next visitor on this device
-// starts anonymous. No-op when analytics never initialised (consent declined).
-import { resetIdentity } from "@/lib/analytics/identity";
+// `identifyUser` joins this session to the account; `resetIdentity` clears the
+// analytics person on sign-out so the next visitor on this device starts
+// anonymous. Both are no-ops when analytics never initialised (consent declined).
+import { identifyUser, resetIdentity } from "@/lib/analytics/identity";
 import "./dashboard-chrome.css";
 
 /**
@@ -70,6 +71,12 @@ const utilityItems = [
 ] as const;
 
 export type DashboardShellUser = {
+  /**
+   * Stable internal user id — the same value the server sends to analytics, and
+   * what joins a signed-in session to the anonymous browsing that preceded it.
+   * Never an email or a session token.
+   */
+  userId: string;
   name: string;
   email: string;
   initials: string;
@@ -381,6 +388,25 @@ export function DashboardShellLayout({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const hamburgerRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
+
+  // Identify from the shell rather than only at the moment of sign-in. The
+  // credential form can identify what it just created, but OAuth and passkey
+  // sign-ins come back through a redirect with no client-side success handler,
+  // and a returning visitor with a live session cookie never touches the form at
+  // all. Doing it here covers every way of arriving, and setIdentity is
+  // idempotent, so re-running it per session costs nothing.
+  const userId = user?.userId ?? null;
+  const userEmail = user?.email ?? null;
+  const userName = user?.name ?? null;
+  useEffect(() => {
+    if (!userId) return;
+    identifyUser({
+      userId,
+      email: userEmail,
+      name: userName,
+      plan: effectivePlan
+    });
+  }, [userId, userEmail, userName, effectivePlan]);
 
   const href = useCallback(
     (subpath: string) =>
