@@ -13,6 +13,7 @@ import {
 } from "@/lib/webhooks";
 import { effectiveEntitlements, effectivePlan } from "@/lib/planGrants";
 import { createEndpoint, listEndpoints } from "@/lib/repositories/webhooks";
+import { requireWorkspaceMutationActor } from "@/lib/workspaceActor";
 
 export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
@@ -35,6 +36,12 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
+
+  // Endpoints registered here receive account-scoped events, including activity
+  // for agents the registrant does not own, so registering one is a mutation a
+  // read-only VIEWER must not be able to perform.
+  const workspace = await requireWorkspaceMutationActor(auth.user, auth.activeAccountId);
+  if (workspace.error) return workspace.error;
 
   const webhookQuota = checkWebhooksEnabled(auth.account);
   if (!webhookQuota.allowed) {

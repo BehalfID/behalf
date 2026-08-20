@@ -214,7 +214,7 @@
       "item4Strong": "Billing data",
       "item4": " — retained for as long as required by applicable tax and accounting law (typically 7 years), even after account deletion.",
       "item5Strong": "IP addresses used for rate limiting",
-      "item5": " — stored in memory only; not persisted to disk."
+      "item5": " — held only as short-lived counters in our rate-limit store (Upstash Redis in production; per-instance memory when Redis is not configured), which expire automatically at the end of each rate-limit window. They are never written to the application database."
     },
     "s7": {
       "heading": "7. Third-party processors",
@@ -232,12 +232,18 @@
       "row3Data": "Email address, billing name, payment card details (held by Stripe only), subscription events",
       "row4Proc": "HeyCatch",
       "row4Purpose": "Product analytics (only after analytics consent)",
-      "row4Data": "Pageviews, clicks, in-app navigation, a random device identifier, and — once signed in — your user id, email, name, and plan; plus subscription events sent from our servers"
+      "row4Data": "Pageviews, clicks, in-app navigation, a random device identifier, and — once signed in — your user id, email, name, and plan; plus subscription events sent from our servers",
+      "row5Proc": "Upstash",
+      "row5Purpose": "Rate limiting and abuse prevention",
+      "row5Data": "IP address as a short-lived counter key; email addresses appear only as SHA-256 hashes. Entries expire at the end of each rate-limit window.",
+      "row6Proc": "Google",
+      "row6Purpose": "Sign in with Google and optional Workspace SSO",
+      "row6Data": "Email address, Google account identifier, and basic profile claims used to authenticate you (only if you sign in with Google)"
     },
     "s8": {
       "heading": "8. Your rights",
       "body1": "Depending on your jurisdiction you may have the right to access, correct, delete, or port your personal data, and to object to or restrict certain processing.",
-      "body2": "To exercise any of these rights, email <email>legal@behalfid.com</email>. We will respond within 30 days. Verification logs can also be deleted immediately from the <logsLink>dashboard logs</logsLink> page."
+      "body2": "You can exercise access and portability yourself at any time: the “Export your data” section of your dashboard downloads a machine-readable copy of your account profile, linked identities, passkeys, workspace memberships, and identity/login history. Verification logs are not part of that export — they can be viewed and deleted directly from the <logsLink>dashboard logs</logsLink> page. For anything else — correction, erasure, restriction, or objection — email <email>legal@behalfid.com</email>. We will respond within 30 days."
     },
     "s9": {
       "heading": "9. Security",

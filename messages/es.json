@@ -214,7 +214,7 @@
       "item4Strong": "Datos de facturación",
       "item4": " — conservados durante el tiempo requerido por la legislación fiscal y contable aplicable (normalmente 7 años), incluso después de la eliminación de la cuenta.",
       "item5Strong": "Direcciones IP usadas para limitación de velocidad",
-      "item5": " — almacenadas solo en memoria; no persistidas en disco."
+      "item5": " — se mantienen solo como contadores de corta duración en nuestro almacén de limitación de velocidad (Upstash Redis en producción; memoria por instancia cuando Redis no está configurado), que caducan automáticamente al final de cada ventana de limitación. Nunca se escriben en la base de datos de la aplicación."
     },
     "s7": {
       "heading": "7. Procesadores de terceros",
@@ -232,12 +232,18 @@
       "row3Data": "Dirección de correo, nombre de facturación, detalles de tarjeta de pago (conservados solo por Stripe), eventos de suscripción",
       "row4Proc": "HeyCatch",
       "row4Purpose": "Análisis de producto (solo tras el consentimiento de análisis)",
-      "row4Data": "Vistas de página, clics, navegación en la app, un identificador de dispositivo aleatorio y — tras iniciar sesión — tu id de usuario, correo, nombre y plan; además de eventos de suscripción enviados desde nuestros servidores"
+      "row4Data": "Vistas de página, clics, navegación en la app, un identificador de dispositivo aleatorio y — tras iniciar sesión — tu id de usuario, correo, nombre y plan; además de eventos de suscripción enviados desde nuestros servidores",
+      "row5Proc": "Upstash",
+      "row5Purpose": "Limitación de velocidad y prevención de abusos",
+      "row5Data": "Dirección IP como clave de contador de corta duración; las direcciones de correo solo aparecen como hashes SHA-256. Las entradas caducan al final de cada ventana de limitación.",
+      "row6Proc": "Google",
+      "row6Purpose": "Iniciar sesión con Google y SSO de Workspace opcional",
+      "row6Data": "Dirección de correo electrónico, identificador de cuenta de Google y datos básicos de perfil usados para autenticarte (solo si inicias sesión con Google)"
     },
     "s8": {
       "heading": "8. Tus derechos",
       "body1": "Dependiendo de tu jurisdicción, puedes tener derecho a acceder, corregir, eliminar o portar tus datos personales, y a objetar o restringir cierto procesamiento.",
-      "body2": "Para ejercer cualquiera de estos derechos, envía un correo a <email>legal@behalfid.com</email>. Responderemos en 30 días. Los registros de verificación también se pueden eliminar inmediatamente desde la <logsLink>página de registros del panel de control</logsLink>."
+      "body2": "Puedes ejercer el acceso y la portabilidad por ti mismo en cualquier momento: la sección «Exporta tus datos» de tu panel descarga una copia legible por máquina del perfil de tu cuenta, tus identidades vinculadas, passkeys, membresías de espacios de trabajo e historial de identidad y accesos. Los registros de verificación no forman parte de ese export — puedes consultarlos y eliminarlos directamente desde la <logsLink>página de registros del panel de control</logsLink>. Para cualquier otra cosa — rectificación, supresión, limitación u oposición — escribe a <email>legal@behalfid.com</email>. Responderemos en 30 días."
     },
     "s9": {
       "heading": "9. Seguridad",

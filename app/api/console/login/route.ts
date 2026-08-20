@@ -84,6 +84,9 @@ export async function POST(request: NextRequest) {
       target: bootstrapEmail
     });
     const session = createConsoleAdminSessionValue(adminId);
+    if (!session) {
+      return jsonError("Console session signing is not configured.", 500);
+    }
     const response = NextResponse.json({ authenticated: true, adminId, mode: "admin" });
     setConsoleSessionCookie(response, session);
     return response;
@@ -106,6 +109,9 @@ export async function POST(request: NextRequest) {
       target: admin.email
     });
     const session = createConsoleAdminSessionValue(admin.adminId);
+    if (!session) {
+      return jsonError("Console session signing is not configured.", 500);
+    }
     const response = NextResponse.json({
       authenticated: true,
       adminId: admin.adminId,

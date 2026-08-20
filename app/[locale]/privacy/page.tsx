@@ -197,6 +197,16 @@ export default async function PrivacyPage({
                   <td>{t("s7.row4Purpose")}</td>
                   <td>{t("s7.row4Data")}</td>
                 </tr>
+                <tr>
+                  <td>{t("s7.row5Proc")}</td>
+                  <td>{t("s7.row5Purpose")}</td>
+                  <td>{t("s7.row5Data")}</td>
+                </tr>
+                <tr>
+                  <td>{t("s7.row6Proc")}</td>
+                  <td>{t("s7.row6Purpose")}</td>
+                  <td>{t("s7.row6Data")}</td>
+                </tr>
               </tbody>
             </table>
           </section>

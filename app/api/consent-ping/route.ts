@@ -5,7 +5,18 @@ import { readJsonObject } from "@/lib/request";
 
 export const runtime = "nodejs";
 
-const VALID_STATES = new Set(["accepted", "rejected", "dismissed", "unknown"]);
+// Must stay in step with the ping() calls in components/ui/CookieBanner.tsx.
+// A refusal has to be distinguishable from a non-answer: collapsing "declined"
+// into "unknown" leaves no record that consent was actually withheld.
+const VALID_STATES = new Set([
+  "accepted",
+  "declined",
+  "shown",
+  "already-set:accepted",
+  "already-set:declined",
+  "storage-error",
+  "unknown"
+]);
 
 export async function POST(req: NextRequest) {
   const limit = await checkRateLimit(req);

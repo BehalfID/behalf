@@ -185,6 +185,22 @@ describe("approval intent preview security", () => {
     expect(redactSecrets("tok=bhf_dev_abcdefghijklmnopqrstuvwxyz")).toContain("bhf_dev_[redacted]");
     expect(redactSecrets("pass=bhf_pass_abcdefghijklmnopqrstuvwxyz")).toContain("bhf_pass_[redacted]");
     expect(redactSecrets("secret=whsec_abcdefghijklmnopqrstuvwxyz")).toContain("whsec_[redacted]");
+    expect(redactSecrets("site=bhf_site_abcdefghijklmnopqrstuvwxyz")).toContain("bhf_site_[redacted]");
+  });
+
+  it("redacts bare credentials carried as URL query parameters", () => {
+    // Email-verification and password-reset tokens have no prefix to match on, and
+    // Sentry captures request URLs regardless of sendDefaultPii.
+    const verifyUrl = "https://behalfid.com/verify-email?token=Ab3-_xyzABCDEFGHIJKLMNOP";
+    expect(redactSecrets(verifyUrl)).toBe("https://behalfid.com/verify-email?token=[redacted]");
+
+    const resetUrl = "https://behalfid.com/reset-password?token=Ab3-_xyz&next=/dashboard";
+    expect(redactSecrets(resetUrl)).toContain("token=[redacted]");
+    expect(redactSecrets(resetUrl)).toContain("next=/dashboard");
+
+    expect(redactSecrets("/callback?code=abc123&state=xyz789")).toBe(
+      "/callback?code=[redacted]&state=[redacted]"
+    );
   });
 
   it("truncates long previews but fingerprints the complete value", () => {

@@ -231,8 +231,10 @@ export default function PrivacyPage() {
                 tax and accounting law (typically 7 years), even after account deletion.
               </li>
               <li>
-                <strong>IP addresses used for rate limiting</strong> — stored in memory only;
-                not persisted to disk.
+                <strong>IP addresses used for rate limiting</strong> — held only as short-lived
+                counters in our rate-limit store (Upstash Redis in production; per-instance
+                memory when Redis is not configured), which expire automatically at the end of
+                each rate-limit window. They are never written to the application database.
               </li>
             </ul>
           </section>
@@ -268,6 +270,22 @@ export default function PrivacyPage() {
                   <td>Product analytics (consent-gated — see sections 3 and 5)</td>
                   <td>Internal user ID, account email and name, plan, product-usage events</td>
                 </tr>
+                <tr>
+                  <td>Upstash</td>
+                  <td>Rate limiting and abuse prevention</td>
+                  <td>
+                    IP address as a short-lived counter key; email addresses appear only as
+                    SHA-256 hashes. Entries expire at the end of each rate-limit window.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Google</td>
+                  <td>Sign in with Google and optional Workspace SSO</td>
+                  <td>
+                    Email address, Google account identifier, and basic profile claims used to
+                    authenticate you (only if you sign in with Google)
+                  </td>
+                </tr>
               </tbody>
             </table>
           </section>
@@ -279,10 +297,14 @@ export default function PrivacyPage() {
               or port your personal data, and to object to or restrict certain processing.
             </p>
             <p>
-              To exercise any of these rights, email{' '}
-              <a href={`mailto:${CONTACT}`}>{CONTACT}</a>. We will respond within 30 days.
-              Verification logs can also be deleted immediately from the{' '}
+              You can exercise access and portability yourself at any time: the{' '}
+              <strong>Export your data</strong> section of your dashboard downloads a machine-readable
+              copy of your account profile, linked identities, passkeys, workspace memberships, and
+              identity/login history. Verification logs are not part of that export — they can be
+              viewed and deleted directly from the{' '}
               <Link href="/dashboard/logs">dashboard logs</Link> page.
+              For anything else — correction, erasure, restriction, or objection — email{' '}
+              <a href={`mailto:${CONTACT}`}>{CONTACT}</a>. We will respond within 30 days.
             </p>
           </section>
 

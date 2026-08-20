@@ -116,33 +116,44 @@ function getSessionSigningSecret() {
   return (
     process.env.BEHALFID_SETUP_TOKEN?.trim() ||
     process.env.BEHALFID_ADMIN_PASSWORD?.trim() ||
-    "dev-console-session"
+    null
   );
 }
 
-function signAdminSession(adminId: string, issuedAt: number, nonce: string) {
+function signAdminSession(secret: string, adminId: string, issuedAt: number, nonce: string) {
   return crypto
-    .createHmac("sha256", getSessionSigningSecret())
+    .createHmac("sha256", secret)
     .update(`admin.${adminId}.${issuedAt}.${nonce}`)
     .digest("base64url");
 }
 
 export function createConsoleAdminSessionValue(adminId: string) {
+  const secret = getSessionSigningSecret();
+  if (!secret) return null;
+
   const issuedAt = Date.now();
   const nonce = crypto.randomBytes(12).toString("base64url");
-  return `v2.${adminId}.${issuedAt}.${nonce}.${signAdminSession(adminId, issuedAt, nonce)}`;
+  return `v2.${adminId}.${issuedAt}.${nonce}.${signAdminSession(secret, adminId, issuedAt, nonce)}`;
 }
 
 export function parseConsoleSession(value?: string): { kind: "shared" } | { kind: "admin"; adminId: string } | null {
   if (!value) return null;
   if (value.startsWith("v2.")) {
+    // No configured secret means no verifiable session. Mirrors the shared-session
+    // branch below: without this the HMAC key would fall back to a constant and any
+    // caller could mint a console session.
+    const secret = getSessionSigningSecret();
+    if (!secret) return null;
+
     const parts = value.split(".");
     if (parts.length !== 5) return null;
     const [, adminId, issuedAtRaw, nonce, signature] = parts;
     const issuedAt = Number(issuedAtRaw);
     if (!adminId || !Number.isFinite(issuedAt) || !nonce || !signature) return null;
     if (issuedAt + SESSION_TTL_SECONDS * 1000 <= Date.now()) return null;
-    if (!timingSafeEqualString(signature, signAdminSession(adminId, issuedAt, nonce))) return null;
+    if (!timingSafeEqualString(signature, signAdminSession(secret, adminId, issuedAt, nonce))) {
+      return null;
+    }
     return { kind: "admin", adminId };
   }
   if (isValidSharedConsoleSession(value)) {

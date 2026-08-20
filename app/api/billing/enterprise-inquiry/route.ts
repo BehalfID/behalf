@@ -4,8 +4,14 @@ import { isValidEmail } from "@/lib/developerAuth";
 import { createEnterpriseInquiry } from "@/lib/repositories/enterpriseInquiries";
 import { isRecord, readString, rejectUnknownFields } from "@/lib/validation";
 import { jsonError } from "@/lib/responses";
+import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 
 export async function POST(request: NextRequest) {
+  // Unauthenticated public write — the marketing contact form posts here with no
+  // captcha, so the IP limiter is the only thing bounding row creation.
+  const limit = await checkRateLimit(request);
+  if (limit.limited) return rateLimitError();
+
   let body: unknown;
   try {
     body = await request.json();
