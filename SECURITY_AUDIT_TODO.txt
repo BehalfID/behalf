@@ -512,3 +512,58 @@
 #   env file is .env.example / examples/site-guard-demo/.env.example; no key/cert files
 #   tracked; the sk-... string in test/mcp-audit.test.ts is an intentional test fixture,
 #   not a real credential)
+
+# Last audit: 2026-08-21 (deep authz/business-logic + compliance review)
+# Result: PASSED (1 confirmed Medium finding fixed)
+# - FIXED: disabled agents could still obtain a signed egress ticket via
+#   POST /api/egress/authorize for the platform host and any host in
+#   BEHALFID_EGRESS_ALLOW_HOSTS, because those two allow-branches in
+#   authorizeEgressRequest() (lib/egressAuthorize.ts) returned allowed:true
+#   before ever reaching verifyAction(), which is the only place that checked
+#   agentStatus === "disabled". Every other enforcement path (/api/verify,
+#   /api/gateway/execute, /api/actions/execute, agent branch of
+#   /api/permissions) already threads agentStatus into verifyAction() and was
+#   unaffected. Added an explicit disabled-agent check at the top of
+#   authorizeEgressRequest() so it applies uniformly, plus two regression
+#   tests in test/egress-proxy.test.ts (platform-host and allowlist branches)
+#   that fail against the pre-fix code and pass after.
+# - Reviewed and cleared (no issues found): IDOR/tenant scoping across all
+#   app/api/dashboard/** and app/api/console/** routes; "agent cannot grant
+#   permissions" server-side enforcement; self-approval / role-escalation
+#   guards in lib/delegatedAuth.ts; console/dashboard mutation Origin checks;
+#   Stripe + Slack + SDK webhook signature verification (fail-closed,
+#   constant-time, replay-window bounded); atomicity of approval
+#   approve/deny and grant-consumption updates; durability of the privileged-
+#   mutation audit trail (webhook_events); admin/setup-token timing-safe
+#   comparison and unsafe-default-password blocking in lib/adminAuth.ts;
+#   fail-closed deny precedence in lib/verify.ts; SSRF protections in
+#   lib/ssrf.ts / lib/actionGateway.ts (private/internal IP + DNS-rebinding
+#   defenses, per-redirect-hop re-validation).
+# - Compliance: docs/compliance/GAP_ANALYSIS.md already tracks the residual
+#   non-code items (ISMS policy approval, backup/DR drills, vendor DPAs for
+#   Supabase/HeyCatch, CSRF-token hardening, API-key-hash pepper) as
+#   Medium/Low hardening or process gaps, not confirmed vulnerabilities; no
+#   new compliance-relevant code defect found. Public /privacy and
+#   /compliance pages remain in sync with the Postgres/Supabase + HeyCatch
+#   architecture (no stale MongoDB references).
+# - npm audit (root + --omit=dev): 0 vulnerabilities
+# - npm audit: 0 vulnerabilities in packages/cli, packages/egress-proxy, packages/github-action,
+#   packages/install, packages/mcp-audit, packages/mcp-runtime, packages/sdk,
+#   examples/enforcement-demo, examples/node-demo, examples/site-guard-express,
+#   examples/site-guard-nextjs, examples/webhook-receiver
+# - Unit tests: 2841 passed, 78 skipped (223 files, root, incl. 2 new egress
+#   regression tests); 146 passed (egress-proxy, install, github-action); 93
+#   passed (mcp-runtime)
+#   - test/mongo-repository-contracts.test.ts (73 tests) could not execute: MongoMemoryServer
+#     binary download blocked by this sandbox's outbound network policy (fastdl.mongodb.org);
+#     unrelated to source changes and runs normally in GitHub Actions CI
+# - npx tsc --noEmit: clean
+# - npm run build: clean (Next.js production build succeeded)
+# - npm run lint: pre-existing errors only (121 errors / 75 warnings, all in
+#   already-committed code/tests, unchanged by this run); CI does not gate on
+#   lint per AGENTS.md
+# - No hardcoded secrets detected (grepped for AWS key/sk-.../Slack-token/Google-API-key/
+#   private-key patterns across the repo, excluding compiled dist/ bundles; only committed
+#   env file is .env.example / examples/site-guard-demo/.env.example; no key/cert files
+#   tracked; the sk-... string in test/mcp-audit.test.ts and test/cli-scan.test.ts is an
+#   intentional test fixture, not a real credential)

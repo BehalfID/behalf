@@ -119,6 +119,44 @@ describe("egress authorize policy", () => {
     expect(decision.allowed).toBe(true);
     expect(decision.ticket).toMatch(/^bhf_egress_/);
   });
+
+  it("denies a disabled agent even for a platform host", async () => {
+    const decision = await authorizeEgressRequest({
+      request: {
+        agentId: "agent_1",
+        method: "CONNECT",
+        url: "https://behalfid.com:443/",
+        host: "behalfid.com",
+        port: 443,
+        protocol: "connect"
+      },
+      accountId: "acct_1",
+      agentStatus: "disabled"
+    });
+    expect(decision.allowed).toBe(false);
+    expect(decision.reason).toMatch(/disabled/i);
+    expect(decision.ticket).toBeUndefined();
+  });
+
+  it("denies a disabled agent even when the host matches the egress allowlist", async () => {
+    vi.stubEnv("BEHALFID_EGRESS_ALLOW_HOSTS", "api.stripe.com");
+    const decision = await authorizeEgressRequest({
+      request: {
+        agentId: "agent_1",
+        method: "CONNECT",
+        url: "https://api.stripe.com:443/",
+        host: "api.stripe.com",
+        port: 443,
+        protocol: "connect"
+      },
+      accountId: "acct_1",
+      agentStatus: "disabled"
+    });
+    vi.unstubAllEnvs();
+    expect(decision.allowed).toBe(false);
+    expect(decision.reason).toMatch(/disabled/i);
+    expect(decision.ticket).toBeUndefined();
+  });
 });
 
 describe("egress proxy CONNECT tunneling", () => {
