@@ -567,3 +567,44 @@
 #   env file is .env.example / examples/site-guard-demo/.env.example; no key/cert files
 #   tracked; the sk-... string in test/mcp-audit.test.ts and test/cli-scan.test.ts is an
 #   intentional test fixture, not a real credential)
+
+# Last audit: 2026-08-22 (full security + compliance audit)
+# Result: PASSED (no new confirmed findings; prior Medium fix verified)
+# - Verified the 2026-08-21 disabled-agent egress-authorization fix
+#   (lib/egressAuthorize.ts) is in place and that all four verifyAction /
+#   authorizeEgressRequest entry points (app/api/verify, app/api/gateway/execute,
+#   app/api/actions/execute, app/api/egress/authorize) thread agentStatus
+#   consistently.
+# - Reviewed CSP/nonce middleware (proxy.ts), SSRF guards (lib/ssrf.ts),
+#   production env validation (lib/env.ts), and the Redis rate-limit fallback
+#   (lib/rateLimit.ts) — all consistent with the previously-documented mature
+#   state; no confirmed defects.
+# - HARDENING NOTE (not a confirmed vulnerability): lib/egressAuthorize.ts's
+#   ticketSecret() falls back to a hardcoded string
+#   ("behalfid-dev-egress-ticket-secret") if BEHALFID_EGRESS_TICKET_SECRET,
+#   BEHALFID_WEBHOOK_SIGNING_PEPPER, and NEXTAUTH_SECRET are all unset, and
+#   that env var isn't in lib/env.ts's REQUIRED_PRODUCTION_ENV_BASE. Currently
+#   non-exploitable: verifyEgressTicket() has no caller outside its own module
+#   and tests, so no code path trusts a ticket's signature as an authorization
+#   decision — the security boundary is the authorizeEgressRequest() call
+#   itself, not the ticket. Recommend either wiring ticket verification into
+#   the actual egress path or requiring BEHALFID_EGRESS_TICKET_SECRET in
+#   production if that's planned; tracking here rather than changing
+#   behavior speculatively.
+# - npm audit (root, --omit=dev and default) + all workspaces/examples
+#   (packages/cli, packages/egress-proxy, packages/github-action,
+#   packages/install, packages/mcp-audit, packages/mcp-runtime, packages/sdk,
+#   examples/enforcement-demo, examples/node-demo, examples/site-guard-express,
+#   examples/site-guard-nextjs, examples/webhook-receiver): 0 vulnerabilities
+# - Unit tests: 2841 passed, 78 skipped (222/223 files, root); 146 passed
+#   (egress-proxy, install, github-action); 93 passed (mcp-runtime)
+#   - test/mongo-repository-contracts.test.ts (73 tests) could not execute: MongoMemoryServer
+#     binary download blocked by this sandbox's outbound network policy (fastdl.mongodb.org);
+#     unrelated to source changes and runs normally in GitHub Actions CI
+# - npx tsc --noEmit: clean
+# - npm run build: clean (Next.js production build succeeded)
+# - npm run lint: pre-existing errors only, unchanged by this run; CI does not
+#   gate on lint per AGENTS.md
+# - No hardcoded secrets detected (same grep methodology as prior audits;
+#   only committed env file is .env.example / examples/site-guard-demo/.env.example;
+#   no key/cert files tracked; sk-... strings in test fixtures are intentional)
