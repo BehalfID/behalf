@@ -17,6 +17,15 @@ export const SDK_NPM_URL = "https://www.npmjs.com/package/@behalfid/sdk";
 
 const DOWNLOADS_ENDPOINT = `https://api.npmjs.org/downloads/point/last-month/${SDK_PACKAGE}`;
 
+/**
+ * This fetch sits in the homepage's server render, so a slow npm is a slow
+ * homepage for every visitor and crawler that lands on a cold cache. The figure
+ * is decorative — a bounded wait that yields null beats an unbounded one that
+ * holds the whole page. Budget is generous enough that a healthy npm always
+ * answers inside it.
+ */
+const DOWNLOADS_TIMEOUT_MS = 2_500;
+
 export type SdkDownloads = {
   /** Downloads in the trailing 30 days. */
   count: number;
@@ -29,7 +38,10 @@ export async function getSdkDownloads(): Promise<SdkDownloads | null> {
     const response = await fetch(DOWNLOADS_ENDPOINT, {
       // One refresh a day is plenty for a trailing-30-day figure, and keeps the
       // marketing pages statically cacheable.
-      next: { revalidate: 86_400 }
+      next: { revalidate: 86_400 },
+      // An abort rejects the fetch, which the catch below turns into null —
+      // the same outcome as any other failure.
+      signal: AbortSignal.timeout(DOWNLOADS_TIMEOUT_MS)
     });
     if (!response.ok) return null;
 

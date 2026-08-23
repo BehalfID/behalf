@@ -50,6 +50,22 @@ describe("getSdkDownloads", () => {
     await expect(getSdkDownloads()).resolves.toBeNull();
   });
 
+  it("bounds the request so a hung npm cannot stall the homepage render", async () => {
+    const fetchMock = stubFetch({ downloads: 5, end: "2026-08-10" });
+    await getSdkDownloads();
+
+    const init = fetchMock.mock.calls[0]?.[1] as { signal?: AbortSignal } | undefined;
+    expect(init?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("returns null when the request times out", async () => {
+    // AbortSignal.timeout rejects with a TimeoutError; it must be swallowed
+    // like any other failure so the page still renders without the figure.
+    const timeout = new DOMException("The operation was aborted.", "TimeoutError");
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(timeout));
+    await expect(getSdkDownloads()).resolves.toBeNull();
+  });
+
   it("tolerates a missing end date", async () => {
     stubFetch({ downloads: 42 });
     await expect(getSdkDownloads()).resolves.toEqual({ count: 42, end: "" });
