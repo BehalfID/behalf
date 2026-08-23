@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { canonicalOrigin } from "@/lib/canonicalOrigin";
 
 /**
  * OpenAI's ChatGPT ads crawler. It fetches the landing pages behind ChatGPT ad
@@ -28,6 +29,9 @@ export default function robots(): MetadataRoute.Robots {
         disallow: "/design-system/foundation"
       }
     ],
-    sitemap: "https://behalfid.com/sitemap.xml"
+    // Must name the same origin the sitemap itself advertises, and an origin
+    // that actually serves — a crawler that cannot fetch this treats the site
+    // as having no sitemap at all.
+    sitemap: `${canonicalOrigin()}/sitemap.xml`
   };
 }

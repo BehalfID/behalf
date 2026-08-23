@@ -5,6 +5,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { CookieBanner } from "@/components/ui";
+import { canonicalOrigin } from "@/lib/canonicalOrigin";
 import "./globals.css";
 import "./design-system-foundation.css";
 import "./lovable-design-system.css";
@@ -38,7 +39,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://behalfid.com"),
+  metadataBase: new URL(canonicalOrigin()),
   title: "BehalfID - Permission passports for AI agents",
   description: "Connect agents, define permissions, and verify actions before they happen.",
   alternates: {
@@ -47,7 +48,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "BehalfID - Permission passports for AI agents",
     description: "Connect agents, define permissions, and verify actions before they happen.",
-    url: "https://behalfid.com",
+    url: canonicalOrigin(),
     siteName: "BehalfID",
     type: "website"
   },

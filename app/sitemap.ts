@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
+import { canonicalOrigin } from "@/lib/canonicalOrigin";
 
-const baseUrl = "https://behalfid.com";
 const lastModified = new Date("2026-08-02T00:00:00.000Z");
 
 const routes: Array<{
@@ -46,6 +46,9 @@ const routes: Array<{
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {
+  // Resolved per call rather than at module scope so the origin follows the
+  // deployment's env rather than whatever was set when the module was imported.
+  const baseUrl = canonicalOrigin();
   return routes.map((route) => ({
     url: `${baseUrl}${route.path}`,
     lastModified,

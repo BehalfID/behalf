@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import sitemap from "@/app/sitemap";
+import { DEFAULT_CANONICAL_ORIGIN, canonicalOrigin } from "@/lib/canonicalOrigin";
 
 vi.mock("next/server", () => ({
   NextResponse: { next: vi.fn(), redirect: vi.fn(), rewrite: vi.fn() }
@@ -70,8 +72,34 @@ describe("robots.txt", () => {
     }
   });
 
-  it("advertises the sitemap", () => {
-    expect(robots().sitemap).toBe("https://behalfid.com/sitemap.xml");
+  it("advertises the sitemap on the canonical origin", () => {
+    expect(robots().sitemap).toBe(`${DEFAULT_CANONICAL_ORIGIN}/sitemap.xml`);
+  });
+
+  it("points robots, the sitemap, and metadataBase at one origin", () => {
+    // Three separate places used to hardcode the origin independently. If they
+    // drift, crawlers get a robots.txt naming a sitemap on a host that may not
+    // serve — which reads to a validator as "no sitemap".
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://www.behalfid.com");
+
+    const origin = canonicalOrigin();
+    expect(origin).toBe("https://www.behalfid.com");
+    expect(robots().sitemap).toBe(`${origin}/sitemap.xml`);
+    for (const entry of sitemap()) {
+      expect(entry.url.startsWith(`${origin}/`)).toBe(true);
+    }
+  });
+
+  it("normalises a configured origin and survives a malformed one", () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://www.behalfid.com/");
+    expect(canonicalOrigin()).toBe("https://www.behalfid.com");
+
+    // Metadata generation runs at build time; a bad env value must not throw.
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "not-a-url");
+    expect(canonicalOrigin()).toBe(DEFAULT_CANONICAL_ORIGIN);
+
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "");
+    expect(canonicalOrigin()).toBe(DEFAULT_CANONICAL_ORIGIN);
   });
 
   it("serves /robots.txt ahead of locale routing so crawlers can read it", () => {
