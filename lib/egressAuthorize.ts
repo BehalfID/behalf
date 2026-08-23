@@ -35,6 +35,9 @@ const DEFAULT_DENY_HOSTS = [
   "instance-data"
 ];
 
+// Hardcoded fallback + the fact that verifyEgressTicket() has no caller
+// outside this module and its tests: tracked in
+// https://github.com/BehalfID/behalf/issues/234
 function ticketSecret() {
   return (
     process.env.BEHALFID_EGRESS_TICKET_SECRET?.trim() ||
