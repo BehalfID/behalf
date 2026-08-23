@@ -608,3 +608,59 @@
 # - No hardcoded secrets detected (same grep methodology as prior audits;
 #   only committed env file is .env.example / examples/site-guard-demo/.env.example;
 #   no key/cert files tracked; sk-... strings in test fixtures are intentional)
+
+# Last audit: 2026-08-23 (full security + compliance audit)
+# Result: PASSED (no new confirmed findings)
+# - Two independent focused reviews (auth/authorization/IDOR; input handling/
+#   injection/SSRF/webhooks) re-derived findings directly from source rather
+#   than trusting this log's prior entries, per the 2026-08-22 review's own
+#   recommendation. Both concluded no currently-exploitable issue:
+#   - Session/tenant scope is always re-derived server-side
+#     (getWorkspaceActor/requireDeveloperApi/authenticateAgent); mutation
+#     routes under app/api/dashboard/** and app/api/console/** filter by
+#     accountId/developerUserId derived from the authenticated session, not
+#     from client-supplied IDs. Self-approval is explicitly blocked in
+#     lib/delegatedAuth.ts (canApproveRequest). Workspace slug header is
+#     stripped from inbound requests in proxy.ts and only re-set after
+#     proxy-side path matching, so it is not client-forgeable.
+#   - SQL injection: all lib/repositories/postgres/*.ts queries use Drizzle's
+#     parameterized sql`` templates; the only sql.raw() use (sqlInList) takes
+#     hardcoded enum constants, never runtime input.
+#   - SSRF: lib/ssrf.ts / lib/actionGateway.ts block private/internal/
+#     metadata IP ranges, re-validate on every redirect hop, and pin the TCP
+#     connection to the pre-resolved IP (DNS-rebinding safe).
+#   - Open redirect: OAuth callback and logout next= params are validated by
+#     safeOAuthNextPath()/resolveOwnedHref() against a same-origin/allowlist
+#     check.
+#   - Webhook signature verification (SDK, Stripe, Slack) remains fail-closed
+#     and timing-safe.
+#   - Re-verified the 2026-08-21 disabled-agent egress-authorization fix
+#     (lib/egressAuthorize.ts) is still in place and applied uniformly.
+# - No hardcoded secrets, private keys, or embedded-credential connection
+#   strings found (grepped tracked source for API-key/token/password/secret
+#   assignment patterns, AWS key IDs, PEM private-key headers, and
+#   protocol://user:pass@ connection strings); only committed env file is
+#   .env.example / examples/site-guard-demo/.env.example.
+# - GitHub Actions: no pull_request_target usage; contents:read (or minimal
+#   write for release workflows) permissions blocks present on all workflows.
+# - npm audit (root, --omit=dev and default) + all workspaces/examples
+#   (packages/cli, packages/egress-proxy, packages/github-action,
+#   packages/install, packages/mcp-audit, packages/mcp-runtime, packages/sdk,
+#   examples/enforcement-demo, examples/node-demo, examples/site-guard-express,
+#   examples/site-guard-nextjs, examples/webhook-receiver): 0 vulnerabilities
+# - Unit tests: 2847 passed, 78 skipped (223/224 files, root); 130 passed
+#   (cli, egress-proxy, install combined); 14 passed (github-action)
+#   - test/mongo-repository-contracts.test.ts (73 tests) could not execute: MongoMemoryServer
+#     binary download blocked by this sandbox's outbound network policy (fastdl.mongodb.org);
+#     unrelated to source changes and runs normally in GitHub Actions CI
+# - npx tsc --noEmit: clean
+# - npm run build: clean (Next.js production build succeeded)
+# - npm run lint: pre-existing errors only (121 errors / 75 warnings, all in
+#   already-committed code/tests, unchanged by this run); CI does not gate on
+#   lint per AGENTS.md
+# - Compliance: docs/compliance/GAP_ANALYSIS.md gaps (G-01..G-27) reviewed;
+#   no new code-level defect found affecting any tracked item. Remaining
+#   open items there are organizational/process gaps (ISMS approval, backup
+#   restore drill, vendor DPAs, deploy change-control) or already-documented
+#   hardening recommendations (rate-limit Redis fallback, CSRF token,
+#   egress-ticket secret default) outside this run's safe-remediation scope.
