@@ -664,3 +664,40 @@
 #   restore drill, vendor DPAs, deploy change-control) or already-documented
 #   hardening recommendations (rate-limit Redis fallback, CSRF token,
 #   egress-ticket secret default) outside this run's safe-remediation scope.
+
+# Last audit: 2026-08-24 (full security + compliance audit)
+# Result: PASSED (no new confirmed findings; no code changes since 2026-08-23)
+# - No commits landed between the 2026-08-23 deep audit and this run, so this
+#   pass re-validated the existing state rather than reviewing new code:
+#   re-verified the 2026-08-21 disabled-agent egress-authorization fix
+#   (lib/egressAuthorize.ts: agentStatus === "disabled" check at the top of
+#   authorizeEgressRequest()) is still in place; re-checked GitHub Actions
+#   workflows (no pull_request_target usage; all four workflows carry
+#   explicit permissions blocks); re-reviewed docs/compliance/GAP_ANALYSIS.md
+#   — all open items (G-06/G-07/G-08/G-09 organizational/ISMS gaps, G-10
+#   API-key pepper, G-12 deploy change-control, G-13 webhook transactionality,
+#   G-14 queue worker, G-15 rate-limit Redis fallback, G-16/G-27 vendor DPAs,
+#   G-17 CSRF token, G-18..G-20 hardening notes) remain accurately tracked as
+#   organizational/process gaps or hardening recommendations, not confirmed
+#   code vulnerabilities requiring a fix.
+# - npm audit (root, --omit=dev and default) + all workspaces/examples
+#   (packages/cli, packages/egress-proxy, packages/github-action,
+#   packages/install, packages/mcp-audit, packages/mcp-runtime, packages/sdk,
+#   examples/enforcement-demo, examples/node-demo, examples/site-guard-express,
+#   examples/site-guard-nextjs, examples/webhook-receiver): 0 vulnerabilities
+# - Unit tests: 2847 passed, 78 skipped (223/224 files, root); 146 passed
+#   (egress-proxy, install, github-action combined); 93 passed (mcp-runtime)
+#   - test/mongo-repository-contracts.test.ts (73 tests) could not execute: MongoMemoryServer
+#     binary download blocked by this sandbox's outbound network policy (fastdl.mongodb.org);
+#     unrelated to source changes and runs normally in GitHub Actions CI
+# - npx tsc --noEmit: clean
+# - npm run build: clean (Next.js production build succeeded)
+# - npm run lint: pre-existing errors only (121 errors / 75 warnings, all in
+#   already-committed code/tests, unchanged by this run); CI does not gate on
+#   lint per AGENTS.md
+# - No hardcoded secrets, private keys, or embedded-credential connection
+#   strings found (grepped tracked source for API-key/token/password/secret
+#   assignment patterns, AWS key IDs, PEM private-key headers, and
+#   protocol://user:pass@ connection strings); only committed env file is
+#   .env.example / examples/site-guard-demo/.env.example; sk-... string in
+#   test/mcp-audit.test.ts remains an intentional test fixture.
