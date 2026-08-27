@@ -87,6 +87,8 @@ export function delegate<A extends RepositoryAggregate, M extends string, F exte
       | undefined;
     const impl = aggregateImpl?.[method];
     if (typeof impl !== "function") {
+      // Method-level Postgres adapter gaps tracked in
+      // https://github.com/BehalfID/behalf/issues/144
       throw new Error(
         `${method} is not implemented on postgres ${aggregate} adapter`
       );

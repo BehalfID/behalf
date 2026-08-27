@@ -601,6 +601,8 @@ await vercelClient.deploy({ project: "my-app", authToken: token });
 
 ## Part 9 — Implementation Roadmap
 
+Not yet implemented; tracked in [issue #130](https://github.com/BehalfID/behalf/issues/130).
+
 ### Phase 1 — Execution Proxy (Weeks 1–3)
 
 - [ ] Generalize Action Gateway to `http_request` action type

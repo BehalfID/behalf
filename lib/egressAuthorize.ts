@@ -35,6 +35,8 @@ const DEFAULT_DENY_HOSTS = [
   "instance-data"
 ];
 
+// Hardcoded fallback + unused verifyEgressTicket(): tracked in
+// https://github.com/BehalfID/behalf/issues/234
 function ticketSecret() {
   return (
     process.env.BEHALFID_EGRESS_TICKET_SECRET?.trim() ||

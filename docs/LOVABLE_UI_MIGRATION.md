@@ -22,6 +22,9 @@ and MCP/OAuth infrastructure. There is **no dashboard route and no onboarding
 route of any kind**. `src/components/layouts/dashboard-shell.tsx` exists but is
 imported by nothing and is bound to `@/lib/mock/data`.
 
+Onboarding and dashboard page interiors below remain unported; tracked in
+[issue #181](https://github.com/BehalfID/behalf/issues/181).
+
 | Surface | Lovable source | Portable? |
 | --- | --- | --- |
 | Dashboard shell (sidebar, switcher, user menu, header) | `src/components/layouts/dashboard-shell.tsx` | **Yes** — real design, ported below |

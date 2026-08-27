@@ -108,7 +108,7 @@ Denials return structured errors via `quotaErrorDetails`: `code`, `currentPlan`,
 
 ## Out of scope
 
-Stripe integration, checkout, payment state, and plan purchase flows remain owned by billing code. Stripe webhooks still only move accounts between `free` and `pro`; `team` and `business` have no purchase path yet. The entitlement layer reads what Stripe writes and adds complimentary grants on top; it never writes billing state.
+Stripe integration, checkout, payment state, and plan purchase flows remain owned by billing code. Stripe webhooks still only move accounts between `free` and `pro`; `team` and `business` have no purchase path yet (tracked in [issue #182](https://github.com/BehalfID/behalf/issues/182)). The entitlement layer reads what Stripe writes and adds complimentary grants on top; it never writes billing state.
 
 ## Data access (repository boundary)
 
