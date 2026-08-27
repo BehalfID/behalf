@@ -115,6 +115,17 @@ describe("matchWorkspacePublicPath", () => {
   });
 });
 
+describe("proxy() isolated route security headers", () => {
+  it("leaves the Orchestra authorization handoff CSP to the raw route", () => {
+    const response = proxy(makeRequest("/console/orchestra/authorize?state=test-state"));
+
+    expect(captures).toHaveLength(1);
+    expect(captures[0]).toMatchObject({ kind: "next" });
+    expect(response.headers.get("content-security-policy")).toBeNull();
+    expect(response.headers.get("cache-control")).toBeNull();
+  });
+});
+
 describe("buildWorkspaceRewritePath", () => {
   it("rewrites dashboard paths under /workspace/<slug>/dashboard", () => {
     expect(

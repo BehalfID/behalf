@@ -373,11 +373,11 @@ function useApiResource<T>(path: string) {
   return { data: current.data, loading: current.loading, error: current.error, reload };
 }
 
-export function LoginPage() {
+export function LoginPage({ nextPath = "/console" }: { nextPath?: string }) {
   const router = useRouter();
   return (
     <main id="main-content" className="console-login-page" tabIndex={-1}>
-      <LoginPanel onSuccess={() => router.push("/console")} />
+      <LoginPanel onSuccess={() => router.push(nextPath)} />
     </main>
   );
 }

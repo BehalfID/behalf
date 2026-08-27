@@ -95,32 +95,40 @@ export async function authenticateConsoleAdmin(email: string, password: string) 
   return { adminId: admin.adminId, email: admin.email, role: admin.role as string };
 }
 
-export async function recordAdminAudit(input: {
+/** Resolve only an active, attributable console administrator. Lookup errors propagate. */
+export async function findActiveConsoleAdmin(adminId: string) {
+  if (isPostgresRuntimeEnabled()) {
+    const db = getPostgresDb();
+    const [admin] = await db
+      .select({ adminId: consoleAdmins.adminId, role: consoleAdmins.role })
+      .from(consoleAdmins)
+      .where(and(eq(consoleAdmins.adminId, adminId), isNull(consoleAdmins.disabledAt)))
+      .limit(1);
+    return admin ? { adminId: admin.adminId, role: admin.role } : null;
+  }
+
+  const { connectToDatabase } = await import("@/lib/db");
+  const ConsoleAdmin = (await import("@/models/ConsoleAdmin")).default;
+  await connectToDatabase();
+  const admin = await ConsoleAdmin.findOne({ adminId, disabledAt: null })
+    .select("adminId role")
+    .lean();
+  return admin ? { adminId: admin.adminId, role: admin.role } : null;
+}
+
+type AdminAuditInput = {
   adminId: string;
   action: string;
   target?: string;
   requestId?: string;
   metadata?: Record<string, unknown>;
-}) {
-  try {
-    const entryId = `aal_${crypto.randomBytes(10).toString("hex")}`;
-    if (isPostgresRuntimeEnabled()) {
-      const db = getPostgresDb();
-      await db.insert(adminAuditLogs).values({
-        entryId,
-        adminId: input.adminId,
-        action: input.action,
-        target: input.target,
-        requestId: input.requestId,
-        metadata: input.metadata
-      });
-      return;
-    }
+};
 
-    const { connectToDatabase } = await import("@/lib/db");
-    const AdminAuditLog = (await import("@/models/AdminAuditLog")).default;
-    await connectToDatabase();
-    await AdminAuditLog.create({
+async function persistAdminAudit(input: AdminAuditInput) {
+  const entryId = `aal_${crypto.randomBytes(10).toString("hex")}`;
+  if (isPostgresRuntimeEnabled()) {
+    const db = getPostgresDb();
+    await db.insert(adminAuditLogs).values({
       entryId,
       adminId: input.adminId,
       action: input.action,
@@ -128,10 +136,34 @@ export async function recordAdminAudit(input: {
       requestId: input.requestId,
       metadata: input.metadata
     });
+    return;
+  }
+
+  const { connectToDatabase } = await import("@/lib/db");
+  const AdminAuditLog = (await import("@/models/AdminAuditLog")).default;
+  await connectToDatabase();
+  await AdminAuditLog.create({
+    entryId,
+    adminId: input.adminId,
+    action: input.action,
+    target: input.target,
+    requestId: input.requestId,
+    metadata: input.metadata
+  });
+}
+
+export async function recordAdminAudit(input: AdminAuditInput) {
+  try {
+    await persistAdminAudit(input);
   } catch (error) {
     logger.warn("admin_audit_record_failed", {
       action: input.action,
       error: error instanceof Error ? error.message : String(error)
     });
   }
+}
+
+/** Security-sensitive audit write: callers fail closed if persistence fails. */
+export async function recordAdminAuditStrict(input: AdminAuditInput) {
+  await persistAdminAudit(input);
 }
