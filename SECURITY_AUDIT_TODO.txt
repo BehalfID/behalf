@@ -794,3 +794,58 @@
 #   default credentials (postgres:postgres@localhost,
 #   behalf:behalf@localhost), not real secrets.
 
+# Last audit: 2026-08-28 (full security + compliance audit)
+# Result: PASSED (no new confirmed findings; no code changes since 2026-08-25
+#   / HEAD unchanged at 7e64137 other than prior nightly-audit log commits)
+# - No commits landed with source changes since the 84e6c33 "robots.txt sync"
+#   commit reviewed in prior audits, so this pass re-validated the existing
+#   state from source rather than reviewing a diff: re-verified the
+#   disabled-agent egress-authorization fix (lib/egressAuthorize.ts:
+#   agentStatus === "disabled" check at the top of authorizeEgressRequest())
+#   and that all five verifyAction / authorizeEgressRequest entry points —
+#   app/api/verify, app/api/gateway/execute, app/api/actions/execute,
+#   app/api/egress/authorize, app/api/passport/[agentId] — still thread
+#   agentStatus consistently; re-checked GitHub Actions workflows (no
+#   pull_request_target usage; all four workflows carry explicit permissions
+#   blocks); re-read packages/sdk/src/webhooks.ts (HMAC verification remains
+#   fail-closed and timing-safe); re-checked security headers (next.config.ts:
+#   HSTS, X-Frame-Options: DENY; CSP is nonce-based via proxy.ts, the
+#   Next.js 16 successor to middleware.ts) and session cookie flags
+#   (httpOnly always) remain intact; re-reviewed docs/compliance/GAP_ANALYSIS.md
+#   — all open items (G-06 through G-27, e.g. ISMS/org gaps, backup restore
+#   drill, vendor DPAs, API-key pepper, CSRF token, rate-limit Redis memory
+#   fallback) remain accurately tracked as organizational/process gaps or
+#   already-documented hardening recommendations, not confirmed code
+#   vulnerabilities requiring a fix in this run.
+# - npm audit (root, default and --omit=dev) + all 7 workspaces/packages
+#   (packages/cli, packages/egress-proxy, packages/github-action,
+#   packages/install, packages/mcp-audit, packages/mcp-runtime, packages/sdk)
+#   and 5 example apps with their own package.json (enforcement-demo,
+#   node-demo, site-guard-express, site-guard-nextjs, webhook-receiver):
+#   0 vulnerabilities. Other examples under examples/ are dependency-free
+#   snippets with no package.json.
+# - Unit tests: 2847 passed, 78 skipped (223/224 files, root); 146 passed
+#   (egress-proxy, install, github-action combined); 93 passed (mcp-runtime)
+#   - test/mongo-repository-contracts.test.ts (73 tests) could not execute:
+#     MongoMemoryServer binary download blocked by this sandbox's outbound
+#     network policy (fastdl.mongodb.org, HTTP 403); unrelated to source
+#     changes and runs normally in GitHub Actions CI
+#   - One transient timeout in test/managed-profile-policy.test.ts under
+#     concurrent load (tsc+build+test+lint running together); re-ran the
+#     file in isolation and the full suite standalone immediately after —
+#     both clean (50/50 and 2847/2847 passing respectively) — confirmed a
+#     resource-contention flake, not a regression
+# - npx tsc --noEmit: clean
+# - npm run build: clean (Next.js 16 / Turbopack production build succeeded)
+# - npm run lint: pre-existing errors only (121 errors / 75 warnings, all in
+#   already-committed code/tests, unchanged by this run); CI does not gate on
+#   lint per AGENTS.md
+# - No hardcoded secrets, private keys, or embedded-credential connection
+#   strings found (grepped tracked source for API-key/token/password/secret
+#   assignment patterns, AWS key IDs, PEM private-key headers, and
+#   protocol://user:pass@ connection strings); only committed env file is
+#   .env.example; sk-... string in test/mcp-audit.test.ts remains an
+#   intentional test fixture; the two protocol://user:pass@ matches
+#   (.github/workflows/ci.yml, scripts/dev/authenticated-shell-preview.mjs)
+#   remain local/CI-only default credentials, not real secrets.
+
