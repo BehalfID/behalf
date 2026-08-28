@@ -151,13 +151,13 @@ describe("Agent Orchestra console authorization route", () => {
     expect(audit).not.toContain("behalfid_console");
   });
 
-  it("returns an isolated no-store, no-referrer, non-hydrated handoff document", async () => {
+  it("returns an isolated no-store, strict-origin, non-hydrated handoff document", async () => {
     const { GET } = await import("@/app/console/orchestra/authorize/route");
     const response = await GET(request(`state=${state}`, await adminCookie()));
     const html = await response.text();
     const csp = response.headers.get("content-security-policy") ?? "";
     expect(response.headers.get("cache-control")).toBe("no-store, private");
-    expect(response.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(response.headers.get("referrer-policy")).toBe("strict-origin");
     expect(csp).toContain("form-action https://serv1.behalfid.com/auth/callback");
     expect(csp).toContain("frame-ancestors 'none'");
     expect(csp).toContain("base-uri 'none'");

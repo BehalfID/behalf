@@ -94,7 +94,7 @@ describe("cache policy", () => {
         ["/(.*)", "/console/orchestra/authorize"],
         "Referrer-Policy"
       )
-    ).toBe("no-referrer");
+    ).toBe("strict-origin");
   });
 
   it("keeps health private while caching only successful public status reads", async () => {

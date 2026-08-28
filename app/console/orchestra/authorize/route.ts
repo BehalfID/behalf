@@ -62,7 +62,7 @@ function documentResponse(input: {
       "Cache-Control": PRIVATE_NO_STORE,
       "Content-Type": "text/html; charset=utf-8",
       "Content-Security-Policy": `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}'; form-action ${formAction}; frame-ancestors 'none'; base-uri 'none'`,
-      "Referrer-Policy": "no-referrer",
+      "Referrer-Policy": "strict-origin",
       "X-Content-Type-Options": "nosniff"
     }
   });
