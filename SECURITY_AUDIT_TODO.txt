@@ -849,3 +849,59 @@
 #   (.github/workflows/ci.yml, scripts/dev/authenticated-shell-preview.mjs)
 #   remain local/CI-only default credentials, not real secrets.
 
+# Last audit: 2026-08-29 (full security + compliance audit)
+# Result: PASSED (no new confirmed findings; no code changes since 2026-08-23)
+# - No commits landed with source changes since the 84e6c33 "robots.txt sync"
+#   commit reviewed in prior audits, so this pass re-validated the existing
+#   state from source: re-verified the disabled-agent egress-authorization fix
+#   (lib/egressAuthorize.ts: agentStatus === "disabled" check at the top of
+#   authorizeEgressRequest()); re-checked GitHub Actions workflows (no
+#   pull_request_target usage; all four workflows carry explicit permissions
+#   blocks); re-checked security headers (next.config.ts: HSTS,
+#   X-Frame-Options: DENY; CSP is nonce-based via proxy.ts) and session cookie
+#   flags (httpOnly across lib/adminAuth.ts, lib/googleOAuth.ts, lib/reauth.ts,
+#   lib/sessionCookies.ts) remain intact; re-reviewed
+#   docs/compliance/GAP_ANALYSIS.md (G-01..G-27) — all open items remain
+#   accurately tracked as organizational/process gaps (ISMS approval, backup
+#   restore drill, vendor DPAs/subprocessor risk assessments, deploy
+#   change-control) or already-documented hardening recommendations (API-key
+#   pepper, CSRF token, rate-limit Redis memory fallback), not confirmed code
+#   vulnerabilities requiring a fix in this run.
+# - npm audit (root, default and --omit=dev) + all 7 workspace packages
+#   (packages/cli, packages/egress-proxy, packages/github-action,
+#   packages/install, packages/mcp-audit, packages/mcp-runtime, packages/sdk)
+#   and 5 example apps with their own package.json (enforcement-demo,
+#   node-demo, site-guard-express, site-guard-nextjs, webhook-receiver):
+#   0 vulnerabilities.
+# - Unit tests: 2847 passed, 78 skipped (223/224 files, root); 146 passed
+#   (egress-proxy, install, github-action combined); 93 passed (mcp-runtime)
+#   - test/mongo-repository-contracts.test.ts (73 tests) could not execute:
+#     MongoMemoryServer binary download blocked by this sandbox's outbound
+#     network policy (fastdl.mongodb.org, HTTP 403); unrelated to source
+#     changes and runs normally in GitHub Actions CI
+#   - Note for future runs: running `npm install` directly inside a
+#     packages/* workspace subdirectory (bypassing the root lockfile) can
+#     desync the hoisted `detect-libc` resolution and transiently break
+#     @parcel/watcher (used by tailwindcss/lightningcss) with a
+#     "familySync is not a function" error in the build and in
+#     test/cache-policy.test.ts. This is not a repository defect: a clean
+#     `npm ci` from the repo root resolves `detect-libc` correctly (2.1.2,
+#     with @tailwindcss/cli's own @parcel/watcher@2.5.1 nesting its
+#     compatible 1.0.3), and the build and full test suite both pass clean
+#     afterward. Workspace package tests should be run via `npm run
+#     test:packages` (or `npm test -w <package>`) from the root, not via a
+#     separate `cd <package> && npm install`.
+# - npx tsc --noEmit: clean
+# - npm run build: clean (Next.js 16 / Turbopack production build succeeded)
+# - npm run lint: pre-existing errors only (121 errors / 75 warnings, all in
+#   already-committed code/tests, unchanged by this run); CI does not gate on
+#   lint per AGENTS.md
+# - No hardcoded secrets, private keys, or embedded-credential connection
+#   strings found (grepped tracked source for API-key/token/password/secret
+#   assignment patterns, AWS key IDs, PEM private-key headers, and
+#   protocol://user:pass@ connection strings); only committed env file is
+#   .env.example; sk-... string in test/mcp-audit.test.ts remains an
+#   intentional test fixture; the two protocol://user:pass@ matches
+#   (.github/workflows/ci.yml, scripts/dev/authenticated-shell-preview.mjs)
+#   remain local/CI-only default credentials, not real secrets.
+
