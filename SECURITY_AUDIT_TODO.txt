@@ -905,3 +905,90 @@
 #   (.github/workflows/ci.yml, scripts/dev/authenticated-shell-preview.mjs)
 #   remain local/CI-only default credentials, not real secrets.
 
+
+# Last audit: 2026-08-30 (full security + compliance audit)
+# Result: PASSED (no confirmed findings; reviewed the two source commits
+#   landed since the 2026-08-29 audit)
+# - Reviewed the only source changes since HEAD 7e64137 (2026-08-29 baseline):
+#   0236d88 "feat(console): add Agent Orchestra SSO handoff" and 8c333a3
+#   "fix(console): preserve Origin for Orchestra SSO handoff"
+#   (app/console/orchestra/authorize/route.ts, lib/orchestraSso.ts,
+#   lib/adminAuth.ts, lib/consoleAdmins.ts, app/console/login/page.tsx,
+#   app/console/client.tsx, proxy.ts, next.config.ts). Findings:
+#     - Assertions are EdDSA-signed JWTs with a 60s TTL, fixed
+#       issuer/audience, and a server-generated jti; the signing key is read
+#       from BEHALFID_ORCHESTRA_SSO_PRIVATE_KEY (server-only, never logged).
+#     - GET /console/orchestra/authorize requires an admin-kind console
+#       session (session.kind !== "admin" is rejected before any admin
+#       lookup, so shared/legacy console sessions cannot mint assertions);
+#       the admin is re-resolved live via findActiveConsoleAdmin so a
+#       disabled/deleted admin cannot use a stale cookie to obtain one.
+#     - state is validated against a strict base64url charset/length
+#       pattern and rejected if duplicated or missing; the production
+#       callback URL is hardcoded (ORCHESTRA_SSO_PRODUCTION_CALLBACK) and a
+#       configured override is only honored outside production, and even
+#       then only for a strictly-shaped http(s)://localhost/auth/callback
+#       URL with no query/hash/userinfo — so a request-supplied callback or
+#       returnUrl field cannot redirect the handoff (verified by test
+#       "ignores arbitrary callback fields and pins the production
+#       destination").
+#     - Issuance fails closed: an admin-lookup error or a failed durable
+#       audit write (recordAdminAuditStrict) both return 503 with no
+#       assertion in the body, so the audit trail can't be silently skipped
+#       on a security-sensitive issuance.
+#     - The post-login "next" redirect target is constrained to strings
+#       starting with "/console/orchestra/authorize?" (app/console/login/
+#       page.tsx), so the login flow cannot be used as an open redirect via
+#       this feature.
+#     - The handoff document is served with its own strict CSP
+#       (default-src 'none', nonced script/style, form-action pinned to the
+#       resolved callback, frame-ancestors 'none', base-uri 'none'),
+#       Cache-Control: no-store, private, and X-Content-Type-Options:
+#       nosniff; proxy.ts special-cases this route so the app's normal
+#       document CSP does not overwrite these headers. The 2026-08-28 fix
+#       commit intentionally changed Referrer-Policy from no-referrer to
+#       strict-origin (origin-only, not the full path) so the receiving
+#       serv1.behalfid.com endpoint can apply its own Origin-based checks;
+#       next.config.ts and the corresponding tests
+#       (test/cache-policy.test.ts, test/orchestra-authorize-route.test.ts)
+#       were updated in the same commit to match, so no stale assertion
+#       remains.
+#   No confirmed vulnerability found in this feature; no code change made.
+# - npm audit (root, default and --omit=dev) + all 7 workspace packages
+#   (packages/cli, packages/egress-proxy, packages/github-action,
+#   packages/install, packages/mcp-audit, packages/mcp-runtime,
+#   packages/sdk) and 5 example apps with their own package.json
+#   (enforcement-demo, node-demo, site-guard-express, site-guard-nextjs,
+#   webhook-receiver): 0 vulnerabilities.
+# - Unit tests (npx vitest run): 2866 passed, 78 skipped (226 files, 1
+#   failed suite)
+#   - test/mongo-repository-contracts.test.ts (73 tests) could not execute:
+#     MongoMemoryServer binary download blocked by this sandbox's outbound
+#     network policy (fastdl.mongodb.org, HTTP 403); unrelated to source
+#     changes and runs normally in GitHub Actions CI, as in every prior
+#     audit entry.
+# - npx tsc --noEmit: clean
+# - npm run build: clean (Next.js 16 / Turbopack production build
+#   succeeded; /console/orchestra/authorize present in the route list)
+# - npm run lint: 121 errors / 75 warnings, identical count to the prior
+#   baseline and all in already-committed code/tests; CI does not gate on
+#   lint per AGENTS.md
+# - No hardcoded secrets, private keys, or embedded-credential connection
+#   strings found (grepped tracked source for API-key/token/password/secret
+#   assignment patterns, AWS key IDs, PEM private-key headers, and
+#   protocol://user:pass@ connection strings); only committed env file is
+#   .env.example; sk-... string in test/mcp-audit.test.ts remains an
+#   intentional test fixture; the two protocol://user:pass@ matches
+#   (.github/workflows/ci.yml, scripts/dev/authenticated-shell-preview.mjs)
+#   remain local/CI-only default credentials, not real secrets. The three
+#   new Orchestra SSO env vars added to .env.example
+#   (BEHALFID_ORCHESTRA_SSO_PRIVATE_KEY/_KEY_ID/_CALLBACK_URL) are all
+#   documented placeholders with empty values, not real key material.
+# - Compliance: docs/compliance/GAP_ANALYSIS.md (G-01..G-27) reviewed; the
+#   new SSO feature adds a durable, fail-closed admin audit trail
+#   (orchestra_sso.issued) consistent with the existing G-05 control and
+#   introduces no new gap. Remaining open items are unchanged:
+#   organizational/process gaps (ISMS approval, backup restore drill,
+#   vendor DPAs, deploy change-control) or already-documented hardening
+#   recommendations (API-key pepper, CSRF token, rate-limit Redis memory
+#   fallback), outside this run's safe-remediation scope.
