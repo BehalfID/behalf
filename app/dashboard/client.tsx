@@ -36,6 +36,7 @@ import {
 } from "@/components/dashboard/opsLogTypes";
 import { CLI_NPM_INSTALL_COMMAND } from "@/lib/cliInstallCommands";
 import { SessionInactivityMonitor } from "@/components/auth/SessionInactivityMonitor";
+import { DashboardReachedBeacon } from "@/components/analytics/DashboardReachedBeacon";
 import {
   Alert,
   Badge,
@@ -474,10 +475,16 @@ export function DashboardViews({
   emailVerified?: boolean;
   showSetupBanner?: boolean;
 }) {
-  const workspaceSlug = useOptionalWorkspace()?.workspaceSlug ?? "legacy";
+  const resolvedSlug = useOptionalWorkspace()?.workspaceSlug ?? null;
+  const workspaceSlug = resolvedSlug ?? "legacy";
   const contentKey = `${workspaceSlug}:${view}:${id ?? ""}`;
   return (
     <Fragment key={contentKey}>
+        {/* Both dashboard entries render this component — the workspace route
+            and the legacy /dashboard fallback — so it is the one place that can
+            say a dashboard was reached regardless of which URL got the user
+            here. See DashboardReachedBeacon for why the path cannot. */}
+        <DashboardReachedBeacon view={view} workspaceResolved={resolvedSlug !== null} />
         {!emailVerified ? (
           <div className="dashboard-banner dashboard-banner--warning" role="status">
             <strong>Verify your email.</strong> Agent creation and API tokens stay locked until verification is complete.{" "}

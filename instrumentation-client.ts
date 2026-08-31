@@ -21,8 +21,17 @@
  * idempotent, so accepting later starts capture without a reload.
  *
  * Autocapture (pageviews, clicks, SPA route changes) starts at init. Do not add
- * router/history listeners or hand-instrumented UI events; they double-count.
- * Business events belong on the server — see lib/analytics/server.ts.
+ * router/history listeners or re-emit clicks and pageviews as custom events;
+ * they double-count. Business events belong on the server — see
+ * lib/analytics/server.ts.
+ *
+ * The one sanctioned exception is lib/analytics/funnel.ts, which emits named
+ * acquisition milestones autocapture provably cannot produce: which CTA a
+ * visitor used, whether they began filling the sign-up form, why a submission
+ * failed, and whether a dashboard actually rendered (the dashboard lives under
+ * /<workspaceSlug>/dashboard, so no path pattern identifies it). Those are
+ * additions to autocapture, not duplicates of it — read that module's header
+ * before adding a sixth.
  */
 import { analytics } from "@heycatch/sdk";
 import { whenAnalyticsConsentGranted } from "@/lib/analytics/consent";

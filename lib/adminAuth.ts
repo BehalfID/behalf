@@ -4,8 +4,9 @@ import type { NextRequest, NextResponse } from "next/server";
 import { timingSafeEqualString } from "@/lib/crypto";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { jsonError } from "@/lib/responses";
+import { findActiveConsoleAdmin } from "@/lib/consoleAdmins";
 
-const COOKIE_NAME = "behalfid_console";
+export const CONSOLE_COOKIE_NAME = "behalfid_console";
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
 const MUTATION_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 // Keep in sync with UNSAFE_ADMIN_PASSWORDS in lib/env.ts (validateProductionEnv) —
@@ -194,7 +195,15 @@ export function isValidConsoleSession(value?: string) {
 
 export async function hasConsoleSession() {
   const cookieStore = await cookies();
-  return isValidConsoleSession(cookieStore.get(COOKIE_NAME)?.value);
+  return isValidConsoleSession(cookieStore.get(CONSOLE_COOKIE_NAME)?.value);
+}
+
+/** Returns an attributable console principal; shared/legacy sessions are excluded. */
+export async function getConsoleAdminPrincipal() {
+  const cookieStore = await cookies();
+  const session = parseConsoleSession(cookieStore.get(CONSOLE_COOKIE_NAME)?.value);
+  if (session?.kind !== "admin") return null;
+  return findActiveConsoleAdmin(session.adminId);
 }
 
 export async function requireConsoleApi(request: NextRequest) {
@@ -208,7 +217,7 @@ export async function requireConsoleApi(request: NextRequest) {
     return originError;
   }
 
-  if (!isValidConsoleSession(request.cookies.get(COOKIE_NAME)?.value)) {
+  if (!isValidConsoleSession(request.cookies.get(CONSOLE_COOKIE_NAME)?.value)) {
     return jsonError("Console authentication required.", 401);
   }
 
@@ -220,7 +229,7 @@ export function requireSetupTokenOrConsoleSession(request: NextRequest) {
     return null;
   }
 
-  if (!isValidConsoleSession(request.cookies.get(COOKIE_NAME)?.value)) {
+  if (!isValidConsoleSession(request.cookies.get(CONSOLE_COOKIE_NAME)?.value)) {
     return jsonError("Agent creation is disabled for public requests.", 403);
   }
 
@@ -237,7 +246,7 @@ export function requireSetupTokenOrConsoleApi(request: NextRequest) {
     return null;
   }
 
-  if (!isValidConsoleSession(request.cookies.get(COOKIE_NAME)?.value)) {
+  if (!isValidConsoleSession(request.cookies.get(CONSOLE_COOKIE_NAME)?.value)) {
     return jsonError("Console authentication or setup token required.", 401);
   }
 
@@ -251,7 +260,7 @@ export function requireSetupTokenOrConsoleApi(request: NextRequest) {
 
 export function setConsoleSessionCookie(response: NextResponse, value: string) {
   // Always host-only: console must not share session cookies with auth/app.
-  response.cookies.set(COOKIE_NAME, value, {
+  response.cookies.set(CONSOLE_COOKIE_NAME, value, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
@@ -261,7 +270,7 @@ export function setConsoleSessionCookie(response: NextResponse, value: string) {
 }
 
 export function clearConsoleSessionCookie(response: NextResponse) {
-  response.cookies.set(COOKIE_NAME, "", {
+  response.cookies.set(CONSOLE_COOKIE_NAME, "", {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",

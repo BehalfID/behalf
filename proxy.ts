@@ -260,6 +260,12 @@ export function proxy(request: NextRequest) {
     return withCsp(response, nonce, isDev, true);
   }
 
+  // This security-sensitive endpoint returns its own raw, unhydrated HTML and
+  // exact nonce/CSP headers. Do not replace them with the application document CSP.
+  if (pathname === "/console/orchestra/authorize") {
+    return NextResponse.next({ request: { headers: requestHeaders } });
+  }
+
   // Run next-intl locale routing for public pages.
   if (!shouldBypassIntl(pathname)) {
     const intlResponse = intlMiddleware(request);

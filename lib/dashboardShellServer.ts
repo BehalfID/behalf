@@ -70,6 +70,7 @@ export async function resolveDashboardShellProps(
   if (!context?.user) return EMPTY;
 
   const user: DashboardShellUser = {
+    userId: context.user.userId,
     name: displayName(context.user),
     email: context.user.email,
     initials: userInitials(displayName(context.user), context.user.email)

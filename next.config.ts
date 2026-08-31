@@ -81,6 +81,10 @@ const nextConfig: NextConfig = {
         source: "/(.*)",
         headers: staticHeaders
       },
+      {
+        source: "/console/orchestra/authorize",
+        headers: [{ key: "Referrer-Policy", value: "strict-origin" }]
+      },
       ...privatePageCacheHeaders,
       ...publicCacheHeaders
     ];

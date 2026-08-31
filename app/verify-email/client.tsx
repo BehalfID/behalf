@@ -12,6 +12,7 @@ import {
   authPrimaryButtonClass
 } from "@/components/auth/lovable/AuthShell";
 import { assignOwnedLocation } from "@/lib/subdomainRouting";
+import { trackEmailVerificationGate } from "@/lib/analytics/funnel";
 
 type State = "idle" | "verifying" | "success" | "error" | "resending" | "resent" | "code-verifying";
 
@@ -22,6 +23,17 @@ export function VerifyEmailClient({ token }: { token?: string }) {
   const [message, setMessage] = useState("");
   const [code, setCode] = useState("");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Arriving here without a token means the account exists but is parked behind
+  // the verification wall — the step that sits between "signed up" and "reached
+  // the dashboard". Recording it is what turns an unexplained drop between
+  // those two into a named stage with a size.
+  const gateReported = useRef(false);
+  useEffect(() => {
+    if (token || gateReported.current) return;
+    gateReported.current = true;
+    trackEmailVerificationGate();
+  }, [token]);
 
   // When no token in URL: poll for verification status so another device
   // completing verification automatically redirects this tab to dashboard.

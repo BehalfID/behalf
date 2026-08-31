@@ -162,6 +162,10 @@ export async function authorizeEgressRequest(input: {
     return { allowed: false, reason: "Invalid host or port.", risk: "high" };
   }
 
+  if (input.agentStatus === "disabled") {
+    return { allowed: false, reason: "Agent is disabled.", risk: "high" };
+  }
+
   const method = (input.request.method || "GET").toUpperCase();
   const url =
     input.request.url?.trim() ||

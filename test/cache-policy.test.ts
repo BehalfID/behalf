@@ -29,6 +29,18 @@ function cacheControlFor(
     ?.headers.find((header) => header.key === "Cache-Control")?.value;
 }
 
+function matchingHeaderValue(
+  rules: Awaited<ReturnType<NonNullable<typeof config.headers>>>,
+  sources: string[],
+  key: string
+) {
+  return rules
+    .filter((rule) => sources.includes(rule.source))
+    .flatMap((rule) => rule.headers)
+    .filter((header) => header.key === key)
+    .at(-1)?.value;
+}
+
 describe("cache policy", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -68,6 +80,21 @@ describe("cache policy", () => {
       expect(cacheControlFor(rules, source)).toBe(PRIVATE_NO_STORE);
     }
     expect(PUBLIC_STATUS_CACHE).toBe("public, max-age=0, s-maxage=15");
+  });
+
+  it("overrides referrer policy only for the Orchestra authorization handoff", async () => {
+    const rules = await config.headers!();
+
+    expect(matchingHeaderValue(rules, ["/(.*)"], "Referrer-Policy")).toBe(
+      "strict-origin-when-cross-origin"
+    );
+    expect(
+      matchingHeaderValue(
+        rules,
+        ["/(.*)", "/console/orchestra/authorize"],
+        "Referrer-Policy"
+      )
+    ).toBe("strict-origin");
   });
 
   it("keeps health private while caching only successful public status reads", async () => {
