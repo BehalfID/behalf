@@ -98,7 +98,7 @@ BehalfID has a **solid technical control foundation** for a permission-verificat
 | Webhook / Stripe / Slack integrity | Implemented | — | HMAC / signatures / idempotency |
 | End-to-end processing consistency | Partial | Medium | No transactions; at-least-once webhooks |
 | Origin checks | Partial | Low | SameSite+Origin, no CSRF token |
-| Public disclosure accuracy | Missing | Critical | Compliance page drift |
+| Public disclosure accuracy | Implemented | — | REMEDIATED 2026-08-12 (G-21/G-22): `/privacy` and `/compliance` now correctly disclose Supabase (Postgres) as the datastore and HeyCatch as the consent-gated analytics processor |
 
 ### Availability
 

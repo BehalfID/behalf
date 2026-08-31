@@ -992,3 +992,65 @@
 #   vendor DPAs, deploy change-control) or already-documented hardening
 #   recommendations (API-key pepper, CSRF token, rate-limit Redis memory
 #   fallback), outside this run's safe-remediation scope.
+
+# Last audit: 2026-08-31
+# Result: PASSED (after a documentation fix; no code vulnerabilities found)
+# - npm audit (root + --omit=dev): 0 vulnerabilities
+# - npm audit: 0 vulnerabilities in packages/cli, packages/github-action, packages/install,
+#   packages/mcp-audit, packages/mcp-runtime, packages/sdk, packages/egress-proxy
+# - Unit tests: 2866 passed, 78 skipped (225/226 files)
+#   - test/mongo-repository-contracts.test.ts (73 tests) could not execute:
+#     MongoMemoryServer binary download blocked by this sandbox's outbound
+#     network policy (fastdl.mongodb.org, HTTP 403); unrelated to source
+#     changes and runs normally in GitHub Actions CI, as in every prior
+#     audit entry.
+# - npx tsc --noEmit: clean
+# - npm run build: clean (Next.js production build succeeded)
+# - npm run api:inventory:check: docs/API_TEST_MATRIX.md up to date
+# - npm run test:api-contracts: 650 passed
+# - npm run lint: 121 errors / 75 warnings, identical to the prior baseline,
+#   all in already-committed code/tests; not a CI gate (no lint step in
+#   .github/workflows/ci.yml)
+# - No hardcoded secrets, private keys, or embedded-credential connection
+#   strings found (dedicated grep sweep of all 1,684 tracked non-vendor
+#   files for API-key/token/password/secret literals, AWS key IDs, PEM
+#   private-key headers, and protocol://user:pass@ strings); only committed
+#   env files are .env.example / examples/site-guard-demo/.env.example,
+#   both placeholders only.
+# - Targeted manual review of the most recently changed security-sensitive
+#   surface (Agent Orchestra SSO handoff: app/console/orchestra/authorize/route.ts,
+#   lib/orchestraSso.ts, lib/adminAuth.ts, lib/consoleAdmins.ts): callback
+#   URL is server-pinned (not client-controlled) so no open redirect; the
+#   Referrer-Policy change in the prior commit only affects the outbound
+#   header, no client-supplied Origin/Referer is trusted for a security
+#   decision; admin session is HMAC-verified and re-checked live against
+#   the database before issuing an assertion; the EdDSA assertion is
+#   short-lived (60s), scoped, and delivered only via POST body. No
+#   confirmed Critical/High vulnerability. One defense-in-depth hardening
+#   idea was considered (checking Sec-Fetch-Site on the GET before minting
+#   the assertion) but not applied: it is not a demonstrated exploit (state
+#   binding is conventionally the relying party's responsibility in this
+#   OAuth-style handoff), and blocking cross-subdomain "same-site" fetches
+#   without knowing Orchestra's actual deployment domain risks breaking a
+#   legitimate flow — left as a recommendation instead of a speculative
+#   change to production auth behavior.
+# - Also grepped app/, lib/, and packages/ source (excluding tests) for
+#   eval/new Function/exec with untrusted input, raw SQL string building,
+#   dangerouslySetInnerHTML with user input, unvalidated redirects, SSRF via
+#   user-controlled fetch URLs, Math.random() used for tokens, permissive
+#   CORS, and missing cookie flags — no confirmed issues; existing guards
+#   (safeOAuthNextPath, validatePublicUrl SSRF check, parameterized drizzle
+#   queries, consistent httpOnly/sameSite/secure cookie helpers) already
+#   cover these classes.
+# - Compliance documentation fix: docs/compliance/GAP_ANALYSIS.md section 3
+#   still listed "Public disclosure accuracy | Missing | Critical" even
+#   though section 2 (G-21/G-22) already logged that exact issue as
+#   REMEDIATED on 2026-08-12. Verified against the live pages
+#   (app/privacy/page.tsx, app/compliance/page.tsx: both correctly disclose
+#   Supabase (Postgres) as the datastore and HeyCatch as consent-gated
+#   analytics) and corrected the stale/contradictory table row to match.
+#   No other code-level compliance defects found; remaining GAP_ANALYSIS.md
+#   items are organizational/process gaps (ISMS approval, vendor DPAs,
+#   backup restore drill, deploy change-control) outside repository scope,
+#   or already-tracked hardening recommendations (G-10 API-key pepper,
+#   G-17 CSRF token, G-15 rate-limit Redis fallback).
