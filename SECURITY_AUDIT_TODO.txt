@@ -1054,3 +1054,68 @@
 #   backup restore drill, deploy change-control) outside repository scope,
 #   or already-tracked hardening recommendations (G-10 API-key pepper,
 #   G-17 CSRF token, G-15 rate-limit Redis fallback).
+
+# Last audit: 2026-09-01
+# Result: PASSED (after a dependency fix; no new source changes since the
+#   2026-08-31 audit — HEAD was still 8c333a3 plus only audit-log/doc
+#   commits)
+# - npm audit (root, default): found 1 high-severity vulnerability newly
+#   disclosed since yesterday's run: browserslist <=4.28.6 (GHSA-c83g-rgw3-j3cx
+#   unbounded memory growth/DoS via cache eviction, GHSA-73wf-gq98-2v4g
+#   uncaught crash/prototype write via untrusted browserslist-stats.json),
+#   pulled in transitively via @sentry/nextjs -> @sentry/bundler-plugin-core
+#   -> @babel/core and @sentry/webpack-plugin -> webpack. Fixed by adding a
+#   "browserslist": "^4.28.8" entry to package.json overrides (same pattern
+#   as the existing postcss/sharp/undici/@swc/helpers overrides), then
+#   `npm install` to resolve and rebuild node_modules/package-lock.json.
+#   Re-ran `npm audit` (root, default and --omit=dev) after the fix: 0
+#   vulnerabilities. Confirmed via `npm ls browserslist` that all three
+#   resolution paths now dedupe/override to 4.28.8.
+# - npm audit: 0 vulnerabilities in packages/cli, packages/egress-proxy,
+#   packages/github-action, packages/install, packages/mcp-audit,
+#   packages/mcp-runtime, packages/sdk, examples/enforcement-demo,
+#   examples/node-demo, examples/site-guard-express,
+#   examples/site-guard-nextjs, examples/webhook-receiver.
+# - Unit tests (npx vitest run): 2866 passed, 78 skipped (225/226 files)
+#   - test/mongo-repository-contracts.test.ts (73 tests) could not execute:
+#     MongoMemoryServer binary download blocked by this sandbox's outbound
+#     network policy (fastdl.mongodb.org, HTTP 403); unrelated to source
+#     changes and runs normally in GitHub Actions CI, as in every prior
+#     audit entry.
+# - npx tsc --noEmit: clean
+# - npm run build: clean (Next.js 16 / Turbopack production build
+#   succeeded; full route list including /console/orchestra/authorize
+#   present)
+# - npm run api:inventory:check: docs/API_TEST_MATRIX.md up to date
+# - npm run test:api-contracts: 650 passed
+# - npm run lint: 121 errors / 75 warnings, identical to the prior
+#   baseline, all in already-committed code/tests; not a CI gate (no lint
+#   step in .github/workflows/ci.yml)
+# - No hardcoded secrets, private keys, or embedded-credential connection
+#   strings found (grep sweep of tracked source for API-key/token/
+#   password/secret literals, AWS key IDs, PEM private-key headers, and
+#   protocol://user:pass@ strings). The three matches found were all
+#   confirmed non-issues on inspection: CSS custom-property names
+#   ("--text-secondary" etc.) in app/design-system/foundation/page.tsx, a
+#   detection regex literal (not a key) in test/api-route-contracts.test.ts,
+#   and .github/workflows/cli-release.yml's git-clone URL which
+#   interpolates ${TAP_TOKEN} sourced from `secrets.HOMEBREW_TAP_TOKEN`,
+#   not a literal credential. Only committed env files remain
+#   .env.example / examples/site-guard-demo/.env.example, both placeholder
+#   only.
+# - Re-checked all four GitHub Actions workflows (ci.yml, cli-release.yml,
+#   package-release.yml, sdk-release.yml): each still declares an explicit,
+#   minimal top-level `permissions:` block; no `pull_request_target` usage
+#   found anywhere in .github/workflows/.
+# - Re-verified docs/compliance/GAP_ANALYSIS.md against the live
+#   /privacy and /compliance pages: both still correctly disclose Supabase
+#   (Postgres) as the datastore and HeyCatch as consent-gated analytics,
+#   consistent with the 2026-08-31 fix; no new contradiction found.
+#   Remaining open items are unchanged: organizational/process gaps (ISMS
+#   approval, vendor DPAs, backup restore drill, deploy change-control) or
+#   already-tracked hardening recommendations (G-10 API-key pepper, G-17
+#   CSRF token, G-15 rate-limit Redis fallback), outside this run's
+#   safe-remediation scope.
+# - No authorization/business-logic/business-logic-adjacent source changed
+#   since the 2026-08-31 audit, so no new manual review of that surface was
+#   needed this run.
