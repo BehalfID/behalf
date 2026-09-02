@@ -1119,3 +1119,73 @@
 # - No authorization/business-logic/business-logic-adjacent source changed
 #   since the 2026-08-31 audit, so no new manual review of that surface was
 #   needed this run.
+
+# Last audit: 2026-09-02
+# Result: PASSED (after two dependency fixes; no new source changes since
+#   the 2026-08-31 audit — HEAD was still 8c333a3 plus only audit-log/doc
+#   and dependency-override commits)
+# - npm audit (root, default): found 1 high-severity vulnerability newly
+#   disclosed since yesterday's run: fast-uri 3.0.0-3.1.5 (GHSA-5jgf-p345-68v8
+#   host confusion via skipped IDN canonicalization, GHSA-f65p-4m7j-42xc SSRF
+#   via malformed IPv6 normalization, GHSA-fph4-wmhf-6fwf SSRF via repeated
+#   hostname percent-decoding, GHSA-jqff-g426-hqxp host confusion via
+#   percent-encoded scheme normalization), pulled in transitively via ajv
+#   (used by webpack's schema-utils, part of the @sentry/webpack-plugin /
+#   @sentry/bundler-plugin-core build tooling chain). Root cause: the
+#   existing package.json override pinned "fast-uri": "^3.1.5", i.e. exactly
+#   the top of the now-vulnerable range, so as soon as 3.1.5 was retroactively
+#   flagged the override itself was the stale/vulnerable pin. Fixed by
+#   bumping the override to "^3.1.7" (latest 3.x release, still satisfies
+#   ajv@8.20.0's own "^3.0.1" dependency range so no unintended major bump).
+#   Re-ran `npm audit` (root, default and --omit=dev) after the fix: 0
+#   vulnerabilities. Confirmed via `npm ls fast-uri --all` that both
+#   resolution paths now dedupe/override to 3.1.7.
+# - npm audit: 0 vulnerabilities in packages/cli, packages/egress-proxy,
+#   packages/github-action, packages/install, packages/mcp-audit,
+#   packages/mcp-runtime, packages/sdk, examples/enforcement-demo,
+#   examples/node-demo, examples/site-guard-nextjs, examples/webhook-receiver.
+#   examples/site-guard-express: found 3 moderate-severity vulnerabilities
+#   (qs array-limit bypass GHSA-x5fp-wj9c-mxmx, qs DoS via attacker-controlled
+#   isBuffer GHSA-4mjr-xmp4-gh2g, inherited into body-parser and express).
+#   express@4.22.2 pins body-parser ~1.20.5, which pins qs ~6.15.1 — the
+#   entire vulnerable range (2.2.5-6.15.3) is reachable through express 4.x's
+#   own declared dependency tree, so `npm audit fix` could not resolve it
+#   automatically. Fixed by adding a local "overrides": { "qs": "^6.16.0" }
+#   to examples/site-guard-express/package.json (same override pattern used
+#   at the repo root), then `npm install` and `npm run build` (tsc) to
+#   confirm the example still compiles against the overridden qs. Re-ran
+#   `npm audit` after the fix: 0 vulnerabilities. This is example/demo code,
+#   not part of the deployed application, but is still tracked and audited
+#   in-repo.
+# - Unit tests (npx vitest run): 2866 passed, 78 skipped (225/226 files)
+#   - test/mongo-repository-contracts.test.ts (73 tests) could not execute:
+#     MongoMemoryServer binary download blocked by this sandbox's outbound
+#     network policy (fastdl.mongodb.org, HTTP 403); unrelated to source
+#     changes and runs normally in GitHub Actions CI, as in every prior
+#     audit entry.
+# - npx tsc --noEmit: clean
+# - npm run build: clean (Next.js 16 / Turbopack production build succeeded)
+# - npm run api:inventory:check: docs/API_TEST_MATRIX.md up to date
+# - npm run test:api-contracts: 650 passed
+# - npm run lint: 121 errors / 75 warnings, identical to the prior baseline,
+#   all in already-committed code/tests; not a CI gate (no lint step in
+#   .github/workflows/ci.yml)
+# - No hardcoded secrets, private keys, or embedded-credential connection
+#   strings found (grep sweep of tracked source for API-key/token/
+#   password/secret literals, AWS key IDs, PEM private-key headers, and
+#   protocol://user:pass@ strings). Matches found were the same known
+#   non-issues as every prior audit: CSS custom-property names in
+#   app/design-system/foundation/page.tsx, and local/CI-only default
+#   credentials (postgres:postgres@127.0.0.1, behalf:behalf@localhost) in
+#   AGENTS.md, docs/POSTGRES_SCHEMA.md, .github/workflows/ci.yml, and
+#   scripts/dev/authenticated-shell-preview.mjs. Only committed env files
+#   remain .env.example / examples/site-guard-demo/.env.example, both
+#   placeholder only.
+# - Re-checked all four GitHub Actions workflows (ci.yml, cli-release.yml,
+#   package-release.yml, sdk-release.yml): each still declares an explicit,
+#   minimal top-level `permissions:` block; no `pull_request_target` usage
+#   found anywhere in .github/workflows/.
+# - No authorization/business-logic/business-logic-adjacent source changed
+#   since the 2026-08-31 audit (diff from 8c333a3 to this run's HEAD was
+#   limited to docs/compliance/GAP_ANALYSIS.md, package.json/-lock.json, and
+#   this file), so no new manual review of that surface was needed this run.
