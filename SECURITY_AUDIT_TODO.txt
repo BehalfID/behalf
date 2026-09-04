@@ -1189,3 +1189,55 @@
 #   since the 2026-08-31 audit (diff from 8c333a3 to this run's HEAD was
 #   limited to docs/compliance/GAP_ANALYSIS.md, package.json/-lock.json, and
 #   this file), so no new manual review of that surface was needed this run.
+
+# Last audit: 2026-09-03 (full security + compliance audit)
+# Result: PASSED (no new confirmed findings; no source changes since the
+#   2026-08-31 audit — HEAD was still 8c333a3 plus only audit-log/dependency-
+#   override commits)
+# - npm audit (root, default and --omit=dev): 0 vulnerabilities. The default
+#   "quick" audit endpoint returned a transient 503, then a 400 ("Invalid
+#   package tree") after that — both are the npmjs.org registry's ongoing
+#   retirement of that endpoint, not a repo defect; a fresh
+#   `npm install --package-lock-only` followed by `npm audit` came back clean.
+# - npm audit --omit=dev: 0 vulnerabilities in all 7 workspace packages
+#   (packages/cli, packages/egress-proxy, packages/github-action,
+#   packages/install, packages/mcp-audit, packages/mcp-runtime, packages/sdk)
+#   and all 5 example apps with their own package.json (enforcement-demo,
+#   node-demo, site-guard-express, site-guard-nextjs, webhook-receiver);
+#   several hit the same transient registry 503/400 and came back clean on
+#   retry.
+# - Unit tests (npx vitest run): 2866 passed, 78 skipped (225/226 files)
+#   - test/mongo-repository-contracts.test.ts (73 tests) could not execute:
+#     MongoMemoryServer binary download blocked by this sandbox's outbound
+#     network policy (fastdl.mongodb.org, HTTP 403); unrelated to source
+#     changes and runs normally in GitHub Actions CI, as in every prior
+#     audit entry.
+# - npx tsc --noEmit: clean
+# - npm run build: clean (Next.js 16 / Turbopack production build succeeded)
+# - npm run api:inventory:check: docs/API_TEST_MATRIX.md up to date
+# - npm run test:api-contracts: 650 passed
+# - npm run lint: 121 errors / 75 warnings, identical to the prior baseline,
+#   all in already-committed code/tests; not a CI gate (no lint step in
+#   .github/workflows/ci.yml)
+# - No hardcoded secrets, private keys, or embedded-credential connection
+#   strings found (grep sweep of tracked source for API-key/token/
+#   password/secret literals, AWS key IDs, PEM private-key headers, and
+#   protocol://user:pass@ strings). Matches found were the same known
+#   non-issues as every prior audit: CSS custom-property names in
+#   app/design-system/foundation/page.tsx, and local/CI-only default
+#   credentials (postgres:postgres@127.0.0.1, behalf:behalf@localhost) in
+#   AGENTS.md, docs/POSTGRES_SCHEMA.md, .github/workflows/ci.yml, and
+#   scripts/dev/authenticated-shell-preview.mjs; the sk-... string in
+#   test/mcp-audit.test.ts remains an intentional test fixture. Only
+#   committed env files remain .env.example / examples/site-guard-demo/
+#   .env.example, both placeholder only.
+# - Re-checked all four GitHub Actions workflows (ci.yml, cli-release.yml,
+#   package-release.yml, sdk-release.yml): each still declares an explicit,
+#   minimal top-level `permissions:` block; no `pull_request_target` usage
+#   found anywhere in .github/workflows/.
+# - Re-verified the disabled-agent egress-authorization fix
+#   (lib/egressAuthorize.ts: agentStatus === "disabled" check at the top of
+#   authorizeEgressRequest()) is still in place.
+# - No authorization/business-logic/business-logic-adjacent source changed
+#   since the 2026-08-31 audit, so no new manual review of that surface was
+#   needed this run.
