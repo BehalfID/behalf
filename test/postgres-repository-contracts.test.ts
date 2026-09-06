@@ -31,7 +31,11 @@ import {
   upsertPendingInvite
 } from "@/lib/repositories/postgres/memberships";
 import { createPostgresPermissionRepository } from "@/lib/repositories/postgres/permissions";
-import { createPostgresApprovalRepository } from "@/lib/repositories/postgres/approvals";
+import {
+  consumeApprovedPauseApproval,
+  createPostgresApprovalRepository,
+  denyApproval
+} from "@/lib/repositories/postgres/approvals";
 import {
   createSession,
   findByTokenHash as findSessionByTokenHash,
@@ -390,6 +394,188 @@ if (contractsEnabled) {
         await db.insert(approvalRequests).values(input as typeof approvalRequests.$inferInsert);
       }
     };
+  });
+
+  describe("approval status transition race (postgres)", () => {
+    // Deterministic reproduction of a lost-update race in updateApproval():
+    // one connection holds a row lock (simulating a transaction that is about
+    // to win the pending->resolved transition) while a second connection's
+    // real approve/deny/consume call blocks on that same row, then resumes
+    // once the first connection commits a conflicting state change. Only the
+    // fixed code (predicate applied directly on the UPDATE) is expected to
+    // reject the loser with matchedCount 0; the pre-fix code let both sides
+    // win because its WHERE clause only re-checked `approval_id IN (id)`,
+    // not the original status/usedAt condition, against the concurrently
+    // committed row.
+    const openWorkerConnection = async () => {
+      const sql = postgres(resolveSmokeTestUrl()!, {
+        max: 1,
+        prepare: false,
+        idle_timeout: 5,
+        connect_timeout: 15
+      });
+      await sql`SET search_path TO ${sql(context!.schemaName)}`;
+      return sql;
+    };
+
+    it("does not let a concurrent deny succeed once a racing approve has committed", async () => {
+      const db = context!.db;
+      const accountId = "acct_approval_race_lock";
+      const developerUserId = "dev_approval_race_lock";
+      const approvalId = "apr_race_lock";
+
+      await db
+        .insert(accounts)
+        .values({ accountId, name: "Race Account", plan: "free" })
+        .onConflictDoNothing();
+      await db
+        .insert(developerUsers)
+        .values({
+          userId: developerUserId,
+          email: `${developerUserId}@approvals.contract.test`,
+          passwordHash: "contract-test-password-hash",
+          primaryAccountId: accountId
+        })
+        .onConflictDoNothing();
+      await db.insert(approvalRequests).values({
+        approvalId,
+        requestId: `${approvalId}_req`,
+        accountId,
+        developerUserId,
+        kind: "agent_action",
+        action: "execute_command",
+        status: "pending",
+        requiredAuthorityLevel: 40
+      } as typeof approvalRequests.$inferInsert);
+
+      const lockSql = await openWorkerConnection();
+      const denySql = await openWorkerConnection();
+      try {
+        const denyDb = drizzle(denySql, { schema: postgresSchema });
+        let denyPromise!: ReturnType<typeof denyApproval>;
+
+        await lockSql.begin(async (tx) => {
+          // Acquire the row lock a winning "approve" transaction would hold.
+          await tx`SELECT approval_id FROM approval_requests WHERE approval_id = ${approvalId} FOR UPDATE`;
+
+          // Start a real concurrent deny while the lock is held. Its own
+          // UPDATE will block on this row until this transaction commits.
+          denyPromise = denyApproval(denyDb, approvalId, { accountId }, "dev_denier");
+          await new Promise((resolve) => setTimeout(resolve, 250));
+
+          await tx`UPDATE approval_requests
+                   SET status = 'approved', resolved_by = 'dev_approver', resolved_at = now(),
+                       grant_expires_at = now() + interval '1 hour'
+                   WHERE approval_id = ${approvalId}`;
+        });
+
+        const denyResult = await denyPromise;
+        expect(denyResult?.matchedCount).toBe(0);
+
+        const [stored] = await db
+          .select()
+          .from(approvalRequests)
+          .where(eq(approvalRequests.approvalId, approvalId));
+        expect(stored?.status).toBe("approved");
+      } finally {
+        await lockSql.end({ timeout: 5 });
+        await denySql.end({ timeout: 5 });
+      }
+    });
+
+    it("does not let a concurrent consume double-spend an approved pause grant", async () => {
+      const db = context!.db;
+      const accountId = "acct_pause_race_lock";
+      const developerUserId = "dev_pause_race_lock";
+      const approvalId = "apr_pause_race_lock";
+
+      await db
+        .insert(accounts)
+        .values({ accountId, name: "Pause Race Account", plan: "free" })
+        .onConflictDoNothing();
+      await db
+        .insert(developerUsers)
+        .values({
+          userId: developerUserId,
+          email: `${developerUserId}@approvals.contract.test`,
+          passwordHash: "contract-test-password-hash",
+          primaryAccountId: accountId
+        })
+        .onConflictDoNothing();
+      await db
+        .insert(agents)
+        .values({
+          agentId: "behalf_cli_pause_race_lock",
+          accountId,
+          developerUserId,
+          name: "Pause Race Agent",
+          status: "active",
+          apiKeyHash: hashApiKey(`${rawApiKey}_pause_race_lock`)
+        })
+        .onConflictDoNothing();
+      await db.insert(approvalRequests).values({
+        approvalId,
+        requestId: `${approvalId}_req`,
+        accountId,
+        developerUserId,
+        kind: "managed_profile_pause",
+        action: "managed_profile_pause",
+        vendor: "behalf_cli",
+        agentId: "behalf_cli_pause_race_lock",
+        pauseTool: "cursor",
+        pauseScope: "current_repo",
+        pauseRepo: "repo_hash",
+        pauseDeviceId: null,
+        requestedDurationMinutes: 30,
+        pauseReason: "debug",
+        contextReason: "required",
+        pauseBranch: "main",
+        status: "approved",
+        grantExpiresAt: new Date(Date.now() + 60_000),
+        resolvedAt: new Date(),
+        resolvedBy: "dev_approver"
+      } as typeof approvalRequests.$inferInsert);
+
+      const lockSql = await openWorkerConnection();
+      const consumeSql = await openWorkerConnection();
+      try {
+        const consumeDb = drizzle(consumeSql, { schema: postgresSchema });
+        let consumePromise!: ReturnType<typeof consumeApprovedPauseApproval>;
+
+        await lockSql.begin(async (tx) => {
+          // Acquire the row lock a winning "consume" transaction would hold.
+          await tx`SELECT approval_id FROM approval_requests WHERE approval_id = ${approvalId} FOR UPDATE`;
+
+          // Start a real concurrent consume attempt while the lock is held.
+          consumePromise = consumeApprovedPauseApproval(consumeDb, {
+            accountId,
+            developerUserId,
+            approvalId,
+            pauseTool: "cursor",
+            pauseScope: "current_repo",
+            pauseRepo: "repo_hash",
+            pauseDeviceId: null
+          });
+          await new Promise((resolve) => setTimeout(resolve, 250));
+
+          await tx`UPDATE approval_requests
+                   SET status = 'used', resolved_at = now()
+                   WHERE approval_id = ${approvalId}`;
+        });
+
+        const consumeResult = await consumePromise;
+        expect(consumeResult?.matchedCount).toBe(0);
+
+        const [stored] = await db
+          .select()
+          .from(approvalRequests)
+          .where(eq(approvalRequests.approvalId, approvalId));
+        expect(stored?.status).toBe("used");
+      } finally {
+        await lockSql.end({ timeout: 5 });
+        await consumeSql.end({ timeout: 5 });
+      }
+    });
   });
 
   makeSessionsRepositoryContract("postgres", async () => {

@@ -1345,3 +1345,80 @@
 # - No authorization/business-logic/business-logic-adjacent source changed
 #   since the 2026-08-31 audit, so no new manual review of that surface was
 #   needed this run.
+
+# Last audit: 2026-09-06 (full security + compliance audit)
+# Result: REMEDIATED — one confirmed Medium business-logic race condition
+#   fixed and covered by new regression tests; all other checks passed.
+# - CONFIRMED (Medium, business-logic/race condition, CC9.1/PI1.3):
+#   lib/repositories/postgres/approvals.ts updateApproval() implemented its
+#   "atomic conditional update" as a SELECT (matching approvalId + status/
+#   usedAt/grantExpiresAt condition) whose id was then fed into
+#   `UPDATE ... WHERE approval_id IN (that subquery)`. Postgres's
+#   read-committed EvalPlanQual only re-checks the WHERE clause actually
+#   attached to the UPDATE against a concurrently committed row version; the
+#   status/usedAt condition lived only in the once-materialized subquery, so
+#   it was never re-run. Two concurrent transitions on the same approvalId
+#   (e.g. two dashboard approve/deny clicks, or two CLI pause-consume calls
+#   via `consumeApprovedPauseApproval`) could both win, letting a single-use
+#   approval or managed-profile-pause grant be resolved/consumed twice with
+#   duplicate `emitApprovalApproved`/`emitApprovalDenied` side effects. This
+#   was a Postgres-only regression from the 2026-07-31 Mongo->Postgres
+#   cutover: the Mongo backend's equivalent (`ApprovalRequest.updateOne`) was
+#   already atomic per document, and a sibling Postgres function,
+#   `consumeApprovedGrant`, already used the correct direct-predicate form.
+#   Fix: updateApproval() now applies the full filter directly as the
+#   UPDATE's own WHERE clause (matching consumeApprovedGrant's pattern),
+#   removing the SELECT+IN(subquery) indirection. All three real callers
+#   (approveApproval, denyApproval, consumeApprovedPauseApproval) always
+#   include the unique approvalId in their filter, so this is a safe,
+#   behavior-preserving change for every production call site; the generic
+#   `updateOne` interface method has no non-unique-filter callers outside a
+#   contract-test wiring list.
+# - Verified with a deterministic reproduction (not a timing-dependent
+#   Promise.all): two dedicated Postgres connections, one holding a
+#   `SELECT ... FOR UPDATE` row lock while a second connection's real
+#   approve/deny/consume call blocks on that row, then resumes once the
+#   first connection commits a conflicting state change
+#   (test/postgres-repository-contracts.test.ts, "approval status
+#   transition race (postgres)"). Confirmed both new tests fail against the
+#   pre-fix code (matchedCount 1 instead of 0 — the double-transition
+#   actually reproduces) and pass against the fix, against a real local
+#   Postgres 16 instance (mirroring the CI postgres-schema job's Postgres
+#   17 service container).
+# - Full validation after the fix: npm audit (root + all 7 workspace
+#   packages + all 5 example apps): 0 vulnerabilities. npx tsc --noEmit:
+#   clean. npm run build: clean (Next.js 16/Turbopack). npx vitest run:
+#   2866 passed, 78 skipped (the 73-test mongo-repository-contracts skip is
+#   the same sandbox-network-blocked MongoMemoryServer download as every
+#   prior audit entry). npm run test:postgres-smoke,
+#   test:postgres-repositories (70 passed, including the 2 new race
+#   tests), and test:api-postgres (22 passed) against a real local
+#   Postgres 16 instance. npm run test:api-contracts: 650 passed. npm run
+#   api:inventory:check: docs/API_TEST_MATRIX.md up to date. npm run lint:
+#   121 errors/75 warnings, identical to the prior baseline, not a CI gate.
+#   Targeted `npx eslint` on both changed files: clean.
+# - Secret/credential sweep: same known non-issues as every prior audit
+#   (CSS token labels, local/CI-only default credentials, the intentional
+#   test-fixture PEM-header regex in test/api-route-contracts.test.ts, and
+#   the TAP_TOKEN-interpolated git-clone URL in cli-release.yml). No AWS
+#   keys, no committed .env files beyond the two placeholder .env.example
+#   files, no new findings.
+# - Re-verified GitHub Actions workflow permissions (all four workflows
+#   still declare an explicit, minimal top-level `permissions:` block) and
+#   that no `pull_request_target` usage exists anywhere in
+#   .github/workflows/.
+# - Re-verified the disabled-agent egress-authorization fix
+#   (lib/egressAuthorize.ts: agentStatus === "disabled" check) is still in
+#   place, and that /privacy and /compliance still correctly disclose
+#   Supabase (Postgres) as the datastore and HeyCatch as the consent-gated
+#   analytics processor (no drift from docs/compliance/GAP_ANALYSIS.md).
+# - Fresh independent spot-check of IDOR/tenant-scoping, role-check
+#   inversions, and client-trusted-input-for-auth-decisions across several
+#   dashboard API routes and lib/delegatedAuth.ts/lib/membershipManagement.ts
+#   found no exploitable issues beyond the race condition above; self-
+#   approval is correctly blocked (canApproveRequest) and revoked/expired
+#   approvals are correctly excluded from the initial SELECT filter, so
+#   only the concurrency race — not stale-token reuse or self-approval —
+#   was at issue.
+# - G-10/G-15/G-17 remain accepted hardening gaps (unchanged, outside this
+#   run's safe-remediation scope per prior audits' judgment).

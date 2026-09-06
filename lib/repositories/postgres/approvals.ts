@@ -464,15 +464,19 @@ export async function updateApproval(
   update: Record<string, unknown>
 ) {
   try {
-    const target = db
-      .select({ approvalId: approvalRequests.approvalId })
-      .from(approvalRequests)
-      .where(buildWhere(filter))
-      .limit(1);
+    // The full filter (including status/usedAt/grantExpiresAt conditions) must
+    // be the UPDATE statement's own WHERE clause, not a separately-selected id
+    // list fed through `inArray`. Postgres's read-committed EvalPlanQual only
+    // re-checks the WHERE clause actually attached to the UPDATE against a
+    // concurrently-committed row version; a status/usedAt condition buried in
+    // a once-materialized subquery is never re-run, so two concurrent
+    // transitions on the same approvalId (e.g. two approve/deny/consume calls
+    // racing) could otherwise both report matchedCount 1 against a resource
+    // callers treat as single-use.
     const rows = await db
       .update(approvalRequests)
       .set(updateValues(update))
-      .where(inArray(approvalRequests.approvalId, target))
+      .where(buildWhere(filter))
       .returning({ approvalId: approvalRequests.approvalId });
     return { acknowledged: true, matchedCount: rows.length, modifiedCount: rows.length };
   } catch (error) {
