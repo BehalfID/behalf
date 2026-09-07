@@ -1422,3 +1422,65 @@
 #   was at issue.
 # - G-10/G-15/G-17 remain accepted hardening gaps (unchanged, outside this
 #   run's safe-remediation scope per prior audits' judgment).
+
+# Last audit: 2026-09-07 (full security + compliance audit)
+# Result: PASSED (no new confirmed findings; no source changes since the
+#   2026-09-06 audit — branch HEAD was already origin/main at 26355cd)
+# - npm audit (root, default and --omit=dev): 0 vulnerabilities.
+# - npm audit --omit=dev: 0 vulnerabilities in all 7 workspace packages
+#   (packages/cli, packages/egress-proxy, packages/github-action,
+#   packages/install, packages/mcp-audit, packages/mcp-runtime, packages/sdk)
+#   and all 5 example apps with their own package.json (enforcement-demo,
+#   node-demo, site-guard-express, site-guard-nextjs, webhook-receiver).
+# - Unit tests (npx vitest run): 2866 passed, 78 skipped (225/226 files)
+#   - test/mongo-repository-contracts.test.ts (73 tests) could not execute:
+#     MongoMemoryServer binary download blocked by this sandbox's outbound
+#     network policy (fastdl.mongodb.org, HTTP 403); unrelated to source
+#     changes and runs normally in GitHub Actions CI, as in every prior
+#     audit entry.
+# - npx tsc --noEmit: clean.
+# - npm run build: clean (Next.js 16 / Turbopack production build succeeded).
+# - npm run api:inventory:check: docs/API_TEST_MATRIX.md up to date.
+# - npm run test:api-contracts: 650 passed.
+# - npm run lint: 121 errors / 75 warnings, identical to the prior baseline,
+#   all in already-committed code/tests; not a CI gate (no lint step in
+#   .github/workflows/ci.yml).
+# - Postgres-backed suites re-run against a real local Postgres 16 instance
+#   (started the container's own postgresql@16 service and applied
+#   `npm run db:migrate`): `npm run test:postgres-smoke` passed (44 tables,
+#   RLS verified on 43); `npm run test:postgres-repositories` (70 passed,
+#   including the two 2026-09-06 approval-status race-condition regression
+#   tests); `npm run test:api-postgres` (22 passed).
+# - No hardcoded secrets, private keys, or embedded-credential connection
+#   strings found (grep sweep of tracked source for API-key/token/
+#   password/secret literals, AWS key IDs, PEM private-key headers, and
+#   protocol://user:pass@ strings). Matches found were the same known
+#   non-issues as every prior audit: test fixtures using the bhf_sk_test*/
+#   bhf_dev_*/whsec_test_* naming convention, the intentional test-fixture
+#   PEM-header regex in test/api-route-contracts.test.ts, local/CI-only
+#   default credentials (postgres:postgres@127.0.0.1, behalf:behalf@
+#   localhost), and the TAP_TOKEN-interpolated git-clone URL in
+#   cli-release.yml. Only committed env files remain .env.example /
+#   examples/site-guard-demo/.env.example, both placeholder only.
+# - Re-checked all four GitHub Actions workflows (ci.yml, cli-release.yml,
+#   package-release.yml, sdk-release.yml): each still declares an explicit,
+#   minimal top-level `permissions:` block; no `pull_request_target` usage
+#   found anywhere in .github/workflows/.
+# - Re-verified the disabled-agent egress-authorization fix
+#   (lib/egressAuthorize.ts: agentStatus === "disabled" check) and the
+#   2026-09-06 updateApproval() direct-WHERE-clause fix
+#   (lib/repositories/postgres/approvals.ts) are still in place, and that
+#   /privacy and /compliance still correctly disclose Supabase (Postgres)
+#   as the datastore and HeyCatch as the consent-gated analytics processor
+#   (no drift from docs/compliance/GAP_ANALYSIS.md).
+# - No authorization/business-logic/business-logic-adjacent source changed
+#   since the 2026-09-06 audit, so no new manual review of that surface was
+#   needed this run.
+# - Incidental non-source side effects from running `npm install` in
+#   examples/enforcement-demo and from the test suite (a package-lock.json
+#   version-field churn, a mode-only rewrite of the already-built
+#   packages/mcp-runtime/dist/cli.js, and a timestamp bump in the
+#   .behalf/context.md test fixture) were reverted with `git checkout --`
+#   before committing; none reflect an intentional change.
+# - G-10/G-15/G-17 remain accepted hardening gaps (unchanged, outside this
+#   run's safe-remediation scope per prior audits' judgment).
