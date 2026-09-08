@@ -17,7 +17,8 @@ export const API_RATE_LIMIT_PER_MINUTE = 60;
  *
  * "pro" is the legacy Stripe-billed paid plan and keeps its historical limits.
  * "team" and "business" are internal tiers introduced ahead of Stripe/checkout
- * support; nothing assigns them automatically yet.
+ * support; nothing assigns them automatically yet. Tracked in
+ * https://github.com/BehalfID/behalf/issues/182
  */
 export const PLANS = ["free", "pro", "team", "business", "enterprise"] as const;
 export type Plan = (typeof PLANS)[number];

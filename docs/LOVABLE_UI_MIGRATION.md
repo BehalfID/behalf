@@ -72,7 +72,8 @@ are not included here. Building them from the README prose brief would be new
 design work, not a port, and could not be checked against any reference.
 
 Producing those screens in Lovable and pushing them to the mirror is the
-prerequisite for migrating them.
+prerequisite for migrating them. Tracked in
+https://github.com/BehalfID/behalf/issues/181
 
 ---
 

@@ -31,6 +31,8 @@ BehalfID has a **solid technical control foundation** for a permission-verificat
 
 ## 2. Critical and high gaps (priority order)
 
+Open items G-06 through G-19 are tracked in https://github.com/BehalfID/behalf/issues/157
+
 | Gap ID | Severity | Area | Finding | Criteria | Recommended remediation |
 |--------|----------|------|---------|----------|-------------------------|
 | G-01 | Critical | Integrity / Trust | REMEDIATED 2026-07-24: compliance copy matches SameSite=Lax + 1h/14d | PI1.5, CC6.7, A.8.5 | Keep copy in sync with session code |

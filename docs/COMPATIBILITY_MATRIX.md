@@ -1,5 +1,7 @@
 # Adapter Compatibility Matrix
 
+Production-readiness gaps below are tracked in https://github.com/BehalfID/behalf/issues/131
+
 Status as of 2026-07-24. All adapters are EXPERIMENTAL — not official vendor integrations.
 Package publish status: `@behalfid/sdk` and `@behalfid/cli` are on npm; `@behalfid/mcp-runtime`,
 `@behalfid/install`, and `@behalfid/mcp-audit` are **source-only** (not on npm). See
