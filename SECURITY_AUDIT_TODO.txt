@@ -1484,3 +1484,122 @@
 #   before committing; none reflect an intentional change.
 # - G-10/G-15/G-17 remain accepted hardening gaps (unchanged, outside this
 #   run's safe-remediation scope per prior audits' judgment).
+
+# Last audit: 2026-09-08 (full security + compliance audit)
+# Result: REMEDIATED — one confirmed Critical and three confirmed High
+#   dependency vulnerabilities fixed; one confirmed Moderate dependency
+#   vulnerability found but not safely fixable this run (see below); all
+#   other checks passed.
+# - CONFIRMED (Critical, dependency/CVE, CC6.1/CC7.1): `npm audit --omit=dev`
+#   newly reported next@16.2.11 as vulnerable to an unauthenticated RCE on
+#   Windows-hosted servers (GHSA-p293-qw3h-jr36) and an unauthenticated RCE
+#   in the Image Optimization API via crafted AVIF files (GHSA-2xp9-vwfh-vxw4,
+#   via next's vendored sharp). Fix: next ^16.2.11 -> ^16.3.4 (latest stable)
+#   in package.json and examples/site-guard-nextjs/package.json (the only
+#   other package.json pinning next). Neither advisory's attack surface
+#   (Windows-hosted deployment, AVIF image optimization) is something this
+#   Linux-deployed app exercises today, but the fix is a routine minor-range
+#   bump with no code changes required, so it was applied rather than
+#   accepted as a gap.
+# - CONFIRMED (High, dependency/CVE, CC6.1): nodemailer@9.0.1 (root
+#   dependency, used by lib/email.ts for transactional email) was in the
+#   vulnerable range for four advisories: resolveContent() legacy-signature
+#   bypass of disableFileAccess/disableUrlAccess (GHSA-8m3c-c648-2xjj), IDN/
+#   punycode allow-list bypass (GHSA-wmmp-3585-3rmp), addressparser O(n^2)
+#   DoS (GHSA-2x7j-588g-ccc2), and RFC5322-comment recipient-validation
+#   bypass (GHSA-cc9r-2j5m-2m83). lib/email.ts only calls the standard
+#   createTransport()/sendMail() API (no legacy resolveContent signature, no
+#   user-controlled attachment/address parsing beyond sendMail's normal
+#   fields), so none of the four were independently confirmed exploitable in
+#   this codebase's actual usage, but nodemailer 9.x has no patched release
+#   for these advisories. Fix: nodemailer ^9.0.1 -> ^10.0.1 (major bump,
+#   verified safe for this codebase's minimal API surface via `npx tsc
+#   --noEmit` and a full `npm run build`).
+# - CONFIRMED (High, dependency/CVE, CC6.1): sharp@<0.35.4 (transitive via
+#   next, overridden at the root) was vulnerable to two libheif
+#   vulnerabilities (GHSA-g89c-p67h-r497, GHSA-2jg2-4ch7-h545, aggregated as
+#   GHSA-rgj7-g3m4-5g8c). Fix: bumped the root and examples/
+#   site-guard-nextjs sharp override from ^0.35.0 to ^0.35.4.
+# - CONFIRMED (High, dependency/CVE, CC6.1): js-yaml@4.3.1 (transitive via
+#   eslint's @eslint/eslintrc, overridden at the root; devDependency only)
+#   had unbounded CPU use from empty merge-key sources (GHSA-2883-xcg3-
+#   v3hh). Fix: bumped the js-yaml override from ^4.3.1 to ^4.3.2 (patched
+#   4.x release, no major bump needed).
+# - examples/site-guard-nextjs additionally needed a new
+#   `baseline-browser-mapping` override (^2.11.21) after the next bump
+#   pulled in baseline-browser-mapping@2.10.32, itself newly vulnerable to a
+#   process-termination DoS on invalid input (GHSA-w5vr-8v7q-w6rv,
+#   moderate). The root package.json's own browserslist@^4.28.8 override
+#   already resolves a patched baseline-browser-mapping transitively, so no
+#   root change was needed there.
+# - CONFIRMED-BUT-NOT-FIXED (Moderate, dependency/CVE, tooling limitation):
+#   vitest@4.1.6 (root and three workspace packages' devDependency) and its
+#   @vitest/coverage-v8@4.1.6 are in the vulnerable range for a path-
+#   traversal/arbitrary-file-read in @vitest/mocker's redirect-mock handling
+#   (GHSA-82fw-gwwq-j7x9). vitest/coverage-v8 4.1.11 patches it without a
+#   major bump. Attempted the bump (root + packages/egress-proxy,
+#   packages/github-action, packages/install) but every `npm install`
+#   attempt — with a fresh lockfile, with an incrementally-updated lockfile,
+#   and with --legacy-peer-deps — crashed with the same reproducible npm
+#   10.9.7 Arborist bug (`TypeError: Cannot read properties of null
+#   (reading 'edgesOut')` in build-ideal-tree.js #loadPeerSet) while
+#   resolving vitest 4.1.11's new optional peer, @vitest/browser-
+#   playwright@5.0.0. This is an npm-tooling defect independent of this
+#   repository's code, not something safely fixable by editing source in
+#   this run: forcing it through would have left an inconsistent/incomplete
+#   package-lock.json (confirmed by a subsequent `npm ci` failing with
+#   "Missing: ... from lock file" for dozens of packages) that would break
+#   CI's `npm ci` step. Reverted the vitest/@vitest/coverage-v8 version
+#   bumps in all four package.json files; left as an open, tracked,
+#   tooling-blocked gap (exploitable only by a developer/CI machine running
+#   `vitest` against an untrusted test/mock file — not a production runtime
+#   risk) rather than force a fix that would break the build. Re-attempt in
+#   a future run once an npm/Arborist patch is available, or by bumping npm
+#   itself first.
+# - Full validation after the fixes: npm audit (root, --omit=dev): 0
+#   vulnerabilities. npm audit (root, default incl. devDependencies): 0
+#   Critical/High, 3 moderate (the tracked vitest/mocker gap above). npm
+#   audit --omit=dev in all 7 workspace packages and all 5 example apps
+#   with their own package.json: 0 vulnerabilities (examples/
+#   site-guard-nextjs was 1 critical + 1 high + 1 moderate before the
+#   next/sharp/baseline-browser-mapping fixes above, 0 after). npx tsc
+#   --noEmit: clean (nodemailer's major bump needed no type-level changes;
+#   @types/nodemailer remains at 8.0.0 upstream, which still typechecks
+#   cleanly against this codebase's minimal nodemailer API usage). npm run
+#   build: clean (Next.js 16.3.4 / Turbopack production build succeeded).
+#   npx vitest run: 2866 passed, 78 skipped (same sandbox-network-blocked
+#   MongoMemoryServer download as every prior audit entry). npm run
+#   test:postgres-smoke (44 tables, RLS on 43), test:postgres-repositories
+#   (70 passed, including the approval-status race-condition regression
+#   tests), and test:api-postgres (22 passed), all against a real local
+#   Postgres 16 instance (started the sandbox's own postgresql@16 service,
+#   ran `npm run db:migrate`). npm run test:api-contracts: 650 passed. npm
+#   run api:inventory:check: docs/API_TEST_MATRIX.md up to date. npm run
+#   lint: 121 errors / 75 warnings, identical to the prior baseline, not a
+#   CI gate.
+# - Secret/credential sweep: same known non-issues as every prior audit
+#   (the CI-only postgres:postgres@localhost connection string in
+#   .github/workflows/ci.yml, the local-only behalf:behalf@localhost
+#   connection string in scripts/dev/authenticated-shell-preview.mjs, and
+#   the two placeholder .env.example files). No AWS keys, no private-key
+#   headers, no committed real credentials found.
+# - Re-verified all four GitHub Actions workflows still declare an
+#   explicit, minimal top-level `permissions:` block and that no
+#   `pull_request_target` usage exists anywhere in .github/workflows/.
+# - Re-verified the disabled-agent egress-authorization fix
+#   (lib/egressAuthorize.ts: agentStatus === "disabled" check) and the
+#   2026-09-06 updateApproval() direct-WHERE-clause fix
+#   (lib/repositories/postgres/approvals.ts) are still in place.
+# - No authorization/business-logic source changed since the 2026-09-06
+#   audit, so no new manual review of that surface was needed beyond the
+#   dependency remediation above.
+# - Incidental non-source side effects (a .behalf/context.md test-fixture
+#   timestamp bump, a mode-only rewrite of the already-built
+#   packages/mcp-runtime/dist/cli.js, and a next-env.d.ts regeneration from
+#   running the build) were reverted with `git checkout --` before
+#   committing; none reflect an intentional change.
+# - G-10/G-15/G-17 remain accepted hardening gaps (unchanged, outside this
+#   run's safe-remediation scope per prior audits' judgment).
+# - New tracked gap: vitest/@vitest/coverage-v8 moderate path-traversal
+#   advisory (GHSA-82fw-gwwq-j7x9) blocked by an npm 10.9.7 Arborist bug;
+#   see above.
