@@ -1603,3 +1603,70 @@
 # - New tracked gap: vitest/@vitest/coverage-v8 moderate path-traversal
 #   advisory (GHSA-82fw-gwwq-j7x9) blocked by an npm 10.9.7 Arborist bug;
 #   see above.
+
+# Last audit: 2026-09-09 (full security + compliance audit)
+# Result: REMEDIATED — one confirmed High dependency vulnerability fixed
+#   (newly published since the 2026-09-08 audit); one already-tracked
+#   Moderate dependency vulnerability remains blocked by the same npm
+#   tooling defect; all other checks passed.
+# - Housekeeping: the 2026-09-08 remediation commit (Critical Next.js RCE +
+#   High nodemailer/sharp/js-yaml CVE fixes, 51c8948) had been committed
+#   locally by that run but never reached origin/main. Fast-forwarded main
+#   to include it before starting this run's audit; no new review needed
+#   for that commit beyond what its own message already documents.
+# - CONFIRMED (High, dependency/CVE, CC6.1): `npm audit` newly reported
+#   smol-toml@1.7.0 (direct dependency of packages/install, used by the
+#   installer's TOML config parsing) vulnerable to a Denial of Service via
+#   malformed TOML documents (GHSA-7w5x-hrqm-74c2), published since the
+#   2026-09-08 audit. Fix: bumped packages/install/package.json's
+#   smol-toml from ^1.7.0 to ^1.8.0 (patched release, no major bump). `npm
+#   audit fix` itself crashes on the same npm 10.9.7 Arborist bug as the
+#   tracked vitest gap below, so applied the bump directly via `npm install
+#   smol-toml@1.8.0 -w @behalfid/install` instead.
+# - CONFIRMED-BUT-NOT-FIXED (Moderate, dependency/CVE, tooling limitation):
+#   vitest@4.1.6/@vitest/coverage-v8@4.1.6 path-traversal advisory
+#   (GHSA-82fw-gwwq-j7x9) remains open; same npm 10.9.7 Arborist crash on
+#   vitest 4.1.11's new optional peer (@vitest/browser-playwright@5.0.0)
+#   blocks the bump, as in every prior audit since 2026-09-08. No change
+#   in status this run.
+# - Full validation after the fix: npm audit (root, default incl.
+#   devDependencies): 0 Critical/High, 3 moderate (the tracked vitest/
+#   mocker gap only). npm audit --omit=dev in all 7 workspace packages and
+#   all 5 example apps with their own package.json: 0 vulnerabilities. npx
+#   tsc --noEmit: clean. npm run build: clean (Next.js 16.3.4/Turbopack).
+#   npx vitest run: 2866 passed, 78 skipped (same sandbox-network-blocked
+#   MongoMemoryServer download as every prior audit entry). npm run
+#   test:postgres-smoke (44 tables, RLS on 43), test:postgres-repositories
+#   (70 passed, including the approval-status race-condition regression
+#   tests), and test:api-postgres (22 passed), all against a real local
+#   Postgres 16 instance (started the sandbox's own postgresql@16 service,
+#   ran `npm run db:migrate`). npm run test:api-contracts: 650 passed. npm
+#   run api:inventory:check: docs/API_TEST_MATRIX.md up to date. npm run
+#   lint: 121 errors/75 warnings, identical to the prior baseline, not a
+#   CI gate.
+# - Secret/credential sweep: same known non-issues as every prior audit
+#   (CSS token labels, autoComplete attribute values, the CI-only
+#   postgres:postgres@localhost connection string in
+#   .github/workflows/ci.yml, the local-only behalf:behalf@localhost
+#   connection string in scripts/dev/authenticated-shell-preview.mjs, the
+#   AGENTS.md/docs example connection strings, the test-fixture
+#   mongodb+srv://user:pass@... literals, and the two placeholder
+#   .env.example files). No AWS keys, no private-key headers, no committed
+#   real credentials found.
+# - Re-verified all four GitHub Actions workflows still declare an
+#   explicit, minimal top-level `permissions:` block and that no
+#   `pull_request_target` usage exists anywhere in .github/workflows/.
+# - Re-verified the disabled-agent egress-authorization fix
+#   (lib/egressAuthorize.ts: agentStatus === "disabled" check) and the
+#   2026-09-06 updateApproval() direct-WHERE-clause fix
+#   (lib/repositories/postgres/approvals.ts) are still in place.
+# - No authorization/business-logic source changed since the 2026-09-06
+#   audit, so no new manual review of that surface was needed beyond the
+#   dependency remediation above.
+# - Incidental non-source side effects (a .behalf/context.md test-fixture
+#   timestamp bump, a mode-only rewrite of the already-built
+#   packages/mcp-runtime/dist/cli.js, and a next-env.d.ts regeneration from
+#   running the build) were reverted with `git checkout --` before
+#   committing; none reflect an intentional change.
+# - G-10/G-15/G-17 remain accepted hardening gaps (unchanged, outside this
+#   run's safe-remediation scope per prior audits' judgment).
