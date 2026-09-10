@@ -1725,3 +1725,35 @@
 #   committing; none reflect an intentional change.
 # - G-10/G-15/G-17 remain accepted hardening gaps (unchanged, outside this
 #   run's safe-remediation scope per prior audits' judgment).
+
+# ADDENDUM to the 2026-09-10 audit, same run:
+# - The push of the audit-log commit above (dac486a..1896896) returned a
+#   GitHub server-side notice: "GitHub found 8 vulnerabilities on
+#   BehalfID/behalf's default branch (2 high, 6 moderate)." This
+#   contradicts every dependency check performed in this run and in every
+#   prior audit in this file: `npm audit` (with and without --omit=dev) at
+#   the root and in all 7 workspace packages and all 5 example apps found
+#   0 Critical/High everywhere, and the GitHub Advisories pages for all
+#   four pinned Actions (actions/checkout, actions/setup-node,
+#   oven-sh/setup-bun, softprops/action-gh-release) show no published
+#   advisories.
+# - UNRESOLVED (tooling access gap, not a dismissed finding): this
+#   session's available tools have no authenticated way to list or open
+#   individual Dependabot alerts (no `list_dependabot_alerts`-equivalent
+#   in the connected GitHub MCP server, no local `gh` CLI, and the
+#   repository's Security tab requires authentication that isn't
+#   available to this session). Without the specific package/advisory
+#   each alert names, it cannot safely be triaged or remediated in this
+#   run — bumping dependencies speculatively without knowing which
+#   package is flagged risks masking the real issue or introducing an
+#   unrelated regression.
+# - ACTION NEEDED (human, outside this run's tool access): open
+#   https://github.com/BehalfID/behalf/security/dependabot directly (or
+#   grant this session's GitHub connector the `security_events` scope /
+#   Dependabot-alerts read access) to identify the 2 high + 6 moderate
+#   alerts by name, so a future run — or a human — can remediate them.
+#   This gap likely predates this run: nothing in this file's history
+#   shows a prior run cross-checking the GitHub-reported alert count
+#   against local `npm audit` output, so it may have been present across
+#   multiple "PASSED"/"all checks passed" entries above without being
+#   caught.
