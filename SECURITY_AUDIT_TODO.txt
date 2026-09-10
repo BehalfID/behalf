@@ -1670,3 +1670,58 @@
 #   committing; none reflect an intentional change.
 # - G-10/G-15/G-17 remain accepted hardening gaps (unchanged, outside this
 #   run's safe-remediation scope per prior audits' judgment).
+
+# Last audit: 2026-09-10 (full security + compliance audit)
+# Result: PASSED — no new confirmed findings
+# - No source changed since the 2026-09-09 remediation (dac486a); branch
+#   was already at origin/main.
+# - npm audit (root, default incl. devDependencies): 0 Critical/High, 3
+#   moderate — same tracked vitest/@vitest/coverage-v8 path-traversal gap
+#   (GHSA-82fw-gwwq-j7x9) as every prior audit since 2026-09-08. npm audit
+#   --omit=dev (root): 0 vulnerabilities. npm audit --omit=dev in all 7
+#   workspace packages and all 5 example apps: 0 vulnerabilities.
+# - CONFIRMED-BUT-NOT-FIXED (Moderate, dependency/CVE, tooling limitation):
+#   re-attempted the vitest 4.1.6 -> 4.1.11 / @vitest/coverage-v8 4.1.6 ->
+#   4.1.11 bump. Still blocked by the same reproducible npm 10.9.7
+#   Arborist bug (`Cannot read properties of null (reading 'edgesOut')`)
+#   resolving vitest 4.1.11's new optional peer, @vitest/browser-
+#   playwright@5.0.0. No change in status; remains a devDependency-only,
+#   non-production-runtime risk tracked for a future npm/Arborist fix.
+# - Full validation: npx tsc --noEmit: clean. npm run build: clean
+#   (Next.js/Turbopack production build succeeded). npx vitest run: 2866
+#   passed, 78 skipped (same sandbox-network-blocked MongoMemoryServer
+#   binary download, HTTP 403, as every prior audit entry — not a code
+#   regression). npm run db:migrate against a real local Postgres 16
+#   instance: migrations applied successfully. npm run test:postgres-smoke
+#   (44 tables, RLS on 43), test:postgres-repositories (70 passed,
+#   including the approval-status race-condition regression tests), and
+#   test:api-postgres (22 passed). npm run test:api-contracts: 650 passed.
+#   npm run api:inventory:check: docs/API_TEST_MATRIX.md up to date. npm
+#   run lint: 121 errors/75 warnings, identical to the prior baseline, not
+#   a CI gate.
+# - Secret/credential sweep: manual grep for AWS keys, PEM private-key
+#   headers, OpenAI/Slack-style tokens, and embedded connection-string
+#   credentials found only the same known non-issues as every prior audit
+#   (the CI-only postgres:postgres@localhost service-container password in
+#   .github/workflows/ci.yml, the local-only behalf:behalf@localhost
+#   connection string in scripts/dev/authenticated-shell-preview.mjs, and
+#   the placeholder .env.example MONGODB_URI). No new secrets found.
+# - Re-verified all four GitHub Actions workflows still declare an
+#   explicit, minimal top-level `permissions:` block and that no
+#   `pull_request_target` usage exists anywhere in .github/workflows/.
+# - Re-verified the disabled-agent egress-authorization fix
+#   (lib/egressAuthorize.ts: agentStatus === "disabled" check) and the
+#   2026-09-06 updateApproval() direct-WHERE-clause fix
+#   (lib/repositories/postgres/approvals.ts) are still in place.
+# - git log confirms no changes to lib/egressAuthorize.ts,
+#   lib/repositories/postgres/approvals.ts, packages/sdk/src/webhooks.ts,
+#   lib/validation.ts, or app/ since the 2026-09-06 audit, so no new
+#   manual authorization/business-logic review was needed beyond the
+#   re-verification above.
+# - Incidental non-source side effects (a .behalf/context.md test-fixture
+#   timestamp bump, a mode-only rewrite of the already-built
+#   packages/mcp-runtime/dist/cli.js, and a next-env.d.ts regeneration from
+#   running the build) were reverted with `git checkout --` before
+#   committing; none reflect an intentional change.
+# - G-10/G-15/G-17 remain accepted hardening gaps (unchanged, outside this
+#   run's safe-remediation scope per prior audits' judgment).
