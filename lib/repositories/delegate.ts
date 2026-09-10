@@ -87,6 +87,7 @@ export function delegate<A extends RepositoryAggregate, M extends string, F exte
       | undefined;
     const impl = aggregateImpl?.[method];
     if (typeof impl !== "function") {
+      // See lib/repositories/postgres/runtime.ts's notImplemented(). Tracked: issue #144.
       throw new Error(
         `${method} is not implemented on postgres ${aggregate} adapter`
       );

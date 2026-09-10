@@ -7,6 +7,8 @@ Production is authoritative for all behaviour. The Lovable repository
 ("Add project README", 2026-08-01). At that commit the mirror had one branch,
 no tags, and a clean tree identical to `origin/main` — it was already current.
 
+Onboarding and dashboard page interiors remain unported. Tracked: [issue #181](https://github.com/BehalfID/behalf/issues/181).
+
 ## What the Lovable reference actually contains
 
 This matters more than it sounds, because it bounds what can honestly be called

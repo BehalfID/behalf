@@ -601,6 +601,8 @@ await vercelClient.deploy({ project: "my-app", authToken: token });
 
 ## Part 9 — Implementation Roadmap
 
+Tracked: [issue #130](https://github.com/BehalfID/behalf/issues/130). Phase 4 (MCP interceptor) is now substantially implemented in source at `packages/mcp-runtime` (not yet published to npm); Phases 1, 2, and 5 remain unbuilt.
+
 ### Phase 1 — Execution Proxy (Weeks 1–3)
 
 - [ ] Generalize Action Gateway to `http_request` action type

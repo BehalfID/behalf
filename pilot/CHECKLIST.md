@@ -2,6 +2,8 @@
 
 Every live step starts as **PENDING**. Change status only when a human records evidence in `EVIDENCE_TEMPLATE.md`. Automated unit/integration tests are **not** substitutes for these live steps.
 
+The code-level blocker (no safe permission edit/replace workflow) is resolved; what remains here is the live two-person evidence collection below. Tracked: [issue #129](https://github.com/BehalfID/behalf/issues/129).
+
 Legend: `PENDING` | `PASS` | `FAIL` | `BLOCKED` | `SKIPPED` (with reason).
 
 ---

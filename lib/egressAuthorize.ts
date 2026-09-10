@@ -35,6 +35,8 @@ const DEFAULT_DENY_HOSTS = [
   "instance-data"
 ];
 
+// Hardcoded fallback is reachable only if all three env vars below are unset, and
+// verifyEgressTicket() currently has no production caller (test-only). Tracked: issue #234.
 function ticketSecret() {
   return (
     process.env.BEHALFID_EGRESS_TICKET_SECRET?.trim() ||

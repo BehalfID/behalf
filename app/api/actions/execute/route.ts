@@ -10,6 +10,8 @@ import { isRecord, readString, rejectUnknownFields } from "@/lib/validation";
 import { verifyAction } from "@/lib/verify";
 import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
 
+// Enforcement Architecture roadmap Phases 1/2/5 (execution tokens, approval gate,
+// service SDK) would generalize this beyond a single hardcoded action. Tracked: issue #130.
 const SUPPORTED_ACTION = "browse_web";
 const SUPPORTED_RESOURCE = "web";
 

@@ -7,6 +7,8 @@
 
 > Interactive view: open the gap analysis canvas beside chat (see evidence pack README).
 
+> Open remediation items below are tracked in [issue #157](https://github.com/BehalfID/behalf/issues/157).
+
 ---
 
 ## 1. Executive summary

@@ -929,9 +929,10 @@ Each PR is independently shippable and reversible. **No PR changes auth.**
   still throws “not implemented on postgres” by design.
 - Connection module (`lib/db/postgres/index.ts`) exists; composition may call it only when
   the latch + backend flags select postgres.
-- **Next after B′:** Close method-level adapter gaps and pass `test/repository-contracts/*`
-  under Postgres before any production cutover. Default runtime remains Mongo.
-- **Production cutover is still not approved** (latch must stay unset in prod until then).
+- **Production cutover happened 2026-07-31** (see `docs/PRODUCTION.md`); Supabase/Postgres is
+  the authoritative production datastore (`BEHALFID_ALLOW_POSTGRES_RUNTIME=true`,
+  `BEHALFID_REPOSITORY_BACKEND=postgres`). Mongo is no longer the default runtime. Remaining
+  work is limited to the allowlisted gaps above, not a pre-cutover gate. Tracked: issue #144.
 
 ### PR C — Data export/import scripts ✅ *shipped (tooling)*
 
