@@ -43,17 +43,17 @@
     "@behalfid/mcp-runtime": "*"
   },
   "devDependencies": {
-    "@emnapi/core": "^1.11.2",
+    "@emnapi/core": "^1.11.3",
     "@emnapi/runtime": "^1.11.2",
-    "@types/node": "^25.9.5",
+    "@types/node": "^26.5.0",
     "@typescript-eslint/eslint-plugin": "^8.46.0",
     "@typescript-eslint/parser": "^8.46.0",
-    "esbuild": "0.28.1",
-    "eslint": "^9.39.4",
+    "esbuild": "0.28.2",
+    "eslint": "^10.10.0",
     "prettier": "^3.6.2",
     "tsup": "^8.5.0",
-    "typescript": "^6.0.3",
-    "vitest": "^4.1.6"
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.0"
   },
   "sideEffects": false,
   "license": "MIT",
@@ -67,7 +67,7 @@
   },
   "overrides": {
     "brace-expansion": "^5.0.8",
-    "esbuild": "0.28.1"
+    "esbuild": "0.28.2"
   },
   "keywords": [
     "behalfid",
