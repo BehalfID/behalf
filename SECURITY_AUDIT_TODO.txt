@@ -1845,3 +1845,31 @@
 #   running `npm ci` inside individual workspace packages instead of from
 #   the root) were reverted/removed before committing; none reflect an
 #   intentional change.
+
+# ADDENDUM to the 2026-09-11 audit, same run:
+# - The push above (e50a74f..f0af360) returned the identical GitHub
+#   server-side notice as the 2026-09-10 addendum: "GitHub found 8
+#   vulnerabilities on BehalfID/behalf's default branch (2 high, 6
+#   moderate)." This was pushed AFTER main already included every
+#   dependency fix documented above (Next.js RCE, nodemailer, js-yaml,
+#   sharp, smol-toml) and after this run's own `npm audit` (root,
+#   --omit=dev, and all workspace/example packages) found 0 Critical/High
+#   everywhere. The identical count before and after a real fix landed
+#   means this session's original theory (that the count was simply
+#   stale dependency state on main) is NOT a full explanation — the 8
+#   alerts likely cover something npm audit's scope does not: GitHub
+#   Actions dependency alerts, a Dependabot ecosystem/manifest this
+#   session isn't auditing, or an alert-recalculation delay longer than
+#   this run's lifetime.
+# - Still UNRESOLVED for the same reason as 2026-09-10: this session has
+#   no authenticated way to list individual Dependabot alerts (no
+#   list_dependabot_alerts-equivalent tool, no gh CLI, no Security-tab
+#   access). Escalating rather than re-deferring, since remediating known
+#   dependency CVEs did not change the reported count.
+# - ACTION NEEDED (human): open
+#   https://github.com/BehalfID/behalf/security/dependabot directly to
+#   identify the 2 high + 6 moderate alerts by name/ecosystem. If they
+#   turn out to be the now-fixed npm advisories and this is just
+#   Dependabot's alert cache lagging behind the new push, no further
+#   action is needed once it refreshes — but that should be confirmed
+#   rather than assumed by a future run.
