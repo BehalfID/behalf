@@ -1757,3 +1757,91 @@
 #   against local `npm audit` output, so it may have been present across
 #   multiple "PASSED"/"all checks passed" entries above without being
 #   caught.
+
+# Last audit: 2026-09-11 (full security + compliance audit)
+# Result: REMEDIATED — root cause of the 2026-09-10 addendum's Dependabot
+#   discrepancy found and fixed: origin/main was never actually updated
+#   with the previously-committed dependency fixes.
+# - ROOT CAUSE (Critical, dependency/CVE, CC6.1/CC6.6, unpatched-in-
+#   production window): this session's local branch
+#   (claude/upbeat-brahmagupta-xe05mw) had 4 commits — 51c8948 (2026-09-08:
+#   Critical Next.js RCE + High nodemailer/sharp/js-yaml CVE fixes),
+#   dac486a (2026-09-09: High smol-toml DoS fix), 1896896 and e50a74f
+#   (2026-09-10 audit-log entries) — that were committed locally by prior
+#   runs but never reached origin/main, despite the 2026-09-09 audit log
+#   entry above stating main had been "fast-forwarded ... to include it".
+#   Verified directly: `git fetch origin main` showed origin/main's HEAD
+#   (bcaea50) still pinned to next@^16.2.11, nodemailer@^9.0.1,
+#   js-yaml@^4.3.1, sharp@^0.35.0, and packages/install's
+#   smol-toml@^1.7.0 — i.e. every one of these previously-"fixed"
+#   vulnerabilities was still live on the actual default branch. This also
+#   fully explains the 2026-09-10 addendum's unresolved "GitHub found 8
+#   vulnerabilities (2 high, 6 moderate)" notice: those alerts were
+#   accurate for origin/main's real (unpatched) dependency state, not a
+#   tooling discrepancy against this session's local `npm audit` output.
+# - FIX: pushed the 4 pending commits directly to origin/main, so the
+#   Critical Next.js RCE fix (^16.2.11 -> ^16.3.4), nodemailer
+#   SSRF/file-read fix (^9.0.1 -> ^10.0.1), js-yaml quadratic-CPU fix
+#   (^4.3.1 -> ^4.3.2), sharp fix (^0.35.0 -> ^0.35.4), and smol-toml DoS
+#   fix (^1.7.0 -> ^1.8.0, in packages/install and
+#   examples/site-guard-nextjs) are finally live on the default branch.
+#   Ran `npm ci` + full validation against this exact diff before pushing
+#   (see below).
+# - PROCESS GAP (non-code, for future runs): a run that commits
+#   remediation locally must verify with `git fetch origin <branch> &&
+#   git log origin/<branch>..HEAD` that the push actually landed on the
+#   remote before recording "PASSED"/"pushed to main" in this log —
+#   several entries above (2026-09-09, 2026-09-10) asserted a successful
+#   push that had not actually occurred.
+# - CONFIRMED-BUT-NOT-FIXED (Moderate, dependency/CVE, tooling
+#   limitation, unchanged): vitest@4.1.6/@vitest/coverage-v8@4.1.6
+#   path-traversal advisory (GHSA-82fw-gwwq-j7x9) remains open, still
+#   blocked by the same reproducible npm 10.9.7 Arborist crash on vitest
+#   4.1.11's new optional peer (@vitest/browser-playwright@5.0.0) as
+#   every audit since 2026-09-08. devDependency-only, non-production-
+#   runtime risk.
+# - Full validation performed on the pushed state (root `npm ci` after
+#   discovering node_modules was not pre-installed in this session): npm
+#   audit --omit=dev (root + all 7 workspace packages + all 5 example
+#   apps with their own package.json): 0 vulnerabilities everywhere. npm
+#   audit (root, incl. devDependencies): 0 Critical/High, 3 moderate (the
+#   tracked vitest gap only). npx tsc --noEmit: clean. npm run build:
+#   clean (Next.js 16.3.4/Turbopack). npx vitest run: 2866 passed, 78
+#   skipped (same sandbox-network-blocked MongoMemoryServer download,
+#   HTTP 403, as every prior audit — not a regression). Started a local
+#   Postgres 16 instance, ran npm run db:migrate, then
+#   test:postgres-smoke (44 tables, RLS on 43), test:postgres-repositories
+#   (70 passed, incl. the approval-status race-condition regression
+#   tests), test:api-postgres (22 passed), test:api-contracts (650
+#   passed), api:inventory:check (docs/API_TEST_MATRIX.md up to date).
+#   Workspace package tests: egress-proxy (2), install (130),
+#   github-action (14), mcp-runtime (93) — all passed (146 + 93, matching
+#   prior baselines). npm run lint: 121 errors/75 warnings, identical to
+#   the long-standing baseline; CI does not gate on lint per AGENTS.md.
+# - Secret/credential sweep: grepped tracked source (excluding dist/ and
+#   node_modules/) for AWS key IDs, PEM private-key headers, sk-.../
+#   xox[baprs]-.../AIza... token patterns; only the same known
+#   intentional test fixtures as every prior audit (test/mcp-audit.test.ts,
+#   test/cli-scan.test.ts) matched. No new secrets found.
+# - Re-verified (no source changes to these files since 2026-08-27, and
+#   no review indicated a change was needed): disabled-agent
+#   egress-authorization fix (lib/egressAuthorize.ts), updateApproval()
+#   direct-WHERE-clause fix (lib/repositories/postgres/approvals.ts),
+#   webhook signature verification (packages/sdk/src/webhooks.ts),
+#   security headers and cookie flags (next.config.ts / middleware.ts),
+#   GitHub Actions workflow permissions blocks and absence of
+#   pull_request_target.
+# - Compliance: docs/compliance/GAP_ANALYSIS.md open items (G-06..G-27)
+#   reviewed; no new code-level defect found. The dependency fixes above
+#   are newly relevant to SOC 2 CC6.1/CC6.6 (vulnerability and patch
+#   management) and CC7.1 (change tracking accuracy) — this run's
+#   process-gap note above is the corrective action for the CC7.1 concern
+#   (audit-log entries must reflect verified remote state, not assumed
+#   push success).
+# - Incidental non-source side effects from running the build/test suite
+#   (.behalf/context.md test-fixture timestamp bump, a mode-only rewrite
+#   of packages/mcp-runtime/dist/cli.js, next-env.d.ts regeneration, and
+#   stray node_modules/ directories created by an initial mis-step of
+#   running `npm ci` inside individual workspace packages instead of from
+#   the root) were reverted/removed before committing; none reflect an
+#   intentional change.
