@@ -1966,3 +1966,73 @@
 #   (.behalf/context.md test-fixture timestamp bump, next-env.d.ts
 #   regeneration) were reverted with `git checkout --` before committing;
 #   none reflect an intentional change.
+
+# Last audit: 2026-09-13 (full security + compliance audit)
+# Result: PASSED (no new confirmed findings; no code changes since 2026-09-12)
+# - This session started from a fresh checkout with no `node_modules` present
+#   (an environment/container difference from prior runs, not a repository
+#   defect); ran `npm ci` first (722 packages, 0 vulnerabilities) before any
+#   typecheck/test/build command could produce meaningful results — the
+#   session's first `npx tsc --noEmit` / `npx vitest run` attempts, taken
+#   before installing, failed for this reason alone and are not audit
+#   findings. Noting this so a future run doesn't mistake a missing-install
+#   state for a code regression.
+# - npm audit (root, default and --omit=dev) + all workspaces/examples
+#   (packages/cli, packages/egress-proxy, packages/github-action,
+#   packages/install, packages/mcp-audit, packages/mcp-runtime, packages/sdk,
+#   examples/enforcement-demo, examples/node-demo, examples/site-guard-express,
+#   examples/site-guard-nextjs, examples/webhook-receiver): 0 vulnerabilities.
+# - Reviewed all 27 open Dependabot PRs (#209-#272) plus the two
+#   Claude-authored compliance PRs (#230, #232): all are routine
+#   devDependency/dependency version bumps (vitest 5.0.0, typescript 7.0.2,
+#   eslint 10.x, @types/node 26.x, commander 15, express 5, etc.) with no
+#   currently-unpatched CVE behind them, since npm audit is already clean
+#   everywhere. Per prior audits' findings, several are stale relative to
+#   fixes already on main and would regress a pinned patch if merged as-is;
+#   none were merged this run.
+# - Unit tests (npx vitest run): 2866 passed, 78 skipped (225/226 files) —
+#   identical to the 2026-09-12 baseline. The one failing file,
+#   test/mongo-repository-contracts.test.ts (73 tests), remains blocked only
+#   by this sandbox's outbound network policy rejecting the MongoMemoryServer
+#   binary download (fastdl.mongodb.org); unrelated to source changes and
+#   runs normally in GitHub Actions CI.
+# - npm run test:packages (egress-proxy 2, install 130, github-action 14 =
+#   146) and packages/mcp-runtime (93): all passed, matching prior baselines.
+# - Started a local disposable Postgres 16 instance, ran `npm run db:migrate`
+#   cleanly, then: test:postgres-smoke (44 tables, RLS on 43),
+#   test:postgres-repositories (70 passed, incl. the approval
+#   status-transition race-condition regression tests), test:api-postgres
+#   (22 passed), test:api-contracts (650 passed), api:inventory:check (docs
+#   up to date) — all matching prior baselines exactly.
+# - npx tsc --noEmit: clean (after npm ci).
+# - npm run build: clean (Next.js/Turbopack production build).
+# - npm run lint: 121 errors / 75 warnings, identical to the long-standing
+#   baseline; CI does not gate on lint per AGENTS.md.
+# - Secret/credential sweep: grepped tracked source (excluding dist/ and
+#   node_modules/) for AWS key IDs, PEM private-key headers, sk-.../
+#   xox[baprs]-.../AIza... token patterns, and embedded user:pass@host
+#   connection strings. Only the same known intentional test fixture
+#   (test/mcp-audit.test.ts) and well-known local-only dev/CI Postgres
+#   credentials (`.github/workflows/ci.yml`, `scripts/dev/
+#   authenticated-shell-preview.mjs`, docs) matched, consistent with every
+#   prior audit. No new secrets found.
+# - Re-verified (no source changes to these files since 2026-09-12):
+#   disabled-agent egress-authorization fix (lib/egressAuthorize.ts:
+#   agentStatus === "disabled" check), updateApproval() direct-WHERE-clause
+#   fix (lib/repositories/postgres/approvals.ts), webhook HMAC verification
+#   (packages/sdk/src/webhooks.ts, fail-closed and timing-safe), GitHub
+#   Actions workflow permissions blocks on all four workflows with no
+#   pull_request_target usage anywhere in .github/workflows/.
+# - Compliance: docs/compliance/GAP_ANALYSIS.md open items (G-06 through
+#   G-27) reviewed; unchanged, still accurately tracked as organizational/
+#   process gaps (ISMS approval, backup restore drill, vendor DPAs, deploy
+#   change-control) or already-documented hardening recommendations
+#   (API-key pepper, CSRF token, rate-limit Redis memory fallback), not
+#   confirmed code-level defects requiring a fix in this run.
+# - No repository-fixable confirmed security or compliance findings were
+#   identified this run, so no source code changes were made. Incidental
+#   non-source side effects from running the build/test suite
+#   (.behalf/context.md test-fixture timestamp bump, next-env.d.ts
+#   regeneration, a mode-only rewrite of packages/mcp-runtime/dist/cli.js)
+#   were reverted with `git checkout --` before committing; none reflect an
+#   intentional change.
