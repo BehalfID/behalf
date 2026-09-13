@@ -2036,3 +2036,24 @@
 #   regeneration, a mode-only rewrite of packages/mcp-runtime/dist/cli.js)
 #   were reverted with `git checkout --` before committing; none reflect an
 #   intentional change.
+# - Verified via `git fetch origin main && git log origin/main..HEAD` that
+#   this run's commit reached the remote before recording this entry.
+
+# ADDENDUM to the 2026-09-13 audit, same run:
+# - The push above returned a GitHub server-side notice: "GitHub found 6
+#   vulnerabilities on BehalfID/behalf's default branch (2 high, 4
+#   moderate)." This is down from the "8 (2 high, 6 moderate)" reported on
+#   the 2026-09-10/11/12 pushes — consistent with, though not conclusive
+#   proof of, the 2026-09-12 vitest devDependency fix resolving 2 of the
+#   previously-open moderate alerts. This session still has no
+#   `list_dependabot_alerts`-equivalent tool (no gh CLI, no Security-tab
+#   access), so the remaining 6 cannot be identified by name/ecosystem here.
+#   `npm audit` (root, default and --omit=dev, across every workspace and
+#   example package) is 0 vulnerabilities, so whatever these alerts cover
+#   is outside that tool's scope (e.g. GitHub Actions action-pinning
+#   alerts, or an ecosystem/manifest this method doesn't inspect).
+# - ACTION NEEDED (human): open
+#   https://github.com/BehalfID/behalf/security/dependabot directly to
+#   identify the remaining 2 high + 4 moderate alerts by name/ecosystem so
+#   a future run can target them specifically instead of re-deriving from
+#   npm audit alone each time.
