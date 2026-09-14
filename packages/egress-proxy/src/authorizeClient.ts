@@ -48,7 +48,8 @@ export async function requestEgressAuthorization(
       risk: json.risk,
       ticket: json.ticket,
       expiresAt: json.expiresAt,
-      requestId: json.requestId
+      requestId: json.requestId,
+      resolvedAddress: json.resolvedAddress
     };
   } catch (error) {
     return {

@@ -1,4 +1,6 @@
 import crypto from "crypto";
+import dns from "dns/promises";
+import net from "net";
 import { timingSafeEqualString } from "@/lib/crypto";
 import { isInternalHostname, isPrivateIpAddress, normalizeHostname } from "@/lib/ssrf";
 import { verifyAction } from "@/lib/verify";
@@ -24,6 +26,14 @@ export type EgressAuthorizeResponse = {
   ticket?: string;
   expiresAt?: string;
   requestId?: string;
+  /**
+   * The resolved, validated public IP for `host`, when this decision resolved DNS itself
+   * (the generic host path below). Callers that forward the connection (the egress proxy)
+   * should connect to this address instead of re-resolving the hostname, so a DNS answer
+   * that changes between authorization and connection (DNS rebinding) cannot redirect the
+   * already-approved request to a private/internal address.
+   */
+  resolvedAddress?: string;
 };
 
 const TICKET_TTL_MS = 60_000;
@@ -98,6 +108,35 @@ export function isBlockedEgressHost(host: string): { blocked: boolean; reason?: 
   }
 
   return { blocked: false };
+}
+
+/**
+ * Resolves `host` to its actual network addresses and confirms none are private/internal.
+ * `isBlockedEgressHost` above only inspects the hostname string, so a domain whose DNS
+ * record points at a private or metadata address (e.g. 169.254.169.254) would otherwise
+ * pass that check untouched. This closes that gap for the generic (non-allowlisted) path.
+ */
+export async function resolvePublicEgressAddress(
+  host: string
+): Promise<{ blocked: true; reason: string } | { blocked: false; address: string }> {
+  const normalized = normalizeHostname(host);
+  let addresses: Array<{ address: string; family: number }>;
+  try {
+    const ipVersion = net.isIP(normalized);
+    addresses = ipVersion
+      ? [{ address: normalized, family: ipVersion }]
+      : await dns.lookup(normalized, { all: true, verbatim: true });
+  } catch {
+    return { blocked: true, reason: "Host could not be resolved." };
+  }
+
+  if (!addresses.length) {
+    return { blocked: true, reason: "Host could not be resolved." };
+  }
+  if (addresses.some(({ address }) => isPrivateIpAddress(address))) {
+    return { blocked: true, reason: "Host resolves to a private or internal address." };
+  }
+  return { blocked: false, address: addresses[0].address };
 }
 
 export function mintEgressTicket(input: {
@@ -199,6 +238,11 @@ export async function authorizeEgressRequest(input: {
     return { allowed: false, reason: blocked.reason ?? "Host blocked.", risk: "high" };
   }
 
+  const resolved = await resolvePublicEgressAddress(host);
+  if (resolved.blocked) {
+    return { allowed: false, reason: resolved.reason, risk: "high" };
+  }
+
   const decision = await verifyAction({
     agentId: input.request.agentId,
     accountId: input.accountId,
@@ -235,6 +279,7 @@ export async function authorizeEgressRequest(input: {
     reason: decision.reason,
     risk: decision.risk,
     requestId: decision.requestId,
+    resolvedAddress: resolved.address,
     ticket: mintEgressTicket({ agentId: input.request.agentId, host, port, expiresAt }),
     expiresAt: expiresAt.toISOString()
   };

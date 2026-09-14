@@ -18,6 +18,7 @@ import {
   hostMatchesPattern as platformHostMatches,
   isBlockedEgressHost,
   mintEgressTicket,
+  resolvePublicEgressAddress,
   verifyEgressTicket
 } from "@/lib/egressAuthorize";
 
@@ -86,6 +87,83 @@ describe("egress authorize policy", () => {
     expect(isBlockedEgressHost("metadata.google.internal").blocked).toBe(true);
     expect(isBlockedEgressHost("127.0.0.1").blocked).toBe(true);
     expect(platformHostMatches("api.stripe.com", "*.stripe.com")).toBe(true);
+  });
+
+  it("blocks a private IP literal without needing DNS", async () => {
+    const result = await resolvePublicEgressAddress("169.254.169.254");
+    expect(result.blocked).toBe(true);
+  });
+
+  it("blocks a hostname whose DNS record resolves to a private/metadata address (DNS-based SSRF bypass)", async () => {
+    vi.resetModules();
+    vi.doMock("dns/promises", () => ({
+      default: { lookup: vi.fn().mockResolvedValue([{ address: "169.254.169.254", family: 4 }]) },
+      lookup: vi.fn().mockResolvedValue([{ address: "169.254.169.254", family: 4 }])
+    }));
+
+    const { resolvePublicEgressAddress: resolve, authorizeEgressRequest: authorize } =
+      await import("@/lib/egressAuthorize");
+
+    const result = await resolve("attacker-controlled.example");
+    expect(result.blocked).toBe(true);
+
+    // isBlockedEgressHost alone would let this through (it never resolves DNS); the
+    // full authorize flow must still deny it once DNS is resolved.
+    const decision = await authorize({
+      request: {
+        agentId: "agent_1",
+        method: "GET",
+        url: "https://attacker-controlled.example/",
+        host: "attacker-controlled.example",
+        port: 443,
+        protocol: "https"
+      },
+      accountId: "acct_1",
+      agentStatus: "active"
+    });
+    expect(decision.allowed).toBe(false);
+    expect(decision.resolvedAddress).toBeUndefined();
+
+    vi.doUnmock("dns/promises");
+    vi.resetModules();
+  });
+
+  it("returns the resolved public address for forwarding pinning when a generic host is allowed", async () => {
+    vi.resetModules();
+    vi.doMock("dns/promises", () => ({
+      default: { lookup: vi.fn().mockResolvedValue([{ address: "203.0.113.9", family: 4 }]) },
+      lookup: vi.fn().mockResolvedValue([{ address: "203.0.113.9", family: 4 }])
+    }));
+    vi.doMock("@/lib/verify", () => ({
+      verifyAction: vi.fn().mockResolvedValue({
+        requestId: "req_2",
+        allowed: true,
+        reason: "Permitted by policy.",
+        risk: "low",
+        approvalId: null
+      })
+    }));
+
+    const { authorizeEgressRequest: authorize } = await import("@/lib/egressAuthorize");
+    const decision = await authorize({
+      request: {
+        agentId: "agent_1",
+        method: "GET",
+        url: "https://vendor.example/",
+        host: "vendor.example",
+        port: 443,
+        protocol: "https"
+      },
+      accountId: "acct_1",
+      agentStatus: "active"
+    });
+
+    expect(decision.allowed).toBe(true);
+    expect(decision.resolvedAddress).toBe("203.0.113.9");
+
+    vi.doUnmock("dns/promises");
+    vi.doUnmock("@/lib/verify");
+    vi.resetModules();
   });
 
   it("mints and verifies short-lived egress tickets", () => {
@@ -296,6 +374,10 @@ describe("authorizeEgressRequest with verify", () => {
         approvalId: null
       })
     }));
+    vi.doMock("dns/promises", () => ({
+      default: { lookup: vi.fn().mockResolvedValue([{ address: "93.184.216.34", family: 4 }]) },
+      lookup: vi.fn().mockResolvedValue([{ address: "93.184.216.34", family: 4 }])
+    }));
 
     const { authorizeEgressRequest: authorize } = await import("@/lib/egressAuthorize");
     const decision = await authorize({
@@ -314,6 +396,7 @@ describe("authorizeEgressRequest with verify", () => {
     expect(decision.allowed).toBe(false);
     expect(decision.reason).toMatch(/permission/i);
     vi.doUnmock("@/lib/verify");
+    vi.doUnmock("dns/promises");
     vi.resetModules();
   });
 });

@@ -21,6 +21,13 @@ export type EgressAuthorizeResponse = {
   ticket?: string;
   expiresAt?: string;
   requestId?: string;
+  /**
+   * Validated public IP for the target host, when the authorize endpoint resolved DNS
+   * itself. When present, the proxy connects to this address instead of re-resolving the
+   * hostname, so a DNS answer that changes between authorization and connection cannot
+   * redirect an already-approved request to a private/internal address.
+   */
+  resolvedAddress?: string;
 };
 
 export type ParsedProxyTarget = {

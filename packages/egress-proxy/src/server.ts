@@ -122,7 +122,7 @@ export function createEgressProxyServer(options: EgressProxyServerOptions): http
 
       const upstream = http.request(
         {
-          hostname: target.host,
+          hostname: decision.resolvedAddress || target.host,
           port: target.port,
           path: requestPath,
           method,
@@ -167,7 +167,7 @@ export function createEgressProxyServer(options: EgressProxyServerOptions): http
         return;
       }
 
-      const upstream = net.connect(port, host, () => {
+      const upstream = net.connect(port, decision.resolvedAddress || host, () => {
         clientSocket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
         if (head.length) upstream.write(head);
         upstream.pipe(clientSocket);

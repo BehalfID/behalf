@@ -2057,3 +2057,120 @@
 #   identify the remaining 2 high + 4 moderate alerts by name/ecosystem so
 #   a future run can target them specifically instead of re-deriving from
 #   npm audit alone each time.
+
+# Last audit: 2026-09-14
+# Result: PASSED (2 confirmed findings fixed)
+# - npm audit (root, default and --omit=dev) + every workspace/example
+#   (packages/cli, egress-proxy, github-action, install, mcp-audit,
+#   mcp-runtime, sdk, examples/enforcement-demo, node-demo,
+#   site-guard-express, site-guard-nextjs, webhook-receiver): 0
+#   vulnerabilities.
+# - Secret/credential sweep: grepped tracked source (excluding dist/) for
+#   AWS key IDs, PEM private-key headers, sk-.../xox[baprs]-.../AIza...
+#   token patterns, and embedded user:pass@host connection strings. Only
+#   the known intentional test fixtures (test/mcp-audit.test.ts,
+#   test/api-route-contracts.test.ts's own secret-pattern regex) and
+#   well-known local-only dev/CI Postgres credentials matched, consistent
+#   with every prior audit. No new secrets found. Confirmed only
+#   .env.example files are tracked in git.
+#
+# CONFIRMED FINDING 1 (High) — DNS-based SSRF bypass in agent egress
+#   authorization. lib/egressAuthorize.ts's isBlockedEgressHost() only
+#   inspected the literal hostname string against a denylist/suffix list;
+#   it never resolved DNS. An attacker-influenced agent action (prompt
+#   injection, a permissive vendor allowlist, etc.) requesting a domain
+#   whose DNS A record points at 169.254.169.254 (cloud metadata) or an
+#   internal RFC1918 address would pass this check untouched, and
+#   packages/egress-proxy/src/server.ts then forwarded the connection by
+#   re-resolving the same hostname itself with no IP validation — a
+#   single static DNS record was sufficient, no two-stage DNS-rebinding
+#   race required. This defeated the entire purpose of the egress-gating
+#   feature, which is this product's core function. Category: SSRF /
+#   business-logic security. Maps to ISO 27001 A.8.26/A.14.2 (secure
+#   development, input validation), SOC 2 CC6.6/CC6.7 (system boundary
+#   protection), and is relevant to GDPR/CPRA to the extent metadata-
+#   service access could expose account credentials/PII.
+#   FIX: added resolvePublicEgressAddress() (lib/egressAuthorize.ts),
+#   which resolves DNS (or accepts an IP literal directly) and rejects
+#   any resolved address that is private/internal, using the same
+#   isPrivateIpAddress() check already trusted elsewhere (lib/ssrf.ts's
+#   validatePublicUrl). Wired into authorizeEgressRequest()'s generic
+#   (non-allowlisted) host path before verifyAction() is consulted. To
+#   also close the residual DNS-rebinding TOCTOU window (DNS answer
+#   changing between the authorize call and the proxy's own connect),
+#   the validated address is now returned as `resolvedAddress` on the
+#   response and threaded through packages/egress-proxy's types,
+#   authorizeClient, and server (both the plain-HTTP and CONNECT-tunnel
+#   forwarding paths now connect to the pinned resolved IP instead of
+#   re-resolving the hostname; the original Host header/SNI is
+#   unaffected). Added regression tests in test/egress-proxy.test.ts
+#   proving: a DNS record pointing at a metadata/private address is
+#   rejected even though the plain hostname check would have allowed it,
+#   and an allowed generic host returns the resolved address for pinning.
+#   Platform hosts and the operator-configured BEHALFID_EGRESS_ALLOW_HOSTS
+#   allowlist paths are unchanged (trusted, operator-controlled hosts,
+#   not attacker-influenced input).
+#
+# CONFIRMED FINDING 2 (Medium) — fail-open shared console-admin gate on
+#   non-Vercel production deployments. lib/consoleAdmins.ts's
+#   allowSharedConsoleAdmin() computed
+#   `NODE_ENV !== "production" || VERCEL_ENV !== "production"`. On any
+#   non-Vercel deployment (self-hosted/Docker/other PaaS) VERCEL_ENV is
+#   unset, so `VERCEL_ENV !== "production"` is always true, making the
+#   whole OR expression true regardless of NODE_ENV — the shared
+#   BEHALFID_ADMIN_PASSWORD console-login path (app/api/console/login)
+#   stayed enabled in genuine self-hosted production even after named
+#   ConsoleAdmin accounts exist, letting a single shared secret bypass
+#   per-admin credentials. The codebase already had the correct
+#   VERCEL_ENV-aware pattern in lib/env.ts's isProduction(), just not
+#   applied here. Category: authorization / access control. Maps to
+#   ISO 27001 A.5.15/A.8.2 (access control, privileged access), SOC 2
+#   CC6.1/CC6.2 (logical access, least privilege).
+#   FIX: exported isProduction() from lib/env.ts and changed
+#   allowSharedConsoleAdmin() to `!isProduction()`. Added
+#   test/console-admins-shared-gate.test.ts covering the explicit
+#   override, self-hosted production (denied — the bug this fixes),
+#   Vercel production (denied), non-production (allowed), and Vercel
+#   preview (allowed).
+#
+# - Reviewed (read-only, no new issues found): approval status-transition
+#   race-condition fix intact (lib/repositories/postgres/approvals.ts);
+#   self-approval blocked (lib/delegatedAuth.ts); webhook HMAC
+#   verification fail-closed and timing-safe (packages/sdk/src/webhooks.ts,
+#   app/api/billing/webhook/route.ts); no raw string-concatenated SQL; no
+#   eval/exec on attacker-controlled input; HTTP security headers/CSP/CORS
+#   (next.config.ts, proxy.ts) and cookie flags (httpOnly/secure/sameSite)
+#   correct; no debug/diagnostic routes reachable without auth; no
+#   sensitive data in logs or excessive API response exposure; all four
+#   GitHub Actions workflows have least-privilege `permissions:` blocks,
+#   no pull_request_target, actions pinned to version tags; password/MFA
+#   crypto (scrypt, AES-256-GCM, otpauth, crypto.randomBytes) sound, no
+#   Math.random() for security-sensitive values.
+# - Unit tests (npx vitest run): 2874 passed, 78 skipped (226/227 files) —
+#   8 more than the 2026-09-13 baseline (2866), from the new regression
+#   tests above. The one failing file, test/mongo-repository-contracts
+#   .test.ts (73 tests), remains blocked only by this sandbox's outbound
+#   network policy rejecting the MongoMemoryServer binary download;
+#   unrelated to source changes and runs normally in GitHub Actions CI.
+# - npm run test:packages (egress-proxy 2, install 130, github-action 14
+#   = 146): all passed.
+# - Started a local disposable Postgres 16 instance, ran `npm run
+#   db:migrate` cleanly, then: test:postgres-smoke (44 tables, RLS on 43),
+#   test:postgres-repositories (70 passed), test:api-postgres (22
+#   passed), test:api-contracts (650 passed), api:inventory:check (docs
+#   up to date) — all matching prior baselines.
+# - npx tsc --noEmit: clean. npm run build: clean (Next.js/Turbopack
+#   production build). packages/egress-proxy also typechecks and builds
+#   (`tsc -p tsconfig.json`) cleanly on its own.
+# - npm run lint: 121 errors / 75 warnings, identical to the long-standing
+#   baseline; CI does not gate on lint per AGENTS.md.
+# - Compliance: docs/compliance/GAP_ANALYSIS.md open items (G-06 through
+#   G-27) reviewed; unchanged, still accurately tracked as organizational/
+#   process gaps (ISMS approval, backup restore drill, vendor DPAs, deploy
+#   change-control) or already-documented hardening recommendations, not
+#   confirmed code-level defects. Neither finding above required a
+#   documentation change; both were pure code logic defects.
+# - Incidental non-source side effects from running the build/test suite
+#   (.behalf/context.md test-fixture timestamp bump, next-env.d.ts
+#   regeneration, a mode-only rewrite of packages/mcp-runtime/dist/cli.js)
+#   were reverted with `git checkout --` before committing.

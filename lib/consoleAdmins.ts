@@ -3,6 +3,7 @@ import { and, count, eq, isNull } from "drizzle-orm";
 import { getPostgresDb } from "@/lib/db/postgres";
 import { adminAuditLogs, consoleAdmins } from "@/lib/db/postgres/schema";
 import { hashPassword, verifyPassword } from "@/lib/developerAuth";
+import { isProduction } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { isPostgresRuntimeEnabled } from "@/lib/repositories/backend";
 
@@ -11,7 +12,7 @@ export function allowSharedConsoleAdmin(): boolean {
   if (process.env.BEHALFID_ALLOW_SHARED_ADMIN === "false") return false;
   // Default: allow shared password outside production so local/dev keeps working;
   // production requires explicit opt-in once ConsoleAdmins exist, or when none exist yet.
-  return process.env.NODE_ENV !== "production" || process.env.VERCEL_ENV !== "production";
+  return !isProduction();
 }
 
 export async function countConsoleAdmins(): Promise<number> {
