@@ -2174,3 +2174,67 @@
 #   (.behalf/context.md test-fixture timestamp bump, next-env.d.ts
 #   regeneration, a mode-only rewrite of packages/mcp-runtime/dist/cli.js)
 #   were reverted with `git checkout --` before committing.
+
+# Last audit: 2026-09-15 (full security + compliance audit)
+# Result: PASSED (no new confirmed findings; no source changes since the
+#   2026-09-14 remediation commit)
+# - Git baseline: branch main at 8e9c4c9 (the 2026-09-14 fix commit) both
+#   before and after this run; clean working tree; `git fetch origin main`
+#   confirmed no new upstream commits since then.
+# - `npm ci` (root): 0 vulnerabilities. `npm audit` (root, default and
+#   --omit=dev) + every workspace/example (packages/cli, egress-proxy,
+#   github-action, install, mcp-audit, mcp-runtime, sdk,
+#   examples/enforcement-demo, node-demo, site-guard-express,
+#   site-guard-nextjs, webhook-receiver): 0 vulnerabilities everywhere.
+# - Secret/credential sweep: grepped tracked source for AWS key IDs, PEM
+#   private-key headers, sk-.../xox[baprs]-.../AIza... token patterns, and
+#   embedded user:pass@host connection strings. Only the known intentional
+#   test fixture (test/mcp-audit.test.ts) and well-known local-only dev/CI
+#   Postgres credentials (.env.example, .github/workflows/ci.yml,
+#   scripts/dev/authenticated-shell-preview.mjs) matched, consistent with
+#   every prior audit. No new secrets found.
+# - Re-verified the 2026-09-14 fixes are present and correct, not reverted:
+#   resolvePublicEgressAddress() in lib/egressAuthorize.ts is wired into
+#   authorizeEgressRequest() before verifyAction() and its resolved address
+#   is threaded through to the egress-proxy's connect path;
+#   allowSharedConsoleAdmin() in lib/consoleAdmins.ts correctly gates on
+#   isProduction() from lib/env.ts. Regression tests
+#   test/egress-proxy.test.ts and test/console-admins-shared-gate.test.ts
+#   both present and passing.
+# - Unit tests (npx vitest run): 2874 passed, 78 skipped (226/227 files),
+#   identical to the 2026-09-14 baseline. The one failing file,
+#   test/mongo-repository-contracts.test.ts (73 tests), remains blocked
+#   only by this sandbox's outbound network policy rejecting the
+#   MongoMemoryServer binary download; unrelated to source changes and
+#   runs normally in GitHub Actions CI.
+# - npm run test:packages (egress-proxy 2, install 130, github-action 14 =
+#   146): all passed.
+# - Started a local Postgres 16 instance (via pg_ctlcluster; Docker daemon
+#   unavailable in this sandbox), ran `npm run db:migrate` cleanly, then:
+#   test:postgres-smoke (44 tables, RLS on 43), test:postgres-repositories
+#   (70 passed), test:api-postgres (22 passed), test:api-contracts (650
+#   passed), api:inventory:check (docs up to date) — all matching prior
+#   baselines exactly.
+# - npx tsc --noEmit: clean. npm run build: clean (Next.js/Turbopack
+#   production build). npm run build:cli and npm run build:egress-proxy:
+#   both clean.
+# - npm run lint: 121 errors / 75 warnings, identical to the long-standing
+#   baseline; CI does not gate on lint per AGENTS.md.
+# - Compliance: reviewed docs/compliance/GAP_ANALYSIS.md,
+#   CONTROL_MATRIX.md, ISO27001_AUDIT.md, SOC2_AUDIT.md, README.md.
+#   G-06 through G-27 unchanged, still accurately tracked as
+#   organizational/process gaps or already-documented hardening
+#   recommendations, not confirmed code-level defects. Found one
+#   documentation-only staleness gap: the compliance pack's revision
+#   history (docs/compliance/README.md) had no entry for the 2026-09-14
+#   SSRF/consoleAdmins fixes, so it read as silent on the two most recent
+#   confirmed findings even though no existing doc claim was actually
+#   contradicted (CONTROL_MATRIX's SSRF/admin-access rows remained
+#   accurate). FIXED: added a 2026-09-14 revision-history entry to
+#   docs/compliance/README.md summarizing both fixes and their control
+#   mapping (CC6.6/CC6.7, A.8.26/A.14.2, CC6.8). No other doc or code
+#   change made.
+# - Incidental non-source side effects from running the build/test suite
+#   (.behalf/context.md test-fixture timestamp bump, next-env.d.ts
+#   regeneration, a mode-only rewrite of packages/mcp-runtime/dist/cli.js)
+#   were reverted with `git checkout --` before committing.
