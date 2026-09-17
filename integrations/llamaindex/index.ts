@@ -2,6 +2,8 @@
  * BehalfID compatibility adapter for LlamaIndex-style agent workflows.
  *
  * Status: EXPERIMENTAL — compatibility adapter, not an official LlamaIndex integration.
+ * Production-readiness gaps (no live tests, no runtime verification) tracked in
+ * https://github.com/BehalfID/behalf/issues/131
  *
  * Wraps LlamaIndex FunctionTool-compatible objects with a BehalfID permission
  * check before execution. The wrapper preserves `metadata` (name, description,

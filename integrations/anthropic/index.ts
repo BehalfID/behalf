@@ -2,6 +2,7 @@
  * BehalfID compatibility adapter for Claude / Anthropic tool-use workflows.
  *
  * Status: EXPERIMENTAL — compatibility adapter, not an official Anthropic integration.
+ * Production-readiness gaps tracked in https://github.com/BehalfID/behalf/issues/131
  *
  * Wraps Claude tool_use blocks with a BehalfID permission check before the
  * handler executes. The returned shape mirrors Anthropic's tool_result format

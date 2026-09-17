@@ -45,6 +45,8 @@ const DEFAULT_DENY_HOSTS = [
   "instance-data"
 ];
 
+// Hardcoded fallback secret + verifyEgressTicket() having no caller: tracked in
+// https://github.com/BehalfID/behalf/issues/234
 function ticketSecret() {
   return (
     process.env.BEHALFID_EGRESS_TICKET_SECRET?.trim() ||
@@ -158,6 +160,7 @@ export function mintEgressTicket(input: {
   return `bhf_egress_${payload}.${sig}`;
 }
 
+// Unused outside its own module and tests — see https://github.com/BehalfID/behalf/issues/234
 export function verifyEgressTicket(
   ticket: string,
   expected: { agentId: string; host: string; port: number },

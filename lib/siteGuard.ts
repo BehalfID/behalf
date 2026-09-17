@@ -115,6 +115,8 @@ function signalPatternMatches(pattern: string | null | undefined, value: string 
   return globMatches(pattern.trim(), value.trim(), true);
 }
 
+// Best-effort, spoofable User-Agent/identifier matching — not a production enforcement
+// gateway. Tracked in https://github.com/BehalfID/behalf/issues/128
 function ruleMatchesSignal(rule: SiteAccessRuleLean, input: SiteGuardInput) {
   const identifierMatch =
     Boolean(rule.agentIdentifier) &&

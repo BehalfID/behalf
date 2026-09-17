@@ -2,7 +2,9 @@
  * BehalfID reusable handler factory for Vercel / Next.js App Router.
  *
  * Status: DEPLOYMENT EXAMPLE — shows how to protect agent-action API routes
- * with BehalfID. Not an official Vercel integration.
+ * with BehalfID. Not an official Vercel integration. No allowed/denied live
+ * tests or runtime verification yet — tracked in
+ * https://github.com/BehalfID/behalf/issues/131
  *
  * Usage: import createBehalfIDHandler and mount it as your POST route handler.
  * See integrations/vercel/example-route.ts for a full wired-up example.

@@ -2,6 +2,7 @@
  * BehalfID compatibility adapter for OpenAI-style agent workflows.
  *
  * Status: EXPERIMENTAL — compatibility adapter, not an official OpenAI integration.
+ * Production-readiness gaps tracked in https://github.com/BehalfID/behalf/issues/131
  *
  * These helpers gate OpenAI tool/function calls behind BehalfID permission
  * checks before execution. No OpenAI SDK is required — the adapter works with

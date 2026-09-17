@@ -1,7 +1,9 @@
 /**
  * BehalfID permission gates for Stripe-style payment workflows.
  *
- * Status: EXPERIMENTAL — permission-check examples only.
+ * Status: EXPERIMENTAL — permission-check examples only. Does not handle Stripe
+ * idempotency keys, validate webhook signatures, or cross-validate refund
+ * amounts — tracked in https://github.com/BehalfID/behalf/issues/131
  *
  * IMPORTANT: This module is NOT an official Stripe integration. It contains
  * NO Stripe API calls. It shows where to insert BehalfID checks in a payment

@@ -2,6 +2,7 @@
  * BehalfID compatibility adapter for LangChain-style agent workflows.
  *
  * Status: EXPERIMENTAL — compatibility adapter, not an official LangChain integration.
+ * Production-readiness gaps tracked in https://github.com/BehalfID/behalf/issues/131
  *
  * Wraps LangChain-compatible tools with a BehalfID permission gate. The wrapped
  * tool has the same name and description as the original — register it with your
