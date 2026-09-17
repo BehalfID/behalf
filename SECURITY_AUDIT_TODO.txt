@@ -2309,3 +2309,77 @@
 #   (.behalf/context.md test-fixture timestamp bump, next-env.d.ts
 #   regeneration, a mode-only rewrite of packages/mcp-runtime/dist/cli.js)
 #   were reverted with `git checkout --` before committing.
+
+# Last audit: 2026-09-17 (full security + compliance audit)
+# Result: PASSED (no new confirmed findings; no source changes since the
+#   2026-09-14 remediation commit)
+# - Git baseline: branch main at d8a6e0a (the 2026-09-16 audit-log commit)
+#   both before and after this run; clean working tree; `git fetch origin
+#   main` confirmed no new upstream commits since then. `git log
+#   --since="2026-09-16" --name-only` shows only SECURITY_AUDIT_TODO.txt
+#   touched since then — zero app/api or lib changes, so no new surface
+#   to review.
+# - Re-verified from current source (not from this log) that the
+#   2026-09-14 fixes remain intact and correctly wired:
+#   resolvePublicEgressAddress() in lib/egressAuthorize.ts runs before
+#   verifyAction() on the generic host path and its resolvedAddress is
+#   pinned through packages/egress-proxy/src/server.ts's forwarding paths;
+#   allowSharedConsoleAdmin() in lib/consoleAdmins.ts still gates on
+#   isProduction() from lib/env.ts.
+# - Also re-verified: self-approval guard in lib/delegatedAuth.ts;
+#   updateApproval()'s direct-WHERE-clause atomicity in
+#   lib/repositories/postgres/approvals.ts; fail-closed timing-safe
+#   webhook HMAC verification in packages/sdk/src/webhooks.ts and
+#   app/api/billing/webhook/route.ts; all four GitHub Actions workflows
+#   still have explicit least-privilege `permissions:` blocks and no
+#   pull_request_target.
+# - npm ci (root, fresh install this run): 722 packages, 0 vulnerabilities.
+#   npm audit (root, default and --omit=dev) + all 12 workspaces/examples
+#   (packages/cli, egress-proxy, github-action, install, mcp-audit,
+#   mcp-runtime, sdk, examples/enforcement-demo, node-demo,
+#   site-guard-express, site-guard-nextjs, webhook-receiver): 0
+#   vulnerabilities everywhere.
+# - Secret/credential sweep: grepped tracked source (excluding dist/) for
+#   AWS key IDs, PEM private-key headers, sk-.../xox[baprs]-.../AIza...
+#   token patterns, and embedded user:pass@host connection strings. Only
+#   known intentional/local-only matches: test/mcp-audit.test.ts (test
+#   fixture), test/env.test.ts and test/reset-internal-demo-account.test.ts
+#   (placeholder mongodb+srv:// literals), scripts/dev/
+#   authenticated-shell-preview.mjs and .github/workflows/ci.yml (local CI
+#   Postgres creds), .env.example (placeholder). No new secrets found.
+# - Unit tests (npx vitest run): 2874 passed, 78 skipped (226/227 files),
+#   identical to the 2026-09-14 through 09-16 baseline. The one failing
+#   file, test/mongo-repository-contracts.test.ts (73 tests), remains
+#   blocked only by this sandbox's outbound network policy rejecting the
+#   MongoMemoryServer binary download; unrelated to source changes and
+#   runs normally in GitHub Actions CI.
+# - npm run test:packages (egress-proxy 2, install 130, github-action 14 =
+#   146): all passed.
+# - Started a local Postgres 16 instance (pg_ctlcluster), ran `npm run
+#   db:migrate` cleanly, then: test:postgres-smoke (44 tables, RLS on 43),
+#   test:postgres-repositories (70 passed), test:api-postgres (22 passed),
+#   test:api-contracts (650 passed), api:inventory:check (docs up to
+#   date) — all matching prior baselines exactly.
+# - npx tsc --noEmit: clean. npm run build: clean (Next.js/Turbopack
+#   production build). npm run build:cli and npm run build:egress-proxy:
+#   both clean.
+# - npm run lint: 121 errors / 75 warnings, identical to the long-standing
+#   baseline; no new errors in security-sensitive files; CI does not gate
+#   on lint per AGENTS.md.
+# - Compliance: docs/compliance/GAP_ANALYSIS.md open items (G-06 through
+#   G-27) reviewed; unchanged, still accurately tracked as organizational/
+#   process gaps (ISMS approval, backup restore drill, vendor DPAs, deploy
+#   change-control) or already-documented hardening recommendations
+#   (API-key pepper G-10, CSRF token G-17, rate-limit Redis fallback
+#   G-15), not confirmed code-level defects.
+# - Dependabot alert visibility gap (documented since 2026-09-10) remains
+#   unresolved: this session has no `list_dependabot_alerts`-equivalent
+#   tool or GitHub Security-tab API access, so any GitHub-side alerts
+#   beyond npm audit's 0-vulnerability result cannot be identified by
+#   name/ecosystem from here; unchanged non-code/process gap for a human
+#   to check directly at
+#   https://github.com/BehalfID/behalf/security/dependabot.
+# - Incidental non-source side effects from running the build/test suite
+#   (.behalf/context.md test-fixture timestamp bump, next-env.d.ts
+#   regeneration, a mode-only rewrite of packages/mcp-runtime/dist/cli.js)
+#   were reverted with `git checkout --` before committing.
