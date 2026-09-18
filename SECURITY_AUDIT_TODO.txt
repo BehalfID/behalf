@@ -2383,3 +2383,90 @@
 #   (.behalf/context.md test-fixture timestamp bump, next-env.d.ts
 #   regeneration, a mode-only rewrite of packages/mcp-runtime/dist/cli.js)
 #   were reverted with `git checkout --` before committing.
+
+# Last audit: 2026-09-18 (full security + compliance audit)
+# Result: PASSED (no new confirmed findings; no source changes since the
+#   2026-09-14 remediation commit)
+# - Git baseline: this session's designated branch
+#   (claude/upbeat-brahmagupta-6bj015) at 770e405, which already contains
+#   origin/main's HEAD (8e9c4c9, 2026-09-14) plus three prior nights'
+#   audit-log-only commits (fbad821, d8a6e0a, 770e405) that were never
+#   fast-forwarded onto origin/main. `git fetch origin main` confirmed
+#   origin/main is still at 8e9c4c9 — no new upstream commits, and no
+#   app/api or lib changes anywhere in this branch's history since 8e9c4c9.
+# - PROCESS GAP (not a code vulnerability): for at least three consecutive
+#   nights (2026-09-15, 09-16, 09-17) this recurring audit's commits landed
+#   only on this session's designated feature branch and were never merged/
+#   fast-forwarded to origin/main, even though those audit runs' own log
+#   text says "branch main at <sha>". This session is likewise restricted
+#   by its harness/branch configuration to
+#   claude/upbeat-brahmagupta-6bj015 and cannot push to origin/main despite
+#   the task prompt's "push directly to main" instruction. Recommend a
+#   human either (a) fast-forward-merge origin/main to this branch's HEAD
+#   (no code changes are at risk — only SECURITY_AUDIT_TODO.txt and
+#   docs/compliance/README.md differ), or (b) reconfigure the scheduled
+#   task's target branch to be origin/main itself if that is the intended
+#   deployment target.
+# - Re-verified from current source (not from this log) that the
+#   2026-09-14 fixes remain intact and correctly wired: agentStatus ===
+#   "disabled" check at the top of authorizeEgressRequest()
+#   (lib/egressAuthorize.ts), resolvePublicEgressAddress()'s resolved
+#   address pinned through both forwarding paths in
+#   packages/egress-proxy/src/server.ts, and allowSharedConsoleAdmin() in
+#   lib/consoleAdmins.ts still gating on isProduction() from lib/env.ts.
+# - Also re-verified: self-approval guard (canApproveRequest) in
+#   lib/delegatedAuth.ts; no pull_request_target and explicit
+#   least-privilege permissions blocks on all four GitHub Actions
+#   workflows; docs/compliance/README.md's "Not certified" disclaimer is
+#   still present and accurate.
+# - npm ci (root, fresh install this run): 722 packages, 0 vulnerabilities.
+#   npm audit (root, default and --omit=dev) + all 12 workspaces/examples
+#   (packages/cli, egress-proxy, github-action, install, mcp-audit,
+#   mcp-runtime, sdk, examples/enforcement-demo, node-demo,
+#   site-guard-express, site-guard-nextjs, webhook-receiver): 0
+#   vulnerabilities everywhere. Reviewed package.json overrides
+#   (esbuild, brace-expansion, fast-uri, js-yaml, nanoid, postcss, sharp,
+#   undici, @swc/helpers, browserslist) — all still effective, no newly
+#   disclosed advisories affecting pinned versions found via npm audit.
+# - Secret/credential sweep: grepped tracked source (excluding dist/) for
+#   AWS key IDs, PEM private-key headers, sk-.../xox[baprs]-.../AIza...
+#   token patterns, and embedded user:pass@host connection strings. Only
+#   known intentional/local-only matches: test/mcp-audit.test.ts (test
+#   fixture), scripts/dev/authenticated-shell-preview.mjs (local CI
+#   Postgres creds), .env.example / examples/site-guard-demo/.env.example
+#   (placeholders). No new secrets found; only committed .env* files are
+#   the two .env.example placeholders.
+# - Unit tests (npx vitest run): 2874 passed, 78 skipped (226/227 files),
+#   identical to the 2026-09-14 through 09-17 baseline. The one failing
+#   file, test/mongo-repository-contracts.test.ts (73 tests), remains
+#   blocked only by this sandbox's outbound network policy rejecting the
+#   MongoMemoryServer binary download; unrelated to source changes and
+#   runs normally in GitHub Actions CI.
+# - npm run test:packages (install 130, github-action 14): all passed.
+# - Started a local Postgres 16 instance (pg_ctlcluster), ran `npm run
+#   db:migrate` cleanly, then: test:postgres-smoke (44 tables, RLS on 43),
+#   test:postgres-repositories (70 passed), test:api-postgres (22 passed),
+#   test:api-contracts (650 passed), api:inventory:check (docs up to
+#   date) — all matching prior baselines exactly.
+# - npx tsc --noEmit: clean. npm run build: clean (Next.js/Turbopack
+#   production build).
+# - npm run lint: 121 errors / 75 warnings, identical to the long-standing
+#   baseline; no new errors in security-sensitive files; CI does not gate
+#   on lint per AGENTS.md.
+# - Compliance: docs/compliance/GAP_ANALYSIS.md open items (G-06 through
+#   G-27) reviewed; unchanged, still accurately tracked as organizational/
+#   process gaps (ISMS approval, backup restore drill, vendor DPAs, deploy
+#   change-control) or already-documented hardening recommendations
+#   (API-key pepper G-10, CSRF token G-17, rate-limit Redis fallback
+#   G-15), not confirmed code-level defects. HIPAA remains out of scope
+#   (no PHI processing; public /compliance page states this correctly).
+# - Dependabot alert visibility gap (documented since 2026-09-10) remains
+#   unresolved: this session has no GitHub Security-tab API access, so
+#   any GitHub-side alerts beyond npm audit's 0-vulnerability result
+#   cannot be identified by name/ecosystem from here; unchanged
+#   non-code/process gap for a human to check directly at
+#   https://github.com/BehalfID/behalf/security/dependabot.
+# - Incidental non-source side effects from running the build/test suite
+#   (.behalf/context.md test-fixture timestamp bump, next-env.d.ts
+#   regeneration, a mode-only rewrite of packages/mcp-runtime/dist/cli.js)
+#   were reverted with `git checkout --` before committing.
