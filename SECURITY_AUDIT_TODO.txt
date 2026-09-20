@@ -2559,3 +2559,19 @@
 #   (.behalf/context.md test-fixture timestamp bump, next-env.d.ts
 #   regeneration, a mode-only rewrite of packages/mcp-runtime/dist/cli.js)
 #   were reverted with `git checkout --` before committing.
+
+# ADDENDUM to the 2026-09-20 audit, same run:
+# - The push above returned a GitHub server-side notice: "GitHub found 6
+#   vulnerabilities on BehalfID/behalf's default branch (2 high, 4
+#   moderate)." This is the identical count reported on every push since
+#   2026-09-13 (unchanged across the 09-14 through 09-19 audits too) —
+#   not a new or worsening finding. `npm audit` (root, default and
+#   --omit=dev, across every workspace and example package with its own
+#   lockfile) remains 0 vulnerabilities, so whatever these alerts cover
+#   is still outside that tool's scope. This session still has no
+#   `list_dependabot_alerts`-equivalent tool (no gh CLI, no Security-tab
+#   access), so the count cannot be broken down by name/ecosystem here;
+#   unchanged non-code/process gap, same ACTION NEEDED as every prior
+#   addendum: a human with Security-tab access should open
+#   https://github.com/BehalfID/behalf/security/dependabot directly to
+#   identify these 6 alerts by name.
