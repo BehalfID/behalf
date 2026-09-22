@@ -10,6 +10,9 @@ import { isRecord, readString, rejectUnknownFields } from "@/lib/validation";
 import { verifyAction } from "@/lib/verify";
 import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
 
+// MVP scope: only browse_web is wired up. Generalizing this gateway to
+// http_request and the rest of the Enforcement Architecture roadmap is
+// tracked in https://github.com/BehalfID/behalf/issues/130
 const SUPPORTED_ACTION = "browse_web";
 const SUPPORTED_RESOURCE = "web";
 

@@ -115,6 +115,9 @@ function signalPatternMatches(pattern: string | null | undefined, value: string 
   return globMatches(pattern.trim(), value.trim(), true);
 }
 
+// userAgentMatch below is spoofable and best-effort; Site Guard is not yet a
+// production gateway with verified agent identity. Tracked in
+// https://github.com/BehalfID/behalf/issues/128
 function ruleMatchesSignal(rule: SiteAccessRuleLean, input: SiteGuardInput) {
   const identifierMatch =
     Boolean(rule.agentIdentifier) &&

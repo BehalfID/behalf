@@ -45,6 +45,9 @@ const DEFAULT_DENY_HOSTS = [
   "instance-data"
 ];
 
+// Hardcoded fallback is unreachable in a correctly configured production deploy
+// only because none of these env vars is required there yet. Tracked in
+// https://github.com/BehalfID/behalf/issues/234
 function ticketSecret() {
   return (
     process.env.BEHALFID_EGRESS_TICKET_SECRET?.trim() ||
@@ -158,6 +161,9 @@ export function mintEgressTicket(input: {
   return `bhf_egress_${payload}.${sig}`;
 }
 
+// Dead code path: unused outside this module's own tests today, so the ticket's
+// signature is not a real authorization check. See
+// https://github.com/BehalfID/behalf/issues/234
 export function verifyEgressTicket(
   ticket: string,
   expected: { agentId: string; host: string; port: number },
