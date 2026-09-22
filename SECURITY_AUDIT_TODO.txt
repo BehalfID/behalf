@@ -2680,3 +2680,127 @@
 #   human with Security-tab access should open
 #   https://github.com/BehalfID/behalf/security/dependabot directly to
 #   identify these 6 alerts by name.
+
+# Last audit: 2026-09-22 (full security + compliance audit)
+# Result: PASSED — remediated and pushed (2 confirmed High/Moderate dependency
+#   CVEs fixed in dev/transitive dependencies of packages/github-action and
+#   packages/install; no other new findings)
+# - Git baseline: branch main at 87acd19 (the 2026-09-21 audit-log commit)
+#   before this run; clean working tree; `git fetch origin main` confirmed no
+#   new upstream commits since then. `git log 8e9c4c9..HEAD --name-only`
+#   showed only SECURITY_AUDIT_TODO.txt and docs/compliance/README.md
+#   touched since the 2026-09-14 app-source remediation commit — zero
+#   app/api or lib changes, so no new app-source surface to review.
+# - Re-verified from current source (not from this log) that previously
+#   fixed controls remain intact: resolvePublicEgressAddress() and the
+#   agentStatus === "disabled" check in lib/egressAuthorize.ts; the
+#   self-approval guard (selfApprovalBlocked / canApproveRequest) in
+#   lib/delegatedAuth.ts; fail-closed timing-safe webhook HMAC verification
+#   (timingSafeEqual) in packages/sdk/src/webhooks.ts and Stripe's own
+#   constructEvent() in app/api/billing/webhook/route.ts;
+#   allowSharedConsoleAdmin() delegating to isProduction() in
+#   lib/consoleAdmins.ts; all four GitHub Actions workflows still carry an
+#   explicit `permissions:` block and none use pull_request_target.
+# - npm ci (root, fresh install): 722 packages, 0 vulnerabilities. npm audit
+#   (root, default and --omit=dev): 0 vulnerabilities.
+# - CONFIRMED FINDING (High, dependency/supply-chain, fixed this run): a
+#   per-workspace `npm audit --prefix <dir>` sweep of all 11
+#   workspaces/examples with their own lockfile — the same sweep that has
+#   read 0 vulnerabilities every prior night — this time surfaced newly
+#   disclosed CVEs against two packages' pinned transitive/dev
+#   dependencies (not present in root's audit, which doesn't cover these
+#   separate lockfiles):
+#     - packages/github-action: 3 vulnerabilities (2 moderate, 1 high) —
+#       @vitest/mocker path-traversal/arbitrary-file-read via redirect mock
+#       (GHSA-82fw-gwwq-j7x9, pulled in by vitest 4.1.10) and nanoid <3.3.18
+#       indefinite-loop-on-zero-size (GHSA-2v37-7h3g-55p8).
+#     - packages/install: 6 vulnerabilities (2 moderate, 4 high) — the same
+#       @vitest/mocker advisory; brace-expansion 4.0.0-5.0.8 unbounded-array
+#       DoS bypassing the CVE-2026-14257 mitigation (GHSA-rgw5-rvv9-x895,
+#       resolved at the override's own floor version 5.0.8 — i.e. the
+#       existing override needed bumping, not adding); js-yaml
+#       4.0.0-4.3.1 maxTotalMergeKeys CPU-DoS (GHSA-2883-xcg3-v3hh);
+#       nanoid <3.3.18 (as above); smol-toml <=1.7.0 malformed-TOML DoS
+#       (GHSA-7w5x-hrqm-74c2, where package.json already declared
+#       `^1.8.0` but the committed lockfile had drifted to the vulnerable
+#       1.7.0 resolution).
+#   Risk: these are devDependency/build-tooling and a directly-shipped CLI
+#   dependency (smol-toml in @behalfid/install, a published installer
+#   package) — DoS and arbitrary local file read are realistic on CI
+#   runners and on end-user machines running the installer, respectively.
+#   Fix: bumped `packages/install/package.json`'s `smol-toml` dependency
+#   to `^1.9.0`, and added/raised `overrides` in both package.jsons
+#   (github-action: added `nanoid: ^3.3.19`; install: raised
+#   `brace-expansion` override from `^5.0.8` to `^5.0.9`, added
+#   `nanoid: ^3.3.19` and `js-yaml: ^4.3.2`), then regenerated each
+#   package's own lockfile in isolation. Re-ran the full 11-workspace +
+#   root sweep after: 0 vulnerabilities everywhere. Ran each fixed
+#   package's own test suite after (github-action: 14 passed;
+#   install: 130 passed + `tsc --noEmit -p tsconfig.json` clean) —
+#   no functional regression.
+# - Process note (npm/arborist bug, not a security finding): regenerating
+#   these two packages' lockfiles with a plain `npm install` (or
+#   `npm audit fix`), whether via `--prefix` from the repo root or `cd`
+#   into the package directory, crashed with `TypeError: Cannot read
+#   properties of null (reading 'edgesOut')` in
+#   @npmcli/arborist's `#loadPeerSet` while resolving vitest 4.x's
+#   optional-peer set (confirmed this reproduces on the *unmodified*
+#   package.json too, via `git stash` — pre-existing npm 10.9.7/arborist
+#   bug, not caused by this run's changes). `npm install --no-workspaces
+#   --legacy-peer-deps` from inside each package directory avoided the
+#   crash and produced a clean, minimal lockfile diff scoped correctly to
+#   that package. Recording for a future run: prefer
+#   `--legacy-peer-deps` over plain `npm install`/`npm audit fix` for any
+#   package in packages/github-action or packages/install while their
+#   vitest devDependency stays on this major, and never trust `--prefix`
+#   from the repo root for these two workspace-member packages — it
+#   silently resolves against the ROOT package-lock.json instead of the
+#   package's own (caught this run before committing; reverted with
+#   `git checkout -- package-lock.json` before retrying correctly).
+# - Secret/credential sweep: grepped tracked source (excluding
+#   node_modules/dist/.git/.next) for AWS key IDs, PEM private-key
+#   headers, sk-.../xox[baprs]-.../AIza... token patterns, and embedded
+#   user:pass@host connection strings. Only matches were the same two
+#   already-known intentional/local-only cases as every prior run:
+#   test/mcp-audit.test.ts (fake fixture key) and
+#   scripts/dev/authenticated-shell-preview.mjs (local CI/dev Postgres
+#   creds). No new secrets found.
+# - Unit tests (npx vitest run): 2874 passed, 78 skipped (226/227 files),
+#   identical to the 2026-09-14 through 09-21 baseline. The one failing
+#   file, test/mongo-repository-contracts.test.ts (73 tests), remains
+#   blocked only by this sandbox's outbound network policy rejecting the
+#   MongoMemoryServer binary download; unrelated to source changes and
+#   runs normally in GitHub Actions CI.
+# - npm run test:packages (egress-proxy 2, install 130, github-action 14 =
+#   146): all passed (re-run after the dependency fixes above).
+# - Started a local Postgres 16 instance (pg_ctlcluster), created a local
+#   `behalfid` database, ran `npm run db:migrate` cleanly, then:
+#   test:postgres-smoke (44 tables, RLS on 43; this test drops and
+#   re-migrates the schema, so db:migrate was re-run before the next
+#   suite), test:postgres-repositories (70 passed), test:api-postgres (22
+#   passed), test:api-contracts (650 passed), api:inventory:check (docs
+#   up to date) — all matching prior baselines exactly. Stopped the
+#   Postgres cluster after.
+# - npx tsc --noEmit: clean. npm run build: clean (Next.js/Turbopack
+#   production build). npm run build:cli and npm run build:egress-proxy:
+#   both clean.
+# - npm run lint: 121 errors / 75 warnings, identical to the long-standing
+#   baseline; no new errors in security-sensitive files; CI does not gate
+#   on lint per AGENTS.md.
+# - Compliance: docs/compliance/GAP_ANALYSIS.md open items (G-06 through
+#   G-27) reviewed; unchanged, still accurately tracked as organizational/
+#   process gaps (ISMS approval, backup restore drill, vendor DPAs, deploy
+#   change-control) or already-documented hardening recommendations
+#   (API-key pepper G-10, CSRF token G-17, rate-limit Redis fallback
+#   G-15), not confirmed code-level defects.
+# - Dependabot alert visibility gap (documented since 2026-09-10) remains
+#   unresolved: this session's GitHub MCP tools (searched via ToolSearch
+#   for a dependabot/alerts-listing tool) still expose no
+#   list_dependabot_alerts equivalent, so any GitHub-side alerts beyond
+#   npm audit's 0-vulnerability result cannot be identified by
+#   name/ecosystem from here; unchanged non-code/process gap for a human
+#   to check directly at
+#   https://github.com/BehalfID/behalf/security/dependabot.
+# - Incidental non-source side effects from running the build/test suite
+#   (.behalf/context.md test-fixture timestamp bump, next-env.d.ts
+#   regeneration) were reverted with `git checkout --` before committing.
