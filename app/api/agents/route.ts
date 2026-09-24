@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
 
   if (!tokenDoc) {
     if (!isPublicAgentCreationEnabled()) {
-      const authError = requireSetupTokenOrConsoleSession(request);
+      const authError = await requireSetupTokenOrConsoleSession(request);
       if (authError) {
         return authError;
       }

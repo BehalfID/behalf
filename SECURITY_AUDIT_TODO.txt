@@ -2825,3 +2825,107 @@
 #   access should open
 #   https://github.com/BehalfID/behalf/security/dependabot directly to
 #   identify these 6 alerts by name.
+
+# Last audit: 2026-09-24 (full security + compliance audit)
+# Result: REMEDIATED — one confirmed Medium authorization defect (plus a
+#   related Low/Medium session-revocation gap in the same code path) fixed
+#   and covered by new regression tests; all other checks passed.
+# - CONFIRMED (Medium, authorization/access-control, CC6.1/CC6.8/A.8.2/A.8.5):
+#   `lib/adminAuth.ts` enforced the shared-console-password retirement gate
+#   (`countConsoleAdmins() > 0 && !allowSharedConsoleAdmin()`, added in
+#   commit 8e9c4c9 for G-04) only in the login route
+#   (`app/api/console/login/route.ts`). `parseConsoleSession` /
+#   `isValidConsoleSession`, used by `requireConsoleApi`,
+#   `requireSetupTokenOrConsoleSession`, and `requireSetupTokenOrConsoleApi`
+#   to gate every `/api/console/**` route plus agent creation, log purge,
+#   webhook processing, auth cleanup, and the DB health probe, verified only
+#   the shared-session cookie's HMAC signature and expiry — never the same
+#   gate. The shared-session cookie
+#   (`${issuedAt}.${nonce}.HMAC-SHA256(key=BEHALFID_ADMIN_PASSWORD,
+#   "${issuedAt}.${nonce}")`) has no server-side state, so anyone who knows
+#   `BEHALFID_ADMIN_PASSWORD` (a former operator, a leaked `.env`, etc.)
+#   could compute a valid cookie offline and use it against every gated
+#   route — rotating/reading agent keys, granting/revoking permissions,
+#   rotating webhook secrets, replaying webhook events — even on a
+#   deployment that has moved to named ConsoleAdmins and explicitly set
+#   `BEHALFID_ALLOW_SHARED_ADMIN=false` to retire the shared password.
+#   Fix: `isValidConsoleSession` (lib/adminAuth.ts) now re-evaluates the
+#   same `countConsoleAdmins()`/`allowSharedConsoleAdmin()` gate on every
+#   request for `kind: "shared"` sessions, not just at login. This made the
+#   function (and its callers `requireConsoleApi`,
+#   `requireSetupTokenOrConsoleSession`, `requireSetupTokenOrConsoleApi`)
+#   async; the five call sites in app/api/agents, app/api/auth/cleanup,
+#   app/api/cron/purge-logs, app/api/health/db, and
+#   app/api/webhooks/process were updated to await it.
+# - CONFIRMED (Low/Medium, session handling, CC6.1/A.8.5, same fix): named
+#   ConsoleAdmin (`v2.*`) sessions were validated only by HMAC signature and
+#   8h TTL; `requireConsoleApi` never re-checked the admin's live
+#   `disabledAt` status (only `getConsoleAdminPrincipal` and the Orchestra
+#   SSO route did), so disabling an admin left their existing session
+#   usable against every console API route for up to 8 hours. Same fix:
+#   `isValidConsoleSession` now re-checks `findActiveConsoleAdmin(adminId)`
+#   for `kind: "admin"` sessions on every request, so a disabled admin's
+#   session is rejected immediately.
+# - New tests: test/admin-auth-console-session.test.ts — 4 cases (shared
+#   session accepted pre-bootstrap / while explicitly re-enabled, rejected
+#   once named admins exist and the flag is off including at the
+#   `requireConsoleApi` route-guard level, named-admin session rejected once
+#   disabled). Verified these fail against the pre-fix code (via `git
+#   stash`) and pass against the fix.
+# - Re-audited after the fix: npx tsc --noEmit clean; npx vitest run
+#   2878/2878 passing + 78 skipped (226/227 → 227/227 files; the 2874
+#   baseline plus the 4 new tests), only the known sandbox-network-blocked
+#   MongoMemoryServer download still fails test/mongo-repository-
+#   contracts.test.ts, same as every prior run and unrelated to this
+#   change; npm run test:packages (egress-proxy 2, install 130,
+#   github-action 14 = 146) all passed; npm run build (Next.js/Turbopack
+#   production) clean; npm run build:cli and npm run build:egress-proxy
+#   clean; local Postgres 16 (pg_ctlcluster) with `npm run db:migrate`,
+#   then test:postgres-smoke (44 tables, RLS on 43), test:postgres-
+#   repositories (70 passed), test:api-postgres (22 passed),
+#   test:api-contracts (650 passed), api:inventory:check (docs up to
+#   date) — all matching the prior baseline exactly.
+# - Dependency audit: `npm audit --omit=dev` and with dev deps, 0
+#   vulnerabilities at the root and in every workspace/example package
+#   (sdk, cli, mcp-audit, mcp-runtime, egress-proxy, github-action, install,
+#   and all 5 examples).
+# - Secret/credential sweep: grepped tracked source (excluding
+#   node_modules/dist/.git/.next) for AWS key IDs, PEM private-key headers,
+#   sk-.../xox[baprs]-.../AIza... token patterns, and embedded user:pass@host
+#   connection strings. Only matches were the same two already-known
+#   intentional/local-only cases as every prior run: test/mcp-audit.test.ts
+#   (fake fixture key) and scripts/dev/authenticated-shell-preview.mjs
+#   (local CI/dev Postgres creds). No new secrets found.
+# - Targeted adversarial review (no further confirmed findings): approval
+#   workflows (self-approval blocked, workspace-scoped, compare-and-set on
+#   `status: "pending"`); agent-key routes (constant-time hash comparison,
+#   callers can't override `agentId` in log queries); egress authorization
+#   (disabled-agent and DNS-rebinding fixes from 8e9c4c9/c50b65e still hold;
+#   resolved IPs are pinned before connecting); `sql.raw` usage (only takes
+#   constants — table-name ternaries, a regex operator, enum lists, never
+#   request input); SDK webhook signature verification (timestamp tolerance
+#   + constant-time compare); session cookies (`httpOnly`, `sameSite=lax`,
+#   `secure` in production); no `Access-Control-Allow-*` headers set
+#   anywhere (no permissive CORS).
+# - No authorization/business-logic source changed since the 2026-09-22
+#   audit other than this run's own fix, so no other new manual review
+#   surface existed this run beyond the targeted pass above.
+# - Compliance: docs/compliance/GAP_ANALYSIS.md G-06 through G-27 reviewed;
+#   unchanged, still accurately tracked as organizational/process gaps
+#   (ISMS approval, backup restore drill, vendor DPAs/subprocessor review,
+#   deploy change-control) or already-documented hardening recommendations
+#   (API-key pepper G-10, CSRF token G-17, rate-limit Redis fallback G-15),
+#   not confirmed code-level defects. This run's fix does not change any
+#   G-item's status; the shared-admin-bypass and disabled-admin-session
+#   gaps it closes were not previously tracked as a distinct GAP_ANALYSIS
+#   row (they sit under the already-"REMEDIATED" G-04, which covered
+#   issuance but not per-request re-validation) and did not warrant a new
+#   row since they are now fixed in the same run they were found.
+# - Dependabot alert visibility gap (documented since 2026-09-10) remains
+#   unresolved: no GitHub-side alerts-listing tool is available from this
+#   session; unchanged non-code/process gap for a human to check directly
+#   at https://github.com/BehalfID/behalf/security/dependabot.
+# - Incidental non-source side effects from running install/build/test
+#   (.behalf/context.md, next-env.d.ts, package-lock.json optionalDependency
+#   metadata, packages/mcp-runtime/dist/cli.js mtime) were reverted with
+#   `git checkout --` before committing.

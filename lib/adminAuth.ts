@@ -4,7 +4,7 @@ import type { NextRequest, NextResponse } from "next/server";
 import { timingSafeEqualString } from "@/lib/crypto";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { jsonError } from "@/lib/responses";
-import { findActiveConsoleAdmin } from "@/lib/consoleAdmins";
+import { allowSharedConsoleAdmin, countConsoleAdmins, findActiveConsoleAdmin } from "@/lib/consoleAdmins";
 
 export const CONSOLE_COOKIE_NAME = "behalfid_console";
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
@@ -187,8 +187,29 @@ export function createConsoleSessionValue() {
   return `${issuedAt}.${nonce}.${signSession(issuedAt, nonce, password)}`;
 }
 
-export function isValidConsoleSession(value?: string) {
-  return parseConsoleSession(value) !== null;
+/**
+ * Mirrors the login route's shared-admin gate (BEHALFID_ALLOW_SHARED_ADMIN /
+ * named-admin bootstrap check) so a shared-password session that would no
+ * longer be *issued* also stops being *accepted* on every subsequent request.
+ * Without this, anyone who knows BEHALFID_ADMIN_PASSWORD could forge a valid
+ * shared-session cookie offline (it's just an HMAC over a timestamp+nonce)
+ * and use it against every /api/console/** route regardless of the flag.
+ */
+async function isSharedConsoleSessionCurrentlyAllowed() {
+  const adminCount = await countConsoleAdmins();
+  return adminCount === 0 || allowSharedConsoleAdmin();
+}
+
+export async function isValidConsoleSession(value?: string) {
+  const session = parseConsoleSession(value);
+  if (!session) return false;
+  if (session.kind === "shared") {
+    return isSharedConsoleSessionCurrentlyAllowed();
+  }
+  // Named-admin sessions carry a signed adminId but no live status: re-check
+  // against the current record so disabling an admin revokes their session
+  // immediately instead of leaving it valid until the signature expires.
+  return (await findActiveConsoleAdmin(session.adminId)) !== null;
 }
 
 export async function hasConsoleSession() {
@@ -215,19 +236,19 @@ export async function requireConsoleApi(request: NextRequest) {
     return originError;
   }
 
-  if (!isValidConsoleSession(request.cookies.get(CONSOLE_COOKIE_NAME)?.value)) {
+  if (!(await isValidConsoleSession(request.cookies.get(CONSOLE_COOKIE_NAME)?.value))) {
     return jsonError("Console authentication required.", 401);
   }
 
   return null;
 }
 
-export function requireSetupTokenOrConsoleSession(request: NextRequest) {
+export async function requireSetupTokenOrConsoleSession(request: NextRequest) {
   if (hasValidSetupToken(request)) {
     return null;
   }
 
-  if (!isValidConsoleSession(request.cookies.get(CONSOLE_COOKIE_NAME)?.value)) {
+  if (!(await isValidConsoleSession(request.cookies.get(CONSOLE_COOKIE_NAME)?.value))) {
     return jsonError("Agent creation is disabled for public requests.", 403);
   }
 
@@ -239,12 +260,12 @@ export function requireSetupTokenOrConsoleSession(request: NextRequest) {
   return null;
 }
 
-export function requireSetupTokenOrConsoleApi(request: NextRequest) {
+export async function requireSetupTokenOrConsoleApi(request: NextRequest) {
   if (hasValidSetupToken(request)) {
     return null;
   }
 
-  if (!isValidConsoleSession(request.cookies.get(CONSOLE_COOKIE_NAME)?.value)) {
+  if (!(await isValidConsoleSession(request.cookies.get(CONSOLE_COOKIE_NAME)?.value))) {
     return jsonError("Console authentication or setup token required.", 401);
   }
 

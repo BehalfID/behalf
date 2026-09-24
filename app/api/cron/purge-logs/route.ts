@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     return rateLimitError();
   }
 
-  const authError = requireSetupTokenOrConsoleApi(request);
+  const authError = await requireSetupTokenOrConsoleApi(request);
   if (authError) {
     return authError;
   }
