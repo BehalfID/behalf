@@ -2826,6 +2826,72 @@
 #   https://github.com/BehalfID/behalf/security/dependabot directly to
 #   identify these 6 alerts by name.
 
+# Last audit: 2026-09-23 (full security + compliance audit)
+# Result: PASSED (no new confirmed findings; no code changes since 2026-09-22)
+# - Git baseline: branch main at 933f1a7 (the 2026-09-22 audit-log commit)
+#   before this run; clean working tree; `git fetch origin main` confirmed no
+#   new upstream commits since then.
+# - node_modules was absent in this session (fresh sandbox); ran `npm ci` at
+#   root before any check (722 packages, 0 vulnerabilities) rather than
+#   trusting a stale or partial install.
+# - Re-verified from current source (not from this log) that previously
+#   fixed controls remain intact: the agentStatus === "disabled" check at the
+#   top of authorizeEgressRequest() in lib/egressAuthorize.ts; the
+#   self-approval guard (selfApprovalBlocked / canApproveRequest) in
+#   lib/delegatedAuth.ts; fail-closed timing-safe webhook HMAC verification
+#   (timingSafeEqual) in packages/sdk/src/webhooks.ts;
+#   allowSharedConsoleAdmin() delegating to isProduction() in
+#   lib/consoleAdmins.ts; all four GitHub Actions workflows still carry an
+#   explicit `permissions:` block and none use pull_request_target.
+# - npm audit (root, default and --omit=dev) + all 11 workspaces/examples
+#   with their own lockfile (packages/cli, egress-proxy, github-action,
+#   install, mcp-audit, mcp-runtime, sdk, examples/enforcement-demo,
+#   node-demo, site-guard-express, site-guard-nextjs, webhook-receiver):
+#   0 vulnerabilities everywhere.
+# - Secret/credential sweep: grepped tracked source (excluding
+#   node_modules/dist/.git/.next) for AWS key IDs, PEM private-key headers,
+#   sk-.../xox[baprs]-.../AIza... token patterns, and embedded user:pass@host
+#   connection strings. Only match was the same already-known intentional
+#   fixture as every prior run: test/mcp-audit.test.ts. No new secrets found.
+# - Unit tests (npx vitest run): 2874 passed, 78 skipped (226/227 files),
+#   identical to the 2026-09-14 through 09-22 baseline. The one failing
+#   file, test/mongo-repository-contracts.test.ts (73 tests), remains
+#   blocked only by this sandbox's outbound network policy rejecting the
+#   MongoMemoryServer binary download; unrelated to source changes and runs
+#   normally in GitHub Actions CI.
+# - npm run test:packages (egress-proxy 2, install 130, github-action 14 =
+#   146): all passed.
+# - Started a local Postgres 16 instance (pg_ctlcluster), created a local
+#   `behalfid` database, ran `npm run db:migrate` cleanly, then:
+#   test:postgres-smoke (44 tables, RLS on 43; re-ran db:migrate after, since
+#   this test drops and re-migrates the schema), test:postgres-repositories
+#   (70 passed), test:api-postgres (22 passed), test:api-contracts (650
+#   passed), api:inventory:check (docs up to date) — all matching prior
+#   baselines exactly. Stopped the Postgres cluster after.
+# - npx tsc --noEmit: clean. npm run build: clean (Next.js/Turbopack
+#   production build).
+# - npm run lint: 121 errors / 75 warnings, identical to the long-standing
+#   baseline; no new errors in security-sensitive files; CI does not gate on
+#   lint per AGENTS.md.
+# - Compliance: docs/compliance/GAP_ANALYSIS.md open items (G-06 through
+#   G-27) reviewed; unchanged, still accurately tracked as organizational/
+#   process gaps (ISMS approval, backup restore drill, vendor DPAs, deploy
+#   change-control) or already-documented hardening recommendations
+#   (API-key pepper G-10, CSRF token G-17, rate-limit Redis fallback G-15),
+#   not confirmed code-level defects.
+# - Dependabot alert visibility gap (documented since 2026-09-10) remains
+#   unresolved: this session's GitHub MCP tools were re-checked via
+#   ToolSearch for a dependabot/code-scanning-alerts-listing equivalent; the
+#   only new secret-related tool available (run_secret_scanning) scans
+#   content passed to it directly rather than listing repository-side
+#   Dependabot/Security-tab alerts, so it does not close this gap. Unchanged
+#   non-code/process gap for a human to check directly at
+#   https://github.com/BehalfID/behalf/security/dependabot.
+# - Incidental non-source side effects from running the build/test suite
+#   (next-env.d.ts regeneration, a mode-only rewrite of
+#   packages/mcp-runtime/dist/cli.js) were reverted with `git checkout --`
+#   before committing.
+
 # Last audit: 2026-09-24 (full security + compliance audit)
 # Result: REMEDIATED — one confirmed Medium authorization defect (plus a
 #   related Low/Medium session-revocation gap in the same code path) fixed
