@@ -2995,3 +2995,67 @@
 #   (.behalf/context.md, next-env.d.ts, package-lock.json optionalDependency
 #   metadata, packages/mcp-runtime/dist/cli.js mtime) were reverted with
 #   `git checkout --` before committing.
+
+# Last audit: 2026-09-25 (full security + compliance audit)
+# Result: PASSED — no new confirmed findings. Picked up and validated the
+#   2026-09-24 remediation (shared/disabled-admin console session bypass,
+#   commit e8d39fa), which had been committed on the working branch but not
+#   yet pushed to origin/main at the start of this run; re-verified it end
+#   to end before pushing.
+# - npx tsc --noEmit: clean.
+# - npx vitest run: 2878 passed, 78 skipped (227/228 files), identical to
+#   the 2026-09-23/24 baseline. The one failing file,
+#   test/mongo-repository-contracts.test.ts (73 tests, all skipped), is
+#   still blocked only by this sandbox's outbound network policy rejecting
+#   the MongoMemoryServer binary download; unrelated to source changes and
+#   runs normally in GitHub Actions CI.
+# - npm run test:packages (egress-proxy 2, install 130, github-action 14 =
+#   146): all passed.
+# - npm audit (root, default and --omit=dev) + all 11 workspaces/examples
+#   with their own lockfile (packages/cli, github-action, install,
+#   mcp-audit, mcp-runtime, sdk, examples/enforcement-demo, node-demo,
+#   site-guard-express, site-guard-nextjs, webhook-receiver; egress-proxy
+#   has no separate lockfile and is covered by the root audit): 0
+#   vulnerabilities everywhere.
+# - Secret/credential sweep: grepped all tracked files (excluding
+#   node_modules/.next/dist and package-lock.json) for AWS key IDs, PEM
+#   private-key headers, sk-.../xox[baprs]-.../AIza... token patterns, and
+#   embedded user:pass@host connection strings. Matches were only the same
+#   known intentional/placeholder cases as every prior run
+#   (test/mcp-audit.test.ts fixture key; .env.example, AGENTS.md,
+#   docs/POSTGRES_SCHEMA.md, test/env.test.ts, and
+#   test/reset-internal-demo-account.test.ts placeholder/local-dev
+#   connection strings; the CI workflow's local Postgres URL; the
+#   cli-release workflow's `${TAP_TOKEN}` GitHub Actions secret
+#   expansion, not a literal credential). No new secrets found.
+# - npm run build (Next.js/Turbopack production): clean.
+# - npm run lint: 121 errors / 75 warnings, identical to the long-standing
+#   baseline; no new errors in security-sensitive files; CI does not gate
+#   on lint per AGENTS.md.
+# - api:inventory:check: docs/API_TEST_MATRIX.md up to date.
+# - Started a local Postgres 16 instance (pg_ctlcluster), created a local
+#   `behalfid` database, ran `npm run db:migrate` cleanly, then:
+#   test:postgres-repositories (70 passed), test:api-postgres (22 passed),
+#   test:api-contracts (650 passed), test:postgres-smoke (44 tables, RLS on
+#   43; re-ran db:migrate after, since this test drops and re-migrates the
+#   schema) — all matching prior baselines exactly. Stopped the Postgres
+#   cluster after.
+# - Re-confirmed the 2026-09-24 fix itself: isValidConsoleSession
+#   (lib/adminAuth.ts) re-validates shared-session requests against
+#   countConsoleAdmins()/allowSharedConsoleAdmin() and named-admin sessions
+#   against findActiveConsoleAdmin() on every request, not just at login;
+#   test/admin-auth-console-session.test.ts (4 cases) passes as part of the
+#   full suite above.
+# - Compliance: docs/compliance/GAP_ANALYSIS.md G-06 through G-27 reviewed;
+#   unchanged, still accurately tracked as organizational/process gaps
+#   (ISMS approval, backup restore drill, vendor DPAs/subprocessor review,
+#   deploy change-control) or already-documented hardening recommendations
+#   (API-key pepper G-10, CSRF token G-17, rate-limit Redis fallback G-15),
+#   not confirmed code-level defects.
+# - Dependabot alert visibility gap (documented since 2026-09-10) remains
+#   unresolved: no GitHub-side alerts-listing tool is available from this
+#   session; unchanged non-code/process gap for a human to check directly
+#   at https://github.com/BehalfID/behalf/security/dependabot.
+# - Incidental non-source side effects from running install/build/test
+#   (.behalf/context.md, next-env.d.ts, packages/mcp-runtime/dist/cli.js
+#   mtime) were reverted with `git checkout --` before committing.
