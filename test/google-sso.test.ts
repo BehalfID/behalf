@@ -94,6 +94,11 @@ describe("Google OAuth helpers", () => {
     expect(safeOAuthNextPath("https://evil.com")).toBeUndefined();
   });
 
+  it("rejects backslash paths that the URL parser normalizes into a protocol-relative redirect", () => {
+    expect(new URL("/\\evil.com", "https://good.com").href).toBe("https://evil.com/");
+    expect(safeOAuthNextPath("/\\evil.com")).toBeUndefined();
+  });
+
   it("builds public Google auth hrefs", () => {
     expect(googleAuthHref("signup")).toBe("/api/auth/google?mode=signup");
     expect(googleAuthHref("login", "/dashboard")).toBe("/api/auth/google?mode=login&next=%2Fdashboard");

@@ -31,6 +31,16 @@ describe("OAuth state helpers", () => {
     expect(safeOAuthNextPath("//evil.example")).toBeUndefined();
     expect(safeOAuthNextPath("https://evil.example")).toBeUndefined();
   });
+
+  it("rejects backslash paths that the URL parser normalizes into a protocol-relative redirect", () => {
+    // `new URL("/\\evil.example", origin)` resolves to "https://evil.example/" — a backslash
+    // after the leading slash must be rejected the same as a literal "//" prefix.
+    expect(new URL("/\\evil.example", "https://good.example").href).toBe(
+      "https://evil.example/"
+    );
+    expect(safeOAuthNextPath("/\\evil.example")).toBeUndefined();
+    expect(safeOAuthNextPath("/dashboard\\evil.example")).toBeUndefined();
+  });
 });
 
 describe("oauthErrorMessage", () => {

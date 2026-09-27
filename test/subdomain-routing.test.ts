@@ -102,6 +102,22 @@ describe("subdomain routing ownership", () => {
     ).toBe("https://app.behalfid.com/dashboard");
   });
 
+  it("rejects backslash paths that the URL parser normalizes into a protocol-relative redirect", () => {
+    // `new URL("/\\evil.example", origin)` resolves to "https://evil.example/"; callers that
+    // fall back to `new URL(pathWithSearch, origin)` when this returns a non-"http" value must
+    // never receive that fallback path unchanged from an off-origin-smuggling input.
+    expect(new URL("/\\evil.example", "https://good.example").href).toBe(
+      "https://evil.example/"
+    );
+    const input = "/\\evil.example";
+    expect(
+      resolveOwnedHref(input, {
+        hostname: "www.behalfid.com",
+        protocol: "https:"
+      })
+    ).toBe(input);
+  });
+
   it("resolves hosts from env overrides", () => {
     const hosts = resolveSubdomainHosts({
       BEHALFID_HOST_AUTH: "auth.staging.example.com"

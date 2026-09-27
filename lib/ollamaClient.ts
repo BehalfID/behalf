@@ -4,7 +4,9 @@
  * tool policy still goes through verify()/MCP/SDK.
  */
 
-import { validatePublicUrl } from "@/lib/ssrf";
+import http, { type IncomingMessage } from "http";
+import https from "https";
+import { validatePublicUrl, type ValidatedPublicUrl } from "@/lib/ssrf";
 
 export type OllamaEnvConfig = {
   baseUrl: string;
@@ -101,9 +103,14 @@ export function resolveOllamaEndpoint(agent?: {
 
 /**
  * Production SSRF + localhost guard matching draft-permissions behavior.
- * Dev/test may use localhost without DNS validation.
+ * Dev/test may use localhost without DNS validation. Returns the validated
+ * target (with its resolved addresses) so the caller can pin the actual
+ * connection to the same address that was checked, closing the DNS-rebinding
+ * TOCTOU window between validation and connect. Returns undefined when
+ * validation was skipped (non-production), signaling callers to fall back to
+ * a plain unpinned request for local Ollama use.
  */
-export async function assertOllamaEndpointAllowed(baseUrl: string): Promise<void> {
+async function resolveOllamaFetchTarget(baseUrl: string): Promise<ValidatedPublicUrl | undefined> {
   if (!baseUrl) {
     throw new OllamaClientError(
       "NOT_CONFIGURED",
@@ -112,7 +119,7 @@ export async function assertOllamaEndpointAllowed(baseUrl: string): Promise<void
     );
   }
 
-  if (process.env.NODE_ENV !== "production") return;
+  if (process.env.NODE_ENV !== "production") return undefined;
 
   if (isLocalhostOllamaUrl(baseUrl)) {
     throw new OllamaClientError(
@@ -123,7 +130,7 @@ export async function assertOllamaEndpointAllowed(baseUrl: string): Promise<void
   }
 
   try {
-    await validatePublicUrl(baseUrl, { requireHttpsInProd: true });
+    return await validatePublicUrl(baseUrl, { requireHttpsInProd: true });
   } catch (err) {
     const reason = err instanceof Error ? err.message : "URL is not allowed.";
     throw new OllamaClientError(
@@ -134,14 +141,86 @@ export async function assertOllamaEndpointAllowed(baseUrl: string): Promise<void
   }
 }
 
+export async function assertOllamaEndpointAllowed(baseUrl: string): Promise<void> {
+  await resolveOllamaFetchTarget(baseUrl);
+}
+
+type OllamaHttpResponse = {
+  status: number;
+  ok: boolean;
+  text: () => Promise<string>;
+  json: () => Promise<unknown>;
+};
+
+/**
+ * Issues the actual Ollama HTTP request. When `pinnedAddresses` is set (the
+ * production path), the connection is pinned via a custom `lookup` to the
+ * address already validated by resolveOllamaFetchTarget, so a DNS record
+ * change between validation and connect cannot redirect the request to a
+ * private/internal address (the same pattern lib/actionGateway.ts and
+ * lib/webhookWorker.ts use). When undefined (dev/test, validation skipped),
+ * falls back to a plain fetch, matching prior behavior for local Ollama use.
+ */
+async function ollamaHttpRequest(
+  pinnedAddresses: Array<{ address: string; family: number }> | undefined,
+  url: string,
+  init: { method?: string; headers?: Record<string, string>; body?: string; timeoutMs: number }
+): Promise<OllamaHttpResponse> {
+  if (!pinnedAddresses) {
+    return fetch(url, {
+      method: init.method,
+      headers: init.headers,
+      body: init.body,
+      signal: AbortSignal.timeout(init.timeoutMs)
+    });
+  }
+
+  const target = new URL(url);
+  const client = target.protocol === "https:" ? https : http;
+  const pinnedAddress = pinnedAddresses[0];
+
+  return new Promise<OllamaHttpResponse>((resolve, reject) => {
+    const req = client.request(
+      target,
+      {
+        method: init.method ?? "GET",
+        headers: init.headers,
+        signal: AbortSignal.timeout(init.timeoutMs),
+        lookup: (_hostname, _options, callback) => {
+          callback(null, pinnedAddress.address, pinnedAddress.family);
+        }
+      },
+      (res: IncomingMessage) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (chunk: Buffer) => chunks.push(chunk));
+        res.on("end", () => {
+          const bodyText = Buffer.concat(chunks).toString("utf8");
+          const status = res.statusCode ?? 0;
+          resolve({
+            status,
+            ok: status >= 200 && status < 300,
+            text: async () => bodyText,
+            json: async () => JSON.parse(bodyText)
+          });
+        });
+        res.on("error", reject);
+      }
+    );
+    req.on("error", reject);
+    if (init.body) req.write(init.body);
+    req.end();
+  });
+}
+
 export async function fetchOllamaTags(
   baseUrl: string,
   proxyToken: string,
-  timeoutMs = TAGS_TIMEOUT_MS
+  timeoutMs = TAGS_TIMEOUT_MS,
+  pinnedAddresses?: Array<{ address: string; family: number }>
 ): Promise<string[]> {
-  const res = await fetch(`${baseUrl.replace(/\/$/, "")}/api/tags`, {
+  const res = await ollamaHttpRequest(pinnedAddresses, `${baseUrl.replace(/\/$/, "")}/api/tags`, {
     headers: ollamaAuthHeaders(proxyToken),
-    signal: AbortSignal.timeout(timeoutMs)
+    timeoutMs
   });
 
   if (res.status === 401 || res.status === 403) {
@@ -196,11 +275,16 @@ export async function testOllamaConnection(agent?: {
     );
   }
 
-  await assertOllamaEndpointAllowed(endpoint.baseUrl);
+  const target = await resolveOllamaFetchTarget(endpoint.baseUrl);
 
   let availableModels: string[];
   try {
-    availableModels = await fetchOllamaTags(endpoint.baseUrl, endpoint.proxyToken);
+    availableModels = await fetchOllamaTags(
+      endpoint.baseUrl,
+      endpoint.proxyToken,
+      TAGS_TIMEOUT_MS,
+      target?.addresses
+    );
   } catch (err) {
     if (err instanceof OllamaClientError) throw err;
     if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) {
@@ -298,7 +382,7 @@ export async function proxyOllamaChat(
     );
   }
 
-  await assertOllamaEndpointAllowed(endpoint.baseUrl);
+  const target = await resolveOllamaFetchTarget(endpoint.baseUrl);
 
   const body = JSON.stringify({
     model,
@@ -317,11 +401,11 @@ export async function proxyOllamaChat(
   }
 
   try {
-    const res = await fetch(`${endpoint.baseUrl.replace(/\/$/, "")}/api/chat`, {
+    const res = await ollamaHttpRequest(target?.addresses, `${endpoint.baseUrl.replace(/\/$/, "")}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...ollamaAuthHeaders(endpoint.proxyToken) },
       body,
-      signal: AbortSignal.timeout(endpoint.timeoutMs)
+      timeoutMs: endpoint.timeoutMs
     });
 
     if (res.status === 401 || res.status === 403) {

@@ -1,3 +1,4 @@
+import { Readable } from "node:stream";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   isLocalhostOllamaUrl,
@@ -8,6 +9,33 @@ import {
   proxyOllamaChat,
   testOllamaConnection
 } from "@/lib/ollamaClient";
+
+const ollamaNetworkMocks = vi.hoisted(() => ({
+  dnsLookup: vi.fn(),
+  httpRequest: vi.fn(),
+  httpsRequest: vi.fn()
+}));
+
+vi.mock("dns/promises", () => ({
+  default: { lookup: ollamaNetworkMocks.dnsLookup }
+}));
+vi.mock("http", () => ({
+  default: { request: ollamaNetworkMocks.httpRequest },
+  request: ollamaNetworkMocks.httpRequest
+}));
+vi.mock("https", () => ({
+  default: { request: ollamaNetworkMocks.httpsRequest },
+  request: ollamaNetworkMocks.httpsRequest
+}));
+
+function mockOllamaHttpResponse(body: string, status = 200) {
+  return vi.fn((_url, _options, callback) => {
+    const response = Readable.from([Buffer.from(body)]) as Readable & { statusCode: number };
+    response.statusCode = status;
+    callback(response);
+    return { on: vi.fn(), write: vi.fn(), end: vi.fn(), destroy: vi.fn() };
+  });
+}
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -148,5 +176,45 @@ describe("proxyOllamaChat", () => {
         stream: true
       })
     ).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
+  });
+});
+
+describe("ollamaClient DNS-rebinding protection (production)", () => {
+  it("pins the connection to the DNS-validated address instead of re-resolving at connect time", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("OLLAMA_BASE_URL", "https://ollama.example.com");
+    vi.stubEnv("OLLAMA_MODEL", "llama3.1:8b");
+    ollamaNetworkMocks.dnsLookup.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
+    ollamaNetworkMocks.httpsRequest.mockImplementation(
+      mockOllamaHttpResponse(JSON.stringify({ models: [{ name: "llama3.1:8b" }] }))
+    );
+
+    const result = await testOllamaConnection();
+    expect(result.ok).toBe(true);
+
+    // Validation resolved the hostname exactly once...
+    expect(ollamaNetworkMocks.dnsLookup).toHaveBeenCalledTimes(1);
+    // ...and the actual request was pinned to that address via a custom `lookup`,
+    // not a second, independently re-resolvable DNS lookup (the rebinding window).
+    expect(ollamaNetworkMocks.httpsRequest).toHaveBeenCalledWith(
+      expect.any(URL),
+      expect.objectContaining({ lookup: expect.any(Function) }),
+      expect.any(Function)
+    );
+    const options = ollamaNetworkMocks.httpsRequest.mock.calls[0][1];
+    const lookupCallback = vi.fn();
+    options.lookup("ollama.example.com", {}, lookupCallback);
+    expect(lookupCallback).toHaveBeenCalledWith(null, "93.184.216.34", 4);
+    expect(ollamaNetworkMocks.dnsLookup).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a configured endpoint that resolves to a private address, before any request is sent", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("OLLAMA_BASE_URL", "https://ollama.example.com");
+    vi.stubEnv("OLLAMA_MODEL", "llama3.1:8b");
+    ollamaNetworkMocks.dnsLookup.mockResolvedValue([{ address: "169.254.169.254", family: 4 }]);
+
+    await expect(testOllamaConnection()).rejects.toMatchObject({ code: "UNREACHABLE" });
+    expect(ollamaNetworkMocks.httpsRequest).not.toHaveBeenCalled();
   });
 });

@@ -399,7 +399,13 @@ export function resolveOwnedHref(
   }
 ): string {
   const { pathname: rawPathname, search } = splitPathAndSearch(pathWithSearch);
-  if (!rawPathname.startsWith("/") || rawPathname.startsWith("//")) {
+  // Backslashes are path separators to the WHATWG URL parser: `new URL("/\\evil.com", origin)`
+  // normalizes to `//evil.com`, an off-origin protocol-relative redirect the checks above miss.
+  if (
+    !rawPathname.startsWith("/") ||
+    rawPathname.startsWith("//") ||
+    rawPathname.includes("\\")
+  ) {
     return pathWithSearch;
   }
 

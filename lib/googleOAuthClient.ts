@@ -7,6 +7,9 @@ export type GoogleOAuthMode = "login" | "signup" | "reauth";
 
 export function safeOAuthNextPath(next?: string | null): string | undefined {
   if (!next || !next.startsWith("/") || next.startsWith("//")) return undefined;
+  // Backslashes are path separators to the WHATWG URL parser: `new URL("/\\evil.com", origin)`
+  // normalizes to `//evil.com`, an off-origin protocol-relative redirect that the checks above miss.
+  if (next.includes("\\")) return undefined;
   return next;
 }
 

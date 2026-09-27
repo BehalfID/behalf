@@ -121,6 +121,9 @@ export function createPkcePair() {
 /** Only same-origin, non-protocol-relative paths may be used as a return target. */
 export function safeOAuthNextPath(next?: string | null): string | undefined {
   if (!next || !next.startsWith("/") || next.startsWith("//")) return undefined;
+  // Backslashes are path separators to the WHATWG URL parser: `new URL("/\\evil.com", origin)`
+  // normalizes to `//evil.com`, an off-origin protocol-relative redirect that the checks above miss.
+  if (next.includes("\\")) return undefined;
   if (next.length > 512) return undefined;
   return next;
 }
