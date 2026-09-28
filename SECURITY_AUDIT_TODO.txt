@@ -3122,3 +3122,10 @@
 # - Incidental non-source side effects from running install/build/test
 #   (.behalf/context.md, next-env.d.ts, packages/mcp-runtime/dist/cli.js
 #   mtime) were reverted with `git checkout --` before committing.
+
+# Last audit: 2026-09-28
+# Result: PASSED (remediated)
+# - npm audit: 2 moderate → 0 vulnerabilities
+#   - nodemailer 10.0.1 → 10.0.12 (GHSA-6vj9-mwq6-2f5v, cross-tenant SMTP credential disclosure via shared DNS cache)
+#   - undici 6.28.0 → 6.29.0 (GHSA-3wwx-pv8p-q78v, WebSocket permessage-deflate DoS)
+# - tsc, vitest (2878 passed; test/mongo-repository-contracts skipped-by-env: mongod download blocked), build, api:inventory:check: OK
