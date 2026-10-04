@@ -3122,3 +3122,13 @@
 # - Incidental non-source side effects from running install/build/test
 #   (.behalf/context.md, next-env.d.ts, packages/mcp-runtime/dist/cli.js
 #   mtime) were reverted with `git checkout --` before committing.
+
+# Last audit: 2026-10-04
+# Result: PASSED (with noted residuals)
+# - npm audit (root, prod): 0 vulnerabilities after `npm audit fix`
+#   - next 16.3.4 -> 16.3.8 (critical, GHSA-vcvr-r3jv-pc5j, RCE in next/og ImageResponse)
+#   - brace-expansion 5.0.9 -> 5.0.12 (high, 3 DoS advisories)
+#   - fast-uri 3.1.7 -> 3.1.8 (moderate, host normalization)
+# - Residual: `braces` (high) via dev-only tooling chain (eslint-config-next / @tailwindcss/cli); no non-breaking fix available
+# - tsc --noEmit, vitest run (2878 passed; test/mongo-repository-contracts needs a mongod binary download, unavailable in sandbox), next build: pass
+# - No hardcoded secrets detected
