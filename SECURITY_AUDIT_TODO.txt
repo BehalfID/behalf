@@ -3132,3 +3132,12 @@
 # - Residual: `braces` (high) via dev-only tooling chain (eslint-config-next / @tailwindcss/cli); no non-breaking fix available
 # - tsc --noEmit, vitest run (2878 passed; test/mongo-repository-contracts needs a mongod binary download, unavailable in sandbox), next build: pass
 # - No hardcoded secrets detected
+
+# Last audit: 2026-10-09
+# Result: PASSED (with noted residuals)
+# - npm audit: root prod 0 vulnerabilities; all packages/* and examples/* 0 after fix
+#   - examples/site-guard-nextjs: next (critical), sharp, source-map-js bumped via lockfile (npm audit fix)
+#   - examples/site-guard-express: proxy-addr/express chain (critical) bumped via lockfile (npm audit fix)
+# - Residual: `braces` (high) via dev-only tooling chain (unchanged from 2026-10-04)
+# - tsc --noEmit, next build: pass; vitest run 2878 passed (mongo-repository-contracts needs mongod download, unavailable in sandbox)
+# - No hardcoded secrets detected (only CI test-DB fixture credentials)
