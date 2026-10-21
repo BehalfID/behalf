@@ -285,7 +285,10 @@ export function checkRequiredManagedProfileMode(
  * window is honoured — reading `account.plan` here would hide history the
  * workspace is entitled to and that `purgeExpiredLogs` is still keeping.
  */
-export function retentionSince(account: PlanBearingAccount | null | undefined): Date {
+export function retentionSince(
+  account: PlanBearingAccount | null | undefined,
+  now: Date = new Date()
+): Date {
   const entitlements = effectiveEntitlements(account);
-  return new Date(Date.now() - entitlements.logRetentionDays * 86_400_000);
+  return new Date(now.getTime() - entitlements.logRetentionDays * 86_400_000);
 }

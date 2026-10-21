@@ -129,7 +129,7 @@ export async function loadDashboardOverview(input: {
   const todayStart = startOfUtcDay(now);
 
   // Never look further back than the plan actually retains.
-  const retentionStart = retentionSince(input.account);
+  const retentionStart = retentionSince(input.account, now);
   const windowStart = new Date(
     Math.max(retentionStart.getTime(), now.getTime() - OVERVIEW_WINDOW_DAYS * 86_400_000)
   );
