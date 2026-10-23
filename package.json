@@ -68,7 +68,7 @@
     "mongoose": "^9.7.2",
     "next": "^16.3.4",
     "next-intl": "^4.13.0",
-    "nodemailer": "^10.0.1",
+    "nodemailer": "^10.1.4",
     "otpauth": "^9.4.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
