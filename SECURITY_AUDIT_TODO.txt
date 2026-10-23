@@ -3141,3 +3141,14 @@
 # - Residual: `braces` (high) via dev-only tooling chain (unchanged from 2026-10-04)
 # - tsc --noEmit, next build: pass; vitest run 2878 passed (mongo-repository-contracts needs mongod download, unavailable in sandbox)
 # - No hardcoded secrets detected (only CI test-DB fixture credentials)
+
+# Last audit: 2026-10-23
+# Result: PASSED (with noted residuals)
+# - npm audit: root prod 0 vulnerabilities; all packages/* 0
+#   - root (dev-only): follow-redirects 1.16.1, vite 8.3.5, zod 4.6.7 (incl. puppeteer/chromium-bidi nested zod) bumped via lockfile
+#   - examples/site-guard-nextjs: next (critical RCE/DoS advisories) bumped via lockfile (npm audit fix)
+#   - examples/site-guard-express: body-parser (high DoS) bumped via lockfile (npm audit fix)
+# - Residual: @vitest/mocker <=4.1.11 (moderate, dev-only test tooling; manual mock registration / Windows path traversal)
+# - tsc --noEmit, next build, test:packages: pass; vitest run 2877 passed, 2 files failed: test/mongo-repository-contracts (mongod download unavailable in sandbox) and
+#   test/dashboard-overview "honours a complimentary grant" (clock-dependent fixture, pre-existing, unrelated to this change)
+# - No hardcoded secrets detected (only test fixtures/placeholders)
