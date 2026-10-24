@@ -3152,3 +3152,14 @@
 # - tsc --noEmit, next build, test:packages: pass; vitest run 2877 passed, 2 files failed: test/mongo-repository-contracts (mongod download unavailable in sandbox) and
 #   test/dashboard-overview "honours a complimentary grant" (clock-dependent fixture, pre-existing, unrelated to this change)
 # - No hardcoded secrets detected (only test fixtures/placeholders)
+
+# Last audit: 2026-10-24
+# Result: PASSED (with noted residuals)
+# - npm audit (root, prod): 2 -> 0 vulnerabilities
+#   - undici 6.29.0 -> 6.29.1 (high, EventSource unbounded memory DoS, excessive content-encodings DoS); override bumped in root and packages/github-action
+#   - nodemailer 10.0.12 -> 10.2.1 (moderate, addressparser recipient-parsing advisories GHSA-8c8m-p3m8-cjg8, GHSA-m943-m63m-w62w, GHSA-85x2-q946-cp5h)
+# - Residual: @vitest/mocker <=4.1.11 (moderate, dev-only test tooling)
+# - Residual: packages/github-action/dist/index.js is a committed ncc bundle and was not rebuilt; rebuild at next action release to pick up undici 6.29.1
+# - tsc --noEmit, next build, api:inventory:check, test:packages: pass; vitest run 2877 passed, 2 files failed (same as prior audit):
+#   test/mongo-repository-contracts (mongod download unavailable in sandbox) and test/dashboard-overview "honours a complimentary grant" (clock-dependent fixture, pre-existing)
+# - No hardcoded secrets detected; no .env files tracked (only .env.example)

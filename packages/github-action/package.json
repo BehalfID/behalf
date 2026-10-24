@@ -18,7 +18,7 @@
     "vitest": "^4.1.11"
   },
   "overrides": {
-    "undici": "^6.27.0",
+    "undici": "^6.29.1",
     "nanoid": "^3.3.19"
   },
   "engines": {
