@@ -7,7 +7,7 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const ROOT = process.cwd();
 
@@ -59,7 +59,14 @@ async function load(input: Record<string, unknown> = {}) {
 describe("metric definitions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // retentionSince() reads the wall clock; pin it to NOW so the window math is deterministic.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(NOW);
     setup();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("counts today from 00:00 UTC, not local midnight", async () => {

@@ -3163,3 +3163,10 @@
 # - tsc --noEmit, next build, api:inventory:check, test:packages: pass; vitest run 2877 passed, 2 files failed (same as prior audit):
 #   test/mongo-repository-contracts (mongod download unavailable in sandbox) and test/dashboard-overview "honours a complimentary grant" (clock-dependent fixture, pre-existing)
 # - No hardcoded secrets detected; no .env files tracked (only .env.example)
+
+# Last audit: 2026-10-25
+# Result: PASSED (no Critical/High)
+# - npm audit: 3 moderate, dev-only (vitest/@vitest/mocker/@vitest/coverage-v8 <=4.1.11, GHSA-qxg6-89mg-rqv8); fix is vitest 4.1.12 but npm failed to apply it in this environment (arborist "edgesOut" error). Open.
+# - Fixed time-dependent test (dashboard-overview) that pinned `now` but not the wall clock used by retentionSince()
+# - tsc --noEmit, vitest run (only mongo-memory-server download failure, no network), next build: pass
+# - No hardcoded secrets detected
