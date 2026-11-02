@@ -3170,3 +3170,11 @@
 # - Fixed time-dependent test (dashboard-overview) that pinned `now` but not the wall clock used by retentionSince()
 # - tsc --noEmit, vitest run (only mongo-memory-server download failure, no network), next build: pass
 # - No hardcoded secrets detected
+
+# Last audit: 2026-11-02
+# Result: PASSED (with environmental test caveat)
+# - npm audit --omit=dev: 0 high/critical (5 moderate, build-time @sentry/bundler-plugins -> glob, no fix available without breaking change)
+# - Patched dev-only transitive follow-redirects 1.16.1 -> 1.16.2 (GHSA-mrwp-f3q8-3g9p, high; via mongodb-memory-server)
+# - tsc --noEmit: clean; next build: passes; vitest: 2878 passed, 1 file not runnable
+#   (test/mongo-repository-contracts.test.ts: sandbox blocked mongod binary download)
+# - No hardcoded secrets detected
