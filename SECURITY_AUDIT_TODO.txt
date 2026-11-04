@@ -3170,3 +3170,10 @@
 # - Fixed time-dependent test (dashboard-overview) that pinned `now` but not the wall clock used by retentionSince()
 # - tsc --noEmit, vitest run (only mongo-memory-server download failure, no network), next build: pass
 # - No hardcoded secrets detected
+
+# Last audit: 2026-11-04
+# Result: PASSED (no Critical/High remaining)
+# - Fixed: follow-redirects 1.16.1 -> 1.16.2 (high, GHSA-mrwp-f3q8-3g9p, credentials could follow redirects; transitive dev dependency via mongodb-memory-server)
+# - Residual (moderate, build/dev-only): glob/minimatch via @sentry/bundler-plugins (GHSA-3g3m-2fjr-6pw4, GHSA-g3hv-75wg-m249); @vitest/mocker <=4.1.11. `npm audit fix` fails in this environment (arborist "edgesOut" error). Open.
+# - tsc --noEmit, next build: pass; vitest run 2878 passed, 1 file failed (test/mongo-repository-contracts: mongod download blocked, 403)
+# - No hardcoded secrets detected; no .env files tracked
