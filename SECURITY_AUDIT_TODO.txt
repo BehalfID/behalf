@@ -3177,3 +3177,18 @@
 # - Residual (moderate, build/dev-only): glob/minimatch via @sentry/bundler-plugins (GHSA-3g3m-2fjr-6pw4, GHSA-g3hv-75wg-m249); @vitest/mocker <=4.1.11. `npm audit fix` fails in this environment (arborist "edgesOut" error). Open.
 # - tsc --noEmit, next build: pass; vitest run 2878 passed, 1 file failed (test/mongo-repository-contracts: mongod download blocked, 403)
 # - No hardcoded secrets detected; no .env files tracked
+
+# Last audit: 2026-11-10
+# Result: PASSED (Critical/High remediated)
+# - Fixed (critical, prod dep): mongoose 9.8.0 -> 9.12.1 (GHSA-pcrw-h46h-c93h sanitizeFilter skipped on countDocuments;
+#   GHSA-gg4r-jv3p-qx3c connection-level sanitizeFilter; GHSA-8332-j7wj-wjw4; GHSA-wr5m-5jph-8m96; GHSA-6972-9mcm-vhwj).
+#   Legacy/latch-off adapter only, but still shipped in the production bundle.
+# - Fixed (moderate): examples/site-guard-express qs/express via lockfile (npm audit fix).
+# - Fixed (medium, open redirect, CWE-601): every `next` return-path guard only rejected "//" prefixes, so
+#   `/\evil.example` and `/<TAB>/evil.example` (which WHATWG URL parsing resolves to https://evil.example/) passed.
+#   Exploitable unauthenticated via GET /logout?next=/%5Cevil.example and post-login/OAuth return paths.
+#   New shared guard lib/safeRedirect.ts (rejects backslashes/control chars, verifies same origin); all 10 duplicated
+#   checks now delegate to it. Regression tests: test/safe-redirect.test.ts, test/logout-redirect.test.ts.
+# - Residual (moderate, dev/build-only): vitest/@vitest/mocker <=4.1.11; eslint/typescript-eslint/minimatch;
+#   glob/minimatch via @sentry/bundler-plugins. `npm install vitest@4.1.12` still fails here (arborist "edgesOut"). Open.
+# - Not runnable in sandbox: Mongo integration suite (mongod download 403). Postgres smoke/contracts/API flows run locally on PG16: pass.

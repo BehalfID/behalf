@@ -1,3 +1,4 @@
+import { safeRelativePath } from "@/lib/safeRedirect";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
@@ -29,8 +30,7 @@ export async function generateMetadata({
 
 /** Same sanitisation as the root auth route: relative, single-slash paths only. */
 function safeNextPath(next?: string) {
-  if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
-  return next;
+  return safeRelativePath(next) ?? null;
 }
 
 export default async function LoginPage({

@@ -3,12 +3,12 @@
  * Server code should use `@/lib/authProviders/providers/github`.
  */
 
+import { safeRelativePath } from "@/lib/safeRedirect";
+
 export type GitHubOAuthMode = "login" | "signup" | "link" | "reauth";
 
 export function safeOAuthNextPath(next?: string | null): string | undefined {
-  if (!next || !next.startsWith("/") || next.startsWith("//")) return undefined;
-  if (next.length > 512) return undefined;
-  return next;
+  return safeRelativePath(next);
 }
 
 /**

@@ -1,5 +1,6 @@
 "use client";
 
+import { safeRelativePath } from "@/lib/safeRedirect";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
@@ -30,8 +31,7 @@ import {
 
 /** Same sanitisation as the root auth route: relative, single-slash paths only. */
 function safeNextPath(next?: string) {
-  if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
-  return next;
+  return safeRelativePath(next) ?? null;
 }
 
 function maxDateOfBirth(minAge: number): string {

@@ -1,3 +1,4 @@
+import { safeRelativePath } from "@/lib/safeRedirect";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -18,8 +19,7 @@ export const metadata: Metadata = {
 };
 
 function safeNextPath(next?: string) {
-  if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
-  return next;
+  return safeRelativePath(next) ?? null;
 }
 
 export default async function LoginPage({

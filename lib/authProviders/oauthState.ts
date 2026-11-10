@@ -1,3 +1,4 @@
+import { safeRelativePath } from "@/lib/safeRedirect";
 import crypto from "crypto";
 import { timingSafeEqualString } from "@/lib/crypto";
 import { getPostgresDb } from "@/lib/db/postgres";
@@ -120,9 +121,7 @@ export function createPkcePair() {
 
 /** Only same-origin, non-protocol-relative paths may be used as a return target. */
 export function safeOAuthNextPath(next?: string | null): string | undefined {
-  if (!next || !next.startsWith("/") || next.startsWith("//")) return undefined;
-  if (next.length > 512) return undefined;
-  return next;
+  return safeRelativePath(next);
 }
 
 /**

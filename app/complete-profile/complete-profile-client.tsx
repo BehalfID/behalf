@@ -1,5 +1,6 @@
 "use client";
 
+import { safeRelativePath } from "@/lib/safeRedirect";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { FormEvent, useState } from "react";
@@ -21,8 +22,7 @@ function maxDateOfBirth(minAge: number): string {
 }
 
 function safeNextPath(next?: string | null) {
-  if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
-  return next;
+  return safeRelativePath(next) ?? null;
 }
 
 const PROVIDER_LABELS: Record<string, string> = {

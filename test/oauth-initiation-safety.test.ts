@@ -165,9 +165,11 @@ describe("locale login preserves next like the root route", () => {
     const file = source("app/[locale]/auth-client.tsx");
     expect(file).toContain("safeNextPath(nextPath)");
     expect(file).toContain("assignOwnedLocation(redirectPath)");
-    // Same guard as the root route: reject non-relative and protocol-relative paths.
-    expect(file).toContain('next.startsWith("//")');
-    expect(file).toContain('!next.startsWith("/")');
+    // Same guard as the root route: the shared same-origin validator, which
+    // rejects non-relative, protocol-relative and backslash/control-char paths.
+    expect(file).toContain('from "@/lib/safeRedirect"');
+    expect(file).toContain("safeRelativePath(next)");
+    expect(source("app/auth-client.tsx")).toContain("safeRelativePath(next)");
   });
 
   it("forwards next to the provider buttons", () => {

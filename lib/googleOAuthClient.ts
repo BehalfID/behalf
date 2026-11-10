@@ -3,11 +3,12 @@
  * Server routes should prefer `@/lib/googleOAuth`, which re-exports these.
  */
 
+import { safeRelativePath } from "@/lib/safeRedirect";
+
 export type GoogleOAuthMode = "login" | "signup" | "reauth";
 
 export function safeOAuthNextPath(next?: string | null): string | undefined {
-  if (!next || !next.startsWith("/") || next.startsWith("//")) return undefined;
-  return next;
+  return safeRelativePath(next);
 }
 
 /** Public href that starts the Google OAuth redirect (sets state cookie, then redirects to Google). */
