@@ -65,6 +65,8 @@ describe("dashboard developer token routes", () => {
             name: "CI",
             accountId: "acct_test",
             tokenPreview: "bhf_dev_supe...value",
+            // Postgres adapter returns full rows; the route must strip the hash.
+            tokenHash: "stored_hash_must_not_leak",
             createdAt: new Date("2026-05-01T00:00:00.000Z"),
             lastUsedAt: new Date("2026-05-02T00:00:00.000Z")
           }
@@ -79,6 +81,8 @@ describe("dashboard developer token routes", () => {
     expect(json.tokens).toHaveLength(1);
     expect(JSON.stringify(json)).toContain("bhf_dev_supe...value");
     expect(JSON.stringify(json)).not.toContain("bhf_dev_super_secret_value");
+    expect(JSON.stringify(json)).not.toContain("stored_hash_must_not_leak");
+    expect(json.tokens[0]).not.toHaveProperty("tokenHash");
     expect(tokenMocks.tokenFind).toHaveBeenCalledWith({ userId: "dev_test" });
   });
 

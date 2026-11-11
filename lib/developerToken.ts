@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import type { NextRequest } from "next/server";
 import { recordAuthFailure } from "@/lib/authEvents";
+import type { WorkspaceActor } from "@/lib/delegatedAuth";
 import { logger } from "@/lib/logger";
 import {
   findByTokenHash,
@@ -22,7 +23,7 @@ export function previewDeveloperToken(token: string) {
 }
 
 type AuthResult =
-  | { tokenDoc: DeveloperApiTokenLean; error: null }
+  | { tokenDoc: DeveloperApiTokenLean; actor: WorkspaceActor; error: null }
   | { tokenDoc: null; error: null }
   | { tokenDoc: null; error: string };
 
@@ -42,6 +43,21 @@ export async function authenticateDeveloperToken(request: NextRequest): Promise<
     return { tokenDoc: null, error: "Invalid developer token." };
   }
 
+  // A token acts for its creator inside one workspace. Re-check membership on
+  // every use so removing a member (or the member leaving) also cuts off the
+  // tokens they minted, instead of leaving them usable until manually revoked.
+  const { getWorkspaceActor } = await import("@/lib/delegatedAuth");
+  const actor = await getWorkspaceActor(tokenDoc.userId, tokenDoc.accountId);
+  if (!actor) {
+    await recordAuthFailure({
+      request,
+      surface: "developer_token",
+      reason: "invalid_api_key",
+      identityHint: `dev_token:${hash.slice(0, 10)}`
+    });
+    return { tokenDoc: null, error: "Invalid developer token." };
+  }
+
   Promise.resolve(touchLastUsed(tokenDoc.tokenId)).catch((error: unknown) => {
     logger.warn("Failed to update developer token lastUsedAt.", {
       tokenId: tokenDoc.tokenId,
@@ -49,5 +65,5 @@ export async function authenticateDeveloperToken(request: NextRequest): Promise<
     });
   });
 
-  return { tokenDoc, error: null };
+  return { tokenDoc, actor, error: null };
 }

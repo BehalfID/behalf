@@ -1,10 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import {
+  canManageMembers,
   getWorkspaceActor,
   serializeWorkspaceAuthority,
-  viewerMutationForbidden
+  type WorkspaceActor
 } from "@/lib/delegatedAuth";
+import { getAuthorityLevelForRole, resolveWorkspaceRole } from "@/lib/authority";
+import { findMembershipByAccountAndUser } from "@/lib/repositories/memberships";
 import { readJsonObject } from "@/lib/request";
 import {
   createSlackBinding,
@@ -14,6 +17,25 @@ import {
 } from "@/lib/repositories/integrationBindings";
 import { jsonError, noCacheJson } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
+
+const SLACK_MANAGE_FORBIDDEN =
+  "Only workspace owners and engineering leads can manage the Slack integration.";
+
+/**
+ * A Slack identity mapping lets whoever controls that Slack user act as the
+ * mapped BehalfID user when approving or denying requests. Only allow mapping
+ * yourself, or a current member whose authority is below yours (owners may map
+ * any member). Otherwise a lower-authority member could map their own Slack
+ * account to an owner and approve anything.
+ */
+async function canMapSlackIdentity(actor: WorkspaceActor, targetUserId: string): Promise<boolean> {
+  if (targetUserId === actor.userId) return true;
+  const membership = await findMembershipByAccountAndUser(actor.accountId, targetUserId);
+  if (!membership) return false;
+  if (actor.role === "OWNER") return true;
+  const targetLevel = getAuthorityLevelForRole(resolveWorkspaceRole(membership.role));
+  return targetLevel < actor.authorityLevel;
+}
 
 export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
@@ -35,7 +57,7 @@ export async function POST(request: NextRequest) {
 
   const actor = await getWorkspaceActor(auth.user.userId, auth.activeAccountId);
   if (!actor) return jsonError("Workspace account required.", 403);
-  if (actor.authorityLevel <= 10) return viewerMutationForbidden();
+  if (!canManageMembers(actor)) return jsonError(SLACK_MANAGE_FORBIDDEN, 403);
 
   const { body, error } = await readJsonObject(request);
   if (error) return error;
@@ -74,6 +96,9 @@ export async function POST(request: NextRequest) {
       const userId = readString((entry as { userId?: unknown }).userId);
       if (!externalUserId || !userId) {
         return jsonError("identityMap entries require externalUserId and userId.");
+      }
+      if (!(await canMapSlackIdentity(actor, userId))) {
+        return jsonError("You cannot map a Slack identity to that user.", 403);
       }
       identityMap.push({ externalUserId, userId });
     }
@@ -125,7 +150,7 @@ export async function PATCH(request: NextRequest) {
 
   const actor = await getWorkspaceActor(auth.user.userId, auth.activeAccountId);
   if (!actor) return jsonError("Workspace account required.", 403);
-  if (actor.authorityLevel <= 10) return viewerMutationForbidden();
+  if (!canManageMembers(actor)) return jsonError(SLACK_MANAGE_FORBIDDEN, 403);
 
   const { body, error } = await readJsonObject(request);
   if (error) return error;
@@ -152,6 +177,9 @@ export async function PATCH(request: NextRequest) {
   const userId = readString(body.userId);
   if (!externalUserId || !userId) {
     return jsonError("externalUserId and userId are required to map identity.");
+  }
+  if (!(await canMapSlackIdentity(actor, userId))) {
+    return jsonError("You cannot map a Slack identity to that user.", 403);
   }
 
   const updated = await upsertIdentityMapping(

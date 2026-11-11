@@ -74,6 +74,16 @@ export function canUpdateMemberRole(
   if (!canManageMembers(actor)) return false;
   if (!canDelegateRole(actor, nextRole)) return false;
   if (target.role === "OWNER" && actor.role !== "OWNER") return false;
+  // Mirror canRemoveMember: a non-owner may only change the role of members
+  // below their own authority. Otherwise a lead could demote a peer lead and
+  // then remove them, side-stepping the removal rule.
+  if (
+    target.userId !== actor.userId &&
+    actor.role !== "OWNER" &&
+    getAuthorityLevelForRole(target.role) >= actor.authorityLevel
+  ) {
+    return false;
+  }
   if (target.userId === actor.userId && getAuthorityLevelForRole(nextRole) < actor.authorityLevel) {
     if (actor.role === "OWNER" && countOwners(memberships) <= 1) return false;
   }

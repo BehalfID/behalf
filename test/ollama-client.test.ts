@@ -37,6 +37,17 @@ describe("ollamaClient resolve + helpers", () => {
     expect(endpoint.fromAgent).toBe(false);
   });
 
+  it("never sends the server proxy token to an agent-supplied base URL", () => {
+    vi.stubEnv("OLLAMA_BASE_URL", "https://ollama-proxy.example.com");
+    vi.stubEnv("OLLAMA_PROXY_TOKEN", "server-proxy-token");
+    const foreign = resolveOllamaEndpoint({ ollamaBaseUrl: "https://attacker.example" });
+    expect(foreign.proxyToken).toBe("");
+    const sameAsEnv = resolveOllamaEndpoint({ ollamaBaseUrl: "https://ollama-proxy.example.com/" });
+    expect(sameAsEnv.proxyToken).toBe("server-proxy-token");
+    const envOnly = resolveOllamaEndpoint({ ollamaModel: "llama3.1:8b" });
+    expect(envOnly.proxyToken).toBe("server-proxy-token");
+  });
+
   it("detects localhost URLs", () => {
     expect(isLocalhostOllamaUrl("http://localhost:11434")).toBe(true);
     expect(isLocalhostOllamaUrl("http://127.0.0.1:11434")).toBe(true);
@@ -137,6 +148,8 @@ describe("proxyOllamaChat", () => {
     expect(fetchMock).toHaveBeenCalledOnce();
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(String(init.body))).toMatchObject({ stream: false, model: "llama3.1:8b" });
+    // Redirects are refused so a validated endpoint cannot bounce to an internal host.
+    expect(init.redirect).toBe("error");
   });
 
   it("rejects streaming requests", async () => {

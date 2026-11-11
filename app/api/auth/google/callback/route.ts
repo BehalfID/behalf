@@ -20,6 +20,7 @@ import {
   safeOAuthNextPath,
   verifyGoogleIdToken
 } from "@/lib/googleOAuth";
+import { OAUTH_MFA_COOKIE } from "@/lib/authProviders/oauthState";
 import { createPublicId } from "@/lib/ids";
 import {
   ACCOUNT_DELETE_PURPOSE,
@@ -183,6 +184,15 @@ export async function GET(request: NextRequest) {
 
   if (!user) {
     const byEmail = await users.findByEmail(email);
+    const linkedSub = (byEmail as { googleSub?: string | null } | null)?.googleSub;
+    if (byEmail && linkedSub && linkedSub !== claims.sub) {
+      // The account is already linked to a different Google identity. Never
+      // silently replace that link from an unauthenticated sign-in.
+      return authErrorRedirect(
+        request,
+        "This BehalfID account is linked to a different Google account. Sign in with your existing method."
+      );
+    }
     if (byEmail && isEmailVerified(byEmail.emailVerified)) {
       await ensureGoogleLinkedProviders(byEmail.userId, claims.sub, byEmail.authProviders as string[] | undefined);
       user = { ...byEmail, googleSub: claims.sub, emailVerified: true };
@@ -220,6 +230,20 @@ export async function GET(request: NextRequest) {
       });
     } catch {
       /* ignore */
+    }
+
+    // A second factor is a property of the account, not of the sign-in method.
+    // Without this check Google sign-in (or an email auto-link) bypasses TOTP.
+    const mfaEnabled = Boolean((user as { mfaEnabledAt?: Date | null }).mfaEnabledAt);
+    if (mfaEnabled) {
+      const { createMfaChallengeToken } = await import("@/lib/mfa");
+      const challengeToken = await createMfaChallengeToken(user.userId);
+      const response = ownedRedirect(request, "/login?oauth_mfa=1");
+      response.cookies.set(GOOGLE_OAUTH_STATE_COOKIE, "", { ...oauthCookieOptions(0), maxAge: 0 });
+      // httpOnly cookie, not the query string, so the challenge stays out of
+      // history, referrers, and proxy logs.
+      response.cookies.set(OAUTH_MFA_COOKIE, challengeToken, oauthCookieOptions(5 * 60));
+      return response;
     }
 
     const { token, session } = await createDeveloperSession(user.userId);

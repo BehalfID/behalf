@@ -17,7 +17,15 @@ export async function GET(request: NextRequest) {
 
   const tokens = await listByUserId(auth.user.userId);
 
-  return noCacheJson({ tokens });
+  // Never return the stored hash: the Postgres adapter yields full rows, so
+  // strip it here regardless of which repository backend is active.
+  return noCacheJson({
+    tokens: tokens.map((token) => {
+      const { tokenHash: _tokenHash, ...rest } = token as typeof token & { tokenHash?: string };
+      void _tokenHash;
+      return rest;
+    })
+  });
 }
 
 export async function POST(request: NextRequest) {

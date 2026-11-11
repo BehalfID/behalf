@@ -3,7 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const developerTokenMocks = vi.hoisted(() => ({
   connectToDatabase: vi.fn(),
   tokenFindOne: vi.fn(),
-  tokenUpdateOne: vi.fn()
+  tokenUpdateOne: vi.fn(),
+  getWorkspaceActor: vi.fn()
+}));
+
+vi.mock("@/lib/delegatedAuth", () => ({
+  getWorkspaceActor: developerTokenMocks.getWorkspaceActor
 }));
 
 vi.mock("@/lib/db", () => ({ connectToDatabase: developerTokenMocks.connectToDatabase }));
@@ -28,6 +33,33 @@ describe("developer token authentication", () => {
   beforeEach(() => {
     developerTokenMocks.connectToDatabase.mockResolvedValue(undefined);
     developerTokenMocks.tokenUpdateOne.mockResolvedValue({ matchedCount: 1 });
+    developerTokenMocks.getWorkspaceActor.mockReset();
+    developerTokenMocks.getWorkspaceActor.mockResolvedValue({
+      userId: "user_test",
+      accountId: "acct_test",
+      role: "ENGINEER",
+      authorityLevel: 40
+    });
+  });
+
+  it("rejects tokens whose creator is no longer a member of the token's workspace", async () => {
+    developerTokenMocks.tokenUpdateOne.mockClear();
+    developerTokenMocks.tokenFindOne.mockReturnValue({
+      select: vi.fn().mockResolvedValue({
+        tokenId: "tok_removed",
+        userId: "user_removed",
+        accountId: "acct_test",
+        tokenHash: "stored_hash"
+      })
+    });
+    developerTokenMocks.getWorkspaceActor.mockResolvedValue(null);
+    const { authenticateDeveloperToken } = await import("@/lib/developerToken");
+
+    const result = await authenticateDeveloperToken(tokenRequest("bhf_dev_removed_member"));
+
+    expect(result).toEqual({ tokenDoc: null, error: "Invalid developer token." });
+    expect(developerTokenMocks.getWorkspaceActor).toHaveBeenCalledWith("user_removed", "acct_test");
+    expect(developerTokenMocks.tokenUpdateOne).not.toHaveBeenCalled();
   });
 
   it("updates lastUsedAt for valid developer tokens", async () => {

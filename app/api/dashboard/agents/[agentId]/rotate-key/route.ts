@@ -2,13 +2,18 @@ import { NextResponse, type NextRequest } from "next/server";
 import { hashApiKey } from "@/lib/auth";
 import { accountAgentFilter } from "@/lib/accountAgents";
 import { requireDeveloperApi } from "@/lib/developerAuth";
-import { getWorkspaceActor } from "@/lib/delegatedAuth";
+import {
+  authorityForbidden,
+  getEffectiveRequiredAuthority,
+  getWorkspaceActor
+} from "@/lib/delegatedAuth";
 import { requireWorkspaceMutationActor } from "@/lib/workspaceActor";
 import { createApiKey } from "@/lib/ids";
 import { serverErrorResponse } from "@/lib/apiErrors";
 import { jsonError } from "@/lib/responses";
 import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
 import { updateAgent } from "@/lib/repositories/agents";
+import { findActivePermissionsByAgentId } from "@/lib/repositories/permissions";
 
 type RouteContext = {
   params: Promise<{ agentId: string }>;
@@ -24,6 +29,25 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (!actor) return jsonError("Workspace account required.", 403);
 
   const { agentId } = await context.params;
+
+  // The new key wields every active grant on the agent. A member may only
+  // obtain it if they could have granted (or revoked) each of those
+  // permissions themselves; otherwise rotation would hand an engineer a
+  // credential carrying owner/lead-level authority.
+  if (actor.role !== "OWNER") {
+    const activePermissions = await findActivePermissionsByAgentId(agentId, {
+      accountId: actor.accountId
+    });
+    const exceeds = activePermissions.some(
+      (permission) => getEffectiveRequiredAuthority(permission) > actor.authorityLevel
+    );
+    if (exceeds) {
+      return authorityForbidden(
+        "This agent holds permissions above your authority level. Ask a workspace owner, or a member with enough authority, to rotate its key."
+      );
+    }
+  }
+
   const apiKey = createApiKey();
 
   // The hash swap is the rotation. `accountAgentFilter` keeps it scoped to the

@@ -258,6 +258,39 @@ describe("role delegation rules", () => {
       )
     ).toBe(false);
   });
+
+  it("does not let a lead change a peer lead's role (demote-then-remove bypass)", () => {
+    const memberships = [
+      { role: "OWNER", userId: "owner", membershipId: "mbr_owner" },
+      { role: "ENGINEERING_LEAD", userId: "lead_a", membershipId: "mbr_a" },
+      { role: "ENGINEERING_LEAD", userId: "lead_b", membershipId: "mbr_b" },
+      { role: "ENGINEER", userId: "eng", membershipId: "mbr_eng" }
+    ];
+    expect(
+      canUpdateMemberRole(
+        actor("ENGINEERING_LEAD", "lead_a"),
+        { role: "ENGINEERING_LEAD", userId: "lead_b", membershipId: "mbr_b" },
+        "VIEWER",
+        memberships
+      )
+    ).toBe(false);
+    expect(
+      canUpdateMemberRole(
+        actor("ENGINEERING_LEAD", "lead_a"),
+        { role: "ENGINEER", userId: "eng", membershipId: "mbr_eng" },
+        "VIEWER",
+        memberships
+      )
+    ).toBe(true);
+    expect(
+      canUpdateMemberRole(
+        actor("OWNER", "owner"),
+        { role: "ENGINEERING_LEAD", userId: "lead_b", membershipId: "mbr_b" },
+        "VIEWER",
+        memberships
+      )
+    ).toBe(true);
+  });
 });
 
 describe("permission profiles", () => {

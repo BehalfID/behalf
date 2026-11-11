@@ -28,7 +28,8 @@ const mocks = vi.hoisted(() => ({
   checkAgentLimit: vi.fn(),
   createAgent: vi.fn(),
   updateAgent: vi.fn(),
-  createEvent: vi.fn()
+  createEvent: vi.fn(),
+  findActivePermissionsByAgentId: vi.fn()
 }));
 
 vi.mock("@/lib/developerAuth", () => ({
@@ -50,6 +51,10 @@ vi.mock("@/lib/quota", async (importOriginal) => {
 vi.mock("@/lib/repositories/agents", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/repositories/agents")>();
   return { ...actual, createAgent: mocks.createAgent, updateAgent: mocks.updateAgent };
+});
+vi.mock("@/lib/repositories/permissions", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/repositories/permissions")>();
+  return { ...actual, findActivePermissionsByAgentId: mocks.findActivePermissionsByAgentId };
 });
 vi.mock("@/lib/repositories/webhooks", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/repositories/webhooks")>();
@@ -107,6 +112,7 @@ beforeEach(() => {
   mocks.createAgent.mockImplementation(async (doc: Record<string, unknown>) => ({ ...doc }));
   mocks.updateAgent.mockResolvedValue({ matchedCount: 1 });
   mocks.createEvent.mockResolvedValue({});
+  mocks.findActivePermissionsByAgentId.mockResolvedValue([]);
 });
 
 describe("POST /api/dashboard/agents — happy path", () => {
@@ -312,6 +318,34 @@ describe("POST /api/dashboard/agents/[agentId]/rotate-key", () => {
     await rotateKeyRoute(makeRequest({}), ctx);
     const [filter] = mocks.updateAgent.mock.calls[0];
     expect(JSON.stringify(filter)).toContain("acct_1");
+  });
+
+  it("refuses to hand a member a key for an agent holding grants above their authority", async () => {
+    const engineer = { userId: "user_eng", accountId: "acct_1", role: "ENGINEER", authorityLevel: 40 };
+    mocks.getWorkspaceActor.mockResolvedValue(engineer);
+    mocks.findActivePermissionsByAgentId.mockResolvedValue([
+      { permissionId: "perm_prod", action: "deploy_production", requiredAuthorityLevel: 80 }
+    ]);
+
+    const res = await rotateKeyRoute(makeRequest({}), ctx);
+
+    expect(res.status).toBe(403);
+    expect(mocks.updateAgent).not.toHaveBeenCalled();
+    expect(JSON.stringify(await res.json())).not.toContain(PLAINTEXT);
+    expect(mocks.findActivePermissionsByAgentId).toHaveBeenCalledWith("agent_1", { accountId: "acct_1" });
+  });
+
+  it("lets a member rotate an agent whose grants are within their authority", async () => {
+    const engineer = { userId: "user_eng", accountId: "acct_1", role: "ENGINEER", authorityLevel: 40 };
+    mocks.getWorkspaceActor.mockResolvedValue(engineer);
+    mocks.findActivePermissionsByAgentId.mockResolvedValue([
+      { permissionId: "perm_read", action: "repo.read", requiredAuthorityLevel: 40 }
+    ]);
+
+    const res = await rotateKeyRoute(makeRequest({}), ctx);
+
+    expect(res.status).toBe(200);
+    expect(mocks.updateAgent).toHaveBeenCalledOnce();
   });
 
   it("returns 404 rather than rotating another workspace's agent", async () => {

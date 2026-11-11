@@ -78,6 +78,11 @@ export function isLocalhostOllamaUrl(baseUrl: string): boolean {
   return /localhost|127\.0\.0\.1/i.test(baseUrl);
 }
 
+function sameOllamaBase(a: string, b: string): boolean {
+  if (!a || !b) return false;
+  return a.trim().replace(/\/+$/, "") === b.trim().replace(/\/+$/, "");
+}
+
 /**
  * Resolve the Ollama endpoint for an agent: prefer per-agent fields, then env.
  */
@@ -94,7 +99,10 @@ export function resolveOllamaEndpoint(agent?: {
     baseUrl,
     model,
     timeoutMs: Number.isFinite(env.timeoutMs) && env.timeoutMs > 0 ? env.timeoutMs : DEFAULT_TIMEOUT_MS,
-    proxyToken: env.proxyToken,
+    // The server's proxy token authenticates BehalfID to the operator's own
+    // Ollama proxy. Never send it to an agent-supplied URL, which any member
+    // with agent-edit rights can point at a host they control.
+    proxyToken: !agentBase || sameOllamaBase(agentBase, env.baseUrl) ? env.proxyToken : "",
     fromAgent: Boolean(agentBase || agentModel)
   };
 }
@@ -141,6 +149,9 @@ export async function fetchOllamaTags(
 ): Promise<string[]> {
   const res = await fetch(`${baseUrl.replace(/\/$/, "")}/api/tags`, {
     headers: ollamaAuthHeaders(proxyToken),
+    // The endpoint was validated as a public URL; a redirect could point
+    // anywhere (including internal addresses) without being re-checked.
+    redirect: "error",
     signal: AbortSignal.timeout(timeoutMs)
   });
 
@@ -321,6 +332,7 @@ export async function proxyOllamaChat(
       method: "POST",
       headers: { "Content-Type": "application/json", ...ollamaAuthHeaders(endpoint.proxyToken) },
       body,
+      redirect: "error",
       signal: AbortSignal.timeout(endpoint.timeoutMs)
     });
 

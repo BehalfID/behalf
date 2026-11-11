@@ -3192,3 +3192,38 @@
 # - Residual (moderate, dev/build-only): vitest/@vitest/mocker <=4.1.11; eslint/typescript-eslint/minimatch;
 #   glob/minimatch via @sentry/bundler-plugins. `npm install vitest@4.1.12` still fails here (arborist "edgesOut"). Open.
 # - Not runnable in sandbox: Mongo integration suite (mongod download 403). Postgres smoke/contracts/API flows run locally on PG16: pass.
+
+# Last audit: 2026-11-11
+# Result: PASSED (Critical/High remediated)
+# - Fixed (critical, privilege escalation): Slack identity map (POST/PATCH /api/dashboard/integrations/slack) only
+#   blocked VIEWERs and never validated the mapped userId, so an ENGINEER could map their Slack user to an OWNER
+#   and approve anything from Slack as that owner (including their own agent's requests). Now requires OWNER/LEAD,
+#   and a mapping must target yourself or a current member below your authority (owners: any member).
+#   NOTE: mappings created before this fix are not re-validated; owners should review existing Slack identity maps.
+# - Fixed (high, approval bypass): PUT/DELETE /api/dashboard/policies only blocked VIEWERs; an ENGINEER could add an
+#   auto_approve rule that skipped every human approval gate. Now OWNER/LEAD only; allow/auto_approve rules OWNER only.
+# - Fixed (high, MFA bypass): Google OAuth callback issued a full session without checking mfaEnabledAt
+#   (password, GitHub and passkey paths already enforced it). Now issues the same OAuth MFA challenge as GitHub.
+#   Also refuses to overwrite an existing, different googleSub during email auto-link.
+# - Fixed (high, credential leak/SSRF): Ollama proxy sent OLLAMA_PROXY_TOKEN to agent-supplied base URLs and
+#   followed redirects after one-time URL validation. Token now only sent to the env-configured base; redirect: "error".
+# - Fixed (medium): accepted invite token could be replayed after the member was removed (restoring the original
+#   role). Accepted invites now only succeed idempotently for current members.
+# - Fixed (medium): developer tokens (bhf_dev_) stayed usable after the creator was removed from the workspace;
+#   token auth now re-checks membership; VIEWER tokens can no longer create agents via POST /api/agents.
+# - Fixed (medium): ENGINEER could rotate the key of an agent holding grants above their authority and receive the
+#   plaintext key. Rotation now requires authority >= every active grant on the agent (owners exempt).
+# - Fixed (medium): ENGINEERING_LEAD could change a peer lead's role (then remove them). Non-owners may only change
+#   roles of members below their own authority.
+# - Fixed (low): Slack interactions only verified against the first binding for a team (cross-tenant DoS); now uses
+#   the binding whose secret signed the request. GET /api/dashboard/tokens no longer returns tokenHash (Postgres).
+# - Residual (low/hardening): Google PKCE verifier travels inside the signed `state` param (move server-side as
+#   GitHub does); Google still auto-links a verified-email match to an existing account (MFA now enforced);
+#   Ollama DNS answer is not pinned between validation and fetch; unauthenticated Slack/Stripe/CSP routes buffer the
+#   full body before size checks (host body limits apply).
+# - Residual (moderate, dev/build-only deps): vitest/@vitest/mocker <=4.1.11; glob/minimatch via
+#   @sentry/bundler-plugins. `npm audit fix` still fails here (arborist "edgesOut"). No Critical/High advisories.
+# - tsc --noEmit, next build, build:cli, build:egress-proxy, test:packages, api:inventory:check, test:api-contracts,
+#   Postgres smoke/repository contracts/API flows (local PG16): pass. vitest run: 2917 passed; 1 file failed
+#   (test/mongo-repository-contracts: mongod download blocked, 403 — sandbox network, pre-existing).
+# - Secret scan (git grep for live key/token/private-key/connection-string patterns): only placeholders/fixtures.

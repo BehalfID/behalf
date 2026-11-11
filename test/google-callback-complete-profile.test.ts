@@ -16,7 +16,12 @@ const mocks = vi.hoisted(() => ({
   touchLoginMetadata: vi.fn(),
   resolvePreferredSsoAccountId: vi.fn(),
   switchActiveAccount: vi.fn(),
-  updateUser: vi.fn()
+  updateUser: vi.fn(),
+  createMfaChallengeToken: vi.fn()
+}));
+
+vi.mock("@/lib/mfa", () => ({
+  createMfaChallengeToken: mocks.createMfaChallengeToken
 }));
 
 vi.mock("@/lib/rateLimit", () => ({
@@ -144,5 +149,53 @@ describe("Google callback complete-profile routing", () => {
     expect(location).toContain("/dashboard");
     expect(location).not.toContain("complete-profile");
     expect(mocks.createPendingSignup).not.toHaveBeenCalled();
+  });
+
+  it("requires the TOTP second factor for MFA-enabled users instead of issuing a session", async () => {
+    mocks.createDeveloperSession.mockClear();
+    mocks.setDeveloperSessionCookie.mockClear();
+    mocks.findByGoogleSub.mockResolvedValue({
+      userId: "user_mfa",
+      email: "mfa@example.com",
+      emailVerified: true,
+      onboardingCompletedAt: new Date(),
+      authProviders: ["google"],
+      mfaEnabledAt: new Date("2026-01-01T00:00:00.000Z")
+    });
+    mocks.updateAccountLastSignIn.mockResolvedValue(undefined);
+    mocks.recordIdentityAudit.mockResolvedValue(undefined);
+    mocks.touchLoginMetadata.mockResolvedValue(undefined);
+    mocks.createMfaChallengeToken.mockResolvedValue("mfa-challenge-token");
+
+    const { GET } = await import("@/app/api/auth/google/callback/route");
+    const res = await GET(callbackRequest());
+
+    expect(res.headers.get("location") ?? "").toContain("/login?oauth_mfa=1");
+    expect(mocks.createMfaChallengeToken).toHaveBeenCalledWith("user_mfa");
+    expect(mocks.createDeveloperSession).not.toHaveBeenCalled();
+    expect(mocks.setDeveloperSessionCookie).not.toHaveBeenCalled();
+    const setCookie = res.headers.getSetCookie?.() ?? [];
+    expect(setCookie.some((c) => c.startsWith("behalfid_oauth_mfa=mfa-challenge-token"))).toBe(true);
+    expect(setCookie.some((c) => c.startsWith("behalfid_session"))).toBe(false);
+  });
+
+  it("does not overwrite an existing, different Google link when matching by email", async () => {
+    mocks.updateUser.mockClear();
+    mocks.createDeveloperSession.mockClear();
+    mocks.findByGoogleSub.mockResolvedValue(null);
+    mocks.findByEmail.mockResolvedValue({
+      userId: "user_linked",
+      email: "newbie@example.com",
+      emailVerified: true,
+      googleSub: "google-sub-original",
+      authProviders: ["google"]
+    });
+
+    const { GET } = await import("@/app/api/auth/google/callback/route");
+    const res = await GET(callbackRequest());
+
+    expect(mocks.updateUser).not.toHaveBeenCalled();
+    expect(mocks.createDeveloperSession).not.toHaveBeenCalled();
+    expect(res.headers.get("location") ?? "").not.toContain("/dashboard");
   });
 });

@@ -7,6 +7,7 @@ import {
 } from "@/lib/adminAuth";
 import { getDefaultAccountId } from "@/lib/account";
 import { parseAgentMetadata } from "@/lib/agents";
+import { canManageAgents, viewerMutationForbidden } from "@/lib/delegatedAuth";
 import { authenticateDeveloperToken } from "@/lib/developerToken";
 import { createApiKey, createPublicId } from "@/lib/ids";
 import { checkAgentLimit, quotaErrorDetails } from "@/lib/quota";
@@ -23,9 +24,14 @@ export async function POST(request: NextRequest) {
     return rateLimitError();
   }
 
-  const { tokenDoc, error: tokenError } = await authenticateDeveloperToken(request);
+  const tokenAuth = await authenticateDeveloperToken(request);
+  const { tokenDoc, error: tokenError } = tokenAuth;
   if (tokenError) {
     return jsonAppError(tokenError, 401, "INVALID_DEVELOPER_TOKEN");
+  }
+  // Same rule as the dashboard: viewers cannot create agents (or obtain keys).
+  if (tokenAuth.tokenDoc && !canManageAgents(tokenAuth.actor)) {
+    return viewerMutationForbidden();
   }
 
   if (!tokenDoc) {

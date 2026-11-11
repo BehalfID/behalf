@@ -130,6 +130,11 @@ export async function acceptInvite(
         alreadyMember: true
       };
     }
+    // An invite is single-use. Once accepted, the only valid replay is an
+    // idempotent re-visit by a current member (above). If the membership is
+    // gone, the member was removed or left, so the old link must not restore
+    // access (or the invite's original role).
+    return { error: "revoked" };
   }
 
   const existingMembership = await findMembershipByAccountAndUser(invite.accountId, userId);

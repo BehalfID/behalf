@@ -291,6 +291,28 @@ describe("invite acceptance", () => {
     expect(mocks.membershipCreate).not.toHaveBeenCalled();
   });
 
+  it("refuses to replay an accepted invite after the member was removed", async () => {
+    mocks.inviteFindOne.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        lean: vi.fn().mockResolvedValue({
+          inviteId: "inv_accepted",
+          accountId: "acct_team",
+          email: "invited@example.com",
+          role: "ENGINEERING_LEAD",
+          status: "accepted",
+          invitedBy: "user_owner",
+          inviteTokenExpiresAt: new Date(Date.now() + 60_000)
+        })
+      })
+    });
+    // No membership any more: the member was removed after accepting.
+    mocks.membershipFindOne.mockReturnValue({ lean: vi.fn().mockResolvedValue(null) });
+    const { acceptInvite } = await import("@/lib/inviteAcceptance");
+    const result = await acceptInvite("token_ok", "user_invited", "invited@example.com");
+    expect(result).toEqual({ error: "revoked" });
+    expect(mocks.membershipCreate).not.toHaveBeenCalled();
+  });
+
   it("revokes pending invites", async () => {
     mocks.inviteUpdateOne.mockResolvedValue({ modifiedCount: 1 });
     const { revokeInvite } = await import("@/lib/inviteAcceptance");

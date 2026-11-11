@@ -64,19 +64,26 @@ export async function POST(request: NextRequest) {
     return jsonError("No Slack integration binding found for this workspace.", 404);
   }
 
-  const binding = bindings[0];
-  const signingSecret = (binding as { signingSecret?: string }).signingSecret;
-  if (!signingSecret) {
-    return jsonError("Slack signing secret is not configured.", 500);
-  }
-
-  const valid = verifySlackSignature({
-    signingSecret,
-    signatureHeader: signature,
-    timestampHeader: timestamp,
-    rawBody
+  // Several BehalfID accounts (or channels) can register the same Slack team.
+  // Use the binding whose signing secret actually signed this request, so a
+  // binding with a different secret can neither shadow nor block the real one.
+  const binding = bindings.find((candidate) => {
+    const candidateSecret = (candidate as { signingSecret?: string }).signingSecret;
+    return Boolean(
+      candidateSecret &&
+        verifySlackSignature({
+          signingSecret: candidateSecret,
+          signatureHeader: signature,
+          timestampHeader: timestamp,
+          rawBody
+        })
+    );
   });
-  if (!valid) {
+  if (!binding) {
+    const anySecret = bindings.some((candidate) =>
+      Boolean((candidate as { signingSecret?: string }).signingSecret)
+    );
+    if (!anySecret) return jsonError("Slack signing secret is not configured.", 500);
     return jsonError("Invalid Slack signature.", 401);
   }
 

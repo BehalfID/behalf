@@ -228,4 +228,56 @@ describe("Slack interactions route", () => {
       decision: "approve"
     });
   });
+
+  it("uses the binding whose secret signed the request, not whichever row comes first", async () => {
+    const secret = "real_secret";
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    const payload = JSON.stringify({
+      type: "block_actions",
+      team: { id: "T1" },
+      user: { id: "U1" },
+      actions: [{ action_id: "approval_deny", value: "apr_1" }]
+    });
+    const body = `payload=${encodeURIComponent(payload)}`;
+    interactionMocks.findSlackBindingByTeamWithSecrets.mockResolvedValue([
+      {
+        bindingId: "ibind_squatter",
+        accountId: "acct_attacker",
+        identityMap: [{ externalUserId: "U1", userId: "attacker" }],
+        signingSecret: "junk_secret"
+      },
+      {
+        bindingId: "ibind_real",
+        accountId: "acct_1",
+        identityMap: [{ externalUserId: "U1", userId: "dev_1" }],
+        signingSecret: secret
+      }
+    ]);
+    interactionMocks.getWorkspaceActor.mockResolvedValue({
+      userId: "dev_1",
+      accountId: "acct_1",
+      role: "OWNER",
+      authorityLevel: 100
+    });
+    interactionMocks.resolveApprovalDecision.mockResolvedValue({
+      ok: true,
+      decision: "deny",
+      approvalId: "apr_1"
+    });
+
+    const { POST } = await import("@/app/api/integrations/slack/interactions/route");
+    const request = new Request("http://localhost/api/integrations/slack/interactions", {
+      method: "POST",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        "x-slack-signature": sign(secret, timestamp, body),
+        "x-slack-request-timestamp": timestamp
+      },
+      body
+    });
+
+    const response = await POST(request as never);
+    expect(response.status).toBe(200);
+    expect(interactionMocks.getWorkspaceActor).toHaveBeenCalledWith("dev_1", "acct_1");
+  });
 });

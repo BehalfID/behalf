@@ -1,9 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import {
+  canManageMembers,
   getWorkspaceActor,
-  serializeWorkspaceAuthority,
-  viewerMutationForbidden
+  serializeWorkspaceAuthority
 } from "@/lib/delegatedAuth";
 import { createPublicId } from "@/lib/ids";
 import { invalidatePolicyDocumentCache } from "@/lib/policyEngine/loadPolicy";
@@ -17,6 +17,11 @@ import {
 } from "@/lib/repositories/policyDocuments";
 import { jsonError, noCacheJson } from "@/lib/responses";
 import { readString, rejectUnknownFields } from "@/lib/validation";
+
+const POLICY_MANAGE_FORBIDDEN =
+  "Only workspace owners and engineering leads can change workspace guardrail policies.";
+const POLICY_BYPASS_OWNER_ONLY =
+  "Only workspace owners can add allow or auto_approve rules, because they skip human approval at every authority level.";
 
 export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
@@ -38,7 +43,7 @@ export async function PUT(request: NextRequest) {
 
   const actor = await getWorkspaceActor(auth.user.userId, auth.activeAccountId);
   if (!actor) return jsonError("Workspace account required.", 403);
-  if (actor.authorityLevel <= 10) return viewerMutationForbidden();
+  if (!canManageMembers(actor)) return jsonError(POLICY_MANAGE_FORBIDDEN, 403);
 
   const { body, error } = await readJsonObject(request);
   if (error) return error;
@@ -55,6 +60,14 @@ export async function PUT(request: NextRequest) {
 
   const { rules, error: rulesError } = validatePolicyRules(body.rules);
   if (rulesError) return jsonError(rulesError);
+  // A guardrail that allows or auto-approves replaces the human approval gate
+  // for every matching request, including ones only an owner could approve.
+  if (
+    actor.role !== "OWNER" &&
+    rules.some((rule) => rule.then === "allow" || rule.then === "auto_approve")
+  ) {
+    return jsonError(POLICY_BYPASS_OWNER_ONLY, 403);
+  }
 
   const existing = await findPolicyByAccountId(actor.accountId);
   const saved = await upsertPolicyDocument({
@@ -77,7 +90,7 @@ export async function DELETE(request: NextRequest) {
 
   const actor = await getWorkspaceActor(auth.user.userId, auth.activeAccountId);
   if (!actor) return jsonError("Workspace account required.", 403);
-  if (actor.authorityLevel <= 10) return viewerMutationForbidden();
+  if (!canManageMembers(actor)) return jsonError(POLICY_MANAGE_FORBIDDEN, 403);
 
   await deletePolicyDocument(actor.accountId);
   invalidatePolicyDocumentCache(actor.accountId);
