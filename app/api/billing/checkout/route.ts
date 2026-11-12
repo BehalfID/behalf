@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import Stripe from "stripe";
+import { requireBillingOwner } from "@/lib/billingAuth";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import { hasActiveComplimentaryPlan } from "@/lib/planGrants";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
@@ -14,6 +15,9 @@ export async function POST(request: NextRequest) {
   if (!auth.account) {
     return jsonError("Billing account not found.", 404);
   }
+
+  const billingForbidden = await requireBillingOwner(auth.user.userId, auth.account.accountId);
+  if (billingForbidden) return billingForbidden;
 
   if (auth.account.plan !== "free") {
     return jsonError("Account is already on a paid plan.", 409);

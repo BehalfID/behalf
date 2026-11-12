@@ -900,6 +900,20 @@ export async function verifyAction(input: VerifyInput) {
         }
       }
     }
+  } else if (decision.allowed && permission) {
+    // Deny precedence: a workspace guardrail "deny" rule must also apply when
+    // the permission itself does not require approval (the policy dry-run tool
+    // already evaluates it this way). Only a deny outcome is applied here — an
+    // allow/auto_approve/require_human result never widens or changes access.
+    try {
+      const guardrail = await evaluateAccountGuardrails(input, decision);
+      if (guardrail?.outcome === "deny") {
+        decision = decisionFromGuardrail(guardrail) ?? decision;
+      }
+    } catch {
+      // Policy evaluation failure keeps the permission's own decision (unchanged
+      // pre-existing behaviour for permissions that do not require approval).
+    }
   }
 
   const finalDecision =

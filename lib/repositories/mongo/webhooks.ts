@@ -38,9 +38,8 @@ export function findActiveEndpointsForEvent(
   event: Pick<WebhookEventDocument, "accountId" | "developerUserId" | "type">
 ) {
   return WebhookEndpoint.find({
-    ...(event.developerUserId
-      ? { developerUserId: event.developerUserId }
-      : { accountId: event.accountId }),
+    accountId: event.accountId,
+    ...(event.developerUserId ? { developerUserId: event.developerUserId } : {}),
     status: "active",
     events: event.type
   }).select("+secretHash");

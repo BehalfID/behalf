@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { requireBillingOwner } from "@/lib/billingAuth";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import { checkRateLimit, rateLimitError } from "@/lib/rateLimit";
 import { jsonError } from "@/lib/responses";
@@ -11,6 +12,9 @@ export async function POST(request: NextRequest) {
   if (!auth.account?.stripeCustomerId) {
     return jsonError("No active subscription found.", 404);
   }
+
+  const billingForbidden = await requireBillingOwner(auth.user.userId, auth.account.accountId);
+  if (billingForbidden) return billingForbidden;
 
   const stripe = getStripe();
   if (!stripe) {

@@ -3227,3 +3227,50 @@
 #   Postgres smoke/repository contracts/API flows (local PG16): pass. vitest run: 2917 passed; 1 file failed
 #   (test/mongo-repository-contracts: mongod download blocked, 403 — sandbox network, pre-existing).
 # - Secret scan (git grep for live key/token/private-key/connection-string patterns): only placeholders/fixtures.
+
+# Last audit: 2026-11-12
+# Result: PASSED (High remediated)
+# - Fixed (high, cross-tenant data leak): webhook fan-out (findActiveEndpointsForEvent, Postgres + Mongo) matched
+#   endpoints by developerUserId alone whenever an event named a developer, so verification.*/approval.* events
+#   for a workspace's agents were also delivered to that developer's endpoints in OTHER workspaces (e.g. their
+#   personal workspace). Now always scoped by accountId AND developerUserId. Contract test added
+#   (test/repository-contracts/webhooks.contract.ts).
+# - Fixed (high, authority escalation): permission risk classification (lib/permissionRisk.ts) used text in
+#   blockedActions to LOWER the required authority (e.g. execute_command + blockedActions ["run tests"] => ENGINEER;
+#   deploy/production + blockedActions ["deploy to staging"] => ENGINEER), letting an ENGINEER create lead-level
+#   grants and lowering who may approve them. blockedActions now only escalate. NOTE: permissions created before
+#   this fix keep their stored requiredAuthorityLevel; owners should review engineer-level grants with broad actions.
+# - Fixed (medium, deny precedence): workspace guardrail "deny" rules were only evaluated when the permission
+#   required approval, so a deny rule never applied to requiresApproval:false permissions (the policy dry-run tool
+#   showed "deny"). verify now applies guardrail deny outcomes on the allowed path (allow/auto_approve ignored there).
+# - Fixed (medium): removing a member left their webhook endpoints in that workspace active (and a later plan
+#   reactivation re-enables disabled endpoints). removeMember now deletes the member's endpoints in that workspace.
+# - Fixed (medium, broken access control): POST /api/billing/portal and /api/billing/checkout had no role check —
+#   any member (incl. VIEWER) could open the workspace's Stripe portal (cancel plan, change payment method, view
+#   invoices). Now OWNER only (lib/billingAuth.ts).
+# - Fixed (low-medium): VIEWERs could create workspace webhooks; POST /api/dashboard/webhooks now uses
+#   requireWorkspaceMutationActor.
+# - Fixed (moderate, dev-only dep): vitest/@vitest/mocker/@vitest/coverage-v8 4.1.11 -> 4.1.12 (GHSA-qxg6-89mg-rqv8,
+#   GHSA-xp26-3454-mjgp). npm 10 arborist "edgesOut" bug worked around by resolving the lockfile with npm 11;
+#   `npm ci` with npm 10 verified against the resulting lockfile.
+# - Residual (moderate, build/dev-only deps): glob/minimatch via @sentry/bundler-plugins and eslint/typescript-eslint
+#   (fix requires major upgrades). No Critical/High advisories.
+# - Residual (medium/low, not changed — design decisions or larger work):
+#   * http_request (and other non-bindable actions such as send_email) approvals bind to hostname only; an approval
+#     obtained for one request can be used for a different method/path/body on the same host within the grant.
+#   * Guardrail auto_approve predicates (ci_status, diff_lines_lt) trust agent-supplied policyContext/metadata.
+#   * Context deny constraints (deniedPaths/Commands/...) apply per-permission, not across all matching permissions.
+#   * "Enforce Google sign-in" only blocks password login (as labelled); passkey and GitHub logins still work for
+#     enforced domains, so Google Workspace offboarding alone does not revoke BehalfID access.
+#   * Console login uses one global auth rate-limit bucket (strong brute-force limit, but 10 junk requests /15 min
+#     lock out all admins); /api/auth/login + forgot-password share a per-email bucket (targeted lockout).
+#   * Login returns a distinct message for provider-only accounts (account enumeration).
+#   * Console logout only clears the stateless 8h cookie (no server-side revocation); GET /logout and GET cron/cleanup
+#     maintenance routes have no Origin check.
+#   * MFA backup-code consumption is read-modify-write (two concurrent requests can both use one code); TOTP codes
+#     are replayable within the ±1 step window.
+#   * Egress ticket HMAC secret falls back to the webhook pepper / a hardcoded dev value (no production caller of
+#     verifyEgressTicket found); webhook signing pepper must be shared with every customer to be usable.
+#   * isPrivateIpAddress does not block IPv4-compatible ::a.b.c.d, 6to4 2002::/16, fec0::/10 (hardening).
+#   * Carried over: Google PKCE verifier in signed state; Ollama DNS not pinned; unauthenticated routes buffer bodies.
+# - Not runnable in sandbox: Mongo integration/contract suite (mongod download 403).

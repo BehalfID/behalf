@@ -202,7 +202,12 @@ function toResult(level: number, classified: boolean): ClassificationResult {
 
 export function classifyPermissionRisk(input: PermissionClassificationInput): ClassificationResult {
   const action = normalizeAction(input.action);
+  // `signals` (every field, including blockedActions) may only ESCALATE the
+  // required authority. Anything that LOWERS it must come from what the
+  // permission actually grants: text placed in blockedActions restricts the
+  // grant and must never make an otherwise lead-level grant engineer-safe.
   const signals = joinSignals({ ...input, action });
+  const grantSignals = joinSignals({ ...input, action, blockedActions: [] });
 
   if (!action) {
     return toResult(UNCLASSIFIED_DEFAULT_LEVEL, false);
@@ -219,7 +224,7 @@ export function classifyPermissionRisk(input: PermissionClassificationInput): Cl
     isDependencyProductionSignal(signals) ||
     action === "deploy.production" ||
     action === "github.push.main" ||
-    (action === "deploy" && isProductionEnv(signals) && !isNonProductionDeployEnv(signals)) ||
+    (action === "deploy" && isProductionEnv(signals) && !isNonProductionDeployEnv(grantSignals)) ||
     isProtectedBranchSignal(signals)
   ) {
     return toResult(LEAD_LEVEL, true);
@@ -229,7 +234,7 @@ export function classifyPermissionRisk(input: PermissionClassificationInput): Cl
     (action === "deploy" ||
       action === "deploy.staging" ||
       action === "dependency.update") &&
-    isNonProductionDeployEnv(signals) &&
+    isNonProductionDeployEnv(grantSignals) &&
     !isProductionEnv(signals)
   ) {
     return toResult(SENIOR_LEVEL, true);
@@ -239,7 +244,7 @@ export function classifyPermissionRisk(input: PermissionClassificationInput): Cl
     return toResult(SENIOR_LEVEL, true);
   }
 
-  if (isSafeEngineerSignal(signals, action)) {
+  if (isSafeEngineerSignal(grantSignals, action)) {
     return toResult(ENGINEER_LEVEL, true);
   }
 

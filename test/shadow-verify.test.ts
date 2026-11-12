@@ -23,6 +23,12 @@ vi.mock("@/models/Permission", () => ({
   }
 }));
 
+// No workspace guardrail document in these tests (verify consults guardrails on
+// both the approval and the allowed path).
+vi.mock("@/lib/policyEngine/loadPolicy", () => ({
+  loadPolicyDocument: vi.fn().mockResolvedValue(null)
+}));
+
 vi.mock("@/models/Agent", () => ({
   default: { updateOne: vi.fn().mockResolvedValue({ matchedCount: 1 }) }
 }));

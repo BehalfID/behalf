@@ -18,6 +18,14 @@ const checkoutMocks = vi.hoisted(() => ({
 vi.mock("@/lib/developerAuth", () => ({
   requireDeveloperApi: checkoutMocks.requireDeveloperApi
 }));
+vi.mock("@/lib/delegatedAuth", () => ({
+  getWorkspaceActor: vi.fn().mockResolvedValue({
+    userId: "user_1",
+    accountId: "acct_comped",
+    role: "OWNER",
+    authorityLevel: 100
+  })
+}));
 vi.mock("@/lib/stripe", () => ({ getStripe: checkoutMocks.getStripe }));
 vi.mock("@/lib/repositories/accounts", () => ({ updateAccount: checkoutMocks.updateAccount }));
 vi.mock("@/lib/rateLimit", () => ({

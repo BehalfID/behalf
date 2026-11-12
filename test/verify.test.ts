@@ -443,6 +443,51 @@ describe("verifyAction permission decisions", () => {
     expect(emitApprovalRequested).not.toHaveBeenCalled();
   });
 
+  it("applies a guardrail deny rule even when the permission does not require approval", async () => {
+    mockPermissions([permissionFixture({ requiresApproval: false })]);
+    vi.mocked(loadPolicyDocument).mockResolvedValue({
+      accountId: "acct_test",
+      version: 1,
+      enabled: true,
+      rules: [
+        {
+          id: "no-amazon",
+          priority: 1,
+          when: [{ type: "action", action: "purchase" }],
+          then: "deny",
+          reason: "Purchases are blocked by workspace policy."
+        }
+      ]
+    });
+    const { verifyAction } = await import("@/lib/verify");
+
+    const decision = await verifyAction(verificationRequestFixture());
+
+    expect(decision).toEqual(
+      expect.objectContaining({ allowed: false, approvalRequired: false, risk: "high" })
+    );
+    expect(modelMocks.verificationLogCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ allowed: false })
+    );
+  });
+
+  it("does not let a guardrail allow/auto_approve rule change a non-approval decision", async () => {
+    mockPermissions([permissionFixture({ requiresApproval: false })]);
+    vi.mocked(loadPolicyDocument).mockResolvedValue({
+      accountId: "acct_test",
+      version: 1,
+      enabled: true,
+      rules: [{ id: "auto", priority: 1, when: [], then: "auto_approve", reason: "x" }]
+    });
+    const { verifyAction } = await import("@/lib/verify");
+
+    const decision = await verifyAction(verificationRequestFixture());
+
+    expect(decision).toEqual(
+      expect.objectContaining({ allowed: true, reason: "Action allowed by active permission." })
+    );
+  });
+
   it("emits approval.used when an approved grant is consumed", async () => {
     const now = new Date();
     const grantExpiresAt = new Date(now.getTime() + 25 * 60 * 1_000);

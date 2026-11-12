@@ -394,8 +394,14 @@ export async function findActiveEndpointsForEvent(
   db: BehalfPostgresDb,
   event: { accountId: string; developerUserId?: string | null; type: string }
 ) {
+  // Always tenant-scope by accountId. When the event names a developer, only
+  // that developer's endpoints *in this workspace* receive it — never their
+  // endpoints in other workspaces (cross-tenant event leak).
   const scope = event.developerUserId
-    ? eq(webhookEndpoints.developerUserId, event.developerUserId)
+    ? and(
+        eq(webhookEndpoints.accountId, event.accountId),
+        eq(webhookEndpoints.developerUserId, event.developerUserId)
+      )
     : eq(webhookEndpoints.accountId, event.accountId);
   const rows = await db
     .select()

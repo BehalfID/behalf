@@ -25,6 +25,7 @@ import {
   upsertPendingInvite
 } from "@/lib/repositories/memberships";
 import { clearActiveAccountIdForUserAccount } from "@/lib/repositories/sessions";
+import { deleteEndpoints } from "@/lib/repositories/webhooks";
 import { findByEmail, findByUserIds } from "@/lib/repositories/users";
 import { jsonError } from "@/lib/responses";
 
@@ -258,6 +259,9 @@ export async function removeMember(actor: WorkspaceActor, membershipId: string) 
 
   await deleteMembership(membershipId, actor.accountId);
   await clearActiveAccountIdForUserAccount(target.userId, actor.accountId);
+  // A removed member's webhook endpoints in this workspace must stop receiving
+  // workspace events (and cannot be re-enabled by a later plan reactivation).
+  await deleteEndpoints({ accountId: actor.accountId, developerUserId: target.userId });
   return { ok: true };
 }
 

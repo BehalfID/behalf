@@ -11,7 +11,7 @@ Derived from the route files under `app/api/**`, not from `docs/API.md`. Each ro
 - Exported HTTP handlers: **185**
 - Mutating modules: **115**
 - Modules returning a one-time secret: **7**
-- Modules with no direct handler test: **94**
+- Modules with no direct handler test: **93**
 
 `Direct test` means a test imports the route module and invokes its handler.
 Route-contract coverage (`test/api-route-contracts.test.ts`) additionally
@@ -75,9 +75,9 @@ credential the caller can never retrieve again.
 | POST | `/api/auth/signup` | auth | rate-limited | — | yes | no | email | errors, users | no | — | P0 |
 | GET | `/api/auth/verification-status` | auth | rate-limited | — | no | no | — | — | no | — | P0 |
 | POST | `/api/auth/verify-email` | auth | rate-limited | — | yes | no | — | users | no | 1 | P0 |
-| POST | `/api/billing/checkout` | app | session (developer); rate-limited | — | yes | no | stripe | accounts | no | 1 | P1 |
+| POST | `/api/billing/checkout` | app | session (developer); rate-limited | — | yes | no | stripe | accounts | no | 2 | P1 |
 | POST | `/api/billing/enterprise-inquiry` | app | public/none detected | — | yes | no | — | enterpriseInquiries | no | — | P1 |
-| POST | `/api/billing/portal` | app | session (developer); rate-limited | — | yes | no | stripe | — | no | — | P1 |
+| POST | `/api/billing/portal` | app | session (developer); rate-limited | — | yes | no | stripe | — | no | 1 | P1 |
 | POST | `/api/billing/webhook` | app | public/none detected | — | yes | no | stripe | accounts, memberships, stripeEvents, webhooks | no | 3 | P1 |
 | GET | `/api/cli/pause/approvals/:approvalRequestId` | www | rate-limited | — | no | no | — | — | no | 1 | P0 |
 | POST | `/api/cli/pause` | www | rate-limited | — | yes | no | — | — | no | 2 | P1 |
@@ -172,7 +172,7 @@ credential the caller can never retrieve again.
 | POST | `/api/dashboard/webhooks/:webhookId/enable` | app | session (developer) | — | yes | no | — | webhooks | no | — | P1 |
 | POST | `/api/dashboard/webhooks/:webhookId/rotate-secret` | app | session (developer) | — | yes | no | — | webhooks | no | — | P1 |
 | GET | `/api/dashboard/webhooks/:webhookId` | app | session (developer) | — | no | no | — | — | no | — | P1 |
-| GET, POST | `/api/dashboard/webhooks` | app | session (developer) | — | yes | no | — | webhooks | no | 2 | P1 |
+| GET, POST | `/api/dashboard/webhooks` | app | session (developer) | workspace mutation authority | yes | no | — | webhooks | no | 3 | P1 |
 | POST | `/api/demo/verify` | www | public/none detected | — | yes | no | — | — | no | 1 | P1 |
 | POST | `/api/egress/authorize` | www | agent API key; rate-limited | — | yes | no | — | — | no | — | P1 |
 | POST | `/api/gateway/execute` | www | agent API key; rate-limited | — | yes | no | webhook event | — | no | — | P0 |

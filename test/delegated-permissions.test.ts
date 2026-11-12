@@ -87,6 +87,32 @@ describe("permission risk classification", () => {
     expect(result.requiredAuthorityLevel).toBe(AUTHORITY_LEVELS.ENGINEERING_LEAD);
     expect(result.classified).toBe(false);
   });
+
+  it("never lowers required authority because of text planted in blockedActions", () => {
+    expect(
+      classifyPermissionRisk({ action: "execute_command", blockedActions: ["run tests"] })
+        .requiredAuthorityLevel
+    ).toBe(AUTHORITY_LEVELS.ENGINEERING_LEAD);
+    expect(
+      classifyPermissionRisk({
+        action: "deploy",
+        resource: "production",
+        blockedActions: ["deploy to staging", "run tests"]
+      }).requiredAuthorityLevel
+    ).toBe(AUTHORITY_LEVELS.ENGINEERING_LEAD);
+    expect(
+      classifyPermissionRisk({
+        action: "http_request",
+        resource: "api.stripe.com",
+        blockedActions: ["read files"]
+      }).requiredAuthorityLevel
+    ).toBe(AUTHORITY_LEVELS.ENGINEERING_LEAD);
+    // blockedActions may still escalate.
+    expect(
+      classifyPermissionRisk({ action: "read_file", blockedActions: ["secrets.write"] })
+        .requiredAuthorityLevel
+    ).toBeGreaterThanOrEqual(AUTHORITY_LEVELS.ENGINEERING_LEAD);
+  });
 });
 
 describe("delegated permission authorization", () => {

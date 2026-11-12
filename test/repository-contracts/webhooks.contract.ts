@@ -233,6 +233,21 @@ export function makeWebhooksRepositoryContract(
       expect(rows[0]?.secretHash).toBe("wh_active_hash");
     });
 
+    it("never routes a developer's events to their endpoints in another workspace", async () => {
+      const deps = getDeps();
+      await deps.seedTenant("acct_hooks", "dev_hooks");
+      await deps.seedTenant("acct_personal", "dev_hooks");
+      await deps.createEndpoint(endpointInput("wh_in_workspace"));
+      await deps.createEndpoint(endpointInput("wh_personal", "acct_personal", "dev_hooks"));
+
+      const rows = await deps.findActiveEndpointsForEvent({
+        accountId: "acct_hooks",
+        developerUserId: "dev_hooks",
+        type: "verification.allowed"
+      });
+      expect(rows.map((row) => row.webhookId)).toEqual(["wh_in_workspace"]);
+    });
+
     it("round-trips event JSON and paginates identical timestamps deterministically", async () => {
       const deps = getDeps();
       await deps.seedTenant("acct_hooks", "dev_hooks");
