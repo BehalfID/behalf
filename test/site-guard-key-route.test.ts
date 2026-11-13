@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const routeMocks = vi.hoisted(() => ({
   requireDeveloperApi: vi.fn(),
-  checkRateLimit: vi.fn()
+  checkRateLimit: vi.fn(),
+  requireWorkspaceMutationActor: vi.fn()
 }));
 
 const dbMocks = vi.hoisted(() => ({
@@ -14,6 +15,9 @@ const dbMocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/developerAuth", () => ({
   requireDeveloperApi: routeMocks.requireDeveloperApi
+}));
+vi.mock("@/lib/workspaceActor", () => ({
+  requireWorkspaceMutationActor: routeMocks.requireWorkspaceMutationActor
 }));
 vi.mock("@/lib/rateLimit", () => ({
   checkRateLimit: routeMocks.checkRateLimit,
@@ -78,6 +82,16 @@ describe("GET /api/dashboard/sites/[siteId]/keys", () => {
     expect(json.keys[0]).toMatchObject({ keyId: "sgk_test", keyPreview: "bhf_site_testxx...yyyyyy" });
   });
 
+  it("strips keyHash even when the repository returns it (Postgres ignores select)", async () => {
+    dbMocks.findKeys.mockResolvedValueOnce([{ ...keyDoc, keyHash: "deadbeef".repeat(8), accountId: "acct_test" }]);
+    const { GET } = await import("@/app/api/dashboard/sites/[siteId]/keys/route");
+    const response = await GET(siteKeysRequest("GET"), { params: Promise.resolve({ siteId: "site_test" }) });
+
+    const text = await response.text();
+    expect(text).not.toContain("keyHash");
+    expect(text).not.toContain("deadbeef");
+  });
+
   it("scopes site and key queries to both developerUserId and accountId", async () => {
     const { GET } = await import("@/app/api/dashboard/sites/[siteId]/keys/route");
     await GET(siteKeysRequest("GET"), { params: Promise.resolve({ siteId: "site_test" }) });
@@ -128,8 +142,24 @@ describe("GET /api/dashboard/sites/[siteId]/keys", () => {
 describe("POST /api/dashboard/sites/[siteId]/keys", () => {
   beforeEach(() => {
     routeMocks.requireDeveloperApi.mockResolvedValue(authContext);
+    routeMocks.requireWorkspaceMutationActor.mockResolvedValue({
+      actor: { userId: "dev_test", accountId: "acct_test", role: "ENGINEER", authorityLevel: 50 },
+      error: null
+    });
     dbMocks.findOneSite.mockResolvedValue(site);
     dbMocks.createKeyDocument.mockResolvedValue(keyDoc);
+  });
+
+  it("forbids workspace VIEWERs from minting Site Guard keys", async () => {
+    routeMocks.requireWorkspaceMutationActor.mockResolvedValueOnce({
+      actor: null,
+      error: Response.json({ error: "Viewers cannot modify workspace resources." }, { status: 403 })
+    });
+    const { POST } = await import("@/app/api/dashboard/sites/[siteId]/keys/route");
+    const response = await POST(siteKeysRequest("POST", { name: "Test key" }), { params: Promise.resolve({ siteId: "site_test" }) });
+
+    expect(response.status).toBe(403);
+    expect(dbMocks.createKeyDocument).not.toHaveBeenCalled();
   });
 
   it("creates a key and returns rawKey once", async () => {

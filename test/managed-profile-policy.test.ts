@@ -30,6 +30,7 @@ vi.mock("@/lib/delegatedAuth", () => ({
     authorityLevel: 100,
   })),
   serializeWorkspaceAuthority: vi.fn(() => ({ role: "OWNER", roleLabel: "Owner", authorityLevel: 100 })),
+  canManageMembers: (actor: { role: string }) => actor.role === "OWNER" || actor.role === "ENGINEERING_LEAD",
 }));
 vi.mock("@/models/ManagedProfilePolicy", () => ({
   default: {
@@ -219,6 +220,27 @@ describe("dashboard managed profile routes", () => {
     const { PUT } = await import("@/app/api/dashboard/managed-profiles/route");
     const res = await PUT(dashboardRequest("PUT", basePolicyBody));
     expect(res.status).toBe(403);
+  });
+
+  it("forbids an ENGINEER from changing the managed profile policy (would waive lead pause approval)", async () => {
+    mocks.requireWorkspaceMutationActor.mockResolvedValue({
+      actor: { accountId: "acct_test", role: "ENGINEER", authorityLevel: 50 },
+      error: null,
+    });
+    const { PUT } = await import("@/app/api/dashboard/managed-profiles/route");
+    const res = await PUT(dashboardRequest("PUT", basePolicyBody));
+    expect(res.status).toBe(403);
+    expect(mocks.policyFindOneAndUpdate).not.toHaveBeenCalled();
+  });
+
+  it("allows an ENGINEERING_LEAD to change the managed profile policy", async () => {
+    mocks.requireWorkspaceMutationActor.mockResolvedValue({
+      actor: { accountId: "acct_test", role: "ENGINEERING_LEAD", authorityLevel: 75 },
+      error: null,
+    });
+    const { PUT } = await import("@/app/api/dashboard/managed-profiles/route");
+    const res = await PUT(dashboardRequest("PUT", basePolicyBody));
+    expect(res.status).toBe(200);
   });
 
   it("returns effective policy defaults on GET", async () => {

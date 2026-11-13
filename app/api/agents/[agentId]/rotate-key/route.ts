@@ -33,6 +33,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return rateLimitError();
   }
 
+  // Disabling an agent is the incident-response control for a leaked key. If
+  // the key could still rotate itself, whoever holds it could lock out the
+  // legitimate owner and keep the only working key for when the agent is
+  // re-enabled. Rotation of a disabled agent must go through the dashboard.
+  if (auth.agent.status === "disabled") {
+    return jsonError("Agent is disabled. Rotate its key from the dashboard.", 403);
+  }
+
   const apiKey = createApiKey();
   const result = await updateAgent(
     { agentId, apiKeyHash: auth.agent.apiKeyHash },

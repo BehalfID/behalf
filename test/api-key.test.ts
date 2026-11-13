@@ -184,6 +184,23 @@ describe("API key handling", () => {
     expect(JSON.stringify(keyMocks.agentUpdateOne.mock.calls)).not.toContain("bhf_sk_rotated_secret");
   });
 
+  it("refuses self-rotation while the agent is disabled (leaked-key containment)", async () => {
+    const { hashApiKey } = await import("@/lib/auth");
+    keyMocks.authenticateAgent.mockResolvedValue({
+      agent: { ...agentFixture(), status: "disabled", apiKeyHash: hashApiKey(rawApiKey) },
+      error: null
+    });
+    const { POST } = await import("@/app/api/agents/[agentId]/rotate-key/route");
+
+    const response = await POST(bearerRequest(), {
+      params: Promise.resolve({ agentId: "agent_test" })
+    });
+
+    expect(response.status).toBe(403);
+    expect(keyMocks.agentUpdateOne).not.toHaveBeenCalled();
+    expect(JSON.stringify(await response.json())).not.toContain("bhf_sk_rotated_secret");
+  });
+
   it("returns a conflict if the old key hash no longer matches during rotation", async () => {
     keyMocks.agentUpdateOne.mockResolvedValue({ matchedCount: 0 });
     const { POST } = await import("@/app/api/agents/[agentId]/rotate-key/route");

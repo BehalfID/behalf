@@ -4,7 +4,8 @@ const mocks = vi.hoisted(() => ({
   accountFindOne: vi.fn(),
   userFindOne: vi.fn(),
   membershipFindOne: vi.fn(),
-  membershipFindOneAndUpdate: vi.fn()
+  membershipFindOneAndUpdate: vi.fn(),
+  membershipCountDocuments: vi.fn()
 }));
 
 vi.mock("@/models/Account", () => ({
@@ -18,13 +19,15 @@ vi.mock("@/models/DeveloperUser", () => ({
 vi.mock("@/models/AccountMembership", () => ({
   default: {
     findOne: mocks.membershipFindOne,
-    findOneAndUpdate: mocks.membershipFindOneAndUpdate
+    findOneAndUpdate: mocks.membershipFindOneAndUpdate,
+    countDocuments: mocks.membershipCountDocuments
   }
 }));
 
 describe("ensureAccountMembership", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.membershipCountDocuments.mockResolvedValue(0);
     mocks.accountFindOne.mockReturnValue({ lean: vi.fn().mockResolvedValue({ accountId: "acct_test" }) });
     mocks.userFindOne.mockReturnValue({
       select: vi.fn().mockReturnValue({
@@ -49,6 +52,30 @@ describe("ensureAccountMembership", () => {
     const membership = await ensureAccountMembership("user_test", "acct_test");
     expect(membership?.role).toBe("OWNER");
     expect(mocks.membershipFindOneAndUpdate).toHaveBeenCalledOnce();
+  });
+
+  it("returns the existing membership without upserting", async () => {
+    mocks.membershipFindOne.mockReturnValue({
+      lean: vi.fn().mockResolvedValue({
+        membershipId: "mbr_existing",
+        userId: "user_test",
+        accountId: "acct_test",
+        role: "VIEWER"
+      })
+    });
+    const { ensureAccountMembership } = await import("@/lib/delegatedAuth");
+    const membership = await ensureAccountMembership("user_test", "acct_test");
+    expect(membership?.role).toBe("VIEWER");
+    expect(mocks.membershipFindOneAndUpdate).not.toHaveBeenCalled();
+  });
+
+  it("refuses to re-create OWNER for a creator removed from a workspace with other members", async () => {
+    mocks.membershipCountDocuments.mockResolvedValue(1);
+    const { ensureAccountMembership, MembershipBootstrapError } = await import("@/lib/delegatedAuth");
+    await expect(ensureAccountMembership("user_test", "acct_test")).rejects.toBeInstanceOf(
+      MembershipBootstrapError
+    );
+    expect(mocks.membershipFindOneAndUpdate).not.toHaveBeenCalled();
   });
 
   it("fails safely when account is missing", async () => {
@@ -89,6 +116,14 @@ describe("getWorkspaceActor", () => {
         role: "ENGINEER"
       })
     });
+  });
+
+  it("returns null for a removed creator instead of restoring OWNER", async () => {
+    mocks.membershipFindOne.mockReturnValue({ lean: vi.fn().mockResolvedValue(null) });
+    mocks.membershipCountDocuments.mockResolvedValue(2);
+    const { getWorkspaceActor } = await import("@/lib/delegatedAuth");
+    await expect(getWorkspaceActor("user_test", "acct_test")).resolves.toBeNull();
+    expect(mocks.membershipFindOneAndUpdate).not.toHaveBeenCalled();
   });
 
   it("returns null without accountId", async () => {

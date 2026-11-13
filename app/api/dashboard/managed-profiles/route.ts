@@ -1,6 +1,6 @@
 import { type NextRequest } from "next/server";
 import { getRequestAccountId, requireDeveloperApi, requireVerifiedDeveloperApi } from "@/lib/developerAuth";
-import { getWorkspaceActor, serializeWorkspaceAuthority } from "@/lib/delegatedAuth";
+import { canManageMembers, getWorkspaceActor, serializeWorkspaceAuthority } from "@/lib/delegatedAuth";
 import {
   loadEffectiveManagedProfilePolicy,
   saveManagedProfilePolicy,
@@ -9,6 +9,12 @@ import { checkManagedProfilesEnabled, quotaErrorDetails } from "@/lib/quota";
 import { jsonError, noCacheJson } from "@/lib/responses";
 import { readJsonObject } from "@/lib/request";
 import { requireWorkspaceMutationActor } from "@/lib/workspaceActor";
+
+// The policy decides whether CLI pauses need Engineering-Lead approval and
+// which repos run managed, so an ENGINEER editing it could waive the very
+// approval that gates them. Mirrors the guardrail policy route.
+const MANAGED_POLICY_FORBIDDEN =
+  "Only workspace owners and engineering leads can change the managed profile policy.";
 
 export async function GET(request: NextRequest) {
   const auth = await requireDeveloperApi(request);
@@ -23,7 +29,7 @@ export async function GET(request: NextRequest) {
   const policy = await loadEffectiveManagedProfilePolicy(accountId);
   return noCacheJson({
     policy,
-    canEdit: actor.role !== "VIEWER",
+    canEdit: canManageMembers(actor),
     workspaceAuthority: serializeWorkspaceAuthority(actor),
   });
 }
@@ -37,6 +43,7 @@ export async function PUT(request: NextRequest) {
 
   const actorCheck = await requireWorkspaceMutationActor(auth.user, accountId);
   if (actorCheck.error) return actorCheck.error;
+  if (!canManageMembers(actorCheck.actor!)) return jsonError(MANAGED_POLICY_FORBIDDEN, 403);
 
   // Entitlement gate; allowed on every current plan.
   const featureCheck = checkManagedProfilesEnabled(auth.account);

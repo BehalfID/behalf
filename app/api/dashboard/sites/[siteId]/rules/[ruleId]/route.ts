@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireDeveloperApi } from "@/lib/developerAuth";
+import { requireWorkspaceMutationActor } from "@/lib/workspaceActor";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
 import { parseSiteGuardPaths } from "@/lib/siteGuard";
@@ -13,6 +14,8 @@ type RouteContext = {
 export async function PATCH(request: NextRequest, context: RouteContext) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
+  const actorCheck = await requireWorkspaceMutationActor(auth.user, auth.activeAccountId);
+  if (actorCheck.error) return actorCheck.error;
 
   const { body, error } = await readJsonObject(request);
   if (error) return error;

@@ -3274,3 +3274,36 @@
 #   * isPrivateIpAddress does not block IPv4-compatible ::a.b.c.d, 6to4 2002::/16, fec0::/10 (hardening).
 #   * Carried over: Google PKCE verifier in signed state; Ollama DNS not pinned; unauthenticated routes buffer bodies.
 # - Not runnable in sandbox: Mongo integration/contract suite (mongod download 403).
+
+# Last audit: 2026-11-13
+# Result: PASSED (High remediated)
+# - Fixed (high, privilege escalation): a workspace creator removed by another owner was silently re-inserted as
+#   OWNER on their next request. getWorkspaceActor -> ensureAccountMembership bootstraps OWNER whenever
+#   user.primaryAccountId === accountId, and primaryAccountId survives removeMember (resolveActiveAccountId also
+#   falls back to it). Bootstrap now returns an existing membership, and refuses to create OWNER when anyone else
+#   already belongs to the workspace (first-time setup only). Tests: test/membership-bootstrap.test.ts.
+# - Fixed (medium, credential exposure): GET /api/auth/me returned the full user row (Postgres findByUserId ignores
+#   `select`): passwordHash, encrypted TOTP secrets, MFA backup-code hashes (5-byte codes, unsalted SHA-256 —
+#   offline-crackable), reset/verification token hashes. Now an explicit field allowlist. Test: test/auth-me-route.test.ts.
+# - Fixed (medium, approval bypass): PUT /api/dashboard/managed-profiles allowed any non-VIEWER, so an ENGINEER could
+#   set pausePolicy.requireApprovalForRequiredMode=false (or unmanaged modes) and waive the Engineering-Lead pause
+#   approval that gates them. Now OWNER/ENGINEERING_LEAD (canEdit reflects this). Enrolling protected repos (tightening)
+#   is unchanged. Test: test/managed-profile-policy.test.ts.
+# - Fixed (medium, SSRF guard bypass): isPrivateIpAddress matched IPv6 by string prefix, so non-canonical spellings
+#   (0::ffff:127.0.0.1, ::127.0.0.1) and 6to4/Teredo/site-local/NAT64-local ranges were "public"; the egress
+#   authorizer passes agent-supplied host strings through unchanged. IPv6 is now parsed to 8 groups and classified by
+#   range. Test: test/private-ip-address.test.ts. (Pushed separately in 4484607.)
+# - Fixed (low): a disabled agent's key could still self-rotate via POST /api/agents/:id/rotate-key (leaked-key holder
+#   could lock out the owner); now 403 while disabled. Site Guard key listings returned keyHash on Postgres (select
+#   ignored); now explicitly projected. Site Guard create/update routes (sites, rules, keys) had no role check; now
+#   requireWorkspaceMutationActor (key revocation intentionally left open to the key's creator).
+# - Residual (moderate, build/dev-only deps): minimatch/glob via eslint/typescript-eslint/@sentry/bundler-plugins
+#   (root + packages/install). No Critical/High advisories in any lockfile.
+# - Residual (not changed): Postgres users/sites repositories ignore `select` generally — other call sites that return
+#   repository rows directly should be audited for over-exposure; MFA backup-code race + TOTP replay window; backup
+#   codes hashed with unsalted SHA-256 (40-bit entropy); removed creator keeps primaryAccountId (now inert, but
+#   should be cleared); all 2026-11-12 residuals carried over.
+# - tsc --noEmit, next build, build:cli, build:egress-proxy, test:packages, api:inventory:check, test:api-contracts,
+#   CI focused security/release suites, Postgres smoke/repository contracts/API flows (local PG16): pass.
+#   vitest run: 2977 passed; 1 file failed (test/mongo-repository-contracts: mongod download 403 — sandbox network).
+# - Secret scan (git grep for live key/token/private-key/connection-string patterns): only placeholders/fixtures.

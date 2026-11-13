@@ -11,7 +11,7 @@ Derived from the route files under `app/api/**`, not from `docs/API.md`. Each ro
 - Exported HTTP handlers: **185**
 - Mutating modules: **115**
 - Modules returning a one-time secret: **7**
-- Modules with no direct handler test: **93**
+- Modules with no direct handler test: **92**
 
 `Direct test` means a test imports the route module and invokes its handler.
 Route-contract coverage (`test/api-route-contracts.test.ts`) additionally
@@ -57,7 +57,7 @@ credential the caller can never retrieve again.
 | GET | `/api/auth/identities` | auth | session (developer) | — | no | no | — | users | no | — | P0 |
 | POST | `/api/auth/login` | auth | rate-limited | — | yes | no | — | users | no | 1 | P0 |
 | POST | `/api/auth/logout` | auth | rate-limited | — | yes | no | — | sessions | no | — | P0 |
-| GET, PATCH | `/api/auth/me` | auth | session (developer) | — | yes | no | — | users | no | — | P0 |
+| GET, PATCH | `/api/auth/me` | auth | session (developer) | — | yes | no | — | users | no | 1 | P0 |
 | POST | `/api/auth/mfa/verify` | auth | rate-limited | — | yes | no | — | users | no | — | P0 |
 | POST | `/api/auth/passkey/authenticate/options` | auth | rate-limited | — | yes | no | — | — | no | — | P0 |
 | POST | `/api/auth/passkey/authenticate/verify` | auth | rate-limited | — | yes | no | — | users | no | — | P0 |
@@ -159,11 +159,11 @@ credential the caller can never retrieve again.
 | GET | `/api/dashboard/search/suggest` | app | session (developer) | workspace member | no | no | — | verificationLogs | no | — | P1 |
 | GET, PATCH | `/api/dashboard/settings` | app | session (developer) | workspace member | yes | no | — | — | no | 2 | P1 |
 | DELETE | `/api/dashboard/sites/:siteId/keys/:keyId` | app | session (developer) | — | yes | no | — | sites | no | 1 | P1 |
-| GET, POST | `/api/dashboard/sites/:siteId/keys` | app | session (developer) | — | yes | no | — | sites | no | 1 | P1 |
-| GET, PATCH | `/api/dashboard/sites/:siteId` | app | session (developer) | — | yes | no | — | sites | no | — | P1 |
-| PATCH | `/api/dashboard/sites/:siteId/rules/:ruleId` | app | session (developer) | — | yes | no | — | sites | no | — | P1 |
-| POST | `/api/dashboard/sites/:siteId/rules` | app | session (developer) | — | yes | no | — | sites | no | — | P1 |
-| GET, POST | `/api/dashboard/sites` | app | session (developer) | — | yes | no | — | sites | no | 1 | P1 |
+| GET, POST | `/api/dashboard/sites/:siteId/keys` | app | session (developer) | workspace mutation authority | yes | no | — | sites | no | 1 | P1 |
+| GET, PATCH | `/api/dashboard/sites/:siteId` | app | session (developer) | workspace mutation authority | yes | no | — | sites | no | — | P1 |
+| PATCH | `/api/dashboard/sites/:siteId/rules/:ruleId` | app | session (developer) | workspace mutation authority | yes | no | — | sites | no | — | P1 |
+| POST | `/api/dashboard/sites/:siteId/rules` | app | session (developer) | workspace mutation authority | yes | no | — | sites | no | — | P1 |
+| GET, POST | `/api/dashboard/sites` | app | session (developer) | workspace mutation authority | yes | no | — | sites | no | 1 | P1 |
 | GET, PATCH | `/api/dashboard/sso` | app | session (developer) | workspace member | yes | no | — | accounts | no | — | P1 |
 | GET | `/api/dashboard/summary` | app | session (developer) | — | no | no | — | — | no | 2 | P1 |
 | DELETE | `/api/dashboard/tokens/:tokenId` | app | session (developer) | — | yes | no | — | apiTokens | no | 2 | P1 |

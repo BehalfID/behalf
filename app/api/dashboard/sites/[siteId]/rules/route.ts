@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireDeveloperApi } from "@/lib/developerAuth";
+import { requireWorkspaceMutationActor } from "@/lib/workspaceActor";
 import { createPublicId } from "@/lib/ids";
 import { readJsonObject } from "@/lib/request";
 import { jsonError } from "@/lib/responses";
@@ -14,6 +15,8 @@ type RouteContext = {
 export async function POST(request: NextRequest, context: RouteContext) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
+  const actorCheck = await requireWorkspaceMutationActor(auth.user, auth.activeAccountId);
+  if (actorCheck.error) return actorCheck.error;
   if (!auth.activeAccountId) return jsonError("Developer account is required.", 409);
 
   const { body, error } = await readJsonObject(request);

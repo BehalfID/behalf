@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireDeveloperApi } from "@/lib/developerAuth";
+import { requireWorkspaceMutationActor } from "@/lib/workspaceActor";
 import { readJsonObject } from "@/lib/request";
 import { jsonError, noCacheJson } from "@/lib/responses";
+import { toPublicSiteKey } from "@/lib/siteGuardKey";
 import { readString, rejectUnknownFields } from "@/lib/validation";
 import { findAccessLogs, findKeys, findOneAndUpdateSite, findOneSite, findRules } from "@/lib/repositories/sites";
 
@@ -23,12 +25,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
     findKeys({ developerUserId: auth.user.userId, accountId: auth.activeAccountId, siteId }, { sort: { createdAt: -1 }, select: "-_id keyId siteId name keyPreview status lastUsedAt createdAt updatedAt" })
   ]);
 
-  return noCacheJson({ site, rules, logs, keys });
+  return noCacheJson({ site, rules, logs, keys: keys.map(toPublicSiteKey) });
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
+  const actorCheck = await requireWorkspaceMutationActor(auth.user, auth.activeAccountId);
+  if (actorCheck.error) return actorCheck.error;
 
   const { body, error } = await readJsonObject(request);
   if (error) return error;

@@ -20,6 +20,7 @@ import {
 import { findAccount } from "@/lib/repositories/accounts";
 import type { ApprovalLean } from "@/lib/repositories/approvals";
 import {
+  countMembershipsByAccountExcludingUser,
   ensureOwnerMembership,
   findMembershipByUserAndAccount
 } from "@/lib/repositories/memberships";
@@ -52,7 +53,8 @@ async function findMembership(userId: string, accountId: string) {
 }
 
 /**
- * Creates OWNER membership for a user's own primary account only.
+ * Creates OWNER membership for a user's own primary account only, and only
+ * while no one else belongs to that workspace (first-time setup).
  * Uses upsert to avoid duplicate memberships under concurrent requests.
  */
 export async function ensureAccountMembership(userId: string, accountId: string) {
@@ -67,6 +69,18 @@ export async function ensureAccountMembership(userId: string, accountId: string)
   }
   if (user.primaryAccountId !== accountId) {
     throw new MembershipBootstrapError("Cannot bootstrap membership for a different workspace account.");
+  }
+
+  const existingMembership = await findMembership(userId, accountId);
+  if (existingMembership) return existingMembership;
+
+  // Bootstrap is only for first-time setup of a workspace nobody else belongs
+  // to. `primaryAccountId` survives removal from the workspace, so without this
+  // check a creator removed by another owner would silently be re-inserted as
+  // OWNER on their next request.
+  const otherMembers = await countMembershipsByAccountExcludingUser(accountId, userId);
+  if (otherMembers > 0) {
+    throw new MembershipBootstrapError("You are no longer a member of this workspace.");
   }
 
   const membershipId = createPublicId("mbr");

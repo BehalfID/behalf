@@ -50,3 +50,28 @@ export function updateSiteGuardKeyLastUsed(keyId: string) {
     });
   });
 }
+
+type SiteKeyRow = {
+  keyId: string;
+  siteId: string;
+  name: string;
+  keyPreview: string;
+  status: string;
+  lastUsedAt?: Date | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+};
+
+/** Never return keyHash: the Postgres repository does not honour `select`. */
+export function toPublicSiteKey(key: SiteKeyRow) {
+  return {
+    keyId: key.keyId,
+    siteId: key.siteId,
+    name: key.name,
+    keyPreview: key.keyPreview,
+    status: key.status,
+    lastUsedAt: key.lastUsedAt ?? null,
+    createdAt: key.createdAt,
+    updatedAt: key.updatedAt
+  };
+}

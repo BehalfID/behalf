@@ -1,9 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireDeveloperApi } from "@/lib/developerAuth";
+import { requireWorkspaceMutationActor } from "@/lib/workspaceActor";
 import { createPublicId, createSiteGuardKey } from "@/lib/ids";
 import { readJsonObject } from "@/lib/request";
 import { jsonError, noCacheJson } from "@/lib/responses";
-import { hashSiteGuardKey, previewSiteGuardKey } from "@/lib/siteGuardKey";
+import { hashSiteGuardKey, previewSiteGuardKey, toPublicSiteKey } from "@/lib/siteGuardKey";
 import { readString, rejectUnknownFields } from "@/lib/validation";
 import { createKeyDocument, findKeys, findOneSite } from "@/lib/repositories/sites";
 
@@ -22,12 +23,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   const keys = await findKeys({ developerUserId: auth.user.userId, accountId: auth.activeAccountId, siteId }, { sort: { createdAt: -1 }, select: "-_id keyId siteId name keyPreview status lastUsedAt createdAt updatedAt" });
 
-  return noCacheJson({ keys });
+  return noCacheJson({ keys: keys.map(toPublicSiteKey) });
 }
 
 export async function POST(request: NextRequest, context: RouteContext) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
+  const actorCheck = await requireWorkspaceMutationActor(auth.user, auth.activeAccountId);
+  if (actorCheck.error) return actorCheck.error;
   if (!auth.activeAccountId) return jsonError("Developer account is required.", 409);
 
   const { body, error } = await readJsonObject(request);
