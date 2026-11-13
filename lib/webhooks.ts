@@ -135,24 +135,75 @@ export function isPrivateIpAddress(address: string) {
   }
 
   if (ipVersion === 6) {
-    const addr = normalizedAddress;
-    // Loopback / unspecified
-    if (addr === "::" || addr === "::1") return true;
-    // Unique Local (fc00::/7)
-    if (addr.startsWith("fc") || addr.startsWith("fd")) return true;
-    // Link-local (fe80::/10)
-    if (addr.startsWith("fe8") || addr.startsWith("fe9") || addr.startsWith("fea") || addr.startsWith("feb")) return true;
-    // Multicast (ff00::/8)
-    if (addr.startsWith("ff")) return true;
-    // IPv4-mapped (::ffff:/96) — compressed form
-    if (addr.startsWith("::ffff:")) return true;
-    // IPv4-mapped — full form: 0:0:0:0:0:ffff:x.x.x.x or 0000:...:ffff:x.x.x.x
-    if (/^(?:0+:){5}ffff:/i.test(addr)) return true;
-    // NAT64 (64:ff9b::/96) — could translate private IPv4 addresses
-    if (addr.startsWith("64:ff9b:")) return true;
-    return false;
+    const hextets = parseIpv6Hextets(normalizedAddress);
+    // net.isIP accepted it, so this should never fail — fail closed if it does.
+    if (!hextets) return true;
+    return isPrivateIpv6(hextets);
   }
 
+  return false;
+}
+
+/**
+ * Expands an IPv6 literal (any textual form: compressed, uncompressed, with an
+ * embedded dotted IPv4 tail, or with a zone id) into its eight 16-bit groups.
+ * Prefix checks on the raw string are bypassable because the same address has
+ * many spellings (e.g. `0::ffff:127.0.0.1` is `::ffff:7f00:1`).
+ */
+function parseIpv6Hextets(address: string): number[] | null {
+  let addr = address.split("%")[0];
+  const lastColon = addr.lastIndexOf(":");
+  const maybeV4 = addr.slice(lastColon + 1);
+  if (maybeV4.includes(".")) {
+    if (net.isIP(maybeV4) !== 4) return null;
+    const [a, b, c, d] = maybeV4.split(".").map(Number);
+    // Rewrite the dotted tail as two hex groups so the rest parses uniformly.
+    addr = `${addr.slice(0, lastColon + 1)}${((a << 8) | b).toString(16)}:${((c << 8) | d).toString(16)}`;
+  }
+
+  const halves = addr.split("::");
+  if (halves.length > 2) return null;
+  const toGroups = (part: string) => (part ? part.split(":").map((group) => parseInt(group, 16)) : []);
+  const head = toGroups(halves[0]);
+  const rest = halves.length === 2 ? toGroups(halves[1]) : [];
+  const explicit = head.length + rest.length;
+  if (halves.length === 1 && explicit !== 8) return null;
+  if (halves.length === 2 && explicit > 7) return null;
+  const zeros = new Array(8 - explicit).fill(0);
+  const groups = halves.length === 2 ? [...head, ...zeros, ...rest] : head;
+  if (groups.length !== 8 || groups.some((group) => !Number.isInteger(group) || group < 0 || group > 0xffff)) {
+    return null;
+  }
+  return groups;
+}
+
+function embeddedIpv4(high: number, low: number) {
+  return `${high >> 8}.${high & 0xff}.${low >> 8}.${low & 0xff}`;
+}
+
+function isPrivateIpv6(groups: number[]): boolean {
+  const [g0, g1, g2, g3, g4, g5] = groups;
+  const firstSixZero = g0 === 0 && g1 === 0 && g2 === 0 && g3 === 0 && g4 === 0 && g5 === 0;
+
+  // ::/128 unspecified, ::1 loopback, and the deprecated IPv4-compatible ::/96.
+  if (firstSixZero) return true;
+  // IPv4-mapped ::ffff:0:0/96 and IPv4-translated ::ffff:0:0:0/96.
+  if (g0 === 0 && g1 === 0 && g2 === 0 && g3 === 0 && g4 === 0 && g5 === 0xffff) return true;
+  if (g0 === 0 && g1 === 0 && g2 === 0 && g3 === 0 && g4 === 0xffff && g5 === 0) return true;
+  // NAT64 well-known (64:ff9b::/96) and local-use (64:ff9b:1::/48) prefixes.
+  if (g0 === 0x64 && g1 === 0xff9b) return true;
+  // Discard-only 100::/64.
+  if (g0 === 0x100 && g1 === 0 && g2 === 0 && g3 === 0) return true;
+  // 2001::/23 IETF special-purpose (incl. Teredo 2001::/32, which tunnels IPv4) and 2001:db8::/32 documentation.
+  if (g0 === 0x2001 && (g1 < 0x200 || g1 === 0xdb8)) return true;
+  // 6to4 2002::/16 embeds an IPv4 address in groups 1–2.
+  if (g0 === 0x2002 && isPrivateIpAddress(embeddedIpv4(g1, g2))) return true;
+  // Unique local fc00::/7.
+  if ((g0 & 0xfe00) === 0xfc00) return true;
+  // Link-local fe80::/10 and deprecated site-local fec0::/10.
+  if ((g0 & 0xffc0) === 0xfe80 || (g0 & 0xffc0) === 0xfec0) return true;
+  // Multicast ff00::/8.
+  if ((g0 & 0xff00) === 0xff00) return true;
   return false;
 }
 
