@@ -12,7 +12,7 @@ import { createApiKey } from "@/lib/ids";
 import { serverErrorResponse } from "@/lib/apiErrors";
 import { jsonError } from "@/lib/responses";
 import { createWebhookEvent, emitWebhookEvent } from "@/lib/webhooks";
-import { updateAgent } from "@/lib/repositories/agents";
+import { findOneAgent, updateAgent } from "@/lib/repositories/agents";
 import { findActivePermissionsByAgentId } from "@/lib/repositories/permissions";
 
 type RouteContext = {
@@ -34,7 +34,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
   // obtain it if they could have granted (or revoked) each of those
   // permissions themselves; otherwise rotation would hand an engineer a
   // credential carrying owner/lead-level authority.
-  if (actor.role !== "OWNER") {
+  //
+  // Non-owners may also only rotate keys of agents they created. The
+  // self-approval guard (`canApproveRequest`) blocks the agent's creator from
+  // approving that agent's requests; if another member could rotate the key
+  // they would hold the agent's credential while still being eligible to
+  // approve its requests, defeating two-person approval.
+  const isOwner = actor.role === "OWNER";
+  if (!isOwner) {
+    const agent = await findOneAgent(accountAgentFilter(actor, agentId));
+    if (!agent) return jsonError("Agent not found.", 404);
+    if (agent.developerUserId !== actor.userId) {
+      return authorityForbidden(
+        "Only the agent's creator or a workspace owner can rotate its key."
+      );
+    }
     const activePermissions = await findActivePermissionsByAgentId(agentId, {
       accountId: actor.accountId
     });
@@ -54,7 +68,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
   // actor's workspace, so another workspace's agent can never be rotated.
   let result: Awaited<ReturnType<typeof updateAgent>>;
   try {
-    result = await updateAgent(accountAgentFilter(actor, agentId), {
+    const filter = isOwner
+      ? accountAgentFilter(actor, agentId)
+      : { ...accountAgentFilter(actor, agentId), developerUserId: actor.userId };
+    result = await updateAgent(filter, {
       $set: { apiKeyHash: hashApiKey(apiKey), keyRotatedAt: new Date() },
       $unset: { lastUsedAt: "" }
     });

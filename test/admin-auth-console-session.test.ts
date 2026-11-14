@@ -78,3 +78,32 @@ describe("console session validation re-checks live admin state on every request
     await expect(isValidConsoleSession(cookie)).resolves.toBe(true);
   });
 });
+
+describe("console admin session signing secret", () => {
+  beforeEach(() => {
+    vi.unstubAllEnvs();
+    vi.stubEnv("BEHALFID_SETUP_TOKEN", "");
+    vi.stubEnv("BEHALFID_ADMIN_PASSWORD", "");
+  });
+
+  it("never accepts a session signed with the public dev fallback in a production build", async () => {
+    // Forge a cookie with the development fallback key...
+    vi.stubEnv("NODE_ENV", "test");
+    const { createConsoleAdminSessionValue, parseConsoleSession } = await import("@/lib/adminAuth");
+    const forged = createConsoleAdminSessionValue("adm_victim");
+    expect(parseConsoleSession(forged)).toEqual({ kind: "admin", adminId: "adm_victim" });
+
+    // ...and present it to a production build (e.g. a preview deployment) with no secret.
+    vi.stubEnv("NODE_ENV", "production");
+    expect(parseConsoleSession(forged)).toBeNull();
+    expect(() => createConsoleAdminSessionValue("adm_victim")).toThrow(/not configured/);
+  });
+
+  it("signs and verifies with the configured secret in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("BEHALFID_SETUP_TOKEN", "prod-setup-token-value");
+    const { createConsoleAdminSessionValue, parseConsoleSession } = await import("@/lib/adminAuth");
+    const cookie = createConsoleAdminSessionValue("adm_1");
+    expect(parseConsoleSession(cookie)).toEqual({ kind: "admin", adminId: "adm_1" });
+  });
+});

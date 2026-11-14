@@ -11,7 +11,7 @@ Derived from the route files under `app/api/**`, not from `docs/API.md`. Each ro
 - Exported HTTP handlers: **185**
 - Mutating modules: **115**
 - Modules returning a one-time secret: **7**
-- Modules with no direct handler test: **92**
+- Modules with no direct handler test: **91**
 
 `Direct test` means a test imports the route module and invokes its handler.
 Route-contract coverage (`test/api-route-contracts.test.ts`) additionally
@@ -49,7 +49,7 @@ credential the caller can never retrieve again.
 | POST | `/api/auth/forgot-password` | auth | rate-limited | — | yes | no | email | users | no | 1 | P0 |
 | GET | `/api/auth/github/callback` | auth | rate-limited | — | no | no | — | externalIdentities, oauthPending, users | no | 2 | P0 |
 | POST | `/api/auth/github/complete` | auth | rate-limited | — | yes | no | — | errors, externalIdentities, oauthPending, users | no | 1 | P0 |
-| GET | `/api/auth/github` | auth | session (developer); rate-limited | — | no | no | — | postgres | no | — | P0 |
+| GET | `/api/auth/github` | auth | session (developer); rate-limited | — | no | no | — | postgres | no | 1 | P0 |
 | GET | `/api/auth/google/callback` | auth | rate-limited | — | no | no | — | externalIdentities, oauthPending, users | no | 2 | P0 |
 | POST | `/api/auth/google/complete` | auth | rate-limited | — | yes | no | — | errors, oauthPending, users | no | 1 | P0 |
 | GET | `/api/auth/google` | auth | session (developer); rate-limited | — | no | no | — | — | no | — | P0 |

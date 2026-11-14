@@ -10,7 +10,8 @@ const mocks = vi.hoisted(() => ({
   userFindOne: vi.fn(),
   userExists: vi.fn(),
   userUpdateOne: vi.fn(),
-  sessionDeleteMany: vi.fn()
+  sessionDeleteMany: vi.fn(),
+  revokeUnverifiedAccountIdentities: vi.fn()
 }));
 
 vi.mock("@/lib/db", () => ({ connectToDatabase: mocks.connectToDatabase }));
@@ -24,6 +25,9 @@ vi.mock("@/lib/rateLimit", () => ({
   rateLimitError: () => Response.json({ error: "Rate limit exceeded." }, { status: 429 })
 }));
 vi.mock("@/lib/email", () => ({ sendEmail: mocks.sendEmail }));
+vi.mock("@/lib/authProviders/externalIdentityService", () => ({
+  revokeUnverifiedAccountIdentities: mocks.revokeUnverifiedAccountIdentities
+}));
 vi.mock("@/models/DeveloperUser", () => ({
   default: {
     findOne: mocks.userFindOne,
@@ -180,6 +184,39 @@ describe("POST /api/auth/reset-password", () => {
     expect(mocks.sendEmail).toHaveBeenCalledOnce();
     const call = mocks.sendEmail.mock.calls[0][0];
     expect(call.subject).toContain("password");
+  });
+
+  it("removes provider identities linked before the email was verified (pre-account takeover)", async () => {
+    mocks.revokeUnverifiedAccountIdentities.mockResolvedValue(1);
+    mocks.userFindOne.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        lean: vi.fn().mockResolvedValue({ ...validUser, emailVerified: false })
+      })
+    });
+    const { POST } = await import("@/app/api/auth/reset-password/route");
+    const res = await POST(postRequest("http://localhost:3000/api/auth/reset-password", {
+      token: "validtoken123",
+      password: "newpassword123"
+    }));
+    expect(res.status).toBe(200);
+    expect(mocks.revokeUnverifiedAccountIdentities).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: validUser.userId })
+    );
+  });
+
+  it("keeps provider identities on an already-verified account", async () => {
+    mocks.revokeUnverifiedAccountIdentities.mockClear();
+    mocks.userFindOne.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        lean: vi.fn().mockResolvedValue({ ...validUser, emailVerified: true })
+      })
+    });
+    const { POST } = await import("@/app/api/auth/reset-password/route");
+    await POST(postRequest("http://localhost:3000/api/auth/reset-password", {
+      token: "validtoken123",
+      password: "newpassword123"
+    }));
+    expect(mocks.revokeUnverifiedAccountIdentities).not.toHaveBeenCalled();
   });
 
   it("marks email as verified after password reset (implies email access)", async () => {

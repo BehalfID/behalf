@@ -66,7 +66,7 @@ export function findByGoogleSub(googleSub: string, options?: UserLookupOptions) 
 export function findByPasswordResetTokenHash(tokenHash: string) {
   return queryOneLean(
     { passwordResetTokenHash: tokenHash, passwordResetTokenExpiresAt: { $gt: new Date() } },
-    { select: "+passwordResetTokenHash +passwordResetTokenExpiresAt email userId" }
+    { select: "+passwordResetTokenHash +passwordResetTokenExpiresAt email userId emailVerified" }
   );
 }
 

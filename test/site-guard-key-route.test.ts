@@ -216,7 +216,8 @@ describe("DELETE /api/dashboard/sites/[siteId]/keys/[keyId]", () => {
   beforeEach(() => {
     routeMocks.requireDeveloperApi.mockResolvedValue(authContext);
     dbMocks.findOneSite.mockResolvedValue(site);
-    dbMocks.findOneAndUpdateKey.mockResolvedValue({ ...keyDoc, status: "revoked" });
+    // Postgres returns the full row, keyHash included.
+    dbMocks.findOneAndUpdateKey.mockResolvedValue({ ...keyDoc, keyHash: "sha256-of-key", status: "revoked" });
   });
 
   it("revokes an active key", async () => {
@@ -227,6 +228,8 @@ describe("DELETE /api/dashboard/sites/[siteId]/keys/[keyId]", () => {
     const json = await response.json() as { key: typeof keyDoc };
     expect(json.key.status).toBe("revoked");
     expect(json.key).not.toHaveProperty("keyHash");
+    expect(json.key).not.toHaveProperty("developerUserId");
+    expect(JSON.stringify(json)).not.toContain("sha256-of-key");
   });
 
   it("scopes the site and key queries to both developerUserId and accountId", async () => {

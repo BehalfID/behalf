@@ -47,7 +47,7 @@ export async function listIdentitiesForUser(
 
 export type LinkIdentityResult =
   | { ok: true; identityId: string }
-  | { ok: false; code: "identity_linked_elsewhere" | "already_linked" };
+  | { ok: false; code: "identity_linked_elsewhere" | "already_linked" | "account_unverified" };
 
 /**
  * Attaches a provider identity to an already-authenticated account.
@@ -66,6 +66,24 @@ export async function linkIdentity(options: {
 }): Promise<LinkIdentityResult> {
   const { userId, identity } = options;
   const db = getPostgresDb();
+
+  // Never attach a login method to an account whose email has not been proven.
+  // Signup issues a session before verification, so without this an attacker
+  // could pre-register a victim's address, link their own provider account,
+  // and keep that link after the real owner recovers the account by email.
+  const owner = await users.findByUserId(db, userId);
+  if (!owner || owner.emailVerified === false) {
+    await recordIdentityAudit({
+      userId,
+      action: "identity_link_rejected",
+      provider: identity.provider,
+      providerAccountId: identity.providerAccountId,
+      providerUsername: identity.username,
+      request: options.request,
+      context: "account_unverified"
+    });
+    return { ok: false, code: "account_unverified" };
+  }
 
   const existing = await externalIdentities.findByProviderAccount(
     db,
@@ -130,6 +148,40 @@ export async function linkIdentity(options: {
   });
 
   return { ok: true, identityId };
+}
+
+/**
+ * Removes every provider identity linked to an account. Used when a password
+ * reset proves ownership of a previously unverified email address: any login
+ * method attached before that proof may belong to whoever squatted the address,
+ * so it must not survive the real owner's recovery.
+ */
+export async function revokeUnverifiedAccountIdentities(options: {
+  userId: string;
+  request?: NextRequest;
+}): Promise<number> {
+  const { userId } = options;
+  const db = getPostgresDb();
+  const linked = await externalIdentities.listByUserId(db, userId);
+  let removed = 0;
+  for (const identity of linked) {
+    const provider = identity.provider as ExternalIdentityProvider;
+    const result = await externalIdentities.deleteByUserAndProvider(db, userId, provider);
+    if (result.deletedCount > 0) {
+      removed += result.deletedCount;
+      await removeAuthProvider(userId, provider);
+      await recordIdentityAudit({
+        userId,
+        action: "identity_unlinked",
+        provider,
+        providerAccountId: identity.providerAccountId,
+        providerUsername: identity.providerUsername ?? null,
+        request: options.request,
+        context: "password_reset_unverified_account"
+      });
+    }
+  }
+  return removed;
 }
 
 export type UnlinkIdentityResult =

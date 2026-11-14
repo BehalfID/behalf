@@ -21,6 +21,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const PLAINTEXT = "bk_live_plaintext_key_do_not_log";
 
 const mocks = vi.hoisted(() => ({
+  findOneAgent: vi.fn(),
   requireVerifiedDeveloperApi: vi.fn(),
   requireDeveloperApi: vi.fn(),
   requireWorkspaceMutationActor: vi.fn(),
@@ -50,7 +51,7 @@ vi.mock("@/lib/quota", async (importOriginal) => {
 // Repository level, so the route's own key generation/hashing still runs.
 vi.mock("@/lib/repositories/agents", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/repositories/agents")>();
-  return { ...actual, createAgent: mocks.createAgent, updateAgent: mocks.updateAgent };
+  return { ...actual, createAgent: mocks.createAgent, updateAgent: mocks.updateAgent, findOneAgent: mocks.findOneAgent };
 });
 vi.mock("@/lib/repositories/permissions", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/repositories/permissions")>();
@@ -113,6 +114,7 @@ beforeEach(() => {
   mocks.updateAgent.mockResolvedValue({ matchedCount: 1 });
   mocks.createEvent.mockResolvedValue({});
   mocks.findActivePermissionsByAgentId.mockResolvedValue([]);
+  mocks.findOneAgent.mockResolvedValue({ agentId: "agent_1", accountId: "acct_1", developerUserId: "user_eng" });
 });
 
 describe("POST /api/dashboard/agents — happy path", () => {
@@ -346,6 +348,29 @@ describe("POST /api/dashboard/agents/[agentId]/rotate-key", () => {
 
     expect(res.status).toBe(200);
     expect(mocks.updateAgent).toHaveBeenCalledOnce();
+  });
+
+  it("refuses to let a non-owner rotate an agent they did not create (self-approval bypass)", async () => {
+    const engineer = { userId: "user_eng", accountId: "acct_1", role: "ENGINEER", authorityLevel: 40 };
+    mocks.getWorkspaceActor.mockResolvedValue(engineer);
+    mocks.findOneAgent.mockResolvedValue({ agentId: "agent_1", accountId: "acct_1", developerUserId: "user_owner" });
+
+    const res = await rotateKeyRoute(makeRequest({}), ctx);
+
+    expect(res.status).toBe(403);
+    expect(mocks.updateAgent).not.toHaveBeenCalled();
+    expect(JSON.stringify(await res.json())).not.toContain(PLAINTEXT);
+  });
+
+  it("binds a non-owner rotation to the creator in the update filter", async () => {
+    const engineer = { userId: "user_eng", accountId: "acct_1", role: "ENGINEER", authorityLevel: 40 };
+    mocks.getWorkspaceActor.mockResolvedValue(engineer);
+
+    const res = await rotateKeyRoute(makeRequest({}), ctx);
+
+    expect(res.status).toBe(200);
+    const [filter] = mocks.updateAgent.mock.calls[0];
+    expect(filter).toEqual(expect.objectContaining({ developerUserId: "user_eng", agentId: "agent_1" }));
   });
 
   it("returns 404 rather than rotating another workspace's agent", async () => {

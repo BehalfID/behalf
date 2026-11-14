@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireDeveloperApi } from "@/lib/developerAuth";
 import { jsonError } from "@/lib/responses";
 import { findOneAndUpdateKey, findOneSite } from "@/lib/repositories/sites";
+import { toPublicSiteKey } from "@/lib/siteGuardKey";
 
 type RouteContext = {
   params: Promise<{ siteId: string; keyId: string }>;
@@ -24,5 +25,6 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 
   if (!key) return jsonError("Site Guard key not found or already revoked.", 404);
 
-  return NextResponse.json({ key });
+  // The Postgres adapter returns the full row (including keyHash); project it.
+  return NextResponse.json({ key: toPublicSiteKey(key) });
 }

@@ -3307,3 +3307,46 @@
 #   CI focused security/release suites, Postgres smoke/repository contracts/API flows (local PG16): pass.
 #   vitest run: 2977 passed; 1 file failed (test/mongo-repository-contracts: mongod download 403 — sandbox network).
 # - Secret scan (git grep for live key/token/private-key/connection-string patterns): only placeholders/fixtures.
+
+# Last audit: 2026-11-14
+# Result: PASSED (High remediated)
+# - Fixed (high, pre-account takeover): signup issues a session before email verification, and GitHub link mode
+#   (GET /api/auth/github?mode=link + callback linkIdentity) had no verified-email check. An attacker could sign up
+#   with a victim's address, link their own GitHub, and keep that link after the real owner recovered the account
+#   via forgot/reset-password (reset marks the email verified but left external identities intact), then sign in as
+#   the victim with GitHub. linkIdentity now refuses unverified accounts (account_unverified, audited), the init
+#   route returns 403 for unverified link attempts, and reset-password on a previously unverified account removes
+#   all linked provider identities (audited) before marking it verified. Tests: test/external-identity-service,
+#   test/password-reset, test/github-link-unverified.
+# - Fixed (medium, two-person approval bypass): canApproveRequest blocks only the agent's creator, but any
+#   non-owner member whose authority covered the agent's grants could rotate a teammate's agent key and then
+#   approve that agent's requests. Non-owners may now rotate only agents they created (403 otherwise; creator also
+#   bound in the update filter). Test: test/agent-creation-token-durability.
+# - Fixed (medium, fail-open): when the permission does not require approval, an exception loading/evaluating the
+#   workspace guardrail PolicyDocument left the decision allowed, skipping deny rules. Now fails closed.
+#   Test: test/verify.test.ts.
+# - Fixed (low/medium, config fail-open): console admin session HMAC fell back to a public literal when neither
+#   BEHALFID_SETUP_TOKEN nor BEHALFID_ADMIN_PASSWORD is set; validateProductionEnv skips preview deployments, so a
+#   misconfigured preview accepted forged admin cookies. Production builds (NODE_ENV=production) now refuse to sign
+#   or accept v2 sessions without a configured secret. Test: test/admin-auth-console-session.
+# - Fixed (low): DELETE /api/dashboard/sites/:siteId/keys/:keyId returned the full Postgres row incl. keyHash; now
+#   toPublicSiteKey. Test: test/site-guard-key-route.
+# - Residual (medium, design — not changed unattended):
+#   * Slack bindings: the binding manager (OWNER/LEAD) supplies the signing secret and identity map, so they can
+#     forge interaction payloads as any member they may map and approve their own agents' requests as that member
+#     (falsified resolvedBy). Needs Slack-verified identity mapping (OAuth/user confirmation).
+#   * Adding a login factor (GitHub link, passkey) needs only a session (no reauth), and password reset does not
+#     remove factors on verified accounts — a hijacked session can plant persistent access. Needs reauth-gated
+#     factor addition + "factor added" notification.
+#   * MFA encryption key falls back to a public literal when BEHALFID_MFA_PEPPER/setup token/admin password are all
+#     unset (changing it risks undecryptable secrets in such envs; set BEHALFID_MFA_PEPPER explicitly).
+# - Residual (low): Google sign-in auto-links an unknown Google sub to a verified account with the same email
+#   (GitHub requires explicit link); approved grants (30 min) survive agent disable/re-enable and key rotation;
+#   pending approval requests never expire; 15s policy cache delays new deny rules; OWNER-rotated keys still let
+#   that owner approve the agent's requests. All 2026-11-13 residuals carried over.
+# - Residual (moderate, build/dev-only deps): minimatch/glob via eslint/typescript-eslint/@sentry/bundler-plugins
+#   (root + packages/install). No Critical/High advisories in any lockfile.
+# - tsc --noEmit, next build, build:cli, build:egress-proxy, test:packages, api:inventory:check, test:api-contracts,
+#   Postgres smoke/repository contracts/API flows (local PG16): pass. vitest run: 2989 passed; 1 file failed
+#   (test/mongo-repository-contracts: mongod download 403 — sandbox network, same as baseline).
+# - Secret scan (git grep for live key/token/private-key/connection-string patterns): only placeholders/fixtures.

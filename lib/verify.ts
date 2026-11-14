@@ -911,8 +911,13 @@ export async function verifyAction(input: VerifyInput) {
         decision = decisionFromGuardrail(guardrail) ?? decision;
       }
     } catch {
-      // Policy evaluation failure keeps the permission's own decision (unchanged
-      // pre-existing behaviour for permissions that do not require approval).
+      // Fail closed: if workspace guardrails cannot be loaded or evaluated we
+      // cannot prove that no deny rule applies, so do not allow the action.
+      decision = {
+        allowed: false,
+        reason: "Verification failed closed during policy evaluation.",
+        risk: "high"
+      };
     }
   }
 

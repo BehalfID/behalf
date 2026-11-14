@@ -471,6 +471,26 @@ describe("verifyAction permission decisions", () => {
     );
   });
 
+  it("fails closed when guardrail policy loading throws for a non-approval permission", async () => {
+    mockPermissions([permissionFixture({ requiresApproval: false })]);
+    vi.mocked(loadPolicyDocument).mockRejectedValueOnce(new Error("db timeout"));
+    const { verifyAction } = await import("@/lib/verify");
+
+    const decision = await verifyAction(verificationRequestFixture());
+
+    expect(decision).toEqual(
+      expect.objectContaining({
+        allowed: false,
+        approvalRequired: false,
+        risk: "high",
+        reason: "Verification failed closed during policy evaluation."
+      })
+    );
+    expect(modelMocks.verificationLogCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ allowed: false })
+    );
+  });
+
   it("does not let a guardrail allow/auto_approve rule change a non-approval decision", async () => {
     mockPermissions([permissionFixture({ requiresApproval: false })]);
     vi.mocked(loadPolicyDocument).mockResolvedValue({

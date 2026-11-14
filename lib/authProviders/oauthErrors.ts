@@ -19,6 +19,7 @@ export const OAUTH_ERROR_CODES = [
   "unlink_last_method",
   "passkey_only_forbidden",
   "session_required",
+  "account_unverified",
   "provider_error"
 ] as const;
 
@@ -44,6 +45,8 @@ const MESSAGES: Record<OAuthErrorCode, string> = {
   passkey_only_forbidden:
     "Keep a password or connected provider so you can recover if your passkeys are lost.",
   session_required: "Sign in first, then connect this provider from your account settings.",
+  account_unverified:
+    "Verify your BehalfID email address before connecting a sign-in provider.",
   provider_error: "Sign-in could not be completed. Try again."
 };
 

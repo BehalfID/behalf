@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   linkIdentity,
+  revokeUnverifiedAccountIdentities,
   resolveProviderLogin,
   unlinkIdentity
 } from "@/lib/authProviders/externalIdentityService";
@@ -113,6 +114,60 @@ describe("linkIdentity", () => {
     ).resolves.toEqual({ ok: false, code: "identity_linked_elsewhere" });
     expect(mocks.recordIdentityAudit).toHaveBeenCalledWith(
       expect.objectContaining({ action: "identity_link_rejected" })
+    );
+  });
+});
+
+describe("linkIdentity on an unverified account", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getPostgresDb.mockReturnValue({});
+    mocks.findByProviderAccount.mockResolvedValue(null);
+    mocks.recordIdentityAudit.mockResolvedValue(undefined);
+  });
+
+  it("refuses to link a provider before the account email is verified", async () => {
+    mocks.findByUserId.mockResolvedValue({ userId: "user_1", emailVerified: false });
+    await expect(
+      linkIdentity({ userId: "user_1", identity: githubIdentity })
+    ).resolves.toEqual({ ok: false, code: "account_unverified" });
+    expect(mocks.createExternalIdentity).not.toHaveBeenCalled();
+    expect(mocks.recordIdentityAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "identity_link_rejected", context: "account_unverified" })
+    );
+  });
+
+  it("links once the account email is verified", async () => {
+    mocks.findByUserId.mockResolvedValue({ userId: "user_1", emailVerified: true, authProviders: ["password"] });
+    mocks.createExternalIdentity.mockResolvedValue({});
+    mocks.updateUser.mockResolvedValue({});
+    await expect(
+      linkIdentity({ userId: "user_1", identity: githubIdentity })
+    ).resolves.toEqual(expect.objectContaining({ ok: true }));
+  });
+});
+
+describe("revokeUnverifiedAccountIdentities", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getPostgresDb.mockReturnValue({});
+    mocks.recordIdentityAudit.mockResolvedValue(undefined);
+    mocks.findByUserId.mockResolvedValue({ userId: "user_1", authProviders: ["password", "github"] });
+    mocks.updateUser.mockResolvedValue({});
+  });
+
+  it("deletes every linked identity and audits each removal", async () => {
+    mocks.listByUserId.mockResolvedValue([
+      { provider: "github", providerAccountId: "999", providerUsername: "attacker" }
+    ]);
+    mocks.deleteByUserAndProvider.mockResolvedValue({ acknowledged: true, deletedCount: 1 });
+
+    await expect(revokeUnverifiedAccountIdentities({ userId: "user_1" })).resolves.toBe(1);
+
+    expect(mocks.deleteByUserAndProvider).toHaveBeenCalledWith({}, "user_1", "github");
+    expect(mocks.updateUser).toHaveBeenCalledWith({}, "user_1", { authProviders: ["password"] });
+    expect(mocks.recordIdentityAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "identity_unlinked", context: "password_reset_unverified_account" })
     );
   });
 });

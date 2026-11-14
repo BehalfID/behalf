@@ -113,17 +113,22 @@ export function hasValidSetupToken(request: NextRequest) {
   return verifySetupToken(getSetupToken(request) ?? "");
 }
 
-function getSessionSigningSecret() {
-  return (
-    process.env.BEHALFID_SETUP_TOKEN?.trim() ||
-    process.env.BEHALFID_ADMIN_PASSWORD?.trim() ||
-    "dev-console-session"
-  );
+function getSessionSigningSecret(): string | null {
+  const configured =
+    process.env.BEHALFID_SETUP_TOKEN?.trim() || process.env.BEHALFID_ADMIN_PASSWORD?.trim();
+  if (configured) return configured;
+  // The literal fallback is public, so anything signed with it is forgeable.
+  // Only allow it for local development and tests; any production build
+  // (including preview deployments, which skip validateProductionEnv) fails
+  // closed: no console admin session can be issued or accepted.
+  return process.env.NODE_ENV === "production" ? null : "dev-console-session";
 }
 
-function signAdminSession(adminId: string, issuedAt: number, nonce: string) {
+function signAdminSession(adminId: string, issuedAt: number, nonce: string): string | null {
+  const secret = getSessionSigningSecret();
+  if (!secret) return null;
   return crypto
-    .createHmac("sha256", getSessionSigningSecret())
+    .createHmac("sha256", secret)
     .update(`admin.${adminId}.${issuedAt}.${nonce}`)
     .digest("base64url");
 }
@@ -131,7 +136,11 @@ function signAdminSession(adminId: string, issuedAt: number, nonce: string) {
 export function createConsoleAdminSessionValue(adminId: string) {
   const issuedAt = Date.now();
   const nonce = crypto.randomBytes(12).toString("base64url");
-  return `v2.${adminId}.${issuedAt}.${nonce}.${signAdminSession(adminId, issuedAt, nonce)}`;
+  const signature = signAdminSession(adminId, issuedAt, nonce);
+  if (!signature) {
+    throw new Error("Console session signing secret is not configured.");
+  }
+  return `v2.${adminId}.${issuedAt}.${nonce}.${signature}`;
 }
 
 export function parseConsoleSession(value?: string): { kind: "shared" } | { kind: "admin"; adminId: string } | null {
@@ -143,7 +152,8 @@ export function parseConsoleSession(value?: string): { kind: "shared" } | { kind
     const issuedAt = Number(issuedAtRaw);
     if (!adminId || !Number.isFinite(issuedAt) || !nonce || !signature) return null;
     if (issuedAt + SESSION_TTL_SECONDS * 1000 <= Date.now()) return null;
-    if (!timingSafeEqualString(signature, signAdminSession(adminId, issuedAt, nonce))) return null;
+    const expected = signAdminSession(adminId, issuedAt, nonce);
+    if (!expected || !timingSafeEqualString(signature, expected)) return null;
     return { kind: "admin", adminId };
   }
   if (isValidSharedConsoleSession(value)) {

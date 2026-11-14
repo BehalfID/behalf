@@ -5,6 +5,7 @@ import {
   isValidPassword,
   requireDashboardMutationOrigin
 } from "@/lib/developerAuth";
+import { revokeUnverifiedAccountIdentities } from "@/lib/authProviders/externalIdentityService";
 import { sendEmail } from "@/lib/email";
 import { passwordChangedTemplate } from "@/lib/emailTemplates";
 import { checkAuthRateLimit, checkRateLimit, rateLimitError } from "@/lib/rateLimit";
@@ -49,6 +50,14 @@ export async function POST(request: NextRequest) {
   if (authLimit.limited) return rateLimitError();
 
   const newPasswordHash = await hashPassword(password);
+
+  // This reset is the first proof that the requester controls the address.
+  // Provider logins linked while the account was still unverified may belong
+  // to someone who pre-registered the address, so remove them before the
+  // account is marked verified (fail closed: an error aborts the reset).
+  if (user.emailVerified === false) {
+    await revokeUnverifiedAccountIdentities({ userId: user.userId, request });
+  }
 
   // Atomically update password and clear reset token.
   // Also clear any verification token (password reset implies email access).

@@ -61,6 +61,12 @@ export async function GET(request: NextRequest) {
         401
       );
     }
+    if (mode === "link" && user.emailVerified === false) {
+      return jsonError(
+        "Verify your BehalfID email address before connecting GitHub.",
+        403
+      );
+    }
     userId = user.userId;
     if (mode === "reauth") {
       await recordIdentityAudit({
