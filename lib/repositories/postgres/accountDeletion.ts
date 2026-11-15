@@ -1,4 +1,4 @@
-import { and, count, eq, inArray, ne, or } from "drizzle-orm";
+import { and, count, eq, inArray, ne, or, sql } from "drizzle-orm";
 import type { BehalfPostgresDb } from "@/lib/db/postgres";
 import {
   accountInvites,
@@ -181,13 +181,72 @@ export async function deleteAccountCascade(
   });
 }
 
+/**
+ * Workspace-owned rows that still reference a user after their sole-owned
+ * workspaces are cascaded (shared workspaces, or workspaces they were removed
+ * from) would otherwise block the developer_users delete with a foreign-key
+ * violation (23503), leaving the account undeletable.
+ *
+ * - Nullable creator references (agents, permissions, approval requests,
+ *   webhook events) are cleared: the rows stay with the workspace.
+ * - The user's own webhook endpoints (and their deliveries) are deleted, as
+ *   removeMember does, so workspace events stop going to their URLs.
+ * - Pending invites they sent are deleted.
+ * - NOT NULL creator references (sites, Site Guard rules/keys, permission
+ *   profiles) are reassigned to a remaining OWNER of the row's workspace. If a
+ *   workspace has no other owner the update violates NOT NULL and the whole
+ *   transaction rolls back rather than leaving a half-deleted user.
+ */
+async function detachWorkspaceReferences(tx: BehalfPostgresDb, userId: string) {
+  const successorOwner = (accountIdColumn: unknown) => sql`(
+    select m.user_id from account_memberships m
+    where m.account_id = ${accountIdColumn} and m.role = 'OWNER' and m.user_id <> ${userId}
+    order by m.created_at asc, m.user_id asc
+    limit 1
+  )`;
+
+  for (const table of [agents, permissions, approvalRequests, webhookEvents]) {
+    await tx
+      .update(table)
+      .set({ developerUserId: null } as never)
+      .where(eq(table.developerUserId, userId));
+  }
+
+  const endpointRows = await tx
+    .select({ webhookId: webhookEndpoints.webhookId })
+    .from(webhookEndpoints)
+    .where(eq(webhookEndpoints.developerUserId, userId));
+  const webhookIds = endpointRows.map((row) => row.webhookId);
+  if (webhookIds.length) {
+    await tx.delete(webhookDeliveries).where(inArray(webhookDeliveries.webhookId, webhookIds));
+    await tx.delete(webhookEndpoints).where(inArray(webhookEndpoints.webhookId, webhookIds));
+  }
+
+  await tx.delete(accountInvites).where(eq(accountInvites.invitedBy, userId));
+
+  for (const table of [sites, siteAccessRules, siteGuardKeys]) {
+    await tx
+      .update(table)
+      .set({ developerUserId: successorOwner(table.accountId) } as never)
+      .where(eq(table.developerUserId, userId));
+  }
+  await tx
+    .update(permissionProfiles)
+    .set({ createdBy: successorOwner(permissionProfiles.accountId) } as never)
+    .where(eq(permissionProfiles.createdBy, userId));
+}
+
 export async function deleteDeveloperUserCredentials(db: BehalfPostgresDb, userId: string) {
-  await db.delete(developerSessions).where(eq(developerSessions.userId, userId));
-  await db.delete(developerApiTokens).where(eq(developerApiTokens.userId, userId));
-  await db.delete(identityAuditLogs).where(eq(identityAuditLogs.userId, userId));
-  const rows = await db
-    .delete(developerUsers)
-    .where(eq(developerUsers.userId, userId))
-    .returning({ userId: developerUsers.userId });
-  return { acknowledged: true, deletedCount: rows.length };
+  return db.transaction(async (tx) => {
+    const txDb = tx as unknown as BehalfPostgresDb;
+    await detachWorkspaceReferences(txDb, userId);
+    await tx.delete(developerSessions).where(eq(developerSessions.userId, userId));
+    await tx.delete(developerApiTokens).where(eq(developerApiTokens.userId, userId));
+    await tx.delete(identityAuditLogs).where(eq(identityAuditLogs.userId, userId));
+    const rows = await tx
+      .delete(developerUsers)
+      .where(eq(developerUsers.userId, userId))
+      .returning({ userId: developerUsers.userId });
+    return { acknowledged: true, deletedCount: rows.length };
+  });
 }

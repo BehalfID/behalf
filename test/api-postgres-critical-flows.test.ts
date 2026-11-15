@@ -20,11 +20,18 @@ import { hashApiKey } from "@/lib/auth";
 import {
   accountMemberships,
   accountPlanGrants,
+  accountInvites,
   accounts,
   agents,
   developerUsers,
+  sites,
+  webhookEndpoints,
   webhookEvents
 } from "@/lib/db/postgres/schema";
+import {
+  deleteDeveloperUserCredentials,
+  deleteMembershipForDeletion
+} from "@/lib/repositories/postgres/accountDeletion";
 import { createPublicId } from "@/lib/ids";
 import { MISSING_ACCOUNT_ID_CLAUSE } from "@/lib/missingAccountId";
 import { effectiveEntitlements, effectivePlan } from "@/lib/planGrants";
@@ -631,6 +638,89 @@ if (enabled) {
       expect(rows).toHaveLength(1);
       expect(JSON.stringify(rows[0])).not.toContain(PLAINTEXT_KEY);
       expect(Object.keys(rows[0]!)).not.toContain("apiKey");
+    });
+  });
+
+  describe("account deletion of a member of a shared workspace", () => {
+    it("deletes the user without a foreign-key violation and keeps workspace resources", async () => {
+      const db = context!.db;
+      const { userId: ownerId, accountId } = await seedWorkspace("shared");
+      const memberId = createPublicId("usr");
+      const membershipId = createPublicId("mem");
+      await db.insert(developerUsers).values({
+        userId: memberId,
+        email: `member-${memberId}@example.test`,
+        name: "member",
+        emailVerified: true
+      } as never);
+      await db.insert(accountMemberships).values({
+        membershipId,
+        accountId,
+        userId: memberId,
+        role: "ENGINEER"
+      } as never);
+
+      const agentId = createPublicId("agent");
+      await createAgent(db, {
+        agentId,
+        accountId,
+        developerUserId: memberId,
+        name: "Member bot",
+        agentType: "native",
+        provider: "custom",
+        connectionStatus: "manual",
+        apiKeyHash: hashApiKey(PLAINTEXT_KEY),
+        status: "active"
+      } as never);
+      const siteId = createPublicId("site");
+      await db.insert(sites).values({
+        siteId,
+        accountId,
+        developerUserId: memberId,
+        name: "Docs",
+        domain: "docs.example.test"
+      } as never);
+      await db.insert(accountInvites).values({
+        inviteId: createPublicId("inv"),
+        accountId,
+        email: "invitee@example.test",
+        role: "VIEWER",
+        invitedBy: memberId
+      } as never);
+      const webhookId = createPublicId("wh");
+      await db.insert(webhookEndpoints).values({
+        webhookId,
+        accountId,
+        developerUserId: memberId,
+        url: "https://hooks.example.test/x",
+        secretHash: "hash",
+        secretPreview: "whsec_...",
+        events: ["verification.allowed"]
+      } as never);
+
+      await deleteMembershipForDeletion(db, membershipId);
+      const result = await deleteDeveloperUserCredentials(db, memberId);
+      expect(result.deletedCount).toBe(1);
+
+      const user = await db.query.developerUsers.findFirst({ where: (t, { eq }) => eq(t.userId, memberId) });
+      expect(user).toBeUndefined();
+
+      // Workspace-owned resources stay with the workspace.
+      const agent = await findOneAgent(db, { accountId, agentId });
+      expect(agent).toBeTruthy();
+      expect(agent!.developerUserId ?? null).toBeNull();
+      const site = await db.query.sites.findFirst({ where: (t, { eq }) => eq(t.siteId, siteId) });
+      expect(site?.developerUserId).toBe(ownerId);
+
+      // The departing member's endpoints and sent invites are removed.
+      const endpoint = await db.query.webhookEndpoints.findFirst({
+        where: (t, { eq }) => eq(t.webhookId, webhookId)
+      });
+      expect(endpoint).toBeUndefined();
+      const invites = await db.query.accountInvites.findMany({
+        where: (t, { eq }) => eq(t.accountId, accountId)
+      });
+      expect(invites).toHaveLength(0);
     });
   });
 }

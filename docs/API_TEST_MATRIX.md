@@ -11,7 +11,7 @@ Derived from the route files under `app/api/**`, not from `docs/API.md`. Each ro
 - Exported HTTP handlers: **185**
 - Mutating modules: **115**
 - Modules returning a one-time secret: **7**
-- Modules with no direct handler test: **91**
+- Modules with no direct handler test: **87**
 
 `Direct test` means a test imports the route module and invokes its handler.
 Route-contract coverage (`test/api-route-contracts.test.ts`) additionally
@@ -161,16 +161,16 @@ credential the caller can never retrieve again.
 | DELETE | `/api/dashboard/sites/:siteId/keys/:keyId` | app | session (developer) | — | yes | no | — | sites | no | 1 | P1 |
 | GET, POST | `/api/dashboard/sites/:siteId/keys` | app | session (developer) | workspace mutation authority | yes | no | — | sites | no | 1 | P1 |
 | GET, PATCH | `/api/dashboard/sites/:siteId` | app | session (developer) | workspace mutation authority | yes | no | — | sites | no | — | P1 |
-| PATCH | `/api/dashboard/sites/:siteId/rules/:ruleId` | app | session (developer) | workspace mutation authority | yes | no | — | sites | no | — | P1 |
+| PATCH | `/api/dashboard/sites/:siteId/rules/:ruleId` | app | session (developer) | workspace mutation authority | yes | no | — | sites | no | 1 | P1 |
 | POST | `/api/dashboard/sites/:siteId/rules` | app | session (developer) | workspace mutation authority | yes | no | — | sites | no | — | P1 |
 | GET, POST | `/api/dashboard/sites` | app | session (developer) | workspace mutation authority | yes | no | — | sites | no | 1 | P1 |
 | GET, PATCH | `/api/dashboard/sso` | app | session (developer) | workspace member | yes | no | — | accounts | no | — | P1 |
 | GET | `/api/dashboard/summary` | app | session (developer) | — | no | no | — | — | no | 2 | P1 |
 | DELETE | `/api/dashboard/tokens/:tokenId` | app | session (developer) | — | yes | no | — | apiTokens | no | 2 | P1 |
 | GET, POST | `/api/dashboard/tokens` | app | session (verified developer); session (developer) | — | yes | no | — | apiTokens | no | 4 | P1 |
-| POST | `/api/dashboard/webhooks/:webhookId/disable` | app | session (developer) | — | yes | no | — | webhooks | no | — | P1 |
-| POST | `/api/dashboard/webhooks/:webhookId/enable` | app | session (developer) | — | yes | no | — | webhooks | no | — | P1 |
-| POST | `/api/dashboard/webhooks/:webhookId/rotate-secret` | app | session (developer) | — | yes | no | — | webhooks | no | — | P1 |
+| POST | `/api/dashboard/webhooks/:webhookId/disable` | app | session (developer) | — | yes | no | — | webhooks | no | 1 | P1 |
+| POST | `/api/dashboard/webhooks/:webhookId/enable` | app | session (developer) | workspace mutation authority | yes | no | — | webhooks | no | 1 | P1 |
+| POST | `/api/dashboard/webhooks/:webhookId/rotate-secret` | app | session (developer) | workspace mutation authority | yes | no | — | webhooks | no | 1 | P1 |
 | GET | `/api/dashboard/webhooks/:webhookId` | app | session (developer) | — | no | no | — | — | no | — | P1 |
 | GET, POST | `/api/dashboard/webhooks` | app | session (developer) | workspace mutation authority | yes | no | — | webhooks | no | 3 | P1 |
 | POST | `/api/demo/verify` | www | public/none detected | — | yes | no | — | — | no | 1 | P1 |

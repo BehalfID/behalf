@@ -15,7 +15,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   const auth = await requireDeveloperApi(request);
   if (auth.error || !auth.user) return auth.error;
   const actorCheck = await requireWorkspaceMutationActor(auth.user, auth.activeAccountId);
-  if (actorCheck.error) return actorCheck.error;
+  if (actorCheck.error || !actorCheck.actor) return actorCheck.error;
+  // Scope to the workspace the caller is acting in: a member removed from (or
+  // demoted in) a workspace must not keep editing rules on its sites by
+  // switching to another workspace where they can mutate.
+  const accountId = actorCheck.actor.accountId;
 
   const { body, error } = await readJsonObject(request);
   if (error) return error;
@@ -55,7 +59,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   if (!Object.keys(update).length) return jsonError("At least one editable rule field is required.");
 
   const { siteId, ruleId } = await context.params;
-  const current = await findOneRule({ developerUserId: auth.user.userId, siteId, ruleId });
+  const current = await findOneRule({ developerUserId: auth.user.userId, accountId, siteId, ruleId });
   if (!current) return jsonError("Site Guard rule not found.", 404);
 
   const nextAgentIdentifier =
@@ -67,7 +71,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   }
 
   const rule = await findOneAndUpdateRule(
-    { developerUserId: auth.user.userId, siteId, ruleId },
+    { developerUserId: auth.user.userId, accountId, siteId, ruleId },
     { $set: update },
     { returnDocument: "after" }
   );

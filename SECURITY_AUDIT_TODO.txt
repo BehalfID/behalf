@@ -3350,3 +3350,40 @@
 #   Postgres smoke/repository contracts/API flows (local PG16): pass. vitest run: 2989 passed; 1 file failed
 #   (test/mongo-repository-contracts: mongod download 403 — sandbox network, same as baseline).
 # - Secret scan (git grep for live key/token/private-key/connection-string patterns): only placeholders/fixtures.
+
+# Last audit: 2026-11-15
+# Result: PASSED (no Critical/High; Medium remediated)
+# - Fixed (medium, GDPR Art. 17 erasure / availability): DELETE /api/auth/account (and the unverified-account cleanup)
+#   failed with a Postgres foreign-key violation (23503) for any user who had created agents, permissions, approval
+#   requests, webhooks, Site Guard sites/rules/keys, permission profiles or invites in a shared workspace (or one they
+#   were removed from): developer_users is referenced without ON DELETE by those tables. Because steps ran outside a
+#   transaction, the user's shared memberships and sessions were already gone when the final delete failed, leaving a
+#   half-deleted, undeletable account. deleteDeveloperUserCredentials (Postgres) now runs in one transaction that
+#   clears nullable creator references (rows stay with the workspace), deletes the user's webhook endpoints and sent
+#   invites, and reassigns NOT NULL creator references (sites, rules, keys, permission profiles) to a remaining OWNER.
+#   Test: test/api-postgres-critical-flows (fails on the old code with 23503).
+# - Fixed (medium, access control): account deletion removed the only OWNER of a shared workspace, leaving its members
+#   with no one able to manage billing/members/owner-only policy (removeMember refuses the same). Deletion now returns
+#   409 until another owner exists, checked before any data is changed; leaving a shared workspace also deletes the
+#   user's webhook endpoints there (mirrors removeMember). Test: test/account-deletion-shared-workspace.
+# - Fixed (medium, broken access control): PATCH /api/dashboard/sites/:siteId/rules/:ruleId filtered by creator only.
+#   A member removed from / demoted in workspace W could switch to a workspace where they can mutate and disable or
+#   widen Site Guard rules on W's sites (owners cannot see/edit creator-scoped sites to undo it). Now scoped to the
+#   acting workspace's accountId.
+# - Fixed (low, plan bypass / role): POST /api/dashboard/webhooks/:id/enable checked the webhook plan quota of the
+#   ACTIVE workspace but matched endpoints in any workspace, so endpoints disabled by a downgrade could be re-enabled
+#   from a paid workspace; enable/rotate-secret had no role check. enable/rotate-secret now require a mutation-capable
+#   role and all three (enable/disable/rotate-secret) are scoped to the active workspace.
+#   Test: test/dashboard-workspace-scoped-mutations.
+# - Residual (low/design, not changed): removeMember leaves the removed member's sites creator-scoped (owners cannot
+#   manage them in the dashboard); webhook worker does not re-check plan at delivery; browse_web grants are not bound
+#   to a URL/host; gateway consumes a one-time grant before validating input; Site Guard key revoke has no role check
+#   (intentional, creator-scoped); account deletion consumes the reauth proof before the 409 owner check. All
+#   2026-11-14 residuals carried over.
+# - Residual (moderate, build/dev-only deps): minimatch/glob via eslint/typescript-eslint/@sentry/bundler-plugins
+#   (root + packages/install). No Critical/High advisories in any lockfile.
+# - Secret scan (git grep for live key/token/private-key/connection-string patterns): only placeholders/fixtures.
+# - tsc --noEmit, next build, build:cli, build:egress-proxy, test:packages, api:inventory:check (matrix regenerated),
+#   test:api-contracts, Postgres smoke/repository contracts/API flows (local PG16): pass. vitest run: 2997 passed;
+#   1 file failed (test/mongo-repository-contracts: mongod download 403 — sandbox network, same as baseline).
+#   test/verify-cli-artifact failed once while running alongside other steps; it passed on its own and in a full re-run.
